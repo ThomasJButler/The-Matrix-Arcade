@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Monitor,
   Gamepad2,
@@ -9,8 +9,6 @@ import {
   Play,
   Disc3,
   Keyboard,
-  ChevronDown,
-  Github,
   LucideClipboardSignature,
 } from 'lucide-react';
 import SnakeClassic from './components/games/SnakeClassic';
@@ -162,37 +160,29 @@ function App() {
     };
   }, [isPlaying]);
 
-  const transitionToGame = (direction: 'left' | 'right') => {
-    setTransitionDirection(direction);
-    setIsTransitioning(true);
-    setTimeout(() => setIsTransitioning(false), 600);
-  };
-
   const handlePrevious = () => {
-    transitionToGame('left');
-    setSelectedGame((prev) => (prev === 0 ? games.length - 1 : prev - 1));
-    setIsPlaying(false);
+    selectGame(selectedGame === 0 ? games.length - 1 : selectedGame - 1);
   };
 
   const handleNext = () => {
-    transitionToGame('right');
-    setSelectedGame((prev) => (prev === games.length - 1 ? 0 : prev + 1));
-    setIsPlaying(false);
+    selectGame(selectedGame === games.length - 1 ? 0 : selectedGame + 1);
   };
 
   const selectGame = (index: number) => {
     const direction = index > selectedGame ? 'right' : 'left';
-    transitionToGame(direction);
+    setTransitionDirection(direction);
+    setIsTransitioning(true);
+    setTimeout(() => setIsTransitioning(false), 600);
+    setShowNav(false);
     setSelectedGame(index);
     setIsPlaying(false);
-    setShowNav(false);
   };
 
   const GameComponent = games[selectedGame].component;
 
   return (
     <div className="min-h-screen bg-black text-green-500 flex flex-col">
-      {/* Enhanced Header */}
+      {/* Header */}
       <header
         ref={headerRef}
         className="relative border-b border-green-500/50 p-4 overflow-hidden backdrop-blur-sm"
@@ -212,33 +202,37 @@ function App() {
               </p>
             </div>
           </div>
-          <div className="relative">
+          <div>
             <button
               onClick={() => setShowNav(!showNav)}
               className="flex items-center gap-2 px-4 py-2 bg-green-900/50 rounded hover:bg-green-800 transition-colors border border-green-500/30 backdrop-blur-sm group"
             >
-              Games{' '}
-              <ChevronDown className="w-4 h-4 group-hover:translate-y-0.5 transition-transform" />
+              Games
             </button>
-            {showNav && (
-              <div className="absolute right-0 top-full mt-2 w-64 bg-black/90 border border-green-500/50 rounded-lg shadow-lg shadow-green-500/20 backdrop-blur-sm z-50">
-                {games.map((game, index) => (
-                  <button
-                    key={index}
-                    onClick={() => selectGame(index)}
-                    className={`w-full flex items-center gap-2 p-3 hover:bg-green-900/50 transition-colors ${
-                      selectedGame === index ? 'bg-green-900/50' : ''
-                    }`}
-                  >
-                    {game.icon}
-                    <span>{game.title}</span>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       </header>
+
+      {/* Side Nav */}
+      {showNav && (
+        <div
+          className="absolute left-0 top-0 h-full w-64 bg-black/90 border-r border-green-500/50 z-50 backdrop-blur-sm"
+          style={{ paddingTop: '5rem' }} // offset from header
+        >
+          <div className="flex flex-col gap-2 p-4">
+            {games.map((game, index) => (
+              <button
+                key={index}
+                onClick={() => selectGame(index)}
+                className="w-full flex items-center gap-2 p-3 hover:bg-green-900/50 transition-colors text-left"
+              >
+                {game.icon}
+                <span>{game.title}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 p-4 overflow-hidden">
@@ -289,6 +283,7 @@ function App() {
                   <button
                     onClick={handlePrevious}
                     className="p-2 hover:bg-green-900 rounded-full transition-colors transform hover:scale-110"
+                    title="Previous game"
                   >
                     <ChevronLeft className="w-8 h-8" />
                   </button>
@@ -303,7 +298,7 @@ function App() {
                     <p className="text-green-400 font-mono text-sm mb-4">
                       {games[selectedGame].description}
                     </p>
-                    {games[selectedGame].component && (
+                    {GameComponent && (
                       <button
                         onClick={() => setIsPlaying(!isPlaying)}
                         className="px-6 py-2 bg-green-500 text-black font-mono rounded-full hover:bg-green-400 transition-colors flex items-center gap-2 mx-auto transform hover:scale-105"
@@ -317,6 +312,7 @@ function App() {
                   <button
                     onClick={handleNext}
                     className="p-2 hover:bg-green-900 rounded-full transition-colors transform hover:scale-110"
+                    title="Next game"
                   >
                     <ChevronRight className="w-8 h-8" />
                   </button>
@@ -361,7 +357,7 @@ function App() {
         </div>
       </footer>
 
-      <style jsx>{`
+      <style>{`
         .perspective {
           perspective: 2000px;
           perspective-origin: 50% 50%;

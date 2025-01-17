@@ -257,7 +257,7 @@ export default function CtrlSWorld() {
         }, 2000);
       }
     }
-  }, [currentNode, currentTextIndex, currentCharIndex, scrollToBottom]);
+  }, [currentNode, currentTextIndex, currentCharIndex, scrollToBottom, isPaused]);
 
   const handleNext = useCallback(() => {
     if (isTyping) {

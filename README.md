@@ -3,6 +3,12 @@ A collection of games inspired by 'The Matrix' films 🎬
 
 The Matrix Arcade is an immersive collection of Matrix-themed games built as a web application. Our flagship game "CTRL-S The World" 💾 is a text-based adventure that follows a thrilling narrative about saving the digital world from a rogue AI.
 
+## How To Run 🔑
+Download files using GIT, navigate to TheMatrixArcade and open terminal. 
+- Enter - NPM INSTALL
+- Enter - NPM RUN DEV
+- Voila 🙏🏻
+
 ## Tech Stack 🛠️
 
 - **Frontend Framework**: React with TypeScript (App.tsx) ⚛️
@@ -21,3 +27,5 @@ The Matrix Arcade is an immersive collection of Matrix-themed games built as a w
 - Matrix-inspired visual effects ✨
 
 The project showcases modern React practices with TypeScript whilst creating an engaging, interactive narrative experience. 🚀
+
+
