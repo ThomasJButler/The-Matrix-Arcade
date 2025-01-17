@@ -1,19 +1,19 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Volume2, VolumeX, Play, Pause, RotateCw, Trophy, Shield, Wifi, Battery, Zap, Sparkles, Clock, Heart } from 'lucide-react';
 
-// Game constants - Fine-tuned for optimal gameplay
-const GRAVITY = 0.2;
-const JUMP_FORCE = -5.5;
-const PIPE_SPEED = 2.5;
-const PIPE_SPACING = 280;
-const PIPE_GAP = 170;
+// Game constants - Adjusted for higher difficulty
+const GRAVITY = 0.25;           // Increased from 0.2
+const JUMP_FORCE = -6;          // Increased from -5.5
+const PIPE_SPEED = 3.2;         // Increased from 2.5
+const PIPE_SPACING = 250;       // Decreased from 280
+const PIPE_GAP = 150;          // Decreased from 170
 const GROUND_HEIGHT = 50;
 const PARTICLE_COUNT = 100;
 const INITIAL_LIVES = 3;
 const SCORE_PER_PIPE = 10;
-const COMBO_INCREMENT = 0.2;
+const COMBO_INCREMENT = 0.15;   // Decreased from 0.2
 const LEVEL_THRESHOLD = 500;
-const POWER_UP_CHANCE = 0.15;
+const POWER_UP_CHANCE = 0.12;   // Decreased from 0.15
 const POWER_UP_DURATION = 8000;
 const MAX_COMBO = 5.0;
 
@@ -686,8 +686,7 @@ export default function MatrixCloud() {
     ctx.font = '20px monospace';
     ctx.textAlign = 'left';
     ctx.fillStyle = '#00ff00';
-    ctx.fillText(`Score: ${state.score}`, 20, 30);
-    ctx.fillText(`Level: ${state.level}`, 20, 60);
+    
     
     // Draw combo meter
     const comboWidth = 100 * (state.combo / MAX_COMBO);
@@ -717,39 +716,39 @@ export default function MatrixCloud() {
         />
         
         {/* Enhanced HUD */}
-        <div className="absolute top-4 left-4 flex flex-col gap-2">
+        <div className="absolute top-4 left-4 flex flex-col gap-4"> {/* Changed gap from 2 to 4 */}
           <div className="flex items-center gap-2 bg-black bg-opacity-50 px-3 py-1 rounded">
-            <Trophy className="w-5 h-5 text-yellow-400" />
-            <span className="text-green-400">Score: {state.score}</span>
+            <Wifi className="w-5 h-5 text-green-400" />
+            <span>Level: {state.level}</span>
           </div>
           <div className="flex items-center gap-2 bg-black bg-opacity-50 px-3 py-1 rounded">
             <Zap className="w-5 h-5 text-blue-400" />
-            <span className="text-green-400">Combo: x{state.combo.toFixed(1)}</span>
+            <span>Combo: x{state.combo.toFixed(1)}</span>
           </div>
           <div className="flex items-center gap-2 bg-black bg-opacity-50 px-3 py-1 rounded">
-            <Wifi className="w-5 h-5 text-green-400" />
-            <span className="text-green-400">Level: {state.level}</span>
+            <Trophy className="w-5 h-5 text-yellow-400" />
+            <span>High Score: {state.highScore}</span>
           </div>
         </div>
 
         {/* Active Effects */}
-        <div className="absolute top-4 right-4 flex flex-col gap-2">
+        <div className="absolute top-4 right-4 flex flex-col gap-4"> {/* Changed gap from 2 to 4 */}
           {state.activeEffects.shield && (
             <div className="flex items-center gap-2 bg-black bg-opacity-50 px-3 py-1 rounded animate-pulse">
               <Shield className="w-5 h-5 text-blue-400" />
-              <span className="text-green-400">Shield Active</span>
+              <span>Shield Active</span>
             </div>
           )}
           {state.activeEffects.timeSlow && (
             <div className="flex items-center gap-2 bg-black bg-opacity-50 px-3 py-1 rounded animate-pulse">
               <Clock className="w-5 h-5 text-yellow-400" />
-              <span className="text-green-400">Time Slow</span>
+              <span>Time Slow</span>
             </div>
           )}
           {state.activeEffects.doublePoints && (
             <div className="flex items-center gap-2 bg-black bg-opacity-50 px-3 py-1 rounded animate-pulse">
               <Sparkles className="w-5 h-5 text-purple-400" />
-              <span className="text-green-400">Double Points</span>
+              <span>Double Points</span>
             </div>
           )}
         </div>

@@ -1,0 +1,355 @@
+:root {
+  /* Core Colors */
+  --matrix-primary: #00FF00;
+  --matrix-secondary: #003300;
+  --matrix-accent: #00FFAA;
+  --matrix-dark: #001100;
+  --matrix-light: #CCFFCC;
+  --matrix-error: #FF3366;
+  --matrix-warning: #FFAA00;
+  --matrix-success: #00FF66;
+  --game-primary: #00FF00;
+  --game-secondary: #003300;
+  --game-accent: #00FFAA;
+  --animation-timing: 0.2s;
+
+  /* UI Gradients */
+  --matrix-gradient-primary: linear-gradient(135deg, var(--matrix-primary), var(--matrix-accent));
+  --matrix-gradient-dark: linear-gradient(135deg, var(--matrix-dark), var(--matrix-secondary));
+  
+  /* Animations */
+  --matrix-transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --matrix-transition-normal: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --matrix-transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Shadows */
+  --matrix-glow-sm: 0 0 10px rgba(0, 255, 0, 0.3);
+  --matrix-glow-md: 0 0 20px rgba(0, 255, 0, 0.5);
+  --matrix-glow-lg: 0 0 30px rgba(0, 255, 0, 0.7);
+  
+  /* Typography */
+  --matrix-font-mono: 'JetBrains Mono', monospace;
+  --matrix-font-display: 'Press Start 2P', monospace;
+
+  /* New Animations */
+  --glitch-timing: 0.3s;
+  --particle-timing: 2s;
+}
+
+/* CodeBreaker */
+.matrix-rain-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: -1;
+  overflow: hidden;
+  animation: matrix-rain 10s linear infinite;
+}
+
+.matrix-game-container {
+  padding: 1rem;  /* Reduced from 2rem */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  color: var(--matrix-primary);
+  font-family: var(--matrix-font-mono);
+  position: relative;
+  max-width: 800px;
+  width: 100%;
+  margin: 0 auto;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 10px;
+  border: 1px solid var(--matrix-primary);
+  box-shadow: var(--matrix-glow-sm);
+  height: calc(100vh - 2rem); /* Updated to take full height minus padding */
+  overflow-y: auto; /* Allow container to scroll */
+}
+
+.matrix-title {
+  font-family: var(--matrix-font-display);
+  font-size: 2rem;
+  margin-bottom: 20px;
+  animation: fadeIn 1s ease-in-out;
+}
+
+.matrix-status {
+  margin-bottom: 20px;
+  font-size: 1.2rem;
+}
+
+.matrix-board {
+  margin-bottom: 20px;
+  height: 300px; /* Fixed height instead of max-height */
+  overflow-y: auto;
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--matrix-primary);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  scrollbar-color: var(--matrix-primary) var(--matrix-dark);
+  scrollbar-width: thin;
+}
+
+/* Scrollbar Styles */
+.matrix-board::-webkit-scrollbar {
+  width: 6px;
+}
+
+.matrix-board::-webkit-scrollbar-track {
+  background: var(--matrix-dark);
+  border-radius: 3px;
+}
+
+.matrix-board::-webkit-scrollbar-thumb {
+  background: var(--matrix-primary);
+  border-radius: 3px;
+}
+
+.matrix-board::-webkit-scrollbar-thumb:hover {
+  background: var(--matrix-accent);
+}
+
+.matrix-guess {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.matrix-colors {
+  display: flex;
+  gap: 5px;
+}
+
+.matrix-color {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid var(--matrix-primary);
+}
+
+.matrix-feedback {
+  margin-left: 10px;
+}
+
+.matrix-current {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 20px;
+}
+
+.matrix-empty {
+  background-color: var(--matrix-dark);
+}
+
+.matrix-picker {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.matrix-picker-button {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid var(--matrix-primary);
+  cursor: pointer;
+  transition: box-shadow var(--matrix-transition-fast);
+}
+
+.matrix-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.matrix-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-family: var(--matrix-font-mono);
+  transition: box-shadow var(--matrix-transition-fast);
+}
+
+.matrix-red {
+  background-color: var(--matrix-error);
+  color: #fff;
+}
+
+.matrix-green {
+  background-color: var(--matrix-success);
+  color: #000;
+}
+
+.matrix-gameover {
+  margin-top: 20px;
+}
+
+.matrix-code {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+@keyframes matrix-rain {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(100vh); }
+}
+
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* Glow effect */
+.neon-glow {
+  color: var(--matrix-primary);
+  text-shadow: var(--matrix-glow-md);
+}
+
+/* Button Glow Effect */
+.glow-effect:hover {
+  box-shadow: var(--matrix-glow-sm);
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: var(--matrix-glow-sm); }
+  50% { box-shadow: var(--matrix-glow-md); }
+  100% { box-shadow: var(--matrix-glow-sm); }
+}
+
+.fullscreen {
+  width: 100vw;
+  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  background: var(--matrix-dark);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: auto;
+  padding: 2rem;
+}
+
+.fullscreen .matrix-game-wrapper {
+  min-height: 100vh;  /* Restore full height in fullscreen */
+  align-items: center;  /* Center in fullscreen */
+  padding: 2rem;  /* Restore padding in fullscreen */
+}
+
+.fullscreen .matrix-game-container {
+  padding: 2rem;  /* Restore padding in fullscreen */
+}
+
+.matrix-game-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100vh; /* Full viewport height */
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;  /* Changed from center */
+  padding: 1rem;  /* Reduced from 2rem */
+  overflow-y: auto; /* Allow wrapper to scroll */
+}
+
+.matrix-header {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  gap: 1rem;
+  z-index: 1001;
+}
+
+.matrix-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.matrix-modal-content {
+  background: var(--matrix-dark);
+  border: 2px solid var(--matrix-primary);
+  padding: 2rem;
+  border-radius: 10px;
+  max-width: 500px;
+  color: var(--matrix-primary);
+  box-shadow: var(--matrix-glow-lg);
+}
+
+/* SnakeClassic */
+.snake-game-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--matrix-dark);
+  padding: 1rem;
+  border: 2px solid var(--matrix-primary);
+  border-radius: 10px;
+  box-shadow: var(--matrix-glow-sm);
+}
+
+.snake-board {
+  display: grid;
+  grid-template-columns: repeat(20, 1fr);
+  gap: 0;
+  background: var(--matrix-dark);
+  border: 2px solid var(--matrix-primary);
+}
+
+.snake-cell {
+  width: 20px;
+  height: 20px;
+}
+
+.snake-cell.snake {
+  background-color: var(--matrix-primary);
+}
+
+.snake-cell.food {
+  background-color: var(--matrix-accent);
+}
+
+.snake-score {
+  font-family: var(--matrix-font-mono);
+  color: var(--matrix-primary);
+  margin-bottom: 1rem;
+}
+
+.snake-gameover {
+  font-family: var(--matrix-font-mono);
+  color: var(--matrix-primary);
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.snake-button {
+  padding: 0.5rem 1rem;
+  background-color: var(--matrix-primary);
+  color: var(--matrix-dark);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color var(--matrix-transition-fast);
+}
+
+.snake-button:hover {
+  background-color: var(--matrix-accent);
+}

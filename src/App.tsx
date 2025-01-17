@@ -1,4 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import './styles/theme.css'; // Custom theme.css for the insane styling
+import './styles/animations.css';
 import {
   Monitor,
   Gamepad2,
@@ -12,11 +15,11 @@ import {
   LucideClipboardSignature,
 } from 'lucide-react';
 import SnakeClassic from './components/games/SnakeClassic';
-import CodeBreaker from './components/games/CodeBreaker';
 import VortexPong from './components/games/VortexPong';
 import TerminalQuest from './components/games/TerminalQuest';
 import CtrlSWorld from './components/games/CtrlSWorld';
 import MatrixCloud from './components/games/MatrixCloud';
+import TransitionParticles from './components/ui/TransitionParticles';
 
 function App() {
   const [selectedGame, setSelectedGame] = useState<number>(0);
@@ -32,12 +35,12 @@ function App() {
 
   const games = [
     {
-      title: 'Matrix Cloud',
-      icon: <Gamepad2 className="w-8 h-8" />,
-      description: 'Navigate through the digital storm',
+      title: 'CTRL-S | The World',
+      icon: <Keyboard className="w-8 h-8" />,
+      description: 'A hilarious text adventure about saving the digital world',
       preview:
-        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071594/matrixcloud_rw8hsa.png',
-      component: MatrixCloud,
+        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
+      component: CtrlSWorld,
     },
     {
       title: 'Snake Classic',
@@ -46,14 +49,6 @@ function App() {
       preview:
         'https://res.cloudinary.com/depqttzlt/image/upload/v1737071599/matrixsnake2_jw29w1.png',
       component: SnakeClassic,
-    },
-    {
-      title: 'Code Breaker',
-      icon: <Code2 className="w-8 h-8" />,
-      description: "Decrypt the system's core algorithms",
-      preview:
-        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071592/codebreaker_sda03k.png',
-      component: CodeBreaker,
     },
     {
       title: 'Vortex Pong',
@@ -72,12 +67,12 @@ function App() {
       component: TerminalQuest,
     },
     {
-      title: 'CTRL-S | The World',
-      icon: <Keyboard className="w-8 h-8" />,
-      description: 'A hilarious text adventure about saving the digital world',
+      title: 'Matrix Cloud',
+      icon: <Gamepad2 className="w-8 h-8" />,
+      description: 'Navigate through the digital storm',
       preview:
-        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
-      component: CtrlSWorld,
+        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071594/matrixcloud_rw8hsa.png',
+      component: MatrixCloud,
     },
   ];
 
@@ -194,12 +189,19 @@ function App() {
               <div className="absolute inset-0 bg-green-500/20 rounded-full filter blur-sm animate-pulse"></div>
             </div>
             <div>
+            <a
+              href="https://aitomatic.io/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm hover:text-green-400 transition-colors group"
+            >
               <h1 className="text-2xl font-mono font-bold tracking-wider group-hover:text-green-400 transition-colors">
                 THE MATRIX ARCADE
               </h1>
               <p className="text-xs text-green-400 tracking-widest">
-                SYSTEM v1.0.1
+                SYSTEM v1.0.2
               </p>
+            </a>
             </div>
           </div>
           <div>
@@ -262,20 +264,28 @@ function App() {
               ${isTransitioning ? `transition-${transitionDirection}` : ''}
             `}
           >
-            {/* Game Container */}
+            {/*  */}
             <div className="game-container">
               <div className="relative bg-gray-900 rounded-3xl p-8 border-4 border-green-500 shadow-[0_0_50px_rgba(0,255,0,0.3)]">
                 {/* Game Display */}
                 <div className="relative aspect-video mb-6 rounded-lg overflow-hidden border-2 border-green-500">
-                  {isPlaying && GameComponent ? (
-                    <GameComponent />
-                  ) : (
-                    <img
-                      src={games[selectedGame].preview}
-                      alt={games[selectedGame].title}
-                      className="w-full h-full object-cover"
-                    />
-                  )}
+                  <AnimatePresence exitBeforeEnter>
+                    <motion.div
+                      key={selectedGame}
+                      className="game-container transition-enhanced"
+                    >
+                      <TransitionParticles />
+                      {isPlaying && GameComponent ? (
+                        <GameComponent />
+                      ) : (
+                        <img
+                          src={games[selectedGame].preview}
+                          alt={games[selectedGame].title}
+                          className="w-full h-full object-cover"
+                        />
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
                 </div>
 
                 {/* Controls */}
@@ -330,7 +340,7 @@ function App() {
       >
         <div className="max-w-4xl mx-auto flex items-center justify-between relative z-10">
           <div className="font-mono text-sm flex items-center gap-4">
-            <p className="tracking-wider">THE MATRIX ARCADE v1.0.1</p>
+            <p className="tracking-wider">THE MATRIX ARCADE v1.0.2</p>
             <div className="h-4 w-px bg-green-500/30"></div>
             <p className="text-green-400">TAKE THE RED PILL!</p>
           </div>
@@ -377,54 +387,7 @@ function App() {
           height: 100%;
           transform-style: preserve-3d;
           transition: inherit;
-        }
-
-        .transition-left .game-container,
-        .transition-right .game-container {
-          animation: digital-glitch 0.6s ease-out forwards;
-        }
-
-        @keyframes digital-glitch {
-          0% {
-            clip-path: inset(0 0 0 0);
-            transform: translate3d(0, 0, 0) scale(1);
-            filter: brightness(1) contrast(1);
-          }
-          20% {
-            clip-path: inset(20% -10px 30% 50%);
-            transform: translate3d(-10px, 5px, 50px) scale(1.02);
-            filter: brightness(1.2) contrast(1.3);
-          }
-          40% {
-            clip-path: inset(10% 30% 50% 0);
-            transform: translate3d(10px, -5px, -50px) scale(0.98);
-            filter: brightness(0.8) contrast(1.5);
-          }
-          60% {
-            clip-path: inset(40% 0 20% 30%);
-            transform: translate3d(-15px, 10px, 100px) scale(1.03);
-            filter: brightness(1.3) contrast(0.7);
-          }
-          80% {
-            clip-path: inset(15% 40% 10% 10%);
-            transform: translate3d(15px, -10px, -100px) scale(0.97);
-            filter: brightness(0.9) contrast(1.2);
-          }
-          100% {
-            clip-path: inset(0 0 0 0);
-            transform: translate3d(0, 0, 0) scale(1);
-            filter: brightness(1) contrast(1);
-          }
-        }
-
-        .transition-left {
-          transform: translateX(100%);
-          opacity: 0;
-        }
-
-        .transition-right {
-          transform: translateX(-100%);
-          opacity: 0;
+          padding: 1rem;
         }
       `}</style>
     </div>

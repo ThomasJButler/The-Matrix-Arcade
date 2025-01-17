@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useInterval } from '../../hooks/useInterval';
 
 type Position = {
@@ -10,7 +10,7 @@ const GRID_SIZE = 20;
 const INITIAL_SNAKE = [{ x: 10, y: 10 }];
 const INITIAL_FOOD = { x: 15, y: 15 };
 const INITIAL_DIRECTION = { x: 1, y: 0 };
-const GAME_SPEED = 150;
+const GAME_SPEED = 100; // Increased speed for more difficulty
 
 export default function SnakeClassic() {
   const [snake, setSnake] = useState<Position[]>(INITIAL_SNAKE);
@@ -18,18 +18,22 @@ export default function SnakeClassic() {
   const [direction, setDirection] = useState(INITIAL_DIRECTION);
   const [isGameOver, setIsGameOver] = useState(false);
   const [score, setScore] = useState(0);
+  const boardRef = useRef<HTMLDivElement>(null);
 
   const generateFood = useCallback(() => {
-    const newFood = {
-      x: Math.floor(Math.random() * GRID_SIZE),
-      y: Math.floor(Math.random() * GRID_SIZE),
-    };
+    let newFood;
+    do {
+      newFood = {
+        x: Math.floor(Math.random() * GRID_SIZE),
+        y: Math.floor(Math.random() * GRID_SIZE),
+      };
+    } while (snake.some(segment => segment.x === newFood.x && segment.y === newFood.y));
     return newFood;
-  }, []);
+  }, [snake]);
 
   const resetGame = () => {
     setSnake(INITIAL_SNAKE);
-    setFood(INITIAL_FOOD);
+    setFood(generateFood());
     setDirection(INITIAL_DIRECTION);
     setIsGameOver(false);
     setScore(0);
@@ -97,7 +101,7 @@ export default function SnakeClassic() {
   return (
     <div className="w-full h-full flex flex-col items-center justify-center bg-black p-4">
       <div className="mb-4 font-mono text-green-500">Score: {score}</div>
-      <div className="border-2 border-green-500 grid grid-cols-20 gap-0 bg-black">
+      <div className="border-2 border-green-500 grid grid-cols-20 gap-0 bg-black" ref={boardRef}>
         {Array.from({ length: GRID_SIZE * GRID_SIZE }).map((_, index) => {
           const x = index % GRID_SIZE;
           const y = Math.floor(index / GRID_SIZE);

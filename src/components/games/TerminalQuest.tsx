@@ -283,21 +283,32 @@ export default function TerminalQuest() {
   // Custom hook for ASCII typing
   const useTypingEffect = (text: string) => {
     const [typedText, setTypedText] = useState('');
+    
     useEffect(() => {
-      let index = 0;
+      let isMounted = true;
+      let index = -1; // Start at -1 to handle first character properly
+      
       setTypedText('');
       setIsTyping(true);
+
       const interval = setInterval(() => {
+        if (!isMounted) return;
+        
+        index++;
         if (index < text.length) {
-          setTypedText(prev => prev + text[index]);
-          index++;
+          setTypedText(text.substring(0, index + 1));
         } else {
           setIsTyping(false);
           clearInterval(interval);
         }
       }, 30);
-      return () => clearInterval(interval);
+
+      return () => {
+        isMounted = false;
+        clearInterval(interval);
+      };
     }, [text]);
+
     return typedText;
   };
 

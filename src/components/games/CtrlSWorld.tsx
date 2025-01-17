@@ -268,8 +268,12 @@ export default function CtrlSWorld() {
       setIsTyping(false);
       scrollToBottom();
     } else {
-      // Add completed text to displayed texts
-      setDisplayedTexts(prev => [...prev, currentText]);
+      // Add completed text to displayed texts, but maintain only last 10 lines
+      setDisplayedTexts(prev => {
+        const newTexts = [...prev, currentText];
+        // Keep only the last 9 lines when adding a new one (total 10)
+        return newTexts.slice(-9);
+      });
       
       // Move to next text or node
       if (currentTextIndex < STORY[currentNode].content.length - 1) {
@@ -283,6 +287,8 @@ export default function CtrlSWorld() {
         setCurrentText('');
         setCurrentCharIndex(0);
         setIsTyping(true);
+        // Clear displayed texts when moving to a new chapter
+        setDisplayedTexts([]);
       }
       scrollToBottom();
     }
