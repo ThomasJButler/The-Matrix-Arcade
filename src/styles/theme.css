@@ -1,0 +1,33 @@
+:root {
+  /* Core Colors */
+  --matrix-primary: #00FF00;
+  --matrix-secondary: #003300;
+  --matrix-accent: #00FFAA;
+  --matrix-dark: #001100;
+  --matrix-light: #CCFFCC;
+  --matrix-error: #FF3366;
+  --matrix-warning: #FFAA00;
+  --matrix-success: #00FF66;
+  --game-primary: #00FF00;
+  --game-secondary: #003300;
+  --game-accent: #00FFAA;
+  --animation-timing: 0.2s;
+
+  /* UI Gradients */
+  --matrix-gradient-primary: linear-gradient(135deg, var(--matrix-primary), var(--matrix-accent));
+  --matrix-gradient-dark: linear-gradient(135deg, var(--matrix-dark), var(--matrix-secondary));
+  
+  /* Animations */
+  --matrix-transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --matrix-transition-normal: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --matrix-transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Shadows */
+  --matrix-glow-sm: 0 0 10px rgba(0, 255, 0, 0.3);
+  --matrix-glow-md: 0 0 20px rgba(0, 255, 0, 0.5);
+  --matrix-glow-lg: 0 0 30px rgba(0, 255, 0, 0.7);
+  
+  /* Typography */
+  --matrix-font-mono: 'JetBrains Mono', monospace;
+  --matrix-font-display: 'Press Start 2P', monospace;
+}
