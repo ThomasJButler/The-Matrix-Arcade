@@ -38,7 +38,7 @@ function App() {
       icon: <Gamepad2 className="w-8 h-8" />,
       description: 'Navigate through the digital storm',
       preview:
-        'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80&w=600&h=400',
+        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071594/matrixcloud_rw8hsa.png',
       component: MatrixCloud,
     },
     {
@@ -46,7 +46,7 @@ function App() {
       icon: <Gamepad2 className="w-8 h-8" />,
       description: 'Navigate through the matrix collecting data fragments',
       preview:
-        'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80&w=600&h=400',
+        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071599/matrixsnake2_jw29w1.png',
       component: SnakeClassic,
     },
     {
@@ -54,7 +54,7 @@ function App() {
       icon: <Code2 className="w-8 h-8" />,
       description: "Decrypt the system's core algorithms",
       preview:
-        'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&q=80&w=600&h=400',
+        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071592/codebreaker_sda03k.png',
       component: CodeBreaker,
     },
     {
@@ -62,7 +62,7 @@ function App() {
       icon: <Disc3 className="w-8 h-8" />,
       description: 'Battle the AI in a hypnotic 3D arena',
       preview:
-        'https://images.unsplash.com/photo-1506318137071-a8e063b4bec0?auto=format&fit=crop&q=80&w=600&h=400',
+        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071596/vortexpong2_hkjn4k.png',
       component: VortexPong,
     },
     {
@@ -70,15 +70,15 @@ function App() {
       icon: <Terminal className="w-8 h-8" />,
       description: 'Text-based adventure in the digital realm',
       preview:
-        'https://images.unsplash.com/photo-1629654297299-c8506221ca97?auto=format&fit=crop&q=80&w=600&h=400',
+        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/terminalquest_ddvjkf.png',
       component: TerminalQuest,
     },
     {
-      title: 'CTRL-S World',
+      title: 'CTRL-S | The World',
       icon: <Keyboard className="w-8 h-8" />,
       description: 'A hilarious text adventure about saving the digital world',
       preview:
-        'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?auto=format&fit=crop&q=80&w=600&h=400',
+        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
       component: CtrlSWorld,
     },
   ];
@@ -140,7 +140,13 @@ function App() {
   // Prevent scrolling when games are active
   useEffect(() => {
     const preventDefault = (e: Event) => {
-      if (isPlaying) {
+      const target = e.target as HTMLElement;
+      // Only prevent if isPlaying, and the user isn't typing in an input/textarea
+      if (
+        isPlaying &&
+        target.tagName !== 'INPUT' &&
+        target.tagName !== 'TEXTAREA'
+      ) {
         e.preventDefault();
       }
     };

@@ -229,7 +229,8 @@ export default function CtrlSWorld() {
 
   const handleCommandSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (commandInput.toLowerCase() === 'save-the-world') {
+    const command = commandInput.trim().toLowerCase();
+    if (command === 'save-the-world') {
       setIsStarted(true);
       setCommandInput('');
     }
@@ -247,6 +248,14 @@ export default function CtrlSWorld() {
       scrollToBottom();
     } else {
       setIsTyping(false);
+      if (!isPaused && currentTextIndex < STORY[currentNode].content.length - 1) {
+        setTimeout(() => {
+          setCurrentTextIndex(prev => prev + 1);
+          setCurrentCharIndex(0);
+          setCurrentText('');
+          setIsTyping(true);
+        }, 2000);
+      }
     }
   }, [currentNode, currentTextIndex, currentCharIndex, scrollToBottom]);
 
@@ -386,17 +395,17 @@ export default function CtrlSWorld() {
             <p className="mb-4">Welcome to the terminal. To begin your journey, please enter:</p>
             <p className="mb-4 text-green-300">save-the-world</p>
             <form onSubmit={handleCommandSubmit} className="flex items-center gap-2 w-full">
-              <span className="text-green-500">$</span>
-              <input
-                ref={inputRef}
-                type="text"
-                value={commandInput}
-                onChange={(e) => setCommandInput(e.target.value)}
-                className="flex-1 bg-transparent border-none outline-none text-green-500"
-                autoFocus
-                placeholder="Type 'save-the-world' to begin..."
-              />
-            </form>
+            <span className="text-green-500">$</span>
+            <input
+              ref={inputRef}
+              type="text"
+              value={commandInput}
+              onChange={(e) => setCommandInput(e.target.value)}
+              className="flex-1 bg-transparent border-none outline-none text-green-500"
+              autoFocus
+              placeholder="Type 'save-the-world' to begin..."
+            />
+          </form>
           </div>
         ) : (
           <>
