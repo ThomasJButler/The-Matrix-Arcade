@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-black;
+  }
+}
+
+@layer utilities {
+  .animate-matrix-rain {
+    animation: matrix-rain 3s linear infinite;
+  }
+
+  .terminal-scroll::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .terminal-scroll::-webkit-scrollbar-track {
+    @apply bg-black;
+  }
+
+  .terminal-scroll::-webkit-scrollbar-thumb {
+    @apply bg-green-900 rounded;
+  }
+
+  .terminal-scroll::-webkit-scrollbar-thumb:hover {
+    @apply bg-green-800;
+  }
+}
+
+@keyframes matrix-rain {
+  0% {
+    transform: translateY(-100%);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(1000%);
+    opacity: 0;
+  }
+}
