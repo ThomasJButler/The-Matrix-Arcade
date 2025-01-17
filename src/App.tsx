@@ -198,7 +198,7 @@ function App() {
                 THE MATRIX ARCADE
               </h1>
               <p className="text-xs text-green-400 tracking-widest">
-                SYSTEM v1.0
+                SYSTEM v1.0.1
               </p>
             </div>
           </div>
@@ -298,7 +298,7 @@ function App() {
                     <p className="text-green-400 font-mono text-sm mb-4">
                       {games[selectedGame].description}
                     </p>
-                    {GameComponent && (
+                    {typeof GameComponent !== 'undefined' && (
                       <button
                         onClick={() => setIsPlaying(!isPlaying)}
                         className="px-6 py-2 bg-green-500 text-black font-mono rounded-full hover:bg-green-400 transition-colors flex items-center gap-2 mx-auto transform hover:scale-105"
@@ -330,7 +330,7 @@ function App() {
       >
         <div className="max-w-4xl mx-auto flex items-center justify-between relative z-10">
           <div className="font-mono text-sm flex items-center gap-4">
-            <p className="tracking-wider">THE MATRIX ARCADE v1.0</p>
+            <p className="tracking-wider">THE MATRIX ARCADE v1.0.1</p>
             <div className="h-4 w-px bg-green-500/30"></div>
             <p className="text-green-400">TAKE THE RED PILL!</p>
           </div>
@@ -358,6 +358,8 @@ function App() {
       </footer>
 
       <style>{`
+
+        
         .perspective {
           perspective: 2000px;
           perspective-origin: 50% 50%;

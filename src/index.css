@@ -14,6 +14,12 @@
   box-sizing: border-box;
 }
 
+/* Apply scale: 0.96 to the <html> element */
+html {
+  transform: scale(0.96);
+  transform-origin: top left; /* Adjust origin as needed */
+}
+
 @layer utilities {
   .animate-matrix-rain {
     animation: matrix-rain 3s linear infinite;
