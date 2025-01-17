@@ -292,3 +292,64 @@
   color: var(--matrix-primary);
   box-shadow: var(--matrix-glow-lg);
 }
+
+/* SnakeClassic */
+.snake-game-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--matrix-dark);
+  padding: 1rem;
+  border: 2px solid var(--matrix-primary);
+  border-radius: 10px;
+  box-shadow: var(--matrix-glow-sm);
+}
+
+.snake-board {
+  display: grid;
+  grid-template-columns: repeat(20, 1fr);
+  gap: 0;
+  background: var(--matrix-dark);
+  border: 2px solid var(--matrix-primary);
+}
+
+.snake-cell {
+  width: 20px;
+  height: 20px;
+}
+
+.snake-cell.snake {
+  background-color: var(--matrix-primary);
+}
+
+.snake-cell.food {
+  background-color: var(--matrix-accent);
+}
+
+.snake-score {
+  font-family: var(--matrix-font-mono);
+  color: var(--matrix-primary);
+  margin-bottom: 1rem;
+}
+
+.snake-gameover {
+  font-family: var(--matrix-font-mono);
+  color: var(--matrix-primary);
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.snake-button {
+  padding: 0.5rem 1rem;
+  background-color: var(--matrix-primary);
+  color: var(--matrix-dark);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color var(--matrix-transition-fast);
+}
+
+.snake-button:hover {
+  background-color: var(--matrix-accent);
+}
