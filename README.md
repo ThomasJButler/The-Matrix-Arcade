@@ -1,12 +1,15 @@
 # TheMatrixArcade 🎮
 A collection of games inspired by 'The Matrix' films 🎬
 
+See online at aitomatic.io 
+
 The Matrix Arcade is an immersive collection of Matrix-themed games built as a web application. Our flagship game "CTRL-S The World" 💾 is a text-based adventure that follows a thrilling narrative about saving the digital world from a rogue AI.
 
 ## How To Run 🔑
 Download files using GIT, navigate to TheMatrixArcade and open terminal. 
 - Enter - NPM INSTALL
 - Enter - NPM RUN DEV
+- Enter - NPM install lucide-react
 - Voila 🙏🏻
 
 ## Tech Stack 🛠️

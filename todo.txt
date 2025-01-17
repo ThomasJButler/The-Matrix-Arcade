@@ -7,10 +7,7 @@ Updated padding of game-container and version number
 
 TO DO
 
-Vortex Pong
-Adjust Speed: Increase the speed of the game to enhance the challenge.
-Objective Adjustment: Make the game easier to win while maintaining the engaging aspects.
-Enhancement: Introduce new elements or features to make the game more interesting for players.
+
 
 Terminal Quest
 Issue: The first letter is not appearing in the chat when the scrolling text is displayed. However, this issue does not affect the answers.
@@ -26,3 +23,4 @@ Difficulty Enhancement: Make the game harder to improve player engagement.
 UI Improvement: Overhaul the user interface for the points system. Eliminate any unnecessary layers that might cause confusion. Ensure the text does not overlap, providing a clearer and more intuitive design.
 
 
+Test!! Write a few tests.
