@@ -186,12 +186,19 @@ function App() {
               <div className="absolute inset-0 bg-green-500/20 rounded-full filter blur-sm animate-pulse"></div>
             </div>
             <div>
+            <a
+              href="https://aitomatic.io/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm hover:text-green-400 transition-colors group"
+            >
               <h1 className="text-2xl font-mono font-bold tracking-wider group-hover:text-green-400 transition-colors">
                 THE MATRIX ARCADE
               </h1>
               <p className="text-xs text-green-400 tracking-widest">
                 SYSTEM v1.0.2
               </p>
+            </a>
             </div>
           </div>
           <div>
