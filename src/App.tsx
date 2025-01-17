@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import './styles/theme.css'; // Custom theme.css for the insane styling
+import './styles/animations.css';
 import {
   Monitor,
   Gamepad2,
@@ -17,6 +19,7 @@ import VortexPong from './components/games/VortexPong';
 import TerminalQuest from './components/games/TerminalQuest';
 import CtrlSWorld from './components/games/CtrlSWorld';
 import MatrixCloud from './components/games/MatrixCloud';
+import TransitionParticles from './components/ui/TransitionParticles';
 
 function App() {
   const [selectedGame, setSelectedGame] = useState<number>(0);
@@ -266,15 +269,23 @@ function App() {
               <div className="relative bg-gray-900 rounded-3xl p-8 border-4 border-green-500 shadow-[0_0_50px_rgba(0,255,0,0.3)]">
                 {/* Game Display */}
                 <div className="relative aspect-video mb-6 rounded-lg overflow-hidden border-2 border-green-500">
-                  {isPlaying && GameComponent ? (
-                    <GameComponent />
-                  ) : (
-                    <img
-                      src={games[selectedGame].preview}
-                      alt={games[selectedGame].title}
-                      className="w-full h-full object-cover"
-                    />
-                  )}
+                  <AnimatePresence exitBeforeEnter>
+                    <motion.div
+                      key={selectedGame}
+                      className="game-container transition-enhanced"
+                    >
+                      <TransitionParticles />
+                      {isPlaying && GameComponent ? (
+                        <GameComponent />
+                      ) : (
+                        <img
+                          src={games[selectedGame].preview}
+                          alt={games[selectedGame].title}
+                          className="w-full h-full object-cover"
+                        />
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
                 </div>
 
                 {/* Controls */}
@@ -377,54 +388,6 @@ function App() {
           transform-style: preserve-3d;
           transition: inherit;
           padding: 1rem;
-        }
-
-        .transition-left .game-container,
-        .transition-right .game-container {
-          animation: digital-glitch 0.6s ease-out forwards;
-        }
-
-        @keyframes digital-glitch {
-          0% {
-            clip-path: inset(0 0 0 0);
-            transform: translate3d(0, 0, 0) scale(1);
-            filter: brightness(1) contrast(1);
-          }
-          20% {
-            clip-path: inset(20% -10px 30% 50%);
-            transform: translate3d(-10px, 5px, 50px) scale(1.02);
-            filter: brightness(1.2) contrast(1.3);
-          }
-          40% {
-            clip-path: inset(10% 30% 50% 0);
-            transform: translate3d(10px, -5px, -50px) scale(0.98);
-            filter: brightness(0.8) contrast(1.5);
-          }
-          60% {
-            clip-path: inset(40% 0 20% 30%);
-            transform: translate3d(-15px, 10px, 100px) scale(1.03);
-            filter: brightness(1.3) contrast(0.7);
-          }
-          80% {
-            clip-path: inset(15% 40% 10% 10%);
-            transform: translate3d(15px, -10px, -100px) scale(0.97);
-            filter: brightness(0.9) contrast(1.2);
-          }
-          100% {
-            clip-path: inset(0 0 0 0);
-            transform: translate3d(0, 0, 0) scale(1);
-            filter: brightness(1) contrast(1);
-          }
-        }
-
-        .transition-left {
-          transform: translateX(100%);
-          opacity: 0;
-        }
-
-        .transition-right {
-          transform: translateX(-100%);
-          opacity: 0;
         }
       `}</style>
     </div>
