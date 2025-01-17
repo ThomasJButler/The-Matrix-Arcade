@@ -8,6 +8,12 @@
   }
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 @layer utilities {
   .animate-matrix-rain {
     animation: matrix-rain 3s linear infinite;

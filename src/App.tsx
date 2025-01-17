@@ -181,7 +181,7 @@ function App() {
   const GameComponent = games[selectedGame].component;
 
   return (
-    <div className="min-h-screen bg-black text-green-500 flex flex-col">
+    <div className="min-h-screen flex flex-col bg-black text-green-500">
       {/* Header */}
       <header
         ref={headerRef}
@@ -235,8 +235,8 @@ function App() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 p-4 overflow-hidden">
-        <div className="relative w-full max-w-4xl mx-auto perspective">
+      <main className="flex-1 overflow-hidden">
+        <div className="relative w-full max-w-4xl mx-auto h-full flex flex-col">
           {/* Matrix Rain Effect */}
           <div className="absolute inset-0 opacity-20 pointer-events-none overflow-hidden">
             {[...Array(50)].map((_, i) => (
@@ -326,7 +326,7 @@ function App() {
       {/* Enhanced Footer */}
       <footer
         ref={footerRef}
-        className="relative border-t border-green-500/50 p-4 overflow-hidden backdrop-blur-sm"
+        className="relative border-t border-green-500/50 p-4 overflow-hidden backdrop-blur-sm fixed bottom-0 w-full"
       >
         <div className="max-w-4xl mx-auto flex items-center justify-between relative z-10">
           <div className="font-mono text-sm flex items-center gap-4">

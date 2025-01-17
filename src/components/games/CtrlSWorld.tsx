@@ -388,12 +388,12 @@ export default function CtrlSWorld() {
       {/* Main Content */}
       <div 
         ref={terminalRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden terminal-scroll p-4"
+        className="flex-1 overflow-y-auto overflow-x-hidden p-2"
       >
         {!isStarted ? (
           <div className="flex flex-col items-start">
-            <p className="mb-4">Welcome to the terminal. To begin your journey, please enter:</p>
-            <p className="mb-4 text-green-300">save-the-world</p>
+            <p className="mb-2">Welcome to the terminal. To begin your journey, please enter:</p>
+            <p className="mb-2 text-green-300">save-the-world</p>
             <form onSubmit={handleCommandSubmit} className="flex items-center gap-2 w-full">
             <span className="text-green-500">$</span>
             <input
@@ -441,7 +441,7 @@ export default function CtrlSWorld() {
 
       {/* Controls */}
       {isStarted && (
-        <div className="p-4 border-t border-green-500">
+        <div className="p-2 border-t border-green-500">
           <div className="flex justify-between items-center">
             <div className="text-sm text-green-400">
               Press <kbd className="px-2 py-1 bg-green-900 rounded">Space</kbd> or{' '}
