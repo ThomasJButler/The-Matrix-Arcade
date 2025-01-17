@@ -32,12 +32,12 @@ function App() {
 
   const games = [
     {
-      title: 'Matrix Cloud',
-      icon: <Gamepad2 className="w-8 h-8" />,
-      description: 'Navigate through the digital storm',
+      title: 'CTRL-S | The World',
+      icon: <Keyboard className="w-8 h-8" />,
+      description: 'A hilarious text adventure about saving the digital world',
       preview:
-        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071594/matrixcloud_rw8hsa.png',
-      component: MatrixCloud,
+        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
+      component: CtrlSWorld,
     },
     {
       title: 'Snake Classic',
@@ -64,12 +64,12 @@ function App() {
       component: TerminalQuest,
     },
     {
-      title: 'CTRL-S | The World',
-      icon: <Keyboard className="w-8 h-8" />,
-      description: 'A hilarious text adventure about saving the digital world',
+      title: 'Matrix Cloud',
+      icon: <Gamepad2 className="w-8 h-8" />,
+      description: 'Navigate through the digital storm',
       preview:
-        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
-      component: CtrlSWorld,
+        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071594/matrixcloud_rw8hsa.png',
+      component: MatrixCloud,
     },
   ];
 

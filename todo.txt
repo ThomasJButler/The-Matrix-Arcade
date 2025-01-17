@@ -4,14 +4,15 @@ DONE
 
 
 
-
-Ctrl-S Command
-Issue: Need to clear the text from the screen after every 10 lines.
-Action Required: Implement a feature that automatically clears the screen after 10 lines of text have been entered or displayed.
-
 Matrix Cloud
 Speed Adjustment: Increase the game speed to provide a greater challenge to the player.
 Difficulty Enhancement: Make the game harder to improve player engagement.
 UI Improvement: Overhaul the user interface for the points system. Eliminate any unnecessary layers that might cause confusion. Ensure the text does not overlap, providing a clearer and more intuitive design.
 
+
+Tests !!!! Write tests !!
+
+improve the animation to transiton games
+
+update ctrl-s to the start
 
