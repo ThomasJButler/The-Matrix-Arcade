@@ -127,8 +127,9 @@ export default function CodeBreaker() {
           {COLORS.map((color) => (
             <button
               key={color}
-              className="w-8 h-8 rounded-full"
-              style={{ backgroundColor: color }}
+              className={`w-8 h-8 rounded-full ${color}`}
+              type="button"
+              title={`Add ${color}`}
               onClick={() => addColor(color)}
             />
           ))}
