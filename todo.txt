@@ -2,6 +2,12 @@ DONE
 
 Updated padding of game-container and version number
 
+Codebreaker
+Issue: The application is not functioning correctly.
+Action Required: Investigate and diagnose the source of the malfunction. Fix any bugs or errors that may be causing the application to fail.
+
+
+TO DO
 
 Vortex Pong
 Adjust Speed: Increase the speed of the game to enhance the challenge.

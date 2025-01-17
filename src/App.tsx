@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import './styles/theme.css'; // Custom theme.css for the insane styling
 import {
   Monitor,
   Gamepad2,
@@ -12,7 +13,6 @@ import {
   LucideClipboardSignature,
 } from 'lucide-react';
 import SnakeClassic from './components/games/SnakeClassic';
-import CodeBreaker from './components/games/CodeBreaker';
 import VortexPong from './components/games/VortexPong';
 import TerminalQuest from './components/games/TerminalQuest';
 import CtrlSWorld from './components/games/CtrlSWorld';
@@ -46,14 +46,6 @@ function App() {
       preview:
         'https://res.cloudinary.com/depqttzlt/image/upload/v1737071599/matrixsnake2_jw29w1.png',
       component: SnakeClassic,
-    },
-    {
-      title: 'Code Breaker',
-      icon: <Code2 className="w-8 h-8" />,
-      description: "Decrypt the system's core algorithms",
-      preview:
-        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071592/codebreaker_sda03k.png',
-      component: CodeBreaker,
     },
     {
       title: 'Vortex Pong',
