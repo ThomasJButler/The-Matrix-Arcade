@@ -6,7 +6,6 @@ import {
   Monitor,
   Gamepad2,
   Terminal,
-  Code2,
   ChevronLeft,
   ChevronRight,
   Play,
@@ -19,7 +18,6 @@ import VortexPong from './components/games/VortexPong';
 import TerminalQuest from './components/games/TerminalQuest';
 import CtrlSWorld from './components/games/CtrlSWorld';
 import MatrixCloud from './components/games/MatrixCloud';
-import TransitionParticles from './components/ui/TransitionParticles';
 
 function App() {
   const [selectedGame, setSelectedGame] = useState<number>(0);
@@ -269,12 +267,11 @@ function App() {
               <div className="relative bg-gray-900 rounded-3xl p-8 border-4 border-green-500 shadow-[0_0_50px_rgba(0,255,0,0.3)]">
                 {/* Game Display */}
                 <div className="relative aspect-video mb-6 rounded-lg overflow-hidden border-2 border-green-500">
-                  <AnimatePresence exitBeforeEnter>
+                  <AnimatePresence mode="wait">
                     <motion.div
                       key={selectedGame}
                       className="game-container transition-enhanced"
                     >
-                      <TransitionParticles />
                       {isPlaying && GameComponent ? (
                         <GameComponent />
                       ) : (
