@@ -12,17 +12,25 @@ import {
   Disc3,
   Keyboard,
   LucideClipboardSignature,
+  Settings,
+  Save,
 } from 'lucide-react';
 import SnakeClassic from './components/games/SnakeClassic';
 import VortexPong from './components/games/VortexPong';
 import TerminalQuest from './components/games/TerminalQuest';
 import CtrlSWorld from './components/games/CtrlSWorld';
 import MatrixCloud from './components/games/MatrixCloud';
+import AudioSettings from './components/ui/AudioSettings';
+import SaveLoadManager from './components/ui/SaveLoadManager';
+import { useSoundSystem } from './hooks/useSoundSystem';
+import { useSaveSystem } from './hooks/useSaveSystem';
 
 function App() {
   const [selectedGame, setSelectedGame] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showNav, setShowNav] = useState(false);
+  const [showAudioSettings, setShowAudioSettings] = useState(false);
+  const [showSaveManager, setShowSaveManager] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [transitionDirection, setTransitionDirection] = useState<
     'left' | 'right'
@@ -30,6 +38,10 @@ function App() {
   const containerRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const footerRef = useRef<HTMLDivElement>(null);
+  
+  // Initialize sound system and save system
+  const { playSFX, playMusic, stopMusic } = useSoundSystem();
+  const { saveData, updateGameSave, unlockAchievement } = useSaveSystem();
 
   const games = [
     {
@@ -169,6 +181,7 @@ function App() {
     setShowNav(false);
     setSelectedGame(index);
     setIsPlaying(false);
+    playSFX('menu');
   };
 
   const GameComponent = games[selectedGame].component;
@@ -202,7 +215,21 @@ function App() {
             </a>
             </div>
           </div>
-          <div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowSaveManager(!showSaveManager)}
+              className="p-2 bg-green-900/50 rounded hover:bg-green-800 transition-colors border border-green-500/30 backdrop-blur-sm"
+              title="Save Data Manager"
+            >
+              <Save className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setShowAudioSettings(!showAudioSettings)}
+              className="p-2 bg-green-900/50 rounded hover:bg-green-800 transition-colors border border-green-500/30 backdrop-blur-sm"
+              title="Audio Settings"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
             <button
               onClick={() => setShowNav(!showNav)}
               className="flex items-center gap-2 px-4 py-2 bg-green-900/50 rounded hover:bg-green-800 transition-colors border border-green-500/30 backdrop-blur-sm group"
@@ -307,7 +334,16 @@ function App() {
                     </p>
                     {typeof GameComponent !== 'undefined' && (
                       <button
-                        onClick={() => setIsPlaying(!isPlaying)}
+                        onClick={() => {
+                          setIsPlaying(!isPlaying);
+                          playSFX(isPlaying ? 'menu' : 'score');
+                          if (!isPlaying) {
+                            // Start ambient music when game starts
+                            setTimeout(() => playMusic('gameplay'), 500);
+                          } else {
+                            stopMusic();
+                          }
+                        }}
                         className="px-6 py-2 bg-green-500 text-black font-mono rounded-full hover:bg-green-400 transition-colors flex items-center gap-2 mx-auto transform hover:scale-105"
                       >
                         <Play className="w-4 h-4" />
@@ -363,6 +399,18 @@ function App() {
           </div>
         </div>
       </footer>
+
+      {/* Audio Settings Modal */}
+      <AudioSettings 
+        isOpen={showAudioSettings} 
+        onClose={() => setShowAudioSettings(false)} 
+      />
+      
+      {/* Save/Load Manager Modal */}
+      <SaveLoadManager 
+        isOpen={showSaveManager} 
+        onClose={() => setShowSaveManager(false)} 
+      />
 
       <style>{`
 

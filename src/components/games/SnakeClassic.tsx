@@ -2,9 +2,10 @@ import React, { useEffect, useCallback, useRef } from 'react';
 import { useSnakeGame, Direction } from '../../hooks/useSnakeGame';
 import { useParticleSystem } from '../../hooks/useParticleSystem';
 import { useInterval } from '../../hooks/useInterval';
+import { useSoundSystem } from '../../hooks/useSoundSystem';
 import SnakeRenderer from './SnakeRenderer';
 import SnakeHUD from './SnakeHUD';
-import { Gamepad2, Volume2, VolumeX } from 'lucide-react';
+import { Gamepad2 } from 'lucide-react';
 
 const GRID_SIZE = 30;
 const CELL_SIZE = 20;
@@ -20,73 +21,38 @@ export default function SnakeClassic() {
   } = useSnakeGame();
 
   const particleSystem = useParticleSystem();
-  const [soundEnabled, setSoundEnabled] = React.useState(true);
   const [screenShake, setScreenShake] = React.useState(0);
-  const audioContext = useRef<AudioContext | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { playSFX, playMusic, stopMusic } = useSoundSystem();
 
-  // Initialize audio
+  // Start gameplay music when game starts
   useEffect(() => {
-    try {
-      audioContext.current = new AudioContext();
-    } catch {
-      console.warn('Audio context not available');
+    if (gameState.gameStatus === 'playing') {
+      playMusic('gameplay');
+    } else {
+      stopMusic();
     }
-    return () => {
-      audioContext.current?.close();
-    };
-  }, []);
+    return () => stopMusic();
+  }, [gameState.gameStatus, playMusic, stopMusic]);
 
-  // Play sound effect
+  // Play sound effect using unified system
   const playSound = useCallback((type: 'eat' | 'powerup' | 'collision' | 'levelup') => {
-    if (!soundEnabled || !audioContext.current) return;
-
-    try {
-      const oscillator = audioContext.current.createOscillator();
-      const gainNode = audioContext.current.createGain();
-      const filter = audioContext.current.createBiquadFilter();
-
-      oscillator.connect(filter);
-      filter.connect(gainNode);
-      gainNode.connect(audioContext.current.destination);
-
-      switch (type) {
-        case 'eat':
-          oscillator.frequency.value = 440;
-          oscillator.type = 'square';
-          gainNode.gain.setValueAtTime(0.1, audioContext.current.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.current.currentTime + 0.1);
-          break;
-        case 'powerup':
-          oscillator.frequency.value = 880;
-          oscillator.type = 'sine';
-          filter.type = 'lowpass';
-          filter.frequency.value = 2000;
-          gainNode.gain.setValueAtTime(0.2, audioContext.current.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.current.currentTime + 0.5);
-          break;
-        case 'collision':
-          oscillator.frequency.value = 110;
-          oscillator.type = 'sawtooth';
-          gainNode.gain.setValueAtTime(0.3, audioContext.current.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.current.currentTime + 0.3);
-          setScreenShake(10);
-          break;
-        case 'levelup':
-          oscillator.frequency.setValueAtTime(440, audioContext.current.currentTime);
-          oscillator.frequency.exponentialRampToValueAtTime(880, audioContext.current.currentTime + 0.2);
-          oscillator.type = 'triangle';
-          gainNode.gain.setValueAtTime(0.2, audioContext.current.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.current.currentTime + 0.3);
-          break;
-      }
-
-      oscillator.start(audioContext.current.currentTime);
-      oscillator.stop(audioContext.current.currentTime + 0.5);
-    } catch {
-      console.warn('Sound playback failed');
+    switch (type) {
+      case 'eat':
+        playSFX('snakeEat');
+        break;
+      case 'powerup':
+        playSFX('powerup');
+        break;
+      case 'collision':
+        playSFX('hit');
+        setScreenShake(10);
+        break;
+      case 'levelup':
+        playSFX('levelUp');
+        break;
     }
-  }, [soundEnabled]);
+  }, [playSFX]);
 
   // Handle keyboard input
   useEffect(() => {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Terminal as TerminalIcon, ChevronRight, Info, Play, Pause, Maximize, Minimize, Shield, Wifi, Key, AlertTriangle, Cpu, Save, RotateCcw, Map } from 'lucide-react';
 import { EXPANDED_GAME_NODES, ITEM_DESCRIPTIONS, ACHIEVEMENTS, GameNode, Choice, resolveCombat } from './TerminalQuestContent';
+import { useSoundSystem } from '../../hooks/useSoundSystem';
 import TerminalQuestCombat from './TerminalQuestCombat';
 
 type GameState = {
@@ -220,6 +221,15 @@ export default function TerminalQuest() {
   const [isTyping, setIsTyping] = useState(false);
   const [shakeEffect, setShakeEffect] = useState(false); // Dynamic screen shake
   const [backgroundGlitch, setBackgroundGlitch] = useState(false); // Glitch effect
+  
+  // Sound system integration
+  const { playSFX, playMusic, stopMusic } = useSoundSystem();
+  
+  // Start background music when component mounts
+  useEffect(() => {
+    playMusic('menu');
+    return () => stopMusic();
+  }, [playMusic, stopMusic]);
 
   const triggerShake = () => {
     setShakeEffect(true);
@@ -232,12 +242,23 @@ export default function TerminalQuest() {
 
   // Handler for choice actions
   const handleChoice = (choice: Choice) => {
+    // Play sound effects based on choice type
+    playSFX('terminalType');
+    
     if (choice.damage && gameState.health <= choice.damage) {
       triggerShake(); // Big damage causes a shake
+      playSFX('hit');
     }
     if (choice.security) {
       toggleBackgroundGlitch(); // Glitch background on security risks
       setTimeout(() => toggleBackgroundGlitch(), 1000);
+      playSFX('hit');
+    }
+    if (choice.gives) {
+      playSFX('powerup');
+    }
+    if (choice.heals) {
+      playSFX('score');
     }
 
     // Core state update remains consistent
