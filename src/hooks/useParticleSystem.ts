@@ -40,7 +40,7 @@ export function useParticleSystem() {
     
     for (let i = 0; i < emitter.count; i++) {
       const angle = (Math.PI * 2 * i) / emitter.count + (Math.random() - 0.5) * (emitter.spread || 0.5);
-      const speed = (emitter.speed || 2) * (0.5 + Math.random() * 0.5);
+      let speed = (emitter.speed || 2) * (0.5 + Math.random() * 0.5);
       
       let color = emitter.color || '#00FF00';
       let size = emitter.size || 3;
