@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Terminal as TerminalIcon, ChevronRight, Info, Play, Pause, Maximize, Minimize } from 'lucide-react';
+import { Terminal as TerminalIcon, ChevronRight, Info, Play, Pause, Maximize, Minimize, Gamepad2, Coffee } from 'lucide-react';
+import CtrlSWorldInteractive from './CtrlSWorldInteractive';
 
 type StoryNode = {
   id: string;
@@ -191,6 +192,7 @@ const INFO_CONTENT = [
 ];
 
 export default function CtrlSWorld() {
+  const [gameMode, setGameMode] = useState<'classic' | 'interactive' | null>(null);
   const [currentNode, setCurrentNode] = useState(0);
   const [displayedTexts, setDisplayedTexts] = useState<string[]>([]);
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
@@ -329,6 +331,48 @@ export default function CtrlSWorld() {
     }
   }, [isStarted, isPaused, isTyping, typeNextCharacter]);
 
+  // Mode Selection Screen
+  if (gameMode === null) {
+    return (
+      <div className="w-full h-full bg-black text-green-500 font-mono flex items-center justify-center">
+        <div className="text-center p-8 border-2 border-green-500 rounded-lg bg-black/80">
+          <h1 className="text-4xl font-bold mb-2">CTRL+S THE WORLD</h1>
+          <p className="text-green-400 mb-8">Choose Your Developer Adventure</p>
+          
+          <div className="space-y-4">
+            <button
+              onClick={() => setGameMode('interactive')}
+              className="w-full p-4 border-2 border-green-500 rounded-lg hover:bg-green-900/30 transition-colors flex items-center gap-3"
+            >
+              <Gamepad2 className="w-6 h-6" />
+              <div className="text-left">
+                <div className="font-bold">EPIC INTERACTIVE MODE</div>
+                <div className="text-sm text-green-400">Make choices, manage coffee levels, unlock achievements</div>
+              </div>
+            </button>
+            
+            <button
+              onClick={() => setGameMode('classic')}
+              className="w-full p-4 border-2 border-green-500 rounded-lg hover:bg-green-900/30 transition-colors flex items-center gap-3"
+            >
+              <TerminalIcon className="w-6 h-6" />
+              <div className="text-left">
+                <div className="font-bold">CLASSIC STORY MODE</div>
+                <div className="text-sm text-green-400">Original linear narrative experience</div>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Interactive Mode
+  if (gameMode === 'interactive') {
+    return <CtrlSWorldInteractive />;
+  }
+
+  // Classic Mode
   return (
     <div 
       ref={containerRef}
