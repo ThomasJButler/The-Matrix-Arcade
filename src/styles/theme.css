@@ -439,3 +439,35 @@
 .audio-test-button:active {
   animation: audioTestPulse 0.3s ease-out;
 }
+
+/* Custom Scrollbar for CTRL-S World */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--matrix-primary) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--matrix-primary);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--matrix-accent);
+  box-shadow: 0 0 12px rgba(0, 255, 0, 0.5);
+}
+
+.custom-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}

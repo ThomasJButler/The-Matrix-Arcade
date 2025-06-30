@@ -11,20 +11,26 @@ export interface ShatnerVoiceConfig {
 
 const DEFAULT_CONFIG: ShatnerVoiceConfig = {
   enabled: true,
-  rate: 0.85, // Slower, more deliberate
-  pitch: 0.9, // Slightly lower
-  volume: 0.8,
-  pauseMultiplier: 2.0, // Extended dramatic pauses
-  emphasisBoost: 1.3 // Boost for emphasized words
+  rate: 1.00, // Perfect Shatner commanding pace
+  pitch: 1.20, // Higher, more dramatic and commanding
+  volume: 0.60, // 60% - Perfect balance for dramatic effect
+  pauseMultiplier: 3.0, // MAXIMUM dramatic pauses for ultimate Shatner
+  emphasisBoost: 1.5 // Enhanced boost for emphasized words
 };
 
-// Shatner's distinctive speech patterns
+// Shatner's distinctive speech patterns - ULTIMATE EDITION
 const SHATNER_PATTERNS = {
   // Words that get dramatic emphasis
   emphasisWords: [
     'the', 'world', 'production', 'bug', 'code', 'debug', 'error', 'critical',
     'system', 'reality', 'matrix', 'Jenkins', 'team', 'coffee', 'deploy',
-    'friday', 'weekend', 'disaster', 'legendary', 'epic', 'ultimate'
+    'friday', 'weekend', 'disaster', 'legendary', 'epic', 'ultimate',
+    // Matrix/Coding dramatic additions
+    'null', 'pointer', 'exception', 'stack', 'overflow', 'refactor', 'legacy',
+    'technical', 'debt', 'merge', 'conflict', 'rollback', 'hotfix', 'commit',
+    'repository', 'database', 'server', 'crash', 'infinite', 'loop', 'memory',
+    'leak', 'deprecated', 'breaking', 'change', 'regression', 'pipeline',
+    'deployment', 'container', 'kubernetes', 'microservice', 'api', 'endpoint'
   ],
   
   // Phrases that get extra dramatic pauses
@@ -35,13 +41,35 @@ const SHATNER_PATTERNS = {
     'merge to main without tests',
     'debug the world',
     'save humanity',
-    'ultimate debugging session'
+    'ultimate debugging session',
+    // Ultimate Matrix coding drama
+    'null pointer exception',
+    'infinite loop detected',
+    'memory leak catastrophe',
+    'database connection failed',
+    'server crashed spectacularly',
+    'merge conflict nightmare',
+    'technical debt apocalypse',
+    'legacy code from hell',
+    'breaking change disaster',
+    'pipeline deployment failure',
+    'stack overflow error',
+    'segmentation fault',
+    'out of memory',
+    'connection timeout',
+    'authentication failed',
+    'permission denied',
+    'file not found'
   ],
   
   // Words that trigger mid-sentence pauses
   pauseWords: [
     'but', 'however', 'suddenly', 'meanwhile', 'unfortunately', 'thankfully',
-    'clearly', 'obviously', 'naturally', 'inevitably', 'surprisingly'
+    'clearly', 'obviously', 'naturally', 'inevitably', 'surprisingly',
+    // Coding-specific pause triggers
+    'therefore', 'consequently', 'furthermore', 'nevertheless', 'moreover',
+    'specifically', 'particularly', 'essentially', 'basically', 'literally',
+    'apparently', 'definitely', 'absolutely', 'completely', 'entirely'
   ]
 };
 
@@ -67,7 +95,7 @@ export function useShatnerVoice() {
     localStorage.setItem('matrix-arcade-shatner-voice', JSON.stringify(config));
   }, [config]);
 
-  // Process text to add Shatner-style pauses and emphasis
+  // Process text to add ULTIMATE Shatner-style pauses and emphasis
   const processShatnerText = useCallback((text: string): string => {
     if (!text) return '';
 
@@ -91,11 +119,24 @@ export function useShatnerVoice() {
       processed = processed.replace(regex, `*$1*`);
     });
 
+    // ULTIMATE SHATNER ENHANCEMENTS
     // Add dramatic pauses at sentence breaks
     processed = processed.replace(/([.!?])\s+/g, '$1... ');
     
     // Add pauses before quotation marks
     processed = processed.replace(/(['"])/g, '... $1');
+    
+    // Add pauses after commas for maximum drama
+    processed = processed.replace(/(,)\s+/g, '$1... ');
+    
+    // Add dramatic emphasis to exclamations
+    processed = processed.replace(/(!+)/g, '... $1');
+    
+    // Split long sentences with strategic pauses
+    processed = processed.replace(/(\w+)\s+(and|or|but|yet|so)\s+(\w+)/gi, '$1... $2... $3');
+    
+    // Add Captain Kirk-style dramatic breaks
+    processed = processed.replace(/\b(must|will|can|should|could|would)\s+(\w+)/gi, '$1... $2');
 
     return processed;
   }, []);

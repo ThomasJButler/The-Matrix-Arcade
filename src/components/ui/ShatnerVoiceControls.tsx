@@ -56,10 +56,14 @@ export const ShatnerVoiceControls: React.FC<ShatnerVoiceControlsProps> = ({
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              className="flex items-center gap-1"
+              className="flex items-center gap-2"
             >
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-              <span className="text-xs text-green-300">Speaking...</span>
+              <div className="flex gap-1">
+                <div className="w-1 h-1 bg-green-400 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
+                <div className="w-1 h-1 bg-green-400 rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
+                <div className="w-1 h-1 bg-green-400 rounded-full animate-pulse" style={{ animationDelay: '400ms' }} />
+              </div>
+              <span className="text-xs text-green-300 font-bold">SHATNER SPEAKING...</span>
             </motion.div>
           )}
         </div>
@@ -198,12 +202,15 @@ export const ShatnerVoiceControls: React.FC<ShatnerVoiceControlsProps> = ({
 
               {/* Test Phrases */}
               <div className="space-y-2">
-                <div className="text-xs text-green-400 font-bold">Test Phrases:</div>
+                <div className="text-xs text-green-400 font-bold">ULTIMATE Test Phrases:</div>
                 <div className="grid grid-cols-1 gap-2">
                   {[
                     "The Production Bug... from Hell!",
                     "Friday afternoon... deployment... disaster!",
-                    "Debug... the world... save... humanity!"
+                    "Debug... the world... save... humanity!",
+                    "Null pointer... exception... detected!",
+                    "Stack overflow... has gone... DOWN!",
+                    "The... infinite loop... must be... STOPPED!"
                   ].map((phrase, index) => (
                     <button
                       key={index}
@@ -221,16 +228,16 @@ export const ShatnerVoiceControls: React.FC<ShatnerVoiceControlsProps> = ({
               <button
                 onClick={() => {
                   updateConfig({
-                    rate: 0.85,
-                    pitch: 0.9,
-                    volume: 0.8,
-                    pauseMultiplier: 2.0,
-                    emphasisBoost: 1.3
+                    rate: 1.00,
+                    pitch: 1.20,
+                    volume: 0.60,
+                    pauseMultiplier: 3.0,
+                    emphasisBoost: 1.5
                   });
                 }}
                 className="w-full text-xs p-2 bg-yellow-900/30 text-yellow-400 hover:bg-yellow-900/50 rounded border border-yellow-500/30 transition-colors"
               >
-                Reset to Shatner Defaults
+                Reset to ULTIMATE Shatner
               </button>
             </div>
           </motion.div>

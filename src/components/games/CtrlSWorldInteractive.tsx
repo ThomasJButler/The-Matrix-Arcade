@@ -274,6 +274,7 @@ export default function CtrlSWorldInteractive() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const choicesRef = useRef<HTMLDivElement>(null);
   
   // Initialize Shatner voice system
   const { speak: speakWithShatnerVoice, stop: stopShatnerVoice, config: voiceConfig } = useShatnerVoice();
@@ -441,88 +442,98 @@ export default function CtrlSWorldInteractive() {
       </button>
       
       {/* Main Story Panel */}
-      <div className="flex-1 flex flex-col p-4">
-        {/* Chapter Title */}
-        <motion.h1 
-          key={currentNode.id}
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-2xl font-bold text-green-400 mb-4 border-b border-green-500 pb-2"
-        >
-          {currentNode.title}
-        </motion.h1>
-        
-        {/* ASCII Art */}
-        {currentNode.ascii && (
-          <motion.pre 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-green-300 text-sm mb-4 text-center leading-tight"
+      <div className="flex-1 flex flex-col p-4 overflow-hidden">
+        {/* Scrollable Content Area */}
+        <div className="flex-1 flex flex-col overflow-y-auto pr-2 custom-scrollbar">
+          {/* Chapter Title */}
+          <motion.h1 
+            key={currentNode.id}
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-2xl font-bold text-green-400 mb-4 border-b border-green-500 pb-2 flex-shrink-0"
           >
-            {currentNode.ascii.join('\n')}
-          </motion.pre>
-        )}
-        
-        {/* Story Text */}
-        <div 
-          className="flex-1 mb-4 p-4 bg-gray-900/30 rounded-lg border border-green-500/30 min-h-[200px] overflow-y-auto cursor-pointer hover:bg-gray-900/40 transition-colors"
-          onClick={() => {
-            if (isTyping) {
-              // Skip typing effect and show all content immediately
-              setCurrentParagraphs(currentNode?.content || []);
-              setIsTyping(false);
-              // Start voice narration immediately when skipping
-              if (voiceConfig.enabled && currentNode?.content) {
-                const fullText = currentNode.content.join(' ');
-                setTimeout(() => speakWithShatnerVoice(fullText), 200);
+            {currentNode.title}
+          </motion.h1>
+          
+          {/* ASCII Art */}
+          {currentNode.ascii && (
+            <motion.pre 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-green-300 text-sm mb-4 text-center leading-tight flex-shrink-0"
+            >
+              {currentNode.ascii.join('\n')}
+            </motion.pre>
+          )}
+          
+          {/* Story Text */}
+          <div 
+            className="flex-1 mb-4 p-4 bg-gray-900/30 rounded-lg border border-green-500/30 min-h-[200px] cursor-pointer hover:bg-gray-900/40 transition-colors"
+            onClick={() => {
+              if (isTyping) {
+                // Skip typing effect and show all content immediately
+                setCurrentParagraphs(currentNode?.content || []);
+                setIsTyping(false);
+                // Start voice narration immediately when skipping
+                if (voiceConfig.enabled && currentNode?.content) {
+                  const fullText = currentNode.content.join(' ');
+                  setTimeout(() => speakWithShatnerVoice(fullText), 200);
+                }
               }
-            }
-          }}
-          title={isTyping ? 'Click to skip typing effect' : ''}
-        >
-          <div className="text-green-300 leading-relaxed space-y-4">
-            {currentParagraphs.map((paragraph, index) => (
-              <p key={index} className="text-green-300 leading-relaxed">
-                {paragraph}
-                {isTyping && index === currentParagraphIndex && (
-                  <span className="animate-pulse ml-1">▌</span>
-                )}
-              </p>
-            ))}
-            {currentParagraphs.length === 0 && isTyping && (
-              <p className="text-green-300 leading-relaxed">
-                <span className="animate-pulse">▌</span>
-              </p>
-            )}
-            {isTyping && (
-              <p className="text-xs text-green-500/70 italic mt-4">
-                → Click anywhere to skip typing effect
-              </p>
-            )}
+            }}
+            title={isTyping ? 'Click to skip typing effect' : ''}
+          >
+            <div className="text-green-300 leading-relaxed space-y-4">
+              {currentParagraphs.map((paragraph, index) => (
+                <p key={index} className="text-green-300 leading-relaxed">
+                  {paragraph}
+                  {isTyping && index === currentParagraphIndex && (
+                    <span className="animate-pulse ml-1">▌</span>
+                  )}
+                </p>
+              ))}
+              {currentParagraphs.length === 0 && isTyping && (
+                <p className="text-green-300 leading-relaxed">
+                  <span className="animate-pulse">▌</span>
+                </p>
+              )}
+              {isTyping && (
+                <p className="text-xs text-green-500/70 italic mt-4">
+                  → Click anywhere to skip typing effect
+                </p>
+              )}
+            </div>
           </div>
         </div>
         
-        {/* Choices */}
+        {/* Fixed Choices Area - Always visible at bottom */}
         {!isTyping && currentNode.choices && (
           <motion.div 
+            ref={choicesRef}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="space-y-3"
+            className="flex-shrink-0 space-y-3 mt-4 pt-4 border-t border-green-500/30 bg-black/50 backdrop-blur-sm"
           >
-            {currentNode.choices.map((choice, index) => (
-              <ChoiceButton
-                key={index}
-                choice={choice}
-                onClick={() => {
-                  if (currentNode.minigame === 'coffee_brewing') {
-                    setShowMiniGame(true);
-                  } else {
-                    makeChoice(choice);
-                  }
-                }}
-                gameState={gameState}
-              />
-            ))}
+            <div className="text-xs text-green-400 mb-2 flex items-center gap-2">
+              <span className="animate-pulse">▶</span>
+              Choose your path:
+            </div>
+            <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+              {currentNode.choices.map((choice, index) => (
+                <ChoiceButton
+                  key={index}
+                  choice={choice}
+                  onClick={() => {
+                    if (currentNode.minigame === 'coffee_brewing') {
+                      setShowMiniGame(true);
+                    } else {
+                      makeChoice(choice);
+                    }
+                  }}
+                  gameState={gameState}
+                />
+              ))}
+            </div>
           </motion.div>
         )}
       </div>
