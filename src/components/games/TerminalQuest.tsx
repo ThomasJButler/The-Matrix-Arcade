@@ -380,8 +380,8 @@ export default function TerminalQuest() {
       </footer>
 
       {/* Background Glitch Styles */}
-      <style jsx>{
-        `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes glitch {
           0% {
             clip-path: inset(10% 0 20% 0);
@@ -420,7 +420,7 @@ export default function TerminalQuest() {
           }
         }
         `
-      }</style>
+      }} />
     </div>
   );
 }

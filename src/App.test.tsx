@@ -1,32 +1,33 @@
-import React from 'react';
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import App from './App';
-import test from 'node:test';
-import { describe } from 'yargs';
 
 describe('App Component', () => {
-  test('renders header with game title', () => {
+  it('renders header with game title', () => {
     render(<App />);
-    const headerElement = screen.getByText(/TheMatrixArcade/i);
+    const headerElement = screen.getByText('THE MATRIX ARCADE');
     expect(headerElement).toBeInTheDocument();
   });
 
-  test('renders navigation to different games', () => {
+  it('renders game carousel navigation', () => {
     render(<App />);
-    const terminalQuestLink = screen.getByRole('button', { name: /Terminal Quest/i });
-    const matrixCloudLink = screen.getByRole('button', { name: /Matrix Cloud/i });
-    expect(terminalQuestLink).toBeInTheDocument();
-    expect(matrixCloudLink).toBeInTheDocument();
+    // Check for game navigation elements
+    const prevButton = screen.getByTitle('Previous game');
+    const nextButton = screen.getByTitle('Next game');
+    expect(prevButton).toBeInTheDocument();
+    expect(nextButton).toBeInTheDocument();
   });
 
-  test('renders selected game component', () => {
+  it('displays version number', () => {
     render(<App />);
-    // Assuming default selected game is displayed
-    const defaultGameCanvas = screen.getByTestId('matrix-cloud-canvas');
-    expect(defaultGameCanvas).toBeInTheDocument();
+    const versionText = screen.getByText(/SYSTEM v1.0.2/);
+    expect(versionText).toBeInTheDocument();
+  });
+
+  it('renders games menu button', () => {
+    render(<App />);
+    const gamesButton = screen.getByText('Games');
+    expect(gamesButton).toBeInTheDocument();
   });
 });
-function expect(terminalQuestLink: HTMLElement) {
-    throw new Error('Function not implemented.');
-}
 
