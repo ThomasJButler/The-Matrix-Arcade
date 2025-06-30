@@ -9,7 +9,7 @@ import { Gamepad2, Volume2, VolumeX } from 'lucide-react';
 const GRID_SIZE = 30;
 const CELL_SIZE = 20;
 
-export default function SnakeClassic() {
+export default function SnakeClassicRefactored() {
   const {
     gameState,
     moveSnake,
