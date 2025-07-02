@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Play, Pause, RotateCw, Trophy, Shield, Wifi, Battery, Zap, Sparkles, Clock, Heart } from 'lucide-react';
 import { useSoundSystem } from '../../hooks/useSoundSystem';
+import { useSaveSystem } from '../../hooks/useSaveSystem';
 
 // Game constants - Adjusted for higher difficulty
 const GRAVITY = 0.25;           // Increased from 0.2
@@ -179,13 +180,21 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
-  const [state, setState] = useState<GameState>(initialGameState);
   const [paused, setPaused] = useState(false);
   const [showTutorial, setShowTutorial] = useState(true);
   const [screenShake, setScreenShake] = useState({ x: 0, y: 0 });
   
   // Sound system integration
   const { playSFX, playMusic, stopMusic } = useSoundSystem();
+  
+  // Save system integration
+  const { saveData, updateGameSave } = useSaveSystem();
+  
+  // Initialize state with saved high score
+  const [state, setState] = useState<GameState>(() => ({
+    ...initialGameState,
+    highScore: saveData?.games?.matrixCloud?.highScore || 0
+  }));
   
   // Achievement function
   const unlockAchievement = useCallback((gameId: string, achievementId: string) => {

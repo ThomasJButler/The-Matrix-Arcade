@@ -114,17 +114,17 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
   }, []);
   
   // Spawn enemies for new wave
-  const spawnWave = useCallback(() => {
+  const spawnWave = useCallback((wave: number) => {
     const enemyTypes = Object.keys(ENEMY_TYPES);
-    const waveEnemyType = state.wave <= 2 ? 'code' : 
-                          state.wave <= 5 ? ['code', 'agent'][Math.floor(Math.random() * 2)] :
+    const waveEnemyType = wave <= 2 ? 'code' : 
+                          wave <= 5 ? ['code', 'agent'][Math.floor(Math.random() * 2)] :
                           enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
     
     for (let row = 0; row < WAVE_ROWS; row++) {
       for (let col = 0; col < WAVE_SIZE; col++) {
         const enemy = enemyPool.acquire();
         if (enemy) {
-          const type = row === 0 && state.wave > 10 ? 'sentinel' : waveEnemyType;
+          const type = row === 0 && wave > 10 ? 'sentinel' : waveEnemyType;
           const enemyData = ENEMY_TYPES[type as keyof typeof ENEMY_TYPES];
           
           enemy.x = 50 + col * 80;
@@ -140,7 +140,7 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
         }
       }
     }
-  }, [state.wave, enemyPool]);
+  }, [enemyPool]);
   
   // Fire bullet
   const fireBullet = useCallback((x: number, y: number, isEnemy: boolean = false) => {
@@ -236,8 +236,12 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
     
     // Check if all enemies defeated
     if (enemies.filter(e => e.active).length === 0) {
-      setState(prev => ({ ...prev, wave: prev.wave + 1 }));
-      spawnWave();
+      setState(prev => {
+        const newWave = prev.wave + 1;
+        // Spawn next wave after state update
+        setTimeout(() => spawnWave(newWave), 100);
+        return { ...prev, wave: newWave };
+      });
       
       // Achievement check
       if (state.wave === 5 && achievementManager) {
@@ -380,14 +384,14 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
     
     // Draw player
     if (!state.gameOver) {
-      ctx.fillStyle = state.player.powerUps.shield ? '#00ffff' : '#00ff00';
+      ctx.fillStyle = state.player.powerUps?.shield ? '#00ffff' : '#00ff00';
       ctx.font = '12px monospace';
       PLAYER_SHIP.forEach((line, i) => {
         ctx.fillText(line, state.player.x, state.player.y + i * 10);
       });
       
       // Shield effect
-      if (state.player.powerUps.shield) {
+      if (state.player.powerUps?.shield) {
         ctx.strokeStyle = '#00ffff';
         ctx.globalAlpha = 0.3;
         ctx.beginPath();
@@ -420,16 +424,28 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
   }, [state, projectilePool, enemyPool, particlePool, trackDrawCall]);
   
   // Game loop
-  const gameLoop = useCallback((timestamp: number) => {
-    const deltaTime = timestamp - (animationFrameRef.current || timestamp);
-    animationFrameRef.current = timestamp;
+  const gameLoop = useCallback(() => {
+    let animationId: number;
     
-    updateGame(deltaTime * 0.06); // Normalize to ~60fps
-    render();
+    const loop = (timestamp: number) => {
+      const deltaTime = timestamp - (animationFrameRef.current || timestamp);
+      animationFrameRef.current = timestamp;
+      
+      updateGame(deltaTime * 0.06); // Normalize to ~60fps
+      render();
+      
+      if (!state.gameOver && !state.paused) {
+        animationId = requestAnimationFrame(loop);
+      }
+    };
     
-    if (!state.gameOver && !state.paused) {
-      requestAnimationFrame(gameLoop);
-    }
+    animationId = requestAnimationFrame(loop);
+    
+    return () => {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+    };
   }, [updateGame, render, state.gameOver, state.paused]);
   
   // Handle keyboard input
@@ -439,7 +455,7 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
       
       if (e.key === ' ' && !state.gameOver && !state.paused) {
         const now = Date.now();
-        const fireRate = state.player.powerUps.rapidFire ? 100 : 250;
+        const fireRate = state.player.powerUps?.rapidFire ? 100 : 250;
         
         if (now - lastFireRef.current > fireRate) {
           fireBullet(state.player.x + PLAYER_WIDTH / 2, state.player.y);
@@ -507,19 +523,22 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
     return () => clearInterval(interval);
   }, [state.gameOver, state.paused]);
   
-  // Start game
+  // Start game and handle restart
   useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    
     if (!state.gameOver && !state.paused) {
-      spawnWave();
-      requestAnimationFrame(gameLoop);
+      // Initial spawn only if there are no active enemies
+      if (enemyPool.activeObjects.length === 0) {
+        spawnWave(state.wave);
+      }
+      cleanup = gameLoop();
     }
     
     return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
+      if (cleanup) cleanup();
     };
-  }, [state.gameOver, state.paused, gameLoop, spawnWave]);
+  }, [state.gameOver, state.paused, state.wave, enemyPool, spawnWave, gameLoop]);
   
   // Save high score
   useEffect(() => {
@@ -551,8 +570,7 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
       timeScale: 1
     });
     
-    spawnWave();
-    requestAnimationFrame(gameLoop);
+    spawnWave(1);
   }, [projectilePool, enemyPool, particlePool, spawnWave, gameLoop]);
   
   return (

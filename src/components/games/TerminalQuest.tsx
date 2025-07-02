@@ -107,7 +107,7 @@ export default function TerminalQuest() {
     if (choice.gives) {
       playSFX('powerup');
     }
-    if (choice.heals) {
+    if (choice.heal) {
       playSFX('score');
     }
 
