@@ -24,7 +24,6 @@ interface SnakeHUDProps {
     timePlayed: number;
   };
   onStartGame: (mode: GameMode) => void;
-  onTogglePause: () => void;
 }
 
 const POWER_UP_INFO: Record<NonNullable<PowerUpType>, { icon: React.ReactNode; name: string; color: string }> = {
@@ -57,8 +56,7 @@ export default function SnakeHUD({
   activePowerUp,
   powerUpTimer,
   stats,
-  onStartGame,
-  onTogglePause
+  onStartGame
 }: SnakeHUDProps) {
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

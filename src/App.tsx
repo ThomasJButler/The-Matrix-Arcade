@@ -14,7 +14,6 @@ import {
   LucideClipboardSignature,
   Settings,
   Save,
-  Trophy,
   Crosshair,
 } from 'lucide-react';
 import SnakeClassic from './components/games/SnakeClassic';
@@ -401,7 +400,7 @@ function App() {
       {/* Enhanced Footer */}
       <footer
         ref={footerRef}
-        className="relative border-t border-green-500/50 p-4 overflow-hidden backdrop-blur-sm fixed bottom-0 w-full"
+        className="relative border-t border-green-500/50 p-4 overflow-hidden backdrop-blur-sm bottom-0 w-full"
       >
         <div className="max-w-4xl mx-auto flex items-center justify-between relative z-10">
           <div className="font-mono text-sm flex items-center gap-4">

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Trophy, Lock, Unlock } from 'lucide-react';
+import { Trophy, Unlock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Achievement {

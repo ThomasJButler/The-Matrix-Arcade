@@ -221,12 +221,31 @@ export function useSoundSystem() {
   const currentMusicRef = useRef<string | null>(null);
   const reverbRef = useRef<ConvolverNode | null>(null);
 
+  // Create reverb impulse response
+  const createReverbBuffer = useCallback((
+    audioContext: AudioContext,
+    channels: number,
+    sampleRate: number,
+    length: number
+  ): AudioBuffer => {
+    const buffer = audioContext.createBuffer(channels, sampleRate * length, sampleRate);
+    
+    for (let channel = 0; channel < channels; channel++) {
+      const channelData = buffer.getChannelData(channel);
+      for (let i = 0; i < channelData.length; i++) {
+        const decay = Math.pow(1 - i / channelData.length, 2);
+        channelData[i] = (Math.random() * 2 - 1) * decay * 0.3;
+      }
+    }
+    return buffer;
+  }, []);
+
   // Initialize audio context and setup
   const initializeAudio = useCallback(async () => {
     if (audioContextRef.current) return audioContextRef.current;
 
     try {
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioContext = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       const audioContext = new AudioContext();
       audioContextRef.current = audioContext;
 
@@ -259,26 +278,7 @@ export function useSoundSystem() {
       console.warn('Failed to initialize audio context:', error);
       return null;
     }
-  }, [config.masterVolume, config.musicVolume, config.sfxVolume]);
-
-  // Create reverb impulse response
-  const createReverbBuffer = useCallback((
-    audioContext: AudioContext,
-    channels: number,
-    sampleRate: number,
-    length: number
-  ): AudioBuffer => {
-    const buffer = audioContext.createBuffer(channels, sampleRate * length, sampleRate);
-    
-    for (let channel = 0; channel < channels; channel++) {
-      const channelData = buffer.getChannelData(channel);
-      for (let i = 0; i < channelData.length; i++) {
-        const decay = Math.pow(1 - i / channelData.length, 2);
-        channelData[i] = (Math.random() * 2 - 1) * decay * 0.3;
-      }
-    }
-    return buffer;
-  }, []);
+  }, [config.masterVolume, config.musicVolume, config.sfxVolume, createReverbBuffer]);
 
   // Play sound effect
   const playSFX = useCallback(async (soundType: string, customConfig?: Partial<SoundEffect>) => {
@@ -320,7 +320,6 @@ export function useSoundSystem() {
       );
 
       // Create filter if specified
-      let destination: AudioNode = envelope;
       if (soundConfig.filterType && soundConfig.filterFreq) {
         const filter = audioContext.createBiquadFilter();
         filter.type = soundConfig.filterType;

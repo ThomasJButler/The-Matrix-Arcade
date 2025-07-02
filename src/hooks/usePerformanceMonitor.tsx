@@ -58,9 +58,11 @@ export function usePerformanceMonitor(options: PerformanceOptions = {}) {
     let memoryUsed = 0;
     let memoryLimit = 0;
     if ('memory' in performance) {
-      const memory = (performance as any).memory;
-      memoryUsed = memory.usedJSHeapSize / 1048576; // Convert to MB
-      memoryLimit = memory.jsHeapSizeLimit / 1048576;
+      const memory = (performance as Performance & { memory?: { usedJSHeapSize: number; jsHeapSizeLimit: number } }).memory;
+      if (memory) {
+        memoryUsed = memory.usedJSHeapSize / 1048576; // Convert to MB
+        memoryLimit = memory.jsHeapSizeLimit / 1048576;
+      }
     }
 
     setStats({

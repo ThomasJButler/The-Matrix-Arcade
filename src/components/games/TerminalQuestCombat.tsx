@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Swords, Shield, Zap, Heart, AlertTriangle } from 'lucide-react';
 import { Enemy } from './TerminalQuestContent';
@@ -80,21 +80,24 @@ export default function TerminalQuestCombat({
     setIsAnimating(true);
     
     switch (item) {
-      case 'health_pack':
+      case 'health_pack': {
         const healAmount = 50;
         setCurrentPlayerHealth(prev => Math.min(playerHealth, prev + healAmount));
         setCombatLog(prev => [...prev, `Health Pack used! +${healAmount} HP`]);
         break;
-      case 'emp_device':
+      }
+      case 'emp_device': {
         const empDamage = 40;
         setEnemyHealth(prev => Math.max(0, prev - empDamage));
         setCombatLog(prev => [...prev, `EMP blast deals ${empDamage} damage!`]);
         break;
-      case 'ally_beacon':
+      }
+      case 'ally_beacon': {
         const allyDamage = 25;
         setEnemyHealth(prev => Math.max(0, prev - allyDamage));
         setCombatLog(prev => [...prev, `Ally arrives and deals ${allyDamage} damage!`]);
         break;
+      }
     }
     
     setTimeout(() => enemyTurn(), 1500);

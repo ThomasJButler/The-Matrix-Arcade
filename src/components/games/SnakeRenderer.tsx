@@ -11,11 +11,6 @@ interface SnakeRendererProps {
   gameState: GameState;
   gridSize: number;
   cellSize: number;
-  level: number;
-  combo: number;
-  onFoodCollected?: (x: number, y: number, color: string) => void;
-  onPowerUpCollected?: (x: number, y: number) => void;
-  onCollision?: (x: number, y: number) => void;
 }
 
 const POWER_UP_COLORS: Record<NonNullable<PowerUpType>, string> = {
@@ -50,12 +45,7 @@ export default function SnakeRenderer({
   activePowerUp,
   gameState,
   gridSize,
-  cellSize,
-  level,
-  combo,
-  onFoodCollected,
-  onPowerUpCollected,
-  onCollision
+  cellSize
 }: SnakeRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const backgroundCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -71,8 +61,6 @@ export default function SnakeRenderer({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let matrixInterval: NodeJS.Timeout;
-
     const drawMatrixRain = () => {
       ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -83,7 +71,7 @@ export default function SnakeRenderer({
       }
     };
 
-    matrixInterval = setInterval(drawMatrixRain, 50);
+    const matrixInterval = setInterval(drawMatrixRain, 50);
 
     return () => {
       clearInterval(matrixInterval);

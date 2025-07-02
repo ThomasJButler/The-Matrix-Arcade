@@ -22,7 +22,7 @@ export const useAchievementManager = () => {
       .filter(a => a.unlocked)
       .map(a => a.id);
     previousAchievements.current = new Set(unlockedIds);
-  }, []);
+  }, [saveSystem.achievements]);
 
   // Check for new achievements
   useEffect(() => {

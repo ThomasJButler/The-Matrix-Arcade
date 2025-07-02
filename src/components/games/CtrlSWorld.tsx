@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Terminal as TerminalIcon, ChevronRight, Info, Play, Pause, Maximize, Minimize, Gamepad2, Coffee } from 'lucide-react';
+import { Terminal as TerminalIcon, ChevronRight, Info, Play, Pause, Maximize, Minimize, Gamepad2 } from 'lucide-react';
 import CtrlSWorldInteractive from './CtrlSWorldInteractive';
 
 type StoryNode = {

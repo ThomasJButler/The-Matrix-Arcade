@@ -7,8 +7,7 @@ import {
   Volume1, 
   Settings, 
   X,
-  Play,
-  Pause
+  Play
 } from 'lucide-react';
 import { useSoundSystem, SoundConfig } from '../../hooks/useSoundSystem';
 
@@ -23,7 +22,7 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
   onClose, 
   compact = false 
 }) => {
-  const { config, updateConfig, playSFX, playMusic, stopMusic, soundLibrary } = useSoundSystem();
+  const { config, updateConfig, playSFX, playMusic, stopMusic } = useSoundSystem();
   const [testingSound, setTestingSound] = useState<string | null>(null);
 
   const handleVolumeChange = (key: keyof SoundConfig, value: number) => {

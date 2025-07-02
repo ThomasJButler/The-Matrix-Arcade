@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Play, Pause, RotateCw, Zap, Shield, Clock, Crosshair } from 'lucide-react';
+import { RotateCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSoundSynthesis } from '../../hooks/useSoundSynthesis';
 import { useObjectPool, createProjectile, createEnemy, createParticle } from '../../hooks/useObjectPool';
@@ -29,12 +29,12 @@ const ENEMY_TYPES = {
 };
 
 // Power-up types
-const POWER_UPS = {
-  rapidFire: { icon: '⚡', duration: 5000, color: '#ffff00' },
-  shield: { icon: '🛡️', duration: 8000, color: '#00ffff' },
-  timeSlow: { icon: '⏱️', duration: 5000, color: '#ff00ff' },
-  codeBomb: { icon: '💣', instant: true, color: '#ff8800' }
-};
+// const POWER_UPS = {
+//   rapidFire: { icon: '⚡', duration: 5000, color: '#ffff00' },
+//   shield: { icon: '🛡️', duration: 8000, color: '#00ffff' },
+//   timeSlow: { icon: '⏱️', duration: 5000, color: '#ff00ff' },
+//   codeBomb: { icon: '💣', instant: true, color: '#ff8800' }
+// };
 
 // Player ship ASCII art
 const PLAYER_SHIP = [
@@ -61,8 +61,12 @@ interface GameState {
   timeScale: number;
 }
 
+interface AchievementManager {
+  unlockAchievement(gameId: string, achievementId: string): void;
+}
+
 interface MatrixInvadersProps {
-  achievementManager?: any;
+  achievementManager?: AchievementManager;
 }
 
 export default function MatrixInvaders({ achievementManager }: MatrixInvadersProps) {
@@ -91,11 +95,11 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
   });
   
   // Hooks
-  const { synthLaser, synthExplosion, synthPowerUp, synthDrum } = useSoundSynthesis();
+  const { synthLaser, synthExplosion, synthDrum } = useSoundSynthesis();
   const projectilePool = useObjectPool({ create: createProjectile, maxSize: 100 });
   const enemyPool = useObjectPool({ create: createEnemy, maxSize: 100 });
   const particlePool = useObjectPool({ create: createParticle, maxSize: 500 });
-  const { cullObjects } = useViewportCulling(CANVAS_WIDTH, CANVAS_HEIGHT);
+  useViewportCulling(CANVAS_WIDTH, CANVAS_HEIGHT);
   const { trackDrawCall, trackActiveObjects, PerformanceOverlay } = usePerformanceMonitor({ showOverlay: false });
   
   // Initialize Matrix rain
@@ -517,7 +521,7 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [state.gameOver, state.paused]);
+  }, [state.gameOver, state.paused, gameLoop, spawnWave]);
   
   // Save high score
   useEffect(() => {

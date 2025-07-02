@@ -13,7 +13,7 @@ const mockCanvasContext = {
   fill: vi.fn(),
 };
 
-HTMLCanvasElement.prototype.getContext = vi.fn(() => mockCanvasContext) as any;
+HTMLCanvasElement.prototype.getContext = vi.fn(() => mockCanvasContext) as unknown as typeof HTMLCanvasElement.prototype.getContext;
 
 // Mock requestAnimationFrame
 let rafCallbacks: FrameRequestCallback[] = [];
@@ -133,13 +133,13 @@ describe('TransitionParticles Component', () => {
   });
 
   it('handles missing canvas context gracefully', () => {
-    HTMLCanvasElement.prototype.getContext = vi.fn(() => null) as any;
+    HTMLCanvasElement.prototype.getContext = vi.fn(() => null) as unknown as typeof HTMLCanvasElement.prototype.getContext;
     
     // Should not throw
     expect(() => render(<TransitionParticles />)).not.toThrow();
     
     // Restore mock
-    HTMLCanvasElement.prototype.getContext = vi.fn(() => mockCanvasContext) as any;
+    HTMLCanvasElement.prototype.getContext = vi.fn(() => mockCanvasContext) as unknown as typeof HTMLCanvasElement.prototype.getContext;
   });
 
   it('updates particle positions on each frame', () => {

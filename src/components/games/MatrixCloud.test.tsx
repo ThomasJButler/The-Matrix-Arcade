@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import MatrixCloud from './MatrixCloud';
 
 // Mock AudioContext
@@ -34,7 +34,7 @@ const mockAudioContext = {
   close: vi.fn()
 };
 
-global.AudioContext = vi.fn(() => mockAudioContext) as any;
+global.AudioContext = vi.fn(() => mockAudioContext) as unknown as typeof AudioContext;
 
 // Mock localStorage
 const localStorageMock = {
@@ -42,7 +42,7 @@ const localStorageMock = {
   setItem: vi.fn(),
   clear: vi.fn()
 };
-global.localStorage = localStorageMock as any;
+global.localStorage = localStorageMock as Storage;
 
 // Mock canvas context
 const mockCanvasContext = {
@@ -85,7 +85,7 @@ global.requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
   return ++rafId;
 });
 
-global.cancelAnimationFrame = vi.fn((id: number) => {
+global.cancelAnimationFrame = vi.fn(() => {
   // Remove callback if needed
 });
 
@@ -104,7 +104,7 @@ describe('MatrixCloud', () => {
     rafId = 0;
     
     // Mock canvas getContext
-    HTMLCanvasElement.prototype.getContext = vi.fn(() => mockCanvasContext) as any;
+    HTMLCanvasElement.prototype.getContext = vi.fn(() => mockCanvasContext) as unknown as typeof HTMLCanvasElement.prototype.getContext;
     
     // Mock Math.random for predictable tests
     vi.spyOn(Math, 'random').mockReturnValue(0.5);
