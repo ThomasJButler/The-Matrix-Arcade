@@ -262,6 +262,15 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
     };
   }, []);
 
+  const addScreenShake = useCallback((intensity: number) => {
+    setScreenShake({
+      x: (Math.random() - 0.5) * intensity,
+      y: (Math.random() - 0.5) * intensity
+    });
+    
+    setTimeout(() => setScreenShake({ x: 0, y: 0 }), 50);
+  }, []);
+
   const spawnBoss = useCallback((level: number) => {
     let bossType: BossType;
     if (level >= 15) bossType = 'architect';
@@ -339,15 +348,6 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
       vy: newVy,
       attackTimer: boss.attackTimer + deltaTime
     };
-  }, []);
-
-  const addScreenShake = useCallback((intensity: number) => {
-    setScreenShake({
-      x: (Math.random() - 0.5) * intensity,
-      y: (Math.random() - 0.5) * intensity
-    });
-    
-    setTimeout(() => setScreenShake({ x: 0, y: 0 }), 50);
   }, []);
 
   const spawnPowerUp = useCallback(() => {

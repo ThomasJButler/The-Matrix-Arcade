@@ -242,7 +242,17 @@ export function useSoundSystem() {
 
   // Initialize audio context and setup
   const initializeAudio = useCallback(async () => {
-    if (audioContextRef.current) return audioContextRef.current;
+    // Check if context exists and its state
+    if (audioContextRef.current) {
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+      if (audioContextRef.current.state === 'closed') {
+        audioContextRef.current = null;
+        return null;
+      }
+      return audioContextRef.current;
+    }
 
     try {
       const AudioContext = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -269,7 +279,7 @@ export function useSoundSystem() {
 
       // Create reverb node
       const convolver = audioContext.createConvolver();
-      const reverbBuffer = createReverbBuffer(audioContext, 2, 44100, 1.5);
+      const reverbBuffer = createReverbBuffer(audioContext, 2, audioContext.sampleRate, 1.5);
       convolver.buffer = reverbBuffer;
       reverbRef.current = convolver;
 
@@ -297,6 +307,9 @@ export function useSoundSystem() {
     }
 
     try {
+      // Check if context is still valid
+      if (audioContext.state === 'closed') return;
+      
       // Create oscillator
       const oscillator = audioContext.createOscillator();
       oscillator.type = soundConfig.oscillatorType;
@@ -377,6 +390,7 @@ export function useSoundSystem() {
     try {
       const playSequence = () => {
         if (currentMusicRef.current !== sequenceType) return; // Check if music changed
+        if (audioContext.state === 'closed') return; // Check if context is closed
         
         let time = audioContext.currentTime;
         const noteDuration = 60 / sequence.tempo; // Base note duration
@@ -453,6 +467,23 @@ export function useSoundSystem() {
     }
   }, [config]);
 
+  // Toggle mute for all sounds
+  const toggleMute = useCallback(() => {
+    const newConfig = {
+      music: !config.music && !config.sfx ? true : false,
+      sfx: !config.music && !config.sfx ? true : false
+    };
+    updateConfig(newConfig);
+    
+    // Stop music if muting
+    if (config.music && !newConfig.music) {
+      stopMusic();
+    }
+  }, [config.music, config.sfx, updateConfig, stopMusic]);
+
+  // Check if muted
+  const isMuted = !config.music && !config.sfx;
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -469,6 +500,8 @@ export function useSoundSystem() {
     playSFX,
     playMusic,
     stopMusic,
+    toggleMute,
+    isMuted,
     isInitialized: !!audioContextRef.current,
     soundLibrary: Object.keys(SOUND_LIBRARY),
     musicSequences: Object.keys(MUSIC_SEQUENCES)

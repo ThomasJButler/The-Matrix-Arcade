@@ -136,6 +136,7 @@ export const useAchievementManager = () => {
   const getAchievements = useCallback(() => {
     return saveSystem.achievements.map(achievement => ({
       ...achievement,
+      unlocked: achievement.unlocked || false,
       progress: achievement.progress || 0,
       maxProgress: achievement.maxProgress || 1,
       percentComplete: achievement.maxProgress 

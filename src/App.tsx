@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './styles/theme.css'; // Custom theme.css for the insane styling
 import './styles/animations.css';
@@ -15,6 +15,9 @@ import {
   Settings,
   Save,
   Crosshair,
+  X,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import SnakeClassic from './components/games/SnakeClassic';
 import VortexPong from './components/games/VortexPong';
@@ -28,8 +31,10 @@ import { AchievementQueue } from './components/ui/AchievementNotification';
 import { AchievementDisplay } from './components/ui/AchievementDisplay';
 import { PWAInstallPrompt } from './components/ui/PWAInstallPrompt';
 import { PWAUpdatePrompt } from './components/ui/PWAUpdatePrompt';
+import { MobileWarning } from './components/ui/MobileWarning';
 import { useSoundSystem } from './hooks/useSoundSystem';
 import { useAchievementManager } from './hooks/useAchievementManager';
+import { useMobileDetection } from './hooks/useMobileDetection';
 
 function App() {
   const [selectedGame, setSelectedGame] = useState<number>(0);
@@ -46,8 +51,12 @@ function App() {
   const footerRef = useRef<HTMLDivElement>(null);
   
   // Initialize sound system and achievement manager
-  const { playSFX, playMusic, stopMusic } = useSoundSystem();
+  const { playSFX, playMusic, stopMusic, toggleMute, isMuted, config: soundConfig, updateConfig } = useSoundSystem();
   const achievementManager = useAchievementManager();
+  
+  // Mobile detection
+  const { isMobile, isTablet } = useMobileDetection();
+  const showMobileWarning = isMobile || isTablet;
 
   const games = [
     {
@@ -179,6 +188,26 @@ function App() {
     };
   }, [isPlaying]);
   
+  // Game selection functions
+  const selectGame = useCallback((index: number) => {
+    const direction = index > selectedGame ? 'right' : 'left';
+    setTransitionDirection(direction);
+    setIsTransitioning(true);
+    setTimeout(() => setIsTransitioning(false), 600);
+    setShowNav(false);
+    setSelectedGame(index);
+    setIsPlaying(false);
+    playSFX('menu');
+  }, [selectedGame, playSFX]);
+
+  const handlePrevious = useCallback(() => {
+    selectGame(selectedGame === 0 ? games.length - 1 : selectedGame - 1);
+  }, [selectedGame, selectGame]);
+
+  const handleNext = useCallback(() => {
+    selectGame(selectedGame === games.length - 1 ? 0 : selectedGame + 1);
+  }, [selectedGame, selectGame]);
+  
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -190,35 +219,46 @@ function App() {
         e.preventDefault();
         achievementManager.toggleDisplay();
       }
+      
+      // ESC key to exit games
+      if (e.key === 'Escape' && isPlaying) {
+        e.preventDefault();
+        setIsPlaying(false);
+        stopMusic();
+        playSFX('menu');
+      }
+      
+      // Arrow keys for game navigation (when not playing)
+      if (!isPlaying && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+        if (e.key === 'ArrowLeft') {
+          handlePrevious();
+        } else {
+          handleNext();
+        }
+      }
+      
+      // Enter key to start game
+      if (!isPlaying && e.key === 'Enter' && !showMobileWarning) {
+        e.preventDefault();
+        setIsPlaying(true);
+        playSFX('score');
+        setTimeout(() => playMusic('gameplay'), 500);
+      }
     };
     
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isPlaying, achievementManager]);
-
-  const handlePrevious = () => {
-    selectGame(selectedGame === 0 ? games.length - 1 : selectedGame - 1);
-  };
-
-  const handleNext = () => {
-    selectGame(selectedGame === games.length - 1 ? 0 : selectedGame + 1);
-  };
-
-  const selectGame = (index: number) => {
-    const direction = index > selectedGame ? 'right' : 'left';
-    setTransitionDirection(direction);
-    setIsTransitioning(true);
-    setTimeout(() => setIsTransitioning(false), 600);
-    setShowNav(false);
-    setSelectedGame(index);
-    setIsPlaying(false);
-    playSFX('menu');
-  };
+  }, [isPlaying, achievementManager, stopMusic, playSFX, showMobileWarning, playMusic, handlePrevious, handleNext]);
 
   const GameComponent = games[selectedGame].component;
 
   return (
-    <div className="min-h-screen flex flex-col bg-black text-green-500">
+    <>
+      {/* Mobile Warning */}
+      {showMobileWarning && <MobileWarning />}
+      
+      <div className="h-screen flex flex-col bg-black text-green-500 overflow-hidden">
       {/* Header */}
       <header
         ref={headerRef}
@@ -241,7 +281,7 @@ function App() {
                 THE MATRIX ARCADE
               </h1>
               <p className="text-xs text-green-400 tracking-widest">
-                SYSTEM v1.0.2
+                SYSTEM v1.0.5
               </p>
             </a>
             </div>
@@ -254,6 +294,36 @@ function App() {
             >
               <Save className="w-5 h-5" />
             </button>
+            <div className="relative group">
+              <button
+                onClick={toggleMute}
+                className={`p-2 rounded transition-colors border backdrop-blur-sm ${
+                  isMuted 
+                    ? 'bg-red-900/50 hover:bg-red-800 border-red-500/30' 
+                    : 'bg-green-900/50 hover:bg-green-800 border-green-500/30'
+                }`}
+                title={isMuted ? "Unmute Sound" : "Mute Sound"}
+              >
+                {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+              </button>
+              
+              {/* Volume Slider Popup */}
+              <div className="absolute top-full right-0 mt-2 p-3 bg-gray-900 border border-green-500/30 rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity shadow-xl z-50">
+                <div className="flex items-center gap-2 min-w-[150px]">
+                  <Volume2 className="w-4 h-4 text-green-400" />
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={soundConfig.masterVolume}
+                    onChange={(e) => updateConfig({ masterVolume: parseFloat(e.target.value) })}
+                    className="flex-1 slider"
+                  />
+                  <span className="text-xs text-green-400 min-w-[3ch]">{Math.round(soundConfig.masterVolume * 100)}%</span>
+                </div>
+              </div>
+            </div>
             <button
               onClick={() => setShowAudioSettings(!showAudioSettings)}
               className="p-2 bg-green-900/50 rounded hover:bg-green-800 transition-colors border border-green-500/30 backdrop-blur-sm"
@@ -294,7 +364,27 @@ function App() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-hidden">
-        <div className="relative w-full max-w-4xl mx-auto h-full flex flex-col">
+        {/* Fullscreen Game View */}
+        {isPlaying && GameComponent ? (
+          <div className="relative w-full h-full">
+            <GameComponent achievementManager={achievementManager} />
+            
+            {/* Floating Exit Button */}
+            <button
+              onClick={() => {
+                setIsPlaying(false);
+                stopMusic();
+                playSFX('menu');
+              }}
+              className="absolute top-4 right-4 z-50 p-3 bg-red-900/90 hover:bg-red-700 rounded-lg border-2 border-red-500/80 backdrop-blur-sm transition-all group shadow-lg hover:shadow-red-500/50 hover:scale-110"
+              title="Exit Game (ESC)"
+            >
+              <X className="w-6 h-6 group-hover:rotate-90 transition-transform" />
+              <span className="absolute -bottom-6 right-0 text-xs text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">ESC</span>
+            </button>
+          </div>
+        ) : (
+          <div className="relative w-full max-w-6xl mx-auto h-full flex flex-col justify-center py-4 px-4 lg:py-8 lg:px-8">
           {/* Matrix Rain Effect */}
           <div className="absolute inset-0 opacity-20 pointer-events-none overflow-hidden">
             {[...Array(50)].map((_, i) => (
@@ -322,9 +412,9 @@ function App() {
           >
             {/*  */}
             <div className="game-container">
-              <div className="relative bg-gray-900 rounded-3xl p-8 border-4 border-green-500 shadow-[0_0_50px_rgba(0,255,0,0.3)]">
+              <div className="relative bg-gray-900 rounded-3xl p-6 lg:p-10 border-4 border-green-500 shadow-[0_0_50px_rgba(0,255,0,0.3)]">
                 {/* Game Display */}
-                <div className="relative aspect-video mb-6 rounded-lg overflow-hidden border-2 border-green-500">
+                <div className="relative aspect-video mb-4 lg:mb-6 rounded-lg overflow-hidden border-2 border-green-500">
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={selectedGame}
@@ -347,25 +437,30 @@ function App() {
                 <div className="flex items-center justify-between gap-4">
                   <button
                     onClick={handlePrevious}
-                    className="p-2 hover:bg-green-900 rounded-full transition-colors transform hover:scale-110"
+                    className="p-2 lg:p-3 hover:bg-green-900 rounded-full transition-colors transform hover:scale-110"
                     title="Previous game"
                   >
-                    <ChevronLeft className="w-8 h-8" />
+                    <ChevronLeft className="w-8 h-8 lg:w-10 lg:h-10" />
                   </button>
 
                   <div className="flex-1 text-center">
                     <div className="flex items-center justify-center gap-3 mb-2">
-                      {games[selectedGame].icon}
-                      <h2 className="text-xl font-mono">
+                      <div className="lg:scale-125 xl:scale-150">
+                        {games[selectedGame].icon}
+                      </div>
+                      <h2 className="text-xl lg:text-2xl xl:text-3xl font-mono">
                         {games[selectedGame].title}
                       </h2>
                     </div>
-                    <p className="text-green-400 font-mono text-sm mb-4">
+                    <p className="text-green-400 font-mono text-sm lg:text-base mb-4 lg:mb-6">
                       {games[selectedGame].description}
                     </p>
                     {typeof GameComponent !== 'undefined' && (
                       <button
                         onClick={() => {
+                          // Don't allow playing on mobile
+                          if (showMobileWarning) return;
+                          
                           setIsPlaying(!isPlaying);
                           playSFX(isPlaying ? 'menu' : 'score');
                           if (!isPlaying) {
@@ -375,7 +470,7 @@ function App() {
                             stopMusic();
                           }
                         }}
-                        className="px-6 py-2 bg-green-500 text-black font-mono rounded-full hover:bg-green-400 transition-colors flex items-center gap-2 mx-auto transform hover:scale-105"
+                        className="px-6 py-2 lg:px-8 lg:py-3 bg-green-500 text-black font-mono rounded-full hover:bg-green-400 transition-colors flex items-center gap-2 mx-auto transform hover:scale-105 text-base lg:text-lg"
                       >
                         <Play className="w-4 h-4" />
                         {isPlaying ? 'STOP' : 'PLAY'}
@@ -385,16 +480,23 @@ function App() {
 
                   <button
                     onClick={handleNext}
-                    className="p-2 hover:bg-green-900 rounded-full transition-colors transform hover:scale-110"
+                    className="p-2 lg:p-3 hover:bg-green-900 rounded-full transition-colors transform hover:scale-110"
                     title="Next game"
                   >
-                    <ChevronRight className="w-8 h-8" />
+                    <ChevronRight className="w-8 h-8 lg:w-10 lg:h-10" />
                   </button>
+                </div>
+                
+                {/* Keyboard Hints */}
+                <div className="mt-4 text-xs lg:text-sm text-green-400/70 text-center space-y-1">
+                  <p>← → Navigate Games • Enter to Play • ESC to Exit</p>
+                  <p>A for Achievements • V to Toggle Mute</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
+        )}
       </main>
 
       {/* Enhanced Footer */}
@@ -404,7 +506,7 @@ function App() {
       >
         <div className="max-w-4xl mx-auto flex items-center justify-between relative z-10">
           <div className="font-mono text-sm flex items-center gap-4">
-            <p className="tracking-wider">THE MATRIX ARCADE v1.0.2</p>
+            <p className="tracking-wider">THE MATRIX ARCADE v1.0.5</p>
             <div className="h-4 w-px bg-green-500/30"></div>
             <p className="text-green-400">TAKE THE RED PILL!</p>
           </div>
@@ -485,6 +587,7 @@ function App() {
         }
       `}</style>
     </div>
+    </>
   );
 }
 
