@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 
 // Save data structure for each game
 export interface GameSaveData {
@@ -25,6 +25,7 @@ export interface GlobalSaveData {
     terminalQuest: GameSaveData;
     matrixCloud: GameSaveData;
     ctrlSWorld: GameSaveData;
+    matrixInvaders: GameSaveData;
   };
   globalStats: {
     totalPlayTime: number;
@@ -61,7 +62,8 @@ const createDefaultGlobalSave = (): GlobalSaveData => ({
     vortexPong: createDefaultGameSave(),
     terminalQuest: createDefaultGameSave(),
     matrixCloud: createDefaultGameSave(),
-    ctrlSWorld: createDefaultGameSave()
+    ctrlSWorld: createDefaultGameSave(),
+    matrixInvaders: createDefaultGameSave()
   },
   globalStats: {
     totalPlayTime: 0,
@@ -74,44 +76,86 @@ const createDefaultGlobalSave = (): GlobalSaveData => ({
   }
 });
 
-// Achievement definitions
-export const GAME_ACHIEVEMENTS = {
+// Achievement interface
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  icon?: string;
+  game?: string;
+  unlocked?: boolean;
+  unlockedAt?: number;
+  progress?: number;
+  maxProgress?: number;
+}
+
+// Achievement definitions with icons
+export const GAME_ACHIEVEMENTS: Record<string, Achievement[]> = {
   snakeClassic: [
-    { id: 'first_apple', name: 'First Bite', description: 'Eat your first data fragment' },
-    { id: 'score_100', name: 'Century Mark', description: 'Score 100 points' },
-    { id: 'score_500', name: 'Data Hoarder', description: 'Score 500 points' },
-    { id: 'combo_10', name: 'Chain Reaction', description: 'Achieve 10x combo' },
-    { id: 'power_master', name: 'Power User', description: 'Collect 10 power-ups in one game' }
+    { id: 'snake_first_apple', name: 'First Bite', description: 'Eat your first data fragment', icon: '🍎', game: 'Snake Classic' },
+    { id: 'snake_score_100', name: 'Century Mark', description: 'Score 100 points', icon: '💯', game: 'Snake Classic' },
+    { id: 'snake_score_500', name: 'Data Hoarder', description: 'Score 500 points', icon: '💾', game: 'Snake Classic' },
+    { id: 'snake_combo_10', name: 'Chain Reaction', description: 'Achieve 10x combo', icon: '⚡', game: 'Snake Classic' },
+    { id: 'snake_power_master', name: 'Power User', description: 'Collect 10 power-ups in one game', icon: '🔋', game: 'Snake Classic' },
+    { id: 'snake_survivor', name: 'Survival Expert', description: 'Survive for 5 minutes', icon: '⏱️', game: 'Snake Classic' },
+    { id: 'snake_speed_demon', name: 'Speed Demon', description: 'Score 100 points on max speed', icon: '🚀', game: 'Snake Classic' }
   ],
   vortexPong: [
-    { id: 'first_point', name: 'First Strike', description: 'Score your first point' },
-    { id: 'beat_ai', name: 'AI Destroyer', description: 'Defeat the AI opponent' },
-    { id: 'perfect_game', name: 'Flawless Victory', description: 'Win without losing a point' },
-    { id: 'multi_ball_master', name: 'Ball Juggler', description: 'Handle 3 balls simultaneously' },
-    { id: 'combo_king', name: 'Combo King', description: 'Score 5 consecutive paddle hits' }
+    { id: 'pong_first_point', name: 'First Strike', description: 'Score your first point', icon: '🎯', game: 'Vortex Pong' },
+    { id: 'pong_beat_ai', name: 'AI Destroyer', description: 'Defeat the AI opponent', icon: '🤖', game: 'Vortex Pong' },
+    { id: 'pong_perfect_game', name: 'Flawless Victory', description: 'Win without losing a point', icon: '✨', game: 'Vortex Pong' },
+    { id: 'pong_multi_ball', name: 'Ball Juggler', description: 'Handle 3 balls simultaneously', icon: '🎱', game: 'Vortex Pong' },
+    { id: 'pong_combo_king', name: 'Combo King', description: 'Score 5 consecutive paddle hits', icon: '👑', game: 'Vortex Pong' },
+    { id: 'pong_rally_master', name: 'Rally Master', description: '20 hits in a single rally', icon: '🏓', game: 'Vortex Pong' }
   ],
   terminalQuest: [
-    { id: 'first_choice', name: 'Path Chosen', description: 'Make your first choice' },
-    { id: 'tool_collector', name: 'Tool Collector', description: 'Collect 5 different items' },
-    { id: 'survivor', name: 'Digital Survivor', description: 'Maintain 100% health for 10 choices' },
-    { id: 'code_master', name: 'Code Master', description: 'Achieve 90+ code quality' },
-    { id: 'team_leader', name: 'Team Leader', description: 'Maintain 80+ team morale' }
+    { id: 'quest_first_choice', name: 'Path Chosen', description: 'Make your first choice', icon: '🛤️', game: 'Terminal Quest' },
+    { id: 'quest_tool_collector', name: 'Tool Collector', description: 'Collect 5 different items', icon: '🛠️', game: 'Terminal Quest' },
+    { id: 'quest_survivor', name: 'Digital Survivor', description: 'Maintain 100% health for 10 choices', icon: '❤️', game: 'Terminal Quest' },
+    { id: 'quest_code_master', name: 'Code Master', description: 'Achieve 90+ code quality', icon: '💻', game: 'Terminal Quest' },
+    { id: 'quest_team_leader', name: 'Team Leader', description: 'Maintain 80+ team morale', icon: '👥', game: 'Terminal Quest' },
+    { id: 'quest_combat_victor', name: 'Combat Victor', description: 'Win 10 battles', icon: '⚔️', game: 'Terminal Quest' },
+    { id: 'quest_story_end', name: 'Story Complete', description: 'Reach any ending', icon: '📖', game: 'Terminal Quest' }
   ],
   matrixCloud: [
-    { id: 'first_flight', name: 'Digital Pilot', description: 'Complete your first flight' },
-    { id: 'level_5', name: 'Matrix Navigator', description: 'Reach level 5' },
-    { id: 'boss_slayer', name: 'Agent Destroyer', description: 'Defeat your first boss' },
-    { id: 'power_collector', name: 'Power Seeker', description: 'Collect 20 power-ups' },
-    { id: 'architect_defeat', name: 'Architect\'s Bane', description: 'Defeat the Architect' }
+    { id: 'cloud_first_flight', name: 'Digital Pilot', description: 'Complete your first flight', icon: '✈️', game: 'Matrix Cloud' },
+    { id: 'cloud_level_5', name: 'Matrix Navigator', description: 'Reach level 5', icon: '🧭', game: 'Matrix Cloud' },
+    { id: 'cloud_boss_slayer', name: 'Agent Destroyer', description: 'Defeat your first boss', icon: '💀', game: 'Matrix Cloud' },
+    { id: 'cloud_power_collector', name: 'Power Seeker', description: 'Collect 20 power-ups', icon: '⚡', game: 'Matrix Cloud' },
+    { id: 'cloud_architect_defeat', name: 'Architect\'s Bane', description: 'Defeat the Architect', icon: '🏛️', game: 'Matrix Cloud' },
+    { id: 'cloud_all_bosses', name: 'Boss Master', description: 'Defeat all three bosses', icon: '👾', game: 'Matrix Cloud' },
+    { id: 'cloud_high_flyer', name: 'High Flyer', description: 'Reach altitude 1000', icon: '🌟', game: 'Matrix Cloud' }
+  ],
+  matrixInvaders: [
+    { id: 'invaders_first_kill', name: 'Code Breaker', description: 'Destroy your first invader', icon: '💥', game: 'Matrix Invaders' },
+    { id: 'invaders_wave_5', name: 'Wave Survivor', description: 'Reach wave 5', icon: '🌊', game: 'Matrix Invaders' },
+    { id: 'invaders_combo_10', name: 'Combo Master', description: 'Achieve a 10x combo', icon: '🔥', game: 'Matrix Invaders' },
+    { id: 'invaders_bullet_time', name: 'Time Bender', description: 'Use bullet time 5 times', icon: '⏱️', game: 'Matrix Invaders' },
+    { id: 'invaders_perfect_wave', name: 'Flawless Defense', description: 'Complete a wave without taking damage', icon: '🛡️', game: 'Matrix Invaders' },
+    { id: 'invaders_boss_defeat', name: 'System Override', description: 'Defeat a boss enemy', icon: '👾', game: 'Matrix Invaders' },
+    { id: 'invaders_high_score', name: 'Elite Hacker', description: 'Score over 10,000 points', icon: '🏆', game: 'Matrix Invaders' }
   ],
   ctrlSWorld: [
-    { id: 'coffee_addict', name: 'Caffeine Dependent', description: 'Reach 100% coffee level' },
-    { id: 'clean_coder', name: 'Clean Code Master', description: 'Achieve 90+ code quality' },
-    { id: 'choice_master', name: 'Decision Maker', description: 'Make 50 choices' },
-    { id: 'story_complete', name: 'Epic Journey', description: 'Complete the main storyline' },
-    { id: 'collector', name: 'Item Hoarder', description: 'Collect 10 different items' }
+    { id: 'ctrl_coffee_addict', name: 'Caffeine Dependent', description: 'Reach 100% coffee level', icon: '☕', game: 'CTRL-S World' },
+    { id: 'ctrl_clean_coder', name: 'Clean Code Master', description: 'Achieve 90+ code quality', icon: '✨', game: 'CTRL-S World' },
+    { id: 'ctrl_choice_master', name: 'Decision Maker', description: 'Make 50 choices', icon: '🎯', game: 'CTRL-S World' },
+    { id: 'ctrl_story_complete', name: 'Epic Journey', description: 'Complete the main storyline', icon: '🏆', game: 'CTRL-S World' },
+    { id: 'ctrl_collector', name: 'Item Hoarder', description: 'Collect 10 different items', icon: '🎒', game: 'CTRL-S World' },
+    { id: 'ctrl_voice_master', name: 'Voice Commander', description: 'Use Shatner voice for 5 minutes', icon: '🎤', game: 'CTRL-S World' },
+    { id: 'ctrl_bug_free', name: 'Bug Free', description: 'Achieve 0 bugs', icon: '🐛', game: 'CTRL-S World' }
   ]
 };
+
+// Global achievements (meta achievements)
+export const GLOBAL_ACHIEVEMENTS: Achievement[] = [
+  { id: 'global_first_game', name: 'Welcome to the Matrix', description: 'Play your first game', icon: '🎮' },
+  { id: 'global_all_games', name: 'Matrix Master', description: 'Play all 5 games', icon: '🌐' },
+  { id: 'global_10_achievements', name: 'Achievement Hunter', description: 'Unlock 10 achievements', icon: '🏅' },
+  { id: 'global_25_achievements', name: 'Achievement Expert', description: 'Unlock 25 achievements', icon: '🥇' },
+  { id: 'global_50_achievements', name: 'Achievement Legend', description: 'Unlock 50 achievements', icon: '👑' },
+  { id: 'global_night_owl', name: 'Night Owl', description: 'Play after midnight', icon: '🦉' },
+  { id: 'global_dedicated', name: 'Dedicated Player', description: 'Play 7 days in a row', icon: '📅' }
+];
 
 const STORAGE_KEY = 'matrix-arcade-save-data';
 const BACKUP_KEY = 'matrix-arcade-backup';
@@ -356,6 +400,37 @@ export function useSaveSystem() {
     return saveToDisk(saveData);
   }, [saveData, saveToDisk]);
 
+  // Get all achievements with unlock status
+  const achievements = useMemo(() => {
+    const allAchievements: Achievement[] = [];
+    
+    // Add game achievements
+    Object.entries(GAME_ACHIEVEMENTS).forEach(([gameId, gameAchievements]) => {
+      gameAchievements.forEach(achievement => {
+        const isUnlocked = saveData.games[gameId as keyof GlobalSaveData['games']]?.achievements.includes(achievement.id);
+        const unlockedAt = isUnlocked ? saveData.games[gameId as keyof GlobalSaveData['games']].lastPlayed : undefined;
+        
+        allAchievements.push({
+          ...achievement,
+          unlocked: isUnlocked,
+          unlockedAt
+        });
+      });
+    });
+    
+    // Add global achievements
+    GLOBAL_ACHIEVEMENTS.forEach(achievement => {
+      const isUnlocked = saveData.globalStats.globalAchievements.includes(achievement.id);
+      allAchievements.push({
+        ...achievement,
+        unlocked: isUnlocked,
+        unlockedAt: isUnlocked ? Date.now() : undefined
+      });
+    });
+    
+    return allAchievements;
+  }, [saveData]);
+
   // Get achievements for a game
   const getGameAchievements = useCallback((gameId: keyof GlobalSaveData['games']) => {
     return GAME_ACHIEVEMENTS[gameId] || [];
@@ -375,6 +450,7 @@ export function useSaveSystem() {
     saveData,
     isLoading,
     error,
+    achievements,
     updateGameSave,
     unlockAchievement,
     updateGlobalStats,

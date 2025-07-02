@@ -166,7 +166,11 @@ const initialGameState: GameState = {
   bossTimer: 0
 };
 
-export default function MatrixCloud() {
+interface MatrixCloudProps {
+  achievementManager?: any;
+}
+
+export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
@@ -177,6 +181,13 @@ export default function MatrixCloud() {
   
   // Sound system integration
   const { playSFX, playMusic, stopMusic } = useSoundSystem();
+  
+  // Achievement function
+  const unlockAchievement = useCallback((gameId: string, achievementId: string) => {
+    if (achievementManager?.unlockAchievement) {
+      achievementManager.unlockAchievement(gameId, achievementId);
+    }
+  }, [achievementManager]);
 
   // Start background music when game starts
   useEffect(() => {
@@ -743,7 +754,7 @@ export default function MatrixCloud() {
         bossTimer: newBossTimer
       };
     });
-  }, [paused, spawnPowerUp, activatePowerUp, handleCollision, playSFX, addScreenShake, spawnBoss, updateBoss, createBossAttack]);
+  }, [paused, spawnPowerUp, activatePowerUp, handleCollision, playSFX, addScreenShake, spawnBoss, updateBoss, createBossAttack, unlockAchievement]);
 
   // Keyboard controls
   useEffect(() => {
