@@ -84,10 +84,10 @@ HTMLCanvasElement.prototype.getContext = vi.fn(function(contextType: string) {
     return createMockContext();
   }
   return null;
-}) as any;
+}) as unknown as typeof HTMLCanvasElement.prototype.getContext;
 
 // Mock AudioContext
-(global as any).AudioContext = vi.fn(() => ({
+(global as Window & { AudioContext?: typeof AudioContext }).AudioContext = vi.fn(() => ({
   createOscillator: vi.fn(() => ({
     connect: vi.fn(),
     frequency: { 

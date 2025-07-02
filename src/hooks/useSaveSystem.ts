@@ -13,7 +13,7 @@ export interface GameSaveData {
     bossesDefeated?: number;
   };
   lastPlayed: number;
-  preferences?: Record<string, any>;
+  preferences?: Record<string, unknown>;
 }
 
 // Global save data structure

@@ -140,7 +140,7 @@ export function useViewportCulling<T extends CullableObject>(
     
     return objects.filter(obj => {
       // Simple frustum check
-      const distanceZ = cameraZ - (obj as any).z || cameraZ;
+      const distanceZ = cameraZ - ((obj as CullableObject & { z?: number }).z || cameraZ);
       const scale = cameraZ / distanceZ;
       
       const projectedX = obj.x * scale;

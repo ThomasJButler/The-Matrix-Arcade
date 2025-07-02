@@ -22,6 +22,7 @@ const MAX_COMBO = 5.0;
 const GLOW_COLORS = ['#00ff00', '#00cc00', '#009900'];
 const MATRIX_CHARS = '01アイウエオカキクケコサシスセソタチツテトナニヌネノ';
 const POWER_UP_TYPES = ['shield', 'timeSlow', 'extraLife', 'doublePoints'] as const;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const BOSS_TYPES = ['agent_smith', 'sentinel', 'architect'] as const;
 
 type PowerUpType = typeof POWER_UP_TYPES[number];
@@ -166,8 +167,12 @@ const initialGameState: GameState = {
   bossTimer: 0
 };
 
+interface AchievementManager {
+  unlockAchievement(gameId: string, achievementId: string): void;
+}
+
 interface MatrixCloudProps {
-  achievementManager?: any;
+  achievementManager?: AchievementManager;
 }
 
 export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {

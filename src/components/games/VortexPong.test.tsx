@@ -16,15 +16,15 @@ vi.mock('../../hooks/usePowerUps', () => ({
 // Mock framer-motion
 vi.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-    canvas: ({ children, ...props }: any) => <canvas {...props}>{children}</canvas>,
+    div: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => <div {...props}>{children}</div>,
+    canvas: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => <canvas {...props}>{children}</canvas>,
   },
-  AnimatePresence: ({ children }: any) => <>{children}</>,
+  AnimatePresence: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
 }));
 
 // Mock UI components
 vi.mock('../ui/PowerUpIndicator', () => ({
-  PowerUpIndicator: ({ type, active }: any) => (
+  PowerUpIndicator: ({ type, active }: { type: string; active: boolean }) => (
     <div data-testid={`powerup-${type}`} data-active={active}>
       PowerUp: {type}
     </div>
@@ -32,7 +32,7 @@ vi.mock('../ui/PowerUpIndicator', () => ({
 }));
 
 vi.mock('../ui/ScoreBoard', () => ({
-  ScoreBoard: ({ score }: any) => (
+  ScoreBoard: ({ score }: { score: { player: number; ai: number } }) => (
     <div data-testid="scoreboard">
       Player: {score.player} | AI: {score.ai}
     </div>
@@ -40,7 +40,7 @@ vi.mock('../ui/ScoreBoard', () => ({
 }));
 
 vi.mock('../ui/GameOverModal', () => ({
-  GameOverModal: ({ isOpen, winner, score, onRestart }: any) => (
+  GameOverModal: ({ isOpen, winner, onRestart }: { isOpen: boolean; winner: string; onRestart: () => void }) => (
     isOpen ? (
       <div data-testid="game-over-modal">
         Winner: {winner}
@@ -61,7 +61,7 @@ global.cancelAnimationFrame = vi.fn();
 
 describe('VortexPong', () => {
   let gameLoopCallback: ((deltaTime: number) => void) | null = null;
-  let mockPowerUps: any;
+  let mockPowerUps: ReturnType<typeof usePowerUps>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -77,10 +77,10 @@ describe('VortexPong', () => {
       activatePowerUp: vi.fn()
     };
     
-    (usePowerUps as any).mockReturnValue(mockPowerUps);
+    vi.mocked(usePowerUps).mockReturnValue(mockPowerUps);
     
     // Setup game loop mock
-    (useGameLoop as any).mockImplementation((callback: (deltaTime: number) => void) => {
+    vi.mocked(useGameLoop).mockImplementation((callback: (deltaTime: number) => void) => {
       gameLoopCallback = callback;
       return { isRunning: true, togglePause: vi.fn(), reset: vi.fn() };
     });

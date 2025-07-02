@@ -29,7 +29,7 @@ const mockAudioContext = {
   close: vi.fn()
 };
 
-global.AudioContext = vi.fn(() => mockAudioContext) as any;
+global.AudioContext = vi.fn(() => mockAudioContext) as unknown as typeof AudioContext;
 
 // Mock localStorage
 const localStorageMock = {
@@ -37,14 +37,15 @@ const localStorageMock = {
   setItem: vi.fn(),
   clear: vi.fn()
 };
-global.localStorage = localStorageMock as any;
+global.localStorage = localStorageMock as Storage;
 
 // Helper to simulate game ticks
 let gameLoopCallback: (() => void) | null = null;
 let gameLoopDelay: number | null = null;
 
 // Capture the game loop callback from useInterval
-(useInterval as any).mockImplementation((callback: () => void, delay: number | null) => {
+const mockedUseInterval = vi.mocked(useInterval);
+mockedUseInterval.mockImplementation((callback: () => void, delay: number | null) => {
   gameLoopCallback = callback;
   gameLoopDelay = delay;
 });
@@ -472,13 +473,13 @@ describe('SnakeClassic', () => {
       // Test with failing AudioContext
       global.AudioContext = vi.fn(() => {
         throw new Error('Audio not supported');
-      }) as any;
+      }) as unknown as typeof AudioContext;
       
       // Should not crash
       expect(() => render(<SnakeClassic />)).not.toThrow();
       
       // Restore mock
-      global.AudioContext = vi.fn(() => mockAudioContext) as any;
+      global.AudioContext = vi.fn(() => mockAudioContext) as unknown as typeof AudioContext;
     });
   });
 

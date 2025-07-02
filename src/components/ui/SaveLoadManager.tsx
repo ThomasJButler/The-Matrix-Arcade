@@ -14,7 +14,7 @@ import {
   FileText,
   Settings
 } from 'lucide-react';
-import { useSaveSystem, GlobalSaveData } from '../../hooks/useSaveSystem';
+import { useSaveSystem } from '../../hooks/useSaveSystem';
 
 interface SaveLoadManagerProps {
   isOpen: boolean;
@@ -255,7 +255,7 @@ export const SaveLoadManager: React.FC<SaveLoadManagerProps> = ({ isOpen, onClos
                         <div>
                           <div className="text-gray-400">Achievements</div>
                           <div className="text-green-400 font-bold">
-                            {gameData.achievements.length} / {getGameAchievements(gameId as any).length}
+                            {gameData.achievements.length} / {getGameAchievements(gameId as GameId).length}
                           </div>
                         </div>
                       </div>

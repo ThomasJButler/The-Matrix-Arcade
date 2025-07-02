@@ -8,7 +8,7 @@ const localStorageMock = {
   setItem: vi.fn(),
   clear: vi.fn()
 };
-global.localStorage = localStorageMock as any;
+global.localStorage = localStorageMock as Storage;
 
 describe('TerminalQuest', () => {
   beforeEach(() => {

@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Terminal as TerminalIcon, ChevronRight, Info, Play, Pause, Maximize, Minimize, Shield, Wifi, Key, AlertTriangle, Cpu, Save, RotateCcw, Map } from 'lucide-react';
-import { EXPANDED_GAME_NODES, ITEM_DESCRIPTIONS, ACHIEVEMENTS, GameNode, Choice, resolveCombat } from './TerminalQuestContent';
+import React, { useState, useEffect } from 'react';
+import { Terminal as TerminalIcon, Info, Shield, Wifi, Key, AlertTriangle, Cpu, Save, RotateCcw, Map as MapIcon } from 'lucide-react';
+import { EXPANDED_GAME_NODES, Choice } from './TerminalQuestContent';
 import { useSoundSystem } from '../../hooks/useSoundSystem';
 import TerminalQuestCombat from './TerminalQuestCombat';
 
@@ -16,158 +16,8 @@ type GameState = {
   choiceCount: number;
 };
 
-const INFO_CONTENT = [
-  "Welcome to Terminal Quest - Code Warriors Edition",
-  "",
-  "✨ Controls:",
-  "- Click choices to navigate the digital labyrinth",
-  "- F: Enter/Exit fullscreen mode",
-  "- I: Toggle the system information panel",
-  "",
-  "🔰 Status Indicators:",
-  "- 🛡️ Digital Integrity: Tracks your health and endurance",
-  "- 📶 Signal Strength: Your stealth rating (lower is better!)",
-  "",
-  "🎒 Inventory Items:",
-  "- Hack Tool: Access restricted nodes with advanced capabilities",
-  "- Support Team: Provides additional defenses when traced",
-  "- Red Pill: Grants recruits the ability to escape the Matrix",
-  "- EMP: Temporarily disables system defenses and agents",
-  "",
-  "🎯 Mission:",
-  "Navigate the simulated Matrix, guide recruits to freedom, and survive.",
-  "Carefully balance stealth, resources, and risk-taking as you make choices.",
-  "",
-  "⚠️ Tip:",
-  "Beware of unexplored paths and unforeseen consequences. The system evolves."
-];
-
 // Use expanded content from TerminalQuestContent.ts
 const GAME_NODES = EXPANDED_GAME_NODES;
-
-// Legacy nodes for reference
-const LEGACY_NODES: Record<string, GameNode> = {
-  start: {
-    id: 'start',
-    ascii: [
-      "########  ##     ## ########   #######   ######  ##    ##",
-      "##     ## ##     ## ##     ## ##     ## ##    ## ##   ## ",
-      "##     ## ##     ## ##     ## ##     ## ##       ##  ##  ",
-      "########  ##     ## ########  ##     ## ##       #####   ",
-      "##        ##     ## ##        ##     ## ##       ##  ##  ",
-      "##        ##     ## ##        ##     ## ##    ## ##   ## ",
-      "##         #######  ##         #######   ######  ##    ##",
-    ],
-    description: "You wake up in a cold, dark terminal, with the light of data streams faintly illuminating the surroundings. What will you do?",
-    choices: [
-      { text: "Explore the terminal's inner code", nextNode: "explore" },
-      { text: "Attempt to summon assistance", nextNode: "help" },
-    ],
-  },
-  explore: {
-    id: 'explore',
-    ascii: [
-      "░█▀▀█ ░█▀▀▄ ░█▀▀▀ ▀▀█▀▀ ░█─░█ ",
-      "░█▀▀▄ ░█─░█ ░█▀▀▀ ─░█── ░█▀▀█ ",
-      "░█▄▄█ ░█▄▄▀ ░█▄▄▄ ─░█── ░█─░█ ",
-    ],
-    description: "The faint glow of a data path reveals fragments of encrypted code streams ahead. The line between discovery and danger narrows.",
-    choices: [
-      { text: "Follow the glowing data path", nextNode: "deeper" },
-      { text: "Retreat and recalibrate your priorities", nextNode: "start" },
-    ],
-  },
-  help: {
-    id: 'help',
-    ascii: [
-      "█▀▀ █▀▀ █▀▀█ █▀▄▀█ █▀▀█ ░█▀▀█ ░█──░█ ",
-      "▀▀█ █▀▀ █──█ █─▀─█ █──█ ░█▄▄█ ░█░█░█ ",
-      "▀▀▀ ▀▀▀ ▀▀▀▀ ▀───▀ ▀▀▀▀ ░█─░█ ░█▄▀▄█ ",
-    ],
-    description: "As your plea for aid echoes into the system, a voice answers: 'Do you seek the key to enlightenment, or the darkness of despair?'",
-    choices: [
-      { text: "Heed the voice's cryptic advice", nextNode: "voice_guidance" },
-      { text: "Reject its riddles and proceed alone", nextNode: "start" },
-    ],
-  },
-  voice_guidance: {
-    id: 'voice_guidance',
-    ascii: [
-      "────█▀▄─▄▀▀▀█─▀─▀▄────█",
-      "────█─▀─█──█─█─█─▀─▄──█",
-      "────▀───▀──▀─▀─▀───▀▀─▀",
-    ],
-    description: "The voice speaks riddles of freedom, warning of unseen traps and choices. It offers coordinates to a secure route. Do you trust it?",
-    choices: [
-      { text: "Follow the voice's suggestion", nextNode: "deeper" },
-      { text: "Discard the advice and blaze your trail", nextNode: "start" },
-    ],
-  },
-  deeper: {
-    id: 'deeper',
-    ascii: [
-      "─████████████████───██████████████─ ",
-      "─██▒▒▒▒▒▒▒▒▒▒▒██───██▒▒▒▒▒▒▒▒▒▒▒██─ ",
-      "─██▒▒████▒▒████▒▒───██▒▒████▒▒████▒▒ ",
-      "─██▒▒██▓▓██▓▓██▒▒───██▒▒██▓▓██▓▓██▒▒ ",
-    ],
-    description: "As you step deeper into the matrix of code, the static flickers and strange distortions ripple through the terminal. Do you proceed?",
-    choices: [
-      { text: "Venture further into the unknown", nextNode: "deeper_branch" },
-      { text: "Stop and analyze your surroundings", nextNode: "analyze" },
-    ],
-  },
-  deeper_branch: {
-    id: 'deeper_branch',
-    ascii: [
-      "▀█▀─█▀▀█ ─█▀▀█ █▀▄▀█ ",
-      "─█──█▄▄█ █▄▄▀▀ █─▀─█ ",
-      "─█──█▄▄█ █▄▄▄▄ ▀───▀ ",
-    ],
-    description: "The system alarms start to chime. Your signal strength begins to drop as firewalls attempt to locate you. What’s your move?",
-    choices: [
-      { text: "Run a cloaking script (requires Hack Tool)", nextNode: "safe_zone", requires: ["hack_tool"] },
-      { text: "Try to brute force past the firewalls", nextNode: "firewall_fight" },
-    ],
-  },
-  analyze: {
-    id: 'analyze',
-    ascii: [
-      "────────█───▄▀█▀▀█▀▄▄───▐█──█──█▄▄▄▄▀▀▄█───█ ",
-      "───────▄▀▀▀▀─▄▀─▐█▌▀▄──▐██──▀▄──────▄▀──▀▄ ",
-      "──────▐▀▄───▐▄▀▌▐▀▌──▄▀─▀▄──▐▀▀▄────▀▄──▌ ",
-    ],
-    description: "You pause to assess the intricate system code and realize patterns to help move further without alarming Agents.",
-    choices: [
-      { text: "Continue with newfound knowledge", nextNode: "deeper_branch", gives: ["hack_tool"] },
-    ],
-  },
-  firewall_fight: {
-    id: 'firewall_fight',
-    ascii: [
-      "████████─▄█ █▀─",
-      "─█▄▀█ █▀█ █ █▀─",
-      "─▀▀ ▀▀▀█▀▀█▄█▄─",
-    ],
-    description: "The system has locked onto your signal! Alarms are blaring, and agents are en route. Digital chaos ensues.",
-    choices: [
-      { text: "Brace for the fight (Lose Health)", nextNode: "system_failure", damage: 50 },
-      { text: "Use EMP to reset the matrix", nextNode: "safe_zone", requires: ["emp"] },
-    ],
-  },
-  safe_zone: {
-    id: 'safe_zone',
-    ascii: [
-      "█▀▄▀█ ▀█─█▀─▄▀▀█ █▀▄▀█ ",
-      "█─▀─█ ─█▄█──▀▀█ █─▀─█ ",
-      "▀───▀ ──▀── ▀▀▀ ▀───▀ ",
-    ],
-    description: "The system's signal fades as you retreat to a safe zone. You are momentarily out of harm’s way. Time to strategize your next move.",
-    choices: [
-      { text: "Rest and plan", nextNode: "start", gives: ["health"] },
-    ],
-  },
-};
 
 const Indicator = ({ title, value, icon }: { title: string; value: number; icon: React.ReactNode }) => {
   return (
@@ -269,8 +119,8 @@ export default function TerminalQuest() {
   // Function for calculating effects from a choice
   const applyChoiceEffects = (state: GameState, choice: Choice): GameState => {
     const updatedInventory = [...state.inventory];
-    let newXP = state.experience + (choice.xp || 0);
-    let newAchievements = [...state.achievements];
+    const newXP = state.experience + (choice.xp || 0);
+    const newAchievements = [...state.achievements];
 
     if (choice.gives) {
       choice.gives.forEach(item => {
@@ -437,7 +287,7 @@ export default function TerminalQuest() {
             className="p-2 hover:bg-green-900 rounded transition-colors"
             title="Return to Hub"
           >
-            <Map className="w-4 h-4" />
+            <MapIcon className="w-4 h-4" />
           </button>
         </div>
       </header>

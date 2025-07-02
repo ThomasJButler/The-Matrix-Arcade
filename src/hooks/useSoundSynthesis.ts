@@ -22,7 +22,7 @@ export function useSoundSynthesis() {
   // Initialize audio context with compression
   const initializeContext = useCallback(async () => {
     if (!audioContextRef.current) {
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioContext = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       const context = new AudioContext();
       audioContextRef.current = context;
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 
 export type PowerUpType = 'bigger_paddle' | 'slower_ball' | 'score_multiplier' | 'multi_ball';
 
@@ -20,7 +20,8 @@ export const usePowerUps = () => {
   });
 
   const spawnPowerUp = useCallback(() => {
-    if (powerUps.length < 2) {
+    setPowerUps(prev => {
+      if (prev.length >= 2) return prev;
       const types: PowerUpType[] = ['bigger_paddle', 'slower_ball', 'score_multiplier', 'multi_ball'];
       const newPowerUp: PowerUp = {
         id: Math.random().toString(),
@@ -29,9 +30,9 @@ export const usePowerUps = () => {
         type: types[Math.floor(Math.random() * types.length)],
         active: true,
       };
-      setPowerUps(prev => [...prev, newPowerUp]);
-    }
-  }, [powerUps.length]);
+      return [...prev, newPowerUp];
+    });
+  }, []);
 
   const activatePowerUp = useCallback((type: PowerUpType) => {
     setActivePowerUps(prev => ({ ...prev, [type]: true }));

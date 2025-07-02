@@ -1,5 +1,4 @@
 import { useCallback, useRef, useEffect } from 'react';
-import { useSoundSystem } from './useSoundSystem';
 
 interface ProceduralSoundParams {
   baseFrequency?: number;
@@ -29,7 +28,7 @@ interface ProceduralSoundParams {
 }
 
 export function useProceduralAudio() {
-  const { playSFX } = useSoundSystem();
+  // const { playSFX } = useSoundSystem(); // Reserved for future use
   const audioContextRef = useRef<AudioContext | null>(null);
   const noiseBufferRef = useRef<AudioBuffer | null>(null);
 
@@ -37,7 +36,7 @@ export function useProceduralAudio() {
   useEffect(() => {
     const initContext = async () => {
       if (!audioContextRef.current) {
-        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        const AudioContext = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
         audioContextRef.current = new AudioContext();
         
         // Create noise buffer for texture sounds

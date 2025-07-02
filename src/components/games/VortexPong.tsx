@@ -102,7 +102,7 @@ export default function VortexPong() {
   // Use custom hooks
   const { powerUps, setPowerUps, activePowerUps, spawnPowerUp, activatePowerUp } = usePowerUps();
   const { explode, createTrail, render: renderParticles } = useParticleSystem();
-  const { playSFX, playMusic, stopMusic } = useSoundSystem();
+  const { playSFX, stopMusic } = useSoundSystem();
 
   // Initialize particles
   useEffect(() => {
@@ -366,7 +366,6 @@ export default function VortexPong() {
       !closest || ball.x > closest.x ? ball : closest, null as Ball | null);
     
     if (closestBall) {
-      const aiTarget = closestBall.y - PADDLE_HEIGHT / 2;
       const maxAiSpeed = Math.min(aiDifficulty, 7); // Cap AI speed
       const aiSpeed = closestBall.vx > 0 ? maxAiSpeed : maxAiSpeed * 0.7; // Slower when ball moving away
       
