@@ -7,8 +7,8 @@ export const useMobileDetection = () => {
   useEffect(() => {
     const checkDevice = () => {
       // Check user agent
-      const userAgent = navigator.userAgent.toLowerCase();
-      const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i;
+      const userAgent = navigator.userAgent?.toLowerCase() || '';
+      const mobileRegex = /android.*mobile|webos|iphone|ipod|blackberry|iemobile|opera mini|windows phone/i;
       const tabletRegex = /ipad|tablet|playbook|silk|(android(?!.*mobile))/i;
       
       const isMobileDevice = mobileRegex.test(userAgent);

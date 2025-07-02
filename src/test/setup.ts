@@ -7,6 +7,18 @@ afterEach(() => {
   cleanup();
 });
 
+// Mock window.scrollTo
+window.scrollTo = vi.fn();
+
+// Mock PWA virtual module
+vi.mock('virtual:pwa-register/react', () => ({
+  useRegisterSW: () => ({
+    needRefresh: [false, vi.fn()],
+    offlineReady: [false, vi.fn()],
+    updateServiceWorker: vi.fn(),
+  }),
+}));
+
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
@@ -139,10 +151,52 @@ HTMLCanvasElement.prototype.getContext = vi.fn(function(contextType: string) {
     oversample: 'none',
     disconnect: vi.fn()
   })),
+  createConvolver: vi.fn(() => ({
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+    buffer: null,
+  })),
+  createAnalyser: vi.fn(() => ({
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+    fftSize: 2048,
+    frequencyBinCount: 1024,
+    getByteFrequencyData: vi.fn(),
+    getByteTimeDomainData: vi.fn(),
+  })),
+  createBuffer: vi.fn((channels, length, sampleRate) => ({
+    length,
+    sampleRate,
+    numberOfChannels: channels,
+    getChannelData: vi.fn(() => new Float32Array(length)),
+  })),
   currentTime: 0,
   destination: {},
   close: vi.fn(),
   resume: vi.fn(),
   suspend: vi.fn(),
-  state: 'running'
+  state: 'running',
+  sampleRate: 48000
 }));
+
+// Mock fullscreen API
+Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', {
+  configurable: true,
+  enumerable: true,
+  writable: true,
+  value: vi.fn()
+});
+
+Object.defineProperty(document, 'exitFullscreen', {
+  configurable: true,
+  enumerable: true,
+  writable: true,
+  value: vi.fn()
+});
+
+Object.defineProperty(document, 'fullscreenElement', {
+  configurable: true,
+  enumerable: true,
+  writable: true,
+  value: null
+});

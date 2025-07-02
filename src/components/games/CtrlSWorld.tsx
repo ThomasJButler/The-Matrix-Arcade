@@ -466,7 +466,7 @@ export default function CtrlSWorld() {
                   {STORY[currentNode].title}
                 </h2>
                 {STORY[currentNode].ascii && (
-                  <div className="mb-4 whitespace-pre font-mono">
+                  <div data-testid="ascii-art" className="mb-4 whitespace-pre font-mono">
                     {STORY[currentNode].ascii.map((line, index) => (
                       <div key={index} className="text-green-500">{line}</div>
                     ))}
@@ -475,16 +475,19 @@ export default function CtrlSWorld() {
               </div>
             )}
 
-            {/* Previously displayed texts */}
-            {displayedTexts.map((text, index) => (
-              <p key={index} className="mb-4 text-green-400">{text}</p>
-            ))}
+            {/* Story content area */}
+            <div data-testid="story-content" tabIndex={-1}>
+              {/* Previously displayed texts */}
+              {displayedTexts.map((text, index) => (
+                <p key={index} className="mb-4 text-green-400">{text}</p>
+              ))}
 
-            {/* Currently typing text */}
-            <p className="text-green-500">
-              {currentText}
-              {isTyping && <span className="animate-pulse">█</span>}
-            </p>
+              {/* Currently typing text */}
+              <p className="text-green-500">
+                {currentText}
+                {isTyping && <span className="animate-pulse">█</span>}
+              </p>
+            </div>
           </>
         )}
       </div>
