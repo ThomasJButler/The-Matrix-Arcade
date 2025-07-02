@@ -3,7 +3,6 @@ import { RotateCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSoundSynthesis } from '../../hooks/useSoundSynthesis';
 import { useObjectPool, createProjectile, createEnemy, createParticle } from '../../hooks/useObjectPool';
-import { useViewportCulling } from '../../hooks/useViewportCulling';
 import { usePerformanceMonitor } from '../../hooks/usePerformanceMonitor';
 
 // Game constants
@@ -99,7 +98,6 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
   const projectilePool = useObjectPool({ create: createProjectile, maxSize: 100 });
   const enemyPool = useObjectPool({ create: createEnemy, maxSize: 100 });
   const particlePool = useObjectPool({ create: createParticle, maxSize: 500 });
-  useViewportCulling(CANVAS_WIDTH, CANVAS_HEIGHT);
   const { trackDrawCall, trackActiveObjects, PerformanceOverlay } = usePerformanceMonitor({ showOverlay: false });
   
   // Initialize Matrix rain

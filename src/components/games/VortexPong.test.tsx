@@ -40,7 +40,7 @@ vi.mock('../ui/ScoreBoard', () => ({
 }));
 
 vi.mock('../ui/GameOverModal', () => ({
-  GameOverModal: ({ isOpen, winner, onRestart }: { isOpen: boolean; winner: string; score?: unknown; onRestart: () => void }) => (
+  GameOverModal: ({ isOpen, winner, onRestart }: { isOpen: boolean; winner: string; onRestart: () => void }) => (
     isOpen ? (
       <div data-testid="game-over-modal">
         Winner: {winner}

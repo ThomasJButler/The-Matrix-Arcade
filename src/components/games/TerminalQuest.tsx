@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Terminal as TerminalIcon, Info, Shield, Wifi, Key, AlertTriangle, Cpu, Save, RotateCcw, Map } from 'lucide-react';
+import { Terminal as TerminalIcon, Info, Shield, Wifi, Key, AlertTriangle, Cpu, Save, RotateCcw, Map as MapIcon } from 'lucide-react';
 import { EXPANDED_GAME_NODES, Choice } from './TerminalQuestContent';
 import { useSoundSystem } from '../../hooks/useSoundSystem';
 import TerminalQuestCombat from './TerminalQuestCombat';
@@ -287,7 +287,7 @@ export default function TerminalQuest() {
             className="p-2 hover:bg-green-900 rounded transition-colors"
             title="Return to Hub"
           >
-            <Map className="w-4 h-4" />
+            <MapIcon className="w-4 h-4" />
           </button>
         </div>
       </header>
