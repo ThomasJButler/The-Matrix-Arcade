@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Volume2, VolumeX, Play, Pause, RotateCw, Trophy, Shield, Wifi, Battery, Zap, Sparkles, Clock, Heart } from 'lucide-react';
+import { Play, Pause, RotateCw, Trophy, Shield, Wifi, Battery, Zap, Sparkles, Clock, Heart } from 'lucide-react';
+import { useSoundSystem } from '../../hooks/useSoundSystem';
 
 // Game constants - Adjusted for higher difficulty
 const GRAVITY = 0.25;           // Increased from 0.2
@@ -21,8 +22,15 @@ const MAX_COMBO = 5.0;
 const GLOW_COLORS = ['#00ff00', '#00cc00', '#009900'];
 const MATRIX_CHARS = '01アイウエオカキクケコサシスセソタチツテトナニヌネノ';
 const POWER_UP_TYPES = ['shield', 'timeSlow', 'extraLife', 'doublePoints'] as const;
+const BOSS_TYPES = ['agent_smith', 'sentinel', 'architect'] as const;
 
 type PowerUpType = typeof POWER_UP_TYPES[number];
+type BossType = typeof BOSS_TYPES[number];
+
+// Boss battle constants
+const BOSS_SPAWN_LEVELS = [5, 10, 15]; // Levels where bosses appear
+const BOSS_DURATION = 30000; // 30 seconds
+const BOSS_ATTACK_INTERVAL = 2000; // 2 seconds between attacks
 
 // Player ASCII art with different states
 const PLAYER_STATES = {
@@ -58,6 +66,33 @@ interface Particle {
   glowColor: string;
 }
 
+// Boss system interfaces
+interface Boss {
+  type: BossType;
+  health: number;
+  maxHealth: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  attackTimer: number;
+  phase: number;
+  active: boolean;
+  defeated: boolean;
+}
+
+interface BossAttack {
+  id: string;
+  type: 'laser' | 'matrix_rain' | 'code_bomb';
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  damage: number;
+}
+
 interface PowerUp {
   type: PowerUpType;
   x: number;
@@ -90,6 +125,11 @@ interface GameState {
   started: boolean;
   invulnerable: boolean;
   shakeIntensity: number;
+  // Boss battle system
+  boss: Boss | null;
+  bossAttacks: BossAttack[];
+  inBossBattle: boolean;
+  bossTimer: number;
 }
 
 const initialGameState: GameState = {
@@ -118,93 +158,45 @@ const initialGameState: GameState = {
   gameOver: false,
   started: false,
   invulnerable: false,
-  shakeIntensity: 0
+  shakeIntensity: 0,
+  // Boss battle initialization
+  boss: null,
+  bossAttacks: [],
+  inBossBattle: false,
+  bossTimer: 0
 };
 
-export default function MatrixCloud() {
+interface MatrixCloudProps {
+  achievementManager?: any;
+}
+
+export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
   const [state, setState] = useState<GameState>(initialGameState);
-  const [muted, setMuted] = useState(false);
   const [paused, setPaused] = useState(false);
   const [showTutorial, setShowTutorial] = useState(true);
   const [screenShake, setScreenShake] = useState({ x: 0, y: 0 });
-
-  // Enhanced sound system with synthesizer and effects
-  const playSound = useCallback((type: 'jump' | 'score' | 'hit' | 'powerup' | 'combo' | 'levelUp') => {
-    if (muted) return;
-    
-    try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      const filterNode = audioContext.createBiquadFilter();
-      const delayNode = audioContext.createDelay();
-      
-      oscillator.connect(filterNode);
-      filterNode.connect(delayNode);
-      delayNode.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      const soundConfigs = {
-        jump: {
-          type: 'sine' as OscillatorType,
-          frequency: { start: 400, end: 200 },
-          filterFreq: 1000,
-          delay: 0.1
-        },
-        score: {
-          type: 'square' as OscillatorType,
-          frequency: { start: 600, end: 800 },
-          filterFreq: 2000,
-          delay: 0.05
-        },
-        hit: {
-          type: 'sawtooth' as OscillatorType,
-          frequency: { start: 200, end: 100 },
-          filterFreq: 500,
-          delay: 0.15
-        },
-        powerup: {
-          type: 'square' as OscillatorType,
-          frequency: { start: 800, end: 1200 },
-          filterFreq: 3000,
-          delay: 0.08
-        },
-        combo: {
-          type: 'triangle' as OscillatorType,
-          frequency: { start: 500, end: 700 },
-          filterFreq: 2500,
-          delay: 0.12
-        },
-        levelUp: {
-          type: 'square' as OscillatorType,
-          frequency: { start: 1000, end: 1500 },
-          filterFreq: 4000,
-          delay: 0.2
-        }
-      };
-      
-      const config = soundConfigs[type];
-      oscillator.type = config.type;
-      oscillator.frequency.setValueAtTime(config.frequency.start, audioContext.currentTime);
-      oscillator.frequency.exponentialRampToValueAtTime(config.frequency.end, audioContext.currentTime + 0.2);
-      
-      filterNode.type = 'bandpass';
-      filterNode.frequency.setValueAtTime(config.filterFreq, audioContext.currentTime);
-      
-      delayNode.delayTime.value = config.delay;
-      
-      gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-      
-      oscillator.start();
-      oscillator.stop(audioContext.currentTime + 0.4);
-    } catch (error) {
-      console.warn('Audio context failed to initialize:', error);
+  
+  // Sound system integration
+  const { playSFX, playMusic, stopMusic } = useSoundSystem();
+  
+  // Achievement function
+  const unlockAchievement = useCallback((gameId: string, achievementId: string) => {
+    if (achievementManager?.unlockAchievement) {
+      achievementManager.unlockAchievement(gameId, achievementId);
     }
-  }, [muted]);
+  }, [achievementManager]);
+
+  // Start background music when game starts
+  useEffect(() => {
+    if (state.started && !state.gameOver) {
+      playMusic('gameplay');
+    } else {
+      stopMusic();
+    }
+  }, [state.started, state.gameOver, playMusic, stopMusic]);
 
   const generateParticles = useCallback((): Particle[] => {
     return Array.from({ length: PARTICLE_COUNT }, () => ({
@@ -217,6 +209,122 @@ export default function MatrixCloud() {
       rotation: Math.random() * Math.PI * 2,
       glowColor: GLOW_COLORS[Math.floor(Math.random() * GLOW_COLORS.length)]
     }));
+  }, []);
+
+  // Boss creation and management
+  const createBoss = useCallback((type: BossType): Boss => {
+    const bossConfigs = {
+      agent_smith: {
+        health: 150,
+        size: 60,
+        speed: 2
+      },
+      sentinel: {
+        health: 200,
+        size: 80,
+        speed: 1.5
+      },
+      architect: {
+        health: 300,
+        size: 100,
+        speed: 1
+      }
+    };
+    
+    const config = bossConfigs[type];
+    return {
+      type,
+      health: config.health,
+      maxHealth: config.health,
+      x: 600,
+      y: 200,
+      vx: -config.speed,
+      vy: 0,
+      size: config.size,
+      attackTimer: 0,
+      phase: 1,
+      active: true,
+      defeated: false
+    };
+  }, []);
+
+  const spawnBoss = useCallback((level: number) => {
+    let bossType: BossType;
+    if (level >= 15) bossType = 'architect';
+    else if (level >= 10) bossType = 'sentinel';
+    else bossType = 'agent_smith';
+    
+    const boss = createBoss(bossType);
+    
+    setState(prev => ({
+      ...prev,
+      boss,
+      inBossBattle: true,
+      bossTimer: BOSS_DURATION,
+      pipes: [], // Clear pipes during boss battle
+      powerUps: [] // Clear power-ups during boss battle
+    }));
+    
+    playSFX('levelUp');
+    addScreenShake(15);
+  }, [createBoss, playSFX, addScreenShake]);
+
+  const createBossAttack = useCallback((boss: Boss): BossAttack | null => {
+    const attackTypes = {
+      agent_smith: ['laser', 'code_bomb'],
+      sentinel: ['matrix_rain', 'laser'],
+      architect: ['code_bomb', 'matrix_rain', 'laser']
+    };
+    
+    const availableAttacks = attackTypes[boss.type] as Array<'laser' | 'matrix_rain' | 'code_bomb'>;
+    const attackType = availableAttacks[Math.floor(Math.random() * availableAttacks.length)];
+    
+    return {
+      id: Math.random().toString(36),
+      type: attackType,
+      x: boss.x - boss.size,
+      y: boss.y + (Math.random() - 0.5) * boss.size,
+      vx: -4 - Math.random() * 2,
+      vy: (Math.random() - 0.5) * 3,
+      life: 1.0,
+      damage: 20
+    };
+  }, []);
+
+  const updateBoss = useCallback((boss: Boss, deltaTime: number): Boss => {
+    if (!boss.active) return boss;
+    
+    // Boss movement patterns
+    let newVx = boss.vx;
+    let newVy = boss.vy;
+    
+    switch (boss.type) {
+      case 'agent_smith':
+        // Aggressive horizontal movement
+        newVy = Math.sin(Date.now() / 1000) * 2;
+        break;
+      case 'sentinel':
+        // Circular movement
+        newVx = Math.sin(Date.now() / 1500) * 1.5;
+        newVy = Math.cos(Date.now() / 1500) * 1.5;
+        break;
+      case 'architect':
+        // Slow, deliberate movement
+        newVy = Math.sin(Date.now() / 2000) * 1;
+        break;
+    }
+    
+    const newX = Math.max(400, Math.min(700, boss.x + newVx));
+    const newY = Math.max(50, Math.min(350, boss.y + newVy));
+    
+    return {
+      ...boss,
+      x: newX,
+      y: newY,
+      vx: newVx,
+      vy: newVy,
+      attackTimer: boss.attackTimer + deltaTime
+    };
   }, []);
 
   const addScreenShake = useCallback((intensity: number) => {
@@ -278,20 +386,27 @@ export default function MatrixCloud() {
       };
     });
     
-    playSound('powerup');
-  }, [playSound]);
+    playSFX('powerup');
+  }, [playSFX]);
 
   const jump = useCallback(() => {
     if (!state.gameOver && !paused) {
-      setState(prev => ({
-        ...prev,
-        playerVelocity: JUMP_FORCE * (prev.activeEffects.timeSlow ? 0.7 : 1),
-        started: true
-      }));
-      playSound('jump');
+      setState(prev => {
+        // First flight achievement
+        if (!prev.started) {
+          setTimeout(() => unlockAchievement('matrixCloud', 'first_flight'), 100);
+        }
+        
+        return {
+          ...prev,
+          playerVelocity: JUMP_FORCE * (prev.activeEffects.timeSlow ? 0.7 : 1),
+          started: true
+        };
+      });
+      playSFX('jump');
       addScreenShake(3);
     }
-  }, [state.gameOver, paused, playSound, addScreenShake]);
+  }, [state.gameOver, paused, playSFX, addScreenShake, unlockAchievement]);
 
   const reset = useCallback(() => {
     if (animationFrameRef.current) {
@@ -320,7 +435,7 @@ export default function MatrixCloud() {
     if (state.invulnerable) return state;
     
     if (state.activeEffects.shield) {
-      playSound('hit');
+      playSFX('hit');
       addScreenShake(5);
       return {
         ...state,
@@ -331,15 +446,31 @@ export default function MatrixCloud() {
     }
 
     const newLives = state.lives - 1;
-    playSound('hit');
+    playSFX('hit');
     addScreenShake(10);
 
     if (newLives <= 0) {
+      const newHighScore = Math.max(state.score, state.highScore);
+      
+      // Save game statistics when game ends
+      setTimeout(() => {
+        updateGameSave('matrixCloud', {
+          highScore: newHighScore,
+          level: state.level,
+          stats: {
+            gamesPlayed: (saveData.games.matrixCloud.stats.gamesPlayed || 0) + 1,
+            totalScore: (saveData.games.matrixCloud.stats.totalScore || 0) + state.score,
+            longestSurvival: Math.max(saveData.games.matrixCloud.stats.longestSurvival || 0, state.score),
+            bossesDefeated: saveData.games.matrixCloud.stats.bossesDefeated || 0
+          }
+        });
+      }, 100);
+      
       return {
         ...state,
         lives: 0,
         gameOver: true,
-        highScore: Math.max(state.score, state.highScore),
+        highScore: newHighScore,
         shakeIntensity: 10
       };
     }
@@ -351,7 +482,7 @@ export default function MatrixCloud() {
       invulnerable: true,
       shakeIntensity: 8
     };
-  }, [playSound, addScreenShake]);
+  }, [playSFX, addScreenShake]);
 
   const updateGame = useCallback((timestamp: number) => {
     if (paused) return;
@@ -366,20 +497,22 @@ export default function MatrixCloud() {
       let newY = prev.playerY + prev.playerVelocity * speedMultiplier;
       let newVelocity = prev.playerVelocity + GRAVITY * speedMultiplier;
 
-      // Update pipes
+      // Update pipes (only if not in boss battle)
       let newPipes = [...prev.pipes];
-      if (newPipes.length === 0 || newPipes[newPipes.length - 1].x < 800 - PIPE_SPACING) {
-        newPipes.push({
-          x: 800,
-          height: 100 + Math.random() * (200 - PIPE_GAP),
-          passed: false,
-          glowIntensity: 0
-        });
-        
-        // Chance to spawn power-up
-        const powerUp = spawnPowerUp();
-        if (powerUp) {
-          prev.powerUps.push(powerUp);
+      if (!prev.inBossBattle) {
+        if (newPipes.length === 0 || newPipes[newPipes.length - 1].x < 800 - PIPE_SPACING) {
+          newPipes.push({
+            x: 800,
+            height: 100 + Math.random() * (200 - PIPE_GAP),
+            passed: false,
+            glowIntensity: 0
+          });
+          
+          // Chance to spawn power-up
+          const powerUp = spawnPowerUp();
+          if (powerUp) {
+            prev.powerUps.push(powerUp);
+          }
         }
       }
 
@@ -468,13 +601,23 @@ export default function MatrixCloud() {
           const newLevel = Math.floor(newScore / LEVEL_THRESHOLD) + 1;
 
           if (newLevel > newState.level) {
-            playSound('levelUp');
+            playSFX('levelUp');
             addScreenShake(7);
+            
+            // Unlock level achievements
+            if (newLevel === 5) {
+              unlockAchievement('matrixCloud', 'level_5');
+            }
+            
+            // Check for boss spawns
+            if (BOSS_SPAWN_LEVELS.includes(newLevel) && !newState.inBossBattle) {
+              setTimeout(() => spawnBoss(newLevel), 1000);
+            }
           }
 
           pipe.passed = true;
           pipe.glowIntensity = 1;
-          playSound('score');
+          playSFX('score');
 
           newState = {
             ...newState,
@@ -498,6 +641,99 @@ export default function MatrixCloud() {
         newVelocity = 0;
       }
 
+      // Boss battle logic
+      let updatedBoss = newState.boss;
+      let newBossAttacks = [...prev.bossAttacks];
+      let newBossTimer = prev.bossTimer;
+      
+      if (newState.inBossBattle && updatedBoss) {
+        // Update boss timer
+        newBossTimer = Math.max(0, newBossTimer - deltaTime);
+        
+        // Update boss position and behavior
+        updatedBoss = updateBoss(updatedBoss, deltaTime);
+        
+        // Boss attacks
+        if (updatedBoss.attackTimer >= BOSS_ATTACK_INTERVAL) {
+          const attack = createBossAttack(updatedBoss);
+          if (attack) {
+            newBossAttacks.push(attack);
+          }
+          updatedBoss.attackTimer = 0;
+        }
+        
+        // Update boss attacks
+        newBossAttacks = newBossAttacks
+          .map(attack => ({
+            ...attack,
+            x: attack.x + attack.vx,
+            y: attack.y + attack.vy,
+            life: attack.life - 0.02
+          }))
+          .filter(attack => attack.life > 0 && attack.x > -50);
+        
+        // Check boss attack collisions with player
+        for (const attack of newBossAttacks) {
+          if (checkCollision(playerBox, {
+            x: attack.x,
+            y: attack.y,
+            width: 20,
+            height: 20
+          })) {
+            newState = handleCollision(newState);
+            // Remove the attack that hit
+            newBossAttacks = newBossAttacks.filter(a => a.id !== attack.id);
+            break;
+          }
+        }
+        
+        // Check player collision with boss
+        if (checkCollision(playerBox, {
+          x: updatedBoss.x - updatedBoss.size/2,
+          y: updatedBoss.y - updatedBoss.size/2,
+          width: updatedBoss.size,
+          height: updatedBoss.size
+        })) {
+          // Damage boss
+          updatedBoss.health -= 10;
+          playSFX('hit');
+          addScreenShake(8);
+          
+          if (updatedBoss.health <= 0) {
+            // Boss defeated
+            updatedBoss.defeated = true;
+            updatedBoss.active = false;
+            const bossScore = updatedBoss.maxHealth * 2;
+            newState.score += bossScore;
+            playSFX('levelUp');
+            addScreenShake(15);
+            
+            // Unlock boss achievements
+            if (updatedBoss.type === 'agent_smith') {
+              unlockAchievement('matrixCloud', 'boss_slayer');
+            } else if (updatedBoss.type === 'architect') {
+              unlockAchievement('matrixCloud', 'architect_defeat');
+            }
+            
+            // End boss battle
+            newState.inBossBattle = false;
+            newState.boss = null;
+            newBossAttacks = [];
+          } else {
+            // Player takes damage from collision
+            newState = handleCollision(newState);
+          }
+        }
+        
+        // Boss battle timeout
+        if (newBossTimer <= 0) {
+          newState.inBossBattle = false;
+          newState.boss = null;
+          newBossAttacks = [];
+          playSFX('hit'); // Failure sound
+        }
+      }
+      
       // Reset invulnerability after a short time
       if (newState.invulnerable) {
         setTimeout(() => {
@@ -512,10 +748,13 @@ export default function MatrixCloud() {
         pipes: newPipes,
         particles: newParticles,
         powerUps: newPowerUps,
-        shakeIntensity: Math.max(0, newState.shakeIntensity - 0.2)
+        shakeIntensity: Math.max(0, newState.shakeIntensity - 0.2),
+        boss: updatedBoss,
+        bossAttacks: newBossAttacks,
+        bossTimer: newBossTimer
       };
     });
-  }, [paused, spawnPowerUp, activatePowerUp, handleCollision, playSound, addScreenShake]);
+  }, [paused, spawnPowerUp, activatePowerUp, handleCollision, playSFX, addScreenShake, spawnBoss, updateBoss, createBossAttack, unlockAchievement]);
 
   // Keyboard controls
   useEffect(() => {
@@ -655,6 +894,95 @@ export default function MatrixCloud() {
       ctx.restore();
     });
 
+    // Draw boss and boss attacks
+    if (state.boss && state.boss.active) {
+      const boss = state.boss;
+      
+      // Boss glow effect
+      ctx.shadowColor = '#ff0000';
+      ctx.shadowBlur = 20;
+      
+      // Boss body based on type
+      ctx.save();
+      ctx.translate(boss.x, boss.y);
+      
+      switch (boss.type) {
+        case 'agent_smith':
+          // Agent Smith - suit silhouette
+          ctx.fillStyle = '#003300';
+          ctx.fillRect(-boss.size/2, -boss.size/2, boss.size, boss.size);
+          ctx.fillStyle = '#00ff00';
+          ctx.fillRect(-boss.size/4, -boss.size/3, boss.size/2, boss.size/6);
+          ctx.fillRect(-boss.size/6, -boss.size/4, boss.size/3, boss.size/8);
+          break;
+          
+        case 'sentinel':
+          // Sentinel - mechanical tentacles
+          ctx.fillStyle = '#330000';
+          for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2 + Date.now() / 1000;
+            const length = boss.size / 2;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.cos(angle) * length, Math.sin(angle) * length);
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#ff0000';
+            ctx.stroke();
+          }
+          break;
+          
+        case 'architect':
+          // Architect - geometric patterns
+          ctx.fillStyle = '#004400';
+          ctx.fillRect(-boss.size/2, -boss.size/2, boss.size, boss.size);
+          ctx.fillStyle = '#00ff00';
+          for (let i = 0; i < 5; i++) {
+            const size = (boss.size / 5) * (i + 1);
+            ctx.strokeRect(-size/2, -size/2, size, size);
+          }
+          break;
+      }
+      
+      // Boss health bar
+      const healthBarWidth = boss.size;
+      const healthPercent = boss.health / boss.maxHealth;
+      ctx.fillStyle = '#ff0000';
+      ctx.fillRect(-healthBarWidth/2, -boss.size/2 - 20, healthBarWidth, 8);
+      ctx.fillStyle = '#00ff00';
+      ctx.fillRect(-healthBarWidth/2, -boss.size/2 - 20, healthBarWidth * healthPercent, 8);
+      
+      ctx.restore();
+      
+      // Draw boss attacks
+      state.bossAttacks.forEach(attack => {
+        ctx.save();
+        ctx.translate(attack.x, attack.y);
+        
+        const alpha = attack.life;
+        ctx.globalAlpha = alpha;
+        
+        switch (attack.type) {
+          case 'laser':
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(-15, -2, 30, 4);
+            break;
+          case 'matrix_rain':
+            ctx.fillStyle = '#00ff00';
+            ctx.font = '16px monospace';
+            ctx.fillText('01', -8, 8);
+            break;
+          case 'code_bomb':
+            ctx.fillStyle = '#ffff00';
+            ctx.beginPath();
+            ctx.arc(0, 0, 8, 0, Math.PI * 2);
+            ctx.fill();
+            break;
+        }
+        
+        ctx.restore();
+      });
+    }
+
     // Draw ground with pattern
     const groundPattern = ctx.createLinearGradient(0, 400 - GROUND_HEIGHT, 0, 400);
     groundPattern.addColorStop(0, '#004400');
@@ -694,6 +1022,20 @@ export default function MatrixCloud() {
     ctx.fillRect(20, 70, 100, 10);
     ctx.fillStyle = '#00ff00';
     ctx.fillRect(20, 70, comboWidth, 10);
+    
+    // Draw boss timer during boss battles
+    if (state.inBossBattle && state.bossTimer > 0) {
+      const timerWidth = 200 * (state.bossTimer / BOSS_DURATION);
+      ctx.fillStyle = '#660000';
+      ctx.fillRect(300, 20, 200, 15);
+      ctx.fillStyle = '#ff0000';
+      ctx.fillRect(300, 20, timerWidth, 15);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '12px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('BOSS BATTLE', 400, 32);
+      ctx.textAlign = 'left';
+    }
 
     // Draw lives
     for (let i = 0; i < state.lives; i++) {
@@ -716,7 +1058,7 @@ export default function MatrixCloud() {
         />
         
         {/* Enhanced HUD */}
-        <div className="absolute top-4 left-4 flex flex-col gap-4"> {/* Changed gap from 2 to 4 */}
+        <div className="absolute top-4 left-4 flex flex-col gap-4">
           <div className="flex items-center gap-2 bg-black bg-opacity-50 px-3 py-1 rounded">
             <Wifi className="w-5 h-5 text-green-400" />
             <span>Level: {state.level}</span>
@@ -729,10 +1071,18 @@ export default function MatrixCloud() {
             <Trophy className="w-5 h-5 text-yellow-400" />
             <span>High Score: {state.highScore}</span>
           </div>
+          {state.inBossBattle && state.boss && (
+            <div className="flex items-center gap-2 bg-red-900 bg-opacity-70 px-3 py-1 rounded border border-red-500 animate-pulse">
+              <Battery className="w-5 h-5 text-red-400" />
+              <span className="text-red-400 font-bold">
+                {state.boss.type.replace('_', ' ').toUpperCase()}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Active Effects */}
-        <div className="absolute top-4 right-4 flex flex-col gap-4"> {/* Changed gap from 2 to 4 */}
+        <div className="absolute top-4 right-4 flex flex-col gap-4">
           {state.activeEffects.shield && (
             <div className="flex items-center gap-2 bg-black bg-opacity-50 px-3 py-1 rounded animate-pulse">
               <Shield className="w-5 h-5 text-blue-400" />
@@ -751,17 +1101,17 @@ export default function MatrixCloud() {
               <span>Double Points</span>
             </div>
           )}
+          {state.inBossBattle && (
+            <div className="flex items-center gap-2 bg-red-900 bg-opacity-70 px-3 py-1 rounded border border-red-500">
+              <span className="text-red-400 text-sm">
+                ⏱ {Math.ceil(state.bossTimer / 1000)}s
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Controls */}
         <div className="absolute bottom-4 right-4 flex gap-2">
-          <button
-            onClick={() => setMuted(m => !m)}
-            className="p-2 bg-green-900 rounded hover:bg-green-800 transition-colors"
-            type="button"
-          >
-            {muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-          </button>
           <button
             onClick={() => setPaused(p => !p)}
             className="p-2 bg-green-900 rounded hover:bg-green-800 transition-colors"

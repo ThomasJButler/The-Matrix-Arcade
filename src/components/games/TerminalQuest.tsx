@@ -1,29 +1,19 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Terminal as TerminalIcon, ChevronRight, Info, Play, Pause, Maximize, Minimize, Shield, Wifi, Key, AlertTriangle, Cpu } from 'lucide-react';
+import { Terminal as TerminalIcon, ChevronRight, Info, Play, Pause, Maximize, Minimize, Shield, Wifi, Key, AlertTriangle, Cpu, Save, RotateCcw, Map } from 'lucide-react';
+import { EXPANDED_GAME_NODES, ITEM_DESCRIPTIONS, ACHIEVEMENTS, GameNode, Choice, resolveCombat } from './TerminalQuestContent';
+import { useSoundSystem } from '../../hooks/useSoundSystem';
+import TerminalQuestCombat from './TerminalQuestCombat';
 
 type GameState = {
   currentNode: string;
   inventory: string[];
   health: number;
+  maxHealth: number;
   securityLevel: number;
   discovered: string[];
-};
-
-type Choice = {
-  text: string;
-  nextNode: string;
-  requires?: string[];
-  gives?: string[];
-  removes?: string[];
-  damage?: number;
-  security?: number;
-};
-
-type GameNode = {
-  id: string;
-  ascii: string[];
-  description: string;
-  choices: Choice[];
+  experience: number;
+  achievements: string[];
+  choiceCount: number;
 };
 
 const INFO_CONTENT = [
@@ -52,7 +42,11 @@ const INFO_CONTENT = [
   "Beware of unexplored paths and unforeseen consequences. The system evolves."
 ];
 
-const GAME_NODES: Record<string, GameNode> = {
+// Use expanded content from TerminalQuestContent.ts
+const GAME_NODES = EXPANDED_GAME_NODES;
+
+// Legacy nodes for reference
+const LEGACY_NODES: Record<string, GameNode> = {
   start: {
     id: 'start',
     ascii: [
@@ -215,12 +209,27 @@ export default function TerminalQuest() {
     currentNode: 'start',
     inventory: [],
     health: 100,
+    maxHealth: 100,
     securityLevel: 50,
-    discovered: ['start']
+    discovered: ['start'],
+    experience: 0,
+    achievements: [],
+    choiceCount: 0
   });
+  const [inCombat, setInCombat] = useState(false);
+  const [saveExists, setSaveExists] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [shakeEffect, setShakeEffect] = useState(false); // Dynamic screen shake
   const [backgroundGlitch, setBackgroundGlitch] = useState(false); // Glitch effect
+  
+  // Sound system integration
+  const { playSFX, playMusic, stopMusic } = useSoundSystem();
+  
+  // Start background music when component mounts
+  useEffect(() => {
+    playMusic('menu');
+    return () => stopMusic();
+  }, [playMusic, stopMusic]);
 
   const triggerShake = () => {
     setShakeEffect(true);
@@ -233,12 +242,23 @@ export default function TerminalQuest() {
 
   // Handler for choice actions
   const handleChoice = (choice: Choice) => {
+    // Play sound effects based on choice type
+    playSFX('terminalType');
+    
     if (choice.damage && gameState.health <= choice.damage) {
       triggerShake(); // Big damage causes a shake
+      playSFX('hit');
     }
     if (choice.security) {
       toggleBackgroundGlitch(); // Glitch background on security risks
       setTimeout(() => toggleBackgroundGlitch(), 1000);
+      playSFX('hit');
+    }
+    if (choice.gives) {
+      playSFX('powerup');
+    }
+    if (choice.heals) {
+      playSFX('score');
     }
 
     // Core state update remains consistent
@@ -249,6 +269,8 @@ export default function TerminalQuest() {
   // Function for calculating effects from a choice
   const applyChoiceEffects = (state: GameState, choice: Choice): GameState => {
     const updatedInventory = [...state.inventory];
+    let newXP = state.experience + (choice.xp || 0);
+    let newAchievements = [...state.achievements];
 
     if (choice.gives) {
       choice.gives.forEach(item => {
@@ -265,8 +287,21 @@ export default function TerminalQuest() {
       });
     }
 
-    const newHealth = Math.max(0, state.health - (choice.damage || 0));
+    const healAmount = choice.heal || 0;
+    const damageAmount = choice.damage || 0;
+    const newHealth = Math.max(0, Math.min(state.maxHealth, state.health - damageAmount + healAmount));
     const newSecurity = Math.max(0, Math.min(100, state.securityLevel + (choice.security || 0)));
+
+    // Check achievements
+    if (newXP >= 100 && !state.achievements.includes('first_100_xp')) {
+      newAchievements.push('first_100_xp');
+    }
+    if (state.choiceCount === 0 && choice.nextNode.includes('combat')) {
+      newAchievements.push('first_combat');
+    }
+    if (updatedInventory.length >= 10 && !state.achievements.includes('collector')) {
+      newAchievements.push('collector');
+    }
 
     return {
       ...state,
@@ -274,6 +309,9 @@ export default function TerminalQuest() {
       inventory: updatedInventory,
       health: newHealth,
       securityLevel: newSecurity,
+      experience: newXP,
+      achievements: newAchievements,
+      choiceCount: state.choiceCount + 1,
       discovered: state.discovered.includes(choice.nextNode)
         ? state.discovered
         : [...state.discovered, choice.nextNode]
@@ -312,8 +350,58 @@ export default function TerminalQuest() {
     return typedText;
   };
 
+  // Combat handler
+  const handleCombatEnd = (victory: boolean, damageDealt: number, damageTaken: number) => {
+    setInCombat(false);
+    
+    if (victory) {
+      const xpGain = Math.floor(damageDealt / 2);
+      setGameState(prev => ({
+        ...prev,
+        experience: prev.experience + xpGain,
+        health: Math.max(0, prev.health - damageTaken),
+        currentNode: 'hub_main' // Return to hub after combat
+      }));
+      triggerShake();
+    } else {
+      setGameState(prev => ({
+        ...prev,
+        health: 0,
+        currentNode: 'game_over'
+      }));
+    }
+  };
+
+  // Save/Load functionality
+  const saveGame = () => {
+    const saveData = {
+      gameState,
+      timestamp: Date.now()
+    };
+    localStorage.setItem('terminalQuestSave', JSON.stringify(saveData));
+    setSaveExists(true);
+  };
+
+  const loadGame = () => {
+    const savedData = localStorage.getItem('terminalQuestSave');
+    if (savedData) {
+      const { gameState: loadedState } = JSON.parse(savedData);
+      setGameState(loadedState);
+    }
+  };
+
+  // Check for save on mount
+  useEffect(() => {
+    setSaveExists(!!localStorage.getItem('terminalQuestSave'));
+  }, []);
+
   const currentNode = GAME_NODES[gameState.currentNode];
-  const typedDescription = useTypingEffect(currentNode.description);
+  const typedDescription = useTypingEffect(currentNode?.description || '');
+
+  // Handle combat nodes
+  if (currentNode?.isCombat && currentNode.enemy && !inCombat) {
+    setInCombat(true);
+  }
 
   return (
     <div
@@ -323,53 +411,101 @@ export default function TerminalQuest() {
       <header className="flex justify-between items-center p-4 bg-black border-b border-green-500">
         <h2 className="text-lg tracking-wide flex items-center gap-2">
           <TerminalIcon className="w-5 h-5" />
-          TERMINAL QUEST
+          TERMINAL QUEST - XP: {gameState.experience}
         </h2>
-        <div className="flex gap-6">
+        <div className="flex gap-4 items-center">
           <Indicator title="Health" value={gameState.health} icon={<Shield />} />
-          <Indicator title="Signal Strength" value={100 - gameState.securityLevel} icon={<Wifi />} />
+          <Indicator title="Signal" value={100 - gameState.securityLevel} icon={<Wifi />} />
+          <button
+            onClick={saveGame}
+            className="p-2 hover:bg-green-900 rounded transition-colors"
+            title="Save Game"
+          >
+            <Save className="w-4 h-4" />
+          </button>
+          {saveExists && (
+            <button
+              onClick={loadGame}
+              className="p-2 hover:bg-green-900 rounded transition-colors"
+              title="Load Game"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </button>
+          )}
+          <button
+            onClick={() => setGameState({...gameState, currentNode: 'hub_main'})}
+            className="p-2 hover:bg-green-900 rounded transition-colors"
+            title="Return to Hub"
+          >
+            <Map className="w-4 h-4" />
+          </button>
         </div>
       </header>
 
       {/* Main Terminal Content */}
       <main className="flex-1 p-4 overflow-y-auto bg-opacity-90">
-        {/* ASCII Animation */}
-        <pre className="mb-4 leading-snug text-green-500 whitespace-pre-wrap">
-          {currentNode.ascii.join('\n')}
-        </pre>
+        {inCombat && currentNode?.enemy ? (
+          <TerminalQuestCombat
+            enemy={currentNode.enemy}
+            playerHealth={gameState.health}
+            playerInventory={gameState.inventory}
+            onCombatEnd={handleCombatEnd}
+          />
+        ) : (
+          <>
+            {/* ASCII Animation */}
+            <pre className="mb-4 leading-snug text-green-500 whitespace-pre-wrap">
+              {currentNode?.ascii.join('\n') || 'ERROR: NODE NOT FOUND'}
+            </pre>
 
-        {/* Typing Description */}
-        <div className="mb-4 min-h-[80px] p-3 border border-green-700 rounded bg-opacity-75 bg-black relative">
-          <p className="text-green-400">
-            {typedDescription}
-            {isTyping && <span className="animate-pulse">█</span>}
-          </p>
-        </div>
+            {/* Typing Description */}
+            <div className="mb-4 min-h-[80px] p-3 border border-green-700 rounded bg-opacity-75 bg-black relative">
+              <p className="text-green-400">
+                {typedDescription}
+                {isTyping && <span className="animate-pulse">█</span>}
+              </p>
+            </div>
 
-        {/* Choices List */}
-        <div className="space-y-4">
-          {!isTyping &&
-            currentNode.choices.map((choice, index) => {
-              const isDisabled =
-                choice.requires &&
-                !choice.requires.every(req => gameState.inventory.includes(req));
+            {/* Choices List */}
+            <div className="space-y-4">
+              {!isTyping && currentNode?.choices &&
+                currentNode.choices.map((choice, index) => {
+                  const isDisabled =
+                    choice.requires &&
+                    !choice.requires.every(req => gameState.inventory.includes(req));
 
-              return (
-                <button
-                  key={index}
-                  onClick={() => handleChoice(choice)}
-                  disabled={isDisabled}
-                  className={`block w-full text-left p-3 border ${
-                    isDisabled
-                      ? 'border-gray-600 text-gray-700'
-                      : 'border-green-500 hover:bg-green-900 hover:text-white'
-                  } rounded transition-colors`}
-                >
-                  ➤ {choice.text}
-                </button>
-              );
-            })}
-        </div>
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => handleChoice(choice)}
+                      disabled={isDisabled}
+                      className={`block w-full text-left p-3 border ${
+                        isDisabled
+                          ? 'border-gray-600 text-gray-700'
+                          : 'border-green-500 hover:bg-green-900 hover:text-white'
+                      } rounded transition-colors`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span>➤ {choice.text}</span>
+                        {choice.requires && (
+                          <span className="text-xs text-yellow-400">
+                            Requires: {choice.requires.join(', ')}
+                          </span>
+                        )}
+                      </div>
+                      {(choice.damage || choice.heal || choice.xp) && (
+                        <div className="text-xs mt-1 flex gap-4">
+                          {choice.damage && <span className="text-red-400">-{choice.damage} HP</span>}
+                          {choice.heal && <span className="text-green-400">+{choice.heal} HP</span>}
+                          {choice.xp && <span className="text-yellow-400">+{choice.xp} XP</span>}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+            </div>
+          </>
+        )}
       </main>
 
       {/* Inventory Panel */}
@@ -380,8 +516,8 @@ export default function TerminalQuest() {
       </footer>
 
       {/* Background Glitch Styles */}
-      <style jsx>{
-        `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes glitch {
           0% {
             clip-path: inset(10% 0 20% 0);
@@ -420,7 +556,7 @@ export default function TerminalQuest() {
           }
         }
         `
-      }</style>
+      }} />
     </div>
   );
 }

@@ -1,138 +1,260 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
+import { useSnakeGame, Direction } from '../../hooks/useSnakeGame';
+import { useParticleSystem } from '../../hooks/useParticleSystem';
 import { useInterval } from '../../hooks/useInterval';
+import { useSoundSystem } from '../../hooks/useSoundSystem';
+import SnakeRenderer from './SnakeRenderer';
+import SnakeHUD from './SnakeHUD';
+import { Gamepad2 } from 'lucide-react';
 
-type Position = {
-  x: number;
-  y: number;
-};
-
-const GRID_SIZE = 20;
-const INITIAL_SNAKE = [{ x: 10, y: 10 }];
-const INITIAL_FOOD = { x: 15, y: 15 };
-const INITIAL_DIRECTION = { x: 1, y: 0 };
-const GAME_SPEED = 100; // Increased speed for more difficulty
+const GRID_SIZE = 30;
+const CELL_SIZE = 20;
 
 export default function SnakeClassic() {
-  const [snake, setSnake] = useState<Position[]>(INITIAL_SNAKE);
-  const [food, setFood] = useState<Position>(INITIAL_FOOD);
-  const [direction, setDirection] = useState(INITIAL_DIRECTION);
-  const [isGameOver, setIsGameOver] = useState(false);
-  const [score, setScore] = useState(0);
-  const boardRef = useRef<HTMLDivElement>(null);
+  const {
+    gameState,
+    moveSnake,
+    changeDirection,
+    startGame,
+    togglePause,
+    getSpeed
+  } = useSnakeGame();
 
-  const generateFood = useCallback(() => {
-    let newFood;
-    do {
-      newFood = {
-        x: Math.floor(Math.random() * GRID_SIZE),
-        y: Math.floor(Math.random() * GRID_SIZE),
-      };
-    } while (snake.some(segment => segment.x === newFood.x && segment.y === newFood.y));
-    return newFood;
-  }, [snake]);
+  const particleSystem = useParticleSystem();
+  const [screenShake, setScreenShake] = React.useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { playSFX, playMusic, stopMusic } = useSoundSystem();
 
-  const resetGame = () => {
-    setSnake(INITIAL_SNAKE);
-    setFood(generateFood());
-    setDirection(INITIAL_DIRECTION);
-    setIsGameOver(false);
-    setScore(0);
-  };
+  // Start gameplay music when game starts
+  useEffect(() => {
+    if (gameState.gameStatus === 'playing') {
+      playMusic('gameplay');
+    } else {
+      stopMusic();
+    }
+    return () => stopMusic();
+  }, [gameState.gameStatus, playMusic, stopMusic]);
 
-  const moveSnake = useCallback(() => {
-    if (isGameOver) return;
+  // Play sound effect using unified system
+  const playSound = useCallback((type: 'eat' | 'powerup' | 'collision' | 'levelup') => {
+    switch (type) {
+      case 'eat':
+        playSFX('snakeEat');
+        break;
+      case 'powerup':
+        playSFX('powerup');
+        break;
+      case 'collision':
+        playSFX('hit');
+        setScreenShake(10);
+        break;
+      case 'levelup':
+        playSFX('levelUp');
+        break;
+    }
+  }, [playSFX]);
 
-    setSnake((currentSnake) => {
-      const newHead = {
-        x: (currentSnake[0].x + direction.x + GRID_SIZE) % GRID_SIZE,
-        y: (currentSnake[0].y + direction.y + GRID_SIZE) % GRID_SIZE,
-      };
-
-      // Check collision with self
-      if (currentSnake.some(segment => segment.x === newHead.x && segment.y === newHead.y)) {
-        setIsGameOver(true);
-        return currentSnake;
-      }
-
-      const newSnake = [newHead, ...currentSnake];
-
-      // Check if food is eaten
-      if (newHead.x === food.x && newHead.y === food.y) {
-        setFood(generateFood());
-        setScore(s => s + 1);
-      } else {
-        newSnake.pop();
-      }
-
-      return newSnake;
-    });
-  }, [direction, food, generateFood, isGameOver]);
-
+  // Handle keyboard input
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      if (isGameOver) {
-        if (e.key === 'Enter') resetGame();
-        return;
-      }
+      if (gameState.gameState === 'menu') return;
 
-      const keyDirections: { [key: string]: Position } = {
-        ArrowUp: { x: 0, y: -1 },
-        ArrowDown: { x: 0, y: 1 },
-        ArrowLeft: { x: -1, y: 0 },
-        ArrowRight: { x: 1, y: 0 },
+      const key = e.key.toLowerCase();
+      
+      // Movement controls
+      const directions: Record<string, Direction> = {
+        'arrowup': { x: 0, y: -1 },
+        'arrowdown': { x: 0, y: 1 },
+        'arrowleft': { x: -1, y: 0 },
+        'arrowright': { x: 1, y: 0 },
+        'w': { x: 0, y: -1 },
+        's': { x: 0, y: 1 },
+        'a': { x: -1, y: 0 },
+        'd': { x: 1, y: 0 }
       };
 
-      if (keyDirections[e.key]) {
-        const newDirection = keyDirections[e.key];
-        // Prevent 180-degree turns
-        if (Math.abs(newDirection.x) !== Math.abs(direction.x) ||
-            Math.abs(newDirection.y) !== Math.abs(direction.y)) {
-          setDirection(newDirection);
-        }
+      if (directions[key]) {
+        e.preventDefault();
+        changeDirection(directions[key]);
+      }
+
+      // Game controls
+      if (key === ' ' || key === 'p') {
+        e.preventDefault();
+        togglePause();
+      }
+
+      if (key === 'enter' && gameState.gameState === 'game_over') {
+        startGame(gameState.gameMode);
       }
     };
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [direction, isGameOver]);
+  }, [gameState, changeDirection, togglePause, startGame]);
 
-  useInterval(moveSnake, GAME_SPEED);
+  // Game loop
+  useInterval(
+    () => {
+      moveSnake();
+    },
+    gameState.gameState === 'playing' ? getSpeed() : null
+  );
+
+  // Handle collisions and effects
+  const handleFoodCollected = useCallback((x: number, y: number, color: string) => {
+    particleSystem.collectFood(x, y, color);
+    playSound('eat');
+  }, [particleSystem, playSound]);
+
+  const handlePowerUpCollected = useCallback((x: number, y: number) => {
+    particleSystem.activatePowerUp(x, y, '#FFD700');
+    playSound('powerup');
+  }, [particleSystem, playSound]);
+
+  const handleCollision = useCallback((x: number, y: number) => {
+    particleSystem.explode(x, y);
+    playSound('collision');
+  }, [particleSystem, playSound]);
+
+  // Update screen shake
+  useEffect(() => {
+    if (screenShake > 0) {
+      const timer = setTimeout(() => setScreenShake(s => Math.max(0, s - 1)), 50);
+      return () => clearTimeout(timer);
+    }
+  }, [screenShake]);
+
+  // Update stats timer
+  useEffect(() => {
+    if (gameState.gameState === 'playing') {
+      const timer = setInterval(() => {
+        // This would normally update play time in the game state
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [gameState.gameState]);
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center bg-black p-4">
-      <div className="mb-4 font-mono text-green-500">Score: {score}</div>
-      <div className="border-2 border-green-500 grid grid-cols-20 gap-0 bg-black" ref={boardRef}>
-        {Array.from({ length: GRID_SIZE * GRID_SIZE }).map((_, index) => {
-          const x = index % GRID_SIZE;
-          const y = Math.floor(index / GRID_SIZE);
-          const isSnake = snake.some(segment => segment.x === x && segment.y === y);
-          const isFood = food.x === x && food.y === y;
-
-          return (
-            <div
-              key={index}
-              className={`w-4 h-4 ${
-                isSnake
-                  ? 'bg-green-500'
-                  : isFood
-                  ? 'bg-green-300'
-                  : 'bg-black'
-              }`}
-            />
-          );
-        })}
+    <div className="relative w-full h-full bg-black overflow-hidden">
+      {/* Background Effects */}
+      <div className="absolute inset-0 opacity-20">
+        <div className="matrix-rain" />
       </div>
-      {isGameOver && (
-        <div className="mt-4 text-center font-mono text-green-500">
-          <p>Game Over! Score: {score}</p>
+
+      {/* Game Container */}
+      <div 
+        ref={containerRef}
+        className="relative flex flex-col items-center justify-center h-full p-4 gap-4"
+        style={{
+          transform: screenShake > 0 
+            ? `translate(${(Math.random() - 0.5) * screenShake}px, ${(Math.random() - 0.5) * screenShake}px)`
+            : 'none'
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between w-full max-w-[800px]">
+          <div className="flex items-center gap-2 text-green-500">
+            <Gamepad2 className="w-6 h-6" />
+            <h1 className="text-2xl font-bold font-mono">SNAKE CLASSIC</h1>
+            <span className="text-xs text-green-400">ENHANCED EDITION</span>
+          </div>
           <button
-            onClick={resetGame}
-            className="mt-2 px-4 py-2 bg-green-500 text-black rounded hover:bg-green-400"
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            className="p-2 hover:bg-green-900/50 rounded transition-colors text-green-500"
+            aria-label={soundEnabled ? 'Mute sound' : 'Unmute sound'}
           >
-            Play Again
+            {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
           </button>
         </div>
-      )}
+
+        {/* Main Game Area */}
+        <div className="flex gap-6 items-start">
+          {/* Game Canvas */}
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-green-900/20 to-transparent rounded-lg" />
+            <div className="relative border-2 border-green-500 rounded-lg overflow-hidden shadow-2xl shadow-green-500/20">
+              <SnakeRenderer
+                snake={gameState.snake}
+                food={gameState.food}
+                obstacles={gameState.obstacles}
+                powerUps={gameState.powerUps}
+                activePowerUp={gameState.activePowerUp}
+                gameState={gameState.gameState}
+                gridSize={GRID_SIZE}
+                cellSize={CELL_SIZE}
+                level={gameState.level}
+                combo={gameState.combo}
+                onFoodCollected={handleFoodCollected}
+                onPowerUpCollected={handlePowerUpCollected}
+                onCollision={handleCollision}
+              />
+            </div>
+          </div>
+
+          {/* HUD */}
+          <div className="w-80">
+            <SnakeHUD
+              score={gameState.score}
+              highScore={gameState.highScore}
+              level={gameState.level}
+              lives={gameState.lives}
+              combo={gameState.combo}
+              gameState={gameState.gameState}
+              gameMode={gameState.gameMode}
+              activePowerUp={gameState.activePowerUp}
+              powerUpTimer={gameState.powerUpTimer}
+              stats={gameState.stats}
+              onStartGame={startGame}
+              onTogglePause={togglePause}
+            />
+          </div>
+        </div>
+
+        {/* Controls Info */}
+        <div className="text-xs text-green-400 text-center space-y-1">
+          <p>Use ARROW KEYS or WASD to move • SPACE to pause • ENTER to restart</p>
+          <p className="text-green-500">
+            Collect power-ups for special abilities • Chain food for combo multiplier
+          </p>
+        </div>
+      </div>
+
+      {/* CSS for Matrix Rain effect */}
+      <style jsx>{`
+        .matrix-rain {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background-image: 
+            repeating-linear-gradient(
+              0deg,
+              transparent,
+              transparent 2px,
+              rgba(0, 255, 0, 0.03) 2px,
+              rgba(0, 255, 0, 0.03) 4px
+            ),
+            repeating-linear-gradient(
+              90deg,
+              transparent,
+              transparent 2px,
+              rgba(0, 255, 0, 0.03) 2px,
+              rgba(0, 255, 0, 0.03) 4px
+            );
+          animation: matrix-move 20s linear infinite;
+        }
+
+        @keyframes matrix-move {
+          0% {
+            transform: translate(0, 0);
+          }
+          100% {
+            transform: translate(50px, 50px);
+          }
+        }
+      `}</style>
     </div>
   );
 }
