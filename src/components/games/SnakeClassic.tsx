@@ -1,11 +1,11 @@
-import React, { useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSnakeGame, Direction } from '../../hooks/useSnakeGame';
 import { useParticleSystem } from '../../hooks/useParticleSystem';
 import { useInterval } from '../../hooks/useInterval';
 import { useSoundSystem } from '../../hooks/useSoundSystem';
 import SnakeRenderer from './SnakeRenderer';
 import SnakeHUD from './SnakeHUD';
-import { Gamepad2 } from 'lucide-react';
+import { Gamepad2, Volume2, VolumeX } from 'lucide-react';
 
 const GRID_SIZE = 30;
 const CELL_SIZE = 20;
@@ -21,22 +21,25 @@ export default function SnakeClassic() {
   } = useSnakeGame();
 
   const particleSystem = useParticleSystem();
-  const [screenShake, setScreenShake] = React.useState(0);
+  const [screenShake, setScreenShake] = useState(0);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const { playSFX, playMusic, stopMusic } = useSoundSystem();
 
   // Start gameplay music when game starts
   useEffect(() => {
-    if (gameState.gameStatus === 'playing') {
+    if (gameState.gameState === 'playing' && soundEnabled) {
       playMusic('gameplay');
     } else {
       stopMusic();
     }
     return () => stopMusic();
-  }, [gameState.gameStatus, playMusic, stopMusic]);
+  }, [gameState.gameState, soundEnabled, playMusic, stopMusic]);
 
   // Play sound effect using unified system
   const playSound = useCallback((type: 'eat' | 'powerup' | 'collision' | 'levelup') => {
+    if (!soundEnabled) return;
+    
     switch (type) {
       case 'eat':
         playSFX('snakeEat');
@@ -52,7 +55,7 @@ export default function SnakeClassic() {
         playSFX('levelUp');
         break;
     }
-  }, [playSFX]);
+  }, [soundEnabled, playSFX]);
 
   // Handle keyboard input
   useEffect(() => {

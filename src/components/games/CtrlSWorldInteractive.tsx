@@ -277,9 +277,23 @@ export default function CtrlSWorldInteractive() {
   const choicesRef = useRef<HTMLDivElement>(null);
   
   // Initialize Shatner voice system
-  const { speak: speakWithShatnerVoice, stop: stopShatnerVoice, config: voiceConfig } = useShatnerVoice();
+  const { speak: speakWithShatnerVoice, stop: stopShatnerVoice, config: voiceConfig, isSupported: voiceSupported } = useShatnerVoice();
 
   const currentNode = EPIC_STORY[gameState.currentNode];
+
+  // Handle voice narration with proper config checking
+  const handleVoiceNarration = useCallback((text: string) => {
+    // Only speak if voice is supported and enabled
+    if (voiceSupported && voiceConfig && voiceConfig.enabled && text) {
+      // Add a small delay to ensure smooth transition
+      setTimeout(() => {
+        // Final check before speaking
+        if (voiceConfig.enabled) {
+          speakWithShatnerVoice(text);
+        }
+      }, 500);
+    }
+  }, [voiceSupported, voiceConfig, speakWithShatnerVoice]);
 
   // Fullscreen toggle
   const toggleFullscreen = useCallback(() => {
@@ -320,10 +334,8 @@ export default function CtrlSWorldInteractive() {
     if (!currentParagraph) {
       setIsTyping(false);
       // Start Shatner voice narration when typing is complete
-      if (voiceConfig.enabled && currentNode.content) {
-        const fullText = currentNode.content.join(' ');
-        setTimeout(() => speakWithShatnerVoice(fullText), 500);
-      }
+      const fullText = currentNode.content.join(' ');
+      handleVoiceNarration(fullText);
       return;
     }
 
@@ -351,13 +363,11 @@ export default function CtrlSWorldInteractive() {
       } else {
         setIsTyping(false);
         // Start Shatner voice narration when typing is complete
-        if (voiceConfig.enabled && currentNode.content) {
-          const fullText = currentNode.content.join(' ');
-          setTimeout(() => speakWithShatnerVoice(fullText), 500);
-        }
+        const fullText = currentNode.content.join(' ');
+        handleVoiceNarration(fullText);
       }
     }
-  }, [currentNode, isTyping, currentParagraphIndex, currentCharIndex, voiceConfig.enabled, speakWithShatnerVoice]);
+  }, [currentNode, isTyping, currentParagraphIndex, currentCharIndex, handleVoiceNarration]);
 
   const makeChoice = useCallback((choice: Choice) => {
     // Stop any current narration when making a choice
