@@ -169,8 +169,8 @@ describe('useSoundSystem', () => {
       result.current.stopMusic();
     });
 
-    // Should clear current music reference
-    expect(result.current.isInitialized).toBe(true);
+    // Should stop the music source
+    expect(mockOscillator.stop).toHaveBeenCalled();
   });
 
   it('toggles mute state correctly', () => {
@@ -267,14 +267,26 @@ describe('useSoundSystem', () => {
   });
 
   it('handles audio context suspended state', async () => {
-    mockAudioContext.state = 'suspended';
     const { result } = renderHook(() => useSoundSystem());
-
+    
+    // Initialize context first
     await act(async () => {
       await result.current.playSFX('jump');
     });
+    
+    // Now set it to suspended and clear the resume mock
+    mockAudioContext.state = 'suspended';
+    mockAudioContext.resume.mockClear();
+
+    // Try to play another sound - should resume
+    await act(async () => {
+      await result.current.playSFX('menu');
+    });
 
     expect(mockAudioContext.resume).toHaveBeenCalled();
+    
+    // Reset state
+    mockAudioContext.state = 'running';
   });
 
   it('handles audio context errors gracefully', async () => {
@@ -301,17 +313,26 @@ describe('useSoundSystem', () => {
     vi.useFakeTimers();
     const { result } = renderHook(() => useSoundSystem());
 
+    // Clear any previous calls
+    mockAudioContext.createOscillator.mockClear();
+
     await act(async () => {
       await result.current.playMusic('menu');
     });
 
-    // Fast forward to trigger loop
+    // Should have created oscillators for first play
+    const firstLoopCalls = mockAudioContext.createOscillator.mock.calls.length;
+    expect(firstLoopCalls).toBeGreaterThan(0);
+
+    // Fast forward to trigger loop (need to calculate actual loop duration)
+    // Menu has 7 notes with rhythm [0.5, 0.25, 0.5, 0.25, 0.5, 0.25, 1.0] at tempo 120
+    // Total beats = 3.25, at 120 BPM = 1.625 seconds
     act(() => {
-      vi.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(2000); // Advance past first loop
     });
 
-    // Should create new oscillators for next loop
-    expect(mockAudioContext.createOscillator).toHaveBeenCalledTimes(14); // 7 notes * 2 loops
+    // Should create more oscillators for next loop
+    expect(mockAudioContext.createOscillator).toHaveBeenCalledTimes(firstLoopCalls * 2);
     
     vi.useRealTimers();
   });
@@ -329,8 +350,13 @@ describe('useSoundSystem', () => {
     consoleSpy.mockRestore();
   });
 
-  it('cleans up audio context on unmount', () => {
-    const { unmount } = renderHook(() => useSoundSystem());
+  it('cleans up audio context on unmount', async () => {
+    const { result, unmount } = renderHook(() => useSoundSystem());
+
+    // Initialize the audio context first
+    await act(async () => {
+      await result.current.playSFX('jump');
+    });
 
     unmount();
 

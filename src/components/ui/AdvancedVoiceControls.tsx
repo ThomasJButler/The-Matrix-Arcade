@@ -251,6 +251,8 @@ export const AdvancedVoiceControls: React.FC<AdvancedVoiceControlsProps> = ({
                 ref={visualizationRef}
                 width={120}
                 height={40}
+                role="img"
+                aria-label="Voice visualization"
                 className="rounded border border-green-500/20"
                 style={{ imageRendering: 'pixelated' }}
               />
@@ -369,11 +371,12 @@ export const AdvancedVoiceControls: React.FC<AdvancedVoiceControlsProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Rate Control */}
                 <div className="space-y-2">
-                  <label className="text-xs text-green-400 flex items-center justify-between">
+                  <label htmlFor="speech-rate" className="text-xs text-green-400 flex items-center justify-between">
                     <span>Speech Rate</span>
                     <span className="text-green-300">{config.rate.toFixed(2)}x</span>
                   </label>
                   <input
+                    id="speech-rate"
                     type="range"
                     min="0.5"
                     max="2.0"

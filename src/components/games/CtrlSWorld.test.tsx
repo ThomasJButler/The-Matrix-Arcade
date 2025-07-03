@@ -101,14 +101,14 @@ describe('CtrlSWorld', () => {
     });
 
     it('completes typing animation after sufficient time', () => {
-      // Fast forward to complete typing of first character of each word
+      // Fast forward to complete typing of some text
       act(() => {
-        vi.advanceTimersByTime(2000);
+        vi.advanceTimersByTime(3000);
       });
       
       // Should show at least partial text with cursor
       const contentDiv = screen.getByTestId('story-content');
-      expect(contentDiv.textContent!.length).toBeGreaterThan(10);
+      expect(contentDiv.textContent!.length).toBeGreaterThan(50);
     });
   });
 

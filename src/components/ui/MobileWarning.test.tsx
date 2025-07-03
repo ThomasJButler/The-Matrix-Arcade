@@ -104,7 +104,7 @@ describe('MobileWarning', () => {
     render(<MobileWarning />);
 
     const warningIcon = document.querySelector('.lucide-alert-triangle');
-    expect(warningIcon?.parentElement).toHaveClass('animate-pulse');
+    expect(warningIcon).toHaveClass('animate-pulse');
   });
 
   it('renders with proper text styling', () => {

@@ -355,7 +355,7 @@ export function useAdvancedVoice() {
 
   // Main speak function
   const speak = useCallback((text: string | string[]) => {
-    if (!isSupported || !text) return;
+    if (!isSupported || !text || !config.enabled) return;
 
     // Handle arrays of text
     if (Array.isArray(text)) {
@@ -371,7 +371,7 @@ export function useAdvancedVoice() {
     const utterance = createUtterance(text);
     utteranceRef.current = utterance;
     speechSynthesis.speak(utterance);
-  }, [isSupported, createUtterance]);
+  }, [isSupported, createUtterance, config.enabled]);
 
   // Control functions
   const pause = useCallback(() => {

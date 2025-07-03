@@ -280,6 +280,12 @@ export function useSnakeGame() {
           newState.level += 1;
           generateObstacles(newState.level);
         }
+
+        // Immediately spawn new food if we're running low
+        if (newState.food.length === 0) {
+          // Generate at least one food immediately
+          setTimeout(() => spawnFood(), 0);
+        }
       } else {
         // Remove tail if no food eaten
         newState.snake.pop();
@@ -306,7 +312,7 @@ export function useSnakeGame() {
 
       return newState;
     });
-  }, [gameState.gameState, generateObstacles]);
+  }, [gameState.gameState, generateObstacles, spawnFood]);
 
   // Handle death
   const handleDeath = (state: SnakeGameState): SnakeGameState => {
@@ -388,9 +394,15 @@ export function useSnakeGame() {
 
   // Spawn food periodically
   useEffect(() => {
-    if (gameState.gameState === 'playing' && gameState.food.length < 3) {
-      const timer = setTimeout(() => spawnFood(), 2000);
-      return () => clearTimeout(timer);
+    if (gameState.gameState === 'playing') {
+      if (gameState.food.length === 0) {
+        // Immediately spawn food if none exists
+        spawnFood();
+      } else if (gameState.food.length < 3) {
+        // Spawn more food after a delay
+        const timer = setTimeout(() => spawnFood(), 2000);
+        return () => clearTimeout(timer);
+      }
     }
   }, [gameState.gameState, gameState.food.length, spawnFood]);
 

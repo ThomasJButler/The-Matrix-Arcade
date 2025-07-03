@@ -1067,6 +1067,8 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
           ref={canvasRef}
           width={800}
           height={400}
+          role="img"
+          aria-label="Matrix Cloud game canvas"
           className="border-2 border-green-500 rounded-lg shadow-[0_0_20px_rgba(0,255,0,0.3)]"
           onClick={jump}
         />
@@ -1130,6 +1132,7 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
             onClick={() => setPaused(p => !p)}
             className="p-2 bg-green-900 rounded hover:bg-green-800 transition-colors"
             type="button"
+            aria-label={paused ? "Resume game" : "Pause game"}
           >
             {paused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
           </button>
@@ -1137,6 +1140,7 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
             onClick={reset}
             className="p-2 bg-green-900 rounded hover:bg-green-800 transition-colors"
             type="button"
+            aria-label="Restart game"
           >
             <RotateCw className="w-5 h-5" />
           </button>
