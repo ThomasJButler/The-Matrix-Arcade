@@ -10,7 +10,7 @@ const PIPE_SPEED = 3.2;         // Increased from 2.5
 const PIPE_SPACING = 250;       // Decreased from 280
 const PIPE_GAP = 150;          // Decreased from 170
 const GROUND_HEIGHT = 50;
-const PARTICLE_COUNT = 100;
+const PARTICLE_COUNT = 50; // Reduced for better performance
 const INITIAL_LIVES = 3;
 const SCORE_PER_PIPE = 10;
 const COMBO_INCREMENT = 0.15;   // Decreased from 0.2
@@ -472,10 +472,10 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
           highScore: newHighScore,
           level: state.level,
           stats: {
-            gamesPlayed: (saveData.games.matrixCloud.stats.gamesPlayed || 0) + 1,
-            totalScore: (saveData.games.matrixCloud.stats.totalScore || 0) + state.score,
-            longestSurvival: Math.max(saveData.games.matrixCloud.stats.longestSurvival || 0, state.score),
-            bossesDefeated: saveData.games.matrixCloud.stats.bossesDefeated || 0
+            gamesPlayed: (saveData?.games?.matrixCloud?.stats?.gamesPlayed || 0) + 1,
+            totalScore: (saveData?.games?.matrixCloud?.stats?.totalScore || 0) + state.score,
+            longestSurvival: Math.max(saveData?.games?.matrixCloud?.stats?.longestSurvival || 0, state.score),
+            bossesDefeated: saveData?.games?.matrixCloud?.stats?.bossesDefeated || 0
           }
         });
       }, 100);
@@ -496,13 +496,16 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
       invulnerable: true,
       shakeIntensity: 8
     };
-  }, [playSFX, addScreenShake]);
+  }, [playSFX, addScreenShake, updateGameSave, saveData]);
 
   const updateGame = useCallback((timestamp: number) => {
     if (paused) return;
 
     const deltaTime = timestamp - lastUpdateRef.current;
     lastUpdateRef.current = timestamp;
+    
+    // Skip frame if deltaTime is too large (tab was in background)
+    if (deltaTime > 100) return;
 
     setState(prev => {
       if (prev.gameOver) return prev;
@@ -722,6 +725,14 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
             playSFX('levelUp');
             addScreenShake(15);
             
+            // Update boss defeat count
+            updateGameSave('matrixCloud', {
+              stats: {
+                ...saveData?.games?.matrixCloud?.stats,
+                bossesDefeated: (saveData?.games?.matrixCloud?.stats?.bossesDefeated || 0) + 1
+              }
+            });
+            
             // Unlock boss achievements
             if (updatedBoss.type === 'agent_smith') {
               unlockAchievement('matrixCloud', 'boss_slayer');
@@ -794,6 +805,7 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
     if (state.started && !state.gameOver && !paused) {
       const gameLoop = (timestamp: number) => {
         updateGame(timestamp);
+        render();
         animationFrameRef.current = requestAnimationFrame(gameLoop);
       };
       animationFrameRef.current = requestAnimationFrame(gameLoop);
@@ -804,24 +816,27 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
         }
       };
     }
-  }, [state.started, state.gameOver, paused, updateGame]);
+  }, [state.started, state.gameOver, paused, updateGame, render]);
 
-  // Initialize particles
+  // Initialize particles and render initial state
   useEffect(() => {
     setState(prev => ({
       ...prev,
       particles: generateParticles()
     }));
     
+    // Render initial state
+    setTimeout(() => render(), 0);
+    
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [generateParticles]);
+  }, [generateParticles, render]);
 
   // Render game with enhanced visuals
-  useEffect(() => {
+  const render = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -832,40 +847,49 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
     ctx.save();
     ctx.translate(screenShake.x, screenShake.y);
 
-    // Clear canvas with fade effect
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+    // Clear canvas
+    ctx.fillStyle = 'black';
     ctx.fillRect(0, 0, 800, 400);
 
-    // Draw particles with glow
+    // Draw particles with reduced effects for performance
     ctx.font = '12px monospace';
+    // Only apply shadow once for all particles
+    ctx.shadowColor = '#00ff00';
+    ctx.shadowBlur = 3;
+    
     state.particles.forEach(particle => {
       ctx.save();
       ctx.translate(particle.x, particle.y);
       ctx.rotate(particle.rotation);
       ctx.scale(particle.scale, particle.scale);
       
-      // Particle glow
-      ctx.shadowColor = particle.glowColor;
-      ctx.shadowBlur = 5;
       ctx.fillStyle = `rgba(0, 255, 0, ${particle.opacity})`;
       ctx.fillText(particle.char, 0, 0);
       ctx.restore();
     });
+    
+    // Reset shadow for other elements
+    ctx.shadowBlur = 0;
 
-    // Draw pipes with glow effect
+    // Draw pipes with simpler rendering
     state.pipes.forEach(pipe => {
-      const gradient = ctx.createLinearGradient(pipe.x, 0, pipe.x + 50, 0);
-      gradient.addColorStop(0, `rgba(0, ${102 + pipe.glowIntensity * 153}, 0, 1)`);
-      gradient.addColorStop(1, '#006600');
+      // Use solid color instead of gradient for better performance
+      const green = Math.floor(102 + pipe.glowIntensity * 153);
+      ctx.fillStyle = `rgb(0, ${green}, 0)`;
       
-      ctx.fillStyle = gradient;
-      ctx.shadowColor = '#00ff00';
-      ctx.shadowBlur = pipe.glowIntensity * 10;
+      // Only apply shadow for glowing pipes
+      if (pipe.glowIntensity > 0) {
+        ctx.shadowColor = '#00ff00';
+        ctx.shadowBlur = pipe.glowIntensity * 10;
+      }
       
       // Top pipe
       ctx.fillRect(pipe.x, 0, 50, pipe.height);
       // Bottom pipe
       ctx.fillRect(pipe.x, pipe.height + PIPE_GAP, 50, 400 - (pipe.height + PIPE_GAP));
+      
+      // Reset shadow
+      ctx.shadowBlur = 0;
     });
 
     // Draw power-ups
@@ -874,7 +898,8 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
       
       ctx.save();
       ctx.translate(powerUp.x + 15, powerUp.y + 15);
-      ctx.rotate(Date.now() / 1000);
+      // Use a simpler rotation based on position for performance
+      ctx.rotate(powerUp.x * 0.01);
       
       // Power-up glow
       ctx.shadowColor = '#00ff00';
@@ -934,7 +959,7 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
           // Sentinel - mechanical tentacles
           ctx.fillStyle = '#330000';
           for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2 + Date.now() / 1000;
+            const angle = (i / 8) * Math.PI * 2 + boss.x * 0.01;
             const length = boss.size / 2;
             ctx.beginPath();
             ctx.moveTo(0, 0);

@@ -84,7 +84,10 @@ const getScreenShake = (intensity: number) => ({
 export default function VortexPong() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [paddleY, setPaddleY] = useState(150);
+  const [paddleVelocity, setPaddleVelocity] = useState(0);
+  const [keyboardControls, setKeyboardControls] = useState({ up: false, down: false });
   const [aiPaddleY, setAiPaddleY] = useState(150);
+  const [aiPaddleVelocity, setAiPaddleVelocity] = useState(0);
   const [balls, setBalls] = useState<Ball[]>([createBall(400, 200, -INITIAL_BALL_SPEED, 0)]);
   const [particles, setParticles] = useState<Particle[]>([]);
   const [score, setScore] = useState({ player: 0, ai: 0 });
@@ -192,6 +195,64 @@ export default function VortexPong() {
     }
   }, []);
 
+  // Keyboard control support
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+        e.preventDefault();
+        setKeyboardControls(prev => ({ ...prev, up: true }));
+      } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+        e.preventDefault();
+        setKeyboardControls(prev => ({ ...prev, down: true }));
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+        setKeyboardControls(prev => ({ ...prev, up: false }));
+      } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+        setKeyboardControls(prev => ({ ...prev, down: false }));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
+  // Update paddle position based on keyboard input
+  useEffect(() => {
+    const paddleSpeed = 10; // Increased for more responsive controls
+    const friction = 0.9;
+    
+    const updatePaddle = () => {
+      let velocity = paddleVelocity * friction;
+      
+      if (keyboardControls.up) {
+        velocity -= paddleSpeed;
+      }
+      if (keyboardControls.down) {
+        velocity += paddleSpeed;
+      }
+      
+      // Clamp velocity
+      velocity = Math.max(-15, Math.min(15, velocity));
+      
+      setPaddleVelocity(velocity);
+      setPaddleY(prev => {
+        const paddleHeight = activePowerUps.bigger_paddle ? PADDLE_HEIGHT * 1.5 : PADDLE_HEIGHT;
+        const newY = prev + velocity;
+        return Math.max(0, Math.min(400 - paddleHeight, newY));
+      });
+    };
+
+    const interval = setInterval(updatePaddle, 16); // 60fps update
+    return () => clearInterval(interval);
+  }, [paddleVelocity, keyboardControls, activePowerUps.bigger_paddle]);
+
   // Power-up spawn effect with adaptive timing
   useEffect(() => {
     const baseInterval = Math.max(5000, 10000 - (score.player + score.ai) * 500);
@@ -287,6 +348,9 @@ export default function VortexPong() {
         setCombo(prev => prev + 1);
         setLastPaddleHit('player');
         
+        // Add slight velocity boost based on paddle movement
+        newBall.vy += paddleVelocity * 0.1;
+        
         // Increase AI difficulty based on player performance
         setAiDifficulty(prev => Math.min(8, prev + 0.1));
       }
@@ -361,21 +425,35 @@ export default function VortexPong() {
       return;
     }
 
-    // Enhanced AI movement with adaptive difficulty
+    // Enhanced AI movement with adaptive difficulty and smooth velocity
     const closestBall = balls.reduce((closest, ball) => 
       !closest || ball.x > closest.x ? ball : closest, null as Ball | null);
     
     if (closestBall) {
       const maxAiSpeed = Math.min(aiDifficulty, 7); // Cap AI speed
-      const aiSpeed = closestBall.vx > 0 ? maxAiSpeed : maxAiSpeed * 0.7; // Slower when ball moving away
+      const acceleration = closestBall.vx > 0 ? maxAiSpeed * 0.5 : maxAiSpeed * 0.3; // Slower when ball moving away
+      const targetY = closestBall.y - PADDLE_HEIGHT / 2;
+      const diff = targetY - aiPaddleY;
       
-      if (Math.abs(aiPaddleY + PADDLE_HEIGHT / 2 - closestBall.y) > 20) {
-        if (aiPaddleY + PADDLE_HEIGHT / 2 < closestBall.y && aiPaddleY < 320) {
-          setAiPaddleY(y => Math.min(320, y + aiSpeed));
-        } else if (aiPaddleY + PADDLE_HEIGHT / 2 > closestBall.y && aiPaddleY > 0) {
-          setAiPaddleY(y => Math.max(0, y - aiSpeed));
+      // Apply acceleration towards target with damping
+      let newVelocity = aiPaddleVelocity * 0.92; // Friction
+      
+      if (Math.abs(diff) > 10) {
+        if (diff > 0) {
+          newVelocity += acceleration;
+        } else {
+          newVelocity -= acceleration;
         }
       }
+      
+      // Clamp velocity
+      newVelocity = Math.max(-maxAiSpeed * 2, Math.min(maxAiSpeed * 2, newVelocity));
+      
+      setAiPaddleVelocity(newVelocity);
+      setAiPaddleY(prev => {
+        const newY = prev + newVelocity;
+        return Math.max(0, Math.min(320, newY));
+      });
     }
 
     // Update impact effects
@@ -401,6 +479,7 @@ export default function VortexPong() {
     render(canvas, {
       balls: updatedBalls,
       paddleY,
+    paddleVelocity,
       aiPaddleY,
       particles,
       powerUps,

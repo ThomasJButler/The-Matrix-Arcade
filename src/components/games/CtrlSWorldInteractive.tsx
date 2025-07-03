@@ -12,6 +12,8 @@ import {
   Brain,
   Maximize,
   Minimize,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { EPIC_STORY, INITIAL_STATE, GameState, Choice, calculateTeamMood, getRandomBugFact, INVENTORY_ITEMS } from './CtrlSWorldContent';
 import { AdvancedVoiceControls } from '../ui/AdvancedVoiceControls';
@@ -329,7 +331,13 @@ export default function CtrlSWorldInteractive() {
     setCurrentParagraphIndex(0);
     setCurrentCharIndex(0);
     setIsTyping(true);
-  }, [gameState.currentNode]);
+    
+    // Start voice narration immediately when node changes
+    const node = EPIC_STORY[gameState.currentNode];
+    if (node && node.content) {
+      handleVoiceNarration(node.content);
+    }
+  }, [gameState.currentNode, handleVoiceNarration]);
 
   // Enhanced typing effect with paragraph support and Shatner voice
   useEffect(() => {
@@ -340,9 +348,6 @@ export default function CtrlSWorldInteractive() {
     
     if (!currentParagraph) {
       setIsTyping(false);
-      // Start voice narration when typing is complete
-      // Pass array of paragraphs for better pacing
-      handleVoiceNarration(currentNode.content);
       return;
     }
 
@@ -369,8 +374,6 @@ export default function CtrlSWorldInteractive() {
         return () => clearTimeout(timer);
       } else {
         setIsTyping(false);
-        // Start voice narration when typing is complete
-        handleVoiceNarration(currentNode.content);
       }
     }
   }, [currentNode, isTyping, currentParagraphIndex, currentCharIndex, handleVoiceNarration]);
@@ -448,14 +451,28 @@ export default function CtrlSWorldInteractive() {
       ref={containerRef}
       className={`w-full h-full bg-black text-green-500 font-mono flex ${isFullscreen ? 'fullscreen' : ''}`}
     >
-      {/* Fullscreen Toggle */}
-      <button
-        onClick={toggleFullscreen}
-        className="absolute top-4 right-4 z-10 p-2 bg-green-900/80 hover:bg-green-800 border border-green-500/50 rounded backdrop-blur-sm transition-colors"
-        title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-      >
-        {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
-      </button>
+      {/* Control Buttons */}
+      <div className="absolute top-4 right-4 z-10 flex gap-2">
+        {/* Stop Voice Button */}
+        {isSpeaking && (
+          <button
+            onClick={stopVoice}
+            className="p-2 bg-red-900/80 hover:bg-red-800 border border-red-500/50 rounded backdrop-blur-sm transition-colors"
+            title="Stop Voice Narration"
+          >
+            <VolumeX className="w-5 h-5" />
+          </button>
+        )}
+        
+        {/* Fullscreen Toggle */}
+        <button
+          onClick={toggleFullscreen}
+          className="p-2 bg-green-900/80 hover:bg-green-800 border border-green-500/50 rounded backdrop-blur-sm transition-colors"
+          title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+        >
+          {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+        </button>
+      </div>
       
       {/* Main Story Panel */}
       <div className="flex-1 flex flex-col p-4 overflow-hidden">
