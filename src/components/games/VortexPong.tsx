@@ -17,6 +17,14 @@ const INITIAL_BALL_SPEED = 7;
 const SPEED_INCREMENT = 0.1; // Speed increases over time
 const MAX_BALL_SPEED = 15;
 
+interface AchievementManager {
+  unlockAchievement(gameId: string, achievementId: string): void;
+}
+
+interface VortexPongProps {
+  achievementManager?: AchievementManager;
+}
+
 type Particle = {
   x: number;
   y: number;
@@ -81,7 +89,7 @@ const getScreenShake = (intensity: number) => ({
   y: (Math.random() - 0.5) * intensity
 });
 
-export default function VortexPong() {
+export default function VortexPong({ achievementManager }: VortexPongProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [paddleY, setPaddleY] = useState(150);
   const [paddleVelocity, setPaddleVelocity] = useState(0);
@@ -106,6 +114,18 @@ export default function VortexPong() {
   const { powerUps, setPowerUps, activePowerUps, spawnPowerUp, activatePowerUp } = usePowerUps();
   const { explode, createTrail, render: renderParticles } = useParticleSystem();
   const { playSFX, stopMusic } = useSoundSystem();
+  
+  // Achievement unlock function
+  const unlockAchievement = useCallback((achievementId: string) => {
+    if (achievementManager?.unlockAchievement) {
+      achievementManager.unlockAchievement('vortexPong', achievementId);
+    }
+  }, [achievementManager]);
+  
+  // Track rally count
+  const rallyCount = useRef(0);
+  const hasFirstPoint = useRef(false);
+  const powerUpsUsed = useRef(0);
 
   // Initialize particles
   useEffect(() => {
@@ -296,6 +316,9 @@ export default function VortexPong() {
           updatedPowerUps.splice(index, 1);
           setPowerUps(updatedPowerUps);
           
+          // Track power-up usage
+          powerUpsUsed.current += 1;
+          
           // Special effects for multi-ball power-up
           if (powerUp.type === 'multi_ball') {
             addImpactEffect(powerUp.x, powerUp.y, 15);
@@ -348,6 +371,18 @@ export default function VortexPong() {
         setCombo(prev => prev + 1);
         setLastPaddleHit('player');
         
+        // Track rally
+        if (lastPaddleHit === 'ai') {
+          rallyCount.current += 1;
+          
+          // Rally achievements
+          if (rallyCount.current === 5) {
+            unlockAchievement('pong_combo_king');
+          } else if (rallyCount.current === 20) {
+            unlockAchievement('pong_rally_master');
+          }
+        }
+        
         // Add slight velocity boost based on paddle movement
         newBall.vy += paddleVelocity * 0.1;
         
@@ -390,6 +425,9 @@ export default function VortexPong() {
         playSFX('hit');
         setCombo(0);
         scoreChanged = true;
+        
+        // Reset rally count when AI scores
+        rallyCount.current = 0;
       } else if (ball.x >= 800) {
         // Player scores
         const multiplier = activePowerUps.score_multiplier ? 2 : 1;
@@ -399,6 +437,15 @@ export default function VortexPong() {
         playSFX('score');
         if (comboBonus > 0) playSFX('combo');
         scoreChanged = true;
+        
+        // First point achievement
+        if (!hasFirstPoint.current) {
+          hasFirstPoint.current = true;
+          unlockAchievement('pong_first_point');
+        }
+        
+        // Rally count resets on score
+        rallyCount.current = 0;
       } else {
         remainingBalls.push(ball);
       }
@@ -422,6 +469,22 @@ export default function VortexPong() {
       stopMusic();
       playSFX(score.player >= 10 ? 'levelUp' : 'gameOver');
       addScreenShake(30);
+      
+      // Check achievements on game over
+      if (score.player >= 10) {
+        unlockAchievement('pong_beat_ai');
+        
+        // Perfect game achievement
+        if (score.ai === 0) {
+          unlockAchievement('pong_perfect_game');
+        }
+      }
+      
+      // Multi-ball achievement
+      if (balls.length >= 3) {
+        unlockAchievement('pong_multi_ball');
+      }
+      
       return;
     }
 

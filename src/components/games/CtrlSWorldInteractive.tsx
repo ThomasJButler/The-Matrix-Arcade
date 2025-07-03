@@ -19,6 +19,14 @@ import { EPIC_STORY, INITIAL_STATE, GameState, Choice, calculateTeamMood, getRan
 import { AdvancedVoiceControls } from '../ui/AdvancedVoiceControls';
 import { useAdvancedVoice } from '../../hooks/useAdvancedVoice';
 
+interface AchievementManager {
+  unlockAchievement(gameId: string, achievementId: string): void;
+}
+
+interface CtrlSWorldInteractiveProps {
+  achievementManager?: AchievementManager;
+}
+
 interface GameStatsProps {
   gameState: GameState;
 }
@@ -263,7 +271,7 @@ const CoffeeMiniGame: React.FC<CoffeeMiniGameProps> = ({ onComplete }) => {
   );
 };
 
-export default function CtrlSWorldInteractive() {
+export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorldInteractiveProps) {
   const [gameState, setGameState] = useState<GameState>(INITIAL_STATE);
   const [currentParagraphs, setCurrentParagraphs] = useState<string[]>([]);
   const [currentParagraphIndex, setCurrentParagraphIndex] = useState(0);
@@ -287,6 +295,19 @@ export default function CtrlSWorldInteractive() {
     speak: speakWithAdvancedVoice, 
     stop: stopVoice,
   } = useAdvancedVoice();
+  
+  // Achievement unlock function
+  const unlockAchievement = useCallback((achievementId: string) => {
+    if (achievementManager?.unlockAchievement) {
+      achievementManager.unlockAchievement('ctrlSWorld', achievementId);
+    }
+  }, [achievementManager]);
+  
+  // Track achievement conditions
+  const totalChoicesMade = useRef(0);
+  const voiceUsageStartTime = useRef<number | null>(null);
+  const voiceUsageTime = useRef(0);
+  const hasCollectedItems = useRef(new Set<string>());
 
   const currentNode = EPIC_STORY[gameState.currentNode];
 
@@ -384,6 +405,9 @@ export default function CtrlSWorldInteractive() {
     
     const newGameState = { ...gameState };
     
+    // Track choices made
+    totalChoicesMade.current += 1;
+    
     // Apply choice effects
     if (choice.coffeeLevel) {
       newGameState.coffeeLevel = Math.max(0, Math.min(100, newGameState.coffeeLevel + choice.coffeeLevel));
@@ -398,6 +422,7 @@ export default function CtrlSWorldInteractive() {
       choice.gives.forEach(item => {
         if (!newGameState.inventory.includes(item)) {
           newGameState.inventory.push(item);
+          hasCollectedItems.current.add(item);
         }
       });
     }
@@ -418,11 +443,33 @@ export default function CtrlSWorldInteractive() {
     if (newGameState.coffeeLevel >= 100 && !newGameState.achievements.includes('Coffee Overdose')) {
       newGameState.achievements.push('Coffee Overdose');
       setNewAchievement('Coffee Overdose - Maximum caffeine achieved!');
+      unlockAchievement('ctrl_coffee_addict');
     }
     
     if (newGameState.codeQuality >= 90 && !newGameState.achievements.includes('Clean Code Master')) {
       newGameState.achievements.push('Clean Code Master');
       setNewAchievement('Clean Code Master - Your code is poetry!');
+      unlockAchievement('ctrl_clean_coder');
+    }
+    
+    // Bug free achievement
+    if (newGameState.bugs === 0) {
+      unlockAchievement('ctrl_bug_free');
+    }
+    
+    // Choice master achievement
+    if (totalChoicesMade.current >= 50) {
+      unlockAchievement('ctrl_choice_master');
+    }
+    
+    // Item collector achievement
+    if (hasCollectedItems.current.size >= 10) {
+      unlockAchievement('ctrl_collector');
+    }
+    
+    // Story complete achievement - check if we're at an ending node
+    if (choice.nextNode.includes('ending') || choice.nextNode.includes('epilogue')) {
+      unlockAchievement('ctrl_story_complete');
     }
     
     setGameState(newGameState);
@@ -432,7 +479,26 @@ export default function CtrlSWorldInteractive() {
       setBugFact(getRandomBugFact());
       setShowBugFact(true);
     }
-  }, [gameState, stopVoice]);
+  }, [gameState, stopVoice, unlockAchievement]);
+  
+  // Track voice usage time
+  useEffect(() => {
+    if (isSpeaking) {
+      if (!voiceUsageStartTime.current) {
+        voiceUsageStartTime.current = Date.now();
+      }
+    } else {
+      if (voiceUsageStartTime.current) {
+        voiceUsageTime.current += (Date.now() - voiceUsageStartTime.current) / 1000;
+        voiceUsageStartTime.current = null;
+        
+        // Voice master achievement (5 minutes = 300 seconds)
+        if (voiceUsageTime.current >= 300) {
+          unlockAchievement('ctrl_voice_master');
+        }
+      }
+    }
+  }, [isSpeaking, unlockAchievement]);
 
   const handleCoffeeMiniGame = (coffeeGain: number) => {
     setShowMiniGame(false);

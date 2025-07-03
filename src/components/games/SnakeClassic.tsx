@@ -10,7 +10,15 @@ import { Gamepad2, Volume2, VolumeX } from 'lucide-react';
 const GRID_SIZE = 30;
 const CELL_SIZE = 20;
 
-export default function SnakeClassic() {
+interface AchievementManager {
+  unlockAchievement(gameId: string, achievementId: string): void;
+}
+
+interface SnakeClassicProps {
+  achievementManager?: AchievementManager;
+}
+
+export default function SnakeClassic({ achievementManager }: SnakeClassicProps) {
   const {
     gameState,
     moveSnake,
@@ -25,6 +33,73 @@ export default function SnakeClassic() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const { playSFX, playMusic, stopMusic } = useSoundSystem();
+  
+  // Achievement unlock function
+  const unlockAchievement = useCallback((achievementId: string) => {
+    if (achievementManager?.unlockAchievement) {
+      achievementManager.unlockAchievement('snakeClassic', achievementId);
+    }
+  }, [achievementManager]);
+
+  // Track achievements
+  const prevStatsRef = useRef(gameState.stats);
+  const survivalStartTime = useRef<number | null>(null);
+  
+  // Achievement checks
+  useEffect(() => {
+    // First apple achievement
+    if (gameState.stats.foodEaten === 1 && prevStatsRef.current.foodEaten === 0) {
+      unlockAchievement('snake_first_apple');
+    }
+    
+    // Score milestones
+    if (gameState.score >= 100 && prevStatsRef.current.foodEaten < gameState.stats.foodEaten) {
+      unlockAchievement('snake_score_100');
+    }
+    
+    if (gameState.score >= 500 && prevStatsRef.current.foodEaten < gameState.stats.foodEaten) {
+      unlockAchievement('snake_score_500');
+    }
+    
+    // Combo achievement
+    if (gameState.combo >= 10) {
+      unlockAchievement('snake_combo_10');
+    }
+    
+    // Power-up master achievement
+    if (gameState.stats.powerUpsCollected >= 10) {
+      unlockAchievement('snake_power_master');
+    }
+    
+    // Speed demon achievement - check if on max speed and score >= 100
+    if (gameState.score >= 100 && getSpeed() <= 50) { // Faster speed = lower interval
+      unlockAchievement('snake_speed_demon');
+    }
+    
+    prevStatsRef.current = gameState.stats;
+  }, [gameState.stats, gameState.score, gameState.combo, unlockAchievement, getSpeed]);
+  
+  // Track survival time
+  useEffect(() => {
+    if (gameState.gameState === 'playing') {
+      if (!survivalStartTime.current) {
+        survivalStartTime.current = Date.now();
+      }
+      
+      const checkSurvival = setInterval(() => {
+        if (survivalStartTime.current) {
+          const survivalTime = (Date.now() - survivalStartTime.current) / 1000; // in seconds
+          if (survivalTime >= 300) { // 5 minutes
+            unlockAchievement('snake_survivor');
+          }
+        }
+      }, 1000);
+      
+      return () => clearInterval(checkSurvival);
+    } else if (gameState.gameState === 'game_over' || gameState.gameState === 'menu') {
+      survivalStartTime.current = null;
+    }
+  }, [gameState.gameState, unlockAchievement]);
 
   // Start gameplay music when game starts
   useEffect(() => {

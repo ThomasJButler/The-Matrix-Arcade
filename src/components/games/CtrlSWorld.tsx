@@ -4,6 +4,14 @@ import CtrlSWorldInteractive from './CtrlSWorldInteractive';
 import { useAdvancedVoice } from '../../hooks/useAdvancedVoice';
 import { AdvancedVoiceControls } from '../ui/AdvancedVoiceControls';
 
+interface AchievementManager {
+  unlockAchievement(gameId: string, achievementId: string): void;
+}
+
+interface CtrlSWorldProps {
+  achievementManager?: AchievementManager;
+}
+
 type StoryNode = {
   id: string;
   title: string;
@@ -193,7 +201,7 @@ const INFO_CONTENT = [
   "A portfolio piece demonstrating TypeScript, React, and creative storytelling."
 ];
 
-export default function CtrlSWorld() {
+export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
   const [gameMode, setGameMode] = useState<'classic' | 'interactive' | null>(null);
   const [currentNode, setCurrentNode] = useState(0);
   const [displayedTexts, setDisplayedTexts] = useState<string[]>([]);
@@ -220,6 +228,18 @@ export default function CtrlSWorld() {
     speak: speakWithAdvancedVoice, 
     stop: stopVoice,
   } = useAdvancedVoice();
+  
+  // Achievement unlock function
+  const unlockAchievement = useCallback((achievementId: string) => {
+    if (achievementManager?.unlockAchievement) {
+      achievementManager.unlockAchievement('ctrlSWorld', achievementId);
+    }
+  }, [achievementManager]);
+  
+  // Track achievement conditions
+  const totalChoices = useRef(0);
+  const voiceUsageStartTime = useRef<number | null>(null);
+  const voiceUsageTime = useRef(0);
 
   const scrollToBottom = useCallback(() => {
     if (terminalRef.current) {
@@ -403,7 +423,7 @@ export default function CtrlSWorld() {
 
   // Interactive Mode
   if (gameMode === 'interactive') {
-    return <CtrlSWorldInteractive />;
+    return <CtrlSWorldInteractive achievementManager={achievementManager} />;
   }
 
   // Classic Mode

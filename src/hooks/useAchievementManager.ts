@@ -168,9 +168,10 @@ export const useAchievementManager = () => {
     // Save system methods (pass through)
     saveGame: saveSystem.saveGame,
     loadGame: saveSystem.loadGame,
-    getSaveData: saveSystem.getSaveData,
+    getSaveData: () => saveSystem.saveData,
     clearSaveData: saveSystem.clearSaveData,
     exportSaveData: saveSystem.exportSaveData,
-    importSaveData: saveSystem.importSaveData
+    importSaveData: saveSystem.importSaveData,
+    updateGlobalStats: saveSystem.updateGlobalStats
   };
 };

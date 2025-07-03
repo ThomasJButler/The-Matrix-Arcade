@@ -57,6 +57,35 @@ function App() {
   // Mobile detection
   const { isMobile, isTablet } = useMobileDetection();
   const showMobileWarning = isMobile || isTablet;
+  
+  // Track global achievements
+  const gamesPlayed = useRef(new Set<string>());
+  const playStartTime = useRef<number | null>(null);
+  const totalPlayTime = useRef(0);
+  
+  // Check achievement milestones
+  useEffect(() => {
+    const totalUnlocked = achievementManager.stats.unlocked;
+    const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
+    
+    if (totalUnlocked >= 10 && !currentGlobalAchievements.includes('global_10_achievements')) {
+      achievementManager.updateGlobalStats({
+        globalAchievements: [...currentGlobalAchievements, 'global_10_achievements']
+      });
+    }
+    
+    if (totalUnlocked >= 25 && !currentGlobalAchievements.includes('global_25_achievements')) {
+      achievementManager.updateGlobalStats({
+        globalAchievements: [...currentGlobalAchievements, 'global_25_achievements']
+      });
+    }
+    
+    if (totalUnlocked >= 50 && !currentGlobalAchievements.includes('global_50_achievements')) {
+      achievementManager.updateGlobalStats({
+        globalAchievements: [...currentGlobalAchievements, 'global_50_achievements']
+      });
+    }
+  }, [achievementManager.stats.unlocked, achievementManager]);
 
   const games = [
     {
@@ -375,6 +404,22 @@ function App() {
                 setIsPlaying(false);
                 stopMusic();
                 playSFX('menu');
+                
+                // Track play time
+                if (playStartTime.current) {
+                  totalPlayTime.current += (Date.now() - playStartTime.current) / 1000 / 60; // in minutes
+                  playStartTime.current = null;
+                  
+                  // Marathon gamer achievement (60 minutes total)
+                  if (totalPlayTime.current >= 60) {
+                    const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
+                    if (!currentGlobalAchievements.includes('global_marathon_gamer')) {
+                      achievementManager.updateGlobalStats({
+                        globalAchievements: [...currentGlobalAchievements, 'global_marathon_gamer']
+                      });
+                    }
+                  }
+                }
               }}
               className="absolute top-4 right-4 z-50 p-3 bg-red-900/90 hover:bg-red-700 rounded-lg border-2 border-red-500/80 backdrop-blur-sm transition-all group shadow-lg hover:shadow-red-500/50 hover:scale-110"
               title="Exit Game (ESC)"
@@ -466,8 +511,50 @@ function App() {
                           if (!isPlaying) {
                             // Start ambient music when game starts
                             setTimeout(() => playMusic('gameplay'), 500);
+                            
+                            // Track game played
+                            const gameName = games[selectedGame].title;
+                            gamesPlayed.current.add(gameName);
+                            playStartTime.current = Date.now();
+                            
+                            // Check global achievements
+                            if (gamesPlayed.current.size === 1) {
+                              // First game achievement
+                              const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
+                              if (!currentGlobalAchievements.includes('global_first_game')) {
+                                achievementManager.updateGlobalStats({
+                                  globalAchievements: [...currentGlobalAchievements, 'global_first_game']
+                                });
+                              }
+                            }
+                            
+                            if (gamesPlayed.current.size === games.length) {
+                              // All games played achievement
+                              const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
+                              if (!currentGlobalAchievements.includes('global_all_games')) {
+                                achievementManager.updateGlobalStats({
+                                  globalAchievements: [...currentGlobalAchievements, 'global_all_games']
+                                });
+                              }
+                            }
                           } else {
                             stopMusic();
+                            
+                            // Track play time
+                            if (playStartTime.current) {
+                              totalPlayTime.current += (Date.now() - playStartTime.current) / 1000 / 60; // in minutes
+                              playStartTime.current = null;
+                              
+                              // Marathon gamer achievement (60 minutes total)
+                              if (totalPlayTime.current >= 60) {
+                                const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
+                                if (!currentGlobalAchievements.includes('global_marathon_gamer')) {
+                                  achievementManager.updateGlobalStats({
+                                    globalAchievements: [...currentGlobalAchievements, 'global_marathon_gamer']
+                                  });
+                                }
+                              }
+                            }
                           }
                         }}
                         className="px-6 py-2 lg:px-8 lg:py-3 bg-green-500 text-black font-mono rounded-full hover:bg-green-400 transition-colors flex items-center gap-2 mx-auto transform hover:scale-105 text-base lg:text-lg"

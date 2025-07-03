@@ -6,6 +6,14 @@ import { useAdvancedVoice } from '../../hooks/useAdvancedVoice';
 import { AdvancedVoiceControls } from '../ui/AdvancedVoiceControls';
 import TerminalQuestCombat from './TerminalQuestCombat';
 
+interface AchievementManager {
+  unlockAchievement(gameId: string, achievementId: string): void;
+}
+
+interface TerminalQuestProps {
+  achievementManager?: AchievementManager;
+}
+
 type GameState = {
   currentNode: string;
   inventory: string[];
@@ -56,7 +64,7 @@ const InventoryBadge = ({ item }: { item: string }) => {
   );
 };
 
-export default function TerminalQuest() {
+export default function TerminalQuest({ achievementManager }: TerminalQuestProps) {
   const [gameState, setGameState] = useState<GameState>({
     currentNode: 'start',
     inventory: [],
@@ -86,6 +94,17 @@ export default function TerminalQuest() {
     speak: speakWithAdvancedVoice, 
     stop: stopVoice,
   } = useAdvancedVoice();
+  
+  // Achievement unlock function
+  const unlockAchievement = useCallback((achievementId: string) => {
+    if (achievementManager?.unlockAchievement) {
+      achievementManager.unlockAchievement('terminalQuest', achievementId);
+    }
+  }, [achievementManager]);
+  
+  // Track various achievement conditions
+  const hasFirstChoice = React.useRef(false);
+  const combatVictories = React.useRef(0);
   
   // Start background music when component mounts
   useEffect(() => {
@@ -167,6 +186,39 @@ export default function TerminalQuest() {
     if (updatedInventory.length >= 10 && !state.achievements.includes('collector')) {
       newAchievements.push('collector');
     }
+    
+    // Global achievement system checks
+    // First choice achievement
+    if (!hasFirstChoice.current && state.choiceCount === 0) {
+      hasFirstChoice.current = true;
+      unlockAchievement('quest_first_choice');
+    }
+    
+    // Tool collector achievement (5 different items)
+    if (updatedInventory.length >= 5) {
+      unlockAchievement('quest_tool_collector');
+    }
+    
+    // Survivor achievement - check health maintained
+    if (newHealth === state.maxHealth && state.choiceCount >= 10) {
+      unlockAchievement('quest_survivor');
+    }
+    
+    // Code quality achievement (assuming security level represents code quality)
+    if (newSecurity >= 90) {
+      unlockAchievement('quest_code_master');
+    }
+    
+    // Team morale achievement (assuming health represents team morale in context)
+    if (newHealth >= 80) {
+      unlockAchievement('quest_team_leader');
+    }
+    
+    // Check if reaching an ending
+    const endingNodes = ['ending_hero', 'ending_sacrifice', 'ending_neutral', 'ending_villain'];
+    if (endingNodes.includes(choice.nextNode)) {
+      unlockAchievement('quest_story_end');
+    }
 
     return {
       ...state,
@@ -228,6 +280,12 @@ export default function TerminalQuest() {
         currentNode: 'hub_main' // Return to hub after combat
       }));
       triggerShake();
+      
+      // Track combat victories
+      combatVictories.current += 1;
+      if (combatVictories.current >= 10) {
+        unlockAchievement('quest_combat_victor');
+      }
     } else {
       setGameState(prev => ({
         ...prev,

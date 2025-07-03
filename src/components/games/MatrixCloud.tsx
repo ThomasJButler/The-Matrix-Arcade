@@ -190,6 +190,11 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
   // Save system integration
   const { saveData, updateGameSave } = useSaveSystem();
   
+  // Track achievements
+  const powerUpsCollected = useRef(0);
+  const bossesDefeated = useRef(new Set<string>());
+  const maxAltitude = useRef(0);
+  
   // Initialize state with saved high score
   const [state, setState] = useState<GameState>(() => ({
     ...initialGameState,
@@ -583,6 +588,13 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
           height: 30
         })) {
           activatePowerUp(powerUp.type);
+          
+          // Track power-ups for achievement
+          powerUpsCollected.current += 1;
+          if (powerUpsCollected.current >= 20) {
+            unlockAchievement('matrixCloud', 'cloud_power_collector');
+          }
+          
           return { ...powerUp, collected: true };
         }
         return powerUp;
@@ -642,6 +654,12 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
             combo: Math.min(newState.combo + COMBO_INCREMENT, MAX_COMBO),
             level: newLevel
           };
+          
+          // Track altitude for achievement (score represents altitude)
+          maxAltitude.current = Math.max(maxAltitude.current, newScore);
+          if (maxAltitude.current >= 1000) {
+            unlockAchievement('matrixCloud', 'cloud_high_flyer');
+          }
         }
       }
 
@@ -738,6 +756,12 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
               unlockAchievement('matrixCloud', 'boss_slayer');
             } else if (updatedBoss.type === 'architect') {
               unlockAchievement('matrixCloud', 'architect_defeat');
+            }
+            
+            // Track all bosses defeated
+            bossesDefeated.current.add(updatedBoss.type);
+            if (bossesDefeated.current.size >= 3) {
+              unlockAchievement('matrixCloud', 'cloud_all_bosses');
             }
             
             // End boss battle
