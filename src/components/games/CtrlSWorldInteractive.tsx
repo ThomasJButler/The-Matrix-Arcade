@@ -12,10 +12,20 @@ import {
   Brain,
   Maximize,
   Minimize,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { EPIC_STORY, INITIAL_STATE, GameState, Choice, calculateTeamMood, getRandomBugFact, INVENTORY_ITEMS } from './CtrlSWorldContent';
-import { ShatnerVoiceControls } from '../ui/ShatnerVoiceControls';
-import { useShatnerVoice } from '../../hooks/useShatnerVoice';
+import { AdvancedVoiceControls } from '../ui/AdvancedVoiceControls';
+import { useAdvancedVoice } from '../../hooks/useAdvancedVoice';
+
+interface AchievementManager {
+  unlockAchievement(gameId: string, achievementId: string): void;
+}
+
+interface CtrlSWorldInteractiveProps {
+  achievementManager?: AchievementManager;
+}
 
 interface GameStatsProps {
   gameState: GameState;
@@ -261,7 +271,7 @@ const CoffeeMiniGame: React.FC<CoffeeMiniGameProps> = ({ onComplete }) => {
   );
 };
 
-export default function CtrlSWorldInteractive() {
+export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorldInteractiveProps) {
   const [gameState, setGameState] = useState<GameState>(INITIAL_STATE);
   const [currentParagraphs, setCurrentParagraphs] = useState<string[]>([]);
   const [currentParagraphIndex, setCurrentParagraphIndex] = useState(0);
@@ -272,14 +282,49 @@ export default function CtrlSWorldInteractive() {
   const [showBugFact, setShowBugFact] = useState(false);
   const [bugFact, setBugFact] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+  const [highlightedWord, setHighlightedWord] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const choicesRef = useRef<HTMLDivElement>(null);
+  const textContentRef = useRef<HTMLDivElement>(null);
   
-  // Initialize Shatner voice system
-  const { speak: speakWithShatnerVoice, stop: stopShatnerVoice, config: voiceConfig } = useShatnerVoice();
+  // Initialize advanced voice system
+  const { 
+    config: voiceConfig, 
+    isSupported: voiceSupported,
+    isSpeaking,
+    speak: speakWithAdvancedVoice, 
+    stop: stopVoice,
+  } = useAdvancedVoice();
+  
+  // Achievement unlock function
+  const unlockAchievement = useCallback((achievementId: string) => {
+    if (achievementManager?.unlockAchievement) {
+      achievementManager.unlockAchievement('ctrlSWorld', achievementId);
+    }
+  }, [achievementManager]);
+  
+  // Track achievement conditions
+  const totalChoicesMade = useRef(0);
+  const voiceUsageStartTime = useRef<number | null>(null);
+  const voiceUsageTime = useRef(0);
+  const hasCollectedItems = useRef(new Set<string>());
+  const lastNarratedNode = useRef<string | null>(null); // Track last narrated node to prevent loops
 
   const currentNode = EPIC_STORY[gameState.currentNode];
+
+  // Handle voice narration with advanced features
+  const handleVoiceNarration = useCallback((content: string | string[]) => {
+    // Only speak if voice is supported and enabled
+    if (voiceSupported && voiceConfig && voiceConfig.enabled && content) {
+      // Add a small delay to ensure smooth transition
+      setTimeout(() => {
+        // Final check before speaking
+        if (voiceConfig.enabled) {
+          speakWithAdvancedVoice(content);
+        }
+      }, 500);
+    }
+  }, [voiceSupported, voiceConfig, speakWithAdvancedVoice]);
 
   // Fullscreen toggle
   const toggleFullscreen = useCallback(() => {
@@ -302,13 +347,30 @@ export default function CtrlSWorldInteractive() {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
+  // Cleanup speech synthesis on unmount
+  useEffect(() => {
+    return () => {
+      // Stop any ongoing speech when component unmounts
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
   // Start typing when node changes
   useEffect(() => {
     setCurrentParagraphs([]);
     setCurrentParagraphIndex(0);
     setCurrentCharIndex(0);
     setIsTyping(true);
-  }, [gameState.currentNode]);
+    
+    // Start voice narration only if this is a new node (prevent loops)
+    const node = EPIC_STORY[gameState.currentNode];
+    if (node && node.content && lastNarratedNode.current !== gameState.currentNode) {
+      lastNarratedNode.current = gameState.currentNode;
+      handleVoiceNarration(node.content);
+    }
+  }, [gameState.currentNode, handleVoiceNarration]);
 
   // Enhanced typing effect with paragraph support and Shatner voice
   useEffect(() => {
@@ -319,11 +381,6 @@ export default function CtrlSWorldInteractive() {
     
     if (!currentParagraph) {
       setIsTyping(false);
-      // Start Shatner voice narration when typing is complete
-      if (voiceConfig.enabled && currentNode.content) {
-        const fullText = currentNode.content.join(' ');
-        setTimeout(() => speakWithShatnerVoice(fullText), 500);
-      }
       return;
     }
 
@@ -350,20 +407,18 @@ export default function CtrlSWorldInteractive() {
         return () => clearTimeout(timer);
       } else {
         setIsTyping(false);
-        // Start Shatner voice narration when typing is complete
-        if (voiceConfig.enabled && currentNode.content) {
-          const fullText = currentNode.content.join(' ');
-          setTimeout(() => speakWithShatnerVoice(fullText), 500);
-        }
       }
     }
-  }, [currentNode, isTyping, currentParagraphIndex, currentCharIndex, voiceConfig.enabled, speakWithShatnerVoice]);
+  }, [currentNode, isTyping, currentParagraphIndex, currentCharIndex, handleVoiceNarration]);
 
   const makeChoice = useCallback((choice: Choice) => {
     // Stop any current narration when making a choice
-    stopShatnerVoice();
+    stopVoice();
     
     const newGameState = { ...gameState };
+    
+    // Track choices made
+    totalChoicesMade.current += 1;
     
     // Apply choice effects
     if (choice.coffeeLevel) {
@@ -379,6 +434,7 @@ export default function CtrlSWorldInteractive() {
       choice.gives.forEach(item => {
         if (!newGameState.inventory.includes(item)) {
           newGameState.inventory.push(item);
+          hasCollectedItems.current.add(item);
         }
       });
     }
@@ -399,11 +455,33 @@ export default function CtrlSWorldInteractive() {
     if (newGameState.coffeeLevel >= 100 && !newGameState.achievements.includes('Coffee Overdose')) {
       newGameState.achievements.push('Coffee Overdose');
       setNewAchievement('Coffee Overdose - Maximum caffeine achieved!');
+      unlockAchievement('ctrl_coffee_addict');
     }
     
     if (newGameState.codeQuality >= 90 && !newGameState.achievements.includes('Clean Code Master')) {
       newGameState.achievements.push('Clean Code Master');
       setNewAchievement('Clean Code Master - Your code is poetry!');
+      unlockAchievement('ctrl_clean_coder');
+    }
+    
+    // Bug free achievement
+    if (newGameState.bugs === 0) {
+      unlockAchievement('ctrl_bug_free');
+    }
+    
+    // Choice master achievement
+    if (totalChoicesMade.current >= 50) {
+      unlockAchievement('ctrl_choice_master');
+    }
+    
+    // Item collector achievement
+    if (hasCollectedItems.current.size >= 10) {
+      unlockAchievement('ctrl_collector');
+    }
+    
+    // Story complete achievement - check if we're at an ending node
+    if (choice.nextNode.includes('ending') || choice.nextNode.includes('epilogue')) {
+      unlockAchievement('ctrl_story_complete');
     }
     
     setGameState(newGameState);
@@ -413,7 +491,26 @@ export default function CtrlSWorldInteractive() {
       setBugFact(getRandomBugFact());
       setShowBugFact(true);
     }
-  }, [gameState, stopShatnerVoice]);
+  }, [gameState, stopVoice, unlockAchievement]);
+  
+  // Track voice usage time
+  useEffect(() => {
+    if (isSpeaking) {
+      if (!voiceUsageStartTime.current) {
+        voiceUsageStartTime.current = Date.now();
+      }
+    } else {
+      if (voiceUsageStartTime.current) {
+        voiceUsageTime.current += (Date.now() - voiceUsageStartTime.current) / 1000;
+        voiceUsageStartTime.current = null;
+        
+        // Voice master achievement (5 minutes = 300 seconds)
+        if (voiceUsageTime.current >= 300) {
+          unlockAchievement('ctrl_voice_master');
+        }
+      }
+    }
+  }, [isSpeaking, unlockAchievement]);
 
   const handleCoffeeMiniGame = (coffeeGain: number) => {
     setShowMiniGame(false);
@@ -432,14 +529,28 @@ export default function CtrlSWorldInteractive() {
       ref={containerRef}
       className={`w-full h-full bg-black text-green-500 font-mono flex ${isFullscreen ? 'fullscreen' : ''}`}
     >
-      {/* Fullscreen Toggle */}
-      <button
-        onClick={toggleFullscreen}
-        className="absolute top-4 right-4 z-10 p-2 bg-green-900/80 hover:bg-green-800 border border-green-500/50 rounded backdrop-blur-sm transition-colors"
-        title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-      >
-        {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
-      </button>
+      {/* Control Buttons */}
+      <div className="absolute top-4 right-4 z-10 flex gap-2">
+        {/* Stop Voice Button */}
+        {isSpeaking && (
+          <button
+            onClick={stopVoice}
+            className="p-2 bg-red-900/80 hover:bg-red-800 border border-red-500/50 rounded backdrop-blur-sm transition-colors"
+            title="Stop Voice Narration"
+          >
+            <VolumeX className="w-5 h-5" />
+          </button>
+        )}
+        
+        {/* Fullscreen Toggle */}
+        <button
+          onClick={toggleFullscreen}
+          className="p-2 bg-green-900/80 hover:bg-green-800 border border-green-500/50 rounded backdrop-blur-sm transition-colors"
+          title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+        >
+          {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+        </button>
+      </div>
       
       {/* Main Story Panel */}
       <div className="flex-1 flex flex-col p-4 overflow-hidden">
@@ -474,21 +585,40 @@ export default function CtrlSWorldInteractive() {
                 // Skip typing effect and show all content immediately
                 setCurrentParagraphs(currentNode?.content || []);
                 setIsTyping(false);
-                // Start voice narration immediately when skipping
-                if (voiceConfig.enabled && currentNode?.content) {
-                  const fullText = currentNode.content.join(' ');
-                  setTimeout(() => speakWithShatnerVoice(fullText), 200);
-                }
+                // Don't start voice again when skipping - it's already playing
               }
             }}
             title={isTyping ? 'Click to skip typing effect' : ''}
           >
-            <div className="text-green-300 leading-relaxed space-y-4">
+            <div className="text-green-300 leading-relaxed space-y-4" ref={textContentRef}>
               {currentParagraphs.map((paragraph, index) => (
                 <p key={index} className="text-green-300 leading-relaxed">
-                  {paragraph}
-                  {isTyping && index === currentParagraphIndex && (
-                    <span className="animate-pulse ml-1">▌</span>
+                  {voiceConfig.highlightText && isSpeaking && !isTyping ? (
+                    paragraph.split(' ').map((word, wordIndex) => {
+                      const globalWordIndex = currentParagraphs
+                        .slice(0, index)
+                        .join(' ')
+                        .split(' ').length + wordIndex;
+                      return (
+                        <span
+                          key={wordIndex}
+                          className={`${
+                            globalWordIndex === highlightedWord
+                              ? 'bg-green-500/30 text-green-100 px-1 rounded'
+                              : ''
+                          } transition-all duration-200`}
+                        >
+                          {word}{' '}
+                        </span>
+                      );
+                    })
+                  ) : (
+                    <>
+                      {paragraph}
+                      {isTyping && index === currentParagraphIndex && (
+                        <span className="animate-pulse ml-1">▌</span>
+                      )}
+                    </>
                   )}
                 </p>
               ))}
@@ -543,10 +673,10 @@ export default function CtrlSWorldInteractive() {
         <GameStats gameState={gameState} />
         <Inventory inventory={gameState.inventory} />
         
-        {/* Shatner Voice Controls */}
-        <ShatnerVoiceControls 
-          isExpanded={showVoiceSettings}
-          onToggleExpanded={() => setShowVoiceSettings(!showVoiceSettings)}
+        {/* Advanced Voice Controls */}
+        <AdvancedVoiceControls 
+          text={currentNode.content}
+          onTextHighlight={setHighlightedWord}
           className="mb-4"
         />
         

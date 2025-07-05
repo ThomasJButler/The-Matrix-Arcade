@@ -1,8 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { Terminal as TerminalIcon, Info, Shield, Wifi, Key, AlertTriangle, Cpu, Save, RotateCcw, Map as MapIcon } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Terminal as TerminalIcon, Info, Shield, Wifi, Key, AlertTriangle, Cpu, Save, RotateCcw, Map as MapIcon, Volume2, VolumeX } from 'lucide-react';
 import { EXPANDED_GAME_NODES, Choice } from './TerminalQuestContent';
 import { useSoundSystem } from '../../hooks/useSoundSystem';
+import { useAdvancedVoice } from '../../hooks/useAdvancedVoice';
+import { AdvancedVoiceControls } from '../ui/AdvancedVoiceControls';
 import TerminalQuestCombat from './TerminalQuestCombat';
+
+interface AchievementManager {
+  unlockAchievement(gameId: string, achievementId: string): void;
+}
+
+interface TerminalQuestProps {
+  achievementManager?: AchievementManager;
+}
 
 type GameState = {
   currentNode: string;
@@ -54,7 +64,7 @@ const InventoryBadge = ({ item }: { item: string }) => {
   );
 };
 
-export default function TerminalQuest() {
+export default function TerminalQuest({ achievementManager }: TerminalQuestProps) {
   const [gameState, setGameState] = useState<GameState>({
     currentNode: 'start',
     inventory: [],
@@ -71,9 +81,30 @@ export default function TerminalQuest() {
   const [isTyping, setIsTyping] = useState(false);
   const [shakeEffect, setShakeEffect] = useState(false); // Dynamic screen shake
   const [backgroundGlitch, setBackgroundGlitch] = useState(false); // Glitch effect
+  const [showVoiceControls, setShowVoiceControls] = useState(false);
   
   // Sound system integration
   const { playSFX, playMusic, stopMusic } = useSoundSystem();
+  
+  // Voice system integration
+  const { 
+    config: voiceConfig, 
+    isSupported: voiceSupported,
+    isSpeaking,
+    speak: speakWithAdvancedVoice, 
+    stop: stopVoice,
+  } = useAdvancedVoice();
+  
+  // Achievement unlock function
+  const unlockAchievement = useCallback((achievementId: string) => {
+    if (achievementManager?.unlockAchievement) {
+      achievementManager.unlockAchievement('terminalQuest', achievementId);
+    }
+  }, [achievementManager]);
+  
+  // Track various achievement conditions
+  const hasFirstChoice = React.useRef(false);
+  const combatVictories = React.useRef(0);
   
   // Start background music when component mounts
   useEffect(() => {
@@ -92,6 +123,9 @@ export default function TerminalQuest() {
 
   // Handler for choice actions
   const handleChoice = (choice: Choice) => {
+    // Stop any current narration
+    stopVoice();
+    
     // Play sound effects based on choice type
     playSFX('terminalType');
     
@@ -107,7 +141,7 @@ export default function TerminalQuest() {
     if (choice.gives) {
       playSFX('powerup');
     }
-    if (choice.heals) {
+    if (choice.heal) {
       playSFX('score');
     }
 
@@ -151,6 +185,39 @@ export default function TerminalQuest() {
     }
     if (updatedInventory.length >= 10 && !state.achievements.includes('collector')) {
       newAchievements.push('collector');
+    }
+    
+    // Global achievement system checks
+    // First choice achievement
+    if (!hasFirstChoice.current && state.choiceCount === 0) {
+      hasFirstChoice.current = true;
+      unlockAchievement('quest_first_choice');
+    }
+    
+    // Tool collector achievement (5 different items)
+    if (updatedInventory.length >= 5) {
+      unlockAchievement('quest_tool_collector');
+    }
+    
+    // Survivor achievement - check health maintained
+    if (newHealth === state.maxHealth && state.choiceCount >= 10) {
+      unlockAchievement('quest_survivor');
+    }
+    
+    // Code quality achievement (assuming security level represents code quality)
+    if (newSecurity >= 90) {
+      unlockAchievement('quest_code_master');
+    }
+    
+    // Team morale achievement (assuming health represents team morale in context)
+    if (newHealth >= 80) {
+      unlockAchievement('quest_team_leader');
+    }
+    
+    // Check if reaching an ending
+    const endingNodes = ['ending_hero', 'ending_sacrifice', 'ending_neutral', 'ending_villain'];
+    if (endingNodes.includes(choice.nextNode)) {
+      unlockAchievement('quest_story_end');
     }
 
     return {
@@ -213,6 +280,12 @@ export default function TerminalQuest() {
         currentNode: 'hub_main' // Return to hub after combat
       }));
       triggerShake();
+      
+      // Track combat victories
+      combatVictories.current += 1;
+      if (combatVictories.current >= 10) {
+        unlockAchievement('quest_combat_victor');
+      }
     } else {
       setGameState(prev => ({
         ...prev,
@@ -247,6 +320,24 @@ export default function TerminalQuest() {
 
   const currentNode = GAME_NODES[gameState.currentNode];
   const typedDescription = useTypingEffect(currentNode?.description || '');
+  
+  // Handle voice narration
+  const handleVoiceNarration = useCallback((text: string) => {
+    if (voiceSupported && voiceConfig && voiceConfig.enabled && text) {
+      setTimeout(() => {
+        if (voiceConfig.enabled) {
+          speakWithAdvancedVoice(text);
+        }
+      }, 300);
+    }
+  }, [voiceSupported, voiceConfig, speakWithAdvancedVoice]);
+  
+  // Start voice narration when node changes
+  useEffect(() => {
+    if (currentNode?.description) {
+      handleVoiceNarration(currentNode.description);
+    }
+  }, [currentNode, handleVoiceNarration]);
 
   // Handle combat nodes
   if (currentNode?.isCombat && currentNode.enemy && !inCombat) {
@@ -266,6 +357,22 @@ export default function TerminalQuest() {
         <div className="flex gap-4 items-center">
           <Indicator title="Health" value={gameState.health} icon={<Shield />} />
           <Indicator title="Signal" value={100 - gameState.securityLevel} icon={<Wifi />} />
+          {isSpeaking && (
+            <button
+              onClick={stopVoice}
+              className="p-2 bg-red-900/80 hover:bg-red-800 rounded transition-colors"
+              title="Stop Voice"
+            >
+              <VolumeX className="w-4 h-4" />
+            </button>
+          )}
+          <button
+            onClick={() => setShowVoiceControls(prev => !prev)}
+            className="p-2 hover:bg-green-900 rounded transition-colors"
+            title="Voice Controls"
+          >
+            <Volume2 className="w-4 h-4" />
+          </button>
           <button
             onClick={saveGame}
             className="p-2 hover:bg-green-900 rounded transition-colors"
@@ -309,11 +416,29 @@ export default function TerminalQuest() {
             </pre>
 
             {/* Typing Description */}
-            <div className="mb-4 min-h-[80px] p-3 border border-green-700 rounded bg-opacity-75 bg-black relative">
-              <p className="text-green-400">
+            <div 
+              className="mb-4 min-h-[80px] p-3 border border-green-700 rounded bg-opacity-75 bg-black relative cursor-pointer hover:bg-green-900/20 transition-colors"
+              onClick={() => {
+                if (isTyping) {
+                  setIsTyping(false);
+                  // Force complete the typing immediately
+                  const input = document.querySelector('.typing-target') as HTMLParagraphElement;
+                  if (input && currentNode?.description) {
+                    input.textContent = currentNode.description;
+                  }
+                }
+              }}
+              title={isTyping ? "Click to skip typing" : ""}
+            >
+              <p className="text-green-400 typing-target">
                 {typedDescription}
                 {isTyping && <span className="animate-pulse">█</span>}
               </p>
+              {isTyping && (
+                <p className="text-xs text-green-500/70 italic mt-2">
+                  → Click to skip typing effect
+                </p>
+              )}
             </div>
 
             {/* Choices List */}
@@ -365,6 +490,27 @@ export default function TerminalQuest() {
         ))}
       </footer>
 
+      {/* Voice Controls Modal */}
+      {showVoiceControls && (
+        <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-900 rounded-lg p-6 max-w-md w-full border-2 border-green-500">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-green-400">Voice Controls</h3>
+              <button
+                onClick={() => setShowVoiceControls(false)}
+                className="text-green-500 hover:text-green-400 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <AdvancedVoiceControls 
+              text={currentNode?.description || ''}
+              className="w-full"
+            />
+          </div>
+        </div>
+      )}
+      
       {/* Background Glitch Styles */}
       <style dangerouslySetInnerHTML={{
         __html: `

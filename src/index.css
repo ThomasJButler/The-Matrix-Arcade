@@ -14,11 +14,7 @@
   box-sizing: border-box;
 }
 
-/* Apply scale: 0.96 to the <html> element */
-html {
-  transform: scale(0.96);
-  transform-origin: top left; /* Adjust origin as needed */
-}
+/* Removed global scale for better desktop layout */
 
 @layer utilities {
   .animate-matrix-rain {

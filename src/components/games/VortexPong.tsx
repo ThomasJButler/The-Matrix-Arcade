@@ -12,10 +12,18 @@ import { GameOverModal } from '../ui/GameOverModal';
 const PADDLE_HEIGHT = 80;
 const PADDLE_WIDTH = 12;
 const BALL_SIZE = 6;
-const PARTICLE_COUNT = 100;
+const PARTICLE_COUNT = 25; // Reduced for better performance
 const INITIAL_BALL_SPEED = 7;
 const SPEED_INCREMENT = 0.1; // Speed increases over time
 const MAX_BALL_SPEED = 15;
+
+interface AchievementManager {
+  unlockAchievement(gameId: string, achievementId: string): void;
+}
+
+interface VortexPongProps {
+  achievementManager?: AchievementManager;
+}
 
 type Particle = {
   x: number;
@@ -53,6 +61,8 @@ interface RenderProps {
   speedMultiplier: number;
   screenShake: { x: number; y: number };
   impactEffects: Array<{ x: number; y: number; intensity: number; life: number }>;
+  timestamp: number; // Added for performance optimization
+  combo: number;
 }
 
 // Enhanced utility functions
@@ -81,10 +91,13 @@ const getScreenShake = (intensity: number) => ({
   y: (Math.random() - 0.5) * intensity
 });
 
-export default function VortexPong() {
+export default function VortexPong({ achievementManager }: VortexPongProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [paddleY, setPaddleY] = useState(150);
+  const [paddleVelocity, setPaddleVelocity] = useState(0);
+  const [keyboardControls, setKeyboardControls] = useState({ up: false, down: false });
   const [aiPaddleY, setAiPaddleY] = useState(150);
+  const [aiPaddleVelocity, setAiPaddleVelocity] = useState(0);
   const [balls, setBalls] = useState<Ball[]>([createBall(400, 200, -INITIAL_BALL_SPEED, 0)]);
   const [particles, setParticles] = useState<Particle[]>([]);
   const [score, setScore] = useState({ player: 0, ai: 0 });
@@ -103,6 +116,18 @@ export default function VortexPong() {
   const { powerUps, setPowerUps, activePowerUps, spawnPowerUp, activatePowerUp } = usePowerUps();
   const { explode, createTrail, render: renderParticles } = useParticleSystem();
   const { playSFX, stopMusic } = useSoundSystem();
+  
+  // Achievement unlock function
+  const unlockAchievement = useCallback((achievementId: string) => {
+    if (achievementManager?.unlockAchievement) {
+      achievementManager.unlockAchievement('vortexPong', achievementId);
+    }
+  }, [achievementManager]);
+  
+  // Track rally count
+  const rallyCount = useRef(0);
+  const hasFirstPoint = useRef(false);
+  const powerUpsUsed = useRef(0);
 
   // Initialize particles
   useEffect(() => {
@@ -118,35 +143,9 @@ export default function VortexPong() {
     setParticles(newParticles);
   }, []);
 
-  // Enhanced keyboard input with WASD support
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
-        setPaddleY(y => Math.max(0, y - 20));
-      } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
-        setPaddleY(y => Math.min(320, y + 20));
-      } else if (e.key === 'Enter' && gameOver) {
-        resetGame();
-      } else if (e.key === ' ' && !gameOver) {
-        e.preventDefault();
-        // Space bar for extra ball if multi-ball is active
-        if (activePowerUps.multi_ball && balls.length < 3) {
-          const newBall = createBall(
-            400 + (Math.random() - 0.5) * 100,
-            200 + (Math.random() - 0.5) * 100,
-            (Math.random() - 0.5) * INITIAL_BALL_SPEED * 2,
-            (Math.random() - 0.5) * INITIAL_BALL_SPEED
-          );
-          setBalls(prev => [...prev, newBall]);
-        }
-      }
-    };
+  // Removed duplicate keyboard handler - using velocity-based system below instead
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameOver, activePowerUps.multi_ball, balls.length]);
-
-  const resetGame = () => {
+  const resetGame = useCallback(() => {
     setBalls([createBall(400, 200, -INITIAL_BALL_SPEED, 0)]);
     setPaddleY(150);
     setAiPaddleY(150);
@@ -158,7 +157,7 @@ export default function VortexPong() {
     setAiDifficulty(4);
     setTimeSinceLastGoal(0);
     setCurrentBallSpeed(INITIAL_BALL_SPEED);
-  };
+  }, []);
 
   // Screen shake effect
   const addScreenShake = useCallback((intensity: number) => {
@@ -191,6 +190,78 @@ export default function VortexPong() {
       return () => canvas.removeEventListener('mousemove', handleMouseMove);
     }
   }, []);
+
+  // Keyboard control support
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+        e.preventDefault();
+        setKeyboardControls(prev => ({ ...prev, up: true }));
+      } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+        e.preventDefault();
+        setKeyboardControls(prev => ({ ...prev, down: true }));
+      } else if (e.key === 'Enter' && gameOver) {
+        resetGame();
+      } else if (e.key === ' ' && !gameOver) {
+        e.preventDefault();
+        // Space bar for extra ball if multi-ball is active
+        if (activePowerUps.multi_ball && balls.length < 3) {
+          const newBall = createBall(
+            400 + (Math.random() - 0.5) * 100,
+            200 + (Math.random() - 0.5) * 100,
+            (Math.random() - 0.5) * INITIAL_BALL_SPEED * 2,
+            (Math.random() - 0.5) * INITIAL_BALL_SPEED
+          );
+          setBalls(prev => [...prev, newBall]);
+        }
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+        setKeyboardControls(prev => ({ ...prev, up: false }));
+      } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+        setKeyboardControls(prev => ({ ...prev, down: false }));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [gameOver, activePowerUps.multi_ball, balls.length, resetGame]);
+
+  // Update paddle position based on keyboard input
+  useEffect(() => {
+    const paddleSpeed = 10; // Increased for more responsive controls
+    const friction = 0.9;
+    
+    const updatePaddle = () => {
+      let velocity = paddleVelocity * friction;
+      
+      if (keyboardControls.up) {
+        velocity -= paddleSpeed;
+      }
+      if (keyboardControls.down) {
+        velocity += paddleSpeed;
+      }
+      
+      // Clamp velocity
+      velocity = Math.max(-15, Math.min(15, velocity));
+      
+      setPaddleVelocity(velocity);
+      setPaddleY(prev => {
+        const paddleHeight = activePowerUps.bigger_paddle ? PADDLE_HEIGHT * 1.5 : PADDLE_HEIGHT;
+        const newY = prev + velocity;
+        return Math.max(0, Math.min(400 - paddleHeight, newY));
+      });
+    };
+
+    const interval = setInterval(updatePaddle, 16); // 60fps update
+    return () => clearInterval(interval);
+  }, [paddleVelocity, keyboardControls, activePowerUps.bigger_paddle]);
 
   // Power-up spawn effect with adaptive timing
   useEffect(() => {
@@ -234,6 +305,9 @@ export default function VortexPong() {
           const updatedPowerUps = [...powerUps];
           updatedPowerUps.splice(index, 1);
           setPowerUps(updatedPowerUps);
+          
+          // Track power-up usage
+          powerUpsUsed.current += 1;
           
           // Special effects for multi-ball power-up
           if (powerUp.type === 'multi_ball') {
@@ -287,6 +361,21 @@ export default function VortexPong() {
         setCombo(prev => prev + 1);
         setLastPaddleHit('player');
         
+        // Track rally
+        if (lastPaddleHit === 'ai') {
+          rallyCount.current += 1;
+          
+          // Rally achievements
+          if (rallyCount.current === 5) {
+            unlockAchievement('pong_combo_king');
+          } else if (rallyCount.current === 20) {
+            unlockAchievement('pong_rally_master');
+          }
+        }
+        
+        // Add slight velocity boost based on paddle movement
+        newBall.vy += paddleVelocity * 0.1;
+        
         // Increase AI difficulty based on player performance
         setAiDifficulty(prev => Math.min(8, prev + 0.1));
       }
@@ -326,6 +415,9 @@ export default function VortexPong() {
         playSFX('hit');
         setCombo(0);
         scoreChanged = true;
+        
+        // Reset rally count when AI scores
+        rallyCount.current = 0;
       } else if (ball.x >= 800) {
         // Player scores
         const multiplier = activePowerUps.score_multiplier ? 2 : 1;
@@ -335,6 +427,15 @@ export default function VortexPong() {
         playSFX('score');
         if (comboBonus > 0) playSFX('combo');
         scoreChanged = true;
+        
+        // First point achievement
+        if (!hasFirstPoint.current) {
+          hasFirstPoint.current = true;
+          unlockAchievement('pong_first_point');
+        }
+        
+        // Rally count resets on score
+        rallyCount.current = 0;
       } else {
         remainingBalls.push(ball);
       }
@@ -358,24 +459,54 @@ export default function VortexPong() {
       stopMusic();
       playSFX(score.player >= 10 ? 'levelUp' : 'gameOver');
       addScreenShake(30);
+      
+      // Check achievements on game over
+      if (score.player >= 10) {
+        unlockAchievement('pong_beat_ai');
+        
+        // Perfect game achievement
+        if (score.ai === 0) {
+          unlockAchievement('pong_perfect_game');
+        }
+      }
+      
+      // Multi-ball achievement
+      if (balls.length >= 3) {
+        unlockAchievement('pong_multi_ball');
+      }
+      
       return;
     }
 
-    // Enhanced AI movement with adaptive difficulty
+    // Enhanced AI movement with adaptive difficulty and smooth velocity
     const closestBall = balls.reduce((closest, ball) => 
       !closest || ball.x > closest.x ? ball : closest, null as Ball | null);
     
     if (closestBall) {
       const maxAiSpeed = Math.min(aiDifficulty, 7); // Cap AI speed
-      const aiSpeed = closestBall.vx > 0 ? maxAiSpeed : maxAiSpeed * 0.7; // Slower when ball moving away
+      const acceleration = closestBall.vx > 0 ? maxAiSpeed * 0.5 : maxAiSpeed * 0.3; // Slower when ball moving away
+      const targetY = closestBall.y - PADDLE_HEIGHT / 2;
+      const diff = targetY - aiPaddleY;
       
-      if (Math.abs(aiPaddleY + PADDLE_HEIGHT / 2 - closestBall.y) > 20) {
-        if (aiPaddleY + PADDLE_HEIGHT / 2 < closestBall.y && aiPaddleY < 320) {
-          setAiPaddleY(y => Math.min(320, y + aiSpeed));
-        } else if (aiPaddleY + PADDLE_HEIGHT / 2 > closestBall.y && aiPaddleY > 0) {
-          setAiPaddleY(y => Math.max(0, y - aiSpeed));
+      // Apply acceleration towards target with damping
+      let newVelocity = aiPaddleVelocity * 0.92; // Friction
+      
+      if (Math.abs(diff) > 10) {
+        if (diff > 0) {
+          newVelocity += acceleration;
+        } else {
+          newVelocity -= acceleration;
         }
       }
+      
+      // Clamp velocity
+      newVelocity = Math.max(-maxAiSpeed * 2, Math.min(maxAiSpeed * 2, newVelocity));
+      
+      setAiPaddleVelocity(newVelocity);
+      setAiPaddleY(prev => {
+        const newY = prev + newVelocity;
+        return Math.max(0, Math.min(320, newY));
+      });
     }
 
     // Update impact effects
@@ -401,6 +532,7 @@ export default function VortexPong() {
     render(canvas, {
       balls: updatedBalls,
       paddleY,
+    paddleVelocity,
       aiPaddleY,
       particles,
       powerUps,
@@ -408,7 +540,9 @@ export default function VortexPong() {
       score,
       speedMultiplier,
       screenShake,
-      impactEffects
+      impactEffects,
+      timestamp: Date.now(),
+      combo
     });
   });
 
@@ -425,8 +559,8 @@ export default function VortexPong() {
     ctx.fillStyle = '#000000';
     ctx.fillRect(-props.screenShake.x, -props.screenShake.y, 800, 400);
 
-    // Draw background particles with depth
-    ctx.shadowBlur = 10;
+    // Draw background particles with depth (optimized)
+    ctx.shadowBlur = 5; // Reduced shadow blur
     ctx.shadowColor = '#00ff00';
     props.particles.forEach(particle => {
       const scale = 400 / (400 + particle.z);
@@ -445,11 +579,11 @@ export default function VortexPong() {
 
     // Draw power-ups with enhanced pulsing effect
     props.powerUps.forEach(powerUp => {
-      const pulse = Math.sin(Date.now() / 200) * 0.3 + 0.7;
+      const pulse = Math.sin(props.timestamp / 200) * 0.3 + 0.7; // Use prop instead of Date.now()
       const size = 12 * pulse;
       
-      // Outer glow
-      ctx.shadowBlur = 20;
+      // Outer glow (reduced for performance)
+      ctx.shadowBlur = 10;
       ctx.shadowColor = getPowerUpColor(powerUp.type);
       
       // Power-up icon based on type
@@ -470,7 +604,7 @@ export default function VortexPong() {
       const alpha = effect.life;
       const size = (1 - effect.life) * effect.intensity;
       
-      ctx.shadowBlur = 30;
+      ctx.shadowBlur = 15; // Reduced for performance
       ctx.shadowColor = '#ffffff';
       ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
       ctx.beginPath();
@@ -491,7 +625,7 @@ export default function VortexPong() {
       : PADDLE_HEIGHT;
 
     // Player paddle (left)
-    ctx.shadowBlur = 25;
+    ctx.shadowBlur = 12; // Reduced for performance
     ctx.shadowColor = '#00ff00';
     ctx.fillStyle = props.activePowerUps.bigger_paddle 
       ? '#00ffaa' 
@@ -509,7 +643,7 @@ export default function VortexPong() {
     ctx.fillRect(786, props.aiPaddleY - 2, PADDLE_WIDTH + 4, PADDLE_HEIGHT + 4);
 
     // Draw animated center line
-    const dashOffset = (Date.now() / 100) % 20;
+    const dashOffset = (props.timestamp / 100) % 20; // Use prop instead of Date.now()
     ctx.setLineDash([5, 5]);
     ctx.lineDashOffset = dashOffset;
     ctx.strokeStyle = '#00ff00';
@@ -576,17 +710,17 @@ export default function VortexPong() {
     }
 
     // Combo indicator
-    if (combo > 2) {
+    if (props.combo > 2) {
       ctx.shadowBlur = 15;
       ctx.shadowColor = '#ffff00';
-      ctx.fillStyle = `rgba(255, 255, 0, ${0.7 + Math.sin(Date.now() / 100) * 0.3})`;
+      ctx.fillStyle = `rgba(255, 255, 0, ${0.7 + Math.sin(props.timestamp / 100) * 0.3})`;
       ctx.font = 'bold 20px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(`COMBO x${combo}`, 400, 50);
+      ctx.fillText(`COMBO x${props.combo}`, 400, 50);
     }
 
     ctx.restore();
-  }, [renderParticles, combo]);
+  }, [renderParticles]);
 
   return (
     <div className="h-full w-full flex items-center justify-center bg-black">

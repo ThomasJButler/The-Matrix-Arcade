@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Play, Pause, RotateCw, Trophy, Shield, Wifi, Battery, Zap, Sparkles, Clock, Heart } from 'lucide-react';
 import { useSoundSystem } from '../../hooks/useSoundSystem';
+import { useSaveSystem } from '../../hooks/useSaveSystem';
 
 // Game constants - Adjusted for higher difficulty
 const GRAVITY = 0.25;           // Increased from 0.2
@@ -9,7 +10,7 @@ const PIPE_SPEED = 3.2;         // Increased from 2.5
 const PIPE_SPACING = 250;       // Decreased from 280
 const PIPE_GAP = 150;          // Decreased from 170
 const GROUND_HEIGHT = 50;
-const PARTICLE_COUNT = 100;
+const PARTICLE_COUNT = 50; // Reduced for better performance
 const INITIAL_LIVES = 3;
 const SCORE_PER_PIPE = 10;
 const COMBO_INCREMENT = 0.15;   // Decreased from 0.2
@@ -179,13 +180,26 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
-  const [state, setState] = useState<GameState>(initialGameState);
   const [paused, setPaused] = useState(false);
   const [showTutorial, setShowTutorial] = useState(true);
   const [screenShake, setScreenShake] = useState({ x: 0, y: 0 });
   
   // Sound system integration
   const { playSFX, playMusic, stopMusic } = useSoundSystem();
+  
+  // Save system integration
+  const { saveData, updateGameSave } = useSaveSystem();
+  
+  // Track achievements
+  const powerUpsCollected = useRef(0);
+  const bossesDefeated = useRef(new Set<string>());
+  const maxAltitude = useRef(0);
+  
+  // Initialize state with saved high score
+  const [state, setState] = useState<GameState>(() => ({
+    ...initialGameState,
+    highScore: saveData?.games?.matrixCloud?.highScore || 0
+  }));
   
   // Achievement function
   const unlockAchievement = useCallback((gameId: string, achievementId: string) => {
@@ -251,6 +265,15 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
       active: true,
       defeated: false
     };
+  }, []);
+
+  const addScreenShake = useCallback((intensity: number) => {
+    setScreenShake({
+      x: (Math.random() - 0.5) * intensity,
+      y: (Math.random() - 0.5) * intensity
+    });
+    
+    setTimeout(() => setScreenShake({ x: 0, y: 0 }), 50);
   }, []);
 
   const spawnBoss = useCallback((level: number) => {
@@ -330,15 +353,6 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
       vy: newVy,
       attackTimer: boss.attackTimer + deltaTime
     };
-  }, []);
-
-  const addScreenShake = useCallback((intensity: number) => {
-    setScreenShake({
-      x: (Math.random() - 0.5) * intensity,
-      y: (Math.random() - 0.5) * intensity
-    });
-    
-    setTimeout(() => setScreenShake({ x: 0, y: 0 }), 50);
   }, []);
 
   const spawnPowerUp = useCallback(() => {
@@ -463,10 +477,10 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
           highScore: newHighScore,
           level: state.level,
           stats: {
-            gamesPlayed: (saveData.games.matrixCloud.stats.gamesPlayed || 0) + 1,
-            totalScore: (saveData.games.matrixCloud.stats.totalScore || 0) + state.score,
-            longestSurvival: Math.max(saveData.games.matrixCloud.stats.longestSurvival || 0, state.score),
-            bossesDefeated: saveData.games.matrixCloud.stats.bossesDefeated || 0
+            gamesPlayed: (saveData?.games?.matrixCloud?.stats?.gamesPlayed || 0) + 1,
+            totalScore: (saveData?.games?.matrixCloud?.stats?.totalScore || 0) + state.score,
+            longestSurvival: Math.max(saveData?.games?.matrixCloud?.stats?.longestSurvival || 0, state.score),
+            bossesDefeated: saveData?.games?.matrixCloud?.stats?.bossesDefeated || 0
           }
         });
       }, 100);
@@ -487,13 +501,16 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
       invulnerable: true,
       shakeIntensity: 8
     };
-  }, [playSFX, addScreenShake]);
+  }, [playSFX, addScreenShake, updateGameSave, saveData]);
 
   const updateGame = useCallback((timestamp: number) => {
     if (paused) return;
 
     const deltaTime = timestamp - lastUpdateRef.current;
     lastUpdateRef.current = timestamp;
+    
+    // Skip frame if deltaTime is too large (tab was in background)
+    if (deltaTime > 100) return;
 
     setState(prev => {
       if (prev.gameOver) return prev;
@@ -571,6 +588,13 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
           height: 30
         })) {
           activatePowerUp(powerUp.type);
+          
+          // Track power-ups for achievement
+          powerUpsCollected.current += 1;
+          if (powerUpsCollected.current >= 20) {
+            unlockAchievement('matrixCloud', 'cloud_power_collector');
+          }
+          
           return { ...powerUp, collected: true };
         }
         return powerUp;
@@ -630,6 +654,12 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
             combo: Math.min(newState.combo + COMBO_INCREMENT, MAX_COMBO),
             level: newLevel
           };
+          
+          // Track altitude for achievement (score represents altitude)
+          maxAltitude.current = Math.max(maxAltitude.current, newScore);
+          if (maxAltitude.current >= 1000) {
+            unlockAchievement('matrixCloud', 'cloud_high_flyer');
+          }
         }
       }
 
@@ -713,11 +743,25 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
             playSFX('levelUp');
             addScreenShake(15);
             
+            // Update boss defeat count
+            updateGameSave('matrixCloud', {
+              stats: {
+                ...saveData?.games?.matrixCloud?.stats,
+                bossesDefeated: (saveData?.games?.matrixCloud?.stats?.bossesDefeated || 0) + 1
+              }
+            });
+            
             // Unlock boss achievements
             if (updatedBoss.type === 'agent_smith') {
               unlockAchievement('matrixCloud', 'boss_slayer');
             } else if (updatedBoss.type === 'architect') {
               unlockAchievement('matrixCloud', 'architect_defeat');
+            }
+            
+            // Track all bosses defeated
+            bossesDefeated.current.add(updatedBoss.type);
+            if (bossesDefeated.current.size >= 3) {
+              unlockAchievement('matrixCloud', 'cloud_all_bosses');
             }
             
             // End boss battle
@@ -780,39 +824,8 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [state.gameOver, jump, reset]);
 
-  // Game loop with timestamp
-  useEffect(() => {
-    if (state.started && !state.gameOver && !paused) {
-      const gameLoop = (timestamp: number) => {
-        updateGame(timestamp);
-        animationFrameRef.current = requestAnimationFrame(gameLoop);
-      };
-      animationFrameRef.current = requestAnimationFrame(gameLoop);
-      
-      return () => {
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-        }
-      };
-    }
-  }, [state.started, state.gameOver, paused, updateGame]);
-
-  // Initialize particles
-  useEffect(() => {
-    setState(prev => ({
-      ...prev,
-      particles: generateParticles()
-    }));
-    
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [generateParticles]);
-
   // Render game with enhanced visuals
-  useEffect(() => {
+  const render = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -823,40 +836,49 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
     ctx.save();
     ctx.translate(screenShake.x, screenShake.y);
 
-    // Clear canvas with fade effect
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+    // Clear canvas
+    ctx.fillStyle = 'black';
     ctx.fillRect(0, 0, 800, 400);
 
-    // Draw particles with glow
+    // Draw particles with reduced effects for performance
     ctx.font = '12px monospace';
+    // Only apply shadow once for all particles
+    ctx.shadowColor = '#00ff00';
+    ctx.shadowBlur = 3;
+    
     state.particles.forEach(particle => {
       ctx.save();
       ctx.translate(particle.x, particle.y);
       ctx.rotate(particle.rotation);
       ctx.scale(particle.scale, particle.scale);
       
-      // Particle glow
-      ctx.shadowColor = particle.glowColor;
-      ctx.shadowBlur = 5;
       ctx.fillStyle = `rgba(0, 255, 0, ${particle.opacity})`;
       ctx.fillText(particle.char, 0, 0);
       ctx.restore();
     });
+    
+    // Reset shadow for other elements
+    ctx.shadowBlur = 0;
 
-    // Draw pipes with glow effect
+    // Draw pipes with simpler rendering
     state.pipes.forEach(pipe => {
-      const gradient = ctx.createLinearGradient(pipe.x, 0, pipe.x + 50, 0);
-      gradient.addColorStop(0, `rgba(0, ${102 + pipe.glowIntensity * 153}, 0, 1)`);
-      gradient.addColorStop(1, '#006600');
+      // Use solid color instead of gradient for better performance
+      const green = Math.floor(102 + pipe.glowIntensity * 153);
+      ctx.fillStyle = `rgb(0, ${green}, 0)`;
       
-      ctx.fillStyle = gradient;
-      ctx.shadowColor = '#00ff00';
-      ctx.shadowBlur = pipe.glowIntensity * 10;
+      // Only apply shadow for glowing pipes
+      if (pipe.glowIntensity > 0) {
+        ctx.shadowColor = '#00ff00';
+        ctx.shadowBlur = pipe.glowIntensity * 10;
+      }
       
       // Top pipe
       ctx.fillRect(pipe.x, 0, 50, pipe.height);
       // Bottom pipe
       ctx.fillRect(pipe.x, pipe.height + PIPE_GAP, 50, 400 - (pipe.height + PIPE_GAP));
+      
+      // Reset shadow
+      ctx.shadowBlur = 0;
     });
 
     // Draw power-ups
@@ -865,7 +887,8 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
       
       ctx.save();
       ctx.translate(powerUp.x + 15, powerUp.y + 15);
-      ctx.rotate(Date.now() / 1000);
+      // Use a simpler rotation based on position for performance
+      ctx.rotate(powerUp.x * 0.01);
       
       // Power-up glow
       ctx.shadowColor = '#00ff00';
@@ -925,7 +948,7 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
           // Sentinel - mechanical tentacles
           ctx.fillStyle = '#330000';
           for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2 + Date.now() / 1000;
+            const angle = (i / 8) * Math.PI * 2 + boss.x * 0.01;
             const length = boss.size / 2;
             ctx.beginPath();
             ctx.moveTo(0, 0);
@@ -1051,6 +1074,41 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
     ctx.restore();
   }, [state, screenShake]);
 
+  // Game loop with timestamp
+  useEffect(() => {
+    if (state.started && !state.gameOver && !paused) {
+      const gameLoop = (timestamp: number) => {
+        updateGame(timestamp);
+        render();
+        animationFrameRef.current = requestAnimationFrame(gameLoop);
+      };
+      animationFrameRef.current = requestAnimationFrame(gameLoop);
+      
+      return () => {
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+        }
+      };
+    }
+  }, [state.started, state.gameOver, paused, updateGame, render]);
+
+  // Initialize particles and render initial state
+  useEffect(() => {
+    setState(prev => ({
+      ...prev,
+      particles: generateParticles()
+    }));
+    
+    // Render initial state
+    setTimeout(() => render(), 0);
+    
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [generateParticles, render]);
+
   return (
     <div className="w-full h-full flex flex-col items-center justify-center bg-black p-4">
       <div className="relative">
@@ -1058,6 +1116,8 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
           ref={canvasRef}
           width={800}
           height={400}
+          role="img"
+          aria-label="Matrix Cloud game canvas"
           className="border-2 border-green-500 rounded-lg shadow-[0_0_20px_rgba(0,255,0,0.3)]"
           onClick={jump}
         />
@@ -1121,6 +1181,7 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
             onClick={() => setPaused(p => !p)}
             className="p-2 bg-green-900 rounded hover:bg-green-800 transition-colors"
             type="button"
+            aria-label={paused ? "Resume game" : "Pause game"}
           >
             {paused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
           </button>
@@ -1128,6 +1189,7 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
             onClick={reset}
             className="p-2 bg-green-900 rounded hover:bg-green-800 transition-colors"
             type="button"
+            aria-label="Restart game"
           >
             <RotateCw className="w-5 h-5" />
           </button>

@@ -36,11 +36,11 @@ export const usePowerUps = () => {
 
   const activatePowerUp = useCallback((type: PowerUpType) => {
     setActivePowerUps(prev => ({ ...prev, [type]: true }));
-    new Audio('/sounds/powerup.mp3').play().catch(() => {}); // Add sound effect
+    // Sound effects should be handled by the game component using useSoundSystem
     
     setTimeout(() => {
       setActivePowerUps(prev => ({ ...prev, [type]: false }));
-      new Audio('/sounds/powerdown.mp3').play().catch(() => {});
+      // Sound effects should be handled by the game component
     }, 10000);
   }, []);
 
