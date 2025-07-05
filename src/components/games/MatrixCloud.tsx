@@ -10,7 +10,7 @@ const PIPE_SPEED = 3.2;         // Increased from 2.5
 const PIPE_SPACING = 250;       // Decreased from 280
 const PIPE_GAP = 150;          // Decreased from 170
 const GROUND_HEIGHT = 50;
-const PARTICLE_COUNT = 50; // Reduced for better performance
+const PARTICLE_COUNT = 30; // Optimized for better performance
 const INITIAL_LIVES = 3;
 const SCORE_PER_PIPE = 10;
 const COMBO_INCREMENT = 0.15;   // Decreased from 0.2
@@ -183,6 +183,9 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
   const [paused, setPaused] = useState(false);
   const [showTutorial, setShowTutorial] = useState(true);
   const [screenShake, setScreenShake] = useState({ x: 0, y: 0 });
+  
+  // Cache for performance
+  const groundPatternRef = useRef<CanvasGradient | null>(null);
   
   // Sound system integration
   const { playSFX, playMusic, stopMusic } = useSoundSystem();
@@ -840,62 +843,46 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
     ctx.fillStyle = 'black';
     ctx.fillRect(0, 0, 800, 400);
 
-    // Draw particles with reduced effects for performance
+    // Draw particles with optimized rendering
     ctx.font = '12px monospace';
-    // Only apply shadow once for all particles
-    ctx.shadowColor = '#00ff00';
-    ctx.shadowBlur = 3;
+    ctx.fillStyle = 'rgba(0, 255, 0, 0.5)'; // Single color for all particles
     
     state.particles.forEach(particle => {
       ctx.save();
+      ctx.globalAlpha = particle.opacity;
       ctx.translate(particle.x, particle.y);
-      ctx.rotate(particle.rotation);
-      ctx.scale(particle.scale, particle.scale);
-      
-      ctx.fillStyle = `rgba(0, 255, 0, ${particle.opacity})`;
       ctx.fillText(particle.char, 0, 0);
       ctx.restore();
     });
-    
-    // Reset shadow for other elements
-    ctx.shadowBlur = 0;
 
-    // Draw pipes with simpler rendering
+    // Draw pipes with optimized rendering
+    ctx.fillStyle = '#006600'; // Default pipe color
+    
     state.pipes.forEach(pipe => {
-      // Use solid color instead of gradient for better performance
-      const green = Math.floor(102 + pipe.glowIntensity * 153);
-      ctx.fillStyle = `rgb(0, ${green}, 0)`;
-      
-      // Only apply shadow for glowing pipes
+      // Change color only if pipe is glowing
       if (pipe.glowIntensity > 0) {
-        ctx.shadowColor = '#00ff00';
-        ctx.shadowBlur = pipe.glowIntensity * 10;
+        const green = Math.floor(102 + pipe.glowIntensity * 153);
+        ctx.fillStyle = `rgb(0, ${green}, 0)`;
+      } else {
+        ctx.fillStyle = '#006600';
       }
       
       // Top pipe
       ctx.fillRect(pipe.x, 0, 50, pipe.height);
       // Bottom pipe
       ctx.fillRect(pipe.x, pipe.height + PIPE_GAP, 50, 400 - (pipe.height + PIPE_GAP));
-      
-      // Reset shadow
-      ctx.shadowBlur = 0;
     });
 
-    // Draw power-ups
+    // Draw power-ups with optimized rendering
+    ctx.fillStyle = '#00ff00';
+    
     state.powerUps.forEach(powerUp => {
       if (powerUp.collected) return;
       
       ctx.save();
       ctx.translate(powerUp.x + 15, powerUp.y + 15);
-      // Use a simpler rotation based on position for performance
-      ctx.rotate(powerUp.x * 0.01);
       
-      // Power-up glow
-      ctx.shadowColor = '#00ff00';
-      ctx.shadowBlur = 10;
-      ctx.fillStyle = '#00ff00';
-      
-      // Draw power-up symbol
+      // Draw power-up symbol without shadow for performance
       switch (powerUp.type) {
         case 'shield':
           ctx.beginPath();
@@ -926,9 +913,7 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
     if (state.boss && state.boss.active) {
       const boss = state.boss;
       
-      // Boss glow effect
-      ctx.shadowColor = '#ff0000';
-      ctx.shadowBlur = 20;
+      // Remove boss shadow for performance
       
       // Boss body based on type
       ctx.save();
@@ -1011,14 +996,16 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
       });
     }
 
-    // Draw ground with pattern
-    const groundPattern = ctx.createLinearGradient(0, 400 - GROUND_HEIGHT, 0, 400);
-    groundPattern.addColorStop(0, '#004400');
-    groundPattern.addColorStop(1, '#003300');
-    ctx.fillStyle = groundPattern;
+    // Draw ground with cached pattern
+    if (!groundPatternRef.current) {
+      groundPatternRef.current = ctx.createLinearGradient(0, 400 - GROUND_HEIGHT, 0, 400);
+      groundPatternRef.current.addColorStop(0, '#004400');
+      groundPatternRef.current.addColorStop(1, '#003300');
+    }
+    ctx.fillStyle = groundPatternRef.current;
     ctx.fillRect(0, 400 - GROUND_HEIGHT, 800, GROUND_HEIGHT);
 
-    // Draw player with effects
+    // Draw player without shadow for performance
     ctx.fillStyle = state.activeEffects.shield ? '#00ff00' : 
                    state.invulnerable ? '#ff0000' : '#00cc00';
     
@@ -1027,11 +1014,6 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
     
     ctx.save();
     ctx.translate(50, state.playerY);
-    
-    // Player glow effect
-    ctx.shadowColor = state.activeEffects.shield ? '#00ff00' : 
-                     state.invulnerable ? '#ff0000' : '#00cc00';
-    ctx.shadowBlur = 10;
     
     PLAYER_STATES[playerState].forEach((line, i) => {
       ctx.fillText(line, 0, i * 10);
@@ -1110,30 +1092,31 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
   }, [generateParticles, render]);
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center bg-black p-4">
-      <div className="relative">
+    <div className="w-full h-full flex flex-col items-center justify-center bg-black">
+      <div className="relative w-full max-w-4xl mx-auto">
         <canvas
           ref={canvasRef}
           width={800}
           height={400}
           role="img"
           aria-label="Matrix Cloud game canvas"
-          className="border-2 border-green-500 rounded-lg shadow-[0_0_20px_rgba(0,255,0,0.3)]"
+          className="w-full h-auto border-2 border-green-500 rounded-lg shadow-[0_0_20px_rgba(0,255,0,0.3)]"
+          style={{ maxHeight: '70vh' }}
           onClick={jump}
         />
         
         {/* Enhanced HUD */}
-        <div className="absolute top-4 left-4 flex flex-col gap-4">
-          <div className="flex items-center gap-2 bg-black bg-opacity-50 px-3 py-1 rounded">
-            <Wifi className="w-5 h-5 text-green-400" />
+        <div className="absolute top-4 left-4 flex flex-col gap-2 text-sm">
+          <div className="flex items-center gap-2 bg-black bg-opacity-70 px-2 py-1 rounded">
+            <Wifi className="w-4 h-4 text-green-400" />
             <span>Level: {state.level}</span>
           </div>
-          <div className="flex items-center gap-2 bg-black bg-opacity-50 px-3 py-1 rounded">
-            <Zap className="w-5 h-5 text-blue-400" />
+          <div className="flex items-center gap-2 bg-black bg-opacity-70 px-2 py-1 rounded">
+            <Zap className="w-4 h-4 text-blue-400" />
             <span>Combo: x{state.combo.toFixed(1)}</span>
           </div>
-          <div className="flex items-center gap-2 bg-black bg-opacity-50 px-3 py-1 rounded">
-            <Trophy className="w-5 h-5 text-yellow-400" />
+          <div className="flex items-center gap-2 bg-black bg-opacity-70 px-2 py-1 rounded">
+            <Trophy className="w-4 h-4 text-yellow-400" />
             <span>High Score: {state.highScore}</span>
           </div>
           {state.inBossBattle && state.boss && (
@@ -1147,23 +1130,23 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
         </div>
 
         {/* Active Effects */}
-        <div className="absolute top-4 right-4 flex flex-col gap-4">
+        <div className="absolute top-4 right-4 flex flex-col gap-2 text-sm">
           {state.activeEffects.shield && (
-            <div className="flex items-center gap-2 bg-black bg-opacity-50 px-3 py-1 rounded animate-pulse">
-              <Shield className="w-5 h-5 text-blue-400" />
-              <span>Shield Active</span>
+            <div className="flex items-center gap-2 bg-black bg-opacity-70 px-2 py-1 rounded animate-pulse">
+              <Shield className="w-4 h-4 text-blue-400" />
+              <span>Shield</span>
             </div>
           )}
           {state.activeEffects.timeSlow && (
-            <div className="flex items-center gap-2 bg-black bg-opacity-50 px-3 py-1 rounded animate-pulse">
-              <Clock className="w-5 h-5 text-yellow-400" />
-              <span>Time Slow</span>
+            <div className="flex items-center gap-2 bg-black bg-opacity-70 px-2 py-1 rounded animate-pulse">
+              <Clock className="w-4 h-4 text-yellow-400" />
+              <span>Slow</span>
             </div>
           )}
           {state.activeEffects.doublePoints && (
-            <div className="flex items-center gap-2 bg-black bg-opacity-50 px-3 py-1 rounded animate-pulse">
-              <Sparkles className="w-5 h-5 text-purple-400" />
-              <span>Double Points</span>
+            <div className="flex items-center gap-2 bg-black bg-opacity-70 px-2 py-1 rounded animate-pulse">
+              <Sparkles className="w-4 h-4 text-purple-400" />
+              <span>2x</span>
             </div>
           )}
           {state.inBossBattle && (
