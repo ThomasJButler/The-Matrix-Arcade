@@ -824,41 +824,6 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [state.gameOver, jump, reset]);
 
-  // Game loop with timestamp
-  useEffect(() => {
-    if (state.started && !state.gameOver && !paused) {
-      const gameLoop = (timestamp: number) => {
-        updateGame(timestamp);
-        render();
-        animationFrameRef.current = requestAnimationFrame(gameLoop);
-      };
-      animationFrameRef.current = requestAnimationFrame(gameLoop);
-      
-      return () => {
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-        }
-      };
-    }
-  }, [state.started, state.gameOver, paused, updateGame, render]);
-
-  // Initialize particles and render initial state
-  useEffect(() => {
-    setState(prev => ({
-      ...prev,
-      particles: generateParticles()
-    }));
-    
-    // Render initial state
-    setTimeout(() => render(), 0);
-    
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [generateParticles, render]);
-
   // Render game with enhanced visuals
   const render = useCallback(() => {
     const canvas = canvasRef.current;
@@ -1108,6 +1073,41 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
 
     ctx.restore();
   }, [state, screenShake]);
+
+  // Game loop with timestamp
+  useEffect(() => {
+    if (state.started && !state.gameOver && !paused) {
+      const gameLoop = (timestamp: number) => {
+        updateGame(timestamp);
+        render();
+        animationFrameRef.current = requestAnimationFrame(gameLoop);
+      };
+      animationFrameRef.current = requestAnimationFrame(gameLoop);
+      
+      return () => {
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+        }
+      };
+    }
+  }, [state.started, state.gameOver, paused, updateGame, render]);
+
+  // Initialize particles and render initial state
+  useEffect(() => {
+    setState(prev => ({
+      ...prev,
+      particles: generateParticles()
+    }));
+    
+    // Render initial state
+    setTimeout(() => render(), 0);
+    
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [generateParticles, render]);
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center bg-black p-4">

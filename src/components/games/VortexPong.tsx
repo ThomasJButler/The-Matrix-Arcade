@@ -141,35 +141,9 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
     setParticles(newParticles);
   }, []);
 
-  // Enhanced keyboard input with WASD support
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
-        setPaddleY(y => Math.max(0, y - 20));
-      } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
-        setPaddleY(y => Math.min(320, y + 20));
-      } else if (e.key === 'Enter' && gameOver) {
-        resetGame();
-      } else if (e.key === ' ' && !gameOver) {
-        e.preventDefault();
-        // Space bar for extra ball if multi-ball is active
-        if (activePowerUps.multi_ball && balls.length < 3) {
-          const newBall = createBall(
-            400 + (Math.random() - 0.5) * 100,
-            200 + (Math.random() - 0.5) * 100,
-            (Math.random() - 0.5) * INITIAL_BALL_SPEED * 2,
-            (Math.random() - 0.5) * INITIAL_BALL_SPEED
-          );
-          setBalls(prev => [...prev, newBall]);
-        }
-      }
-    };
+  // Removed duplicate keyboard handler - using velocity-based system below instead
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameOver, activePowerUps.multi_ball, balls.length]);
-
-  const resetGame = () => {
+  const resetGame = useCallback(() => {
     setBalls([createBall(400, 200, -INITIAL_BALL_SPEED, 0)]);
     setPaddleY(150);
     setAiPaddleY(150);
@@ -181,7 +155,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
     setAiDifficulty(4);
     setTimeSinceLastGoal(0);
     setCurrentBallSpeed(INITIAL_BALL_SPEED);
-  };
+  }, []);
 
   // Screen shake effect
   const addScreenShake = useCallback((intensity: number) => {
@@ -224,6 +198,20 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
       } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
         e.preventDefault();
         setKeyboardControls(prev => ({ ...prev, down: true }));
+      } else if (e.key === 'Enter' && gameOver) {
+        resetGame();
+      } else if (e.key === ' ' && !gameOver) {
+        e.preventDefault();
+        // Space bar for extra ball if multi-ball is active
+        if (activePowerUps.multi_ball && balls.length < 3) {
+          const newBall = createBall(
+            400 + (Math.random() - 0.5) * 100,
+            200 + (Math.random() - 0.5) * 100,
+            (Math.random() - 0.5) * INITIAL_BALL_SPEED * 2,
+            (Math.random() - 0.5) * INITIAL_BALL_SPEED
+          );
+          setBalls(prev => [...prev, newBall]);
+        }
       }
     };
 
@@ -241,7 +229,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, []);
+  }, [gameOver, activePowerUps.multi_ball, balls.length, resetGame]);
 
   // Update paddle position based on keyboard input
   useEffect(() => {

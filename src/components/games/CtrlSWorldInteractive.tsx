@@ -308,6 +308,7 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
   const voiceUsageStartTime = useRef<number | null>(null);
   const voiceUsageTime = useRef(0);
   const hasCollectedItems = useRef(new Set<string>());
+  const lastNarratedNode = useRef<string | null>(null); // Track last narrated node to prevent loops
 
   const currentNode = EPIC_STORY[gameState.currentNode];
 
@@ -346,6 +347,16 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
+  // Cleanup speech synthesis on unmount
+  useEffect(() => {
+    return () => {
+      // Stop any ongoing speech when component unmounts
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
   // Start typing when node changes
   useEffect(() => {
     setCurrentParagraphs([]);
@@ -353,9 +364,10 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
     setCurrentCharIndex(0);
     setIsTyping(true);
     
-    // Start voice narration immediately when node changes
+    // Start voice narration only if this is a new node (prevent loops)
     const node = EPIC_STORY[gameState.currentNode];
-    if (node && node.content) {
+    if (node && node.content && lastNarratedNode.current !== gameState.currentNode) {
+      lastNarratedNode.current = gameState.currentNode;
       handleVoiceNarration(node.content);
     }
   }, [gameState.currentNode, handleVoiceNarration]);
@@ -573,10 +585,7 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
                 // Skip typing effect and show all content immediately
                 setCurrentParagraphs(currentNode?.content || []);
                 setIsTyping(false);
-                // Start voice narration immediately when skipping
-                if (voiceConfig.enabled && currentNode?.content) {
-                  handleVoiceNarration(currentNode.content);
-                }
+                // Don't start voice again when skipping - it's already playing
               }
             }}
             title={isTyping ? 'Click to skip typing effect' : ''}

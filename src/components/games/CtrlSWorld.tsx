@@ -236,10 +236,7 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
     }
   }, [achievementManager]);
   
-  // Track achievement conditions
-  const totalChoices = useRef(0);
-  const voiceUsageStartTime = useRef<number | null>(null);
-  const voiceUsageTime = useRef(0);
+  // Removed unused voice tracking refs - these are only used in interactive mode
 
   const scrollToBottom = useCallback(() => {
     if (terminalRef.current) {

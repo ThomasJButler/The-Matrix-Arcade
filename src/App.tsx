@@ -133,7 +133,7 @@ function App() {
       icon: <Crosshair className="w-8 h-8" />,
       description: 'Defend against the code invasion',
       preview:
-        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071594/matrixcloud_rw8hsa.png',
+        'https://res.cloudinary.com/depqttzlt/image/upload/v1751750717/matrix3_zmwcnd.png',
       component: MatrixInvaders,
     },
   ];
@@ -274,11 +274,20 @@ function App() {
         playSFX('score');
         setTimeout(() => playMusic('gameplay'), 500);
       }
+      
+      // V key to toggle mute
+      if (e.key.toLowerCase() === 'v' && !isPlaying &&
+          e.target instanceof HTMLElement &&
+          e.target.tagName !== 'INPUT' && 
+          e.target.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        toggleMute();
+      }
     };
     
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isPlaying, achievementManager, stopMusic, playSFX, showMobileWarning, playMusic, handlePrevious, handleNext]);
+  }, [isPlaying, achievementManager, stopMusic, playSFX, showMobileWarning, playMusic, handlePrevious, handleNext, toggleMute]);
 
   const GameComponent = games[selectedGame].component;
 
@@ -293,7 +302,7 @@ function App() {
         ref={headerRef}
         className="relative border-b border-green-500/50 p-4 overflow-hidden backdrop-blur-sm"
       >
-        <div className="max-w-4xl mx-auto flex items-center justify-between relative z-10">
+        <div className="max-w-2xl mx-auto flex items-center justify-between relative z-10">
           <div className="flex items-center gap-4">
             <div className="relative group">
               <Monitor className="w-8 h-8 relative z-10" />
@@ -392,7 +401,7 @@ function App() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 overflow-hidden flex items-center justify-center">
         {/* Fullscreen Game View */}
         {isPlaying && GameComponent ? (
           <div className="relative w-full h-full">
@@ -429,7 +438,7 @@ function App() {
             </button>
           </div>
         ) : (
-          <div className="relative w-full max-w-6xl mx-auto h-full flex flex-col justify-center py-4 px-4 lg:py-8 lg:px-8">
+          <div className="relative w-full md:w-10/12 lg:w-8/12 xl:w-6/12 max-w-2xl mx-auto flex flex-col justify-center py-2 px-4 lg:py-2 lg:px-4 max-h-full overflow-auto">
           {/* Matrix Rain Effect */}
           <div className="absolute inset-0 opacity-20 pointer-events-none overflow-hidden">
             {[...Array(50)].map((_, i) => (
@@ -455,15 +464,14 @@ function App() {
               ${isTransitioning ? `transition-${transitionDirection}` : ''}
             `}
           >
-            {/*  */}
-            <div className="game-container">
-              <div className="relative bg-gray-900 rounded-3xl p-6 lg:p-10 border-4 border-green-500 shadow-[0_0_50px_rgba(0,255,0,0.3)]">
+            {/* Game Portal */}
+            <div className="relative bg-gray-900 rounded-3xl p-3 lg:p-4 border-4 border-green-500 shadow-[0_0_50px_rgba(0,255,0,0.3)] max-w-xl mx-auto">
                 {/* Game Display */}
-                <div className="relative aspect-video mb-4 lg:mb-6 rounded-lg overflow-hidden border-2 border-green-500">
+                <div className="relative aspect-[4/3] mb-3 lg:mb-4 rounded-lg overflow-hidden border-2 border-green-500 max-h-[300px] lg:max-h-[400px]">
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={selectedGame}
-                      className="game-container transition-enhanced"
+                      className="w-full h-full transition-enhanced"
                     >
                       {isPlaying && GameComponent ? (
                         <GameComponent achievementManager={achievementManager} />
@@ -485,12 +493,12 @@ function App() {
                     className="p-2 lg:p-3 hover:bg-green-900 rounded-full transition-colors transform hover:scale-110"
                     title="Previous game"
                   >
-                    <ChevronLeft className="w-8 h-8 lg:w-10 lg:h-10" />
+                    <ChevronLeft className="w-8 h-8" />
                   </button>
 
                   <div className="flex-1 text-center">
                     <div className="flex items-center justify-center gap-3 mb-2">
-                      <div className="lg:scale-125 xl:scale-150">
+                      <div className="lg:scale-110">
                         {games[selectedGame].icon}
                       </div>
                       <h2 className="text-xl lg:text-2xl xl:text-3xl font-mono">
@@ -570,7 +578,7 @@ function App() {
                     className="p-2 lg:p-3 hover:bg-green-900 rounded-full transition-colors transform hover:scale-110"
                     title="Next game"
                   >
-                    <ChevronRight className="w-8 h-8 lg:w-10 lg:h-10" />
+                    <ChevronRight className="w-8 h-8" />
                   </button>
                 </div>
                 
@@ -580,7 +588,6 @@ function App() {
                   <p>A for Achievements • V to Toggle Mute</p>
                 </div>
               </div>
-            </div>
           </div>
         </div>
         )}
@@ -591,7 +598,7 @@ function App() {
         ref={footerRef}
         className="relative border-t border-green-500/50 p-4 overflow-hidden backdrop-blur-sm bottom-0 w-full"
       >
-        <div className="max-w-4xl mx-auto flex items-center justify-between relative z-10">
+        <div className="max-w-2xl mx-auto flex items-center justify-between relative z-10">
           <div className="font-mono text-sm flex items-center gap-4">
             <p className="tracking-wider">THE MATRIX ARCADE v1.0.5</p>
             <div className="h-4 w-px bg-green-500/30"></div>
@@ -664,14 +671,7 @@ function App() {
           transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
         }
 
-        .game-container {
-          position: relative;
-          width: 100%;
-          height: 100%;
-          transform-style: preserve-3d;
-          transition: inherit;
-          padding: 1rem;
-        }
+        /* Removed conflicting game-container styles that were causing nesting issues */
       `}</style>
     </div>
     </>

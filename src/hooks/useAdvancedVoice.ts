@@ -163,7 +163,7 @@ const VOICE_PERSONAS: Record<VoicePersona, {
 
 // Default configuration
 const DEFAULT_CONFIG: AdvancedVoiceConfig = {
-  enabled: true,
+  enabled: false, // Changed to false by default to prevent auto-playing voice
   persona: 'captain',
   rate: 1.0,
   pitch: 1.0,
