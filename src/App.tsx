@@ -300,9 +300,9 @@ function App() {
       {/* Header */}
       <header
         ref={headerRef}
-        className="relative border-b border-green-500/50 p-4 overflow-hidden backdrop-blur-sm"
+        className="relative border-b border-green-500/50 p-2 lg:p-3 overflow-hidden backdrop-blur-sm"
       >
-        <div className="max-w-2xl mx-auto flex items-center justify-between relative z-10">
+        <div className="max-w-7xl mx-auto flex items-center justify-between relative z-10">
           <div className="flex items-center gap-4">
             <div className="relative group">
               <Monitor className="w-8 h-8 relative z-10" />
@@ -315,10 +315,10 @@ function App() {
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-sm hover:text-green-400 transition-colors group"
             >
-              <h1 className="text-2xl font-mono font-bold tracking-wider group-hover:text-green-400 transition-colors">
+              <h1 className="text-xl lg:text-2xl font-mono font-bold tracking-wider group-hover:text-green-400 transition-colors">
                 THE MATRIX ARCADE
               </h1>
-              <p className="text-xs text-green-400 tracking-widest">
+              <p className="text-xs text-green-400 tracking-widest hidden sm:block">
                 SYSTEM v1.0.5
               </p>
             </a>
@@ -401,7 +401,7 @@ function App() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 overflow-hidden flex items-center justify-center">
+      <main className="flex-1 overflow-hidden flex items-center justify-center p-2 lg:p-4">
         {/* Fullscreen Game View */}
         {isPlaying && GameComponent ? (
           <div className="relative w-full h-full">
@@ -438,7 +438,7 @@ function App() {
             </button>
           </div>
         ) : (
-          <div className="relative w-full md:w-10/12 lg:w-8/12 xl:w-6/12 max-w-2xl mx-auto flex flex-col justify-center py-2 px-4 lg:py-2 lg:px-4 max-h-full overflow-auto">
+          <div className="relative w-full max-w-2xl mx-auto flex flex-col justify-center h-full game-portal-container px-4">
           {/* Matrix Rain Effect */}
           <div className="absolute inset-0 opacity-20 pointer-events-none overflow-hidden">
             {[...Array(50)].map((_, i) => (
@@ -460,14 +460,14 @@ function App() {
           <div
             ref={containerRef}
             className={`
-              digital-container
+              digital-container game-portal-wrapper
               ${isTransitioning ? `transition-${transitionDirection}` : ''}
             `}
           >
             {/* Game Portal */}
-            <div className="relative bg-gray-900 rounded-3xl p-3 lg:p-4 border-4 border-green-500 shadow-[0_0_50px_rgba(0,255,0,0.3)] max-w-xl mx-auto">
+            <div className="relative bg-gray-900 rounded-xl p-3 lg:p-4 border border-green-500 shadow-[0_0_20px_rgba(0,255,0,0.3)] w-full mx-auto">
                 {/* Game Display */}
-                <div className="relative aspect-[4/3] mb-3 lg:mb-4 rounded-lg overflow-hidden border-2 border-green-500 max-h-[300px] lg:max-h-[400px]">
+                <div className="relative aspect-[16/9] mb-2 lg:mb-3 rounded-lg overflow-hidden border border-green-500">
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={selectedGame}
@@ -487,13 +487,13 @@ function App() {
                 </div>
 
                 {/* Controls */}
-                <div className="flex items-center justify-between gap-4">
+                <div className="game-controls-enhanced">
                   <button
                     onClick={handlePrevious}
-                    className="p-2 lg:p-3 hover:bg-green-900 rounded-full transition-colors transform hover:scale-110"
+                    className="p-1.5 lg:p-2 hover:bg-green-900 rounded-full transition-colors transform hover:scale-110"
                     title="Previous game"
                   >
-                    <ChevronLeft className="w-8 h-8" />
+                    <ChevronLeft className="w-6 h-6" />
                   </button>
 
                   <div className="flex-1 text-center">
@@ -501,11 +501,11 @@ function App() {
                       <div className="lg:scale-110">
                         {games[selectedGame].icon}
                       </div>
-                      <h2 className="text-xl lg:text-2xl xl:text-3xl font-mono">
+                      <h2 className="text-lg lg:text-xl xl:text-2xl font-mono">
                         {games[selectedGame].title}
                       </h2>
                     </div>
-                    <p className="text-green-400 font-mono text-sm lg:text-base mb-4 lg:mb-6">
+                    <p className="text-green-400 font-mono text-xs lg:text-sm mb-3 lg:mb-4">
                       {games[selectedGame].description}
                     </p>
                     {typeof GameComponent !== 'undefined' && (
@@ -565,7 +565,7 @@ function App() {
                             }
                           }
                         }}
-                        className="px-6 py-2 lg:px-8 lg:py-3 bg-green-500 text-black font-mono rounded-full hover:bg-green-400 transition-colors flex items-center gap-2 mx-auto transform hover:scale-105 text-base lg:text-lg"
+                        className="px-4 py-2 lg:px-6 lg:py-2.5 bg-green-500 text-black font-mono rounded-full hover:bg-green-400 transition-colors flex items-center gap-2 mx-auto transform hover:scale-105 text-sm lg:text-base font-bold"
                       >
                         <Play className="w-4 h-4" />
                         {isPlaying ? 'STOP' : 'PLAY'}
@@ -575,10 +575,10 @@ function App() {
 
                   <button
                     onClick={handleNext}
-                    className="p-2 lg:p-3 hover:bg-green-900 rounded-full transition-colors transform hover:scale-110"
+                    className="p-1.5 lg:p-2 hover:bg-green-900 rounded-full transition-colors transform hover:scale-110"
                     title="Next game"
                   >
-                    <ChevronRight className="w-8 h-8" />
+                    <ChevronRight className="w-6 h-6" />
                   </button>
                 </div>
                 
@@ -596,12 +596,12 @@ function App() {
       {/* Enhanced Footer */}
       <footer
         ref={footerRef}
-        className="relative border-t border-green-500/50 p-4 overflow-hidden backdrop-blur-sm bottom-0 w-full"
+        className="relative border-t border-green-500/50 p-2 lg:p-3 overflow-hidden backdrop-blur-sm bottom-0 w-full"
       >
-        <div className="max-w-2xl mx-auto flex items-center justify-between relative z-10">
-          <div className="font-mono text-sm flex items-center gap-4">
-            <p className="tracking-wider">THE MATRIX ARCADE v1.0.5</p>
-            <div className="h-4 w-px bg-green-500/30"></div>
+        <div className="max-w-7xl mx-auto flex items-center justify-between relative z-10">
+          <div className="font-mono text-xs lg:text-sm flex items-center gap-2 lg:gap-4">
+            <p className="tracking-wider hidden lg:block">THE MATRIX ARCADE v1.0.5</p>
+            <div className="h-4 w-px bg-green-500/30 hidden lg:block"></div>
             <p className="text-green-400">TAKE THE RED PILL!</p>
           </div>
           <div className="flex items-center gap-4">

@@ -471,3 +471,58 @@
 .custom-scrollbar::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* Enhanced Game Portal Layout */
+.game-portal-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  max-height: 100vh;
+  overflow: hidden;
+}
+
+.game-portal-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 0;
+  padding: 1rem;
+}
+
+.game-display-enhanced {
+  width: 100%;
+  height: 100%;
+  max-height: 50vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.game-controls-enhanced {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 1rem 0;
+}
+
+/* Responsive Game Portal */
+@media (min-width: 768px) {
+  .game-display-enhanced {
+    max-height: 45vh;
+  }
+}
+
+@media (min-width: 1024px) {
+  .game-display-enhanced {
+    max-height: 40vh;
+  }
+}
+
+@media (min-width: 1280px) {
+  .game-display-enhanced {
+    max-height: 45vh;
+  }
+}
