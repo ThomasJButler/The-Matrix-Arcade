@@ -12,7 +12,7 @@ import { GameOverModal } from '../ui/GameOverModal';
 const PADDLE_HEIGHT = 80;
 const PADDLE_WIDTH = 12;
 const BALL_SIZE = 6;
-const PARTICLE_COUNT = 100;
+const PARTICLE_COUNT = 25; // Reduced for better performance
 const INITIAL_BALL_SPEED = 7;
 const SPEED_INCREMENT = 0.1; // Speed increases over time
 const MAX_BALL_SPEED = 15;
@@ -61,6 +61,8 @@ interface RenderProps {
   speedMultiplier: number;
   screenShake: { x: number; y: number };
   impactEffects: Array<{ x: number; y: number; intensity: number; life: number }>;
+  timestamp: number; // Added for performance optimization
+  combo: number;
 }
 
 // Enhanced utility functions
@@ -538,7 +540,9 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
       score,
       speedMultiplier,
       screenShake,
-      impactEffects
+      impactEffects,
+      timestamp: Date.now(),
+      combo
     });
   });
 
@@ -555,8 +559,8 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
     ctx.fillStyle = '#000000';
     ctx.fillRect(-props.screenShake.x, -props.screenShake.y, 800, 400);
 
-    // Draw background particles with depth
-    ctx.shadowBlur = 10;
+    // Draw background particles with depth (optimized)
+    ctx.shadowBlur = 5; // Reduced shadow blur
     ctx.shadowColor = '#00ff00';
     props.particles.forEach(particle => {
       const scale = 400 / (400 + particle.z);
@@ -575,11 +579,11 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
 
     // Draw power-ups with enhanced pulsing effect
     props.powerUps.forEach(powerUp => {
-      const pulse = Math.sin(Date.now() / 200) * 0.3 + 0.7;
+      const pulse = Math.sin(props.timestamp / 200) * 0.3 + 0.7; // Use prop instead of Date.now()
       const size = 12 * pulse;
       
-      // Outer glow
-      ctx.shadowBlur = 20;
+      // Outer glow (reduced for performance)
+      ctx.shadowBlur = 10;
       ctx.shadowColor = getPowerUpColor(powerUp.type);
       
       // Power-up icon based on type
@@ -600,7 +604,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
       const alpha = effect.life;
       const size = (1 - effect.life) * effect.intensity;
       
-      ctx.shadowBlur = 30;
+      ctx.shadowBlur = 15; // Reduced for performance
       ctx.shadowColor = '#ffffff';
       ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
       ctx.beginPath();
@@ -621,7 +625,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
       : PADDLE_HEIGHT;
 
     // Player paddle (left)
-    ctx.shadowBlur = 25;
+    ctx.shadowBlur = 12; // Reduced for performance
     ctx.shadowColor = '#00ff00';
     ctx.fillStyle = props.activePowerUps.bigger_paddle 
       ? '#00ffaa' 
@@ -639,7 +643,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
     ctx.fillRect(786, props.aiPaddleY - 2, PADDLE_WIDTH + 4, PADDLE_HEIGHT + 4);
 
     // Draw animated center line
-    const dashOffset = (Date.now() / 100) % 20;
+    const dashOffset = (props.timestamp / 100) % 20; // Use prop instead of Date.now()
     ctx.setLineDash([5, 5]);
     ctx.lineDashOffset = dashOffset;
     ctx.strokeStyle = '#00ff00';
@@ -706,17 +710,17 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
     }
 
     // Combo indicator
-    if (combo > 2) {
+    if (props.combo > 2) {
       ctx.shadowBlur = 15;
       ctx.shadowColor = '#ffff00';
-      ctx.fillStyle = `rgba(255, 255, 0, ${0.7 + Math.sin(Date.now() / 100) * 0.3})`;
+      ctx.fillStyle = `rgba(255, 255, 0, ${0.7 + Math.sin(props.timestamp / 100) * 0.3})`;
       ctx.font = 'bold 20px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(`COMBO x${combo}`, 400, 50);
+      ctx.fillText(`COMBO x${props.combo}`, 400, 50);
     }
 
     ctx.restore();
-  }, [renderParticles, combo]);
+  }, [renderParticles]);
 
   return (
     <div className="h-full w-full flex items-center justify-center bg-black">
