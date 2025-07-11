@@ -310,7 +310,7 @@ function App() {
             </div>
             <div>
             <a
-              href="https://tomatic.tech/"
+              href="https://www.tomatic.tech/"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-sm hover:text-green-400 transition-colors group"
