@@ -1,7 +1,9 @@
 # TheMatrixArcade 🎮
 A collection of games inspired by 'The Matrix' films 🎬
 
-See online at aitomatic.io 
+See online at https://tomatic.tech
+
+<img width="1299" height="849" alt="image" src="https://github.com/user-attachments/assets/4467f9e2-4de2-4709-aa5b-71b0add63927" />
 
 The Matrix Arcade is an immersive collection of Matrix-themed games built as a web application. Our flagship game "CTRL-S The World" 💾 is a text-based adventure that follows a thrilling narrative about saving the digital world from a rogue AI.
 
