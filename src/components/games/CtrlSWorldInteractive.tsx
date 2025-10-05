@@ -485,7 +485,13 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
       {/* Main Story Panel */}
       <div className="flex-1 flex flex-col p-4 overflow-hidden">
         {/* Scrollable Content Area */}
-        <div className="flex-1 flex flex-col overflow-y-auto pr-2 custom-scrollbar">
+        <div
+          className="flex-1 flex flex-col overflow-y-auto pr-2 scroll-smooth"
+          style={{
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#00ff00 #000000'
+          }}
+        >
           {/* Chapter Title */}
           <motion.h1 
             key={currentNode.id}
@@ -508,8 +514,8 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
           )}
           
           {/* Story Text */}
-          <div 
-            className="flex-1 mb-4 p-4 bg-gray-900/30 rounded-lg border border-green-500/30 min-h-[200px] cursor-pointer hover:bg-gray-900/40 transition-colors"
+          <div
+            className="flex-1 mb-4 p-6 bg-gray-900/30 rounded-lg border border-green-500/30 min-h-[250px] cursor-pointer hover:bg-gray-900/40 transition-colors overflow-y-auto"
             onClick={() => {
               if (isTyping) {
                 // Skip typing effect and show all content immediately
@@ -518,10 +524,14 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
               }
             }}
             title={isTyping ? 'Click to skip typing effect' : ''}
+            style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: '#00ff00 #000000'
+            }}
           >
-            <div className="text-green-300 leading-relaxed space-y-4" ref={textContentRef}>
+            <div className="text-green-300 leading-relaxed space-y-6" ref={textContentRef}>
               {currentParagraphs.map((paragraph, index) => (
-                <p key={index} className="text-green-300 leading-relaxed">
+                <p key={index} className="text-green-300 leading-relaxed text-base">
                   {paragraph}
                   {isTyping && index === currentParagraphIndex && (
                     <span className="animate-pulse ml-1">▌</span>
@@ -534,8 +544,8 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
                 </p>
               )}
               {isTyping && (
-                <p className="text-xs text-green-500/70 italic mt-4">
-                  → Click anywhere to skip typing effect
+                <p className="text-xs text-green-500/70 italic mt-6 text-center animate-pulse">
+                  ⚡ Click anywhere to skip typing effect
                 </p>
               )}
             </div>
@@ -544,17 +554,26 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
         
         {/* Fixed Choices Area - Always visible at bottom */}
         {!isTyping && currentNode.choices && (
-          <motion.div 
+          <motion.div
             ref={choicesRef}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex-shrink-0 space-y-3 mt-4 pt-4 border-t border-green-500/30 bg-black/50 backdrop-blur-sm"
+            className="flex-shrink-0 space-y-3 mt-4 pt-4 border-t-2 border-green-500/50 bg-black/70 backdrop-blur-sm rounded-t-lg px-2"
           >
-            <div className="text-xs text-green-400 mb-2 flex items-center gap-2">
+            <div className="text-xs text-green-400 mb-2 flex items-center gap-2 sticky top-0 bg-black/90 py-2 z-10">
               <span className="animate-pulse">▶</span>
-              Choose your path:
+              <span className="font-bold">Choose your path:</span>
+              {currentNode.choices.length > 3 && (
+                <span className="text-yellow-400 ml-auto text-xs">↕ Scroll for more choices</span>
+              )}
             </div>
-            <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+            <div
+              className="space-y-2 max-h-80 overflow-y-auto pr-2 pb-2"
+              style={{
+                scrollbarWidth: 'thin',
+                scrollbarColor: '#00ff00 #000000'
+              }}
+            >
               {currentNode.choices.map((choice, index) => (
                 <ChoiceButton
                   key={index}

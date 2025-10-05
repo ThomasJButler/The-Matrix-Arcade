@@ -288,13 +288,9 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
       setIsTyping(false);
       scrollToBottom();
     } else {
-      // Add completed text to displayed texts, but maintain only last 10 lines
-      setDisplayedTexts(prev => {
-        const newTexts = [...prev, currentText];
-        // Keep only the last 9 lines when adding a new one (total 10)
-        return newTexts.slice(-9);
-      });
-      
+      // Add completed text to displayed texts - KEEP FULL HISTORY for scrolling
+      setDisplayedTexts(prev => [...prev, currentText]);
+
       // Move to next text or node
       if (currentTextIndex < STORY[currentNode].content.length - 1) {
         setCurrentTextIndex(prev => prev + 1);
@@ -307,8 +303,8 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
         setCurrentText('');
         setCurrentCharIndex(0);
         setIsTyping(true);
-        // Clear displayed texts when moving to a new chapter
-        setDisplayedTexts([]);
+        // Keep chapter history - add a visual separator instead of clearing
+        setDisplayedTexts(prev => [...prev, currentText, '\n═══ CHAPTER COMPLETE ═══\n']);
       }
       scrollToBottom();
     }
@@ -345,7 +341,7 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
 
   useEffect(() => {
     if (isStarted && !isPaused && isTyping) {
-      const timer = setTimeout(typeNextCharacter, 30);
+      const timer = setTimeout(typeNextCharacter, 45); // Increased from 30ms to 45ms for more reliable typing
       return () => clearTimeout(timer);
     }
   }, [isStarted, isPaused, isTyping, typeNextCharacter]);
@@ -456,9 +452,13 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
       )}
 
       {/* Main Content */}
-      <div 
+      <div
         ref={terminalRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden p-2"
+        className="flex-1 overflow-y-auto overflow-x-hidden p-4 scroll-smooth"
+        style={{
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#00ff00 #000000'
+        }}
       >
         {!isStarted ? (
           <div className="flex flex-col items-start">
@@ -496,16 +496,29 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
             )}
 
             {/* Story content area */}
-            <div data-testid="story-content" tabIndex={-1}>
+            <div data-testid="story-content" tabIndex={-1} className="space-y-4">
               {/* Previously displayed texts */}
-              {displayedTexts.map((text, index) => (
-                <p key={index} className="mb-4 text-green-400">{text}</p>
-              ))}
+              {displayedTexts.map((text, index) => {
+                // Check if this is a chapter separator
+                const isChapterSeparator = text.includes('═══ CHAPTER COMPLETE ═══');
+                return (
+                  <p
+                    key={index}
+                    className={`leading-relaxed ${
+                      isChapterSeparator
+                        ? 'text-center text-yellow-400 font-bold text-lg my-6 py-4 border-y border-yellow-500/50'
+                        : 'text-green-400'
+                    }`}
+                  >
+                    {text}
+                  </p>
+                );
+              })}
 
               {/* Currently typing text */}
-              <p className="text-green-500">
+              <p className="text-green-500 leading-relaxed">
                 {currentText}
-                {isTyping && <span className="animate-pulse">█</span>}
+                {isTyping && <span className="animate-pulse ml-1">█</span>}
               </p>
             </div>
           </>
