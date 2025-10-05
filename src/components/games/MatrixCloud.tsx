@@ -137,7 +137,20 @@ interface GameState {
 const initialGameState: GameState = {
   playerY: 200,
   playerVelocity: 0,
-  pipes: [],
+  pipes: [
+    {
+      x: 600, // First pipe visible on screen
+      height: 100 + Math.random() * (200 - PIPE_GAP),
+      passed: false,
+      glowIntensity: 0
+    },
+    {
+      x: 600 + PIPE_SPACING, // Second pipe at proper spacing
+      height: 100 + Math.random() * (200 - PIPE_GAP),
+      passed: false,
+      glowIntensity: 0
+    }
+  ],
   particles: [],
   powerUps: [],
   activeEffects: {
@@ -511,16 +524,19 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
 
     const deltaTime = timestamp - lastUpdateRef.current;
     lastUpdateRef.current = timestamp;
-    
+
     // Skip frame if deltaTime is too large (tab was in background)
     if (deltaTime > 100) return;
+
+    // Normalize to 60 FPS
+    const frameDelta = Math.min(deltaTime / 16.67, 2); // Cap at 2x to prevent large jumps
 
     setState(prev => {
       if (prev.gameOver) return prev;
 
       const speedMultiplier = prev.activeEffects.timeSlow ? 0.6 : 1;
-      let newY = prev.playerY + prev.playerVelocity * speedMultiplier;
-      let newVelocity = prev.playerVelocity + GRAVITY * speedMultiplier;
+      let newY = prev.playerY + prev.playerVelocity * speedMultiplier * frameDelta;
+      let newVelocity = prev.playerVelocity + GRAVITY * speedMultiplier * frameDelta;
 
       // Update pipes (only if not in boss battle)
       let newPipes = [...prev.pipes];
@@ -544,10 +560,10 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
       // Update particles with improved effects
       const newParticles = prev.particles.map(particle => ({
         ...particle,
-        y: particle.y + particle.speed * speedMultiplier,
+        y: particle.y + particle.speed * speedMultiplier * frameDelta,
         char: Math.random() < 0.1 ? MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)] : particle.char,
         opacity: particle.y > 400 ? 0.1 + Math.random() * 0.5 : particle.opacity,
-        rotation: particle.rotation + 0.01 * speedMultiplier,
+        rotation: particle.rotation + 0.01 * speedMultiplier * frameDelta,
         ...(particle.y > 400 ? {
           y: 0,
           scale: 0.8 + Math.random() * 0.4,
@@ -560,15 +576,15 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
         .filter(p => !p.collected)
         .map(powerUp => ({
           ...powerUp,
-          x: powerUp.x - PIPE_SPEED * speedMultiplier
+          x: powerUp.x - PIPE_SPEED * speedMultiplier * frameDelta
         }));
 
       // Move pipes with glow effect
       newPipes = newPipes
         .map(pipe => ({
           ...pipe,
-          x: pipe.x - PIPE_SPEED * speedMultiplier,
-          glowIntensity: Math.max(0, pipe.glowIntensity - 0.05)
+          x: pipe.x - PIPE_SPEED * speedMultiplier * frameDelta,
+          glowIntensity: Math.max(0, pipe.glowIntensity - 0.05 * frameDelta)
         }))
         .filter(pipe => pipe.x > -60);
 

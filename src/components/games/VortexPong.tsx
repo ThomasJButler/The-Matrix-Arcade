@@ -102,6 +102,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
   const [particles, setParticles] = useState<Particle[]>([]);
   const [score, setScore] = useState({ player: 0, ai: 0 });
   const [gameOver, setGameOver] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [screenShake, setScreenShake] = useState({ x: 0, y: 0 });
   const [impactEffects, setImpactEffects] = useState<Array<{ x: number; y: number; intensity: number; life: number }>>([]);
   const [aiDifficulty, setAiDifficulty] = useState(4); // Adaptive AI speed
@@ -148,6 +149,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
   const resetGame = useCallback(() => {
     setBalls([createBall(400, 200, -INITIAL_BALL_SPEED, 0)]);
     setPaddleY(150);
+    setIsPaused(false);
     setAiPaddleY(150);
     setScore({ player: 0, ai: 0 });
     setGameOver(false);
@@ -202,7 +204,11 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
         setKeyboardControls(prev => ({ ...prev, down: true }));
       } else if (e.key === 'Enter' && gameOver) {
         resetGame();
-      } else if (e.key === ' ' && !gameOver) {
+      } else if ((e.key === 'p' || e.key === 'P' || e.key === 'Escape') && !gameOver) {
+        e.preventDefault();
+        setIsPaused(prev => !prev);
+        playSFX('menu');
+      } else if (e.key === ' ' && !gameOver && !isPaused) {
         e.preventDefault();
         // Space bar for extra ball if multi-ball is active
         if (activePowerUps.multi_ball && balls.length < 3) {
@@ -231,37 +237,46 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [gameOver, activePowerUps.multi_ball, balls.length, resetGame]);
+  }, [gameOver, isPaused, activePowerUps.multi_ball, balls.length, resetGame, playSFX]);
 
-  // Update paddle position based on keyboard input
+  // Update paddle position based on keyboard input - DIRECT control, no friction
   useEffect(() => {
-    const paddleSpeed = 10; // Increased for more responsive controls
-    const friction = 0.9;
-    
+    const paddleSpeed = 8; // Pixels per frame for smooth, precise movement
+
     const updatePaddle = () => {
-      let velocity = paddleVelocity * friction;
-      
-      if (keyboardControls.up) {
-        velocity -= paddleSpeed;
-      }
-      if (keyboardControls.down) {
-        velocity += paddleSpeed;
-      }
-      
-      // Clamp velocity
-      velocity = Math.max(-15, Math.min(15, velocity));
-      
-      setPaddleVelocity(velocity);
+      const paddleHeight = activePowerUps.bigger_paddle ? PADDLE_HEIGHT * 1.5 : PADDLE_HEIGHT;
+
+      // Direct position update based on input - no velocity, no friction
       setPaddleY(prev => {
-        const paddleHeight = activePowerUps.bigger_paddle ? PADDLE_HEIGHT * 1.5 : PADDLE_HEIGHT;
-        const newY = prev + velocity;
+        let newY = prev;
+
+        // Direct movement - instant response, instant stop
+        if (keyboardControls.up) {
+          newY = prev - paddleSpeed;
+          setPaddleVelocity(-paddleSpeed); // Set velocity for ball physics
+        } else if (keyboardControls.down) {
+          newY = prev + paddleSpeed;
+          setPaddleVelocity(paddleSpeed); // Set velocity for ball physics
+        } else {
+          setPaddleVelocity(0); // No movement = no velocity
+        }
+        // If no keys pressed, paddle stays exactly where it is (no momentum)
+
+        // Clamp to screen bounds
         return Math.max(0, Math.min(400 - paddleHeight, newY));
       });
     };
 
-    const interval = setInterval(updatePaddle, 16); // 60fps update
-    return () => clearInterval(interval);
-  }, [paddleVelocity, keyboardControls, activePowerUps.bigger_paddle]);
+    // Use requestAnimationFrame for smooth 60fps updates
+    let animationId: number;
+    const animate = () => {
+      updatePaddle();
+      animationId = requestAnimationFrame(animate);
+    };
+    animationId = requestAnimationFrame(animate);
+
+    return () => cancelAnimationFrame(animationId);
+  }, [keyboardControls, activePowerUps.bigger_paddle]);
 
   // Power-up spawn effect with adaptive timing
   useEffect(() => {
@@ -272,7 +287,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
 
   // Enhanced main game loop with multi-ball support
   useGameLoop((deltaTime) => {
-    if (gameOver) return;
+    if (gameOver || isPaused) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -723,7 +738,23 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
   }, [renderParticles]);
 
   return (
-    <div className="h-full w-full flex items-center justify-center bg-black">
+    <div className="h-full w-full flex items-center justify-center bg-black relative">
+      {/* Pause Overlay */}
+      {isPaused && !gameOver && (
+        <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center">
+          <div className="bg-gray-900 border-2 border-green-500 rounded-lg p-8 text-center">
+            <h2 className="text-4xl font-bold text-green-400 mb-4 font-mono">PAUSED</h2>
+            <div className="space-y-2 text-green-400 font-mono">
+              <p className="text-lg">Press P to Resume</p>
+              <p className="text-lg">Press ESC to Continue Paused</p>
+              <div className="mt-4 pt-4 border-t border-green-500/30">
+                <p className="text-sm opacity-75">Score: {score.player} - {score.ai}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col items-center gap-4 max-w-[800px] w-full">
         <motion.canvas
           ref={canvasRef}

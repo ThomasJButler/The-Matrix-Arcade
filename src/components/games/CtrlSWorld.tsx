@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Terminal as TerminalIcon, ChevronRight, Info, Play, Pause, Maximize, Minimize, Gamepad2, Volume2, VolumeX } from 'lucide-react';
+import { Terminal as TerminalIcon, ChevronRight, Info, Play, Pause, Maximize, Minimize, Gamepad2 } from 'lucide-react';
 import CtrlSWorldInteractive from './CtrlSWorldInteractive';
-import { useAdvancedVoice } from '../../hooks/useAdvancedVoice';
-import { AdvancedVoiceControls } from '../ui/AdvancedVoiceControls';
 
 interface AchievementManager {
   unlockAchievement(gameId: string, achievementId: string): void;
@@ -214,20 +212,10 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [commandInput, setCommandInput] = useState('');
-  const [showVoiceControls, setShowVoiceControls] = useState(false);
-  
+
   const terminalRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  
-  // Initialize advanced voice system
-  const { 
-    config: voiceConfig, 
-    isSupported: voiceSupported,
-    isSpeaking,
-    speak: speakWithAdvancedVoice, 
-    stop: stopVoice,
-  } = useAdvancedVoice();
   
   // Achievement unlock function
   const unlockAchievement = useCallback((achievementId: string) => {
@@ -267,17 +255,6 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
     }
   };
 
-  // Handle voice narration
-  const handleVoiceNarration = useCallback((content: string[]) => {
-    if (voiceSupported && voiceConfig && voiceConfig.enabled && content && content.length > 0) {
-      // Add a small delay to ensure smooth transition
-      setTimeout(() => {
-        if (voiceConfig.enabled) {
-          speakWithAdvancedVoice(content);
-        }
-      }, 500);
-    }
-  }, [voiceSupported, voiceConfig, speakWithAdvancedVoice]);
 
   const typeNextCharacter = useCallback(() => {
     if (!STORY[currentNode]) return;
@@ -337,15 +314,6 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
     }
   }, [isTyping, currentNode, currentTextIndex, currentText, scrollToBottom]);
 
-  // Start voice narration when node changes
-  useEffect(() => {
-    if (isStarted && STORY[currentNode]) {
-      // Stop any current narration
-      stopVoice();
-      // Start new narration for the chapter
-      handleVoiceNarration(STORY[currentNode].content);
-    }
-  }, [currentNode, isStarted, handleVoiceNarration, stopVoice]);
 
   useEffect(() => {
     if (!isStarted && inputRef.current) {
@@ -438,22 +406,6 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
           <h2 className="text-lg">CTRL-S The World</h2>
         </div>
         <div className="flex items-center gap-2">
-          {isSpeaking && (
-            <button
-              onClick={stopVoice}
-              className="p-2 bg-red-900/80 hover:bg-red-800 rounded transition-colors"
-              title="Stop Voice"
-            >
-              <VolumeX className="w-5 h-5" />
-            </button>
-          )}
-          <button
-            onClick={() => setShowVoiceControls(prev => !prev)}
-            className="p-2 hover:bg-green-900 rounded transition-colors"
-            title="Voice Controls"
-          >
-            <Volume2 className="w-5 h-5" />
-          </button>
           <button
             onClick={() => setShowInfo(prev => !prev)}
             className="p-2 hover:bg-green-900 rounded transition-colors"
@@ -478,26 +430,6 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
         </div>
       </div>
 
-      {/* Voice Controls Panel */}
-      {showVoiceControls && (
-        <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-900 rounded-lg p-6 max-w-md w-full border-2 border-green-500">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold">Voice Controls</h3>
-              <button
-                onClick={() => setShowVoiceControls(false)}
-                className="text-green-500 hover:text-green-400 text-2xl"
-              >
-                ×
-              </button>
-            </div>
-            <AdvancedVoiceControls 
-              text={STORY[currentNode]?.content || []}
-              className="w-full"
-            />
-          </div>
-        </div>
-      )}
 
       {/* Info Panel */}
       {showInfo && (

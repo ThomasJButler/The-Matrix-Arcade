@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Coffee, 
-  Code, 
-  Users, 
-  Trophy, 
+import {
+  Coffee,
+  Code,
+  Users,
+  Trophy,
   Bug,
   GitBranch,
   Terminal,
@@ -12,12 +12,8 @@ import {
   Brain,
   Maximize,
   Minimize,
-  Volume2,
-  VolumeX,
 } from 'lucide-react';
 import { EPIC_STORY, INITIAL_STATE, GameState, Choice, calculateTeamMood, getRandomBugFact, INVENTORY_ITEMS } from './CtrlSWorldContent';
-import { AdvancedVoiceControls } from '../ui/AdvancedVoiceControls';
-import { useAdvancedVoice } from '../../hooks/useAdvancedVoice';
 
 interface AchievementManager {
   unlockAchievement(gameId: string, achievementId: string): void;
@@ -282,49 +278,22 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
   const [showBugFact, setShowBugFact] = useState(false);
   const [bugFact, setBugFact] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [highlightedWord, setHighlightedWord] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const choicesRef = useRef<HTMLDivElement>(null);
   const textContentRef = useRef<HTMLDivElement>(null);
-  
-  // Initialize advanced voice system
-  const { 
-    config: voiceConfig, 
-    isSupported: voiceSupported,
-    isSpeaking,
-    speak: speakWithAdvancedVoice, 
-    stop: stopVoice,
-  } = useAdvancedVoice();
-  
+
   // Achievement unlock function
   const unlockAchievement = useCallback((achievementId: string) => {
     if (achievementManager?.unlockAchievement) {
       achievementManager.unlockAchievement('ctrlSWorld', achievementId);
     }
   }, [achievementManager]);
-  
+
   // Track achievement conditions
   const totalChoicesMade = useRef(0);
-  const voiceUsageStartTime = useRef<number | null>(null);
-  const voiceUsageTime = useRef(0);
   const hasCollectedItems = useRef(new Set<string>());
-  const lastNarratedNode = useRef<string | null>(null); // Track last narrated node to prevent loops
 
   const currentNode = EPIC_STORY[gameState.currentNode];
-
-  // Handle voice narration with advanced features
-  const handleVoiceNarration = useCallback((content: string | string[]) => {
-    // Only speak if voice is supported and enabled
-    if (voiceSupported && voiceConfig && voiceConfig.enabled && content) {
-      // Add a small delay to ensure smooth transition
-      setTimeout(() => {
-        // Final check before speaking
-        if (voiceConfig.enabled) {
-          speakWithAdvancedVoice(content);
-        }
-      }, 500);
-    }
-  }, [voiceSupported, voiceConfig, speakWithAdvancedVoice]);
 
   // Fullscreen toggle
   const toggleFullscreen = useCallback(() => {
@@ -363,16 +332,9 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
     setCurrentParagraphIndex(0);
     setCurrentCharIndex(0);
     setIsTyping(true);
-    
-    // Start voice narration only if this is a new node (prevent loops)
-    const node = EPIC_STORY[gameState.currentNode];
-    if (node && node.content && lastNarratedNode.current !== gameState.currentNode) {
-      lastNarratedNode.current = gameState.currentNode;
-      handleVoiceNarration(node.content);
-    }
-  }, [gameState.currentNode, handleVoiceNarration]);
+  }, [gameState.currentNode]);
 
-  // Enhanced typing effect with paragraph support and Shatner voice
+  // Enhanced typing effect with paragraph support
   useEffect(() => {
     if (!currentNode || !isTyping || !currentNode.content) return;
 
@@ -409,11 +371,9 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
         setIsTyping(false);
       }
     }
-  }, [currentNode, isTyping, currentParagraphIndex, currentCharIndex, handleVoiceNarration]);
+  }, [currentNode, isTyping, currentParagraphIndex, currentCharIndex]);
 
   const makeChoice = useCallback((choice: Choice) => {
-    // Stop any current narration when making a choice
-    stopVoice();
     
     const newGameState = { ...gameState };
     
@@ -491,26 +451,7 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
       setBugFact(getRandomBugFact());
       setShowBugFact(true);
     }
-  }, [gameState, stopVoice, unlockAchievement]);
-  
-  // Track voice usage time
-  useEffect(() => {
-    if (isSpeaking) {
-      if (!voiceUsageStartTime.current) {
-        voiceUsageStartTime.current = Date.now();
-      }
-    } else {
-      if (voiceUsageStartTime.current) {
-        voiceUsageTime.current += (Date.now() - voiceUsageStartTime.current) / 1000;
-        voiceUsageStartTime.current = null;
-        
-        // Voice master achievement (5 minutes = 300 seconds)
-        if (voiceUsageTime.current >= 300) {
-          unlockAchievement('ctrl_voice_master');
-        }
-      }
-    }
-  }, [isSpeaking, unlockAchievement]);
+  }, [gameState, unlockAchievement]);
 
   const handleCoffeeMiniGame = (coffeeGain: number) => {
     setShowMiniGame(false);
@@ -531,17 +472,6 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
     >
       {/* Control Buttons */}
       <div className="absolute top-4 right-4 z-10 flex gap-2">
-        {/* Stop Voice Button */}
-        {isSpeaking && (
-          <button
-            onClick={stopVoice}
-            className="p-2 bg-red-900/80 hover:bg-red-800 border border-red-500/50 rounded backdrop-blur-sm transition-colors"
-            title="Stop Voice Narration"
-          >
-            <VolumeX className="w-5 h-5" />
-          </button>
-        )}
-        
         {/* Fullscreen Toggle */}
         <button
           onClick={toggleFullscreen}
@@ -585,7 +515,6 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
                 // Skip typing effect and show all content immediately
                 setCurrentParagraphs(currentNode?.content || []);
                 setIsTyping(false);
-                // Don't start voice again when skipping - it's already playing
               }
             }}
             title={isTyping ? 'Click to skip typing effect' : ''}
@@ -593,32 +522,9 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
             <div className="text-green-300 leading-relaxed space-y-4" ref={textContentRef}>
               {currentParagraphs.map((paragraph, index) => (
                 <p key={index} className="text-green-300 leading-relaxed">
-                  {voiceConfig.highlightText && isSpeaking && !isTyping ? (
-                    paragraph.split(' ').map((word, wordIndex) => {
-                      const globalWordIndex = currentParagraphs
-                        .slice(0, index)
-                        .join(' ')
-                        .split(' ').length + wordIndex;
-                      return (
-                        <span
-                          key={wordIndex}
-                          className={`${
-                            globalWordIndex === highlightedWord
-                              ? 'bg-green-500/30 text-green-100 px-1 rounded'
-                              : ''
-                          } transition-all duration-200`}
-                        >
-                          {word}{' '}
-                        </span>
-                      );
-                    })
-                  ) : (
-                    <>
-                      {paragraph}
-                      {isTyping && index === currentParagraphIndex && (
-                        <span className="animate-pulse ml-1">▌</span>
-                      )}
-                    </>
+                  {paragraph}
+                  {isTyping && index === currentParagraphIndex && (
+                    <span className="animate-pulse ml-1">▌</span>
                   )}
                 </p>
               ))}
@@ -672,14 +578,6 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
       <div className="w-80 p-4 border-l border-green-500/50">
         <GameStats gameState={gameState} />
         <Inventory inventory={gameState.inventory} />
-        
-        {/* Advanced Voice Controls */}
-        <AdvancedVoiceControls 
-          text={currentNode.content}
-          onTextHighlight={setHighlightedWord}
-          className="mb-4"
-        />
-        
         {/* Random Developer Tip */}
         <div className="bg-black/50 border border-blue-500/30 rounded-lg p-3 text-xs">
           <div className="flex items-center gap-2 mb-2">

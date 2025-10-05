@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Terminal as TerminalIcon, Info, Shield, Wifi, Key, AlertTriangle, Cpu, Save, RotateCcw, Map as MapIcon, Volume2, VolumeX } from 'lucide-react';
+import { Terminal as TerminalIcon, Info, Shield, Wifi, Key, AlertTriangle, Cpu, Save, RotateCcw, Map as MapIcon } from 'lucide-react';
 import { EXPANDED_GAME_NODES, Choice } from './TerminalQuestContent';
 import { useSoundSystem } from '../../hooks/useSoundSystem';
-import { useAdvancedVoice } from '../../hooks/useAdvancedVoice';
-import { AdvancedVoiceControls } from '../ui/AdvancedVoiceControls';
 import TerminalQuestCombat from './TerminalQuestCombat';
 
 interface AchievementManager {
@@ -80,20 +78,10 @@ export default function TerminalQuest({ achievementManager }: TerminalQuestProps
   const [saveExists, setSaveExists] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [shakeEffect, setShakeEffect] = useState(false); // Dynamic screen shake
-  const [backgroundGlitch, setBackgroundGlitch] = useState(false); // Glitch effect
-  const [showVoiceControls, setShowVoiceControls] = useState(false);
-  
+  const [backgroundGlitch, setBackgroundGlitch] = useState(false);
+
   // Sound system integration
   const { playSFX, playMusic, stopMusic } = useSoundSystem();
-  
-  // Voice system integration
-  const { 
-    config: voiceConfig, 
-    isSupported: voiceSupported,
-    isSpeaking,
-    speak: speakWithAdvancedVoice, 
-    stop: stopVoice,
-  } = useAdvancedVoice();
   
   // Achievement unlock function
   const unlockAchievement = useCallback((achievementId: string) => {
@@ -123,8 +111,6 @@ export default function TerminalQuest({ achievementManager }: TerminalQuestProps
 
   // Handler for choice actions
   const handleChoice = (choice: Choice) => {
-    // Stop any current narration
-    stopVoice();
     
     // Play sound effects based on choice type
     playSFX('terminalType');
@@ -235,32 +221,47 @@ export default function TerminalQuest({ achievementManager }: TerminalQuestProps
     };
   };
 
-  // Custom hook for ASCII typing
+  // Custom hook for ASCII typing - optimized with RAF
   const useTypingEffect = (text: string) => {
     const [typedText, setTypedText] = useState('');
-    
+    const indexRef = useRef(0);
+    const lastTimeRef = useRef(0);
+
     useEffect(() => {
+      let animationId: number;
       let isMounted = true;
-      let index = -1; // Start at -1 to handle first character properly
-      
+
+      // Reset state
       setTypedText('');
       setIsTyping(true);
+      indexRef.current = 0;
+      lastTimeRef.current = 0;
 
-      const interval = setInterval(() => {
+      const animate = (timestamp: number) => {
         if (!isMounted) return;
-        
-        index++;
-        if (index < text.length) {
-          setTypedText(text.substring(0, index + 1));
+
+        // Control typing speed (30ms per character)
+        if (timestamp - lastTimeRef.current >= 30) {
+          lastTimeRef.current = timestamp;
+
+          if (indexRef.current < text.length) {
+            indexRef.current++;
+            // Use slice for better performance than substring
+            setTypedText(text.slice(0, indexRef.current));
+            animationId = requestAnimationFrame(animate);
+          } else {
+            setIsTyping(false);
+          }
         } else {
-          setIsTyping(false);
-          clearInterval(interval);
+          animationId = requestAnimationFrame(animate);
         }
-      }, 30);
+      };
+
+      animationId = requestAnimationFrame(animate);
 
       return () => {
         isMounted = false;
-        clearInterval(interval);
+        cancelAnimationFrame(animationId);
       };
     }, [text]);
 
@@ -320,29 +321,13 @@ export default function TerminalQuest({ achievementManager }: TerminalQuestProps
 
   const currentNode = GAME_NODES[gameState.currentNode];
   const typedDescription = useTypingEffect(currentNode?.description || '');
-  
-  // Handle voice narration
-  const handleVoiceNarration = useCallback((text: string) => {
-    if (voiceSupported && voiceConfig && voiceConfig.enabled && text) {
-      setTimeout(() => {
-        if (voiceConfig.enabled) {
-          speakWithAdvancedVoice(text);
-        }
-      }, 300);
-    }
-  }, [voiceSupported, voiceConfig, speakWithAdvancedVoice]);
-  
-  // Start voice narration when node changes
-  useEffect(() => {
-    if (currentNode?.description) {
-      handleVoiceNarration(currentNode.description);
-    }
-  }, [currentNode, handleVoiceNarration]);
 
-  // Handle combat nodes
-  if (currentNode?.isCombat && currentNode.enemy && !inCombat) {
-    setInCombat(true);
-  }
+  // Handle combat nodes - moved to useEffect to avoid state update during render
+  useEffect(() => {
+    if (currentNode?.isCombat && currentNode.enemy && !inCombat) {
+      setInCombat(true);
+    }
+  }, [currentNode, inCombat]);
 
   return (
     <div
@@ -357,22 +342,6 @@ export default function TerminalQuest({ achievementManager }: TerminalQuestProps
         <div className="flex gap-4 items-center">
           <Indicator title="Health" value={gameState.health} icon={<Shield />} />
           <Indicator title="Signal" value={100 - gameState.securityLevel} icon={<Wifi />} />
-          {isSpeaking && (
-            <button
-              onClick={stopVoice}
-              className="p-2 bg-red-900/80 hover:bg-red-800 rounded transition-colors"
-              title="Stop Voice"
-            >
-              <VolumeX className="w-4 h-4" />
-            </button>
-          )}
-          <button
-            onClick={() => setShowVoiceControls(prev => !prev)}
-            className="p-2 hover:bg-green-900 rounded transition-colors"
-            title="Voice Controls"
-          >
-            <Volume2 className="w-4 h-4" />
-          </button>
           <button
             onClick={saveGame}
             className="p-2 hover:bg-green-900 rounded transition-colors"
@@ -490,26 +459,6 @@ export default function TerminalQuest({ achievementManager }: TerminalQuestProps
         ))}
       </footer>
 
-      {/* Voice Controls Modal */}
-      {showVoiceControls && (
-        <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-900 rounded-lg p-6 max-w-md w-full border-2 border-green-500">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold text-green-400">Voice Controls</h3>
-              <button
-                onClick={() => setShowVoiceControls(false)}
-                className="text-green-500 hover:text-green-400 text-2xl"
-              >
-                ×
-              </button>
-            </div>
-            <AdvancedVoiceControls 
-              text={currentNode?.description || ''}
-              className="w-full"
-            />
-          </div>
-        </div>
-      )}
       
       {/* Background Glitch Styles */}
       <style dangerouslySetInnerHTML={{
