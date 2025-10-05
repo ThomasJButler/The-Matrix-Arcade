@@ -21,6 +21,10 @@
     animation: matrix-rain 3s linear infinite;
   }
 
+  .animate-pulse-red {
+    animation: pulse-red 2s ease-in-out infinite;
+  }
+
   .terminal-scroll::-webkit-scrollbar {
     width: 8px;
   }

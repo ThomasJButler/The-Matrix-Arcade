@@ -19,7 +19,7 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react';
-import SnakeClassic from './components/games/SnakeClassic';
+import SimpleSnake from './components/games/SimpleSnake';
 import VortexPong from './components/games/VortexPong';
 import TerminalQuest from './components/games/TerminalQuest';
 import CtrlSWorld from './components/games/CtrlSWorld';
@@ -102,7 +102,7 @@ function App() {
       description: 'Navigate through the matrix collecting data fragments',
       preview:
         'https://res.cloudinary.com/depqttzlt/image/upload/v1737071599/matrixsnake2_jw29w1.png',
-      component: SnakeClassic,
+      component: SimpleSnake,
     },
     {
       title: 'Vortex Pong',
@@ -138,57 +138,78 @@ function App() {
     },
   ];
 
-  // Matrix rain effect
+  // Matrix rain effect - optimized with RAF and single canvas
   useEffect(() => {
-    const createMatrixRain = (element: HTMLDivElement) => {
-      const width = element.offsetWidth;
-      const height = element.offsetHeight;
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      canvas.style.position = 'absolute';
-      canvas.style.top = '0';
-      canvas.style.left = '0';
-      canvas.style.zIndex = '0';
-      canvas.style.opacity = '0.15';
-      element.insertBefore(canvas, element.firstChild);
-
+    const createMatrixRain = (canvas: HTMLCanvasElement) => {
       const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+      if (!ctx) return null;
+
+      const parent = canvas.parentElement;
+      if (!parent) return null;
+
+      // Set canvas size
+      canvas.width = parent.offsetWidth;
+      canvas.height = parent.offsetHeight;
 
       const chars =
         'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
       const fontSize = 14;
-      const columns = Math.floor(width / fontSize);
+      const columns = Math.floor(canvas.width / fontSize);
       const drops: number[] = Array(columns).fill(1);
 
-      const draw = () => {
+      let animationId: number;
+      let lastTime = 0;
+
+      const draw = (timestamp: number) => {
+        // Limit to ~30 FPS for performance
+        if (timestamp - lastTime < 33) {
+          animationId = requestAnimationFrame(draw);
+          return;
+        }
+        lastTime = timestamp;
+
         ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-        ctx.fillRect(0, 0, width, height);
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#0F0';
         ctx.font = `${fontSize}px monospace`;
 
         for (let i = 0; i < drops.length; i++) {
           const char = chars[Math.floor(Math.random() * chars.length)];
           ctx.fillText(char, i * fontSize, drops[i] * fontSize);
-          if (drops[i] * fontSize > height && Math.random() > 0.975) {
+          if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
             drops[i] = 0;
           }
           drops[i]++;
         }
+
+        animationId = requestAnimationFrame(draw);
       };
 
-      return setInterval(draw, 33);
+      animationId = requestAnimationFrame(draw);
+      return () => cancelAnimationFrame(animationId);
     };
 
-    const headerInterval =
-      headerRef.current && createMatrixRain(headerRef.current);
-    const footerInterval =
-      footerRef.current && createMatrixRain(footerRef.current);
+    // Create canvases for header and footer
+    let headerCleanup: (() => void) | null = null;
+    let footerCleanup: (() => void) | null = null;
+
+    if (headerRef.current) {
+      const canvas = headerRef.current.querySelector('canvas.matrix-rain');
+      if (canvas instanceof HTMLCanvasElement) {
+        headerCleanup = createMatrixRain(canvas);
+      }
+    }
+
+    if (footerRef.current) {
+      const canvas = footerRef.current.querySelector('canvas.matrix-rain');
+      if (canvas instanceof HTMLCanvasElement) {
+        footerCleanup = createMatrixRain(canvas);
+      }
+    }
 
     return () => {
-      if (headerInterval) clearInterval(headerInterval);
-      if (footerInterval) clearInterval(footerInterval);
+      if (headerCleanup) headerCleanup();
+      if (footerCleanup) footerCleanup();
     };
   }, []);
 
@@ -302,6 +323,10 @@ function App() {
         ref={headerRef}
         className="relative border-b border-green-500/50 p-2 lg:p-3 overflow-hidden backdrop-blur-sm"
       >
+        <canvas
+          className="matrix-rain absolute top-0 left-0 w-full h-full opacity-15 z-0"
+          style={{ pointerEvents: 'none' }}
+        />
         <div className="max-w-7xl mx-auto flex items-center justify-between relative z-10">
           <div className="flex items-center gap-4">
             <div className="relative group">
@@ -332,42 +357,17 @@ function App() {
             >
               <Save className="w-5 h-5" />
             </button>
-            <div className="relative group">
-              <button
-                onClick={toggleMute}
-                className={`p-2 rounded transition-colors border backdrop-blur-sm ${
-                  isMuted 
-                    ? 'bg-red-900/50 hover:bg-red-800 border-red-500/30' 
-                    : 'bg-green-900/50 hover:bg-green-800 border-green-500/30'
-                }`}
-                title={isMuted ? "Unmute Sound" : "Mute Sound"}
-              >
-                {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-              </button>
-              
-              {/* Volume Slider Popup */}
-              <div className="absolute top-full right-0 mt-2 p-3 bg-gray-900 border border-green-500/30 rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity shadow-xl z-50">
-                <div className="flex items-center gap-2 min-w-[150px]">
-                  <Volume2 className="w-4 h-4 text-green-400" />
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.1"
-                    value={soundConfig.masterVolume}
-                    onChange={(e) => updateConfig({ masterVolume: parseFloat(e.target.value) })}
-                    className="flex-1 slider"
-                  />
-                  <span className="text-xs text-green-400 min-w-[3ch]">{Math.round(soundConfig.masterVolume * 100)}%</span>
-                </div>
-              </div>
-            </div>
+
             <button
               onClick={() => setShowAudioSettings(!showAudioSettings)}
-              className="p-2 bg-green-900/50 rounded hover:bg-green-800 transition-colors border border-green-500/30 backdrop-blur-sm"
-              title="Audio Settings"
+              className={`p-2 rounded transition-colors border backdrop-blur-sm ${
+                isMuted
+                  ? 'bg-red-900/50 hover:bg-red-800 border-red-500/30'
+                  : 'bg-green-900/50 hover:bg-green-800 border-green-500/30'
+              }`}
+              title="Audio Settings (V to mute)"
             >
-              <Settings className="w-5 h-5" />
+              <Settings className={`w-5 h-5 ${isMuted ? 'text-red-400' : ''}`} />
             </button>
             <button
               onClick={() => setShowNav(!showNav)}
@@ -405,8 +405,16 @@ function App() {
         {/* Fullscreen Game View */}
         {isPlaying && GameComponent ? (
           <div className="relative w-full h-full">
-            <GameComponent achievementManager={achievementManager} />
-            
+            <GameComponent achievementManager={achievementManager} isMuted={isMuted} />
+
+            {/* Floating Mute Indicator - More Visible */}
+            {isMuted && (
+              <div className="absolute top-4 left-4 z-50 flex items-center gap-2 px-4 py-2 bg-red-600/90 border-2 border-red-400 rounded-lg animate-pulse-red pointer-events-none shadow-lg shadow-red-500/50">
+                <VolumeX className="w-5 h-5 text-white" />
+                <span className="text-white font-mono text-sm font-bold">MUTED</span>
+              </div>
+            )}
+
             {/* Floating Exit Button */}
             <button
               onClick={() => {
@@ -439,9 +447,9 @@ function App() {
           </div>
         ) : (
           <div className="relative w-full max-w-2xl mx-auto flex flex-col justify-center h-full game-portal-container px-4">
-          {/* Matrix Rain Effect */}
+          {/* Matrix Rain Effect - Reduced for performance */}
           <div className="absolute inset-0 opacity-20 pointer-events-none overflow-hidden">
-            {[...Array(50)].map((_, i) => (
+            {[...Array(20)].map((_, i) => (
               <div
                 key={i}
                 className="absolute text-green-500 animate-matrix-rain"
@@ -598,6 +606,10 @@ function App() {
         ref={footerRef}
         className="relative border-t border-green-500/50 p-2 lg:p-3 overflow-hidden backdrop-blur-sm bottom-0 w-full"
       >
+        <canvas
+          className="matrix-rain absolute top-0 left-0 w-full h-full opacity-15 z-0"
+          style={{ pointerEvents: 'none' }}
+        />
         <div className="max-w-7xl mx-auto flex items-center justify-between relative z-10">
           <div className="font-mono text-xs lg:text-sm flex items-center gap-2 lg:gap-4">
             <p className="tracking-wider hidden lg:block">THE MATRIX ARCADE v1.0.5</p>
@@ -628,9 +640,11 @@ function App() {
       </footer>
 
       {/* Audio Settings Modal */}
-      <AudioSettings 
-        isOpen={showAudioSettings} 
-        onClose={() => setShowAudioSettings(false)} 
+      <AudioSettings
+        isOpen={showAudioSettings}
+        onClose={() => setShowAudioSettings(false)}
+        isMuted={isMuted}
+        toggleMute={toggleMute}
       />
       
       {/* Save/Load Manager Modal */}
