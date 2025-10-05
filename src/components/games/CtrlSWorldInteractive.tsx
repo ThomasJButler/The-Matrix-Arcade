@@ -485,9 +485,7 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
       {/* Main Story Panel */}
       <div className="flex-1 flex flex-col p-4 overflow-hidden">
         {/* Scrollable Content Area */}
-        <div
-          className="flex flex-col h-full overflow-hidden pr-2"
-        >
+        <div className="flex flex-col h-full pr-2">
           {/* Chapter Title */}
           <motion.h1 
             key={currentNode.id}
@@ -511,7 +509,7 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
           
           {/* Story Text */}
           <div
-            className="mb-4 p-6 bg-gray-900/30 rounded-lg border border-green-500/30 max-h-[500px] min-h-[300px] cursor-pointer hover:bg-gray-900/40 transition-colors overflow-y-auto scroll-smooth"
+            className="flex-1 p-6 bg-gray-900/30 rounded-lg border border-green-500/30 max-h-[60vh] cursor-pointer hover:bg-gray-900/40 transition-colors overflow-y-auto scroll-smooth"
             onClick={() => {
               if (isTyping) {
                 // Skip typing effect and show all content immediately
@@ -521,8 +519,8 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
             }}
             title={isTyping ? 'Click to skip typing effect' : ''}
             style={{
-              scrollbarWidth: 'thin',
-              scrollbarColor: '#00ff00 #000000'
+              scrollbarWidth: 'auto',
+              scrollbarColor: '#00ff00 #1a1a1a'
             }}
           >
             <div className="text-green-300 leading-relaxed space-y-6" ref={textContentRef}>

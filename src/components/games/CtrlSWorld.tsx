@@ -271,9 +271,10 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
     if (currentCharIndex < text.length) {
       setCurrentText(prev => prev + text[currentCharIndex]);
       setCurrentCharIndex(prev => prev + 1);
-      scrollToBottom();
+      // Don't auto-scroll on every character - let user control scroll
     } else {
       setIsTyping(false);
+      scrollToBottom(); // Only scroll when paragraph completes
       if (!isPaused && currentTextIndex < STORY[currentNode].content.length - 1) {
         setTimeout(() => {
           setCurrentTextIndex(prev => prev + 1);
@@ -462,8 +463,8 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
         ref={terminalRef}
         className="flex-1 overflow-y-auto overflow-x-hidden p-4 scroll-smooth"
         style={{
-          scrollbarWidth: 'thin',
-          scrollbarColor: '#00ff00 #000000'
+          scrollbarWidth: 'auto',
+          scrollbarColor: '#00ff00 #1a1a1a'
         }}
       >
         {!isStarted ? (
