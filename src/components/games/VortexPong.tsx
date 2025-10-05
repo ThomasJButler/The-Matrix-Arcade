@@ -322,11 +322,16 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
             // Collect balls to spawn (add later, outside map)
             const ballsToSpawn = Math.min(2, 3 - balls.length);
             for (let i = 0; i < ballsToSpawn; i++) {
+              // Ensure proper ball speed - randomly choose direction, then apply full speed
+              const direction = Math.random() > 0.5 ? 1 : -1;
+              const vx = direction * (INITIAL_BALL_SPEED + Math.random() * 2);
+              const vy = (Math.random() - 0.5) * INITIAL_BALL_SPEED * 1.5;
+
               newBallsToAdd.push(createBall(
                 400 + (Math.random() - 0.5) * 200,
                 200 + (Math.random() - 0.5) * 200,
-                (Math.random() - 0.5) * INITIAL_BALL_SPEED * 2,
-                (Math.random() - 0.5) * INITIAL_BALL_SPEED
+                vx,
+                vy
               ));
             }
           } else {
