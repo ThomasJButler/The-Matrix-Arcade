@@ -258,8 +258,19 @@ export function useSaveSystem() {
   // Unlock achievement
   const unlockAchievement = useCallback((gameId: keyof GlobalSaveData['games'], achievementId: string) => {
     setSaveData(prev => {
-      const currentAchievements = prev.games[gameId].achievements;
-      
+      // Ensure the game data exists
+      if (!prev.games[gameId]) {
+        prev.games[gameId] = {
+          highScore: 0,
+          totalScore: 0,
+          gamesPlayed: 0,
+          achievements: [],
+          lastPlayed: Date.now()
+        };
+      }
+
+      const currentAchievements = prev.games[gameId].achievements || [];
+
       if (!currentAchievements.includes(achievementId)) {
         const newData = {
           ...prev,

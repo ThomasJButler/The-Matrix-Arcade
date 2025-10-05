@@ -3,6 +3,20 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 export type Position = { x: number; y: number };
 export type Direction = 'up' | 'down' | 'left' | 'right';
 export type GameState = 'menu' | 'playing' | 'paused' | 'gameOver';
+export type PowerUpType = 'speed' | 'double' | 'shield' | 'ghost';
+
+export interface PowerUp {
+  type: PowerUpType;
+  position: Position;
+  expiresAt: number;
+}
+
+export interface ActivePowerUps {
+  speed?: number;      // expires timestamp
+  double?: number;     // remaining food count
+  shield?: boolean;    // one-time use
+  ghost?: number;      // expires timestamp
+}
 
 export interface SnakeGameState {
   snake: Position[];
@@ -13,6 +27,9 @@ export interface SnakeGameState {
   highScore: number;
   gameState: GameState;
   speed: number; // milliseconds between moves
+  foodEaten: number;  // track for head/tail unlock
+  powerUp?: PowerUp;
+  activePowerUps: ActivePowerUps;
 }
 
 const GRID_SIZE = 20;
@@ -39,7 +56,10 @@ export function useSimpleSnakeGame() {
     score: 0,
     highScore: loadHighScore(),
     gameState: 'menu',
-    speed: INITIAL_SPEED
+    speed: INITIAL_SPEED,
+    foodEaten: 0,
+    powerUp: undefined,
+    activePowerUps: {}
   });
 
   // Refs for game loop
@@ -47,14 +67,15 @@ export function useSimpleSnakeGame() {
   const lastMoveTime = useRef<number>(0);
 
   // Generate random food position
-  const generateFood = useCallback((snake: Position[]): Position => {
+  const generateFood = useCallback((snake: Position[], powerUpPos?: Position): Position => {
     const available: Position[] = [];
 
     // Find all available positions
     for (let x = 0; x < GRID_SIZE; x++) {
       for (let y = 0; y < GRID_SIZE; y++) {
         const isSnake = snake.some(s => s.x === x && s.y === y);
-        if (!isSnake) {
+        const isPowerUp = powerUpPos && powerUpPos.x === x && powerUpPos.y === y;
+        if (!isSnake && !isPowerUp) {
           available.push({ x, y });
         }
       }
@@ -67,6 +88,37 @@ export function useSimpleSnakeGame() {
 
     // Fallback (should never happen in normal gameplay)
     return { x: 0, y: 0 };
+  }, []);
+
+  // Generate random power-up
+  const generatePowerUp = useCallback((snake: Position[], food: Position): PowerUp | undefined => {
+    // 15% chance to spawn a power-up
+    if (Math.random() > 0.15) return undefined;
+
+    const types: PowerUpType[] = ['speed', 'double', 'shield', 'ghost'];
+    const type = types[Math.floor(Math.random() * types.length)];
+
+    const available: Position[] = [];
+    for (let x = 0; x < GRID_SIZE; x++) {
+      for (let y = 0; y < GRID_SIZE; y++) {
+        const isSnake = snake.some(s => s.x === x && s.y === y);
+        const isFood = food.x === x && food.y === y;
+        if (!isSnake && !isFood) {
+          available.push({ x, y });
+        }
+      }
+    }
+
+    if (available.length > 0) {
+      const position = available[Math.floor(Math.random() * available.length)];
+      return {
+        type,
+        position,
+        expiresAt: Date.now() + 8000 // Expires in 8 seconds
+      };
+    }
+
+    return undefined;
   }, []);
 
   // Get next position based on direction
@@ -84,7 +136,8 @@ export function useSimpleSnakeGame() {
   };
 
   // Check if position is out of bounds
-  const isOutOfBounds = (pos: Position): boolean => {
+  const isOutOfBounds = (pos: Position | undefined): boolean => {
+    if (!pos) return true;
     return pos.x < 0 || pos.x >= GRID_SIZE || pos.y < 0 || pos.y >= GRID_SIZE;
   };
 
@@ -98,27 +151,69 @@ export function useSimpleSnakeGame() {
     setGameState(prev => {
       if (prev.gameState !== 'playing') return prev;
 
+      // Check if snake exists and has segments
+      if (!prev.snake || prev.snake.length === 0) {
+        console.error('Snake array is empty');
+        return prev;
+      }
+
+      // Clean up expired power-ups
+      const now = Date.now();
+      let activePowerUps = { ...prev.activePowerUps };
+      let powerUp = prev.powerUp;
+
+      // Remove expired active power-ups
+      if (activePowerUps.speed && activePowerUps.speed < now) {
+        delete activePowerUps.speed;
+      }
+      if (activePowerUps.ghost && activePowerUps.ghost < now) {
+        delete activePowerUps.ghost;
+      }
+
+      // Remove expired power-up on field
+      if (powerUp && powerUp.expiresAt < now) {
+        powerUp = undefined;
+      }
+
       // Use next direction if available, otherwise current direction
       const currentDirection = prev.nextDirection || prev.direction;
       const head = prev.snake[0];
-      const nextPos = getNextPosition(head, currentDirection);
+      let nextPos = getNextPosition(head, currentDirection);
+
+      // Handle ghost mode (wraparound walls)
+      if (activePowerUps.ghost && activePowerUps.ghost > now) {
+        if (nextPos.x < 0) nextPos.x = GRID_SIZE - 1;
+        if (nextPos.x >= GRID_SIZE) nextPos.x = 0;
+        if (nextPos.y < 0) nextPos.y = GRID_SIZE - 1;
+        if (nextPos.y >= GRID_SIZE) nextPos.y = 0;
+      }
 
       // Check collisions
-      // Only check self-collision if snake has more than 1 segment (exclude the tail that will be removed)
       const selfCollision = prev.snake.length > 1 &&
         prev.snake.slice(0, -1).some(s => s.x === nextPos.x && s.y === nextPos.y);
 
-      if (isOutOfBounds(nextPos) || selfCollision) {
-        // Game over
-        const newHighScore = Math.max(prev.score, prev.highScore);
-        if (newHighScore > prev.highScore) {
-          localStorage.setItem('simpleSnakeHighScore', newHighScore.toString());
+      const wallCollision = !activePowerUps.ghost && isOutOfBounds(nextPos);
+
+      if (wallCollision || selfCollision) {
+        // Check if shield is active
+        if (activePowerUps.shield && wallCollision) {
+          // Use shield and continue
+          delete activePowerUps.shield;
+          // Bounce back to safe position
+          nextPos = head;
+        } else {
+          // Game over
+          const newHighScore = Math.max(prev.score, prev.highScore);
+          if (newHighScore > prev.highScore) {
+            localStorage.setItem('simpleSnakeHighScore', newHighScore.toString());
+          }
+          return {
+            ...prev,
+            gameState: 'gameOver',
+            highScore: newHighScore,
+            activePowerUps: {}
+          };
         }
-        return {
-          ...prev,
-          gameState: 'gameOver',
-          highScore: newHighScore
-        };
       }
 
       // Move snake
@@ -126,20 +221,65 @@ export function useSimpleSnakeGame() {
       let newFood = prev.food;
       let newScore = prev.score;
       let newSpeed = prev.speed;
+      let newFoodEaten = prev.foodEaten;
+      let newPowerUp = powerUp;
+
+      // Check if power-up collected
+      if (powerUp && nextPos.x === powerUp.position.x && nextPos.y === powerUp.position.y) {
+        switch (powerUp.type) {
+          case 'speed':
+            activePowerUps.speed = now + 5000; // 5 seconds
+            newSpeed = Math.min(INITIAL_SPEED + 30, prev.speed + 30); // Slow down temporarily
+            break;
+          case 'double':
+            activePowerUps.double = 3; // Next 3 foods worth double
+            break;
+          case 'shield':
+            activePowerUps.shield = true;
+            break;
+          case 'ghost':
+            activePowerUps.ghost = now + 7000; // 7 seconds
+            break;
+        }
+        newPowerUp = undefined; // Remove collected power-up
+      }
 
       // Check if food eaten
       if (nextPos.x === prev.food.x && nextPos.y === prev.food.y) {
         // Don't remove tail (snake grows)
-        newScore += 10;
-        newFood = generateFood(newSnake);
+        newFoodEaten++;
 
-        // Speed up every 50 points
-        if (newScore % 50 === 0) {
+        // Calculate points (with double power-up check)
+        let points = 10;
+        if (activePowerUps.double && activePowerUps.double > 0) {
+          points = 20;
+          activePowerUps.double--;
+          if (activePowerUps.double === 0) {
+            delete activePowerUps.double;
+          }
+        }
+        newScore += points;
+
+        newFood = generateFood(newSnake, newPowerUp?.position);
+
+        // Maybe spawn a new power-up
+        if (!newPowerUp) {
+          newPowerUp = generatePowerUp(newSnake, newFood);
+        }
+
+        // Speed up every 50 points (unless speed power-up is active)
+        if (!activePowerUps.speed && newScore % 50 === 0) {
           newSpeed = Math.max(MIN_SPEED, prev.speed - SPEED_INCREMENT);
         }
       } else {
         // Remove tail (snake moves)
         newSnake.pop();
+      }
+
+      // Restore normal speed if speed power-up expired
+      if (!activePowerUps.speed && prev.activePowerUps.speed) {
+        newSpeed = INITIAL_SPEED - Math.floor(newScore / 50) * SPEED_INCREMENT;
+        newSpeed = Math.max(MIN_SPEED, newSpeed);
       }
 
       return {
@@ -149,10 +289,13 @@ export function useSimpleSnakeGame() {
         direction: currentDirection,
         nextDirection: null,
         score: newScore,
-        speed: newSpeed
+        speed: newSpeed,
+        foodEaten: newFoodEaten,
+        powerUp: newPowerUp,
+        activePowerUps
       };
     });
-  }, [generateFood]);
+  }, [generateFood, generatePowerUp]);
 
   // Start game
   const startGame = useCallback(() => {
@@ -167,7 +310,10 @@ export function useSimpleSnakeGame() {
       score: 0,
       highScore: prev.highScore,
       gameState: 'playing',
-      speed: INITIAL_SPEED
+      speed: INITIAL_SPEED,
+      foodEaten: 0,
+      powerUp: undefined,
+      activePowerUps: {}
     }));
   }, [generateFood]);
 
