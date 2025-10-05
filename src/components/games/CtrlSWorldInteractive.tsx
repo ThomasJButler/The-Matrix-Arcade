@@ -486,11 +486,7 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
       <div className="flex-1 flex flex-col p-4 overflow-hidden">
         {/* Scrollable Content Area */}
         <div
-          className="flex-1 flex flex-col overflow-y-auto pr-2 scroll-smooth"
-          style={{
-            scrollbarWidth: 'thin',
-            scrollbarColor: '#00ff00 #000000'
-          }}
+          className="flex flex-col h-full overflow-hidden pr-2"
         >
           {/* Chapter Title */}
           <motion.h1 
@@ -515,7 +511,7 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
           
           {/* Story Text */}
           <div
-            className="flex-1 mb-4 p-6 bg-gray-900/30 rounded-lg border border-green-500/30 min-h-[250px] cursor-pointer hover:bg-gray-900/40 transition-colors overflow-y-auto"
+            className="mb-4 p-6 bg-gray-900/30 rounded-lg border border-green-500/30 max-h-[500px] min-h-[300px] cursor-pointer hover:bg-gray-900/40 transition-colors overflow-y-auto scroll-smooth"
             onClick={() => {
               if (isTyping) {
                 // Skip typing effect and show all content immediately
@@ -531,7 +527,7 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
           >
             <div className="text-green-300 leading-relaxed space-y-6" ref={textContentRef}>
               {currentParagraphs.map((paragraph, index) => (
-                <p key={index} className="text-green-300 leading-relaxed text-base">
+                <p key={index} className="text-green-300 leading-relaxed text-base break-words">
                   {paragraph}
                   {isTyping && index === currentParagraphIndex && (
                     <span className="animate-pulse ml-1">▌</span>

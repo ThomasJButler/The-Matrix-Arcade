@@ -228,7 +228,13 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
 
   const scrollToBottom = useCallback(() => {
     if (terminalRef.current) {
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+      const { scrollTop, scrollHeight, clientHeight } = terminalRef.current;
+      // Only auto-scroll if user is already near bottom (within 100px)
+      // This allows users to scroll up and read previous content without being pulled back down
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      if (isNearBottom) {
+        terminalRef.current.scrollTop = scrollHeight;
+      }
     }
   }, []);
 
