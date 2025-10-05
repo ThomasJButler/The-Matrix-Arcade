@@ -85,19 +85,6 @@ function App() {
     }
   }, [achievementManager.stats.unlocked, achievementManager]);
 
-  // Start background music on component mount
-  useEffect(() => {
-    // Small delay to ensure everything is initialized
-    const timer = setTimeout(() => {
-      playBackgroundMP3('/matrixarcaderetrobeat.mp3');
-    }, 1000);
-
-    return () => {
-      clearTimeout(timer);
-      stopBackgroundMP3();
-    };
-  }, [playBackgroundMP3, stopBackgroundMP3]);
-
   const games = [
     {
       title: 'CTRL-S | The World',
@@ -296,7 +283,7 @@ function App() {
         e.preventDefault();
         setIsPlaying(true);
         playSFX('score');
-        // Don't restart music here - it's already playing from app mount
+        setTimeout(() => playBackgroundMP3('/matrixarcaderetrobeat.mp3'), 500);
       }
       
       // V key to toggle mute
@@ -528,7 +515,8 @@ function App() {
                           setIsPlaying(!isPlaying);
                           playSFX(isPlaying ? 'menu' : 'score');
                           if (!isPlaying) {
-                            // Don't restart music - it's already playing from app mount
+                            // Start ambient music when game starts
+                            setTimeout(() => playBackgroundMP3('/matrixarcaderetrobeat.mp3'), 500);
 
                             // Track game played
                             const gameName = games[selectedGame].title;

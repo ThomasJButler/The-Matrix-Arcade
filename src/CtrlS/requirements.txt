@@ -1,0 +1,3 @@
+# CtrlS Text Adventure Game Requirements
+# This game uses only Python standard library modules
+# No external dependencies required

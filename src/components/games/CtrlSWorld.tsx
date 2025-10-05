@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Terminal as TerminalIcon, ChevronRight, Info, Play, Pause, Maximize, Minimize, Gamepad2 } from 'lucide-react';
-import CtrlSWorldInteractive from './CtrlSWorldInteractive';
+import { Terminal as TerminalIcon, ChevronRight, Info, Play, Pause, Maximize, Minimize } from 'lucide-react';
 
 interface AchievementManager {
   unlockAchievement(gameId: string, achievementId: string): void;
@@ -200,7 +199,6 @@ const INFO_CONTENT = [
 ];
 
 export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
-  const [gameMode, setGameMode] = useState<'classic' | 'interactive' | null>(null);
   const [currentNode, setCurrentNode] = useState(0);
   const [displayedTexts, setDisplayedTexts] = useState<string[]>([]);
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
@@ -292,15 +290,15 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
           setUserHasScrolled(false); // Reset scroll tracking for new paragraph
         }, 2000);
       } else if (!isPaused && currentNode < STORY.length - 1) {
-        // Move to next node if available
+        // Move to next node if available - clear screen for new chapter
         setTimeout(() => {
-          setDisplayedTexts(prev => [...prev, '\n═══ CHAPTER COMPLETE ═══\n']);
+          setDisplayedTexts([]); // Clear screen for new chapter
           setCurrentNode(prev => prev + 1);
           setCurrentTextIndex(0);
           setCurrentCharIndex(0);
           setIsTyping(true);
           setUserHasScrolled(false);
-        }, 3000); // Slightly longer pause between chapters
+        }, 3000); // Pause before starting new chapter
       }
     }
   }, [currentNode, currentTextIndex, currentCharIndex, scrollToBottom, isPaused]);
@@ -325,14 +323,14 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
         setIsTyping(true);
         setUserHasScrolled(false); // Reset for new paragraph
       } else if (currentNode < STORY.length - 1) {
+        // Clear screen for new chapter
+        setDisplayedTexts([]); // Clear display for fresh chapter start
         setCurrentNode(prev => prev + 1);
         setCurrentTextIndex(0);
         setCurrentText('');
         setCurrentCharIndex(0);
         setIsTyping(true);
         setUserHasScrolled(false); // Reset for new chapter
-        // Keep chapter history - add a visual separator instead of clearing
-        setDisplayedTexts(prev => [...prev, currentText, '\n═══ CHAPTER COMPLETE ═══\n']);
       }
       scrollToBottom(true); // Force scroll on next
     }
@@ -399,48 +397,7 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
     }
   }, [isStarted, isPaused, isTyping, typeNextCharacter]);
 
-  // Mode Selection Screen
-  if (gameMode === null) {
-    return (
-      <div className="w-full h-full bg-black text-green-500 font-mono flex items-center justify-center">
-        <div className="text-center p-8 border-2 border-green-500 rounded-lg bg-black/80">
-          <h1 className="text-4xl font-bold mb-2">CTRL+S THE WORLD</h1>
-          <p className="text-green-400 mb-8">Choose Your Developer Adventure</p>
-          
-          <div className="space-y-4">
-            <button
-              onClick={() => setGameMode('interactive')}
-              className="w-full p-4 border-2 border-green-500 rounded-lg hover:bg-green-900/30 transition-colors flex items-center gap-3"
-            >
-              <Gamepad2 className="w-6 h-6" />
-              <div className="text-left">
-                <div className="font-bold">EPIC INTERACTIVE MODE</div>
-                <div className="text-sm text-green-400">Make choices, manage coffee levels, unlock achievements</div>
-              </div>
-            </button>
-            
-            <button
-              onClick={() => setGameMode('classic')}
-              className="w-full p-4 border-2 border-green-500 rounded-lg hover:bg-green-900/30 transition-colors flex items-center gap-3"
-            >
-              <TerminalIcon className="w-6 h-6" />
-              <div className="text-left">
-                <div className="font-bold">CLASSIC STORY MODE</div>
-                <div className="text-sm text-green-400">Original linear narrative experience</div>
-              </div>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Interactive Mode
-  if (gameMode === 'interactive') {
-    return <CtrlSWorldInteractive achievementManager={achievementManager} />;
-  }
-
-  // Classic Mode
+  // Classic Mode (only mode now)
   return (
     <div 
       ref={containerRef}
