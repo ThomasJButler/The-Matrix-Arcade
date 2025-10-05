@@ -205,22 +205,13 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
         setKeyboardControls(prev => ({ ...prev, down: true }));
       } else if (e.key === 'Enter' && gameOver) {
         resetGame();
-      } else if (e.key === 'Escape' && !gameOver) {
-        e.preventDefault();
-        setIsPaused(prev => !prev);
-        // playSFX('menu'); // Commenting out as it might be causing issues
       } else if (e.key === ' ' && !gameOver) {
         e.preventDefault();
-        // Space bar for extra ball if multi-ball is active
-        if (activePowerUps.multi_ball && balls.length < 3) {
-          const newBall = createBall(
-            400 + (Math.random() - 0.5) * 100,
-            200 + (Math.random() - 0.5) * 100,
-            (Math.random() - 0.5) * INITIAL_BALL_SPEED * 2,
-            (Math.random() - 0.5) * INITIAL_BALL_SPEED
-          );
-          setBalls(prev => [...prev, newBall]);
-        }
+        // Space bar for pause/resume (always, not just with multi-ball)
+        setIsPaused(prev => !prev);
+      } else if (e.key === 'Escape') {
+        // ESC to exit game (consistent with other games)
+        // This would typically be handled by parent component
       }
     };
 
@@ -771,7 +762,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
           <div className="bg-gray-900 border-2 border-green-500 rounded-lg p-8 text-center">
             <h2 className="text-4xl font-bold text-green-400 mb-4 font-mono">PAUSED</h2>
             <div className="space-y-2 text-green-400 font-mono">
-              <p className="text-lg">Press ESC to Resume</p>
+              <p className="text-lg">Press SPACE to Resume</p>
               <div className="mt-4 pt-4 border-t border-green-500/30">
                 <p className="text-sm opacity-75">Score: {score.player} - {score.ai}</p>
               </div>
@@ -799,7 +790,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
           <div className="text-center text-xs text-green-400/60 mt-2">
             <span>↑↓ or W/S to move</span>
             <span className="mx-2">•</span>
-            <span>ESC to pause/resume</span>
+            <span>SPACE to pause</span>
           </div>
         )}
 
@@ -829,7 +820,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
         <div className="text-green-500 text-sm opacity-70 font-mono text-center">
           <div>Controls: ↑↓ / WASD / Mouse to move</div>
           <div className="text-xs mt-1 opacity-50">
-            {activePowerUps.multi_ball && "SPACE: Launch extra ball | "}
+            {/* Removed since SPACE is now for pause */}
             Multi-ball, Screen shake, Adaptive AI
           </div>
         </div>
