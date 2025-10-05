@@ -226,17 +226,18 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
   
   // Removed unused voice tracking refs - these are only used in interactive mode
 
-  const scrollToBottom = useCallback(() => {
+  const [userHasScrolled, setUserHasScrolled] = useState(false);
+
+  const scrollToBottom = useCallback((force = false) => {
     if (terminalRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = terminalRef.current;
-      // Only auto-scroll if user is already near bottom (within 100px)
-      // This allows users to scroll up and read previous content without being pulled back down
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
-      if (isNearBottom) {
+      // Force scroll on new paragraphs or when explicitly requested
+      // Otherwise only scroll if user hasn't manually scrolled up
+      if (force || !userHasScrolled) {
         terminalRef.current.scrollTop = scrollHeight;
       }
     }
-  }, []);
+  }, [userHasScrolled]);
 
   const togglePause = () => {
     setIsPaused(prev => !prev);
@@ -271,16 +272,20 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
     if (currentCharIndex < text.length) {
       setCurrentText(prev => prev + text[currentCharIndex]);
       setCurrentCharIndex(prev => prev + 1);
-      // Don't auto-scroll on every character - let user control scroll
+      // Scroll every few characters for smooth experience, but respect user scrolling
+      if (currentCharIndex % 5 === 0) {
+        scrollToBottom();
+      }
     } else {
       setIsTyping(false);
-      scrollToBottom(); // Only scroll when paragraph completes
+      scrollToBottom(true); // Force scroll when paragraph completes
       if (!isPaused && currentTextIndex < STORY[currentNode].content.length - 1) {
         setTimeout(() => {
           setCurrentTextIndex(prev => prev + 1);
           setCurrentCharIndex(0);
           setCurrentText('');
           setIsTyping(true);
+          setUserHasScrolled(false); // Reset scroll tracking for new paragraph
         }, 2000);
       }
     }
@@ -293,7 +298,7 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
       setCurrentText(fullText);
       setCurrentCharIndex(fullText.length);
       setIsTyping(false);
-      scrollToBottom();
+      scrollToBottom(true); // Force scroll when completing text
     } else {
       // Add completed text to displayed texts - KEEP FULL HISTORY for scrolling
       setDisplayedTexts(prev => [...prev, currentText]);
@@ -304,16 +309,18 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
         setCurrentText('');
         setCurrentCharIndex(0);
         setIsTyping(true);
+        setUserHasScrolled(false); // Reset for new paragraph
       } else if (currentNode < STORY.length - 1) {
         setCurrentNode(prev => prev + 1);
         setCurrentTextIndex(0);
         setCurrentText('');
         setCurrentCharIndex(0);
         setIsTyping(true);
+        setUserHasScrolled(false); // Reset for new chapter
         // Keep chapter history - add a visual separator instead of clearing
         setDisplayedTexts(prev => [...prev, currentText, '\n═══ CHAPTER COMPLETE ═══\n']);
       }
-      scrollToBottom();
+      scrollToBottom(true); // Force scroll on next
     }
   }, [isTyping, currentNode, currentTextIndex, currentText, scrollToBottom]);
 
@@ -321,6 +328,13 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
   useEffect(() => {
     if (!isStarted && inputRef.current) {
       inputRef.current.focus(); // Ensure the input is focused when the component mounts
+    }
+    // Auto-enter fullscreen when game starts
+    if (isStarted && !document.fullscreenElement && containerRef.current) {
+      containerRef.current.requestFullscreen().catch(() => {
+        console.log('Auto-fullscreen requires user interaction');
+      });
+      setIsFullscreen(true);
     }
   }, [isStarted]);
 
@@ -345,6 +359,24 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [handleNext, isStarted]);
+
+  // Detect user manual scrolling
+  useEffect(() => {
+    const handleScroll = () => {
+      if (terminalRef.current) {
+        const { scrollTop, scrollHeight, clientHeight } = terminalRef.current;
+        // If user scrolled up more than 50px from bottom, mark as manually scrolled
+        const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+        setUserHasScrolled(distanceFromBottom > 50);
+      }
+    };
+
+    const terminal = terminalRef.current;
+    if (terminal) {
+      terminal.addEventListener('scroll', handleScroll);
+      return () => terminal.removeEventListener('scroll', handleScroll);
+    }
+  }, []);
 
   useEffect(() => {
     if (isStarted && !isPaused && isTyping) {

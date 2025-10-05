@@ -49,7 +49,7 @@ function App() {
   const footerRef = useRef<HTMLDivElement>(null);
   
   // Initialize sound system and achievement manager
-  const { playSFX, playMusic, stopMusic, toggleMute, isMuted, config: soundConfig, updateConfig } = useSoundSystem();
+  const { playSFX, playMusic, stopMusic, playBackgroundMP3, stopBackgroundMP3, toggleMute, isMuted, config: soundConfig, updateConfig } = useSoundSystem();
   const achievementManager = useAchievementManager();
   
   // Mobile detection
@@ -84,6 +84,19 @@ function App() {
       });
     }
   }, [achievementManager.stats.unlocked, achievementManager]);
+
+  // Start background music on component mount
+  useEffect(() => {
+    // Small delay to ensure everything is initialized
+    const timer = setTimeout(() => {
+      playBackgroundMP3('/matrixarcaderetrobeat.mp3');
+    }, 1000);
+
+    return () => {
+      clearTimeout(timer);
+      stopBackgroundMP3();
+    };
+  }, [playBackgroundMP3, stopBackgroundMP3]);
 
   const games = [
     {
@@ -283,7 +296,7 @@ function App() {
         e.preventDefault();
         setIsPlaying(true);
         playSFX('score');
-        setTimeout(() => playMusic('gameplay'), 500);
+        setTimeout(() => playBackgroundMP3('/matrixarcaderetrobeat.mp3'), 500);
       }
       
       // V key to toggle mute
@@ -298,7 +311,7 @@ function App() {
     
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isPlaying, achievementManager, stopMusic, playSFX, showMobileWarning, playMusic, handlePrevious, handleNext, toggleMute]);
+  }, [isPlaying, achievementManager, stopMusic, playSFX, showMobileWarning, playBackgroundMP3, handlePrevious, handleNext, toggleMute]);
 
   const GameComponent = games[selectedGame].component;
 
@@ -516,7 +529,7 @@ function App() {
                           playSFX(isPlaying ? 'menu' : 'score');
                           if (!isPlaying) {
                             // Start ambient music when game starts
-                            setTimeout(() => playMusic('gameplay'), 500);
+                            setTimeout(() => playBackgroundMP3('/matrixarcaderetrobeat.mp3'), 500);
                             
                             // Track game played
                             const gameName = games[selectedGame].title;

@@ -219,6 +219,7 @@ export function useSoundSystem() {
   const musicGainRef = useRef<GainNode | null>(null);
   const sfxGainRef = useRef<GainNode | null>(null);
   const currentMusicRef = useRef<string | null>(null);
+  const backgroundMusicRef = useRef<HTMLAudioElement | null>(null);
   const reverbRef = useRef<ConvolverNode | null>(null);
 
   // Create reverb impulse response
@@ -447,6 +448,48 @@ export function useSoundSystem() {
       musicSourceRef.current.stop();
       musicSourceRef.current = null;
     }
+    // Also stop MP3 background music if playing
+    if (backgroundMusicRef.current) {
+      backgroundMusicRef.current.pause();
+      backgroundMusicRef.current.currentTime = 0;
+    }
+  }, []);
+
+  // Play MP3 background music
+  const playBackgroundMP3 = useCallback((src: string) => {
+    if (!config.music) return;
+
+    // Stop any existing music
+    stopMusic();
+
+    // Create or reuse audio element
+    if (!backgroundMusicRef.current) {
+      backgroundMusicRef.current = new Audio();
+      backgroundMusicRef.current.loop = true;
+    }
+
+    backgroundMusicRef.current.src = src;
+    backgroundMusicRef.current.volume = config.masterVolume * config.musicVolume;
+
+    // Play the music
+    backgroundMusicRef.current.play().catch(error => {
+      console.warn('Error playing background music:', error);
+    });
+
+    // Update volume when config changes
+    return () => {
+      if (backgroundMusicRef.current) {
+        backgroundMusicRef.current.volume = config.masterVolume * config.musicVolume;
+      }
+    };
+  }, [config.music, config.masterVolume, config.musicVolume, stopMusic]);
+
+  // Stop MP3 background music
+  const stopBackgroundMP3 = useCallback(() => {
+    if (backgroundMusicRef.current) {
+      backgroundMusicRef.current.pause();
+      backgroundMusicRef.current.currentTime = 0;
+    }
   }, []);
 
   // Update config
@@ -494,6 +537,14 @@ export function useSoundSystem() {
     };
   }, [stopMusic]);
 
+  // Update MP3 volume when config changes
+  useEffect(() => {
+    if (backgroundMusicRef.current) {
+      backgroundMusicRef.current.volume = config.masterVolume * config.musicVolume;
+      backgroundMusicRef.current.muted = isMuted || !config.music;
+    }
+  }, [config.masterVolume, config.musicVolume, config.music, isMuted]);
+
   // Memoize the return value to prevent unnecessary re-renders
   return useMemo(
     () => ({
@@ -502,12 +553,14 @@ export function useSoundSystem() {
       playSFX,
       playMusic,
       stopMusic,
+      playBackgroundMP3,
+      stopBackgroundMP3,
       toggleMute,
       isMuted,
       isInitialized: !!audioContextRef.current,
       soundLibrary: Object.keys(SOUND_LIBRARY),
       musicSequences: Object.keys(MUSIC_SEQUENCES)
     }),
-    [config, updateConfig, playSFX, playMusic, stopMusic, toggleMute, isMuted]
+    [config, updateConfig, playSFX, playMusic, stopMusic, playBackgroundMP3, stopBackgroundMP3, toggleMute, isMuted]
   );
 }

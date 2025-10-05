@@ -278,6 +278,7 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
   const [showBugFact, setShowBugFact] = useState(false);
   const [bugFact, setBugFact] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showChoicesModal, setShowChoicesModal] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const choicesRef = useRef<HTMLDivElement>(null);
   const textContentRef = useRef<HTMLDivElement>(null);
@@ -306,8 +307,16 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
     }
   }, []);
 
-  // Listen for fullscreen changes
+  // Auto-fullscreen on mount and listen for fullscreen changes
   useEffect(() => {
+    // Auto-enter fullscreen on mount
+    if (!document.fullscreenElement && containerRef.current) {
+      containerRef.current.requestFullscreen().catch(() => {
+        // Fallback if auto-fullscreen fails (e.g., requires user interaction)
+        console.log('Auto-fullscreen requires user interaction');
+      });
+    }
+
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
     };
@@ -369,14 +378,20 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
         return () => clearTimeout(timer);
       } else {
         setIsTyping(false);
+        // Show choices modal when typing is done and choices are available
+        if (currentNode.choices && currentNode.choices.length > 0) {
+          setShowChoicesModal(true);
+        }
       }
     }
   }, [currentNode, isTyping, currentParagraphIndex, currentCharIndex]);
 
   const makeChoice = useCallback((choice: Choice) => {
-    
+    // Hide the choices modal immediately
+    setShowChoicesModal(false);
+
     const newGameState = { ...gameState };
-    
+
     // Track choices made
     totalChoicesMade.current += 1;
     
@@ -485,7 +500,7 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
       {/* Main Story Panel */}
       <div className="flex-1 flex flex-col p-4 overflow-hidden">
         {/* Scrollable Content Area */}
-        <div className="flex flex-col h-full pr-2">
+        <div className="flex flex-col h-full">
           {/* Chapter Title */}
           <motion.h1 
             key={currentNode.id}
@@ -509,12 +524,16 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
           
           {/* Story Text */}
           <div
-            className="flex-1 p-6 bg-gray-900/30 rounded-lg border border-green-500/30 max-h-[60vh] cursor-pointer hover:bg-gray-900/40 transition-colors overflow-y-auto scroll-smooth"
+            className="flex-1 p-6 bg-gray-900/30 rounded-lg border border-green-500/30 cursor-pointer hover:bg-gray-900/40 transition-colors overflow-y-auto scroll-smooth"
             onClick={() => {
               if (isTyping) {
                 // Skip typing effect and show all content immediately
                 setCurrentParagraphs(currentNode?.content || []);
                 setIsTyping(false);
+                // Show choices modal if available
+                if (currentNode?.choices && currentNode.choices.length > 0) {
+                  setShowChoicesModal(true);
+                }
               }
             }}
             title={isTyping ? 'Click to skip typing effect' : ''}
@@ -545,46 +564,6 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
             </div>
           </div>
         </div>
-        
-        {/* Fixed Choices Area - Always visible at bottom */}
-        {!isTyping && currentNode.choices && (
-          <motion.div
-            ref={choicesRef}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex-shrink-0 space-y-3 mt-4 pt-4 border-t-2 border-green-500/50 bg-black/70 backdrop-blur-sm rounded-t-lg px-2"
-          >
-            <div className="text-xs text-green-400 mb-2 flex items-center gap-2 sticky top-0 bg-black/90 py-2 z-10">
-              <span className="animate-pulse">▶</span>
-              <span className="font-bold">Choose your path:</span>
-              {currentNode.choices.length > 3 && (
-                <span className="text-yellow-400 ml-auto text-xs">↕ Scroll for more choices</span>
-              )}
-            </div>
-            <div
-              className="space-y-2 max-h-80 overflow-y-auto pr-2 pb-2"
-              style={{
-                scrollbarWidth: 'thin',
-                scrollbarColor: '#00ff00 #000000'
-              }}
-            >
-              {currentNode.choices.map((choice, index) => (
-                <ChoiceButton
-                  key={index}
-                  choice={choice}
-                  onClick={() => {
-                    if (currentNode.minigame === 'coffee_brewing') {
-                      setShowMiniGame(true);
-                    } else {
-                      makeChoice(choice);
-                    }
-                  }}
-                  gameState={gameState}
-                />
-              ))}
-            </div>
-          </motion.div>
-        )}
       </div>
       
       {/* Right Sidebar */}
@@ -603,6 +582,59 @@ export default function CtrlSWorldInteractive({ achievementManager }: CtrlSWorld
         </div>
       </div>
       
+      {/* Choices Modal Overlay */}
+      <AnimatePresence>
+        {showChoicesModal && currentNode.choices && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-8"
+            onClick={(e) => {
+              // Don't close modal when clicking on the modal itself
+              if (e.target === e.currentTarget) {
+                e.preventDefault();
+              }
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="max-w-4xl w-full max-h-[80vh] bg-black border-2 border-green-500 rounded-lg p-6 overflow-hidden"
+            >
+              <div className="flex items-center gap-2 mb-6 text-green-400">
+                <Terminal className="w-6 h-6 animate-pulse" />
+                <h2 className="text-2xl font-bold">Choose Your Path</h2>
+              </div>
+
+              <div className="space-y-3 max-h-[calc(80vh-120px)] overflow-y-auto pr-2"
+                style={{
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: '#00ff00 #000000'
+                }}
+              >
+                {currentNode.choices.map((choice, index) => (
+                  <ChoiceButton
+                    key={index}
+                    choice={choice}
+                    onClick={() => {
+                      if (currentNode.minigame === 'coffee_brewing') {
+                        setShowChoicesModal(false);
+                        setShowMiniGame(true);
+                      } else {
+                        makeChoice(choice);
+                      }
+                    }}
+                    gameState={gameState}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Mini-Game Modal */}
       <AnimatePresence>
         {showMiniGame && (
