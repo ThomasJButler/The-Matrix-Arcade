@@ -758,8 +758,8 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
     <div className="h-full w-full flex items-center justify-center bg-black relative">
       {/* Pause Overlay */}
       {isPaused && !gameOver && (
-        <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center">
-          <div className="bg-gray-900 border-2 border-green-500 rounded-lg p-8 text-center">
+        <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center pointer-events-none">
+          <div className="bg-gray-900 border-2 border-green-500 rounded-lg p-8 text-center pointer-events-auto">
             <h2 className="text-4xl font-bold text-green-400 mb-4 font-mono">PAUSED</h2>
             <div className="space-y-2 text-green-400 font-mono">
               <p className="text-lg">Press SPACE to Resume</p>
