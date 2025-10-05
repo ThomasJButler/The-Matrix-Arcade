@@ -102,7 +102,6 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
   const [particles, setParticles] = useState<Particle[]>([]);
   const [score, setScore] = useState({ player: 0, ai: 0 });
   const [gameOver, setGameOver] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
   const [screenShake, setScreenShake] = useState({ x: 0, y: 0 });
   const [impactEffects, setImpactEffects] = useState<Array<{ x: number; y: number; intensity: number; life: number }>>([]);
   const [aiDifficulty, setAiDifficulty] = useState(4); // Adaptive AI speed
@@ -150,7 +149,6 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
   const resetGame = useCallback(() => {
     setBalls([createBall(400, 200, -INITIAL_BALL_SPEED, 0)]);
     setPaddleY(150);
-    setIsPaused(false);
     setAiPaddleY(150);
     setScore({ player: 0, ai: 0 });
     setGameOver(false);
@@ -205,10 +203,6 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
         setKeyboardControls(prev => ({ ...prev, down: true }));
       } else if (e.key === 'Enter' && gameOver) {
         resetGame();
-      } else if (e.key === ' ' && !gameOver) {
-        e.preventDefault();
-        // Space bar for pause/resume (always, not just with multi-ball)
-        setIsPaused(prev => !prev);
       } else if (e.key === 'Escape') {
         // ESC to exit game (consistent with other games)
         // This would typically be handled by parent component
@@ -279,7 +273,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
 
   // Enhanced main game loop with multi-ball support
   useGameLoop((deltaTime) => {
-    if (gameOver || isPaused) return;
+    if (gameOver) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -756,21 +750,6 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
 
   return (
     <div className="h-full w-full flex items-center justify-center bg-black relative">
-      {/* Pause Overlay */}
-      {isPaused && !gameOver && (
-        <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center pointer-events-none">
-          <div className="bg-gray-900 border-2 border-green-500 rounded-lg p-8 text-center pointer-events-auto">
-            <h2 className="text-4xl font-bold text-green-400 mb-4 font-mono">PAUSED</h2>
-            <div className="space-y-2 text-green-400 font-mono">
-              <p className="text-lg">Press SPACE to Resume</p>
-              <div className="mt-4 pt-4 border-t border-green-500/30">
-                <p className="text-sm opacity-75">Score: {score.player} - {score.ai}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="flex flex-col items-center gap-4 max-w-[800px] w-full">
         <motion.canvas
           ref={canvasRef}
@@ -789,8 +768,6 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
         {!gameOver && (
           <div className="text-center text-xs text-green-400/60 mt-2">
             <span>↑↓ or W/S to move</span>
-            <span className="mx-2">•</span>
-            <span>SPACE to pause</span>
           </div>
         )}
 
