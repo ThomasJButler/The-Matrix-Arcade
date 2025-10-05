@@ -15,12 +15,16 @@ interface AudioSettingsProps {
   isOpen: boolean;
   onClose: () => void;
   compact?: boolean;
+  isMuted?: boolean;
+  toggleMute?: () => void;
 }
 
-export const AudioSettings: React.FC<AudioSettingsProps> = ({ 
-  isOpen, 
-  onClose, 
-  compact = false 
+export const AudioSettings: React.FC<AudioSettingsProps> = ({
+  isOpen,
+  onClose,
+  compact = false,
+  isMuted = false,
+  toggleMute
 }) => {
   const { config, updateConfig, playSFX, playMusic, stopMusic } = useSoundSystem();
   const [testingSound, setTestingSound] = useState<string | null>(null);
@@ -106,6 +110,27 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
                 <X className="w-5 h-5 text-green-400" />
               </button>
             </div>
+
+            {/* Master Mute Toggle - Prominent at Top */}
+            {toggleMute && (
+              <div className="mb-6">
+                <button
+                  onClick={toggleMute}
+                  className={`w-full py-3 px-4 rounded-lg transition-all border-2 flex items-center justify-center gap-3 font-mono font-bold text-lg ${
+                    isMuted
+                      ? 'bg-red-600 hover:bg-red-500 border-red-400 text-white animate-pulse-red'
+                      : 'bg-green-600 hover:bg-green-500 border-green-400 text-white'
+                  }`}
+                  title="Toggle Master Mute (V)"
+                >
+                  {isMuted ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6" />}
+                  <span>{isMuted ? 'SOUND MUTED' : 'SOUND ON'}</span>
+                </button>
+                <div className="text-center text-xs text-gray-400 mt-2">
+                  Press V to quickly toggle mute
+                </div>
+              </div>
+            )}
 
             {/* Master Volume */}
             <div className="mb-6">

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 
 export type Particle = {
   id: string;
@@ -191,31 +191,47 @@ export function useParticleSystem() {
     });
   }, [emit]);
 
-  // Update particles
+  // Update particles using requestAnimationFrame for better performance
   useEffect(() => {
-    const updateInterval = setInterval(() => {
-      setParticles(prev => 
-        prev
+    let animationId: number;
+    let lastTime = performance.now();
+
+    const updateParticles = (currentTime: number) => {
+      const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.033); // Cap at 30fps minimum
+      lastTime = currentTime;
+
+      setParticles(prev => {
+        // Early exit if no particles
+        if (prev.length === 0) {
+          animationId = requestAnimationFrame(updateParticles);
+          return prev;
+        }
+
+        return prev
           .map(particle => {
-            const newLife = particle.life - 0.016; // ~60fps
+            const newLife = particle.life - deltaTime;
             if (newLife <= 0) return null;
 
             return {
               ...particle,
-              x: particle.x + particle.vx,
-              y: particle.y + particle.vy + (particle.gravity || 0),
-              vy: particle.vy + (particle.gravity || 0),
+              x: particle.x + particle.vx * (deltaTime * 60), // Normalize to 60fps
+              y: particle.y + particle.vy * (deltaTime * 60) + (particle.gravity || 0),
+              vy: particle.vy + (particle.gravity || 0) * deltaTime * 60,
               life: newLife,
-              size: particle.fade 
+              size: particle.fade
                 ? particle.size * (newLife / particle.maxLife)
                 : particle.size
             };
           })
-          .filter((p): p is Particle => p !== null)
-      );
-    }, 16);
+          .filter((p): p is Particle => p !== null);
+      });
 
-    return () => clearInterval(updateInterval);
+      animationId = requestAnimationFrame(updateParticles);
+    };
+
+    animationId = requestAnimationFrame(updateParticles);
+
+    return () => cancelAnimationFrame(animationId);
   }, []);
 
   // Clear all particles
@@ -260,16 +276,30 @@ export function useParticleSystem() {
     });
   }, [particles]);
 
-  return {
-    particles,
-    emit,
-    explode,
-    collectFood,
-    activatePowerUp,
-    createTrail,
-    createMatrixRain,
-    clear,
-    render,
-    count: particles.length
-  };
+  // Memoize the return value to prevent unnecessary re-renders
+  return useMemo(
+    () => ({
+      particles,
+      emit,
+      explode,
+      collectFood,
+      activatePowerUp,
+      createTrail,
+      createMatrixRain,
+      clear,
+      render,
+      count: particles.length
+    }),
+    [
+      particles,
+      emit,
+      explode,
+      collectFood,
+      activatePowerUp,
+      createTrail,
+      createMatrixRain,
+      clear,
+      render
+    ]
+  );
 }

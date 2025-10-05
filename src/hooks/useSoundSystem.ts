@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, useEffect } from 'react';
+import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 
 export interface SoundConfig {
   music: boolean;
@@ -494,16 +494,20 @@ export function useSoundSystem() {
     };
   }, [stopMusic]);
 
-  return {
-    config,
-    updateConfig,
-    playSFX,
-    playMusic,
-    stopMusic,
-    toggleMute,
-    isMuted,
-    isInitialized: !!audioContextRef.current,
-    soundLibrary: Object.keys(SOUND_LIBRARY),
-    musicSequences: Object.keys(MUSIC_SEQUENCES)
-  };
+  // Memoize the return value to prevent unnecessary re-renders
+  return useMemo(
+    () => ({
+      config,
+      updateConfig,
+      playSFX,
+      playMusic,
+      stopMusic,
+      toggleMute,
+      isMuted,
+      isInitialized: !!audioContextRef.current,
+      soundLibrary: Object.keys(SOUND_LIBRARY),
+      musicSequences: Object.keys(MUSIC_SEQUENCES)
+    }),
+    [config, updateConfig, playSFX, playMusic, stopMusic, toggleMute, isMuted]
+  );
 }

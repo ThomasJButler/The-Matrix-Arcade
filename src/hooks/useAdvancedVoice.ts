@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 
 // Voice Persona Types
 export type VoicePersona = 'captain' | 'oracle' | 'architect' | 'narrator' | 'glitch';
@@ -448,30 +448,57 @@ export function useAdvancedVoice() {
     };
   }, [stop]);
 
-  return {
-    // State
-    config,
-    isSupported,
-    isSpeaking,
-    isPaused,
-    currentText,
-    currentWord,
-    speechQueue,
-    
-    // Actions
-    speak,
-    pause,
-    resume,
-    stop,
-    togglePause,
-    updateConfig,
-    
-    // Utilities
-    getVisualizationData,
-    detectEmotion,
-    personas: VOICE_PERSONAS,
-    
-    // Voice selection
-    availableVoices: isSupported ? speechSynthesis.getVoices() : [],
-  };
+  // Memoize available voices
+  const availableVoices = useMemo(
+    () => (isSupported ? speechSynthesis.getVoices() : []),
+    [isSupported]
+  );
+
+  // Memoize the return value to prevent unnecessary re-renders
+  return useMemo(
+    () => ({
+      // State
+      config,
+      isSupported,
+      isSpeaking,
+      isPaused,
+      currentText,
+      currentWord,
+      speechQueue,
+
+      // Actions
+      speak,
+      pause,
+      resume,
+      stop,
+      togglePause,
+      updateConfig,
+
+      // Utilities
+      getVisualizationData,
+      detectEmotion,
+      personas: VOICE_PERSONAS,
+
+      // Voice selection
+      availableVoices,
+    }),
+    [
+      config,
+      isSupported,
+      isSpeaking,
+      isPaused,
+      currentText,
+      currentWord,
+      speechQueue,
+      speak,
+      pause,
+      resume,
+      stop,
+      togglePause,
+      updateConfig,
+      getVisualizationData,
+      detectEmotion,
+      availableVoices,
+    ]
+  );
 }
