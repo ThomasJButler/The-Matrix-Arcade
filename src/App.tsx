@@ -5,7 +5,6 @@ import './styles/animations.css';
 import {
   Monitor,
   Gamepad2,
-  Terminal,
   ChevronLeft,
   ChevronRight,
   Play,
@@ -21,7 +20,6 @@ import {
 } from 'lucide-react';
 import SimpleSnake from './components/games/SimpleSnake';
 import VortexPong from './components/games/VortexPong';
-import TerminalQuest from './components/games/TerminalQuest';
 import CtrlSWorld from './components/games/CtrlSWorld';
 import MatrixCloud from './components/games/MatrixCloud';
 import MatrixInvaders from './components/games/MatrixInvaders';
@@ -111,14 +109,6 @@ function App() {
       preview:
         'https://res.cloudinary.com/depqttzlt/image/upload/v1737071596/vortexpong2_hkjn4k.png',
       component: VortexPong,
-    },
-    {
-      title: 'Terminal Quest',
-      icon: <Terminal className="w-8 h-8" />,
-      description: 'Text-based adventure in the digital realm',
-      preview:
-        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/terminalquest_ddvjkf.png',
-      component: TerminalQuest,
     },
     {
       title: 'Matrix Cloud',
