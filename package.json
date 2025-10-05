@@ -13,6 +13,7 @@
     "test:coverage": "vitest --coverage"
   },
   "dependencies": {
+    "@emotion/is-prop-valid": "^1.4.0",
     "framer-motion": "^11.18.0",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
