@@ -296,7 +296,7 @@ function App() {
         e.preventDefault();
         setIsPlaying(true);
         playSFX('score');
-        setTimeout(() => playBackgroundMP3('/matrixarcaderetrobeat.mp3'), 500);
+        // Don't restart music here - it's already playing from app mount
       }
       
       // V key to toggle mute
@@ -528,9 +528,8 @@ function App() {
                           setIsPlaying(!isPlaying);
                           playSFX(isPlaying ? 'menu' : 'score');
                           if (!isPlaying) {
-                            // Start ambient music when game starts
-                            setTimeout(() => playBackgroundMP3('/matrixarcaderetrobeat.mp3'), 500);
-                            
+                            // Don't restart music - it's already playing from app mount
+
                             // Track game played
                             const gameName = games[selectedGame].title;
                             gamesPlayed.current.add(gameName);

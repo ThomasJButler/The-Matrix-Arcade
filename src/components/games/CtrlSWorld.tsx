@@ -277,16 +277,30 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
         scrollToBottom();
       }
     } else {
+      // Paragraph finished typing - add it to displayed texts and move to next
       setIsTyping(false);
+      setDisplayedTexts(prev => [...prev, text]); // Add completed paragraph to display
+      setCurrentText(''); // Clear current text since it's now in displayedTexts
       scrollToBottom(true); // Force scroll when paragraph completes
+
       if (!isPaused && currentTextIndex < STORY[currentNode].content.length - 1) {
+        // More paragraphs in this node - continue to next
         setTimeout(() => {
           setCurrentTextIndex(prev => prev + 1);
           setCurrentCharIndex(0);
-          setCurrentText('');
           setIsTyping(true);
           setUserHasScrolled(false); // Reset scroll tracking for new paragraph
         }, 2000);
+      } else if (!isPaused && currentNode < STORY.length - 1) {
+        // Move to next node if available
+        setTimeout(() => {
+          setDisplayedTexts(prev => [...prev, '\n═══ CHAPTER COMPLETE ═══\n']);
+          setCurrentNode(prev => prev + 1);
+          setCurrentTextIndex(0);
+          setCurrentCharIndex(0);
+          setIsTyping(true);
+          setUserHasScrolled(false);
+        }, 3000); // Slightly longer pause between chapters
       }
     }
   }, [currentNode, currentTextIndex, currentCharIndex, scrollToBottom, isPaused]);
@@ -554,11 +568,13 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
                 );
               })}
 
-              {/* Currently typing text */}
-              <p className="text-green-500 leading-relaxed">
-                {currentText}
-                {isTyping && <span className="animate-pulse ml-1">█</span>}
-              </p>
+              {/* Currently typing text - only show if there's text to show */}
+              {(isTyping || currentText) && (
+                <p className="text-green-500 leading-relaxed">
+                  {currentText}
+                  {isTyping && <span className="animate-pulse ml-1">█</span>}
+                </p>
+              )}
             </div>
           </>
         )}
