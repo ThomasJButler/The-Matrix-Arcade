@@ -104,7 +104,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
   const [gameOver, setGameOver] = useState(false);
   const [screenShake, setScreenShake] = useState({ x: 0, y: 0 });
   const [impactEffects, setImpactEffects] = useState<Array<{ x: number; y: number; intensity: number; life: number }>>([]);
-  const [aiDifficulty, setAiDifficulty] = useState(4); // Adaptive AI speed
+  const [aiDifficulty, setAiDifficulty] = useState(2.5); // Adaptive AI speed - reduced for easier gameplay
   const frameCounter = useRef(0); // For performance optimization
 
   // Enhanced game states
@@ -155,7 +155,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
     setScreenShake({ x: 0, y: 0 });
     setImpactEffects([]);
     setCombo(0);
-    setAiDifficulty(4);
+    setAiDifficulty(2.5);
     setTimeSinceLastGoal(0);
     setCurrentBallSpeed(INITIAL_BALL_SPEED);
   }, []);
@@ -385,9 +385,9 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
         
         // Add slight velocity boost based on paddle movement
         newBall.vy += paddleVelocity * 0.1;
-        
-        // Increase AI difficulty based on player performance
-        setAiDifficulty(prev => Math.min(8, prev + 0.1));
+
+        // Increase AI difficulty based on player performance (reduced gain for easier gameplay)
+        setAiDifficulty(prev => Math.min(5, prev + 0.05));
       }
       
       // AI paddle collision
@@ -501,19 +501,22 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
       !closest || ball.x > closest.x ? ball : closest, null as Ball | null);
     
     if (closestBall) {
-      const maxAiSpeed = Math.min(aiDifficulty, 5); // Cap AI speed - reduced from 7 to 5 for easier gameplay
-      const acceleration = closestBall.vx > 0 ? maxAiSpeed * 0.4 : maxAiSpeed * 0.25; // Reduced acceleration for easier AI
+      const maxAiSpeed = Math.min(aiDifficulty, 3.5); // Cap AI speed - further reduced for easier gameplay
 
-      // Add random error to make AI less accurate
-      const errorMargin = (Math.random() - 0.5) * 30; // Random offset of ±15 pixels
+      // Add reaction delay when ball is far away
+      const distanceFactor = closestBall.x < 400 ? 0.5 : 1.0; // Slower reaction when ball is on player's side
+      const acceleration = closestBall.vx > 0 ? maxAiSpeed * 0.3 * distanceFactor : maxAiSpeed * 0.15 * distanceFactor;
+
+      // Add random error to make AI less accurate - increased for easier gameplay
+      const errorMargin = (Math.random() - 0.5) * 80; // Random offset of ±40 pixels (was ±15)
       const targetY = closestBall.y - PADDLE_HEIGHT / 2 + errorMargin;
       const diff = targetY - aiPaddleY;
 
       // Apply acceleration towards target with more damping
       let newVelocity = aiPaddleVelocity * 0.88; // Increased friction from 0.92 to 0.88
-      
-      // Add occasional "mistakes" - 10% chance AI moves wrong direction
-      if (Math.random() < 0.1) {
+
+      // Add occasional "mistakes" - 20% chance AI moves wrong direction (was 10%)
+      if (Math.random() < 0.2) {
         newVelocity *= -0.5; // Briefly move wrong way
       } else if (Math.abs(diff) > 10) {
         if (diff > 0) {
