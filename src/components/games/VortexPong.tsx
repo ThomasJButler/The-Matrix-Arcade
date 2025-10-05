@@ -208,8 +208,8 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
       } else if (e.key === 'Escape' && !gameOver) {
         e.preventDefault();
         setIsPaused(prev => !prev);
-        playSFX('menu');
-      } else if (e.key === ' ' && !gameOver && !isPaused) {
+        // playSFX('menu'); // Commenting out as it might be causing issues
+      } else if (e.key === ' ' && !gameOver) {
         e.preventDefault();
         // Space bar for extra ball if multi-ball is active
         if (activePowerUps.multi_ball && balls.length < 3) {
@@ -238,7 +238,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [gameOver, isPaused, activePowerUps.multi_ball, balls.length, resetGame, playSFX]);
+  }, [gameOver, activePowerUps.multi_ball, balls.length, resetGame, playSFX]); // Removed isPaused from deps
 
   // Update paddle position based on keyboard input - DIRECT control, no friction
   useEffect(() => {
