@@ -3,6 +3,10 @@ import { Terminal as TerminalIcon, ChevronRight, Info, Play, Pause, Maximize, Mi
 import { PuzzleModal } from '../ui/PuzzleModal';
 import { getPuzzleById } from '../../data/puzzles';
 import { useGameState } from '../../contexts/GameStateContext';
+import { StatsHUD } from '../ui/StatsHUD';
+import { AchievementToastContainer, Achievement } from '../ui/AchievementToast';
+import { InventoryPanel } from '../ui/InventoryPanel';
+import { getItemRewardsForPuzzle, getItemById } from '../../data/items';
 
 interface AchievementManager {
   unlockAchievement(gameId: string, achievementId: string): void;
@@ -219,6 +223,10 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
   const [showPuzzle, setShowPuzzle] = useState(false);
   const [currentPuzzleId, setCurrentPuzzleId] = useState<string | null>(null);
 
+  // UI state
+  const [showInventory, setShowInventory] = useState(false);
+  const [unlockedAchievements, setUnlockedAchievements] = useState<Achievement[]>([]);
+
   // Game state context
   const gameState = useGameState();
 
@@ -384,9 +392,43 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
       // Add reputation
       gameState.addReputation(5);
 
+      // Award item rewards for this puzzle
+      const itemRewards = getItemRewardsForPuzzle(currentPuzzleId);
+      itemRewards.forEach(itemId => {
+        const itemData = getItemById(itemId);
+        if (itemData) {
+          gameState.addItem({
+            ...itemData,
+            quantity: 1,
+            acquiredAt: new Date().toISOString()
+          });
+        }
+      });
+
       // Unlock achievement for first puzzle
-      if (gameState.state.completedPuzzles.length === 0) {
+      const completedCount = gameState.state.completedPuzzles.length;
+      if (completedCount === 1) {
         unlockAchievement('first_puzzle');
+        setUnlockedAchievements(prev => [...prev, {
+          id: 'first_puzzle',
+          title: 'First Steps',
+          description: 'Solved your first puzzle',
+          category: 'skill',
+          unlockedAt: new Date().toISOString()
+        }]);
+      }
+
+      // Perfect score achievement (no hints used)
+      if (hintsUsed === 0 && !gameState.state.unlockedAchievements.includes('no_hints')) {
+        unlockAchievement('no_hints');
+        setUnlockedAchievements(prev => [...prev, {
+          id: 'no_hints',
+          title: 'Quick Thinker',
+          description: 'Solved a puzzle without hints',
+          category: 'skill',
+          unlockedAt: new Date().toISOString()
+        }]);
+        gameState.unlockAchievement('no_hints');
       }
     }
 
@@ -421,13 +463,25 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
+      // Toggle inventory panel with 'I' key
       if (e.key === 'i' || e.key === 'I') {
+        if (e.target instanceof HTMLElement &&
+            e.target.tagName !== 'INPUT' &&
+            e.target.tagName !== 'TEXTAREA') {
+          e.preventDefault();
+          setShowInventory(prev => !prev);
+        }
+        return;
+      }
+
+      // Toggle info with '?' key
+      if (e.key === '?') {
         setShowInfo(prev => !prev);
         return;
       }
 
       if (!isStarted) return;
-      
+
       if (e.key === 'Enter' || e.key === ' ') {
         handleNext();
       } else if (e.key === 'p' || e.key === 'P') {
@@ -638,6 +692,21 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
           playSFX={playSFX}
         />
       )}
+
+      {/* Stats HUD - Only show when game is started */}
+      {isStarted && <StatsHUD />}
+
+      {/* Achievement Toast Notifications */}
+      <AchievementToastContainer
+        achievements={unlockedAchievements}
+        playSFX={playSFX}
+      />
+
+      {/* Inventory Panel */}
+      <InventoryPanel
+        isOpen={showInventory}
+        onClose={() => setShowInventory(false)}
+      />
     </div>
   );
 }
