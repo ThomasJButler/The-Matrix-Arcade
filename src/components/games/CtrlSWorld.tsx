@@ -17,11 +17,17 @@ interface CtrlSWorldProps {
   isMuted?: boolean;
 }
 
+type PuzzleTrigger = {
+  afterIndex: number;  // Trigger puzzle after this paragraph index
+  puzzleId: string;
+};
+
 type StoryNode = {
   id: string;
   title: string;
   content: string[];
   ascii?: string[];
+  puzzleTriggers?: PuzzleTrigger[];
 };
 
 // Full story content

@@ -207,16 +207,26 @@ export const getTotalItemCount = (): number => {
 // ============================================================================
 
 export const PUZZLE_REWARDS: Record<string, string[]> = {
+  // Chapter 1 puzzles
+  'ch1_team_quiz': ['team_photo'],
+  'ch1_bunker_code': ['hacker_badge'],
+
   // Chapter 2 puzzles
+  'ch2_silicon_valley_riddles': ['ethics_module'],
+  'ch2_valley_riddle_2': [], // Part of silicon_valley_riddles
+  'ch2_valley_riddle_3': [], // Part of silicon_valley_riddles
   'ch2_console_log': ['coffee_beans'],
   'ch2_bug_riddle': ['server_manual'],
 
   // Chapter 3 puzzles
-  'ch3_array_length': ['hacker_badge'],
-  'ch3_logic_puzzle': ['rubber_duck'],
+  'ch3_ada_language': ['mechanical_keyboard'],
+  'ch3_fibonacci': ['time_crystal'],
+  'ch3_fire_riddle': ['rubber_duck'],
+  'ch3_array_length': ['energy_drink'],
+  'ch3_logic_puzzle': ['meditation_app'],
 
   // Chapter 4 puzzles
-  'ch4_keyboard_shortcut': ['mechanical_keyboard'],
+  'ch4_keyboard_shortcut': ['code_review'],
   'ch4_recursion': ['quantum_key'],
 
   // Chapter 5 puzzles
