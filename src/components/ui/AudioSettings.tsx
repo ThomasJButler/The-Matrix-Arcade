@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Volume2, 
-  VolumeX, 
-  Music, 
-  Volume1, 
-  Settings, 
+import {
+  Volume2,
+  VolumeX,
+  Music,
+  Volume1,
+  Settings,
   X,
-  Play
+  Play,
+  Save,
+  Check
 } from 'lucide-react';
 import { useSoundSystem, SoundConfig } from '../../hooks/useSoundSystem';
 
@@ -28,9 +30,17 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
 }) => {
   const { config, updateConfig, playSFX, playMusic, stopMusic } = useSoundSystem();
   const [testingSound, setTestingSound] = useState<string | null>(null);
+  const [showSaved, setShowSaved] = useState(false);
 
   const handleVolumeChange = (key: keyof SoundConfig, value: number) => {
     updateConfig({ [key]: value });
+  };
+
+  const handleSaveSettings = () => {
+    // Settings are auto-saved, but we show visual feedback
+    setShowSaved(true);
+    playSFX('score'); // Play a success sound
+    setTimeout(() => setShowSaved(false), 2000);
   };
 
   const handleToggle = (key: keyof SoundConfig) => {
@@ -245,6 +255,47 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
                     {testingSound === sound ? 'PLAYING...' : sound.toUpperCase()}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* Save Settings Button */}
+            <div className="mb-6">
+              <button
+                onClick={handleSaveSettings}
+                className={`w-full py-3 px-4 rounded-lg transition-all border-2 flex items-center justify-center gap-2 font-mono font-bold ${
+                  showSaved
+                    ? 'bg-green-600 border-green-400 text-white'
+                    : 'bg-gray-800 hover:bg-gray-700 border-green-500 text-green-400 hover:text-green-300'
+                }`}
+              >
+                <AnimatePresence mode="wait">
+                  {showSaved ? (
+                    <motion.div
+                      key="saved"
+                      initial={{ scale: 0, rotate: -180 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      exit={{ scale: 0, rotate: 180 }}
+                      className="flex items-center gap-2"
+                    >
+                      <Check className="w-5 h-5" />
+                      <span>SETTINGS SAVED!</span>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="save"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0 }}
+                      className="flex items-center gap-2"
+                    >
+                      <Save className="w-5 h-5" />
+                      <span>SAVE SETTINGS</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </button>
+              <div className="text-center text-xs text-gray-400 mt-2">
+                Settings auto-save, but you can save manually for peace of mind
               </div>
             </div>
 
