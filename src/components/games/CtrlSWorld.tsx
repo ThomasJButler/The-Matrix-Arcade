@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Terminal as TerminalIcon, ChevronRight, Info, Play, Pause, Maximize, Minimize } from 'lucide-react';
+import { PuzzleModal } from '../ui/PuzzleModal';
+import { getPuzzleById } from '../../data/puzzles';
+import { useGameState } from '../../contexts/GameStateContext';
 
 interface AchievementManager {
   unlockAchievement(gameId: string, achievementId: string): void;
@@ -7,6 +10,7 @@ interface AchievementManager {
 
 interface CtrlSWorldProps {
   achievementManager?: AchievementManager;
+  isMuted?: boolean;
 }
 
 type StoryNode = {
@@ -198,7 +202,7 @@ const INFO_CONTENT = [
   "A portfolio piece demonstrating TypeScript, React, and creative storytelling."
 ];
 
-export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
+export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldProps) {
   const [currentNode, setCurrentNode] = useState(0);
   const [displayedTexts, setDisplayedTexts] = useState<string[]>([]);
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
@@ -211,16 +215,30 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
   const [showInfo, setShowInfo] = useState(false);
   const [commandInput, setCommandInput] = useState('');
 
+  // Puzzle state
+  const [showPuzzle, setShowPuzzle] = useState(false);
+  const [currentPuzzleId, setCurrentPuzzleId] = useState<string | null>(null);
+
+  // Game state context
+  const gameState = useGameState();
+
   const terminalRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  
+
   // Achievement unlock function
   const unlockAchievement = useCallback((achievementId: string) => {
     if (achievementManager?.unlockAchievement) {
       achievementManager.unlockAchievement('ctrlSWorld', achievementId);
     }
   }, [achievementManager]);
+
+  // Placeholder sound function for puzzle modal
+  const playSFX = useCallback((sound: string) => {
+    if (!isMuted) {
+      console.log(`Playing sound: ${sound}`);
+    }
+  }, [isMuted]);
   
   // Removed unused voice tracking refs - these are only used in interactive mode
 
@@ -290,18 +308,30 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
           setUserHasScrolled(false); // Reset scroll tracking for new paragraph
         }, 2000);
       } else if (!isPaused && currentNode < STORY.length - 1) {
-        // Move to next node if available - clear screen for new chapter
-        setTimeout(() => {
-          setDisplayedTexts([]); // Clear screen for new chapter
-          setCurrentNode(prev => prev + 1);
-          setCurrentTextIndex(0);
-          setCurrentCharIndex(0);
-          setIsTyping(true);
-          setUserHasScrolled(false);
-        }, 3000); // Pause before starting new chapter
+        // Check if puzzle should trigger before moving to next chapter
+        const nextNodeId = STORY[currentNode + 1].id;
+
+        // Trigger puzzle at end of Chapter 1 (before Chapter 2)
+        if (nextNodeId === 'chapter2' && !gameState.state.completedPuzzles.includes('ch2_console_log')) {
+          setTimeout(() => {
+            setCurrentPuzzleId('ch2_console_log');
+            setShowPuzzle(true);
+            setIsPaused(true); // Pause story during puzzle
+          }, 2000);
+        } else {
+          // Move to next node if available - clear screen for new chapter
+          setTimeout(() => {
+            setDisplayedTexts([]); // Clear screen for new chapter
+            setCurrentNode(prev => prev + 1);
+            setCurrentTextIndex(0);
+            setCurrentCharIndex(0);
+            setIsTyping(true);
+            setUserHasScrolled(false);
+          }, 3000); // Pause before starting new chapter
+        }
       }
     }
-  }, [currentNode, currentTextIndex, currentCharIndex, scrollToBottom, isPaused]);
+  }, [currentNode, currentTextIndex, currentCharIndex, scrollToBottom, isPaused, gameState.state.completedPuzzles]);
 
   const handleNext = useCallback(() => {
     if (isTyping) {
@@ -336,6 +366,45 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
     }
   }, [isTyping, currentNode, currentTextIndex, currentText, scrollToBottom]);
 
+  // Handle puzzle completion
+  const handlePuzzleComplete = useCallback((success: boolean, hintsUsed: number) => {
+    if (success && currentPuzzleId) {
+      // Mark puzzle as completed
+      gameState.completePuzzle(currentPuzzleId);
+
+      // Award wisdom points based on performance
+      const basePoints = 10;
+      const hintPenalty = hintsUsed * 2;
+      const totalPoints = Math.max(1, basePoints - hintPenalty);
+      gameState.addWisdom(totalPoints);
+
+      // Add coffee boost for correct answer
+      gameState.addCoffee(10);
+
+      // Add reputation
+      gameState.addReputation(5);
+
+      // Unlock achievement for first puzzle
+      if (gameState.state.completedPuzzles.length === 0) {
+        unlockAchievement('first_puzzle');
+      }
+    }
+
+    // Close puzzle and resume story
+    setShowPuzzle(false);
+    setCurrentPuzzleId(null);
+    setIsPaused(false);
+
+    // Move to next chapter
+    setTimeout(() => {
+      setDisplayedTexts([]);
+      setCurrentNode(prev => prev + 1);
+      setCurrentTextIndex(0);
+      setCurrentCharIndex(0);
+      setIsTyping(true);
+      setUserHasScrolled(false);
+    }, 500);
+  }, [currentPuzzleId, gameState, unlockAchievement]);
 
   useEffect(() => {
     if (!isStarted && inputRef.current) {
@@ -553,6 +622,21 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Puzzle Modal */}
+      {showPuzzle && currentPuzzleId && (
+        <PuzzleModal
+          isOpen={showPuzzle}
+          puzzle={getPuzzleById(currentPuzzleId)!}
+          onClose={() => {
+            setShowPuzzle(false);
+            setCurrentPuzzleId(null);
+            setIsPaused(false);
+          }}
+          onComplete={handlePuzzleComplete}
+          playSFX={playSFX}
+        />
       )}
     </div>
   );

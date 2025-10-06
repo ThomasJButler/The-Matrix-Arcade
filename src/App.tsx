@@ -33,6 +33,7 @@ import { MobileWarning } from './components/ui/MobileWarning';
 import { useSoundSystem } from './hooks/useSoundSystem';
 import { useAchievementManager } from './hooks/useAchievementManager';
 import { useMobileDetection } from './hooks/useMobileDetection';
+import { GameStateProvider } from './contexts/GameStateContext';
 
 function App() {
   const [selectedGame, setSelectedGame] = useState<number>(0);
@@ -303,7 +304,7 @@ function App() {
   const GameComponent = games[selectedGame].component;
 
   return (
-    <>
+    <GameStateProvider>
       {/* Mobile Warning */}
       {showMobileWarning && <MobileWarning />}
       
@@ -678,7 +679,7 @@ function App() {
         /* Removed conflicting game-container styles that were causing nesting issues */
       `}</style>
     </div>
-    </>
+    </GameStateProvider>
   );
 }
 
