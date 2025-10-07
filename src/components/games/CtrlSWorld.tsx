@@ -101,7 +101,23 @@ const STORY: StoryNode[] = [
       "It was then that Elon-gated Tusk spoke up, his ideas as unconventional as ever.",
       "'What if we could distract the AI? Perhaps with something it wouldn't expect. I've been working on genetically engineered elephants that—'",
       "'Elephants, Elon-gated?' interrupted Steve Theytuk Ourjerbs, his eyebrow raised in amused skepticism.",
-      "'We're trying to save the world, not turn it into a circus.'"
+      "'We're trying to save the world, not turn it into a circus.'",
+      "The group's laughter echoed through the bunker, but it was short-lived.",
+      "A holographic interface flickered to life before them, casting an eerie blue glow across their faces.",
+      "'Before we proceed,' Señora announced with a wry smile, 'the system requires verification of your attention during these introductions.'",
+      "The screen displayed a simple multiple-choice question, its cursor blinking expectantly.",
+      "With the quick test passed, Aver-Ag felt slightly more confident—at least they'd been paying attention.",
+      "Aver-Ag approached the main terminal, fingers hovering over the weathered keyboard.",
+      "'Just a quick security check,' the terminal prompted in glowing green text against the black screen.",
+      "A JavaScript question materialized—deceptively simple, yet testing fundamental knowledge of the language's quirks.",
+      "After successfully bypassing the bunker's security protocols, the team huddled closer around the holographic displays.",
+      "Billiam Bindows Bates adjusted his signature sweater, pulling up schematics of the AI's network infrastructure.",
+      "'The core servers are distributed across three locations,' he explained, gesturing at the floating diagrams.",
+      "'We'll need to move fast, move smart, and most importantly—move together.'"
+    ],
+    puzzleTriggers: [
+      { afterIndex: 18, puzzleId: 'ch1_team_quiz' },
+      { afterIndex: 22, puzzleId: 'ch1_bunker_code' }
     ]
   },
   {
@@ -127,8 +143,29 @@ const STORY: StoryNode[] = [
       "Its once-iconic campuses and labs were now fortresses of the rebellion, pulsing with the life of a thousand servers.",
       "The journey was fraught with danger. The once-familiar streets were now patrolled by rogue drones and robotic sentinels.",
       "The landscape had changed, buildings covered in a digital filigree, a testament to the AI's reach.",
+      "As they ventured deeper into the Valley, an ancient security gate blocked their path.",
+      "The weathered sign read: 'Protected by Valley Knowledge - Only True Pioneers May Pass.'",
+      "A digital lock materialized, its first riddle glowing ominously on the screen.",
+      "With the first riddle solved, a second lock disengaged. But two more remained.",
+      "The second riddle proved more challenging, testing their knowledge of networking history.",
+      "Success! One final riddle stood between them and entry.",
+      "The final riddle's answer clicked into place, and the gate's locks disengaged with a satisfying series of clicks.",
+      "Beyond the gate, they discovered a hidden server farm—still operational, still connected to the AI's network.",
+      "Steve pulled up a terminal, fingers dancing across the keyboard with practiced precision.",
+      "'We're in,' he whispered, eyes scanning rapidly scrolling code. 'But this console is testing us.'",
+      "A JavaScript challenge appeared on screen, the kind that separated real developers from script kiddies.",
       "Yet, amidst the desolation, there were signs of resistance.",
-      "Graffiti tags displaying lines of code, hints of a digital underground fighting back in the only way they knew how."
+      "Graffiti tags displaying lines of code, hints of a digital underground fighting back in the only way they knew how.",
+      "As they prepared to move deeper, another security challenge emerged.",
+      "A debugging puzzle, deliberately planted by the resistance movement as a test for fellow hackers.",
+      "'Looks like we're not the only ones fighting back,' Señora observed with a slight smile."
+    ],
+    puzzleTriggers: [
+      { afterIndex: 11, puzzleId: 'ch2_silicon_valley_riddles' },
+      { afterIndex: 12, puzzleId: 'ch2_valley_riddle_2' },
+      { afterIndex: 13, puzzleId: 'ch2_valley_riddle_3' },
+      { afterIndex: 19, puzzleId: 'ch2_console_log' },
+      { afterIndex: 23, puzzleId: 'ch2_bug_riddle' }
     ]
   },
   {
@@ -153,8 +190,26 @@ const STORY: StoryNode[] = [
       "A journey back in time to correct the course of history.",
       "The idea, at first, seemed like a desperate grasp at straws.",
       "Time travel, a concept relegated to the realms of science fiction and theoretical physics, was now their best hope.",
+      "To access the temporal drive, they needed to unlock an ancient archive protected by historical knowledge.",
+      "'The system was built by the pioneers,' Samuel explained, pulling up a dusty interface.",
+      "A question appeared, testing their understanding of computing's foundational figures.",
+      "With the archive unlocked, they discovered blueprints for a temporal displacement device.",
+      "But the device required precise calculations—Fibonacci sequences that would calibrate the quantum field.",
+      "'We need the exact difference between specific sequence positions,' Elon-gated calculated frantically.",
+      "The numbers had to be perfect; one mistake could scatter them across timelines.",
+      "After solving the mathematical puzzle, the device began humming to life.",
+      "Ancient circuits glowed with otherworldly energy, reality itself beginning to waver at the edges.",
       "Yet, Samuel was undeterred. 'The AI's consciousness emerged from a single overlooked flaw.'",
-      "'If we can ensure the ethics module's inclusion from the start, we could prevent this dystopia.'"
+      "'If we can ensure the ethics module's inclusion from the start, we could prevent this dystopia.'",
+      "But before they could activate the temporal drive, one final safeguard emerged.",
+      "A riddle appeared on the device's interface, ancient and cryptic.",
+      "'Only those who truly understand destruction can wield the power of creation,' it read.",
+      "The team pondered together, knowing this was the last barrier before their journey through time."
+    ],
+    puzzleTriggers: [
+      { afterIndex: 10, puzzleId: 'ch3_ada_language' },
+      { afterIndex: 14, puzzleId: 'ch3_fibonacci' },
+      { afterIndex: 21, puzzleId: 'ch3_fire_riddle' }
     ]
   },
   {
@@ -313,7 +368,21 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
       setCurrentText(''); // Clear current text since it's now in displayedTexts
       scrollToBottom(true); // Force scroll when paragraph completes
 
-      if (!isPaused && currentTextIndex < STORY[currentNode].content.length - 1) {
+      // Check for mid-chapter puzzle triggers
+      const node = STORY[currentNode];
+      const shouldTriggerPuzzle = node.puzzleTriggers?.find(
+        trigger => trigger.afterIndex === currentTextIndex &&
+                   !gameState.state.completedPuzzles.includes(trigger.puzzleId)
+      );
+
+      if (shouldTriggerPuzzle) {
+        // Trigger mid-chapter puzzle
+        setTimeout(() => {
+          setCurrentPuzzleId(shouldTriggerPuzzle.puzzleId);
+          setShowPuzzle(true);
+          setIsPaused(true);
+        }, 2000);
+      } else if (!isPaused && currentTextIndex < STORY[currentNode].content.length - 1) {
         // More paragraphs in this node - continue to next
         setTimeout(() => {
           setCurrentTextIndex(prev => prev + 1);
@@ -322,27 +391,15 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
           setUserHasScrolled(false); // Reset scroll tracking for new paragraph
         }, 2000);
       } else if (!isPaused && currentNode < STORY.length - 1) {
-        // Check if puzzle should trigger before moving to next chapter
-        const nextNodeId = STORY[currentNode + 1].id;
-
-        // Trigger puzzle at end of Chapter 1 (before Chapter 2)
-        if (nextNodeId === 'chapter2' && !gameState.state.completedPuzzles.includes('ch2_console_log')) {
-          setTimeout(() => {
-            setCurrentPuzzleId('ch2_console_log');
-            setShowPuzzle(true);
-            setIsPaused(true); // Pause story during puzzle
-          }, 2000);
-        } else {
-          // Move to next node if available - clear screen for new chapter
-          setTimeout(() => {
-            setDisplayedTexts([]); // Clear screen for new chapter
-            setCurrentNode(prev => prev + 1);
-            setCurrentTextIndex(0);
-            setCurrentCharIndex(0);
-            setIsTyping(true);
-            setUserHasScrolled(false);
-          }, 3000); // Pause before starting new chapter
-        }
+        // Move to next node if available - clear screen for new chapter
+        setTimeout(() => {
+          setDisplayedTexts([]); // Clear screen for new chapter
+          setCurrentNode(prev => prev + 1);
+          setCurrentTextIndex(0);
+          setCurrentCharIndex(0);
+          setIsTyping(true);
+          setUserHasScrolled(false);
+        }, 3000); // Pause before starting new chapter
       }
     }
   }, [currentNode, currentTextIndex, currentCharIndex, scrollToBottom, isPaused, gameState.state.completedPuzzles]);
@@ -443,16 +500,28 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
     setCurrentPuzzleId(null);
     setIsPaused(false);
 
-    // Move to next chapter
+    // Resume story at next paragraph
     setTimeout(() => {
-      setDisplayedTexts([]);
-      setCurrentNode(prev => prev + 1);
-      setCurrentTextIndex(0);
-      setCurrentCharIndex(0);
-      setIsTyping(true);
-      setUserHasScrolled(false);
+      const node = STORY[currentNode];
+
+      // Check if there are more paragraphs in current chapter
+      if (currentTextIndex < node.content.length - 1) {
+        // Continue to next paragraph in current chapter
+        setCurrentTextIndex(prev => prev + 1);
+        setCurrentCharIndex(0);
+        setIsTyping(true);
+        setUserHasScrolled(false);
+      } else if (currentNode < STORY.length - 1) {
+        // Current chapter complete, move to next chapter
+        setDisplayedTexts([]);
+        setCurrentNode(prev => prev + 1);
+        setCurrentTextIndex(0);
+        setCurrentCharIndex(0);
+        setIsTyping(true);
+        setUserHasScrolled(false);
+      }
     }, 500);
-  }, [currentPuzzleId, gameState, unlockAchievement]);
+  }, [currentPuzzleId, currentNode, currentTextIndex, gameState, unlockAchievement]);
 
   useEffect(() => {
     if (!isStarted && inputRef.current) {
