@@ -17,12 +17,14 @@ import {
   X,
   Volume2,
   VolumeX,
+  Blocks,
 } from 'lucide-react';
 import SimpleSnake from './components/games/SimpleSnake';
 import VortexPong from './components/games/VortexPong';
 import CtrlSWorld from './components/games/CtrlSWorld';
 import MatrixCloud from './components/games/MatrixCloud';
 import MatrixInvaders from './components/games/MatrixInvaders';
+import Metris from './components/games/Metris';
 import AudioSettings from './components/ui/AudioSettings';
 import SaveLoadManager from './components/ui/SaveLoadManager';
 import { AchievementQueue } from './components/ui/AchievementNotification';
@@ -126,6 +128,14 @@ function App() {
       preview:
         'https://res.cloudinary.com/depqttzlt/image/upload/v1751750717/matrix3_zmwcnd.png',
       component: MatrixInvaders,
+    },
+    {
+      title: 'Metris',
+      icon: <Blocks className="w-8 h-8" />,
+      description: 'Stack the code blocks and break the Matrix',
+      preview:
+        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071594/metris_preview.png',
+      component: Metris,
     },
   ];
 

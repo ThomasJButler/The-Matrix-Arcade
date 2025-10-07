@@ -26,6 +26,7 @@ export interface GlobalSaveData {
     matrixCloud: GameSaveData;
     ctrlSWorld: GameSaveData;
     matrixInvaders: GameSaveData;
+    metris: GameSaveData;
   };
   globalStats: {
     totalPlayTime: number;
@@ -63,7 +64,8 @@ const createDefaultGlobalSave = (): GlobalSaveData => ({
     terminalQuest: createDefaultGameSave(),
     matrixCloud: createDefaultGameSave(),
     ctrlSWorld: createDefaultGameSave(),
-    matrixInvaders: createDefaultGameSave()
+    matrixInvaders: createDefaultGameSave(),
+    metris: createDefaultGameSave()
   },
   globalStats: {
     totalPlayTime: 0,
@@ -143,6 +145,20 @@ export const GAME_ACHIEVEMENTS: Record<string, Achievement[]> = {
     { id: 'ctrl_collector', name: 'Item Hoarder', description: 'Collect 10 different items', icon: '🎒', game: 'CTRL-S World' },
     { id: 'ctrl_voice_master', name: 'Voice Commander', description: 'Use Shatner voice for 5 minutes', icon: '🎤', game: 'CTRL-S World' },
     { id: 'ctrl_bug_free', name: 'Bug Free', description: 'Achieve 0 bugs', icon: '🐛', game: 'CTRL-S World' }
+  ],
+  metris: [
+    { id: 'first_line', name: 'First Steps', description: 'Clear your first line', icon: '📊', game: 'Metris' },
+    { id: 'tetris', name: 'Tetris Master', description: 'Clear 4 lines at once', icon: '💎', game: 'Metris' },
+    { id: 'level_10', name: 'Speed Demon', description: 'Reach level 10', icon: '🚀', game: 'Metris' },
+    { id: 'high_roller', name: 'High Roller', description: 'Score 10,000 points', icon: '💰', game: 'Metris' },
+    { id: 'neos_apprentice', name: 'Neo\'s Apprentice', description: 'Use Bullet Time 10 times', icon: '⏱️', game: 'Metris' },
+    { id: 'line_clearer', name: 'Line Clearer', description: 'Clear 100 total lines', icon: '📈', game: 'Metris' },
+    { id: 'marathon_runner', name: 'Marathon Runner', description: 'Survive for 10 minutes', icon: '⏲️', game: 'Metris' },
+    { id: 'combo_king', name: 'Combo King', description: 'Achieve 5x combo multiplier', icon: '🔥', game: 'Metris' },
+    { id: 'perfect_start', name: 'Perfect Start', description: 'No game over before level 5', icon: '✨', game: 'Metris' },
+    { id: 'architect', name: 'Architect', description: 'Build to 18 rows without clearing', icon: '🏗️', game: 'Metris' },
+    { id: 't_spin_master', name: 'T-Spin Master', description: 'Perform 5 T-spins', icon: '🔄', game: 'Metris' },
+    { id: 'immortal', name: 'Immortal', description: 'Reach level 20', icon: '👑', game: 'Metris' }
   ]
 };
 
