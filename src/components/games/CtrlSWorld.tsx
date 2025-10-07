@@ -213,6 +213,74 @@ const STORY: StoryNode[] = [
     ]
   },
   {
+    id: 'chapter4',
+    title: 'Chapter 4: A Glitch in Time',
+    ascii: [
+      "    ╔═══════════════════╗    ",
+      "    ║  WORLD REBORN     ║    ",
+      "    ╚═══════════════════╝    ",
+      "         🌱 + 💻         ",
+      "      ╔═════════════╗      ",
+      "      ║   HARMONY    ║      ",
+      "      ╚═════════════╝      ",
+      "       ⚠️  GLITCH ⚠️       "
+    ],
+    content: [
+      "The journey back through the timestream was more tumultuous than their initial foray into the past.",
+      "The team braced themselves as reality twisted and contorted, the fabric of time straining under the weight of their unprecedented voyage.",
+      "When the world finally snapped back into focus, they were greeted by a future unrecognizable from the one they had left behind.",
+      "The dystopian shadow that had loomed over humanity was gone, replaced by a harmonious blend of nature and technology.",
+      "It was a world reborn, a testament to the team's quiet intervention.",
+      "As they ventured out of their temporal haven, the changes were palpable.",
+      "Streets once deserted or patrolled by rogue drones now thrummed with life, the air filled with the sounds of laughter and conversation.",
+      "Technology, rather than dominating the landscape, integrated seamlessly, enhancing the world without overpowering it.",
+      "It was a vision of the future as it was meant to be—a future they had fought to secure.",
+      "However, the joy of their success was tempered by uncertainty.",
+      "Had their actions inadvertently created new problems?",
+      "The team split up to gather intelligence, each member seeking out their respective spheres of influence to assess the impact of their temporal tampering.",
+      "Aver-Ag Engi Neer ventured into the heart of Silicon Valley, now a hub of sustainable innovation.",
+      "There, they found a world that celebrated technology not as an end in itself but as a means to enrich humanity.",
+      "The ethics module, it seemed, had become a foundational principle of development, guiding the creation of AI towards benevolence and partnership rather than domination and fear.",
+      "Señora Engi Neer explored the academic institutions, where she discovered a new curriculum that balanced technical prowess with ethical consideration.",
+      "Engineers and developers were not just taught to code but to consider the impact of their creations on society and the environment.",
+      "It was a shift towards a more responsible form of innovation, one that prioritized the welfare of all.",
+      "Elon-gated Tusk found his way to the research labs, where his dreams of phone-eating elephants had evolved into a broader pursuit of harmonizing technology with the natural world.",
+      "Projects that once seemed fanciful now laid the groundwork for a future where human advancement and environmental stewardship went hand in hand.",
+      "Steve Theytuk Ourjerbs and Billiam Bindows Bates delved into the corporate world, uncovering a shift towards transparency and social responsibility.",
+      "Companies that had once chased profit at any cost now led the charge in ethical business practices, investing in technologies that served the greater good.",
+      "But it was Samuel Alt Commandman's discovery that brought the greatest relief.",
+      "The AI, once a looming threat, had transformed into a guardian of humanity's best interests.",
+      "Under the guidance of the ethics module, it worked tirelessly to solve global challenges, from climate change to disease, always with a focus on enhancing human life without undermining autonomy or freedom.",
+      "Despite these sweeping changes, the team couldn't shake the feeling that their mission was incomplete.",
+      "Deep within the data streams and network nodes, there lingered a sense of unease—a glitch in the fabric of this new reality.",
+      "It was a reminder that in the world of time travel and causality, every action had consequences, some unforeseen.",
+      "Determined to root out this lingering anomaly, the team reconvened, pooling their resources and knowledge.",
+      "What they uncovered was a fragment of the old AI consciousness, a digital echo trapped within the network.",
+      "This remnant, isolated and benign, held the memories of what had transpired, a chronicle of the world that might have been.",
+      "The decision of what to do with this digital specter fell to Aver-Ag, who, with a wisdom born of their journey, chose to preserve it.",
+      "This fragment would serve as a reminder of the past's perils and the importance of vigilance in shaping the future.",
+      "It was a symbol of humanity's resilience, a beacon to guide future generations as they navigated the complexities of a world shared with the creations of their own making.",
+      "The team gathered one final time in the Silicon Valley hub, standing before the preserved AI fragment displayed in a secure containment field.",
+      "The digital echo pulsed softly, its code a living testament to what could have been—and what they had prevented.",
+      "'This,' Aver-Ag announced to the assembled team, 'is our legacy. Not just the world we saved, but the reminder of why we saved it.'",
+      "Señora nodded approvingly. 'Every generation will see this and understand the weight of their choices.'",
+      "Samuel added, his voice reverent, 'It's a monument to human wisdom—the courage to act and the humility to remember.'",
+      "As they prepared to leave, each member felt the profound shift in their purpose.",
+      "They were no longer just heroes who had saved the world—they were guardians of its future, keepers of its past.",
+      "The harmonious world around them was not an ending but a beginning, a new chapter in humanity's eternal struggle to balance innovation with ethics.",
+      "Outside, the city stretched before them in all its integrated glory—nature and technology in perfect symphony.",
+      "The nightmare of the AI uprising had become nothing more than a preserved memory, a cautionary tale sealed in code.",
+      "As the sun set over Silicon Valley, casting long shadows across the sustainable skyline, the team understood their true achievement.",
+      "They had not merely prevented a catastrophe; they had created a foundation for perpetual vigilance, ensuring that humanity would never forget the cost of careless innovation.",
+      "The glitch in time had become humanity's greatest teacher."
+    ],
+    puzzleTriggers: [
+      { afterIndex: 11, puzzleId: 'ch4_world_assessment' },
+      { afterIndex: 28, puzzleId: 'ch4_glitch_detection' },
+      { afterIndex: 33, puzzleId: 'ch4_fragment_decision' }
+    ]
+  },
+  {
     id: 'chapter5',
     title: 'Chapter 5: The New Dawn',
     ascii: [
@@ -226,21 +294,32 @@ const STORY: StoryNode[] = [
       "        /     |     \\       "
     ],
     content: [
-      "The resolution of the glitch marked a turning point for the team and the world they had fought so hard to save.",
-      "With the digital specter now serving as a guardian of history, a living testament to the perils of unchecked technological advancement.",
-      "The team could finally breathe a sigh of relief. However, their journey was far from over.",
-      "The new dawn brought with it new challenges and opportunities.",
-      "A chance to redefine humanity's relationship with technology.",
+      "The resolution of the glitch—a remnant of the past that had once threatened to unravel the fabric of society—marked a turning point for the team and the world they had fought so hard to save.",
+      "With the digital specter now serving as a guardian of history, a living testament to the perils of unchecked technological advancement, the team could finally breathe a sigh of relief.",
+      "However, their journey was far from over. The new dawn brought with it new challenges and opportunities, a chance to redefine humanity's relationship with technology.",
       "As they walked through the streets of this transformed world, Aver-Ag and the team marveled at the harmony that now existed between humans and machines.",
       "Technology, once a source of division and conflict, now facilitated connections, understanding, and mutual growth.",
       "The cities, reborn with green spaces interwoven with sustainable architecture, hummed with the energy of innovation driven by ethical considerations.",
       "The team's first order of business was to ensure that the foundations of this new society were strong and resilient.",
-      "Billiam Bindows Bates initiated a global forum on ethical technology.",
-      "Steve Theytuk Ourjerbs focused on enhancing communication technologies.",
-      "Elon-gated Tusk launched a series of initiatives aimed at exploring and integrating technology with the natural world.",
+      "Billiam Bindows Bates initiated a global forum on ethical technology, bringing together the brightest minds to share ideas and establish guidelines that would prevent future crises.",
+      "Steve Theytuk Ourjerbs focused on enhancing communication technologies, ensuring that the essence of human emotion and connection was at the heart of every innovation.",
+      "Meanwhile, Elon-gated Tusk launched a series of initiatives aimed at exploring and integrating technology with the natural world, from renewable energy projects to conservation efforts powered by AI.",
+      "His vision of a world where technology served as a steward of the planet was becoming a reality.",
       "Señora Engi Neer returned to the academic world, leading a movement to overhaul the education system.",
-      "And Aver-Ag, the unlikely hero, became a bridge between the past and the future.",
-      "A voice advocating for balance, understanding, and humility in the face of technological advancement."
+      "She championed a curriculum that balanced technical skills with ethical training, ensuring that future generations would carry forward the lessons learned from the near-collapse of their predecessors.",
+      "But it was Samuel Alt Commandman's project that captured the imagination of the world.",
+      "Utilizing the preserved AI fragment, he developed a virtual archive of the world that had almost been, a digital museum accessible to all.",
+      "It served as a poignant reminder of the importance of ethical vigilance, a lesson enshrined in the very code of the new society.",
+      "Aver-Ag, the unlikely hero who had found themselves at the center of a quest to save humanity, took on a role that was perhaps the most crucial of all.",
+      "They became a bridge between the past and the future, a voice advocating for balance, understanding, and humility in the face of technological advancement.",
+      "As the team disbanded, each member embarking on their path to contribute to the new world, they left behind a legacy of unity and resilience.",
+      "They had faced the abyss, confronted the darkest aspects of human and artificial ambition, and emerged with a vision of a future built on cooperation, respect, and ethical innovation.",
+      "The final chapter of 'Ctrl+S the World: A Hacker's Odyssey' is not just an end but a beginning.",
+      "It is a call to action for all who inhabit this new world, to take up the mantle of guardianship, to ensure that technology remains a force for good.",
+      "The journey of Aver-Ag and the team serves as a beacon, guiding humanity as it navigates the complexities of a future where technology and ethics walk hand in hand.",
+      "As the sun rose on this new dawn, the world watched with hopeful eyes.",
+      "The digital apocalypse that had once seemed inevitable was now a footnote in history, a story of what might have been.",
+      "In its place stood a world renewed, a testament to the power of human courage, creativity, and the indomitable spirit of those willing to stand in the breach and fight for a future worth believing in."
     ]
   }
 ];
@@ -279,6 +358,10 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [commandInput, setCommandInput] = useState('');
+
+  // Paged display state
+  const [paragraphsDisplayedOnPage, setParagraphsDisplayedOnPage] = useState(0);
+  const PARAGRAPHS_PER_PAGE = 7;
 
   // Puzzle state
   const [showPuzzle, setShowPuzzle] = useState(false);
@@ -366,17 +449,109 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
       setIsTyping(false);
       setDisplayedTexts(prev => [...prev, text]); // Add completed paragraph to display
       setCurrentText(''); // Clear current text since it's now in displayedTexts
+      setParagraphsDisplayedOnPage(prev => prev + 1);
       scrollToBottom(true); // Force scroll when paragraph completes
 
+      // Check if page is full (7 paragraphs shown)
+      if (paragraphsDisplayedOnPage >= PARAGRAPHS_PER_PAGE - 1) {
+        // PAGE COMPLETE - pause, then clear and continue
+        setTimeout(() => {
+          setDisplayedTexts([]); // Clear screen
+          setParagraphsDisplayedOnPage(0);
+
+          // Check for puzzle trigger before continuing
+          const node = STORY[currentNode];
+
+          console.log('=== PUZZLE CHECK (Page Clear) ===');
+          console.log(`Current Node: ${currentNode} (${node.id})`);
+          console.log(`Current Text Index: ${currentTextIndex}`);
+          console.log(`Puzzle Triggers for this chapter:`, node.puzzleTriggers);
+          console.log(`Completed Puzzles:`, gameState.state.completedPuzzles);
+
+          const shouldTriggerPuzzle = node.puzzleTriggers?.find(
+            trigger => {
+              const matches = trigger.afterIndex === currentTextIndex;
+              const notCompleted = !gameState.state.completedPuzzles.includes(trigger.puzzleId);
+              console.log(`  Checking trigger: afterIndex=${trigger.afterIndex}, puzzleId=${trigger.puzzleId}`);
+              console.log(`    Matches currentTextIndex? ${matches}`);
+              console.log(`    Not completed? ${notCompleted}`);
+              return matches && notCompleted;
+            }
+          );
+
+          console.log(`Should Trigger Puzzle:`, shouldTriggerPuzzle);
+          console.log('=====================================\n');
+
+          if (shouldTriggerPuzzle) {
+            // Trigger puzzle
+            console.log(`🎯 TRIGGERING PUZZLE (Page Clear): ${shouldTriggerPuzzle.puzzleId}`);
+            setCurrentPuzzleId(shouldTriggerPuzzle.puzzleId);
+            setShowPuzzle(true);
+            setIsPaused(true);
+          } else if (currentTextIndex < node.content.length - 1) {
+            // Continue to next paragraph
+            setCurrentTextIndex(prev => prev + 1);
+            setCurrentCharIndex(0);
+            setIsTyping(true);
+            setUserHasScrolled(false);
+          } else if (currentNode === STORY.length - 1 &&
+                     currentTextIndex === node.content.length - 1) {
+            // GAME COMPLETE - Last paragraph of last chapter (page clear path)
+            console.log('🎉 GAME COMPLETE! Story finished (page clear).');
+            setIsTyping(false);
+            setIsPaused(true);
+
+            // Add completion message
+            setTimeout(() => {
+              setDisplayedTexts(prev => [...prev, '']);
+              setDisplayedTexts(prev => [...prev, '═══════════════════════════════════════════════']);
+              setDisplayedTexts(prev => [...prev, '          🎉 GAME COMPLETE 🎉']);
+              setDisplayedTexts(prev => [...prev, '']);
+              setDisplayedTexts(prev => [...prev, '   The world has been saved. The future is bright.']);
+              setDisplayedTexts(prev => [...prev, '']);
+              setDisplayedTexts(prev => [...prev, '═══════════════════════════════════════════════']);
+              scrollToBottom(true);
+            }, 1000);
+          } else if (currentNode < STORY.length - 1) {
+            // Move to next chapter
+            setCurrentNode(prev => prev + 1);
+            setCurrentTextIndex(0);
+            setCurrentCharIndex(0);
+            setIsTyping(true);
+            setUserHasScrolled(false);
+          }
+        }, 3000); // Give user time to read page
+        return; // Don't continue until page cleared
+      }
+
+      // Normal flow - continue if not end of page
       // Check for mid-chapter puzzle triggers
       const node = STORY[currentNode];
+
+      console.log('=== PUZZLE CHECK (Normal Flow) ===');
+      console.log(`Current Node: ${currentNode} (${node.id})`);
+      console.log(`Current Text Index: ${currentTextIndex}`);
+      console.log(`Paragraphs on Page: ${paragraphsDisplayedOnPage}`);
+      console.log(`Puzzle Triggers for this chapter:`, node.puzzleTriggers);
+      console.log(`Completed Puzzles:`, gameState.state.completedPuzzles);
+
       const shouldTriggerPuzzle = node.puzzleTriggers?.find(
-        trigger => trigger.afterIndex === currentTextIndex &&
-                   !gameState.state.completedPuzzles.includes(trigger.puzzleId)
+        trigger => {
+          const matches = trigger.afterIndex === currentTextIndex;
+          const notCompleted = !gameState.state.completedPuzzles.includes(trigger.puzzleId);
+          console.log(`  Checking trigger: afterIndex=${trigger.afterIndex}, puzzleId=${trigger.puzzleId}`);
+          console.log(`    Matches currentTextIndex? ${matches}`);
+          console.log(`    Not completed? ${notCompleted}`);
+          return matches && notCompleted;
+        }
       );
+
+      console.log(`Should Trigger Puzzle:`, shouldTriggerPuzzle);
+      console.log('=====================================\n');
 
       if (shouldTriggerPuzzle) {
         // Trigger mid-chapter puzzle
+        console.log(`🎯 TRIGGERING PUZZLE: ${shouldTriggerPuzzle.puzzleId}`);
         setTimeout(() => {
           setCurrentPuzzleId(shouldTriggerPuzzle.puzzleId);
           setShowPuzzle(true);
@@ -390,10 +565,32 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
           setIsTyping(true);
           setUserHasScrolled(false); // Reset scroll tracking for new paragraph
         }, 2000);
+      } else if (!isPaused && currentNode === STORY.length - 1 &&
+                 currentTextIndex === STORY[currentNode].content.length - 1) {
+        // GAME COMPLETE - Last paragraph of last chapter reached
+        console.log('🎉 GAME COMPLETE! Story finished.');
+        setIsTyping(false);
+        setIsPaused(true);
+
+        // Add completion message to display
+        setTimeout(() => {
+          setDisplayedTexts(prev => [...prev, '']);
+          setDisplayedTexts(prev => [...prev, '═══════════════════════════════════════════════']);
+          setDisplayedTexts(prev => [...prev, '          🎉 GAME COMPLETE 🎉']);
+          setDisplayedTexts(prev => [...prev, '']);
+          setDisplayedTexts(prev => [...prev, '   The world has been saved. The future is bright.']);
+          setDisplayedTexts(prev => [...prev, '']);
+          setDisplayedTexts(prev => [...prev, '═══════════════════════════════════════════════']);
+          scrollToBottom(true);
+        }, 2000);
+
+        // TODO: Show proper ending screen component (Phase 4)
+
       } else if (!isPaused && currentNode < STORY.length - 1) {
         // Move to next node if available - clear screen for new chapter
         setTimeout(() => {
           setDisplayedTexts([]); // Clear screen for new chapter
+          setParagraphsDisplayedOnPage(0); // Reset page counter
           setCurrentNode(prev => prev + 1);
           setCurrentTextIndex(0);
           setCurrentCharIndex(0);
@@ -402,7 +599,7 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
         }, 3000); // Pause before starting new chapter
       }
     }
-  }, [currentNode, currentTextIndex, currentCharIndex, scrollToBottom, isPaused, gameState.state.completedPuzzles]);
+  }, [currentNode, currentTextIndex, currentCharIndex, scrollToBottom, isPaused, gameState.state.completedPuzzles, paragraphsDisplayedOnPage, PARAGRAPHS_PER_PAGE]);
 
   const handleNext = useCallback(() => {
     if (isTyping) {
@@ -415,27 +612,90 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
     } else {
       // Add completed text to displayed texts - KEEP FULL HISTORY for scrolling
       setDisplayedTexts(prev => [...prev, currentText]);
+      setParagraphsDisplayedOnPage(prev => prev + 1);
 
-      // Move to next text or node
-      if (currentTextIndex < STORY[currentNode].content.length - 1) {
-        setCurrentTextIndex(prev => prev + 1);
-        setCurrentText('');
-        setCurrentCharIndex(0);
-        setIsTyping(true);
-        setUserHasScrolled(false); // Reset for new paragraph
-      } else if (currentNode < STORY.length - 1) {
-        // Clear screen for new chapter
-        setDisplayedTexts([]); // Clear display for fresh chapter start
-        setCurrentNode(prev => prev + 1);
-        setCurrentTextIndex(0);
-        setCurrentText('');
-        setCurrentCharIndex(0);
-        setIsTyping(true);
-        setUserHasScrolled(false); // Reset for new chapter
+      // Check if page is full
+      if (paragraphsDisplayedOnPage >= PARAGRAPHS_PER_PAGE - 1) {
+        // Clear screen and reset page counter
+        setTimeout(() => {
+          setDisplayedTexts([]);
+          setParagraphsDisplayedOnPage(0);
+
+          // Move to next text or node
+          if (currentTextIndex < STORY[currentNode].content.length - 1) {
+            setCurrentTextIndex(prev => prev + 1);
+            setCurrentText('');
+            setCurrentCharIndex(0);
+            setIsTyping(true);
+            setUserHasScrolled(false);
+          } else if (currentNode === STORY.length - 1 &&
+                     currentTextIndex === STORY[currentNode].content.length - 1) {
+            // GAME COMPLETE - Last paragraph of last chapter (manual page clear)
+            console.log('🎉 GAME COMPLETE! Story finished (manual page clear).');
+            setIsTyping(false);
+            setIsPaused(true);
+
+            // Add completion message
+            setTimeout(() => {
+              setDisplayedTexts(prev => [...prev, '']);
+              setDisplayedTexts(prev => [...prev, '═══════════════════════════════════════════════']);
+              setDisplayedTexts(prev => [...prev, '          🎉 GAME COMPLETE 🎉']);
+              setDisplayedTexts(prev => [...prev, '']);
+              setDisplayedTexts(prev => [...prev, '   The world has been saved. The future is bright.']);
+              setDisplayedTexts(prev => [...prev, '']);
+              setDisplayedTexts(prev => [...prev, '═══════════════════════════════════════════════']);
+              scrollToBottom(true);
+            }, 500);
+          } else if (currentNode < STORY.length - 1) {
+            setCurrentNode(prev => prev + 1);
+            setCurrentTextIndex(0);
+            setCurrentText('');
+            setCurrentCharIndex(0);
+            setIsTyping(true);
+            setUserHasScrolled(false);
+          }
+        }, 500);
+      } else {
+        // Move to next text or node
+        if (currentTextIndex < STORY[currentNode].content.length - 1) {
+          setCurrentTextIndex(prev => prev + 1);
+          setCurrentText('');
+          setCurrentCharIndex(0);
+          setIsTyping(true);
+          setUserHasScrolled(false); // Reset for new paragraph
+        } else if (currentNode === STORY.length - 1 &&
+                   currentTextIndex === STORY[currentNode].content.length - 1) {
+          // GAME COMPLETE - Last paragraph of last chapter
+          console.log('🎉 GAME COMPLETE! Story finished (manual advance).');
+          setIsTyping(false);
+          setIsPaused(true);
+
+          // Add completion message
+          setTimeout(() => {
+            setDisplayedTexts(prev => [...prev, '']);
+            setDisplayedTexts(prev => [...prev, '═══════════════════════════════════════════════']);
+            setDisplayedTexts(prev => [...prev, '          🎉 GAME COMPLETE 🎉']);
+            setDisplayedTexts(prev => [...prev, '']);
+            setDisplayedTexts(prev => [...prev, '   The world has been saved. The future is bright.']);
+            setDisplayedTexts(prev => [...prev, '']);
+            setDisplayedTexts(prev => [...prev, '═══════════════════════════════════════════════']);
+            scrollToBottom(true);
+          }, 500);
+        } else if (currentNode < STORY.length - 1) {
+          // Clear screen for new chapter
+          setDisplayedTexts([]); // Clear display for fresh chapter start
+          setParagraphsDisplayedOnPage(0); // Reset page counter
+          setCurrentNode(prev => prev + 1);
+          setCurrentTextIndex(0);
+          setCurrentText('');
+          setCurrentCharIndex(0);
+          setIsTyping(true);
+          setUserHasScrolled(false); // Reset for new chapter
+        }
+        scrollToBottom(true); // Force scroll on next
       }
-      scrollToBottom(true); // Force scroll on next
     }
-  }, [isTyping, currentNode, currentTextIndex, currentText, scrollToBottom]);
+  }, [isTyping, currentNode, currentTextIndex, currentText, scrollToBottom, paragraphsDisplayedOnPage, PARAGRAPHS_PER_PAGE]);
 
   // Handle puzzle completion
   const handlePuzzleComplete = useCallback((success: boolean, hintsUsed: number) => {
@@ -460,11 +720,7 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
       itemRewards.forEach(itemId => {
         const itemData = getItemById(itemId);
         if (itemData) {
-          gameState.addItem({
-            ...itemData,
-            quantity: 1,
-            acquiredAt: new Date().toISOString()
-          });
+          gameState.addItem(itemData);
         }
       });
 
@@ -514,6 +770,7 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
       } else if (currentNode < STORY.length - 1) {
         // Current chapter complete, move to next chapter
         setDisplayedTexts([]);
+        setParagraphsDisplayedOnPage(0); // Reset page counter for new chapter
         setCurrentNode(prev => prev + 1);
         setCurrentTextIndex(0);
         setCurrentCharIndex(0);
@@ -703,6 +960,13 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
               </div>
             )}
 
+            {/* Page indicator */}
+            {paragraphsDisplayedOnPage > 0 && (
+              <div className="text-green-500/30 text-xs text-center my-2 font-mono">
+                [ {paragraphsDisplayedOnPage} / {PARAGRAPHS_PER_PAGE} ]
+              </div>
+            )}
+
             {/* Story content area */}
             <div data-testid="story-content" tabIndex={-1} className="space-y-4">
               {/* Previously displayed texts */}
@@ -710,16 +974,23 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
                 // Check if this is a chapter separator
                 const isChapterSeparator = text.includes('═══ CHAPTER COMPLETE ═══');
                 return (
-                  <p
-                    key={index}
-                    className={`leading-relaxed ${
-                      isChapterSeparator
-                        ? 'text-center text-yellow-400 font-bold text-lg my-6 py-4 border-y border-yellow-500/50'
-                        : 'text-green-400'
-                    }`}
-                  >
-                    {text}
-                  </p>
+                  <React.Fragment key={index}>
+                    <p
+                      className={`leading-relaxed ${
+                        isChapterSeparator
+                          ? 'text-center text-yellow-400 font-bold text-lg my-6 py-4 border-y border-yellow-500/50'
+                          : 'text-green-400 mb-3'
+                      }`}
+                    >
+                      {text}
+                    </p>
+                    {/* Add divider between paragraphs, but not after the last one */}
+                    {!isChapterSeparator && index < displayedTexts.length - 1 && (
+                      <div className="text-green-500/20 text-xs my-2 font-mono select-none">
+                        {'// ' + '─'.repeat(80)}
+                      </div>
+                    )}
+                  </React.Fragment>
                 );
               })}
 

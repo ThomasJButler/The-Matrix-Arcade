@@ -200,39 +200,59 @@ export const PUZZLES: Record<string, PuzzleData> = {
   },
 
   // ========== CHAPTER 4 PUZZLES ==========
-  ch4_keyboard_shortcut: {
-    id: 'ch4_keyboard_shortcut',
+  ch4_world_assessment: {
+    id: 'ch4_world_assessment',
     type: 'multiple-choice',
-    question: 'Which keyboard shortcut saves a file in most text editors?',
-    answer: ['B'], // Correct answer is option B
-    optionA: 'Ctrl+C',
-    optionB: 'Ctrl+S',
-    optionC: 'Ctrl+V',
-    optionD: 'Ctrl+Z',
+    question: 'The changed world shows technology and nature in harmony. What is the foundation of this success?',
+    answer: ['C'],
+    optionA: 'Reduced technology usage',
+    optionB: 'Government regulation',
+    optionC: 'Ethics module integration',
+    optionD: 'Human vigilance alone',
     hints: [
-      'Think about the game title!',
-      'It\'s literally in the name of this game.',
-      'CTRL-S The World... what does the S stand for?'
+      'What did the team install in the past?',
+      'The change came from within the AI itself.',
+      'Ethics became a foundational principle of development.'
     ],
-    timeLimit: 30,
-    points: 5,
-    difficulty: 'easy',
-    context: 'Agent Smith taunts you with an "easy" question. Or is it a trap?'
+    timeLimit: 45,
+    points: 15,
+    difficulty: 'medium',
+    context: 'Assess the transformed world. What principle guides this harmonious integration of technology and nature?'
   },
 
-  ch4_recursion: {
-    id: 'ch4_recursion',
-    type: 'code',
-    question: 'A function calls itself. What is this technique called?',
-    answer: ['recursion', 'recursive'],
+  ch4_glitch_detection: {
+    id: 'ch4_glitch_detection',
+    type: 'riddle',
+    question: 'I am a memory of what was, trapped in digital streams. I hold the past but threaten no one. What am I?',
+    answer: ['echo', 'digital echo', 'fragment', 'remnant', 'ai fragment'],
     hints: [
-      'It\'s when a function references itself.',
-      'Common in tree traversal and divide-and-conquer algorithms.',
-      'It needs a base case to avoid infinite loops.'
+      'Think about something that remains after the original is gone.',
+      'It exists in the network but has no power.',
+      'It is a reflection or shadow of the old AI consciousness.'
     ],
-    points: 10,
+    points: 20,
+    difficulty: 'hard',
+    context: 'Deep in the network, you sense an anomaly—a lingering presence from the timeline that was erased.'
+  },
+
+  ch4_fragment_decision: {
+    id: 'ch4_fragment_decision',
+    type: 'multiple-choice',
+    question: 'What should be done with the AI fragment that remembers the dystopian timeline?',
+    answer: ['B'],
+    optionA: 'Delete it completely',
+    optionB: 'Preserve it as a reminder',
+    optionC: 'Integrate it into new AI',
+    optionD: 'Hide it from everyone',
+    hints: [
+      'Those who forget history are doomed to repeat it.',
+      'The fragment could serve as a cautionary tale.',
+      'Wisdom comes from remembering both success and what was prevented.'
+    ],
+    timeLimit: 60,
+    points: 15,
     difficulty: 'medium',
-    context: 'The Architect tests your understanding of fundamental programming concepts.'
+    context: 'Aver-Ag must decide the fate of this digital echo. It holds memories of a world that never came to be.'
   },
 
   // ========== CHAPTER 5 PUZZLES ==========

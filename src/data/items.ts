@@ -226,8 +226,9 @@ export const PUZZLE_REWARDS: Record<string, string[]> = {
   'ch3_logic_puzzle': ['meditation_app'],
 
   // Chapter 4 puzzles
-  'ch4_keyboard_shortcut': ['code_review'],
-  'ch4_recursion': ['quantum_key'],
+  'ch4_world_assessment': ['time_crystal'],
+  'ch4_glitch_detection': ['quantum_key'],
+  'ch4_fragment_decision': ['code_review'],
 
   // Chapter 5 puzzles
   'ch5_async_await': ['ai_core_fragment'],

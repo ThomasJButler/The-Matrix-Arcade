@@ -15,9 +15,11 @@ export interface GameItem {
   id: string;
   name: string;
   description: string;
-  icon: string;
-  usesRemaining?: number;
-  collectible: boolean;
+  type: 'quest' | 'consumable' | 'collectible' | 'special';
+  usable: boolean;
+  effect?: string;
+  quantity?: number;
+  acquiredAt?: string;
 }
 
 export interface GameState {
@@ -67,7 +69,7 @@ export interface GameStateContextType {
   setMorale: (value: number) => void;
 
   // Inventory
-  addItem: (item: GameItem) => void;
+  addItem: (item: Omit<GameItem, 'quantity' | 'acquiredAt'>) => void;
   removeItem: (itemId: string) => void;
   useItem: (itemId: string) => void;
   hasItem: (itemId: string) => boolean;
@@ -254,10 +256,15 @@ export const GameStateProvider: React.FC<{ children: ReactNode }> = ({ children 
   }, []);
 
   // ========== INVENTORY ==========
-  const addItem = useCallback((item: GameItem) => {
+  const addItem = useCallback((item: Omit<GameItem, 'quantity' | 'acquiredAt'>) => {
+    const fullItem: GameItem = {
+      ...item,
+      quantity: 1,
+      acquiredAt: new Date().toISOString()
+    };
     setState(prev => ({
       ...prev,
-      inventory: [...prev.inventory, item]
+      inventory: [...prev.inventory, fullItem]
     }));
   }, []);
 
@@ -272,10 +279,10 @@ export const GameStateProvider: React.FC<{ children: ReactNode }> = ({ children 
     setState(prev => ({
       ...prev,
       inventory: prev.inventory.map(item => {
-        if (item.id === itemId && item.usesRemaining) {
-          const remaining = item.usesRemaining - 1;
+        if (item.id === itemId && item.quantity) {
+          const remaining = item.quantity - 1;
           return remaining > 0
-            ? { ...item, usesRemaining: remaining }
+            ? { ...item, quantity: remaining }
             : null;
         }
         return item;

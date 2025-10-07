@@ -57,13 +57,13 @@ const StatDisplay: React.FC<StatDisplayProps> = ({
 
   return (
     <motion.div
-      className="bg-black/80 border border-green-500/50 rounded-lg p-2 backdrop-blur-sm"
+      className="bg-black/80 border border-green-500/50 rounded-lg p-3 px-4 backdrop-blur-sm"
       initial={{ scale: 1 }}
       animate={showDelta && delta !== 0 ? { scale: [1, 1.05, 1] } : {}}
       transition={{ duration: 0.3 }}
     >
       {/* Header */}
-      <div className="flex items-center gap-2 mb-1">
+      <div className="flex items-center gap-3 mb-1">
         <div className={`${getColor()} flex-shrink-0`}>
           {icon}
         </div>
