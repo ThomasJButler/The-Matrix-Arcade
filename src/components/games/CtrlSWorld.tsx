@@ -361,7 +361,7 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
 
   // Paged display state
   const [paragraphsDisplayedOnPage, setParagraphsDisplayedOnPage] = useState(0);
-  const PARAGRAPHS_PER_PAGE = 7;
+  const PARAGRAPHS_PER_PAGE = 5;
 
   // Puzzle state
   const [showPuzzle, setShowPuzzle] = useState(false);
@@ -447,7 +447,13 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
     } else {
       // Paragraph finished typing - add it to displayed texts and move to next
       setIsTyping(false);
-      setDisplayedTexts(prev => [...prev, text]); // Add completed paragraph to display
+      setDisplayedTexts(prev => {
+        // Prevent duplicate additions
+        if (prev.length > 0 && prev[prev.length - 1] === text) {
+          return prev; // Already added, don't duplicate
+        }
+        return [...prev, text];
+      });
       setCurrentText(''); // Clear current text since it's now in displayedTexts
       setParagraphsDisplayedOnPage(prev => prev + 1);
       scrollToBottom(true); // Force scroll when paragraph completes
@@ -919,7 +925,7 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
       {/* Main Content */}
       <div
         ref={terminalRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden p-4 scroll-smooth"
+        className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-32 scroll-smooth"
         style={{
           scrollbarWidth: 'auto',
           scrollbarColor: '#00ff00 #1a1a1a'
@@ -968,7 +974,7 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
             )}
 
             {/* Story content area */}
-            <div data-testid="story-content" tabIndex={-1} className="space-y-4">
+            <div data-testid="story-content" tabIndex={-1} className="space-y-4 pb-40 mb-8 min-h-[70vh]">
               {/* Previously displayed texts */}
               {displayedTexts.map((text, index) => {
                 // Check if this is a chapter separator
@@ -1008,8 +1014,8 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
 
       {/* Controls */}
       {isStarted && (
-        <div className="p-2 border-t border-green-500">
-          <div className="flex justify-between items-center">
+        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-30 backdrop-blur-sm bg-black/80 px-6 py-3 rounded-lg border border-green-500/30 shadow-lg">
+          <div className="flex justify-between items-center gap-4">
             <div className="text-sm text-green-400">
               Press <kbd className="px-2 py-1 bg-green-900 rounded">Space</kbd> or{' '}
               <kbd className="px-2 py-1 bg-green-900 rounded">Enter</kbd> to continue
