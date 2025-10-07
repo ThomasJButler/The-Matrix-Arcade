@@ -447,19 +447,27 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
     } else {
       // Paragraph finished typing - add it to displayed texts and move to next
       setIsTyping(false);
-      setDisplayedTexts(prev => {
-        // Prevent duplicate additions
-        if (prev.length > 0 && prev[prev.length - 1] === text) {
-          return prev; // Already added, don't duplicate
-        }
-        return [...prev, text];
-      });
+
+      // Check if page will be full BEFORE adding this paragraph
+      const willPageBeFull = paragraphsDisplayedOnPage >= PARAGRAPHS_PER_PAGE - 1;
+
+      // Only add to displayed texts if page won't be clearing immediately
+      if (!willPageBeFull) {
+        setDisplayedTexts(prev => {
+          // Prevent duplicate additions
+          if (prev.length > 0 && prev[prev.length - 1] === text) {
+            return prev; // Already added, don't duplicate
+          }
+          return [...prev, text];
+        });
+      }
+
       setCurrentText(''); // Clear current text since it's now in displayedTexts
       setParagraphsDisplayedOnPage(prev => prev + 1);
       scrollToBottom(true); // Force scroll when paragraph completes
 
-      // Check if page is full (7 paragraphs shown)
-      if (paragraphsDisplayedOnPage >= PARAGRAPHS_PER_PAGE - 1) {
+      // Check if page is full (5 paragraphs shown)
+      if (willPageBeFull) {
         // PAGE COMPLETE - pause, then clear and continue
         setTimeout(() => {
           setDisplayedTexts([]); // Clear screen
@@ -925,7 +933,7 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
       {/* Main Content */}
       <div
         ref={terminalRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-32 scroll-smooth"
+        className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-20 scroll-smooth"
         style={{
           scrollbarWidth: 'auto',
           scrollbarColor: '#00ff00 #1a1a1a'
@@ -974,7 +982,7 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
             )}
 
             {/* Story content area */}
-            <div data-testid="story-content" tabIndex={-1} className="space-y-4 pb-40 mb-8 min-h-[70vh]">
+            <div data-testid="story-content" tabIndex={-1} className="space-y-4 pb-24 mb-4 min-h-[60vh]">
               {/* Previously displayed texts */}
               {displayedTexts.map((text, index) => {
                 // Check if this is a chapter separator
