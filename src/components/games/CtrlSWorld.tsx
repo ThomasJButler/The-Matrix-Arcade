@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Terminal as TerminalIcon, ChevronRight, Info, Play, Pause, Maximize, Minimize } from 'lucide-react';
+import { Terminal as TerminalIcon, ChevronRight, ChevronLeft, Info, Play, Pause, Maximize, Minimize } from 'lucide-react';
 import { PuzzleModal } from '../ui/PuzzleModal';
 import { getPuzzleById } from '../../data/puzzles';
 import { useGameState } from '../../contexts/GameStateContext';
@@ -71,6 +71,9 @@ const STORY: StoryNode[] = [
       "In Silicon Valley, a beacon of hope flickered in a secret bunker, known to a select few.",
       "Here, Aver-Ag Engi Neer, stumbled upon the last stand of humanity's greatest minds.",
       "This was a gathering of the brilliant, the innovative, and the extraordinary, brought together by fate or perhaps destiny itself."
+    ],
+    puzzleTriggers: [
+      { afterIndex: 4, puzzleId: 'prologue_first_command' }
     ]
   },
   {
@@ -165,7 +168,8 @@ const STORY: StoryNode[] = [
       { afterIndex: 12, puzzleId: 'ch2_valley_riddle_2' },
       { afterIndex: 13, puzzleId: 'ch2_valley_riddle_3' },
       { afterIndex: 19, puzzleId: 'ch2_console_log' },
-      { afterIndex: 23, puzzleId: 'ch2_bug_riddle' }
+      { afterIndex: 21, puzzleId: 'ch2_bug_riddle' },
+      { afterIndex: 23, puzzleId: 'ch2_ethics_module_activation' }
     ]
   },
   {
@@ -276,8 +280,11 @@ const STORY: StoryNode[] = [
     ],
     puzzleTriggers: [
       { afterIndex: 11, puzzleId: 'ch4_world_assessment' },
+      { afterIndex: 20, puzzleId: 'ch4_pattern_recognition' },
+      { afterIndex: 25, puzzleId: 'ch4_emotional_intelligence' },
       { afterIndex: 28, puzzleId: 'ch4_glitch_detection' },
-      { afterIndex: 33, puzzleId: 'ch4_fragment_decision' }
+      { afterIndex: 33, puzzleId: 'ch4_fragment_decision' },
+      { afterIndex: 35, puzzleId: 'ch4_code_analysis' }
     ]
   },
   {
@@ -320,6 +327,9 @@ const STORY: StoryNode[] = [
       "As the sun rose on this new dawn, the world watched with hopeful eyes.",
       "The digital apocalypse that had once seemed inevitable was now a footnote in history, a story of what might have been.",
       "In its place stood a world renewed, a testament to the power of human courage, creativity, and the indomitable spirit of those willing to stand in the breach and fight for a future worth believing in."
+    ],
+    puzzleTriggers: [
+      { afterIndex: 15, puzzleId: 'ch5_final_wisdom' }
     ]
   }
 ];
@@ -362,6 +372,16 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
   // Paged display state
   const [paragraphsDisplayedOnPage, setParagraphsDisplayedOnPage] = useState(0);
   const PARAGRAPHS_PER_PAGE = 5;
+
+  // Navigation history state
+  type ParagraphHistoryEntry = {
+    text: string;
+    chapterNode: number;
+    paragraphIndex: number;
+  };
+  const [paragraphHistory, setParagraphHistory] = useState<ParagraphHistoryEntry[]>([]);
+  const [viewingHistoryIndex, setViewingHistoryIndex] = useState<number | null>(null);
+  const [isViewingHistory, setIsViewingHistory] = useState(false);
 
   // Puzzle state
   const [showPuzzle, setShowPuzzle] = useState(false);
@@ -451,18 +471,16 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
       // Check if page will be full BEFORE adding this paragraph
       const willPageBeFull = paragraphsDisplayedOnPage >= PARAGRAPHS_PER_PAGE - 1;
 
-      // Only add to displayed texts if page won't be clearing immediately
-      if (!willPageBeFull) {
-        setDisplayedTexts(prev => {
-          // Prevent duplicate additions
-          if (prev.length > 0 && prev[prev.length - 1] === text) {
-            return prev; // Already added, don't duplicate
-          }
-          return [...prev, text];
-        });
-      }
+      // Add to displayed texts (will be cleared immediately if page full)
+      setDisplayedTexts(prev => {
+        // Prevent duplicate additions
+        if (prev.length > 0 && prev[prev.length - 1] === text) {
+          return prev; // Already added, don't duplicate
+        }
+        return [...prev, text];
+      });
 
-      setCurrentText(''); // Clear current text since it's now in displayedTexts
+      setCurrentText(''); // Clear current text immediately
       setParagraphsDisplayedOnPage(prev => prev + 1);
       scrollToBottom(true); // Force scroll when paragraph completes
 
@@ -615,17 +633,39 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
     }
   }, [currentNode, currentTextIndex, currentCharIndex, scrollToBottom, isPaused, gameState.state.completedPuzzles, paragraphsDisplayedOnPage, PARAGRAPHS_PER_PAGE]);
 
+  // Handle returning to live story from history view
+  const returnToLive = useCallback(() => {
+    setIsViewingHistory(false);
+    setViewingHistoryIndex(null);
+    setIsTyping(true);
+    setCurrentText('');
+    setCurrentCharIndex(0);
+    // Restore current display
+    setDisplayedTexts([]);
+    setParagraphsDisplayedOnPage(0);
+  }, []);
+
   const handleNext = useCallback(() => {
+    // If viewing history, return to live story
+    if (isViewingHistory) {
+      returnToLive();
+      return;
+    }
+
+    // Don't allow advancing while typing - users must wait for paragraph to complete
     if (isTyping) {
-      // Complete current text immediately
-      const fullText = STORY[currentNode].content[currentTextIndex];
-      setCurrentText(fullText);
-      setCurrentCharIndex(fullText.length);
-      setIsTyping(false);
-      scrollToBottom(true); // Force scroll when completing text
-    } else {
-      // Add completed text to displayed texts - KEEP FULL HISTORY for scrolling
+      return;
+    }
+
+    // Proceed with normal flow when typing is complete
+    {
+      // Add completed text to displayed texts AND history
       setDisplayedTexts(prev => [...prev, currentText]);
+      setParagraphHistory(prev => [...prev, {
+        text: currentText,
+        chapterNode: currentNode,
+        paragraphIndex: currentTextIndex
+      }]);
       setParagraphsDisplayedOnPage(prev => prev + 1);
 
       // Check if page is full
@@ -709,7 +749,38 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
         scrollToBottom(true); // Force scroll on next
       }
     }
-  }, [isTyping, currentNode, currentTextIndex, currentText, scrollToBottom, paragraphsDisplayedOnPage, PARAGRAPHS_PER_PAGE]);
+  }, [isTyping, currentNode, currentTextIndex, currentText, scrollToBottom, paragraphsDisplayedOnPage, PARAGRAPHS_PER_PAGE, isViewingHistory, returnToLive]);
+
+  // Handle going back to previous paragraphs
+  const handlePrevious = useCallback(() => {
+    if (paragraphHistory.length === 0) return;
+
+    // If currently viewing history, go back further
+    if (isViewingHistory && viewingHistoryIndex !== null) {
+      const newIndex = Math.max(0, viewingHistoryIndex - PARAGRAPHS_PER_PAGE);
+      setViewingHistoryIndex(newIndex);
+
+      // Get the paragraphs to display
+      const paragraphsToShow = paragraphHistory
+        .slice(newIndex, newIndex + PARAGRAPHS_PER_PAGE)
+        .map(entry => entry.text);
+      setDisplayedTexts(paragraphsToShow);
+    } else {
+      // First time going back - show last page from history
+      const startIndex = Math.max(0, paragraphHistory.length - PARAGRAPHS_PER_PAGE);
+      setViewingHistoryIndex(startIndex);
+      setIsViewingHistory(true);
+
+      const paragraphsToShow = paragraphHistory
+        .slice(startIndex, startIndex + PARAGRAPHS_PER_PAGE)
+        .map(entry => entry.text);
+      setDisplayedTexts(paragraphsToShow);
+      setCurrentText(''); // Clear typing text
+      setIsTyping(false); // Stop typing
+    }
+
+    scrollToBottom(true);
+  }, [paragraphHistory, isViewingHistory, viewingHistoryIndex, PARAGRAPHS_PER_PAGE, scrollToBottom]);
 
   // Handle puzzle completion
   const handlePuzzleComplete = useCallback((success: boolean, hintsUsed: number) => {
@@ -828,8 +899,10 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
 
       if (!isStarted) return;
 
-      if (e.key === 'Enter' || e.key === ' ') {
-        handleNext();
+      // Removed Enter/Space/ArrowRight shortcuts to prevent accidental skipping
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handlePrevious();
       } else if (e.key === 'p' || e.key === 'P') {
         togglePause();
       } else if (e.key === 'f' || e.key === 'F') {
@@ -839,7 +912,7 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [handleNext, isStarted]);
+  }, [handleNext, handlePrevious, isStarted]);
 
   // Detect user manual scrolling
   useEffect(() => {
@@ -861,7 +934,7 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
 
   useEffect(() => {
     if (isStarted && !isPaused && isTyping) {
-      const timer = setTimeout(typeNextCharacter, 45); // Increased from 30ms to 45ms for more reliable typing
+      const timer = setTimeout(typeNextCharacter, 15); // Fast typing speed for better UX
       return () => clearTimeout(timer);
     }
   }, [isStarted, isPaused, isTyping, typeNextCharacter]);
@@ -958,19 +1031,24 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
           </div>
         ) : (
           <>
+            {/* ASCII Art - Fixed at top-left of page */}
+            {STORY[currentNode] && STORY[currentNode].ascii && (
+              <div
+                data-testid="ascii-art"
+                className="mt-6 mb-6 p-4 bg-black/40 border border-green-500/20 rounded whitespace-pre font-mono text-xs leading-tight inline-block"
+              >
+                {STORY[currentNode].ascii.map((line, index) => (
+                  <div key={index} className="text-green-500">{line}</div>
+                ))}
+              </div>
+            )}
+
             {/* Chapter Title */}
             {STORY[currentNode] && (
               <div className="mb-6">
-                <h2 className="text-2xl font-bold text-green-400 mb-2">
+                <h2 className="text-2xl font-bold text-green-400 mb-4">
                   {STORY[currentNode].title}
                 </h2>
-                {STORY[currentNode].ascii && (
-                  <div data-testid="ascii-art" className="mb-4 whitespace-pre font-mono">
-                    {STORY[currentNode].ascii.map((line, index) => (
-                      <div key={index} className="text-green-500">{line}</div>
-                    ))}
-                  </div>
-                )}
               </div>
             )}
 
@@ -982,7 +1060,7 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
             )}
 
             {/* Story content area */}
-            <div data-testid="story-content" tabIndex={-1} className="space-y-4 pb-24 mb-4 min-h-[60vh]">
+            <div data-testid="story-content" tabIndex={-1} className="space-y-4 pb-40 mb-8 min-h-[62vh]">
               {/* Previously displayed texts */}
               {displayedTexts.map((text, index) => {
                 // Check if this is a chapter separator
@@ -1008,11 +1086,11 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
                 );
               })}
 
-              {/* Currently typing text - only show if there's text to show */}
-              {(isTyping || currentText) && (
+              {/* Currently typing text - only show while actively typing */}
+              {isTyping && currentText && (
                 <p className="text-green-500 leading-relaxed">
                   {currentText}
-                  {isTyping && <span className="animate-pulse ml-1">█</span>}
+                  <span className="animate-pulse ml-1">█</span>
                 </p>
               )}
             </div>
@@ -1024,16 +1102,65 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
       {isStarted && (
         <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-30 backdrop-blur-sm bg-black/80 px-6 py-3 rounded-lg border border-green-500/30 shadow-lg">
           <div className="flex justify-between items-center gap-4">
-            <div className="text-sm text-green-400">
-              Press <kbd className="px-2 py-1 bg-green-900 rounded">Space</kbd> or{' '}
-              <kbd className="px-2 py-1 bg-green-900 rounded">Enter</kbd> to continue
-            </div>
+            {/* Left side - Previous button */}
             <button
-              onClick={handleNext}
-              className="flex items-center gap-2 px-4 py-2 bg-green-900 hover:bg-green-800 rounded text-sm"
+              onClick={handlePrevious}
+              disabled={paragraphHistory.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-green-900 hover:bg-green-800 rounded text-sm disabled:opacity-30 disabled:cursor-not-allowed"
             >
-              {isTyping ? "Skip" : "Continue"} <ChevronRight className="w-4 h-4" />
+              <ChevronLeft className="w-4 h-4" /> Previous
             </button>
+
+            {/* Center - Status info */}
+            <div className="text-sm text-green-400 text-center">
+              {isViewingHistory ? (
+                <div className="flex flex-col">
+                  <span className="text-yellow-400 font-semibold">Viewing History</span>
+                  <span className="text-xs">Press Next to return to story</span>
+                </div>
+              ) : (
+                <div className="flex flex-col">
+                  <span>
+                    <kbd className="px-2 py-1 bg-green-900 rounded">←</kbd> Previous
+                  </span>
+                  {paragraphHistory.length > 0 && (
+                    <span className="text-xs text-green-500/60">
+                      {paragraphHistory.length} paragraphs in history
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Right side - Continue & Resume Puzzle buttons */}
+            <div className="flex gap-2">
+              {/* Resume Puzzle button - shows when puzzle was closed but not completed */}
+              {currentPuzzleId && !showPuzzle && (
+                <button
+                  onClick={() => {
+                    setShowPuzzle(true);
+                    setIsPaused(true);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-yellow-900 hover:bg-yellow-800 rounded text-sm border-2 border-yellow-500/50"
+                >
+                  🎯 Resume Puzzle
+                </button>
+              )}
+
+              {/* Continue button */}
+              <button
+                onClick={handleNext}
+                disabled={isTyping || showPuzzle}
+                className={`flex items-center gap-2 px-4 py-2 rounded text-sm ${
+                  isTyping || showPuzzle
+                    ? 'bg-gray-700 text-gray-400 cursor-not-allowed opacity-50'
+                    : 'bg-green-900 hover:bg-green-800'
+                }`}
+              >
+                {isViewingHistory ? "Return to Story" : "Continue"}{' '}
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}

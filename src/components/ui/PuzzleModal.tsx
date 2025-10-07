@@ -43,6 +43,9 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
   const [timeRemaining, setTimeRemaining] = useState(puzzle.timeLimit || 0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<'correct' | 'incorrect' | null>(null);
+  const [attempts, setAttempts] = useState(0);
+  const [showAnswer, setShowAnswer] = useState(false);
+  const MAX_ATTEMPTS = 3;
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Reset state when puzzle changes
@@ -54,6 +57,8 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
       setTimeRemaining(puzzle.timeLimit || 0);
       setIsSubmitting(false);
       setResult(null);
+      setAttempts(0);
+      setShowAnswer(false);
 
       // Focus input after modal opens
       setTimeout(() => {
@@ -106,18 +111,45 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
   const handleSubmit = (timedOut: boolean = false) => {
     if (isSubmitting) return;
 
-    setIsSubmitting(true);
-
     const isCorrect = !timedOut && checkAnswer(userAnswer);
-    setResult(isCorrect ? 'correct' : 'incorrect');
 
-    playSFX?.(isCorrect ? 'score' : 'death');
+    if (isCorrect) {
+      // Correct answer!
+      setResult('correct');
+      setIsSubmitting(true);
+      playSFX?.('score');
 
-    // Show result for 2 seconds, then close
-    setTimeout(() => {
-      onComplete(isCorrect, hintsUsed);
-      onClose();
-    }, 2000);
+      // Show result for 2 seconds, then close
+      setTimeout(() => {
+        onComplete(true, hintsUsed);
+        onClose();
+      }, 2000);
+    } else {
+      // Incorrect answer
+      const newAttempts = attempts + 1;
+      setAttempts(newAttempts);
+      setResult('incorrect');
+      playSFX?.('death');
+
+      if (newAttempts >= MAX_ATTEMPTS) {
+        // Out of attempts - show correct answer
+        setShowAnswer(true);
+        setIsSubmitting(true);
+
+        // Auto-close after 4 seconds to give time to read answer
+        setTimeout(() => {
+          onComplete(false, hintsUsed);
+          onClose();
+        }, 4000);
+      } else {
+        // Still have attempts left - allow retry
+        setTimeout(() => {
+          setResult(null);
+          setUserAnswer('');
+          inputRef.current?.focus();
+        }, 1500);
+      }
+    }
   };
 
   // Handle Enter key
@@ -332,9 +364,15 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
                       <XCircle className="w-6 h-6 text-red-400" />
                       <div>
                         <p className="font-mono font-bold">INCORRECT</p>
-                        <p className="text-sm opacity-80">
-                          The answer was: {Array.isArray(puzzle.answer) ? puzzle.answer[0] : puzzle.answer}
-                        </p>
+                        {showAnswer ? (
+                          <p className="text-sm opacity-80">
+                            The correct answer was: <span className="font-bold text-yellow-300">{Array.isArray(puzzle.answer) ? puzzle.answer[0] : puzzle.answer}</span>
+                          </p>
+                        ) : (
+                          <p className="text-sm opacity-80">
+                            Attempts remaining: {MAX_ATTEMPTS - attempts}/{MAX_ATTEMPTS}
+                          </p>
+                        )}
                       </div>
                     </>
                   )}

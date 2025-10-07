@@ -207,6 +207,9 @@ export const getTotalItemCount = (): number => {
 // ============================================================================
 
 export const PUZZLE_REWARDS: Record<string, string[]> = {
+  // Prologue puzzles
+  'prologue_first_command': ['coffee_beans'],
+
   // Chapter 1 puzzles
   'ch1_team_quiz': ['team_photo'],
   'ch1_bunker_code': ['hacker_badge'],
@@ -217,6 +220,7 @@ export const PUZZLE_REWARDS: Record<string, string[]> = {
   'ch2_valley_riddle_3': [], // Part of silicon_valley_riddles
   'ch2_console_log': ['coffee_beans'],
   'ch2_bug_riddle': ['server_manual'],
+  'ch2_ethics_module_activation': ['quantum_key'],
 
   // Chapter 3 puzzles
   'ch3_ada_language': ['mechanical_keyboard'],
@@ -229,10 +233,14 @@ export const PUZZLE_REWARDS: Record<string, string[]> = {
   'ch4_world_assessment': ['time_crystal'],
   'ch4_glitch_detection': ['quantum_key'],
   'ch4_fragment_decision': ['code_review'],
+  'ch4_pattern_recognition': ['hacker_badge'],
+  'ch4_code_analysis': ['server_manual'],
+  'ch4_emotional_intelligence': ['meditation_app'],
 
   // Chapter 5 puzzles
   'ch5_async_await': ['ai_core_fragment'],
   'ch5_git_riddle': ['golden_commit'],
+  'ch5_final_wisdom': ['meditation_app'],
 
   // Bonus puzzles
   'bonus_closure': ['red_pill'],

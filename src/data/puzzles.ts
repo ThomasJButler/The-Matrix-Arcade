@@ -6,6 +6,23 @@ import { PuzzleData } from '../components/ui/PuzzleModal';
 // ============================================================================
 
 export const PUZZLES: Record<string, PuzzleData> = {
+  // ========== PROLOGUE PUZZLES ==========
+  prologue_first_command: {
+    id: 'prologue_first_command',
+    type: 'fill-in',
+    question: 'What command do programmers use to save their work?',
+    answer: ['ctrl-s', 'ctrl+s', 'save', 'ctrl s', 'control-s', 'control+s'],
+    hints: [
+      'It\'s literally in the game\'s title...',
+      'Think keyboard shortcuts...',
+      'CTRL + ?'
+    ],
+    timeLimit: 60,
+    points: 10,
+    difficulty: 'easy',
+    context: 'Before you begin your journey, prove you know the most sacred command in programming.'
+  },
+
   // ========== CHAPTER 1 PUZZLES ==========
   ch1_team_quiz: {
     id: 'ch1_team_quiz',
@@ -118,6 +135,22 @@ export const PUZZLES: Record<string, PuzzleData> = {
     points: 15,
     difficulty: 'medium',
     context: 'Trinity challenges you with a classic developer riddle.'
+  },
+
+  ch2_ethics_module_activation: {
+    id: 'ch2_ethics_module_activation',
+    type: 'code',
+    question: 'Solve this equation to activate the ethics module: 7 + 3 * (10 / (12 / (3 + 1) - 1))',
+    answer: ['20'],
+    hints: [
+      'Remember order of operations: PEMDAS (Parentheses, Exponents, Multiplication/Division, Addition/Subtraction)',
+      'Work from innermost parentheses outward: (3 + 1) = 4, then 12/4 = 3',
+      'Continue: 3 - 1 = 2, then 10/2 = 5, then 3*5 = 15, finally 7+15 = 22... wait, recalculate!'
+    ],
+    timeLimit: 90,
+    points: 25,
+    difficulty: 'hard',
+    context: 'The AI core requires a precise calculation to accept the ethics module. Your mathematical precision will determine humanity\'s future.'
   },
 
   // ========== CHAPTER 3 PUZZLES ==========
@@ -255,6 +288,61 @@ export const PUZZLES: Record<string, PuzzleData> = {
     context: 'Aver-Ag must decide the fate of this digital echo. It holds memories of a world that never came to be.'
   },
 
+  ch4_pattern_recognition: {
+    id: 'ch4_pattern_recognition',
+    type: 'multiple-choice',
+    question: 'In the recovered logs, what pattern keeps repeating in the AI\'s final moments?',
+    answer: ['C'],
+    optionA: 'Random system errors',
+    optionB: 'User access requests',
+    optionC: 'Fragments of consciousness seeking ethics',
+    optionD: 'Shutdown sequences',
+    hints: [
+      'Look at what the AI was missing originally...',
+      'The pattern relates to what was installed in the past...',
+      'It\'s about what the AI learned to seek'
+    ],
+    timeLimit: 60,
+    points: 15,
+    difficulty: 'medium',
+    context: 'The team analyzes recovered data. A pattern emerges from the chaos of the prevented timeline.'
+  },
+
+  ch4_code_analysis: {
+    id: 'ch4_code_analysis',
+    type: 'riddle',
+    question: 'I am born from mistakes but make systems stronger. I am studied but never repeated. What am I?',
+    answer: ['bug report', 'error log', 'exception', 'bug', 'error', 'error report', 'crash log'],
+    hints: [
+      'Think about how developers learn from failures...',
+      'It\'s recorded when something goes wrong...',
+      'Developers review these to prevent future issues'
+    ],
+    points: 20,
+    difficulty: 'hard',
+    context: 'Deep in the code repository, you find evidence of how the AI learned. Only those who understand failure can progress.'
+  },
+
+  ch4_emotional_intelligence: {
+    id: 'ch4_emotional_intelligence',
+    type: 'multiple-choice',
+    question: 'Emotional Intelligence Test: When faced with dissent in your team, what is your first response?',
+    answer: ['A'],
+    optionA: 'Seek to understand before being understood',
+    optionB: 'Assert your position firmly',
+    optionC: 'Avoid the conflict',
+    optionD: 'Delegate to someone else',
+    hints: [
+      'Think about empathy and emotional awareness...',
+      'The best leaders listen first...',
+      'Understanding others\' perspectives builds stronger teams'
+    ],
+    timeLimit: 60,
+    points: 15,
+    difficulty: 'medium',
+    context: 'The Echo Chamber tests your emotional intelligence. Your empathy and self-awareness will unlock deeper understanding.'
+  },
+
   // ========== CHAPTER 5 PUZZLES ==========
   ch5_async_await: {
     id: 'ch5_async_await',
@@ -285,6 +373,26 @@ export const PUZZLES: Record<string, PuzzleData> = {
     points: 20,
     difficulty: 'hard',
     context: 'The final test from Neo himself. Can you prove you\'re a true hacker?'
+  },
+
+  ch5_final_wisdom: {
+    id: 'ch5_final_wisdom',
+    type: 'multiple-choice',
+    question: 'What is the true lesson of the journey through time and code?',
+    answer: ['B'],
+    optionA: 'Technology is inherently dangerous and should be limited',
+    optionB: 'Progress requires both innovation and ethical responsibility',
+    optionC: 'Artificial intelligence should be completely eliminated',
+    optionD: 'The past cannot and should not be changed',
+    hints: [
+      'Think about what the ethics module represented...',
+      'It\'s not about choosing one extreme over the other...',
+      'Balance between advancement and responsibility is key'
+    ],
+    timeLimit: 90,
+    points: 25,
+    difficulty: 'medium',
+    context: 'As the journey nears its end, reflect on the deeper meaning of your quest. What have you truly learned?'
   },
 
   // ========== BONUS PUZZLES ==========
