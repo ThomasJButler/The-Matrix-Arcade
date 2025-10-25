@@ -204,7 +204,7 @@ const SnakeCanvas: React.FC<SnakeCanvasProps> = ({
 
       switch (powerUp.type) {
         case 'speed':
-          powerUpChar = '⚡';
+          powerUpChar = 'SPD';
           powerUpColor = '#ffff00';
           glowColor = '#ffff0080';
           break;
@@ -214,12 +214,12 @@ const SnakeCanvas: React.FC<SnakeCanvasProps> = ({
           glowColor = '#0099ff80';
           break;
         case 'shield':
-          powerUpChar = '🛡';
+          powerUpChar = 'SHD';
           powerUpColor = '#ff00ff';
           glowColor = '#ff00ff80';
           break;
         case 'ghost':
-          powerUpChar = '👻';
+          powerUpChar = 'GHO';
           powerUpColor = '#00ffff';
           glowColor = '#00ffff80';
           break;
@@ -526,7 +526,7 @@ export default function SimpleSnake({ achievementManager, isMuted }: SimpleSnake
           <div className="max-w-6xl mx-auto mt-2 flex items-center gap-3">
             {gameState.activePowerUps.speed && gameState.activePowerUps.speed > Date.now() && (
               <div className="flex items-center gap-1 text-yellow-400 animate-pulse">
-                <span className="text-sm">⚡</span>
+                <Zap className="w-3 h-3" />
                 <span className="text-xs">SLOW</span>
               </div>
             )}

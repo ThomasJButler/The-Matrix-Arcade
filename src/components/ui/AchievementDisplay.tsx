@@ -1,3 +1,10 @@
+/**
+ * @author Tom Butler
+ * @date 2025-10-25
+ * @description Achievement display modal showing unlocked and locked achievements
+ *              with search, filtering, and statistics.
+ */
+
 import React, { useState, useMemo } from 'react';
 import { Trophy, Lock, X, Search, Star, Target, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,14 +24,6 @@ interface AchievementDisplayProps {
   onClose: () => void;
   achievements: Achievement[];
 }
-
-const gameIcons: Record<string, string> = {
-  'Snake Classic': '🐍',
-  'Vortex Pong': '🏓',
-  'Terminal Quest': '💻',
-  'CTRL-S World': '💾',
-  'Matrix Cloud': '☁️'
-};
 
 export const AchievementDisplay: React.FC<AchievementDisplayProps> = ({
   isOpen,
@@ -170,11 +169,10 @@ export const AchievementDisplay: React.FC<AchievementDisplayProps> = ({
                     onClick={() => setSelectedGame(game)}
                     className={`px-3 py-2 rounded font-mono text-sm transition-colors flex items-center gap-2 ${
                       selectedGame === game
-                        ? 'bg-green-500/20 text-green-300 border border-green-500' 
+                        ? 'bg-green-500/20 text-green-300 border border-green-500'
                         : 'bg-black/50 text-green-500/50 border border-green-500/30 hover:border-green-500/50'
                     }`}
                   >
-                    <span>{gameIcons[game] || '🎮'}</span>
                     {game}
                   </button>
                 ))}

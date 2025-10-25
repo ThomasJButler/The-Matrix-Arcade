@@ -94,83 +94,83 @@ export interface Achievement {
 // Achievement definitions with icons
 export const GAME_ACHIEVEMENTS: Record<string, Achievement[]> = {
   snakeClassic: [
-    { id: 'snake_first_apple', name: 'First Bite', description: 'Eat your first data fragment', icon: '🍎', game: 'Snake Classic' },
-    { id: 'snake_score_100', name: 'Century Mark', description: 'Score 100 points', icon: '💯', game: 'Snake Classic' },
-    { id: 'snake_score_500', name: 'Data Hoarder', description: 'Score 500 points', icon: '💾', game: 'Snake Classic' },
-    { id: 'snake_combo_10', name: 'Chain Reaction', description: 'Achieve 10x combo', icon: '⚡', game: 'Snake Classic' },
-    { id: 'snake_power_master', name: 'Power User', description: 'Collect 10 power-ups in one game', icon: '🔋', game: 'Snake Classic' },
-    { id: 'snake_survivor', name: 'Survival Expert', description: 'Survive for 5 minutes', icon: '⏱️', game: 'Snake Classic' },
-    { id: 'snake_speed_demon', name: 'Speed Demon', description: 'Score 100 points on max speed', icon: '🚀', game: 'Snake Classic' }
+    { id: 'snake_first_apple', name: 'First Bite', description: 'Eat your first data fragment', game: 'Snake Classic' },
+    { id: 'snake_score_100', name: 'Century Mark', description: 'Score 100 points', game: 'Snake Classic' },
+    { id: 'snake_score_500', name: 'Data Hoarder', description: 'Score 500 points', game: 'Snake Classic' },
+    { id: 'snake_combo_10', name: 'Chain Reaction', description: 'Achieve 10x combo', game: 'Snake Classic' },
+    { id: 'snake_power_master', name: 'Power User', description: 'Collect 10 power-ups in one game', game: 'Snake Classic' },
+    { id: 'snake_survivor', name: 'Survival Expert', description: 'Survive for 5 minutes', game: 'Snake Classic' },
+    { id: 'snake_speed_demon', name: 'Speed Demon', description: 'Score 100 points on max speed', game: 'Snake Classic' }
   ],
   vortexPong: [
-    { id: 'pong_first_point', name: 'First Strike', description: 'Score your first point', icon: '🎯', game: 'Vortex Pong' },
-    { id: 'pong_beat_ai', name: 'AI Destroyer', description: 'Defeat the AI opponent', icon: '🤖', game: 'Vortex Pong' },
-    { id: 'pong_perfect_game', name: 'Flawless Victory', description: 'Win without losing a point', icon: '✨', game: 'Vortex Pong' },
-    { id: 'pong_multi_ball', name: 'Ball Juggler', description: 'Handle 3 balls simultaneously', icon: '🎱', game: 'Vortex Pong' },
-    { id: 'pong_combo_king', name: 'Combo King', description: 'Score 5 consecutive paddle hits', icon: '👑', game: 'Vortex Pong' },
-    { id: 'pong_rally_master', name: 'Rally Master', description: '20 hits in a single rally', icon: '🏓', game: 'Vortex Pong' }
+    { id: 'pong_first_point', name: 'First Strike', description: 'Score your first point', game: 'Vortex Pong' },
+    { id: 'pong_beat_ai', name: 'AI Destroyer', description: 'Defeat the AI opponent', game: 'Vortex Pong' },
+    { id: 'pong_perfect_game', name: 'Flawless Victory', description: 'Win without losing a point', game: 'Vortex Pong' },
+    { id: 'pong_multi_ball', name: 'Ball Juggler', description: 'Handle 3 balls simultaneously', game: 'Vortex Pong' },
+    { id: 'pong_combo_king', name: 'Combo King', description: 'Score 5 consecutive paddle hits', game: 'Vortex Pong' },
+    { id: 'pong_rally_master', name: 'Rally Master', description: '20 hits in a single rally', game: 'Vortex Pong' }
   ],
   terminalQuest: [
-    { id: 'quest_first_choice', name: 'Path Chosen', description: 'Make your first choice', icon: '🛤️', game: 'Terminal Quest' },
-    { id: 'quest_tool_collector', name: 'Tool Collector', description: 'Collect 5 different items', icon: '🛠️', game: 'Terminal Quest' },
-    { id: 'quest_survivor', name: 'Digital Survivor', description: 'Maintain 100% health for 10 choices', icon: '❤️', game: 'Terminal Quest' },
-    { id: 'quest_code_master', name: 'Code Master', description: 'Achieve 90+ code quality', icon: '💻', game: 'Terminal Quest' },
-    { id: 'quest_team_leader', name: 'Team Leader', description: 'Maintain 80+ team morale', icon: '👥', game: 'Terminal Quest' },
-    { id: 'quest_combat_victor', name: 'Combat Victor', description: 'Win 10 battles', icon: '⚔️', game: 'Terminal Quest' },
-    { id: 'quest_story_end', name: 'Story Complete', description: 'Reach any ending', icon: '📖', game: 'Terminal Quest' }
+    { id: 'quest_first_choice', name: 'Path Chosen', description: 'Make your first choice', game: 'Terminal Quest' },
+    { id: 'quest_tool_collector', name: 'Tool Collector', description: 'Collect 5 different items', game: 'Terminal Quest' },
+    { id: 'quest_survivor', name: 'Digital Survivor', description: 'Maintain 100% health for 10 choices', game: 'Terminal Quest' },
+    { id: 'quest_code_master', name: 'Code Master', description: 'Achieve 90+ code quality', game: 'Terminal Quest' },
+    { id: 'quest_team_leader', name: 'Team Leader', description: 'Maintain 80+ team morale', game: 'Terminal Quest' },
+    { id: 'quest_combat_victor', name: 'Combat Victor', description: 'Win 10 battles', game: 'Terminal Quest' },
+    { id: 'quest_story_end', name: 'Story Complete', description: 'Reach any ending', game: 'Terminal Quest' }
   ],
   matrixCloud: [
-    { id: 'cloud_first_flight', name: 'Digital Pilot', description: 'Complete your first flight', icon: '✈️', game: 'Matrix Cloud' },
-    { id: 'cloud_level_5', name: 'Matrix Navigator', description: 'Reach level 5', icon: '🧭', game: 'Matrix Cloud' },
-    { id: 'cloud_boss_slayer', name: 'Agent Destroyer', description: 'Defeat your first boss', icon: '💀', game: 'Matrix Cloud' },
-    { id: 'cloud_power_collector', name: 'Power Seeker', description: 'Collect 20 power-ups', icon: '⚡', game: 'Matrix Cloud' },
-    { id: 'cloud_architect_defeat', name: 'Architect\'s Bane', description: 'Defeat the Architect', icon: '🏛️', game: 'Matrix Cloud' },
-    { id: 'cloud_all_bosses', name: 'Boss Master', description: 'Defeat all three bosses', icon: '👾', game: 'Matrix Cloud' },
-    { id: 'cloud_high_flyer', name: 'High Flyer', description: 'Reach altitude 1000', icon: '🌟', game: 'Matrix Cloud' }
+    { id: 'cloud_first_flight', name: 'Digital Pilot', description: 'Complete your first flight', game: 'Matrix Cloud' },
+    { id: 'cloud_level_5', name: 'Matrix Navigator', description: 'Reach level 5', game: 'Matrix Cloud' },
+    { id: 'cloud_boss_slayer', name: 'Agent Destroyer', description: 'Defeat your first boss', game: 'Matrix Cloud' },
+    { id: 'cloud_power_collector', name: 'Power Seeker', description: 'Collect 20 power-ups', game: 'Matrix Cloud' },
+    { id: 'cloud_architect_defeat', name: 'Architect\'s Bane', description: 'Defeat the Architect', game: 'Matrix Cloud' },
+    { id: 'cloud_all_bosses', name: 'Boss Master', description: 'Defeat all three bosses', game: 'Matrix Cloud' },
+    { id: 'cloud_high_flyer', name: 'High Flyer', description: 'Reach altitude 1000', game: 'Matrix Cloud' }
   ],
   matrixInvaders: [
-    { id: 'invaders_first_kill', name: 'Code Breaker', description: 'Destroy your first invader', icon: '💥', game: 'Matrix Invaders' },
-    { id: 'invaders_wave_5', name: 'Wave Survivor', description: 'Reach wave 5', icon: '🌊', game: 'Matrix Invaders' },
-    { id: 'invaders_combo_10', name: 'Combo Master', description: 'Achieve a 10x combo', icon: '🔥', game: 'Matrix Invaders' },
-    { id: 'invaders_bullet_time', name: 'Time Bender', description: 'Use bullet time 5 times', icon: '⏱️', game: 'Matrix Invaders' },
-    { id: 'invaders_perfect_wave', name: 'Flawless Defense', description: 'Complete a wave without taking damage', icon: '🛡️', game: 'Matrix Invaders' },
-    { id: 'invaders_boss_defeat', name: 'System Override', description: 'Defeat a boss enemy', icon: '👾', game: 'Matrix Invaders' },
-    { id: 'invaders_high_score', name: 'Elite Hacker', description: 'Score over 10,000 points', icon: '🏆', game: 'Matrix Invaders' }
+    { id: 'invaders_first_kill', name: 'Code Breaker', description: 'Destroy your first invader', game: 'Matrix Invaders' },
+    { id: 'invaders_wave_5', name: 'Wave Survivor', description: 'Reach wave 5', game: 'Matrix Invaders' },
+    { id: 'invaders_combo_10', name: 'Combo Master', description: 'Achieve a 10x combo', game: 'Matrix Invaders' },
+    { id: 'invaders_bullet_time', name: 'Time Bender', description: 'Use bullet time 5 times', game: 'Matrix Invaders' },
+    { id: 'invaders_perfect_wave', name: 'Flawless Defense', description: 'Complete a wave without taking damage', game: 'Matrix Invaders' },
+    { id: 'invaders_boss_defeat', name: 'System Override', description: 'Defeat a boss enemy', game: 'Matrix Invaders' },
+    { id: 'invaders_high_score', name: 'Elite Hacker', description: 'Score over 10,000 points', game: 'Matrix Invaders' }
   ],
   ctrlSWorld: [
-    { id: 'ctrl_coffee_addict', name: 'Caffeine Dependent', description: 'Reach 100% coffee level', icon: '☕', game: 'CTRL-S World' },
-    { id: 'ctrl_clean_coder', name: 'Clean Code Master', description: 'Achieve 90+ code quality', icon: '✨', game: 'CTRL-S World' },
-    { id: 'ctrl_choice_master', name: 'Decision Maker', description: 'Make 50 choices', icon: '🎯', game: 'CTRL-S World' },
-    { id: 'ctrl_story_complete', name: 'Epic Journey', description: 'Complete the main storyline', icon: '🏆', game: 'CTRL-S World' },
-    { id: 'ctrl_collector', name: 'Item Hoarder', description: 'Collect 10 different items', icon: '🎒', game: 'CTRL-S World' },
-    { id: 'ctrl_voice_master', name: 'Voice Commander', description: 'Use Shatner voice for 5 minutes', icon: '🎤', game: 'CTRL-S World' },
-    { id: 'ctrl_bug_free', name: 'Bug Free', description: 'Achieve 0 bugs', icon: '🐛', game: 'CTRL-S World' }
+    { id: 'ctrl_coffee_addict', name: 'Caffeine Dependent', description: 'Reach 100% coffee level', game: 'CTRL-S World' },
+    { id: 'ctrl_clean_coder', name: 'Clean Code Master', description: 'Achieve 90+ code quality', game: 'CTRL-S World' },
+    { id: 'ctrl_choice_master', name: 'Decision Maker', description: 'Make 50 choices', game: 'CTRL-S World' },
+    { id: 'ctrl_story_complete', name: 'Epic Journey', description: 'Complete the main storyline', game: 'CTRL-S World' },
+    { id: 'ctrl_collector', name: 'Item Hoarder', description: 'Collect 10 different items', game: 'CTRL-S World' },
+    { id: 'ctrl_voice_master', name: 'Voice Commander', description: 'Use Shatner voice for 5 minutes', game: 'CTRL-S World' },
+    { id: 'ctrl_bug_free', name: 'Bug Free', description: 'Achieve 0 bugs', game: 'CTRL-S World' }
   ],
   metris: [
-    { id: 'first_line', name: 'First Steps', description: 'Clear your first line', icon: '📊', game: 'Metris' },
-    { id: 'tetris', name: 'Tetris Master', description: 'Clear 4 lines at once', icon: '💎', game: 'Metris' },
-    { id: 'level_10', name: 'Speed Demon', description: 'Reach level 10', icon: '🚀', game: 'Metris' },
-    { id: 'high_roller', name: 'High Roller', description: 'Score 10,000 points', icon: '💰', game: 'Metris' },
-    { id: 'neos_apprentice', name: 'Neo\'s Apprentice', description: 'Use Bullet Time 10 times', icon: '⏱️', game: 'Metris' },
-    { id: 'line_clearer', name: 'Line Clearer', description: 'Clear 100 total lines', icon: '📈', game: 'Metris' },
-    { id: 'marathon_runner', name: 'Marathon Runner', description: 'Survive for 10 minutes', icon: '⏲️', game: 'Metris' },
-    { id: 'combo_king', name: 'Combo King', description: 'Achieve 5x combo multiplier', icon: '🔥', game: 'Metris' },
-    { id: 'perfect_start', name: 'Perfect Start', description: 'No game over before level 5', icon: '✨', game: 'Metris' },
-    { id: 'architect', name: 'Architect', description: 'Build to 18 rows without clearing', icon: '🏗️', game: 'Metris' },
-    { id: 't_spin_master', name: 'T-Spin Master', description: 'Perform 5 T-spins', icon: '🔄', game: 'Metris' },
-    { id: 'immortal', name: 'Immortal', description: 'Reach level 20', icon: '👑', game: 'Metris' }
+    { id: 'first_line', name: 'First Steps', description: 'Clear your first line', game: 'Metris' },
+    { id: 'tetris', name: 'Tetris Master', description: 'Clear 4 lines at once', game: 'Metris' },
+    { id: 'level_10', name: 'Speed Demon', description: 'Reach level 10', game: 'Metris' },
+    { id: 'high_roller', name: 'High Roller', description: 'Score 10,000 points', game: 'Metris' },
+    { id: 'neos_apprentice', name: 'Neo\'s Apprentice', description: 'Use Bullet Time 10 times', game: 'Metris' },
+    { id: 'line_clearer', name: 'Line Clearer', description: 'Clear 100 total lines', game: 'Metris' },
+    { id: 'marathon_runner', name: 'Marathon Runner', description: 'Survive for 10 minutes', game: 'Metris' },
+    { id: 'combo_king', name: 'Combo King', description: 'Achieve 5x combo multiplier', game: 'Metris' },
+    { id: 'perfect_start', name: 'Perfect Start', description: 'No game over before level 5', game: 'Metris' },
+    { id: 'architect', name: 'Architect', description: 'Build to 18 rows without clearing', game: 'Metris' },
+    { id: 't_spin_master', name: 'T-Spin Master', description: 'Perform 5 T-spins', game: 'Metris' },
+    { id: 'immortal', name: 'Immortal', description: 'Reach level 20', game: 'Metris' }
   ]
 };
 
 // Global achievements (meta achievements)
 export const GLOBAL_ACHIEVEMENTS: Achievement[] = [
-  { id: 'global_first_game', name: 'Welcome to the Matrix', description: 'Play your first game', icon: '🎮' },
-  { id: 'global_all_games', name: 'Matrix Master', description: 'Play all 5 games', icon: '🌐' },
-  { id: 'global_10_achievements', name: 'Achievement Hunter', description: 'Unlock 10 achievements', icon: '🏅' },
-  { id: 'global_25_achievements', name: 'Achievement Expert', description: 'Unlock 25 achievements', icon: '🥇' },
-  { id: 'global_50_achievements', name: 'Achievement Legend', description: 'Unlock 50 achievements', icon: '👑' },
-  { id: 'global_night_owl', name: 'Night Owl', description: 'Play after midnight', icon: '🦉' },
-  { id: 'global_dedicated', name: 'Dedicated Player', description: 'Play 7 days in a row', icon: '📅' }
+  { id: 'global_first_game', name: 'Welcome to the Matrix', description: 'Play your first game' },
+  { id: 'global_all_games', name: 'Matrix Master', description: 'Play all 5 games' },
+  { id: 'global_10_achievements', name: 'Achievement Hunter', description: 'Unlock 10 achievements' },
+  { id: 'global_25_achievements', name: 'Achievement Expert', description: 'Unlock 25 achievements' },
+  { id: 'global_50_achievements', name: 'Achievement Legend', description: 'Unlock 50 achievements' },
+  { id: 'global_night_owl', name: 'Night Owl', description: 'Play after midnight' },
+  { id: 'global_dedicated', name: 'Dedicated Player', description: 'Play 7 days in a row' }
 ];
 
 const STORAGE_KEY = 'matrix-arcade-save-data';
