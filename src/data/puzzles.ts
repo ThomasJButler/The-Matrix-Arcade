@@ -434,7 +434,7 @@ export const PUZZLES: Record<string, PuzzleData> = {
     answer: ['C'],
     optionA: 'They are exactly the same',
     optionB: 'undefined is intentional absence, null is accidental',
-    optionC: 'null is intentional absence, undefined is uninitialized',
+    optionC: 'null is intentional absence, undefined is uninitialised',
     optionD: 'There is no difference, both are false',
     hints: [
       'One is set by developers, one is set by JavaScript.',

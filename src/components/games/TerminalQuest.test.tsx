@@ -107,7 +107,7 @@ describe('TerminalQuest', () => {
       render(<TerminalQuest />);
       
       expect(screen.getByText('Recent Activity')).toBeInTheDocument();
-      expect(screen.getByText('System initialized')).toBeInTheDocument();
+      expect(screen.getByText('System initialised')).toBeInTheDocument();
     });
   });
 

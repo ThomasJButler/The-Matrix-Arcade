@@ -221,7 +221,7 @@ export default function TerminalQuest({ achievementManager }: TerminalQuestProps
     };
   };
 
-  // Custom hook for ASCII typing - optimized with RAF
+  // Custom hook for ASCII typing - optimised with RAF
   const useTypingEffect = (text: string) => {
     const [typedText, setTypedText] = useState('');
     const indexRef = useRef(0);

@@ -593,7 +593,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
     ctx.fillStyle = '#000000';
     ctx.fillRect(-props.screenShake.x, -props.screenShake.y, 800, 400);
 
-    // Draw background particles with depth (optimized - removed shadow for performance)
+    // Draw background particles with depth (optimised - removed shadow for performance)
     // ctx.shadowBlur = 5; // Removed for performance
     ctx.shadowColor = '#00ff00';
     props.particles.forEach(particle => {

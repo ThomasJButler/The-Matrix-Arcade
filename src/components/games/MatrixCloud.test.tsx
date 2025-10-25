@@ -619,7 +619,7 @@ describe('MatrixCloud', () => {
     it('saves high score to localStorage', () => {
       render(<MatrixCloud />);
       
-      // The save system is initialized on mount
+      // The save system is initialised on mount
       // Clear initial calls from save system
       localStorageMock.setItem.mockClear();
       

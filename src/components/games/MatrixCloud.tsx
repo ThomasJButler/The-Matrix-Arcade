@@ -856,7 +856,7 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
     ctx.fillStyle = 'black';
     ctx.fillRect(0, 0, 800, 400);
 
-    // Draw particles with optimized rendering
+    // Draw particles with optimised rendering
     ctx.font = '12px monospace';
     ctx.fillStyle = 'rgba(0, 255, 0, 0.5)'; // Single color for all particles
     
@@ -868,7 +868,7 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
       ctx.restore();
     });
 
-    // Draw pipes with optimized rendering
+    // Draw pipes with optimised rendering
     ctx.fillStyle = '#006600'; // Default pipe color
     
     state.pipes.forEach(pipe => {
@@ -886,7 +886,7 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
       ctx.fillRect(pipe.x, pipe.height + PIPE_GAP, 50, 400 - (pipe.height + PIPE_GAP));
     });
 
-    // Draw power-ups with optimized rendering
+    // Draw power-ups with optimised rendering
     ctx.fillStyle = '#00ff00';
     
     state.powerUps.forEach(powerUp => {

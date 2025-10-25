@@ -550,7 +550,7 @@ export const EXPANDED_GAME_NODES: Record<string, GameNode> = {
     ],
     description: "The processing center hums with activity. Overworked servers struggle under the weight of corrupted processes. You might be able to help.",
     choices: [
-      { text: "Optimize Processes", nextNode: "system_optimized", gives: ["performance_boost"], xp: 20 },
+      { text: "Optimize Processes", nextNode: "system_optimised", gives: ["performance_boost"], xp: 20 },
       { text: "Shut Down Unnecessary Tasks", nextNode: "tasks_cleared", heal: 15 },
       { text: "Overclock System", nextNode: "overclock_risk", damage: 20, gives: ["speed_boost"] },
       { text: "Leave It Alone", nextNode: "hub_main" },
