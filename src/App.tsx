@@ -43,6 +43,8 @@ import { useSoundSystem } from './hooks/useSoundSystem';
 import { useAchievementManager } from './hooks/useAchievementManager';
 import { useMobileDetection } from './hooks/useMobileDetection';
 import { GameStateProvider } from './contexts/GameStateContext';
+import matrixInvadersPreview from './images/matrixinvaders.webp';
+import metrisPreview from './images/metris.webp';
 
 function App() {
   const [selectedGame, setSelectedGame] = useState<number>(0);
@@ -135,16 +137,14 @@ function App() {
       title: 'Matrix Invaders',
       icon: <Crosshair className="w-8 h-8" />,
       description: 'Defend against the code invasion',
-      preview:
-        'https://res.cloudinary.com/depqttzlt/image/upload/v1751750717/matrix3_zmwcnd.png',
+      preview: matrixInvadersPreview,
       component: MatrixInvaders,
     },
     {
       title: 'Metris',
       icon: <Blocks className="w-8 h-8" />,
       description: 'Stack the code blocks and break the Matrix',
-      preview:
-        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071594/metris_preview.png',
+      preview: metrisPreview,
       component: Metris,
     },
   ];
