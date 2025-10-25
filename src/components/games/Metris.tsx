@@ -141,6 +141,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
     right: 0,
     down: 0
   });
+  const updateGameRef = useRef<(() => void) | null>(null);
 
   // Hooks
   const { synthLaser, synthExplosion, synthPowerUp, synthDrum } = useSoundSynthesis();
@@ -461,20 +462,8 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       const currentSpeed = currentState.bulletTimeActive ? levelSpeed / BULLET_TIME_SLOWDOWN : levelSpeed;
       dropIntervalRef.current = currentSpeed;
 
-      // DEBUG: Log timing info every second
-      const timeSinceLastDrop = timestamp - lastDropTimeRef.current;
-      if (Math.floor(timestamp / 1000) !== Math.floor((timestamp - 16) / 1000)) {
-        console.log('[DEBUG] Drop timer:', {
-          timeSinceLastDrop: Math.floor(timeSinceLastDrop),
-          dropInterval: dropIntervalRef.current,
-          levelSpeed,
-          bulletTimeActive: currentState.bulletTimeActive,
-          level: currentState.level,
-          shouldDrop: timeSinceLastDrop >= dropIntervalRef.current
-        });
-      }
-
       // Check if it's time to drop
+      const timeSinceLastDrop = timestamp - lastDropTimeRef.current;
       if (timestamp - lastDropTimeRef.current < dropIntervalRef.current) {
         // Not time to drop yet, just update particles and bullet time
         let updatedState = { ...currentState };
@@ -509,7 +498,6 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       }
 
       // Time to drop the piece
-      console.log('[DROP] Piece dropping! Resetting timer from', timeSinceLastDrop, 'to 0');
       lastDropTimeRef.current = timestamp;
 
       const newY = currentState.currentPiece.y + 1;
@@ -623,6 +611,11 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
     });
   }, [checkCollision, lockPiece, clearLines, createPiece, achievementManager, synthExplosion, synthPowerUp, synthDrum, isMuted]);
 
+  // Keep updateGame ref current
+  useEffect(() => {
+    updateGameRef.current = updateGame;
+  }, [updateGame]);
+
   // Start/stop game loop based on game state
   useEffect(() => {
     if (state.gameOver || state.paused || state.waiting) {
@@ -632,7 +625,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
     let animationId: number;
 
     const loop = () => {
-      updateGame();
+      updateGameRef.current?.();
       animationId = requestAnimationFrame(loop);
     };
 
