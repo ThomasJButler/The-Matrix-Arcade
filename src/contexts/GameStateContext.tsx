@@ -1,8 +1,11 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+/**
+ * @author Tom Butler
+ * @date 2025-10-25
+ * @description React Context provider for CTRL-S game state management.
+ *              Handles story progression, inventory, player stats, puzzles, and auto-save.
+ */
 
-// ============================================================================
-// TYPE DEFINITIONS
-// ============================================================================
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 
 export interface PlayerStats {
   coffeeLevel: number;      // 0-200% (can go over 100!)
@@ -96,10 +99,6 @@ export interface GameStateContextType {
   getPlaytime: () => number;
 }
 
-// ============================================================================
-// DEFAULT STATE
-// ============================================================================
-
 const DEFAULT_STATE: GameState = {
   currentChapter: 1,
   currentSection: 'intro',
@@ -127,21 +126,20 @@ const DEFAULT_STATE: GameState = {
   lastSaved: new Date().toISOString()
 };
 
-// ============================================================================
-// CONTEXT
-// ============================================================================
-
 const GameStateContext = createContext<GameStateContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'matrix-arcade-ctrls-save';
 
-// ============================================================================
-// PROVIDER
-// ============================================================================
-
+/**
+ * Provider component for game state context
+ * @param {Object} props
+ * @param {ReactNode} props.children - Child components
+ * @return {JSX.Element}
+ * @constructor
+ */
 export const GameStateProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, setState] = useState<GameState>(() => {
-    // Try to load from localStorage on init
+    // Load from localStorage on initialisation
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {

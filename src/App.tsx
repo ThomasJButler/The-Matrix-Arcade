@@ -1,6 +1,13 @@
+/**
+ * @author Tom Butler
+ * @date 2025-10-25
+ * @description Main application orchestrator for Matrix Arcade. Manages game selection,
+ *              navigation, sound system, achievements, and PWA features.
+ */
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import './styles/theme.css'; // Custom theme.css for the insane styling
+import './styles/theme.css';
 import './styles/animations.css';
 import {
   Monitor,
@@ -63,8 +70,11 @@ function App() {
   const gamesPlayed = useRef(new Set<string>());
   const playStartTime = useRef<number | null>(null);
   const totalPlayTime = useRef(0);
-  
-  // Check achievement milestones
+
+  /**
+   * @listens achievementManager.stats.unlocked, achievementManager
+   * Tracks achievement milestones for 10, 25, and 50 unlocked achievements
+   */
   useEffect(() => {
     const totalUnlocked = achievementManager.stats.unlocked;
     const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
@@ -139,7 +149,10 @@ function App() {
     },
   ];
 
-  // Matrix rain effect - optimized with RAF and single canvas
+  /**
+   * @constructs - Initialises Matrix rain effect using RequestAnimationFrame
+   *               Limited to 30 FPS for performance optimisation
+   */
   useEffect(() => {
     const createMatrixRain = (canvas: HTMLCanvasElement) => {
       const ctx = canvas.getContext('2d');
@@ -162,7 +175,7 @@ function App() {
       let lastTime = 0;
 
       const draw = (timestamp: number) => {
-        // Limit to ~30 FPS for performance
+        // Throttle to 30 FPS to reduce CPU usage
         if (timestamp - lastTime < 33) {
           animationId = requestAnimationFrame(draw);
           return;
@@ -214,11 +227,13 @@ function App() {
     };
   }, []);
 
-  // Prevent scrolling when games are active
+  /**
+   * @listens isPlaying - Prevents page scrolling during active gameplay
+   *                       whilst allowing input in text fields
+   */
   useEffect(() => {
     const preventDefault = (e: Event) => {
       const target = e.target as HTMLElement;
-      // Only prevent if isPlaying, and the user isn't typing in an input/textarea
       if (
         isPlaying &&
         target.tagName !== 'INPUT' &&
@@ -238,8 +253,11 @@ function App() {
       window.removeEventListener('touchmove', preventDefault);
     };
   }, [isPlaying]);
-  
-  // Game selection functions
+
+  /**
+   * Handles game selection with transition animation
+   * @param {number} index - Game index to select from games array
+   */
   const selectGame = useCallback((index: number) => {
     const direction = index > selectedGame ? 'right' : 'left';
     setTransitionDirection(direction);
@@ -258,8 +276,11 @@ function App() {
   const handleNext = useCallback(() => {
     selectGame(selectedGame === games.length - 1 ? 0 : selectedGame + 1);
   }, [selectedGame, selectGame]);
-  
-  // Keyboard shortcuts
+
+  /**
+   * @listens isPlaying, achievementManager, stopMusic, playSFX, showMobileWarning, playBackgroundMP3, handlePrevious, handleNext, toggleMute
+   * Global keyboard shortcuts: ESC (exit), Arrow keys (navigate), Enter (play), A (achievements), V (mute)
+   */
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       // Achievement display shortcut (A key)

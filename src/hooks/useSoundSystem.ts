@@ -1,3 +1,10 @@
+/**
+ * @author Tom Butler
+ * @date 2025-10-25
+ * @description Web Audio API sound system with procedural synthesis and ADSR envelopes.
+ *              Provides pre-defined sound effects library and MP3 playback support.
+ */
+
 import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 
 export interface SoundConfig {
@@ -31,9 +38,7 @@ const DEFAULT_CONFIG: SoundConfig = {
   sfxVolume: 0.6
 };
 
-// Pre-defined sound effects library
 const SOUND_LIBRARY: Record<string, SoundEffect> = {
-  // Game Actions
   jump: {
     type: 'jump',
     frequency: { start: 440, end: 220 },
