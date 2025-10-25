@@ -51,4 +51,3 @@ npm run test:coverage # Coverage report
 
 Component-based with custom React hooks for game logic isolation. Each game is self-contained and integrates via a consistent interface. No global state library - uses React Context for CTRL-S game state and localStorage for persistence.
 
-See [CLAUDE.md](CLAUDE.md) for detailed architecture documentation.
