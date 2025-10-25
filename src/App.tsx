@@ -366,7 +366,7 @@ function App() {
                 THE MATRIX ARCADE
               </h1>
               <p className="text-xs text-green-400 tracking-widest hidden sm:block">
-                SYSTEM v1.0.7
+                SYSTEM v1.1
               </p>
             </a>
             </div>
@@ -634,7 +634,7 @@ function App() {
         />
         <div className="max-w-7xl mx-auto flex items-center justify-between relative z-10">
           <div className="font-mono text-xs lg:text-sm flex items-center gap-2 lg:gap-4">
-            <p className="tracking-wider hidden lg:block">THE MATRIX ARCADE v1.0.7</p>
+            <p className="tracking-wider hidden lg:block">THE MATRIX ARCADE v1.1</p>
             <div className="h-4 w-px bg-green-500/30 hidden lg:block"></div>
             <p className="text-green-400">TAKE THE RED PILL!</p>
           </div>
