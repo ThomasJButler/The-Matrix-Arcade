@@ -616,7 +616,7 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
           scrollToBottom(true);
         }, 2000);
 
-        // TODO: Show proper ending screen component (Phase 4)
+        // TODO [Tom]: Add proper ending screen component after Phase 4
 
       } else if (!isPaused && currentNode < STORY.length - 1) {
         // Move to next node if available - clear screen for new chapter

@@ -1,11 +1,16 @@
+/**
+ * @author Tom Butler
+ * @date 2025-10-25
+ * @description Space Invaders-style shooter with wave-based progression, power-ups,
+ *              combo system, and particle effects. Uses object pooling for performance.
+ */
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { RotateCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSoundSynthesis } from '../../hooks/useSoundSynthesis';
 import { useObjectPool, createProjectile, createEnemy, createParticle } from '../../hooks/useObjectPool';
 import { usePerformanceMonitor } from '../../hooks/usePerformanceMonitor';
-
-// Game constants
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const PLAYER_SPEED = 5;

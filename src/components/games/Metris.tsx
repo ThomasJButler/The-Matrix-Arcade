@@ -1,9 +1,14 @@
+/**
+ * @author Tom Butler
+ * @date 2025-10-25
+ * @description Matrix-themed Tetris with bullet time mode, ghost piece, hold mechanic,
+ *              and particle effects. Blocks display Matrix code that "compiles" on clear.
+ */
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Play, Pause, RotateCw, Square, Clock, Trophy, Zap } from 'lucide-react';
 import { useSoundSynthesis } from '../../hooks/useSoundSynthesis';
 import { useSaveSystem } from '../../hooks/useSaveSystem';
-
-// Game constants
 const COLS = 10;
 const ROWS = 20;
 const BLOCK_SIZE = 30;
