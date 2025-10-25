@@ -66,7 +66,7 @@ export default defineConfig({
         ]
       },
       devOptions: {
-        enabled: true
+        enabled: false // Disabled in dev to avoid glob pattern warnings
       }
     })
   ],
