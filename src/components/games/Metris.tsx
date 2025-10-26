@@ -12,14 +12,19 @@ import { useSaveSystem } from '../../hooks/useSaveSystem';
 const COLS = 10;
 const ROWS = 20;
 const BLOCK_SIZE = 30;
-const INITIAL_DROP_SPEED = 50; // ms - 0.05 seconds for first drop (100x faster than original)
-const SPEED_DECREASE = 10; // ms per level - decrease by 0.01 second each level
-const MIN_DROP_SPEED = 20; // minimum drop speed - 0.02 seconds at level 4+
+const INITIAL_DROP_SPEED = 800; // ms - normal drop speed
+const SPEED_DECREASE = 50; // ms per level decrease
+const MIN_DROP_SPEED = 100; // minimum drop speed
+const SOFT_DROP_SPEED = 50; // ms - fast drop when holding down
 const LINES_PER_LEVEL = 10;
 const PARTICLE_COUNT = 30;
 const BULLET_TIME_COST = 5; // lines needed to fill bullet time meter
 const BULLET_TIME_DURATION = 8000; // ms
 const BULLET_TIME_SLOWDOWN = 0.4; // 40% speed
+const DAS_DELAY = 170; // ms - Delayed Auto Shift initial delay
+const DAS_REPEAT = 50; // ms - DAS repeat rate
+const LOCK_DELAY = 500; // ms - time before piece locks when grounded
+const MAX_LOCK_RESETS = 15; // maximum lock delay resets per piece
 
 // Matrix characters for blocks
 const MATRIX_CHARS = '01アイウエオカキクケコ';
@@ -117,6 +122,7 @@ interface GameState {
   bulletTimeTimer: number;
   tSpins: number;
   waiting: boolean; // Waiting for spacebar to start
+  softDropActive: boolean; // Down arrow held for fast drop
 }
 
 interface AchievementManager {
@@ -143,6 +149,16 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
   });
   const updateGameRef = useRef<(() => void) | null>(null);
 
+  // 7-Bag randomizer refs
+  const pieceBagRef = useRef<TetrominoType[]>([]);
+  const sessionStartTimeRef = useRef<number>(Date.now());
+  const totalLinesRef = useRef<number>(0);
+  const tSpinsRef = useRef<number>(0);
+  const lockDelayRef = useRef<number>(0);
+  const lockDelayResets = useRef<number>(0);
+  const lastGroundedTime = useRef<number>(0);
+  const isGroundedRef = useRef<boolean>(false);
+
   // Hooks
   const { synthLaser, synthExplosion, synthPowerUp, synthDrum } = useSoundSynthesis();
   const { saveData, updateGameSave, unlockAchievement: unlockAchievementSave } = useSaveSystem();
@@ -159,9 +175,26 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
     );
   };
 
-  // Create random piece
+  // 7-Bag Randomizer: Ensures fair piece distribution
   const createPiece = useCallback((type?: TetrominoType): Piece => {
-    const pieceType = type || TETROMINO_KEYS[Math.floor(Math.random() * TETROMINO_KEYS.length)];
+    let pieceType: TetrominoType;
+
+    if (type) {
+      pieceType = type;
+    } else {
+      // If bag is empty, refill and shuffle
+      if (pieceBagRef.current.length === 0) {
+        pieceBagRef.current = [...TETROMINO_KEYS];
+        // Fisher-Yates shuffle
+        for (let i = pieceBagRef.current.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [pieceBagRef.current[i], pieceBagRef.current[j]] = [pieceBagRef.current[j], pieceBagRef.current[i]];
+        }
+      }
+      // Pull from bag
+      pieceType = pieceBagRef.current.pop()!;
+    }
+
     const template = TETROMINOES[pieceType];
 
     return {
@@ -194,7 +227,8 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       bulletTimeActive: false,
       bulletTimeTimer: 0,
       tSpins: 0,
-      waiting: true // Start in waiting state
+      waiting: true, // Start in waiting state
+      softDropActive: false
     };
   });
 
@@ -455,6 +489,60 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
     });
   }, [achievementManager, saveData, updateGameSave, synthDrum, synthPowerUp, isMuted]);
 
+  // Hard drop - instantly drop piece and lock
+  const hardDrop = useCallback(() => {
+    setState(prev => {
+      if (prev.gameOver || prev.paused || prev.waiting || !prev.currentPiece) return prev;
+
+      let dropDistance = 0;
+      let testPiece = { ...prev.currentPiece };
+
+      // Find how far the piece can drop
+      while (!checkCollision({ ...testPiece, y: testPiece.y + 1 }, prev.grid)) {
+        testPiece.y++;
+        dropDistance++;
+      }
+
+      if (dropDistance === 0) return prev; // Already at bottom
+
+      // Award 2 points per cell dropped
+      const dropPoints = dropDistance * 2;
+
+      // Lock the piece immediately at the drop position
+      const newGrid = lockPiece(testPiece, prev.grid);
+      const { newGrid: clearedGrid, linesCleared, particles } = clearLines(newGrid);
+
+      const newCombo = linesCleared > 0 ? prev.combo + 1 : 0;
+      const scorePoints = calculateScore(linesCleared, prev.level, newCombo);
+      const newScore = prev.score + scorePoints + dropPoints;
+      const newLines = prev.lines + linesCleared;
+      const newLevel = Math.floor(newLines / LINES_PER_LEVEL) + 1;
+
+      // Sound
+      if (!isMuted) {
+        synthExplosion(1, 0.15);
+        if (linesCleared > 0) synthPowerUp('collect');
+      }
+
+      const nextPiece = prev.nextPiece || createPiece();
+      const gameOver = checkCollision(nextPiece, clearedGrid);
+
+      return {
+        ...prev,
+        grid: clearedGrid,
+        currentPiece: gameOver ? null : nextPiece,
+        nextPiece: createPiece(),
+        canHold: true,
+        score: newScore,
+        level: newLevel,
+        lines: newLines,
+        combo: newCombo,
+        gameOver,
+        particles: [...prev.particles, ...particles]
+      };
+    });
+  }, [checkCollision, lockPiece, clearLines, calculateScore, createPiece, synthExplosion, synthPowerUp, isMuted]);
+
   // Update game state - called every frame
   const updateGame = useCallback(() => {
     setState(currentState => {
@@ -464,9 +552,10 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
 
       const timestamp = performance.now();
 
-      // Calculate drop speed based on level and bullet time
+      // Calculate drop speed based on level, bullet time, and soft drop
       const levelSpeed = Math.max(MIN_DROP_SPEED, INITIAL_DROP_SPEED - (currentState.level - 1) * SPEED_DECREASE);
-      const currentSpeed = currentState.bulletTimeActive ? levelSpeed / BULLET_TIME_SLOWDOWN : levelSpeed;
+      let currentSpeed = currentState.softDropActive ? SOFT_DROP_SPEED : levelSpeed;
+      currentSpeed = currentState.bulletTimeActive ? currentSpeed / BULLET_TIME_SLOWDOWN : currentSpeed;
       dropIntervalRef.current = currentSpeed;
 
       // Check if it's time to drop
@@ -652,11 +741,12 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
 
       keysRef.current.add(e.key);
 
-      // Start game with spacebar when waiting
-      if (state.waiting && e.key === ' ') {
+      // Start game with Enter when waiting
+      if (state.waiting && e.key === 'Enter') {
         e.preventDefault();
         setState(prev => ({ ...prev, waiting: false }));
         lastDropTimeRef.current = performance.now();
+        sessionStartTimeRef.current = Date.now();
         if (!isMuted) synthPowerUp('activate');
         return;
       }
@@ -675,20 +765,44 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       if (state.paused || state.waiting) return;
 
       // Prevent default for game keys
-      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', ' ', 'c', 'C', 'x', 'X', 'z', 'Z', 'Shift'].includes(e.key)) {
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'c', 'C', 'x', 'X', 'z', 'Z', 'Shift'].includes(e.key)) {
         e.preventDefault();
+      }
+
+      // Hard drop with spacebar
+      if (e.key === ' ' && !keysRef.current.has('hardDropped')) {
+        keysRef.current.add('hardDropped');
+        hardDrop();
+        return;
+      }
+
+      // Soft drop - activate fast drop
+      if (e.key === 'ArrowDown') {
+        setState(prev => ({ ...prev, softDropActive: true }));
       }
 
       const now = Date.now();
 
-      // Movement
-      if (e.key === 'ArrowLeft' && now - moveDelayRef.current.left > 100) {
-        moveDelayRef.current.left = now;
-        movePiece(-1, 0);
+      // Movement with DAS
+      if (e.key === 'ArrowLeft') {
+        if (!keysRef.current.has('leftHeld')) {
+          keysRef.current.add('leftHeld');
+          moveDelayRef.current.left = now;
+          movePiece(-1, 0);
+        } else if (now - moveDelayRef.current.left > DAS_REPEAT) {
+          moveDelayRef.current.left = now;
+          movePiece(-1, 0);
+        }
       }
-      if (e.key === 'ArrowRight' && now - moveDelayRef.current.right > 100) {
-        moveDelayRef.current.right = now;
-        movePiece(1, 0);
+      if (e.key === 'ArrowRight') {
+        if (!keysRef.current.has('rightHeld')) {
+          keysRef.current.add('rightHeld');
+          moveDelayRef.current.right = now;
+          movePiece(1, 0);
+        } else if (now - moveDelayRef.current.right > DAS_REPEAT) {
+          moveDelayRef.current.right = now;
+          movePiece(1, 0);
+        }
       }
 
       // Rotate
@@ -713,6 +827,14 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       keysRef.current.delete('rotated');
       keysRef.current.delete('rotatedCCW');
       keysRef.current.delete('held');
+      keysRef.current.delete('hardDropped');
+      keysRef.current.delete('leftHeld');
+      keysRef.current.delete('rightHeld');
+
+      // Deactivate soft drop when down arrow released
+      if (e.key === 'ArrowDown') {
+        setState(prev => ({ ...prev, softDropActive: false }));
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -722,7 +844,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [state.gameOver, state.paused, state.waiting, movePiece, handleRotate, holdPiece, synthPowerUp, isMuted]);
+  }, [state.gameOver, state.paused, state.waiting, movePiece, handleRotate, holdPiece, hardDrop, synthPowerUp, isMuted]);
 
   // Render game
   useEffect(() => {
@@ -885,6 +1007,16 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
     lastDropTimeRef.current = 0;
     dropIntervalRef.current = INITIAL_DROP_SPEED;
 
+    // Reset session tracking refs
+    pieceBagRef.current = [];
+    sessionStartTimeRef.current = Date.now();
+    totalLinesRef.current = 0;
+    tSpinsRef.current = 0;
+    lockDelayRef.current = 0;
+    lockDelayResets.current = 0;
+    lastGroundedTime.current = 0;
+    isGroundedRef.current = false;
+
     setState({
       grid: createEmptyGrid(),
       currentPiece: createPiece(),
@@ -903,7 +1035,8 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       bulletTimeActive: false,
       bulletTimeTimer: 0,
       tSpins: 0,
-      waiting: true
+      waiting: true,
+      softDropActive: false
     });
 
     if (!isMuted) synthPowerUp('activate');
@@ -1063,7 +1196,8 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
               <div className="text-center">
                 <Play className="w-16 h-16 text-green-500 mx-auto mb-4 animate-pulse" />
                 <div className="text-2xl font-mono text-green-500 mb-4">METRIS</div>
-                <div className="text-lg text-green-400 animate-pulse">Press SPACEBAR to start</div>
+                <div className="text-lg text-green-400 animate-pulse">Press ENTER to start</div>
+                <div className="text-sm text-green-500/70 mt-4">SPACE = Hard Drop | ↓ = Soft Drop | ← → = Move | ↑ = Rotate</div>
               </div>
             </div>
           )}
