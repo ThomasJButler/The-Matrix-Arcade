@@ -30,7 +30,7 @@ interface PuzzleModalProps {
   isOpen: boolean;
   puzzle: PuzzleData;
   onClose: () => void;
-  onComplete: (success: boolean, hintsUsed: number) => void;
+  onComplete: (success: boolean, hintsUsed: number, lifelinesUsed: number) => void;
   playSFX?: (sound: string) => void;
 }
 
@@ -48,6 +48,7 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
   const [userAnswer, setUserAnswer] = useState('');
   const [currentHint, setCurrentHint] = useState(-1);
   const [hintsUsed, setHintsUsed] = useState(0);
+  const [lifelinesUsed, setLifelinesUsed] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(puzzle.timeLimit || 0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<'correct' | 'incorrect' | null>(null);
@@ -70,6 +71,7 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
       setUserAnswer('');
       setCurrentHint(-1);
       setHintsUsed(0);
+      setLifelinesUsed(0);
       setTimeRemaining(puzzle.timeLimit || 0);
       setIsSubmitting(false);
       setResult(null);
@@ -146,6 +148,7 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
 
     setEliminatedOptions(eliminated);
     setShowFiftyFifty(true);
+    setLifelinesUsed(prev => prev + 1);
     lifelineManager.useFiftyFifty(puzzle.id);
     playSFX?.('powerup');
   };
@@ -156,6 +159,7 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
       const correctAnswer = Array.isArray(puzzle.answer) ? puzzle.answer[0] : puzzle.answer;
       setUserAnswer(correctAnswer);
       setShowAnswerConfirm(false);
+      setLifelinesUsed(prev => prev + 1);
       playSFX?.('hit');
 
       // Note: Penalties are applied in the game state via GameStateContext
@@ -190,7 +194,7 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
 
       // Show result for 2 seconds, then close
       setTimeout(() => {
-        onComplete(true, hintsUsed);
+        onComplete(true, hintsUsed, lifelinesUsed);
         onClose();
       }, 2000);
     } else {
@@ -207,7 +211,7 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
 
         // Auto-close after 4 seconds to give time to read answer
         setTimeout(() => {
-          onComplete(false, hintsUsed);
+          onComplete(false, hintsUsed, lifelinesUsed);
           onClose();
         }, 4000);
       } else {
@@ -351,7 +355,7 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
             </div>
 
             {/* Answer Input or Multiple Choice */}
-            {puzzle.type === 'multiple-choice' ? (
+            {hasMultipleChoice ? (
               renderMultipleChoice()
             ) : (
               <div className="space-y-2">
@@ -596,6 +600,7 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
           answer={Array.isArray(puzzle.answer) ? puzzle.answer[0] : puzzle.answer}
           onClose={() => {
             setShowSentientAI(false);
+            setLifelinesUsed(prev => prev + 1);
             lifelineManager.useSentientAI(puzzle.id);
           }}
         />
@@ -606,6 +611,7 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
           puzzle={puzzle}
           onClose={() => {
             setShowCharacters(false);
+            setLifelinesUsed(prev => prev + 1);
             lifelineManager.useCharacters(puzzle.id);
           }}
         />

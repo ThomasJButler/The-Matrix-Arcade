@@ -57,7 +57,7 @@ export const SentientAIModal: React.FC<SentientAIModalProps> = ({
       clearInterval(thinkingInterval);
       clearTimeout(revealTimer);
     };
-  }, [isOpen, difficulty, puzzleType, answer, onClose]);
+  }, [isOpen, difficulty, puzzleType, answer]); // removed onClose from dependencies
 
   if (!isOpen) return null;
 
@@ -203,23 +203,33 @@ export const SentientAIModal: React.FC<SentientAIModalProps> = ({
             )}
           </div>
 
-          {/* Footer indicator */}
+          {/* Footer indicator and close button */}
           <div className="relative bg-cyan-900/20 border-t border-cyan-500/50 p-3">
-            <div className="flex justify-center gap-1">
-              {[...Array(3)].map((_, i) => (
-                <motion.div
-                  key={i}
-                  className="w-2 h-2 rounded-full bg-cyan-400/50"
-                  animate={{
-                    opacity: [0.3, 1, 0.3],
-                  }}
-                  transition={{
-                    duration: 1.5,
-                    repeat: Infinity,
-                    delay: i * 0.3,
-                  }}
-                />
-              ))}
+            <div className="flex justify-between items-center">
+              <div className="flex justify-center gap-1 flex-1">
+                {[...Array(3)].map((_, i) => (
+                  <motion.div
+                    key={i}
+                    className="w-2 h-2 rounded-full bg-cyan-400/50"
+                    animate={{
+                      opacity: [0.3, 1, 0.3],
+                    }}
+                    transition={{
+                      duration: 1.5,
+                      repeat: Infinity,
+                      delay: i * 0.3,
+                    }}
+                  />
+                ))}
+              </div>
+              {stage === 'revealing' && (
+                <button
+                  onClick={onClose}
+                  className="px-3 py-1 text-xs bg-cyan-900/50 hover:bg-cyan-800 border border-cyan-500/50 rounded text-cyan-400 font-mono transition-colors"
+                >
+                  Close [X]
+                </button>
+              )}
             </div>
           </div>
         </motion.div>

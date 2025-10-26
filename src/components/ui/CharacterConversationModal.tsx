@@ -131,7 +131,7 @@ export const CharacterConversationModal: React.FC<CharacterConversationModalProp
     }, 1500);
 
     return () => clearTimeout(interceptTimer);
-  }, [isOpen, conversationData, onClose]);
+  }, [isOpen, puzzle]); // simplified dependencies - removed conversationData and onClose
 
   if (!isOpen || !conversationData) return null;
 
@@ -303,15 +303,23 @@ export const CharacterConversationModal: React.FC<CharacterConversationModalProp
                       </p>
                     </motion.div>
 
-                    {/* Auto-close indicator */}
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 1.5 }}
-                      className="text-center text-xs text-green-500/60 font-mono mt-4"
-                    >
-                      Closing in 8 seconds...
-                    </motion.div>
+                    {/* Auto-close indicator and close button */}
+                    <div className="flex justify-between items-center mt-4">
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 1.5 }}
+                        className="text-xs text-green-500/60 font-mono"
+                      >
+                        Closing in 8 seconds...
+                      </motion.div>
+                      <button
+                        onClick={onClose}
+                        className="px-3 py-1 text-xs bg-green-900/50 hover:bg-green-800 border border-green-500/50 rounded text-green-400 font-mono transition-colors"
+                      >
+                        Close [X]
+                      </button>
+                    </div>
                   </motion.div>
                 )}
               </div>
