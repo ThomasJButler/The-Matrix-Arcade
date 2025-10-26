@@ -1270,7 +1270,7 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
             {/* Left side - Previous button */}
             <button
               onClick={handlePrevious}
-              disabled={paragraphHistory.length === 0 && displayedTexts.length === 0}
+              disabled={paragraphHistory.length === 0 || (isViewingHistory && viewingHistoryIndex === 0)}
               className="flex items-center gap-2 px-4 py-2 bg-green-900 hover:bg-green-800 rounded text-sm disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <ChevronLeft className="w-4 h-4" /> Previous
