@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, HelpCircle, Clock, Lightbulb, CheckCircle, XCircle } from 'lucide-react';
+import { HelpCircle, Clock, Lightbulb, CheckCircle, XCircle, Zap, Cpu, Users } from 'lucide-react';
+import { useLifelineManager } from '@/hooks/useLifelineManager';
+import { SentientAIModal } from './SentientAIModal';
+import { CharacterConversationModal } from './CharacterConversationModal';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -8,7 +11,7 @@ import { X, HelpCircle, Clock, Lightbulb, CheckCircle, XCircle } from 'lucide-re
 
 export interface PuzzleData {
   id: string;
-  type: 'code' | 'riddle' | 'multiple-choice' | 'typing';
+  type: 'code' | 'riddle' | 'multiple-choice' | 'typing' | 'fill-in';
   question: string;
   answer: string | string[];
   hints: string[];
@@ -16,6 +19,11 @@ export interface PuzzleData {
   points: number;
   difficulty: 'easy' | 'medium' | 'hard';
   context?: string;
+  // Multiple choice options for lifeline system
+  optionA?: string;
+  optionB?: string;
+  optionC?: string;
+  optionD?: string;
 }
 
 interface PuzzleModalProps {
@@ -48,6 +56,14 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
   const MAX_ATTEMPTS = 3;
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Lifeline system
+  const lifelineManager = useLifelineManager();
+  const [showFiftyFifty, setShowFiftyFifty] = useState(false);
+  const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
+  const [showSentientAI, setShowSentientAI] = useState(false);
+  const [showCharacters, setShowCharacters] = useState(false);
+  const [showAnswerConfirm, setShowAnswerConfirm] = useState(false);
+
   // Reset state when puzzle changes
   useEffect(() => {
     if (isOpen) {
@@ -59,6 +75,13 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
       setResult(null);
       setAttempts(0);
       setShowAnswer(false);
+
+      // Reset lifeline UI states (not the manager - that persists)
+      setShowFiftyFifty(false);
+      setEliminatedOptions([]);
+      setShowSentientAI(false);
+      setShowCharacters(false);
+      setShowAnswerConfirm(false);
 
       // Focus input after modal opens
       setTimeout(() => {
@@ -91,6 +114,52 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
       setCurrentHint(prev => prev + 1);
       setHintsUsed(prev => prev + 1);
       playSFX?.('menu');
+    }
+  };
+
+  // Lifeline handlers
+  const hasMultipleChoice = !!(puzzle.optionA && puzzle.optionB && puzzle.optionC && puzzle.optionD);
+
+  const handle5050 = () => {
+    if (!hasMultipleChoice) return;
+
+    const options = [puzzle.optionA, puzzle.optionB, puzzle.optionC, puzzle.optionD].filter(Boolean) as string[];
+    const correctAnswer = Array.isArray(puzzle.answer) ? puzzle.answer[0] : puzzle.answer;
+
+    // Find correct option
+    const correctIndex = options.findIndex(opt =>
+      opt.toLowerCase().trim() === correctAnswer.toLowerCase().trim()
+    );
+
+    if (correctIndex === -1) return; // Safety check
+
+    const incorrectIndices = options
+      .map((_, i) => i)
+      .filter(i => i !== correctIndex);
+
+    // Keep one random incorrect option
+    const keepIndex = incorrectIndices[Math.floor(Math.random() * incorrectIndices.length)];
+
+    // Eliminate the other two
+    const toEliminate = incorrectIndices.filter(i => i !== keepIndex);
+    const eliminated = toEliminate.map(i => options[i]);
+
+    setEliminatedOptions(eliminated);
+    setShowFiftyFifty(true);
+    lifelineManager.useFiftyFifty(puzzle.id);
+    playSFX?.('powerup');
+  };
+
+  const handleShowAnswer = () => {
+    const result = lifelineManager.useFreeAnswer();
+    if (result.success) {
+      const correctAnswer = Array.isArray(puzzle.answer) ? puzzle.answer[0] : puzzle.answer;
+      setUserAnswer(correctAnswer);
+      setShowAnswerConfirm(false);
+      playSFX?.('hit');
+
+      // Note: Penalties are applied in the game state via GameStateContext
+      // We'll just fill in the answer for the user
     }
   };
 
@@ -165,33 +234,47 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
       return null;
     }
 
-    const options = ['A', 'B', 'C', 'D'];
+    const options = [
+      { key: 'A', value: puzzle.optionA },
+      { key: 'B', value: puzzle.optionB },
+      { key: 'C', value: puzzle.optionC },
+      { key: 'D', value: puzzle.optionD }
+    ];
 
     return (
       <div className="space-y-2">
-        {options.map((option, index) => (
-          <button
-            key={option}
-            onClick={() => {
-              if (!isSubmitting) {
-                setUserAnswer(option);
-                // Auto-submit for multiple choice
-                setTimeout(() => handleSubmit(), 300);
-              }
-            }}
-            disabled={isSubmitting}
-            className={`w-full p-3 text-left rounded-lg border-2 transition-all ${
-              userAnswer === option
-                ? 'border-green-400 bg-green-900/30'
-                : 'border-green-500/30 bg-black/50 hover:border-green-400 hover:bg-green-900/20'
-            } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            <span className="font-mono text-green-400">{option})</span>{' '}
-            <span className="text-green-100">
-              {(puzzle as any)[`option${option}`] || `Option ${option}`}
-            </span>
-          </button>
-        ))}
+        {options.map(({ key, value }) => {
+          if (!value) return null;
+
+          const isEliminated = eliminatedOptions.includes(value);
+          const isSelected = userAnswer === key;
+
+          return (
+            <button
+              key={key}
+              onClick={() => {
+                if (!isSubmitting && !isEliminated) {
+                  setUserAnswer(key);
+                  // Auto-submit for multiple choice
+                  setTimeout(() => handleSubmit(), 300);
+                }
+              }}
+              disabled={isSubmitting || isEliminated}
+              className={`w-full p-3 text-left rounded-lg border-2 transition-all ${
+                isEliminated
+                  ? 'opacity-30 line-through cursor-not-allowed bg-gray-900/50 border-gray-700'
+                  : isSelected
+                  ? 'border-green-400 bg-green-900/30'
+                  : 'border-green-500/30 bg-black/50 hover:border-green-400 hover:bg-green-900/20'
+              } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <span className="font-mono text-green-400">{key})</span>{' '}
+              <span className={isEliminated ? 'text-gray-500' : 'text-green-100'}>
+                {value}
+              </span>
+            </button>
+          );
+        })}
       </div>
     );
   };
@@ -206,8 +289,7 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-          onClick={() => !isSubmitting && onClose()}
+          className="absolute inset-0 bg-black/30 backdrop-blur-sm"
         />
 
         {/* Modal */}
@@ -243,13 +325,10 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
                 </div>
               )}
 
-              <button
-                onClick={onClose}
-                disabled={isSubmitting}
-                className="p-1 hover:bg-red-900/50 rounded transition-colors disabled:opacity-50"
-              >
-                <X className="w-6 h-6 text-red-400" />
-              </button>
+              {/* Answer Required Notice */}
+              <div className="text-xs font-mono text-yellow-400 flex items-center gap-1">
+                <span className="text-red-400">*</span> Answer Required
+              </div>
             </div>
           </div>
 
@@ -327,6 +406,86 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
               )}
             </div>
 
+            {/* Lifeline System */}
+            <div className="space-y-3">
+              <div className="text-xs font-mono text-green-400 flex items-center gap-2">
+                <Lightbulb className="w-4 h-4" />
+                <span>LIFELINES AVAILABLE</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {/* Show Answer Button */}
+                <button
+                  onClick={() => setShowAnswerConfirm(true)}
+                  disabled={lifelineManager.freeAnswersRemaining === 0 || isSubmitting}
+                  className="px-3 py-2 bg-red-900/30 hover:bg-red-900/50 border border-red-500/50 rounded text-sm font-mono disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <Lightbulb className="w-5 h-5" />
+                    <span className="text-xs">Show Answer</span>
+                    <span className="text-xs text-red-400">
+                      {lifelineManager.freeAnswersRemaining} left
+                    </span>
+                  </div>
+                </button>
+
+                {/* 50/50 Button */}
+                <button
+                  onClick={handle5050}
+                  disabled={
+                    !lifelineManager.isLifelineAvailable('fiftyFifty', puzzle.id) ||
+                    !hasMultipleChoice ||
+                    isSubmitting
+                  }
+                  className="px-3 py-2 bg-blue-900/30 hover:bg-blue-900/50 border border-blue-500/50 rounded text-sm font-mono disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <Zap className="w-5 h-5" />
+                    <span className="text-xs">50/50</span>
+                    <span className="text-xs">
+                      {lifelineManager.isLifelineAvailable('fiftyFifty', puzzle.id)
+                        ? 'Available'
+                        : 'Used'}
+                    </span>
+                  </div>
+                </button>
+
+                {/* Sentient AI Button */}
+                <button
+                  onClick={() => setShowSentientAI(true)}
+                  disabled={!lifelineManager.isLifelineAvailable('sentientAI', puzzle.id) || isSubmitting}
+                  className="px-3 py-2 bg-purple-900/30 hover:bg-purple-900/50 border border-purple-500/50 rounded text-sm font-mono disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <Cpu className="w-5 h-5" />
+                    <span className="text-xs">Ask AI</span>
+                    <span className="text-xs">
+                      {lifelineManager.isLifelineAvailable('sentientAI', puzzle.id)
+                        ? '100% Right'
+                        : 'Used'}
+                    </span>
+                  </div>
+                </button>
+
+                {/* Characters Button */}
+                <button
+                  onClick={() => setShowCharacters(true)}
+                  disabled={!lifelineManager.isLifelineAvailable('characters', puzzle.id) || isSubmitting}
+                  className="px-3 py-2 bg-yellow-900/30 hover:bg-yellow-900/50 border border-yellow-500/50 rounded text-sm font-mono disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <Users className="w-5 h-5" />
+                    <span className="text-xs">Ask Team</span>
+                    <span className="text-xs">
+                      {lifelineManager.isLifelineAvailable('characters', puzzle.id)
+                        ? 'Available'
+                        : 'Used'}
+                    </span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             {/* Submit Button */}
             {puzzle.type !== 'multiple-choice' && (
               <button
@@ -381,6 +540,75 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
             </AnimatePresence>
           </div>
         </motion.div>
+
+        {/* Show Answer Confirmation Modal */}
+        <AnimatePresence>
+          {showAnswerConfirm && (
+            <motion.div className="fixed inset-0 z-[70] flex items-center justify-center">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black/60"
+                onClick={() => setShowAnswerConfirm(false)}
+              />
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="relative bg-black border-2 border-red-500 rounded-lg p-6 max-w-md mx-4"
+              >
+                <h3 className="text-xl font-mono text-red-400 mb-4">⚠️ Confirm Show Answer</h3>
+                <p className="text-green-400 mb-4">
+                  This will reveal the correct answer, but you'll lose:
+                </p>
+                <ul className="text-yellow-400 mb-6 space-y-1">
+                  <li>• -5 Wisdom points</li>
+                  <li>• -3 Reputation points</li>
+                </ul>
+                <p className="text-sm text-green-400 mb-4">
+                  Remaining free answers: <span className="font-bold">{lifelineManager.freeAnswersRemaining}</span>
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleShowAnswer}
+                    className="flex-1 px-4 py-2 bg-red-900 hover:bg-red-800 border border-red-500 rounded font-mono transition-colors"
+                  >
+                    Reveal Answer
+                  </button>
+                  <button
+                    onClick={() => setShowAnswerConfirm(false)}
+                    className="flex-1 px-4 py-2 bg-green-900 hover:bg-green-800 border border-green-500 rounded font-mono transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Sentient AI Modal */}
+        <SentientAIModal
+          isOpen={showSentientAI}
+          difficulty={puzzle.difficulty}
+          puzzleType={puzzle.type}
+          answer={Array.isArray(puzzle.answer) ? puzzle.answer[0] : puzzle.answer}
+          onClose={() => {
+            setShowSentientAI(false);
+            lifelineManager.useSentientAI(puzzle.id);
+          }}
+        />
+
+        {/* Characters Conversation Modal */}
+        <CharacterConversationModal
+          isOpen={showCharacters}
+          puzzle={puzzle}
+          onClose={() => {
+            setShowCharacters(false);
+            lifelineManager.useCharacters(puzzle.id);
+          }}
+        />
       </div>
     </AnimatePresence>
   );
