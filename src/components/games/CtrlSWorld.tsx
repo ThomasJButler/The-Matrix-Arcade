@@ -27,6 +27,7 @@ type StoryNode = {
   title: string;
   content: string[];
   ascii?: string[];
+  inlineAscii?: Record<number, string[]>; // Maps paragraph index to ASCII art to display after that paragraph
   puzzleTriggers?: PuzzleTrigger[];
 };
 
@@ -56,6 +57,47 @@ const STORY: StoryNode[] = [
       "                            |M\\#'      ",
       "                            dMMP'      "
     ],
+    inlineAscii: {
+      7: [
+        "        ╔══════════════════════════════╗",
+        "        ║   PROTECTOR AI - RETURNING   ║",
+        "        ╚══════════════════════════════╝",
+        "              .     .       .  .   . .   ",
+        "          .   .  :     .    .. :. .___---------___.",
+        "              .  .   .    .  :.:. _\".^ .^ ^.  '.. :\"-_. .    ",
+        "           .  :       .  .  .:../:            . .^  :.:\\.",
+        "               .   . :: +. :.:/: .   .    .        . . .:\\",
+        "        .  :    .     . _ :::/:               .  ^ .  . .:\\",
+        "         .. . .   . - : :.:./.                        .  .:\\",
+        "         .      .     . :..|:                    .  .  ^. .:|",
+        "           .       . : : ..||        .                . . !:|",
+        "         .     . . . ::. ::\\(                           . :)/",
+        "        .   .     : . : .:.|. ######              .#######::|",
+        "         :.. .  :-  : .:  ::|.#######           ..########:|",
+        "        .  .  .  ..  .  .. :| ########          :######## :/",
+        "         .        .+ :: : -.:| ########       . ########.:/",
+        "           .  .+   . . . . :.:\\. #######       #######..:/",
+        "             :: . . . . ::.:..:.\\ ########     #######/",
+        "          .   .   .  .. :  -::::.\\######## ## ######/",
+        "                         .: :.:..:.\\ #############/",
+        "                         ..::::::.:.\\############/"
+      ],
+      11: [
+        "         ╔═══════════════════════════════════════╗",
+        "         ║  SILICON VALLEY - LAST BEACON OF HOPE ║",
+        "         ╚═══════════════════════════════════════╝",
+        "                   ____________________",
+        "                  |  SECURE BUNKER    |",
+        "                  |  ACCESS: RESTRICTED|",
+        "            ______|____________________|______",
+        "           |  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  |",
+        "           |  ▓░░░░░░░░░░░░░░░░░░░░░░░░▓  |",
+        "           |  ▓░  ENTRY: AUTHORIZED  ░▓  |",
+        "           |  ▓░░░░░░░░░░░░░░░░░░░░░░░░▓  |",
+        "           |  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  |",
+        "           |________________________________|"
+      ]
+    },
     content: [
       "In a world barely distinguishable from our own, the blend of digital and physical realities had become the norm.",
       "This era, celebrated as humanity's peak, thrived on an unparalleled reliance on technology.",
@@ -359,6 +401,7 @@ const INFO_CONTENT = [
 export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldProps) {
   const [currentNode, setCurrentNode] = useState(0);
   const [displayedTexts, setDisplayedTexts] = useState<string[]>([]);
+  const [displayedTextIndices, setDisplayedTextIndices] = useState<number[]>([]); // Track paragraph indices for inline ASCII
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
   const [currentCharIndex, setCurrentCharIndex] = useState(0);
   const [isTyping, setIsTyping] = useState(true);
@@ -416,19 +459,43 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
 
   const [userHasScrolled, setUserHasScrolled] = useState(false);
 
+  // Helper function to estimate the number of lines displayed
+  const getEstimatedLineCount = useCallback(() => {
+    // Count actual text lines plus estimate wrapped lines
+    const lineCount = displayedTexts.reduce((count, text) => {
+      // Estimate ~80 characters per line in the terminal
+      const estimatedLines = Math.ceil(text.length / 80);
+      return count + Math.max(1, estimatedLines);
+    }, 0);
+    // Add current typing text if any
+    if (currentText) {
+      const currentLines = Math.ceil(currentText.length / 80);
+      return lineCount + Math.max(1, currentLines);
+    }
+    return lineCount;
+  }, [displayedTexts, currentText]);
+
   const scrollToBottom = useCallback((force = false) => {
     if (terminalRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = terminalRef.current;
-      // Force scroll on new paragraphs or when explicitly requested
-      // Otherwise only scroll if user hasn't manually scrolled up
-      if (force || !userHasScrolled) {
+      const lineCount = getEstimatedLineCount();
+
+      // Only auto-scroll if we have enough content (5+ lines)
+      if (lineCount < 5 && !force) {
+        return; // Don't scroll for short content
+      }
+
+      const { scrollHeight, clientHeight } = terminalRef.current;
+      // Only scroll if content actually overflows
+      if (scrollHeight > clientHeight && (force || !userHasScrolled)) {
         terminalRef.current.scrollTop = scrollHeight;
       }
     }
-  }, [userHasScrolled]);
+  }, [userHasScrolled, getEstimatedLineCount]);
 
   const togglePause = () => {
     setIsPaused(prev => !prev);
+    // Text stays visible while paused because isTyping remains true
+    // When resuming, typing continues naturally from currentCharIndex
   };
 
   const toggleFullscreen = () => {
@@ -479,6 +546,13 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
         }
         return [...prev, text];
       });
+      // Track the paragraph index for inline ASCII
+      setDisplayedTextIndices(prev => {
+        if (prev.length > 0 && prev[prev.length - 1] === currentTextIndex) {
+          return prev; // Already added, don't duplicate
+        }
+        return [...prev, currentTextIndex];
+      });
 
       setCurrentText(''); // Clear current text immediately
       setParagraphsDisplayedOnPage(prev => prev + 1);
@@ -489,6 +563,7 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
         // PAGE COMPLETE - pause, then clear and continue
         setTimeout(() => {
           setDisplayedTexts([]); // Clear screen
+          setDisplayedTextIndices([]); // Clear indices too
           setParagraphsDisplayedOnPage(0);
 
           // Check for puzzle trigger before continuing
@@ -622,6 +697,7 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
         // Move to next node if available - clear screen for new chapter
         setTimeout(() => {
           setDisplayedTexts([]); // Clear screen for new chapter
+          setDisplayedTextIndices([]); // Clear indices too
           setParagraphsDisplayedOnPage(0); // Reset page counter
           setCurrentNode(prev => prev + 1);
           setCurrentTextIndex(0);
@@ -642,6 +718,7 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
     setCurrentCharIndex(0);
     // Restore current display
     setDisplayedTexts([]);
+    setDisplayedTextIndices([]);
     setParagraphsDisplayedOnPage(0);
   }, []);
 
@@ -673,6 +750,7 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
         // Clear screen and reset page counter
         setTimeout(() => {
           setDisplayedTexts([]);
+          setDisplayedTextIndices([]);
           setParagraphsDisplayedOnPage(0);
 
           // Move to next text or node
@@ -738,6 +816,7 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
         } else if (currentNode < STORY.length - 1) {
           // Clear screen for new chapter
           setDisplayedTexts([]); // Clear display for fresh chapter start
+          setDisplayedTextIndices([]); // Clear indices too
           setParagraphsDisplayedOnPage(0); // Reset page counter
           setCurrentNode(prev => prev + 1);
           setCurrentTextIndex(0);
@@ -855,6 +934,7 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
       } else if (currentNode < STORY.length - 1) {
         // Current chapter complete, move to next chapter
         setDisplayedTexts([]);
+        setDisplayedTextIndices([]);
         setParagraphsDisplayedOnPage(0); // Reset page counter for new chapter
         setCurrentNode(prev => prev + 1);
         setCurrentTextIndex(0);
@@ -914,6 +994,13 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [handleNext, handlePrevious, isStarted]);
 
+  // Set initial scroll position to top
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = 0; // Start at top
+    }
+  }, []); // Only run once on mount
+
   // Detect user manual scrolling
   useEffect(() => {
     const handleScroll = () => {
@@ -939,6 +1026,51 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
     }
   }, [isStarted, isPaused, isTyping, typeNextCharacter]);
 
+  // Determine which ASCII art to display in the left panel
+  const displayAsciiData = React.useMemo(() => {
+    const currentStory = STORY[currentNode];
+    if (!currentStory) return null;
+
+    // Find the latest paragraph index that has inline ASCII art
+    let latestInlineAsciiIndex: number | null = null;
+    if (currentStory.inlineAscii && displayedTextIndices.length > 0) {
+      // Check all displayed paragraph indices to find the latest one with inline ASCII
+      for (let i = displayedTextIndices.length - 1; i >= 0; i--) {
+        const paragraphIndex = displayedTextIndices[i];
+        if (currentStory.inlineAscii[paragraphIndex]) {
+          latestInlineAsciiIndex = paragraphIndex;
+          break;
+        }
+      }
+    }
+
+    // If we have inline ASCII to show, use it; otherwise use chapter ASCII
+    if (latestInlineAsciiIndex !== null && currentStory.inlineAscii) {
+      const inlineArt = currentStory.inlineAscii[latestInlineAsciiIndex];
+      // Extract label from first line if it has the header format
+      let label = '';
+      if (inlineArt && inlineArt[0]?.includes('║')) {
+        // Try to extract text between ║ markers
+        const match = inlineArt[0].match(/║\s*([^║]+)\s*║/);
+        if (match) {
+          label = match[1].trim();
+        }
+      }
+      return {
+        ascii: inlineArt,
+        label: label || currentStory.id.replace('_', ' '),
+        isInline: true
+      };
+    }
+
+    // Default to chapter ASCII
+    return {
+      ascii: currentStory.ascii,
+      label: currentStory.id.replace('_', ' '),
+      isInline: false
+    };
+  }, [currentNode, displayedTextIndices]);
+
   // Classic Mode (only mode now)
   return (
     <div 
@@ -949,11 +1081,11 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
     >
       {/* Header */}
       <div className="flex items-center justify-between gap-2 p-4 border-b border-green-500">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-8">
           <TerminalIcon className="w-5 h-5" />
           <h2 className="text-lg">CTRL-S The World</h2>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-8">
           <button
             onClick={() => setShowInfo(prev => !prev)}
             className="p-2 hover:bg-green-900 rounded transition-colors"
@@ -1003,50 +1135,81 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
         </div>
       )}
 
-      {/* Main Content */}
-      <div
-        ref={terminalRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-20 scroll-smooth"
-        style={{
-          scrollbarWidth: 'auto',
-          scrollbarColor: '#00ff00 #1a1a1a'
-        }}
-      >
-        {!isStarted ? (
+      {/* Main Content - Side-by-Side Layout */}
+      {!isStarted ? (
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-20">
           <div className="flex flex-col items-start">
             <p className="mb-2">Welcome to the terminal. To begin your journey, please enter:</p>
             <p className="mb-2 text-green-300">save-the-world</p>
             <form onSubmit={handleCommandSubmit} className="flex items-center gap-2 w-full">
-            <span className="text-green-500">$</span>
-            <input
-              ref={inputRef}
-              type="text"
-              value={commandInput}
-              onChange={(e) => setCommandInput(e.target.value)}
-              className="flex-1 bg-transparent border-none outline-none text-green-500"
-              autoFocus
-              placeholder="Type 'save-the-world' to begin..."
-            />
-          </form>
+              <span className="text-green-500">$</span>
+              <input
+                ref={inputRef}
+                type="text"
+                value={commandInput}
+                onChange={(e) => setCommandInput(e.target.value)}
+                className="flex-1 bg-transparent border-none outline-none text-green-500"
+                autoFocus
+                placeholder="Type 'save-the-world' to begin..."
+              />
+            </form>
           </div>
-        ) : (
-          <>
-            {/* ASCII Art - Fixed at top-left of page */}
-            {STORY[currentNode] && STORY[currentNode].ascii && (
-              <div
-                data-testid="ascii-art"
-                className="mt-6 mb-6 p-4 bg-black/40 border border-green-500/20 rounded whitespace-pre font-mono text-xs leading-tight inline-block"
-              >
-                {STORY[currentNode].ascii.map((line, index) => (
-                  <div key={index} className="text-green-500">{line}</div>
-                ))}
-              </div>
-            )}
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col md:flex-row gap-4 p-4 overflow-hidden">
+          {/* Left Panel - ASCII Art (Desktop Only, Fixed/Sticky) */}
+          <div className="hidden md:flex md:w-[35%] items-start justify-center pt-8">
+            <div className="sticky top-8 flex flex-col items-center gap-4">
+              {/* Dynamic ASCII Art */}
+              {displayAsciiData && displayAsciiData.ascii && (
+                <div
+                  data-testid="ascii-art"
+                  className="p-4 bg-black/60 border border-green-500/30 rounded whitespace-pre font-mono text-[0.55rem] leading-tight shadow-lg shadow-green-900/20 overflow-x-auto max-w-full transform scale-90"
+                >
+                  {displayAsciiData.ascii.map((line, index) => (
+                    <div key={index} className={displayAsciiData.isInline ? "text-green-400" : "text-green-500"}>{line}</div>
+                  ))}
+                </div>
+              )}
 
-            {/* Chapter Title */}
+              {/* Dynamic label based on what's displayed */}
+              {displayAsciiData && (
+                <div className="text-center">
+                  <div className="text-green-500/60 text-xs font-mono uppercase tracking-wider">
+                    {displayAsciiData.label}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Panel - Story Content (Scrollable) */}
+          <div
+            ref={terminalRef}
+            className="flex-1 md:w-[65%] overflow-y-auto overflow-x-hidden pb-20 scroll-smooth pr-2 md:pr-56"
+            style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: '#00ff00 #1a1a1a'
+            }}
+          >
+            {/* Mobile ASCII Art (shows on top for mobile) */}
+            <div className="md:hidden mb-6">
+              {displayAsciiData && displayAsciiData.ascii && (
+                <div
+                  data-testid="ascii-art-mobile"
+                  className="p-4 bg-black/40 border border-green-500/20 rounded whitespace-pre font-mono text-[0.55rem] leading-tight overflow-x-auto max-w-full transform scale-90"
+                >
+                  {displayAsciiData.ascii.map((line, index) => (
+                    <div key={index} className={displayAsciiData.isInline ? "text-green-400" : "text-green-500"}>{line}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Chapter Title (Sticky on desktop) */}
             {STORY[currentNode] && (
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-green-400 mb-4">
+              <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm pb-3 mb-6 border-b border-green-500/20">
+                <h2 className="text-2xl md:text-3xl font-bold text-green-400">
                   {STORY[currentNode].title}
                 </h2>
               </div>
@@ -1054,21 +1217,22 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
 
             {/* Page indicator */}
             {paragraphsDisplayedOnPage > 0 && (
-              <div className="text-green-500/30 text-xs text-center my-2 font-mono">
+              <div className="text-green-500/30 text-xs text-center my-3 font-mono">
                 [ {paragraphsDisplayedOnPage} / {PARAGRAPHS_PER_PAGE} ]
               </div>
             )}
 
             {/* Story content area */}
-            <div data-testid="story-content" tabIndex={-1} className="space-y-4 pb-40 mb-8 min-h-[62vh]">
+            <div data-testid="story-content" tabIndex={-1} className="space-y-4 pb-40 mb-8">
               {/* Previously displayed texts */}
               {displayedTexts.map((text, index) => {
                 // Check if this is a chapter separator
                 const isChapterSeparator = text.includes('═══ CHAPTER COMPLETE ═══');
+
                 return (
                   <React.Fragment key={index}>
                     <p
-                      className={`leading-relaxed ${
+                      className={`leading-relaxed text-base ${
                         isChapterSeparator
                           ? 'text-center text-yellow-400 font-bold text-lg my-6 py-4 border-y border-yellow-500/50'
                           : 'text-green-400 mb-3'
@@ -1076,10 +1240,11 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
                     >
                       {text}
                     </p>
+
                     {/* Add divider between paragraphs, but not after the last one */}
                     {!isChapterSeparator && index < displayedTexts.length - 1 && (
                       <div className="text-green-500/20 text-xs my-2 font-mono select-none">
-                        {'// ' + '─'.repeat(80)}
+                        {'// ' + '─'.repeat(60)}
                       </div>
                     )}
                   </React.Fragment>
@@ -1088,15 +1253,15 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
 
               {/* Currently typing text - only show while actively typing */}
               {isTyping && currentText && (
-                <p className="text-green-500 leading-relaxed">
+                <p className="text-green-500 leading-relaxed text-base">
                   {currentText}
                   <span className="animate-pulse ml-1">█</span>
                 </p>
               )}
             </div>
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
 
       {/* Controls */}
       {isStarted && (
@@ -1105,7 +1270,7 @@ export default function CtrlSWorld({ achievementManager, isMuted }: CtrlSWorldPr
             {/* Left side - Previous button */}
             <button
               onClick={handlePrevious}
-              disabled={paragraphHistory.length === 0}
+              disabled={paragraphHistory.length === 0 && displayedTexts.length === 0}
               className="flex items-center gap-2 px-4 py-2 bg-green-900 hover:bg-green-800 rounded text-sm disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <ChevronLeft className="w-4 h-4" /> Previous
