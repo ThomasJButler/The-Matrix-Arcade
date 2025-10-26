@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Terminal as TerminalIcon, Info, Play, Pause, Maximize, Minimize, Type, Gauge } from 'lucide-react';
+import { Terminal as TerminalIcon, Info, Play, Pause, Maximize, Minimize, Type, Gauge, Settings, Save } from 'lucide-react';
 import { PuzzleModal } from '../ui/PuzzleModal';
 import { getPuzzleById } from '../../data/puzzles';
 import { useGameState } from '../../contexts/GameStateContext';
@@ -7,6 +7,8 @@ import { StatsHUD } from '../ui/StatsHUD';
 import { AchievementToastContainer, Achievement } from '../ui/AchievementToast';
 import { InventoryPanel } from '../ui/InventoryPanel';
 import { getItemRewardsForPuzzle, getItemById } from '../../data/items';
+import { AudioSettings } from '../ui/AudioSettings';
+import { SaveLoadManager } from '../ui/SaveLoadManager';
 
 interface AchievementManager {
   unlockAchievement(gameId: string, achievementId: string): void;
@@ -427,6 +429,8 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
   // UI state
   const [showInventory, setShowInventory] = useState(false);
   const [unlockedAchievements, setUnlockedAchievements] = useState<Achievement[]>([]);
+  const [showAudioSettings, setShowAudioSettings] = useState(false);
+  const [showSaveManager, setShowSaveManager] = useState(false);
 
   // Game state context
   const gameState = useGameState();
@@ -1204,6 +1208,26 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
               </select>
             </div>
 
+            {/* Audio Settings */}
+            <button
+              onClick={() => setShowAudioSettings(true)}
+              className="flex items-center gap-1 px-2 py-1 bg-green-900/50 hover:bg-green-800 border border-green-500/50 rounded text-xs font-mono text-green-400 transition-colors"
+              title="Audio Settings"
+            >
+              <Settings className="w-4 h-4" />
+              <span className="hidden sm:inline">Audio</span>
+            </button>
+
+            {/* Save Manager */}
+            <button
+              onClick={() => setShowSaveManager(true)}
+              className="flex items-center gap-1 px-2 py-1 bg-green-900/50 hover:bg-green-800 border border-green-500/50 rounded text-xs font-mono text-green-400 transition-colors"
+              title="Save/Load"
+            >
+              <Save className="w-4 h-4" />
+              <span className="hidden sm:inline">Save</span>
+            </button>
+
             {/* Pause Toggle */}
             <button
               onClick={togglePause}
@@ -1267,6 +1291,18 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
       <InventoryPanel
         isOpen={showInventory}
         onClose={() => setShowInventory(false)}
+      />
+
+      {/* Audio Settings Modal */}
+      <AudioSettings
+        isOpen={showAudioSettings}
+        onClose={() => setShowAudioSettings(false)}
+      />
+
+      {/* Save Manager Modal */}
+      <SaveLoadManager
+        isOpen={showSaveManager}
+        onClose={() => setShowSaveManager(false)}
       />
     </div>
   );
