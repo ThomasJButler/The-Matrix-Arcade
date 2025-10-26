@@ -12,10 +12,10 @@ import { useSaveSystem } from '../../hooks/useSaveSystem';
 const COLS = 10;
 const ROWS = 20;
 const BLOCK_SIZE = 30;
-const INITIAL_DROP_SPEED = 500; // ms - normal drop speed (10s full drop)
-const SPEED_DECREASE = 50; // ms per level decrease
-const MIN_DROP_SPEED = 100; // minimum drop speed
-const SOFT_DROP_SPEED = 50; // ms - fast drop when holding down
+const INITIAL_DROP_SPEED = 250; // ms - normal drop speed (5s full drop)
+const SPEED_DECREASE = 25; // ms per level decrease
+const MIN_DROP_SPEED = 50; // minimum drop speed
+const SOFT_DROP_SPEED = 25; // ms - fast drop when holding down
 const LINES_PER_LEVEL = 10;
 const PARTICLE_COUNT = 30;
 const BULLET_TIME_COST = 5; // lines needed to fill bullet time meter
