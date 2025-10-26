@@ -42,6 +42,7 @@ import { MobileWarning } from './components/ui/MobileWarning';
 import { useSoundSystem } from './hooks/useSoundSystem';
 import { useAchievementManager } from './hooks/useAchievementManager';
 import { useMobileDetection } from './hooks/useMobileDetection';
+import { useSaveSystem } from './hooks/useSaveSystem';
 import { GameStateProvider } from './contexts/GameStateContext';
 import matrixInvadersPreview from './images/matrixinvaders.webp';
 import metrisPreview from './images/metris.webp';
@@ -63,15 +64,17 @@ function App() {
   // Initialize sound system and achievement manager
   const { playSFX, playMusic, stopMusic, playBackgroundMP3, stopBackgroundMP3, toggleMute, isMuted, config: soundConfig, updateConfig } = useSoundSystem();
   const achievementManager = useAchievementManager();
-  
+  const { saveData } = useSaveSystem();
+
   // Mobile detection
   const { isMobile, isTablet } = useMobileDetection();
   const showMobileWarning = isMobile || isTablet;
-  
+
   // Track global achievements
   const gamesPlayed = useRef(new Set<string>());
   const playStartTime = useRef<number | null>(null);
   const totalPlayTime = useRef(0);
+  const appStartTime = useRef(Date.now());
 
   /**
    * @listens achievementManager.stats.unlocked, achievementManager
@@ -99,6 +102,66 @@ function App() {
       });
     }
   }, [achievementManager.stats.unlocked, achievementManager]);
+
+  /**
+   * Track when a game is played and check for "play all games" achievement
+   */
+  useEffect(() => {
+    if (selectedGame !== null) {
+      const gameNames = ['CTRL-S | The World', 'Snake Classic', 'Vortex Pong', 'Matrix Cloud', 'Matrix Invaders', 'Metris'];
+      const gameName = gameNames[selectedGame] || '';
+
+      if (!gamesPlayed.current.has(gameName)) {
+        gamesPlayed.current.add(gameName);
+
+        // Check if all games have been played
+        const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
+        if (gamesPlayed.current.size === 6 && !currentGlobalAchievements.includes('global_all_games')) {
+          achievementManager.updateGlobalStats({
+            globalAchievements: [...currentGlobalAchievements, 'global_all_games']
+          });
+        }
+      }
+    }
+  }, [selectedGame, achievementManager]);
+
+  /**
+   * Track cross-game statistics and achievements
+   */
+  useEffect(() => {
+    const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
+
+    // Calculate total score across all games
+    const totalScore = Object.values(saveData.games || {}).reduce((sum, game: any) => sum + (game.highScore || 0), 0);
+
+    // Total Score achievements
+    if (totalScore >= 10000 && !currentGlobalAchievements.includes('global_score_10k')) {
+      achievementManager.updateGlobalStats({
+        globalAchievements: [...currentGlobalAchievements, 'global_score_10k']
+      });
+    }
+
+    if (totalScore >= 50000 && !currentGlobalAchievements.includes('global_score_50k')) {
+      achievementManager.updateGlobalStats({
+        globalAchievements: [...currentGlobalAchievements, 'global_score_50k']
+      });
+    }
+
+    if (totalScore >= 100000 && !currentGlobalAchievements.includes('global_score_100k')) {
+      achievementManager.updateGlobalStats({
+        globalAchievements: [...currentGlobalAchievements, 'global_score_100k']
+      });
+    }
+
+    // Total games played achievement
+    const totalGamesPlayed = Object.values(saveData.games || {}).reduce((sum, game: any) => sum + (game.stats?.gamesPlayed || 0), 0);
+
+    if (totalGamesPlayed >= 100 && !currentGlobalAchievements.includes('global_100_plays')) {
+      achievementManager.updateGlobalStats({
+        globalAchievements: [...currentGlobalAchievements, 'global_100_plays']
+      });
+    }
+  }, [saveData, achievementManager]);
 
   const games = [
     {

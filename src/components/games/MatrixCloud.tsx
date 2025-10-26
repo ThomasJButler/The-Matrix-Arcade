@@ -201,25 +201,26 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
   const { playSFX, playMusic, stopMusic } = useSoundSystem();
   
   // Save system integration
-  const { saveData, updateGameSave } = useSaveSystem();
-  
+  const { saveData, updateGameSave, unlockAchievement: unlockSaveAchievement } = useSaveSystem();
+
   // Track achievements
   const powerUpsCollected = useRef(0);
   const bossesDefeated = useRef(new Set<string>());
   const maxAltitude = useRef(0);
-  
+
   // Initialize state with saved high score
   const [state, setState] = useState<GameState>(() => ({
     ...initialGameState,
     highScore: saveData?.games?.matrixCloud?.highScore || 0
   }));
-  
+
   // Achievement function
   const unlockAchievement = useCallback((gameId: string, achievementId: string) => {
     if (achievementManager?.unlockAchievement) {
       achievementManager.unlockAchievement(gameId, achievementId);
     }
-  }, [achievementManager]);
+    unlockSaveAchievement(gameId, achievementId);
+  }, [achievementManager, unlockSaveAchievement]);
 
   // Start background music when game starts
   useEffect(() => {

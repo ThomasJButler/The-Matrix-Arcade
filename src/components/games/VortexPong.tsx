@@ -4,6 +4,7 @@ import { useGameLoop } from '../../hooks/useGameLoop';
 import { usePowerUps } from '../../hooks/usePowerUps';
 import { useParticleSystem } from '../../hooks/useParticleSystem';
 import { useSoundSystem } from '../../hooks/useSoundSystem';
+import { useSaveSystem } from '../../hooks/useSaveSystem';
 import { PowerUpIndicator } from '../ui/PowerUpIndicator';
 import { ScoreBoard } from '../ui/ScoreBoard';
 import { GameOverModal } from '../ui/GameOverModal';
@@ -117,18 +118,23 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
   const { powerUps, setPowerUps, activePowerUps, spawnPowerUp, activatePowerUp } = usePowerUps();
   const { explode, createTrail, render: renderParticles } = useParticleSystem();
   const { playSFX, stopMusic } = useSoundSystem();
-  
+  const { saveData, updateGameSave, unlockAchievement: unlockSaveAchievement } = useSaveSystem();
+
   // Achievement unlock function
   const unlockAchievement = useCallback((achievementId: string) => {
     if (achievementManager?.unlockAchievement) {
       achievementManager.unlockAchievement('vortexPong', achievementId);
     }
-  }, [achievementManager]);
-  
-  // Track rally count
+    unlockSaveAchievement('vortexPong', achievementId);
+  }, [achievementManager, unlockSaveAchievement]);
+
+  // Track rally count and session stats
   const rallyCount = useRef(0);
   const hasFirstPoint = useRef(false);
   const powerUpsUsed = useRef(0);
+  const sessionStartTimeRef = useRef<number>(Date.now());
+  const maxComboRef = useRef(0);
+  const maxRallyRef = useRef(0);
 
   // Initialize particles
   useEffect(() => {
@@ -158,6 +164,14 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
     setAiDifficulty(2.5);
     setTimeSinceLastGoal(0);
     setCurrentBallSpeed(INITIAL_BALL_SPEED);
+
+    // Reset session tracking
+    sessionStartTimeRef.current = Date.now();
+    rallyCount.current = 0;
+    hasFirstPoint.current = false;
+    powerUpsUsed.current = 0;
+    maxComboRef.current = 0;
+    maxRallyRef.current = 0;
   }, []);
 
   // Screen shake effect
@@ -311,9 +325,14 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
           const updatedPowerUps = [...powerUps];
           updatedPowerUps.splice(index, 1);
           setPowerUps(updatedPowerUps);
-          
+
           // Track power-up usage
           powerUpsUsed.current += 1;
+
+          // Power Master achievement: Collect 5 power-ups in one game
+          if (powerUpsUsed.current >= 5) {
+            unlockAchievement('pong_power_master');
+          }
           
           // Special effects for multi-ball power-up
           if (powerUp.type === 'multi_ball' && balls.length < 3) {
@@ -368,13 +387,18 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
         // Enhanced effects
         addImpactEffect(newBall.x, newBall.y, 10);
         playSFX('pongBounce');
-        setCombo(prev => prev + 1);
+        setCombo(prev => {
+          const newCombo = prev + 1;
+          maxComboRef.current = Math.max(maxComboRef.current, newCombo);
+          return newCombo;
+        });
         setLastPaddleHit('player');
-        
+
         // Track rally
         if (lastPaddleHit === 'ai') {
           rallyCount.current += 1;
-          
+          maxRallyRef.current = Math.max(maxRallyRef.current, rallyCount.current);
+
           // Rally achievements
           if (rallyCount.current === 5) {
             unlockAchievement('pong_combo_king');
@@ -477,22 +501,47 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
       stopMusic();
       playSFX(score.player >= 10 ? 'levelUp' : 'gameOver');
       addScreenShake(30);
-      
+
+      // Save game stats
+      const sessionTime = Math.floor((Date.now() - sessionStartTimeRef.current) / 1000);
+      const playerWon = score.player >= 10;
+      const currentHighScore = saveData.games.vortexPong?.highScore || 0;
+      const newHighScore = Math.max(currentHighScore, score.player);
+      const previousGamesPlayed = saveData.games.vortexPong?.stats?.gamesPlayed || 0;
+      const previousWins = saveData.games.vortexPong?.stats?.wins || 0;
+      const previousTotalScore = saveData.games.vortexPong?.stats?.totalScore || 0;
+      const previousBestCombo = saveData.games.vortexPong?.stats?.bestCombo || 0;
+      const previousLongestRally = saveData.games.vortexPong?.stats?.longestRally || 0;
+
+      setTimeout(() => {
+        updateGameSave('vortexPong', {
+          highScore: newHighScore,
+          level: 1,
+          stats: {
+            gamesPlayed: previousGamesPlayed + 1,
+            wins: playerWon ? previousWins + 1 : previousWins,
+            totalScore: previousTotalScore + score.player,
+            bestCombo: Math.max(previousBestCombo, maxComboRef.current),
+            longestRally: Math.max(previousLongestRally, maxRallyRef.current)
+          }
+        });
+      }, 100);
+
       // Check achievements on game over
       if (score.player >= 10) {
         unlockAchievement('pong_beat_ai');
-        
+
         // Perfect game achievement
         if (score.ai === 0) {
           unlockAchievement('pong_perfect_game');
         }
       }
-      
+
       // Multi-ball achievement
       if (balls.length >= 3) {
         unlockAchievement('pong_multi_ball');
       }
-      
+
       return;
     }
 

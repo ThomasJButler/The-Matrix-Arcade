@@ -3,6 +3,7 @@ import { Terminal as TerminalIcon, Info, Play, Pause, Maximize, Minimize, Type, 
 import { PuzzleModal } from '../ui/PuzzleModal';
 import { getPuzzleById } from '../../data/puzzles';
 import { useGameState } from '../../contexts/GameStateContext';
+import { useSaveSystem } from '../../hooks/useSaveSystem';
 import { StatsHUD } from '../ui/StatsHUD';
 import { AchievementToastContainer, Achievement } from '../ui/AchievementToast';
 import { InventoryPanel } from '../ui/InventoryPanel';
@@ -434,17 +435,24 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
 
   // Game state context
   const gameState = useGameState();
+  const { saveData, updateGameSave, unlockAchievement: unlockSaveAchievement } = useSaveSystem();
 
   const terminalRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Session tracking
+  const sessionStartTimeRef = useRef<number>(Date.now());
+  const chaptersCompletedThisSession = useRef(new Set<number>());
+  const puzzlesSolvedThisSession = useRef(new Set<string>());
 
   // Achievement unlock function
   const unlockAchievement = useCallback((achievementId: string) => {
     if (achievementManager?.unlockAchievement) {
       achievementManager.unlockAchievement('ctrlSWorld', achievementId);
     }
-  }, [achievementManager]);
+    unlockSaveAchievement('terminalQuest', achievementId);
+  }, [achievementManager, unlockSaveAchievement]);
 
   // Placeholder sound function for puzzle modal
   const playSFX = useCallback((sound: string) => {
@@ -850,6 +858,70 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
       }
     }, 500);
   }, [currentPuzzleId, currentNode, currentTextIndex, gameState, unlockAchievement]);
+
+  // Track chapter completion and save game stats
+  useEffect(() => {
+    if (!isStarted) return;
+
+    // Track chapter completion
+    if (!chaptersCompletedThisSession.current.has(currentNode)) {
+      chaptersCompletedThisSession.current.add(currentNode);
+
+      // Chapter-specific achievements
+      if (currentNode === 1) {
+        unlockAchievement('chapter_1');
+      } else if (currentNode === 3) {
+        unlockAchievement('chapter_3');
+      } else if (currentNode === 5) {
+        unlockAchievement('story_complete');
+      }
+    }
+
+    // Check if game is complete (reached last chapter, last paragraph)
+    if (currentNode === STORY.length - 1 && currentTextIndex === STORY[currentNode].content.length - 1 && !isTyping) {
+      const sessionTime = Math.floor((Date.now() - sessionStartTimeRef.current) / 1000);
+      const completedPuzzles = gameState.state.completedPuzzles || [];
+      const totalChapters = STORY.length;
+
+      const previousBestTime = saveData.games.terminalQuest?.stats?.fastestCompletion || Infinity;
+      const previousGamesPlayed = saveData.games.terminalQuest?.stats?.gamesPlayed || 0;
+      const previousChaptersCompleted = saveData.games.terminalQuest?.stats?.chaptersCompleted || 0;
+      const previousPuzzlesSolved = saveData.games.terminalQuest?.stats?.puzzlesSolved || 0;
+
+      setTimeout(() => {
+        updateGameSave('terminalQuest', {
+          highScore: completedPuzzles.length,
+          level: totalChapters,
+          stats: {
+            gamesPlayed: previousGamesPlayed + 1,
+            chaptersCompleted: Math.max(previousChaptersCompleted, currentNode + 1),
+            puzzlesSolved: previousPuzzlesSolved + puzzlesSolvedThisSession.current.size,
+            fastestCompletion: Math.min(previousBestTime, sessionTime)
+          }
+        });
+      }, 100);
+
+      // Speed run achievement: Complete in under 30 minutes
+      if (sessionTime < 1800) {
+        unlockAchievement('speed_reader');
+      }
+    }
+  }, [currentNode, currentTextIndex, isTyping, isStarted, gameState.state.completedPuzzles, saveData, updateGameSave, unlockAchievement]);
+
+  // Track puzzle completion
+  useEffect(() => {
+    const completedPuzzles = gameState.state.completedPuzzles || [];
+    completedPuzzles.forEach(puzzleId => {
+      if (!puzzlesSolvedThisSession.current.has(puzzleId)) {
+        puzzlesSolvedThisSession.current.add(puzzleId);
+      }
+    });
+
+    // All puzzles achievement
+    if (completedPuzzles.length >= 10) {
+      unlockAchievement('puzzle_master');
+    }
+  }, [gameState.state.completedPuzzles, unlockAchievement]);
 
   useEffect(() => {
     if (!isStarted && inputRef.current) {

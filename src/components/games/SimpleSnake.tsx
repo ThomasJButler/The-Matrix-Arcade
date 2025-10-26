@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { useSimpleSnakeGame } from '../../hooks/useSimpleSnakeGame';
+import { useSaveSystem } from '../../hooks/useSaveSystem';
 import { Trophy, Zap, Play, RotateCcw } from 'lucide-react';
 
 interface AchievementManager {
@@ -338,9 +339,12 @@ const SnakeMenu: React.FC<SnakeMenuProps> = ({ gameState, score, highScore, onSt
 
 export default function SimpleSnake({ achievementManager, isMuted }: SimpleSnakeProps) {
   const { gameState, startGame, togglePause, resetGame, changeDirection, gridSize } = useSimpleSnakeGame();
+  const { saveData, updateGameSave, unlockAchievement } = useSaveSystem();
   const scoreRef = useRef(0);
   const playTimeRef = useRef<number>(Date.now());
   const prevScoreRef = useRef(0);
+  const sessionStartTimeRef = useRef<number>(Date.now());
+  const foodEatenRef = useRef(0);
 
   // Handle keyboard input
   useEffect(() => {
@@ -387,33 +391,75 @@ export default function SimpleSnake({ achievementManager, isMuted }: SimpleSnake
   // Track achievements
   useEffect(() => {
     if (achievementManager) {
+      // First Apple: First food collected
+      if (gameState.score > 0 && foodEatenRef.current === 0) {
+        unlockAchievement('snakeClassic', 'first_apple');
+        foodEatenRef.current = 1;
+      }
+
       // Score achievements
       if (gameState.score >= 100 && scoreRef.current < 100) {
+        unlockAchievement('snakeClassic', 'score_100');
         achievementManager.unlockAchievement('snake', 'snake_score_100');
       }
       if (gameState.score >= 500 && scoreRef.current < 500) {
+        unlockAchievement('snakeClassic', 'score_500');
         achievementManager.unlockAchievement('snake', 'snake_score_500');
       }
       if (gameState.score >= 1000 && scoreRef.current < 1000) {
+        unlockAchievement('snakeClassic', 'snake_master');
         achievementManager.unlockAchievement('snake', 'snake_master');
       }
 
       scoreRef.current = gameState.score;
     }
-  }, [gameState.score, achievementManager]);
+  }, [gameState.score, achievementManager, unlockAchievement]);
 
-  // Track play time for achievements
+  // Track play time and save on game over
   useEffect(() => {
     if (gameState.gameState === 'playing') {
       playTimeRef.current = Date.now();
-    } else if (gameState.gameState === 'gameOver' && achievementManager) {
+      sessionStartTimeRef.current = Date.now();
+    } else if (gameState.gameState === 'gameOver') {
       const playTime = (Date.now() - playTimeRef.current) / 1000; // in seconds
-      if (playTime >= 300) {
-        // 5 minutes
-        achievementManager.unlockAchievement('snake', 'snake_survivor');
+      const sessionTime = Math.floor((Date.now() - sessionStartTimeRef.current) / 1000);
+
+      // Save game stats
+      const currentHighScore = saveData.games.snakeClassic?.highScore || 0;
+      const newHighScore = Math.max(currentHighScore, gameState.score);
+      const previousGamesPlayed = saveData.games.snakeClassic?.stats?.gamesPlayed || 0;
+      const previousTotalScore = saveData.games.snakeClassic?.stats?.totalScore || 0;
+      const previousLongestSurvival = saveData.games.snakeClassic?.stats?.longestSurvival || 0;
+      const previousBestLength = saveData.games.snakeClassic?.stats?.bestLength || 0;
+
+      setTimeout(() => {
+        updateGameSave('snakeClassic', {
+          highScore: newHighScore,
+          level: gameState.level || 1,
+          stats: {
+            gamesPlayed: previousGamesPlayed + 1,
+            totalScore: previousTotalScore + gameState.score,
+            longestSurvival: Math.max(previousLongestSurvival, sessionTime),
+            bestLength: Math.max(previousBestLength, gameState.snake.length)
+          }
+        });
+      }, 100);
+
+      // Achievements
+      if (achievementManager) {
+        // Survivor: Play for 5 minutes
+        if (playTime >= 300) {
+          unlockAchievement('snakeClassic', 'survivor');
+          achievementManager.unlockAchievement('snake', 'snake_survivor');
+        }
+
+        // Speed Demon: Score 100+ at max speed
+        if (gameState.score >= 100 && (gameState.level || 1) >= 10) {
+          unlockAchievement('snakeClassic', 'speed_demon');
+        }
       }
     }
-  }, [gameState.gameState, achievementManager]);
+  }, [gameState.gameState, gameState.score, gameState.level, gameState.snake, achievementManager, saveData, updateGameSave, unlockAchievement]);
 
   // Simple sound effects (only if not muted)
   useEffect(() => {

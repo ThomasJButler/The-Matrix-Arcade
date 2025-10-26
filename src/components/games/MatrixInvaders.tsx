@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSoundSynthesis } from '../../hooks/useSoundSynthesis';
 import { useObjectPool, createProjectile, createEnemy, createParticle } from '../../hooks/useObjectPool';
 import { usePerformanceMonitor } from '../../hooks/usePerformanceMonitor';
+import { useSaveSystem } from '../../hooks/useSaveSystem';
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const PLAYER_SPEED = 5;
@@ -110,6 +111,13 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
   const enemyPool = useObjectPool({ create: createEnemy, maxSize: 100 });
   const particlePool = useObjectPool({ create: createParticle, maxSize: 500 });
   const { trackDrawCall, trackActiveObjects, PerformanceOverlay } = usePerformanceMonitor({ showOverlay: false });
+  const { saveData, updateGameSave, unlockAchievement: unlockSaveAchievement } = useSaveSystem();
+
+  // Session tracking
+  const sessionStartTimeRef = useRef<number>(Date.now());
+  const maxWaveRef = useRef(0);
+  const maxComboRef = useRef(0);
+  const enemiesKilledRef = useRef(0);
   
   // Initialize Matrix rain
   useEffect(() => {
@@ -208,13 +216,33 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
             projectilePool.release(bullet);
 
             if (enemy.health <= 0) {
-              setState(prev => ({
-                ...prev,
-                score: prev.score + enemy.value * (1 + prev.combo * 0.1),
-                combo: prev.combo + 1
-              }));
+              setState(prev => {
+                const newCombo = prev.combo + 1;
+                maxComboRef.current = Math.max(maxComboRef.current, newCombo);
+                return {
+                  ...prev,
+                  score: prev.score + enemy.value * (1 + prev.combo * 0.1),
+                  combo: newCombo
+                };
+              });
 
+              enemiesKilledRef.current += 1;
               createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+
+              // Achievements
+              if (achievementManager) {
+                // First kill achievement
+                if (enemiesKilledRef.current === 1) {
+                  achievementManager.unlockAchievement('matrixInvaders', 'invaders_first_kill');
+                  unlockSaveAchievement('matrixInvaders', 'invaders_first_kill');
+                }
+
+                // 100 enemies achievement
+                if (enemiesKilledRef.current >= 100) {
+                  achievementManager.unlockAchievement('matrixInvaders', 'invaders_100_enemies');
+                  unlockSaveAchievement('matrixInvaders', 'invaders_100_enemies');
+                }
+              }
 
               // Split virus enemies
               if (enemy.type === 'virus' && ENEMY_TYPES.virus.splits) {
@@ -291,6 +319,8 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
     if (enemies.filter(e => e.active).length === 0) {
       setState(prev => {
         const newWave = prev.wave + 1;
+        maxWaveRef.current = Math.max(maxWaveRef.current, newWave);
+
         // Spawn next wave after state update
         setTimeout(() => spawnWave(newWave), 100);
         // Reset health on new wave
@@ -304,12 +334,23 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
         };
       });
 
-      // Achievement check
-      if (state.wave === 5 && achievementManager) {
-        achievementManager.unlockAchievement('matrixInvaders', 'invaders_wave_5');
+      // Achievement checks
+      if (achievementManager) {
+        if (state.wave === 5) {
+          achievementManager.unlockAchievement('matrixInvaders', 'invaders_wave_5');
+          unlockSaveAchievement('matrixInvaders', 'invaders_wave_5');
+        }
+        if (state.wave === 10) {
+          achievementManager.unlockAchievement('matrixInvaders', 'invaders_wave_10');
+          unlockSaveAchievement('matrixInvaders', 'invaders_wave_10');
+        }
+        if (state.wave === 20) {
+          achievementManager.unlockAchievement('matrixInvaders', 'invaders_endless');
+          unlockSaveAchievement('matrixInvaders', 'invaders_endless');
+        }
       }
     }
-  }, [projectilePool, enemyPool, state.wave, state.player, achievementManager, createExplosion, synthDrum, synthExplosion, spawnWave]);
+  }, [projectilePool, enemyPool, state.wave, state.player, achievementManager, unlockSaveAchievement, createExplosion, synthDrum, synthExplosion, spawnWave]);
   
   // Update game state
   const updateGame = useCallback((deltaTime: number) => {
@@ -648,12 +689,44 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
     };
   }, [state.gameOver, state.paused, state.wave, enemyPool, spawnWave, gameLoop]);
   
-  // Save high score
+  // Save game stats on game over
   useEffect(() => {
-    if (state.score > state.highScore) {
-      localStorage.setItem('matrixInvaders_highScore', state.score.toString());
+    if (state.gameOver) {
+      const sessionTime = Math.floor((Date.now() - sessionStartTimeRef.current) / 1000);
+      const currentHighScore = saveData.games.matrixInvaders?.highScore || 0;
+      const newHighScore = Math.max(currentHighScore, state.score);
+      const previousGamesPlayed = saveData.games.matrixInvaders?.stats?.gamesPlayed || 0;
+      const previousTotalScore = saveData.games.matrixInvaders?.stats?.totalScore || 0;
+      const previousBestWave = saveData.games.matrixInvaders?.stats?.bestWave || 0;
+      const previousTotalKills = saveData.games.matrixInvaders?.stats?.totalKills || 0;
+      const previousBestCombo = saveData.games.matrixInvaders?.stats?.bestCombo || 0;
+
+      setTimeout(() => {
+        updateGameSave('matrixInvaders', {
+          highScore: newHighScore,
+          level: state.wave,
+          stats: {
+            gamesPlayed: previousGamesPlayed + 1,
+            totalScore: previousTotalScore + state.score,
+            bestWave: Math.max(previousBestWave, maxWaveRef.current),
+            totalKills: previousTotalKills + enemiesKilledRef.current,
+            bestCombo: Math.max(previousBestCombo, maxComboRef.current)
+          }
+        });
+
+        // Also update localStorage for backward compatibility
+        if (state.score > state.highScore) {
+          localStorage.setItem('matrixInvaders_highScore', state.score.toString());
+        }
+      }, 100);
+
+      // Combo achievement: Get 10x combo
+      if (maxComboRef.current >= 10 && achievementManager) {
+        achievementManager.unlockAchievement('matrixInvaders', 'invaders_combo_10');
+        unlockSaveAchievement('matrixInvaders', 'invaders_combo_10');
+      }
     }
-  }, [state.score, state.highScore]);
+  }, [state.gameOver, state.score, state.wave, state.highScore, saveData, updateGameSave, achievementManager, unlockSaveAchievement]);
   
   // Reset game
   const resetGame = useCallback(() => {
@@ -680,6 +753,12 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
       bulletTimeActive: false,
       timeScale: 1
     });
+
+    // Reset session tracking
+    sessionStartTimeRef.current = Date.now();
+    maxWaveRef.current = 0;
+    maxComboRef.current = 0;
+    enemiesKilledRef.current = 0;
 
     spawnWave(1);
   }, [projectilePool, enemyPool, particlePool, spawnWave, gameLoop]);

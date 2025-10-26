@@ -513,6 +513,11 @@ export function useSoundSystem() {
     if (sfxGainRef.current && updated.sfxVolume !== config.sfxVolume) {
       sfxGainRef.current.gain.setValueAtTime(updated.sfxVolume, 0);
     }
+
+    // Immediately update MP3 background music volume if it exists
+    if (backgroundMusicRef.current && (updated.masterVolume !== config.masterVolume || updated.musicVolume !== config.musicVolume)) {
+      backgroundMusicRef.current.volume = updated.masterVolume * updated.musicVolume;
+    }
   }, [config]);
 
   // Toggle mute for all sounds

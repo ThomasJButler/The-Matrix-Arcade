@@ -28,7 +28,7 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
   isMuted = false,
   toggleMute
 }) => {
-  const { config, updateConfig, playSFX, playMusic, stopMusic } = useSoundSystem();
+  const { config, updateConfig, playSFX, playMusic, stopMusic, playBackgroundMP3, stopBackgroundMP3 } = useSoundSystem();
   const [testingSound, setTestingSound] = useState<string | null>(null);
   const [showSaved, setShowSaved] = useState(false);
 
@@ -55,8 +55,8 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
 
   const testMusic = () => {
     if (config.music) {
-      playMusic('menu');
-      setTimeout(() => stopMusic(), 3000);
+      playBackgroundMP3('/matrixarcaderetrobeat.mp3');
+      setTimeout(() => stopBackgroundMP3(), 3000);
     }
   };
 
