@@ -11,7 +11,7 @@ export const PUZZLES: Record<string, PuzzleData> = {
     id: 'prologue_first_command',
     type: 'fill-in',
     question: 'What command do programmers use to save their work?',
-    answer: ['ctrl-s', 'ctrl+s', 'save', 'ctrl s', 'control-s', 'control+s'],
+    answer: ['ctrl-s', 'ctrl+s', 'ctrls', 'save', 'ctrl s', 'control-s', 'control+s'],
     hints: [
       'It\'s literally in the game\'s title...',
       'Think keyboard shortcuts...',
@@ -48,7 +48,11 @@ export const PUZZLES: Record<string, PuzzleData> = {
     id: 'ch1_bunker_code',
     type: 'code',
     question: 'In JavaScript, what does typeof null return?',
-    answer: ['object'],
+    answer: ['object', '"object"', 'Object'],
+    optionA: 'null',
+    optionB: 'object',
+    optionC: 'undefined',
+    optionD: 'number',
     hints: [
       'It\'s one of JavaScript\'s most famous bugs.',
       'It returns a primitive type name... but not the right one!',
@@ -65,7 +69,7 @@ export const PUZZLES: Record<string, PuzzleData> = {
     id: 'ch2_silicon_valley_riddles',
     type: 'riddle',
     question: 'Riddle 1 of 3: What is the birthplace of Silicon Valley, named for its fruitful beginnings?',
-    answer: ['garage'],
+    answer: ['garage', 'garages', 'a garage', 'the garage'],
     hints: [
       'Think about where HP, Apple, and Google started.',
       'A small building attached to a house.',
@@ -80,7 +84,7 @@ export const PUZZLES: Record<string, PuzzleData> = {
     id: 'ch2_valley_riddle_2',
     type: 'riddle',
     question: 'Riddle 2 of 3: I am both a guardian and a messenger, the first of my kind. What am I?',
-    answer: ['arpanet', 'arpnet'],
+    answer: ['arpanet', 'arpnet', 'arpa net', 'arpa-net'],
     hints: [
       'The precursor to the internet.',
       'Created by ARPA in the 1960s.',
@@ -95,7 +99,7 @@ export const PUZZLES: Record<string, PuzzleData> = {
     id: 'ch2_valley_riddle_3',
     type: 'riddle',
     question: 'Riddle 3 of 3: In the digital world, I am the foundation. Without me, there is no connection. What am I?',
-    answer: ['protocol', 'protocols'],
+    answer: ['protocol', 'protocols', 'a protocol', 'the protocol'],
     hints: [
       'Think about how computers communicate.',
       'TCP/IP, HTTP, FTP are examples.',
@@ -110,7 +114,11 @@ export const PUZZLES: Record<string, PuzzleData> = {
     id: 'ch2_console_log',
     type: 'code',
     question: "What's the output of: console.log('2' + 2)?",
-    answer: ['22', '"22"'],
+    answer: ['22', '"22"', '22'],
+    optionA: '4',
+    optionB: '22',
+    optionC: 'NaN',
+    optionD: 'undefined',
     hints: [
       'Think about JavaScript type coercion.',
       'The + operator can do two things: addition and concatenation.',
@@ -141,7 +149,7 @@ export const PUZZLES: Record<string, PuzzleData> = {
     id: 'ch2_ethics_module_activation',
     type: 'code',
     question: 'Solve this equation to activate the ethics module: 7 + 3 * (10 / (12 / (3 + 1) - 1))',
-    answer: ['20'],
+    answer: ['20', '20.0', 'twenty'],
     hints: [
       'Remember order of operations: PEMDAS (Parentheses, Exponents, Multiplication/Division, Addition/Subtraction)',
       'Work from innermost parentheses outward: (3 + 1) = 4, then 12/4 = 3',
@@ -158,7 +166,7 @@ export const PUZZLES: Record<string, PuzzleData> = {
     id: 'ch3_ada_language',
     type: 'code',
     question: 'Which foundational programming language, named after a mathematician, is pivotal to computer science?',
-    answer: ['ada'],
+    answer: ['ada', 'Ada', 'ADA', 'ada lovelace'],
     hints: [
       'Named after Ada Lovelace, the first computer programmer.',
       'She worked with Charles Babbage on the Analytical Engine.',
@@ -174,7 +182,7 @@ export const PUZZLES: Record<string, PuzzleData> = {
     id: 'ch3_fibonacci',
     type: 'code',
     question: 'What is the difference between the 10th and 7th Fibonacci numbers?',
-    answer: ['26'],
+    answer: ['26', '26.0', 'twenty-six', 'twenty six'],
     hints: [
       'The 7th Fibonacci number is 13.',
       'The 10th Fibonacci number is 55.',
@@ -190,7 +198,7 @@ export const PUZZLES: Record<string, PuzzleData> = {
     id: 'ch3_fire_riddle',
     type: 'riddle',
     question: 'I am not alive, but I can grow; I don\'t have lungs, but I need air; I don\'t have a mouth, but water kills me. What am I?',
-    answer: ['fire'],
+    answer: ['fire', 'a fire', 'flame', 'flames'],
     hints: [
       'Think about the four classical elements.',
       'It consumes oxygen to survive.',
@@ -205,7 +213,7 @@ export const PUZZLES: Record<string, PuzzleData> = {
     id: 'ch3_array_length',
     type: 'code',
     question: 'const arr = [1, 2, 3]; arr[10] = 99; What is arr.length?',
-    answer: ['11'],
+    answer: ['11', '11.0', 'eleven'],
     hints: [
       'JavaScript arrays can have gaps.',
       'Setting an index creates all indices up to that point.',
@@ -348,7 +356,7 @@ export const PUZZLES: Record<string, PuzzleData> = {
     id: 'ch5_async_await',
     type: 'code',
     question: 'What keyword makes a function pause and wait for a Promise to resolve?',
-    answer: ['await'],
+    answer: ['await', 'Await', 'AWAIT'],
     hints: [
       'It\'s used with async functions.',
       'It literally means "wait for this".',
@@ -415,7 +423,7 @@ export const PUZZLES: Record<string, PuzzleData> = {
     id: 'bonus_binary',
     type: 'code',
     question: 'What is 1010 in binary as a decimal number?',
-    answer: ['10'],
+    answer: ['10', '10.0', 'ten'],
     hints: [
       'Binary is base-2: powers of 2 from right to left.',
       '1010 = (1×8) + (0×4) + (1×2) + (0×1)',
@@ -471,3 +479,5 @@ export const getTotalPuzzles = (): number => {
 export const getTotalPoints = (): number => {
   return Object.values(PUZZLES).reduce((sum, p) => sum + p.points, 0);
 };
+
+// Lifeline system integrated!
