@@ -22,7 +22,6 @@ export interface GlobalSaveData {
   games: {
     snakeClassic: GameSaveData;
     vortexPong: GameSaveData;
-    terminalQuest: GameSaveData;
     matrixCloud: GameSaveData;
     ctrlSWorld: GameSaveData;
     matrixInvaders: GameSaveData;
@@ -61,7 +60,6 @@ const createDefaultGlobalSave = (): GlobalSaveData => ({
   games: {
     snakeClassic: createDefaultGameSave(),
     vortexPong: createDefaultGameSave(),
-    terminalQuest: createDefaultGameSave(),
     matrixCloud: createDefaultGameSave(),
     ctrlSWorld: createDefaultGameSave(),
     matrixInvaders: createDefaultGameSave(),
@@ -109,15 +107,6 @@ export const GAME_ACHIEVEMENTS: Record<string, Achievement[]> = {
     { id: 'pong_multi_ball', name: 'Ball Juggler', description: 'Handle 3 balls simultaneously', game: 'Vortex Pong' },
     { id: 'pong_combo_king', name: 'Combo King', description: 'Score 5 consecutive paddle hits', game: 'Vortex Pong' },
     { id: 'pong_rally_master', name: 'Rally Master', description: '20 hits in a single rally', game: 'Vortex Pong' }
-  ],
-  terminalQuest: [
-    { id: 'quest_first_choice', name: 'Path Chosen', description: 'Make your first choice', game: 'Terminal Quest' },
-    { id: 'quest_tool_collector', name: 'Tool Collector', description: 'Collect 5 different items', game: 'Terminal Quest' },
-    { id: 'quest_survivor', name: 'Digital Survivor', description: 'Maintain 100% health for 10 choices', game: 'Terminal Quest' },
-    { id: 'quest_code_master', name: 'Code Master', description: 'Achieve 90+ code quality', game: 'Terminal Quest' },
-    { id: 'quest_team_leader', name: 'Team Leader', description: 'Maintain 80+ team morale', game: 'Terminal Quest' },
-    { id: 'quest_combat_victor', name: 'Combat Victor', description: 'Win 10 battles', game: 'Terminal Quest' },
-    { id: 'quest_story_end', name: 'Story Complete', description: 'Reach any ending', game: 'Terminal Quest' }
   ],
   matrixCloud: [
     { id: 'cloud_first_flight', name: 'Digital Pilot', description: 'Complete your first flight', game: 'Matrix Cloud' },

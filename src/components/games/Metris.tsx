@@ -12,7 +12,7 @@ import { useSaveSystem } from '../../hooks/useSaveSystem';
 const COLS = 10;
 const ROWS = 20;
 const BLOCK_SIZE = 30;
-const INITIAL_DROP_SPEED = 800; // ms - normal drop speed
+const INITIAL_DROP_SPEED = 500; // ms - normal drop speed (10s full drop)
 const SPEED_DECREASE = 50; // ms per level decrease
 const MIN_DROP_SPEED = 100; // minimum drop speed
 const SOFT_DROP_SPEED = 50; // ms - fast drop when holding down

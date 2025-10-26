@@ -451,7 +451,7 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
     if (achievementManager?.unlockAchievement) {
       achievementManager.unlockAchievement('ctrlSWorld', achievementId);
     }
-    unlockSaveAchievement('terminalQuest', achievementId);
+    unlockSaveAchievement('ctrlSWorld', achievementId);
   }, [achievementManager, unlockSaveAchievement]);
 
   // Placeholder sound function for puzzle modal
@@ -883,13 +883,13 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
       const completedPuzzles = gameState.state.completedPuzzles || [];
       const totalChapters = STORY.length;
 
-      const previousBestTime = saveData.games.terminalQuest?.stats?.fastestCompletion || Infinity;
-      const previousGamesPlayed = saveData.games.terminalQuest?.stats?.gamesPlayed || 0;
-      const previousChaptersCompleted = saveData.games.terminalQuest?.stats?.chaptersCompleted || 0;
-      const previousPuzzlesSolved = saveData.games.terminalQuest?.stats?.puzzlesSolved || 0;
+      const previousBestTime = saveData.games.ctrlSWorld?.stats?.fastestCompletion || Infinity;
+      const previousGamesPlayed = saveData.games.ctrlSWorld?.stats?.gamesPlayed || 0;
+      const previousChaptersCompleted = saveData.games.ctrlSWorld?.stats?.chaptersCompleted || 0;
+      const previousPuzzlesSolved = saveData.games.ctrlSWorld?.stats?.puzzlesSolved || 0;
 
       setTimeout(() => {
-        updateGameSave('terminalQuest', {
+        updateGameSave('ctrlSWorld', {
           highScore: completedPuzzles.length,
           level: totalChapters,
           stats: {
