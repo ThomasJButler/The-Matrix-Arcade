@@ -88,9 +88,10 @@ export const SaveLoadManager: React.FC<SaveLoadManagerProps> = ({ isOpen, onClos
     const names: Record<string, string> = {
       snakeClassic: 'Snake Classic',
       vortexPong: 'Vortex Pong',
-      terminalQuest: 'Terminal Quest',
       matrixCloud: 'Matrix Cloud',
-      ctrlSWorld: 'CTRL-S | The World'
+      ctrlSWorld: 'CTRL-S | The World',
+      metris: 'Metris',
+      matrixInvaders: 'Matrix Invaders'
     };
     return names[gameId] || gameId;
   };
