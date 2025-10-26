@@ -57,7 +57,7 @@ const StatDisplay: React.FC<StatDisplayProps> = ({
 
   return (
     <motion.div
-      className="bg-black/80 border border-green-500/50 rounded-lg p-3 px-4 backdrop-blur-sm"
+      className="group relative bg-black/80 border border-green-500/50 rounded-lg p-3 px-4 backdrop-blur-sm"
       initial={{ scale: 1 }}
       animate={showDelta && delta !== 0 ? { scale: [1, 1.05, 1] } : {}}
       transition={{ duration: 0.3 }}
@@ -95,14 +95,6 @@ const StatDisplay: React.FC<StatDisplayProps> = ({
           animate={{ width: `${percentage}%` }}
           transition={{ duration: 0.5, ease: 'easeOut' }}
         />
-      </div>
-
-      {/* Tooltip on hover */}
-      <div className="hidden group-hover:block absolute z-10 -bottom-16 left-0 bg-gray-900 border border-green-500 rounded p-2 text-xs text-green-300 whitespace-nowrap">
-        {label === 'Coffee' && 'Affects typing speed and focus'}
-        {label === 'Reputation' && 'Unlocks advanced options and dialogue'}
-        {label === 'Wisdom' && 'Earned from solving puzzles'}
-        {label === 'Morale' && 'Team spirit affects outcomes'}
       </div>
     </motion.div>
   );
@@ -168,7 +160,8 @@ export const StatsHUD: React.FC = () => {
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: 20 }}
-        className="fixed top-4 right-4 z-40 space-y-2 w-48"
+        className="fixed right-4 z-40 space-y-2 w-48"
+        style={{ top: '3rem' }}
       >
         {/* Toggle Button */}
         <div className="flex justify-end mb-1">
