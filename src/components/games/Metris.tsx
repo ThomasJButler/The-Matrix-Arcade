@@ -662,6 +662,9 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
           if (newCombo >= 5) {
             achievementManager.unlockAchievement('metris', 'combo_king');
           }
+          if (newLevel >= 20) {
+            achievementManager.unlockAchievement('metris', 'immortal');
+          }
         }
 
         // Sound
@@ -682,8 +685,32 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
         }
 
         const newHighScore = Math.max(currentState.highScore, newScore);
-        if (newHighScore > currentState.highScore) {
-          localStorage.setItem('metris_highScore', newHighScore.toString());
+
+        // Save game stats on game over
+        if (gameOver) {
+          const sessionTime = Math.floor((Date.now() - sessionStartTimeRef.current) / 1000);
+          const previousGamesPlayed = saveData.games.metris.stats.gamesPlayed || 0;
+          const previousTotalScore = saveData.games.metris.stats.totalScore || 0;
+          const previousBestCombo = saveData.games.metris.stats.bestCombo || 0;
+          const previousLongestSurvival = saveData.games.metris.stats.longestSurvival || 0;
+
+          setTimeout(() => {
+            updateGameSave('metris', {
+              highScore: newHighScore,
+              level: newLevel,
+              stats: {
+                gamesPlayed: previousGamesPlayed + 1,
+                totalScore: previousTotalScore + newScore,
+                bestCombo: Math.max(previousBestCombo, newCombo),
+                longestSurvival: Math.max(previousLongestSurvival, sessionTime)
+              }
+            });
+          }, 100);
+
+          // Marathon achievement: Survive 10 minutes
+          if (achievementManager && sessionTime >= 600) {
+            achievementManager.unlockAchievement('metris', 'marathon_runner');
+          }
         }
 
         return {
