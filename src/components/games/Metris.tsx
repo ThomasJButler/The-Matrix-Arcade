@@ -145,7 +145,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
 
   // Hooks
   const { synthLaser, synthExplosion, synthPowerUp, synthDrum } = useSoundSynthesis();
-  const { saveData, updateSaveData } = useSaveSystem();
+  const { saveData, updateGameSave, unlockAchievement: unlockAchievementSave } = useSaveSystem();
 
   // Initialize empty grid
   const createEmptyGrid = (): Block[][] => {
@@ -428,8 +428,15 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
 
         // Achievement
         if (achievementManager) {
-          const newBulletTimeCount = (saveData?.metris_bulletTimeCount || 0) + 1;
-          updateSaveData({ metris_bulletTimeCount: newBulletTimeCount });
+          const currentCount = (saveData.games.metris.preferences?.bulletTimeCount as number) || 0;
+          const newBulletTimeCount = currentCount + 1;
+
+          updateGameSave('metris', {
+            preferences: {
+              ...saveData.games.metris.preferences,
+              bulletTimeCount: newBulletTimeCount
+            }
+          });
 
           if (newBulletTimeCount >= 10) {
             achievementManager.unlockAchievement('metris', 'neos_apprentice');
@@ -446,7 +453,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
 
       return prev;
     });
-  }, [achievementManager, saveData, updateSaveData, synthDrum, synthPowerUp, isMuted]);
+  }, [achievementManager, saveData, updateGameSave, synthDrum, synthPowerUp, isMuted]);
 
   // Update game state - called every frame
   const updateGame = useCallback(() => {

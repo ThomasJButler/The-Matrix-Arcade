@@ -234,7 +234,7 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
 
   // Render multiple choice options
   const renderMultipleChoice = () => {
-    if (puzzle.type !== 'multiple-choice' || !Array.isArray(puzzle.answer)) {
+    if (!Array.isArray(puzzle.answer)) {
       return null;
     }
 
@@ -251,14 +251,14 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
           if (!value) return null;
 
           const isEliminated = eliminatedOptions.includes(value);
-          const isSelected = userAnswer === key;
+          const isSelected = userAnswer === value;
 
           return (
             <button
               key={key}
               onClick={() => {
                 if (!isSubmitting && !isEliminated) {
-                  setUserAnswer(key);
+                  setUserAnswer(value || '');
                   // Auto-submit for multiple choice
                   setTimeout(() => handleSubmit(), 300);
                 }
@@ -336,8 +336,8 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
             </div>
           </div>
 
-          {/* Content */}
-          <div className="p-6 space-y-6">
+          {/* Content - Fixed max height with scroll */}
+          <div className="p-6 space-y-6 max-h-[calc(100vh-16rem)] overflow-y-auto">
             {/* Context */}
             {puzzle.context && (
               <div className="bg-black/50 border border-green-500/30 rounded-lg p-4">
@@ -354,24 +354,30 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
               </p>
             </div>
 
-            {/* Answer Input or Multiple Choice */}
-            {hasMultipleChoice ? (
-              renderMultipleChoice()
-            ) : (
+            {/* Answer Input - Always show for text entry */}
+            <div className="space-y-2">
+              <label className="block text-green-400 font-mono text-sm">
+                Your Answer:
+              </label>
+              <input
+                ref={inputRef}
+                type="text"
+                value={userAnswer}
+                onChange={(e) => setUserAnswer(e.target.value)}
+                onKeyPress={handleKeyPress}
+                disabled={isSubmitting}
+                placeholder="Type your answer here..."
+                className="w-full px-4 py-3 bg-black border-2 border-green-500/50 rounded-lg text-green-100 font-mono focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            </div>
+
+            {/* Multiple Choice Options - Show if available */}
+            {hasMultipleChoice && (
               <div className="space-y-2">
-                <label className="block text-green-400 font-mono text-sm">
-                  Your Answer:
-                </label>
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={userAnswer}
-                  onChange={(e) => setUserAnswer(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  disabled={isSubmitting}
-                  placeholder="Type your answer here..."
-                  className="w-full px-4 py-3 bg-black border-2 border-green-500/50 rounded-lg text-green-100 font-mono focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                />
+                <div className="text-green-400 font-mono text-sm text-center">
+                  - OR SELECT FROM OPTIONS -
+                </div>
+                {renderMultipleChoice()}
               </div>
             )}
 
