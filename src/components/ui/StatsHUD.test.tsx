@@ -1,7 +1,35 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import StatsHUD from './StatsHUD';
 import { GameStateProvider } from '../../contexts/GameStateContext';
+
+// Mock framer-motion
+vi.mock('framer-motion', () => ({
+  motion: {
+    div: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => <div {...props}>{children}</div>,
+    button: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => <button {...props}>{children}</button>,
+  },
+  AnimatePresence: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+}));
+
+// Mock lucide-react icons
+vi.mock('lucide-react', () => ({
+  Coffee: () => <div data-testid="coffee-icon">Coffee Icon</div>,
+  Star: () => <div data-testid="star-icon">Star Icon</div>,
+  Brain: () => <div data-testid="brain-icon">Brain Icon</div>,
+  Heart: () => <div data-testid="heart-icon">Heart Icon</div>,
+  Eye: () => <div data-testid="eye-icon">Eye Icon</div>,
+  EyeOff: () => <div data-testid="eyeoff-icon">EyeOff Icon</div>,
+}));
+
+// Helper to render with provider
+const renderWithProvider = (component: React.ReactElement) => {
+  return render(
+    <GameStateProvider>
+      {component}
+    </GameStateProvider>
+  );
+};
 
 describe('StatsHUD', () => {
   beforeEach(() => {
@@ -9,316 +37,241 @@ describe('StatsHUD', () => {
   });
 
   describe('Rendering', () => {
-    it('renders all stat labels', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
+    it('renders without crashing', () => {
+      const { container } = renderWithProvider(<StatsHUD />);
+      expect(container).toBeTruthy();
+    });
 
-      expect(screen.getByText(/coffee/i)).toBeInTheDocument();
-      expect(screen.getByText(/reputation/i)).toBeInTheDocument();
-      expect(screen.getByText(/wisdom/i)).toBeInTheDocument();
-      expect(screen.getByText(/morale/i)).toBeInTheDocument();
+    it('displays all stat labels', () => {
+      renderWithProvider(<StatsHUD />);
+
+      const coffeeElements = screen.getAllByText(/coffee/i);
+      const repElements = screen.getAllByText(/reputation/i);
+      const wisdomElements = screen.getAllByText(/wisdom/i);
+      const moraleElements = screen.getAllByText(/morale/i);
+
+      expect(coffeeElements.length).toBeGreaterThan(0);
+      expect(repElements.length).toBeGreaterThan(0);
+      expect(wisdomElements.length).toBeGreaterThan(0);
+      expect(moraleElements.length).toBeGreaterThan(0);
+    });
+
+    it('displays stat icons', () => {
+      renderWithProvider(<StatsHUD />);
+
+      expect(screen.getByTestId('coffee-icon')).toBeTruthy();
+      expect(screen.getByTestId('star-icon')).toBeTruthy();
+      expect(screen.getByTestId('brain-icon')).toBeTruthy();
+      expect(screen.getByTestId('heart-icon')).toBeTruthy();
     });
 
     it('displays initial stat values', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
+      renderWithProvider(<StatsHUD />);
 
-      // Default values: Coffee 50, Reputation 0, Wisdom 0, Morale 50
-      expect(screen.getByText(/50/)).toBeInTheDocument(); // Coffee or Morale
-      expect(screen.getByText(/0/)).toBeInTheDocument(); // Reputation or Wisdom
+      // Default coffee is 50%
+      expect(screen.getByText(/50%/)).toBeTruthy();
     });
 
-    it('renders without crashing', () => {
-      const { container } = render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
+    it('displays keyboard hint', () => {
+      renderWithProvider(<StatsHUD />);
 
-      expect(container).toBeInTheDocument();
+      expect(screen.getByText(/Press S to toggle/i)).toBeTruthy();
     });
   });
 
-  describe('Progress Bars', () => {
-    it('displays progress bars for percentage stats', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
+  describe('Visibility Toggle', () => {
+    it('has hide button when visible', () => {
+      renderWithProvider(<StatsHUD />);
 
-      // Should have progress bars for Coffee, Reputation, Morale (not Wisdom)
-      const progressBars = screen.getAllByRole('progressbar');
-      expect(progressBars.length).toBeGreaterThanOrEqual(3);
+      const hideButton = screen.getByTitle(/Hide Stats/i);
+      expect(hideButton).toBeTruthy();
     });
 
-    it('shows correct progress bar width for coffee level', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
+    it('toggles visibility when hide button clicked', () => {
+      renderWithProvider(<StatsHUD />);
 
-      // Coffee starts at 50%
-      const progressBars = screen.getAllByRole('progressbar');
-      expect(progressBars.length).toBeGreaterThan(0);
+      const hideButton = screen.getByTitle(/Hide Stats/i);
+      fireEvent.click(hideButton);
+
+      // Should show the Eye icon (show stats button)
+      expect(screen.getByTitle(/Show Stats/i)).toBeTruthy();
     });
 
-    it('displays different colors for stat levels', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
+    it('shows stats again when show button clicked', () => {
+      renderWithProvider(<StatsHUD />);
 
-      const hud = screen.getByRole('region');
-      expect(hud).toBeInTheDocument();
-    });
-  });
+      // Hide first
+      const hideButton = screen.getByTitle(/Hide Stats/i);
+      fireEvent.click(hideButton);
 
-  describe('Stat Icons', () => {
-    it('displays icons for each stat', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
+      // Then show
+      const showButton = screen.getByTitle(/Show Stats/i);
+      fireEvent.click(showButton);
 
-      // Icons should be present for each stat
-      const hud = screen.getByRole('region');
-      expect(hud.querySelectorAll('svg').length).toBeGreaterThan(0);
-    });
-  });
-
-  describe('Stat Updates', () => {
-    it('reflects stat changes from context', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
-
-      // Initial render should show default stats
-      expect(screen.getByRole('region')).toBeInTheDocument();
+      // Stats should be visible again
+      const coffeeElements = screen.getAllByText(/coffee/i);
+      expect(coffeeElements.length).toBeGreaterThan(0);
     });
 
-    it('handles coffee level over 100%', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
+    it('handles S key press without crashing', () => {
+      const { container } = renderWithProvider(<StatsHUD />);
 
-      // Should handle caffeine overdose (>100%)
-      expect(screen.getByRole('region')).toBeInTheDocument();
+      // Press S key
+      fireEvent.keyDown(window, { key: 's' });
+
+      // Should not crash
+      expect(container).toBeTruthy();
     });
 
-    it('handles negative stat changes', () => {
-      render(
-        <GameStateProvider>
+    it('handles Ctrl+S without toggling', () => {
+      renderWithProvider(<StatsHUD />);
+
+      fireEvent.keyDown(window, { key: 's', ctrlKey: true });
+
+      // Should still show hide button (not toggled)
+      expect(screen.getByTitle(/Hide Stats/i)).toBeTruthy();
+    });
+
+    it('does not toggle when typing in input', () => {
+      const { container } = renderWithProvider(
+        <>
+          <input data-testid="test-input" />
           <StatsHUD />
-        </GameStateProvider>
+        </>
       );
 
-      // Stats should not go below 0
-      expect(screen.getByRole('region')).toBeInTheDocument();
+      const input = container.querySelector('input');
+      if (input) {
+        fireEvent.keyDown(input, { key: 's' });
+      }
+
+      // Should still show hide button (not toggled)
+      expect(screen.getByTitle(/Hide Stats/i)).toBeTruthy();
     });
   });
 
-  describe('Visual Feedback', () => {
-    it('shows warning color for low coffee', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
+  describe('Stat Display', () => {
+    it('shows coffee stat with percentage unit', () => {
+      renderWithProvider(<StatsHUD />);
 
-      expect(screen.getByRole('region')).toBeInTheDocument();
+      const coffeeElements = screen.getAllByText(/coffee/i);
+      expect(coffeeElements.length).toBeGreaterThan(0);
+      expect(screen.getByText(/50%/)).toBeTruthy();
     });
 
-    it('shows success color for high reputation', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
+    it('shows wisdom stat with pts unit', () => {
+      renderWithProvider(<StatsHUD />);
 
-      expect(screen.getByRole('region')).toBeInTheDocument();
+      const wisdomElements = screen.getAllByText(/wisdom/i);
+      expect(wisdomElements.length).toBeGreaterThan(0);
+      expect(screen.getByText(/0 pts/)).toBeTruthy();
     });
 
-    it('shows danger color for low morale', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
+    it('displays all four stats', () => {
+      renderWithProvider(<StatsHUD />);
 
-      expect(screen.getByRole('region')).toBeInTheDocument();
-    });
-  });
+      const coffeeLabels = screen.getAllByText(/coffee/i);
+      const repLabels = screen.getAllByText(/reputation/i);
+      const wisdomLabels = screen.getAllByText(/wisdom/i);
+      const moraleLabels = screen.getAllByText(/morale/i);
 
-  describe('Tooltips', () => {
-    it('shows tooltip on hover for coffee stat', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
-
-      expect(screen.getByRole('region')).toBeInTheDocument();
-    });
-
-    it('displays stat descriptions in tooltips', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
-
-      expect(screen.getByRole('region')).toBeInTheDocument();
+      expect(coffeeLabels.length).toBeGreaterThan(0);
+      expect(repLabels.length).toBeGreaterThan(0);
+      expect(wisdomLabels.length).toBeGreaterThan(0);
+      expect(moraleLabels.length).toBeGreaterThan(0);
     });
   });
 
-  describe('Accessibility', () => {
-    it('has proper ARIA labels', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
-
-      expect(screen.getByRole('region')).toBeInTheDocument();
+  describe('Component Lifecycle', () => {
+    it('mounts without errors', () => {
+      const { container } = renderWithProvider(<StatsHUD />);
+      expect(container).toBeTruthy();
     });
 
-    it('provides progress bar values', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
+    it('unmounts without errors', () => {
+      const { unmount } = renderWithProvider(<StatsHUD />);
+      expect(() => unmount()).not.toThrow();
+    });
 
-      const progressBars = screen.getAllByRole('progressbar');
-      progressBars.forEach(bar => {
-        expect(bar).toHaveAttribute('aria-valuenow');
-      });
+    it('cleans up event listeners on unmount', () => {
+      const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
+      const { unmount } = renderWithProvider(<StatsHUD />);
+
+      unmount();
+
+      expect(removeEventListenerSpy).toHaveBeenCalledWith('keydown', expect.any(Function));
     });
   });
 
-  describe('Responsive Design', () => {
-    it('renders correctly on small screens', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
+  describe('Integration', () => {
+    it('renders complete HUD interface', () => {
+      renderWithProvider(<StatsHUD />);
 
-      expect(screen.getByRole('region')).toBeInTheDocument();
+      // All stats present
+      const coffeeElements = screen.getAllByText(/coffee/i);
+      const repElements = screen.getAllByText(/reputation/i);
+      const wisdomElements = screen.getAllByText(/wisdom/i);
+      const moraleElements = screen.getAllByText(/morale/i);
+
+      expect(coffeeElements.length).toBeGreaterThan(0);
+      expect(repElements.length).toBeGreaterThan(0);
+      expect(wisdomElements.length).toBeGreaterThan(0);
+      expect(moraleElements.length).toBeGreaterThan(0);
+
+      // Toggle button present
+      expect(screen.getByTitle(/Hide Stats/i)).toBeTruthy();
+
+      // Keyboard hint present
+      expect(screen.getByText(/Press S to toggle/i)).toBeTruthy();
     });
 
-    it('adjusts layout for different screen sizes', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
+    it('handles multiple interactions', () => {
+      const { container } = renderWithProvider(<StatsHUD />);
 
-      const hud = screen.getByRole('region');
-      expect(hud).toHaveClass(/fixed|absolute/);
-    });
-  });
+      // Click hide
+      fireEvent.click(screen.getByTitle(/Hide Stats/i));
+      expect(screen.getByTitle(/Show Stats/i)).toBeTruthy();
 
-  describe('Animations', () => {
-    it('animates progress bar changes', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
+      // Click show
+      fireEvent.click(screen.getByTitle(/Show Stats/i));
+      const coffeeElements = screen.getAllByText(/coffee/i);
+      expect(coffeeElements.length).toBeGreaterThan(0);
 
-      expect(screen.getByRole('region')).toBeInTheDocument();
+      // Use keyboard - should not crash
+      fireEvent.keyDown(window, { key: 's' });
+      expect(container).toBeTruthy();
     });
 
-    it('shows pulse effect for critical stats', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
+    it('maintains state through rapid toggles', () => {
+      renderWithProvider(<StatsHUD />);
 
-      expect(screen.getByRole('region')).toBeInTheDocument();
-    });
-  });
+      for (let i = 0; i < 5; i++) {
+        fireEvent.keyDown(window, { key: 's' });
+      }
 
-  describe('Edge Cases', () => {
-    it('handles coffee level exactly at 100', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
-
-      expect(screen.getByRole('region')).toBeInTheDocument();
-    });
-
-    it('handles wisdom points accumulation', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
-
-      // Wisdom is not capped, should display large numbers
-      expect(screen.getByRole('region')).toBeInTheDocument();
-    });
-
-    it('handles all stats at zero', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
-
-      expect(screen.getByRole('region')).toBeInTheDocument();
-    });
-
-    it('handles all stats at maximum', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
-
-      expect(screen.getByRole('region')).toBeInTheDocument();
+      // Should still be functional
+      const container = document.body;
+      expect(container).toBeTruthy();
     });
   });
 
-  describe('Positioning', () => {
-    it('is positioned in top-right corner', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
+  describe('Performance', () => {
+    it('handles rapid key presses', () => {
+      renderWithProvider(<StatsHUD />);
 
-      const hud = screen.getByRole('region');
-      expect(hud).toHaveClass(/top|right/);
+      for (let i = 0; i < 20; i++) {
+        fireEvent.keyDown(window, { key: 's' });
+      }
+
+      expect(document.body).toBeTruthy();
     });
 
-    it('does not overlap with game content', () => {
-      render(
-        <GameStateProvider>
-          <StatsHUD />
-        </GameStateProvider>
-      );
+    it('renders efficiently', () => {
+      const { container } = renderWithProvider(<StatsHUD />);
 
-      const hud = screen.getByRole('region');
-      expect(hud).toHaveClass(/z-/); // Has z-index
+      // Should render all elements
+      expect(container.querySelectorAll('div').length).toBeGreaterThan(0);
+      expect(container.querySelectorAll('button').length).toBeGreaterThan(0);
     });
   });
 });

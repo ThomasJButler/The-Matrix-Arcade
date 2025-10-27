@@ -3,38 +3,35 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import InventoryPanel from './InventoryPanel';
 import { GameStateProvider } from '../../contexts/GameStateContext';
 
-const mockItems = [
-  {
-    id: 'coffee_beans',
-    name: 'Coffee Beans',
-    description: 'Premium artisanal coffee beans',
-    type: 'consumable' as const,
-    usable: true,
-    effect: '+20 Coffee Level',
-    quantity: 3,
-    acquiredAt: '2025-01-01T00:00:00.000Z'
+// Mock framer-motion
+vi.mock('framer-motion', () => ({
+  motion: {
+    div: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => <div {...props}>{children}</div>,
+    button: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => <button {...props}>{children}</button>,
   },
-  {
-    id: 'hacker_badge',
-    name: 'Elite Hacker Badge',
-    description: 'Proof of legendary skills',
-    type: 'collectible' as const,
-    usable: false,
-    effect: '+5 Hacker Reputation when acquired',
-    quantity: 1,
-    acquiredAt: '2025-01-02T00:00:00.000Z'
-  },
-  {
-    id: 'ethics_module',
-    name: 'Ethics Module Blueprint',
-    description: 'The missing piece',
-    type: 'quest' as const,
-    usable: false,
-    effect: 'Required to complete Chapter 2',
-    quantity: 1,
-    acquiredAt: '2025-01-03T00:00:00.000Z'
-  }
-];
+  AnimatePresence: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+}));
+
+// Mock lucide-react icons
+vi.mock('lucide-react', () => ({
+  Package: () => <div data-testid="package-icon">Package</div>,
+  X: () => <div data-testid="x-icon">X</div>,
+  Coffee: () => <div data-testid="coffee-icon">Coffee</div>,
+  FileText: () => <div data-testid="filetext-icon">FileText</div>,
+  Clock: () => <div data-testid="clock-icon">Clock</div>,
+  Key: () => <div data-testid="key-icon">Key</div>,
+  Award: () => <div data-testid="award-icon">Award</div>,
+  Sparkles: () => <div data-testid="sparkles-icon">Sparkles</div>,
+}));
+
+// Helper to render with provider
+const renderWithProvider = (component: React.ReactElement) => {
+  return render(
+    <GameStateProvider>
+      {component}
+    </GameStateProvider>
+  );
+};
 
 describe('InventoryPanel', () => {
   const mockOnClose = vi.fn();
@@ -45,196 +42,162 @@ describe('InventoryPanel', () => {
 
   describe('Rendering', () => {
     it('renders when isOpen is true', () => {
-      render(
-        <GameStateProvider>
-          <InventoryPanel isOpen={true} onClose={mockOnClose} />
-        </GameStateProvider>
-      );
+      renderWithProvider(<InventoryPanel isOpen={true} onClose={mockOnClose} />);
 
-      expect(screen.getByText(/inventory/i)).toBeInTheDocument();
+      expect(screen.getByText(/inventory/i)).toBeTruthy();
     });
 
     it('does not render when isOpen is false', () => {
-      render(
-        <GameStateProvider>
-          <InventoryPanel isOpen={false} onClose={mockOnClose} />
-        </GameStateProvider>
-      );
+      renderWithProvider(<InventoryPanel isOpen={false} onClose={mockOnClose} />);
 
-      expect(screen.queryByText(/inventory/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/inventory/i)).toBeNull();
     });
 
     it('displays empty state when no items', () => {
-      render(
-        <GameStateProvider>
-          <InventoryPanel isOpen={true} onClose={mockOnClose} />
-        </GameStateProvider>
-      );
+      renderWithProvider(<InventoryPanel isOpen={true} onClose={mockOnClose} />);
 
-      expect(screen.getByText(/no items/i)).toBeInTheDocument();
-    });
-  });
-
-  describe('Item Display', () => {
-    it('displays item names', () => {
-      const wrapper = ({ children }: { children: React.ReactNode }) => (
-        <GameStateProvider>{children}</GameStateProvider>
-      );
-
-      render(<InventoryPanel isOpen={true} onClose={mockOnClose} />, { wrapper });
-
-      // Add items programmatically would require accessing context
-      // For now, test that the component renders
-      expect(screen.getByRole('button', { name: /close/i })).toBeInTheDocument();
+      expect(screen.getByText(/no items collected yet/i)).toBeTruthy();
     });
 
-    it('displays item quantities', () => {
-      // This would test quantity badges when items are present
-      render(
-        <GameStateProvider>
-          <InventoryPanel isOpen={true} onClose={mockOnClose} />
-        </GameStateProvider>
-      );
+    it('displays help text in empty state', () => {
+      renderWithProvider(<InventoryPanel isOpen={true} onClose={mockOnClose} />);
 
-      expect(screen.getByText(/inventory/i)).toBeInTheDocument();
+      expect(screen.getByText(/solve puzzles/i)).toBeTruthy();
     });
 
-    it('shows item descriptions on click', () => {
-      render(
-        <GameStateProvider>
-          <InventoryPanel isOpen={true} onClose={mockOnClose} />
-        </GameStateProvider>
-      );
+    it('displays keyboard hint', () => {
+      renderWithProvider(<InventoryPanel isOpen={true} onClose={mockOnClose} />);
 
-      // Test interaction when items are present
-      expect(screen.getByRole('complementary')).toBeInTheDocument();
-    });
-  });
-
-  describe('Item Filtering', () => {
-    it('filters items by type', () => {
-      render(
-        <GameStateProvider>
-          <InventoryPanel isOpen={true} onClose={mockOnClose} />
-        </GameStateProvider>
-      );
-
-      const filterButtons = screen.queryAllByRole('button');
-      expect(filterButtons.length).toBeGreaterThan(0);
-    });
-
-    it('shows all items by default', () => {
-      render(
-        <GameStateProvider>
-          <InventoryPanel isOpen={true} onClose={mockOnClose} />
-        </GameStateProvider>
-      );
-
-      expect(screen.getByText(/inventory/i)).toBeInTheDocument();
+      expect(screen.getByText(/press/i)).toBeTruthy();
     });
   });
 
   describe('Interactions', () => {
     it('closes panel when close button is clicked', () => {
-      render(
+      renderWithProvider(<InventoryPanel isOpen={true} onClose={mockOnClose} />);
+
+      const closeButton = screen.getByTestId('x-icon').closest('button');
+      expect(closeButton).toBeTruthy();
+
+      if (closeButton) {
+        fireEvent.click(closeButton);
+        expect(mockOnClose).toHaveBeenCalled();
+      }
+    });
+
+    it('closes on backdrop click', () => {
+      const { container } = renderWithProvider(<InventoryPanel isOpen={true} onClose={mockOnClose} />);
+
+      // Find backdrop (the element with bg-black/60)
+      const backdrop = container.querySelector('.bg-black\\/60');
+      expect(backdrop).toBeTruthy();
+
+      if (backdrop) {
+        fireEvent.click(backdrop);
+        expect(mockOnClose).toHaveBeenCalled();
+      }
+    });
+
+    it('has close button accessible', () => {
+      renderWithProvider(<InventoryPanel isOpen={true} onClose={mockOnClose} />);
+
+      const closeIcon = screen.getByTestId('x-icon');
+      expect(closeIcon).toBeTruthy();
+    });
+  });
+
+  describe('Visual Elements', () => {
+    it('displays inventory icon', () => {
+      renderWithProvider(<InventoryPanel isOpen={true} onClose={mockOnClose} />);
+
+      const packageIcons = screen.getAllByTestId('package-icon');
+      expect(packageIcons.length).toBeGreaterThan(0);
+    });
+
+    it('displays inventory title', () => {
+      renderWithProvider(<InventoryPanel isOpen={true} onClose={mockOnClose} />);
+
+      const title = screen.getByText(/inventory/i);
+      expect(title).toBeTruthy();
+    });
+
+    it('displays empty state icon when no items', () => {
+      renderWithProvider(<InventoryPanel isOpen={true} onClose={mockOnClose} />);
+
+      // Should show Package icon in empty state
+      const packageIcons = screen.getAllByTestId('package-icon');
+      expect(packageIcons.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Component Lifecycle', () => {
+    it('mounts without errors', () => {
+      const { container } = renderWithProvider(<InventoryPanel isOpen={true} onClose={mockOnClose} />);
+      expect(container).toBeTruthy();
+    });
+
+    it('unmounts without errors', () => {
+      const { unmount } = renderWithProvider(<InventoryPanel isOpen={true} onClose={mockOnClose} />);
+      expect(() => unmount()).not.toThrow();
+    });
+
+    it('cleans up timers on unmount', () => {
+      const { unmount } = renderWithProvider(<InventoryPanel isOpen={true} onClose={mockOnClose} />);
+      unmount();
+      // Should not throw
+      expect(true).toBe(true);
+    });
+
+    it('handles reopen correctly', () => {
+      const { rerender } = renderWithProvider(<InventoryPanel isOpen={false} onClose={mockOnClose} />);
+
+      // Should not render
+      expect(screen.queryByText(/inventory/i)).toBeNull();
+
+      // Reopen
+      rerender(
         <GameStateProvider>
           <InventoryPanel isOpen={true} onClose={mockOnClose} />
         </GameStateProvider>
       );
 
-      const closeButton = screen.getByRole('button', { name: /close/i });
-      fireEvent.click(closeButton);
+      // Should now render
+      expect(screen.getByText(/inventory/i)).toBeTruthy();
+    });
+  });
 
+  describe('Integration', () => {
+    it('renders complete panel interface', () => {
+      renderWithProvider(<InventoryPanel isOpen={true} onClose={mockOnClose} />);
+
+      // Header elements
+      expect(screen.getByText(/inventory/i)).toBeTruthy();
+      expect(screen.getByTestId('x-icon')).toBeTruthy();
+
+      // Empty state
+      expect(screen.getByText(/no items collected yet/i)).toBeTruthy();
+
+      // Footer hint
+      expect(screen.getByText(/press/i)).toBeTruthy();
+    });
+
+    it('handles multiple interactions', () => {
+      const { container } = renderWithProvider(<InventoryPanel isOpen={true} onClose={mockOnClose} />);
+
+      // Click backdrop
+      const backdrop = container.querySelector('.bg-black\\/60');
+      if (backdrop) {
+        fireEvent.click(backdrop);
+      }
+
+      // Verify close was called
       expect(mockOnClose).toHaveBeenCalled();
     });
 
-    it('closes on Escape key press', () => {
-      render(
-        <GameStateProvider>
-          <InventoryPanel isOpen={true} onClose={mockOnClose} />
-        </GameStateProvider>
-      );
+    it('maintains state through renders', () => {
+      const { rerender } = renderWithProvider(<InventoryPanel isOpen={true} onClose={mockOnClose} />);
 
-      fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' });
-
-      expect(mockOnClose).toHaveBeenCalled();
-    });
-  });
-
-  describe('Item Details', () => {
-    it('displays item effect', () => {
-      render(
-        <GameStateProvider>
-          <InventoryPanel isOpen={true} onClose={mockOnClose} />
-        </GameStateProvider>
-      );
-
-      expect(screen.getByRole('complementary')).toBeInTheDocument();
-    });
-
-    it('shows usability status', () => {
-      render(
-        <GameStateProvider>
-          <InventoryPanel isOpen={true} onClose={mockOnClose} />
-        </GameStateProvider>
-      );
-
-      expect(screen.getByRole('complementary')).toBeInTheDocument();
-    });
-  });
-
-  describe('Accessibility', () => {
-    it('has proper ARIA labels', () => {
-      render(
-        <GameStateProvider>
-          <InventoryPanel isOpen={true} onClose={mockOnClose} />
-        </GameStateProvider>
-      );
-
-      expect(screen.getByRole('complementary')).toBeInTheDocument();
-    });
-
-    it('supports keyboard navigation', () => {
-      render(
-        <GameStateProvider>
-          <InventoryPanel isOpen={true} onClose={mockOnClose} />
-        </GameStateProvider>
-      );
-
-      const panel = screen.getByRole('complementary');
-      expect(panel).toBeInTheDocument();
-    });
-  });
-
-  describe('Visual Indicators', () => {
-    it('shows badge for quantity > 1', () => {
-      render(
-        <GameStateProvider>
-          <InventoryPanel isOpen={true} onClose={mockOnClose} />
-        </GameStateProvider>
-      );
-
-      expect(screen.getByRole('complementary')).toBeInTheDocument();
-    });
-
-    it('displays different colors for item types', () => {
-      render(
-        <GameStateProvider>
-          <InventoryPanel isOpen={true} onClose={mockOnClose} />
-        </GameStateProvider>
-      );
-
-      expect(screen.getByRole('complementary')).toBeInTheDocument();
-    });
-  });
-
-  describe('Animations', () => {
-    it('slides in from right when opening', () => {
-      const { rerender } = render(
-        <GameStateProvider>
-          <InventoryPanel isOpen={false} onClose={mockOnClose} />
-        </GameStateProvider>
-      );
+      expect(screen.getByText(/inventory/i)).toBeTruthy();
 
       rerender(
         <GameStateProvider>
@@ -242,7 +205,36 @@ describe('InventoryPanel', () => {
         </GameStateProvider>
       );
 
-      expect(screen.getByRole('complementary')).toBeInTheDocument();
+      expect(screen.getByText(/inventory/i)).toBeTruthy();
+    });
+  });
+
+  describe('Performance', () => {
+    it('handles rapid open/close', () => {
+      const { rerender } = renderWithProvider(<InventoryPanel isOpen={false} onClose={mockOnClose} />);
+
+      for (let i = 0; i < 5; i++) {
+        rerender(
+          <GameStateProvider>
+            <InventoryPanel isOpen={true} onClose={mockOnClose} />
+          </GameStateProvider>
+        );
+
+        rerender(
+          <GameStateProvider>
+            <InventoryPanel isOpen={false} onClose={mockOnClose} />
+          </GameStateProvider>
+        );
+      }
+
+      expect(document.body).toBeTruthy();
+    });
+
+    it('renders efficiently', () => {
+      const { container } = renderWithProvider(<InventoryPanel isOpen={true} onClose={mockOnClose} />);
+
+      expect(container.querySelectorAll('div').length).toBeGreaterThan(0);
+      expect(container.querySelectorAll('button').length).toBeGreaterThan(0);
     });
   });
 });

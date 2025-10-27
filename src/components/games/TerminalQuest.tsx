@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Terminal as TerminalIcon, Info, Shield, Wifi, Key, AlertTriangle, Cpu, Save, RotateCcw, Map as MapIcon } from 'lucide-react';
 import { EXPANDED_GAME_NODES, Choice } from './TerminalQuestContent';
 import { useSoundSystem } from '../../hooks/useSoundSystem';
