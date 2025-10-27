@@ -205,22 +205,22 @@ const SnakeCanvas: React.FC<SnakeCanvasProps> = ({
 
       switch (powerUp.type) {
         case 'speed':
-          powerUpChar = 'SPD';
+          powerUpChar = '⚡';
           powerUpColor = '#ffff00';
           glowColor = '#ffff0080';
           break;
         case 'double':
-          powerUpChar = '2X';
+          powerUpChar = 'XP+';
           powerUpColor = '#0099ff';
           glowColor = '#0099ff80';
           break;
         case 'shield':
-          powerUpChar = 'SHD';
+          powerUpChar = '🛡️';
           powerUpColor = '#ff00ff';
           glowColor = '#ff00ff80';
           break;
         case 'ghost':
-          powerUpChar = 'GHO';
+          powerUpChar = '👻';
           powerUpColor = '#00ffff';
           glowColor = '#00ffff80';
           break;
@@ -547,6 +547,36 @@ export default function SimpleSnake({ achievementManager, isMuted }: SimpleSnake
                 </div>
               </div>
             </div>
+
+            {/* Active Power-ups Indicators */}
+            {gameState.gameState === 'playing' && (
+              <div className="flex items-center gap-2 sm:gap-3 border-l border-green-500/30 pl-4">
+                {gameState.activePowerUps.speed && gameState.activePowerUps.speed > Date.now() && (
+                  <div className="flex items-center gap-1 text-yellow-400 animate-pulse">
+                    <Zap className="w-3 h-3" />
+                    <span className="text-xs hidden sm:inline">SLOW</span>
+                  </div>
+                )}
+                {gameState.activePowerUps.double && gameState.activePowerUps.double > 0 && (
+                  <div className="flex items-center gap-1 text-blue-400 animate-pulse">
+                    <span className="text-xs">2X</span>
+                    <span className="text-xs">×{gameState.activePowerUps.double}</span>
+                  </div>
+                )}
+                {gameState.activePowerUps.shield && (
+                  <div className="flex items-center gap-1 text-purple-400 animate-pulse">
+                    <span className="text-sm">🛡</span>
+                    <span className="text-xs hidden sm:inline">SHIELD</span>
+                  </div>
+                )}
+                {gameState.activePowerUps.ghost && gameState.activePowerUps.ghost > Date.now() && (
+                  <div className="flex items-center gap-1 text-cyan-400 animate-pulse">
+                    <span className="text-sm">👻</span>
+                    <span className="text-xs hidden sm:inline">GHOST</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -564,36 +594,6 @@ export default function SimpleSnake({ achievementManager, isMuted }: SimpleSnake
                 />
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Active Power-ups Indicators */}
-        {gameState.gameState === 'playing' && (
-          <div className="max-w-6xl mx-auto mt-2 flex items-center gap-3">
-            {gameState.activePowerUps.speed && gameState.activePowerUps.speed > Date.now() && (
-              <div className="flex items-center gap-1 text-yellow-400 animate-pulse">
-                <Zap className="w-3 h-3" />
-                <span className="text-xs">SLOW</span>
-              </div>
-            )}
-            {gameState.activePowerUps.double && gameState.activePowerUps.double > 0 && (
-              <div className="flex items-center gap-1 text-blue-400 animate-pulse">
-                <span className="text-xs">2X</span>
-                <span className="text-xs">×{gameState.activePowerUps.double}</span>
-              </div>
-            )}
-            {gameState.activePowerUps.shield && (
-              <div className="flex items-center gap-1 text-purple-400 animate-pulse">
-                <span className="text-sm">🛡</span>
-                <span className="text-xs">SHIELD</span>
-              </div>
-            )}
-            {gameState.activePowerUps.ghost && gameState.activePowerUps.ghost > Date.now() && (
-              <div className="flex items-center gap-1 text-cyan-400 animate-pulse">
-                <span className="text-sm">👻</span>
-                <span className="text-xs">GHOST</span>
-              </div>
-            )}
           </div>
         )}
       </div>
