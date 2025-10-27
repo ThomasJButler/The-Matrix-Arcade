@@ -301,7 +301,7 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
           initial={{ scale: 0.9, opacity: 0, y: 20 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.9, opacity: 0, y: 20 }}
-          className="relative w-full max-w-2xl bg-gray-900 border-2 border-green-500 rounded-xl shadow-[0_0_30px_rgba(0,255,0,0.3)] overflow-hidden"
+          className="relative w-full max-w-6xl bg-gray-900 border-2 border-green-500 rounded-xl shadow-[0_0_30px_rgba(0,255,0,0.3)] overflow-hidden"
         >
           {/* Header */}
           <div className="bg-green-900/20 border-b border-green-500/50 p-4 flex items-center justify-between">
@@ -336,218 +336,227 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
             </div>
           </div>
 
-          {/* Content - Fixed max height with scroll */}
-          <div className="p-6 space-y-6 max-h-[calc(100vh-16rem)] overflow-y-auto">
-            {/* Context */}
-            {puzzle.context && (
-              <div className="bg-black/50 border border-green-500/30 rounded-lg p-4">
-                <p className="text-green-300 font-mono text-sm leading-relaxed">
-                  {puzzle.context}
-                </p>
-              </div>
-            )}
+          {/* Content - Landscape layout with two columns */}
+          <div className="p-6 max-h-[85vh] overflow-y-auto">
+            {/* Two-column grid on desktop, single column on mobile */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* LEFT COLUMN - Question, Context, Hints */}
+              <div className="space-y-4">
+                {/* Context */}
+                {puzzle.context && (
+                  <div className="bg-black/50 border border-green-500/30 rounded-lg p-4">
+                    <p className="text-green-300 font-mono text-sm leading-relaxed">
+                      {puzzle.context}
+                    </p>
+                  </div>
+                )}
 
-            {/* Question */}
-            <div className="bg-green-900/10 border-l-4 border-green-500 p-4">
-              <p className="text-green-100 font-mono text-lg leading-relaxed">
-                {puzzle.question}
-              </p>
-            </div>
-
-            {/* Answer Input - Always show for text entry */}
-            <div className="space-y-2">
-              <label className="block text-green-400 font-mono text-sm">
-                Your Answer:
-              </label>
-              <input
-                ref={inputRef}
-                type="text"
-                value={userAnswer}
-                onChange={(e) => setUserAnswer(e.target.value)}
-                onKeyPress={handleKeyPress}
-                disabled={isSubmitting}
-                placeholder="Type your answer here..."
-                className="w-full px-4 py-3 bg-black border-2 border-green-500/50 rounded-lg text-green-100 font-mono focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-              />
-            </div>
-
-            {/* Multiple Choice Options - Show if available */}
-            {hasMultipleChoice && (
-              <div className="space-y-2">
-                <div className="text-green-400 font-mono text-sm text-center">
-                  - OR SELECT FROM OPTIONS -
-                </div>
-                {renderMultipleChoice()}
-              </div>
-            )}
-
-            {/* Hints */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-green-400">
-                  <Lightbulb className="w-5 h-5" />
-                  <span className="font-mono text-sm">
-                    Hints ({hintsUsed}/{puzzle.hints.length})
-                  </span>
+                {/* Question */}
+                <div className="bg-green-900/10 border-l-4 border-green-500 p-4">
+                  <p className="text-green-100 font-mono text-lg leading-relaxed">
+                    {puzzle.question}
+                  </p>
                 </div>
 
-                {currentHint < puzzle.hints.length - 1 && (
-                  <button
-                    onClick={showHint}
+                {/* Hints */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-green-400">
+                      <Lightbulb className="w-5 h-5" />
+                      <span className="font-mono text-sm">
+                        Hints ({hintsUsed}/{puzzle.hints.length})
+                      </span>
+                    </div>
+
+                    {currentHint < puzzle.hints.length - 1 && (
+                      <button
+                        onClick={showHint}
+                        disabled={isSubmitting}
+                        className="px-3 py-1 bg-yellow-900/50 hover:bg-yellow-900/70 border border-yellow-500/50 rounded text-yellow-400 font-mono text-sm transition-colors disabled:opacity-50"
+                      >
+                        <HelpCircle className="w-4 h-4 inline mr-1" />
+                        Show Hint
+                      </button>
+                    )}
+                  </div>
+
+                  {currentHint >= 0 && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-3"
+                    >
+                      <p className="text-yellow-200 font-mono text-sm">
+                        💡 {puzzle.hints[currentHint]}
+                      </p>
+                    </motion.div>
+                  )}
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN - Answer Input, Multiple Choice, Lifelines, Submit */}
+              <div className="space-y-4">
+                {/* Answer Input - Always show for text entry */}
+                <div className="space-y-2">
+                  <label className="block text-green-400 font-mono text-sm">
+                    Your Answer:
+                  </label>
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={userAnswer}
+                    onChange={(e) => setUserAnswer(e.target.value)}
+                    onKeyPress={handleKeyPress}
                     disabled={isSubmitting}
-                    className="px-3 py-1 bg-yellow-900/50 hover:bg-yellow-900/70 border border-yellow-500/50 rounded text-yellow-400 font-mono text-sm transition-colors disabled:opacity-50"
+                    placeholder="Type your answer here..."
+                    className="w-full px-4 py-3 bg-black border-2 border-green-500/50 rounded-lg text-green-100 font-mono focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                </div>
+
+                {/* Multiple Choice Options - Show if available */}
+                {hasMultipleChoice && (
+                  <div className="space-y-2">
+                    <div className="text-green-400 font-mono text-sm text-center">
+                      - OR SELECT FROM OPTIONS -
+                    </div>
+                    {renderMultipleChoice()}
+                  </div>
+                )}
+
+                {/* Lifeline System */}
+                <div className="space-y-3">
+                  <div className="text-xs font-mono text-green-400 flex items-center gap-2">
+                    <Lightbulb className="w-4 h-4" />
+                    <span>LIFELINES AVAILABLE</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Show Answer Button */}
+                    <button
+                      onClick={() => setShowAnswerConfirm(true)}
+                      disabled={lifelineManager.freeAnswersRemaining === 0 || isSubmitting}
+                      className="px-2 py-2 bg-red-900/30 hover:bg-red-900/50 border border-red-500/50 rounded text-sm font-mono disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <div className="flex flex-col items-center gap-1">
+                        <Lightbulb className="w-4 h-4" />
+                        <span className="text-xs">Show Answer</span>
+                        <span className="text-xs text-red-400">
+                          {lifelineManager.freeAnswersRemaining} left
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* 50/50 Button */}
+                    <button
+                      onClick={handle5050}
+                      disabled={
+                        !lifelineManager.isLifelineAvailable('fiftyFifty', puzzle.id) ||
+                        !hasMultipleChoice ||
+                        isSubmitting
+                      }
+                      className="px-2 py-2 bg-blue-900/30 hover:bg-blue-900/50 border border-blue-500/50 rounded text-sm font-mono disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <div className="flex flex-col items-center gap-1">
+                        <Zap className="w-4 h-4" />
+                        <span className="text-xs">50/50</span>
+                        <span className="text-xs">
+                          {lifelineManager.isLifelineAvailable('fiftyFifty', puzzle.id)
+                            ? 'Available'
+                            : 'Used'}
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* Sentient AI Button */}
+                    <button
+                      onClick={() => setShowSentientAI(true)}
+                      disabled={!lifelineManager.isLifelineAvailable('sentientAI', puzzle.id) || isSubmitting}
+                      className="px-2 py-2 bg-purple-900/30 hover:bg-purple-900/50 border border-purple-500/50 rounded text-sm font-mono disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <div className="flex flex-col items-center gap-1">
+                        <Cpu className="w-4 h-4" />
+                        <span className="text-xs">Ask AI</span>
+                        <span className="text-xs">
+                          {lifelineManager.isLifelineAvailable('sentientAI', puzzle.id)
+                            ? '100% Right'
+                            : 'Used'}
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* Characters Button */}
+                    <button
+                      onClick={() => setShowCharacters(true)}
+                      disabled={!lifelineManager.isLifelineAvailable('characters', puzzle.id) || isSubmitting}
+                      className="px-2 py-2 bg-yellow-900/30 hover:bg-yellow-900/50 border border-yellow-500/50 rounded text-sm font-mono disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <div className="flex flex-col items-center gap-1">
+                        <Users className="w-4 h-4" />
+                        <span className="text-xs">Ask Team</span>
+                        <span className="text-xs">
+                          {lifelineManager.isLifelineAvailable('characters', puzzle.id)
+                            ? 'Available'
+                            : 'Used'}
+                        </span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Submit Button */}
+                {puzzle.type !== 'multiple-choice' && (
+                  <button
+                    onClick={() => handleSubmit()}
+                    disabled={!userAnswer.trim() || isSubmitting}
+                    className="w-full py-3 bg-green-600 hover:bg-green-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-mono font-bold rounded-lg transition-all transform hover:scale-105 disabled:scale-100"
                   >
-                    <HelpCircle className="w-4 h-4 inline mr-1" />
-                    Show Hint
+                    {isSubmitting ? 'CHECKING...' : 'SUBMIT ANSWER'}
                   </button>
                 )}
-              </div>
 
-              {currentHint >= 0 && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-3"
-                >
-                  <p className="text-yellow-200 font-mono text-sm">
-                    💡 {puzzle.hints[currentHint]}
-                  </p>
-                </motion.div>
-              )}
-            </div>
-
-            {/* Lifeline System */}
-            <div className="space-y-3">
-              <div className="text-xs font-mono text-green-400 flex items-center gap-2">
-                <Lightbulb className="w-4 h-4" />
-                <span>LIFELINES AVAILABLE</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                {/* Show Answer Button */}
-                <button
-                  onClick={() => setShowAnswerConfirm(true)}
-                  disabled={lifelineManager.freeAnswersRemaining === 0 || isSubmitting}
-                  className="px-3 py-2 bg-red-900/30 hover:bg-red-900/50 border border-red-500/50 rounded text-sm font-mono disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  <div className="flex flex-col items-center gap-1">
-                    <Lightbulb className="w-5 h-5" />
-                    <span className="text-xs">Show Answer</span>
-                    <span className="text-xs text-red-400">
-                      {lifelineManager.freeAnswersRemaining} left
-                    </span>
-                  </div>
-                </button>
-
-                {/* 50/50 Button */}
-                <button
-                  onClick={handle5050}
-                  disabled={
-                    !lifelineManager.isLifelineAvailable('fiftyFifty', puzzle.id) ||
-                    !hasMultipleChoice ||
-                    isSubmitting
-                  }
-                  className="px-3 py-2 bg-blue-900/30 hover:bg-blue-900/50 border border-blue-500/50 rounded text-sm font-mono disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  <div className="flex flex-col items-center gap-1">
-                    <Zap className="w-5 h-5" />
-                    <span className="text-xs">50/50</span>
-                    <span className="text-xs">
-                      {lifelineManager.isLifelineAvailable('fiftyFifty', puzzle.id)
-                        ? 'Available'
-                        : 'Used'}
-                    </span>
-                  </div>
-                </button>
-
-                {/* Sentient AI Button */}
-                <button
-                  onClick={() => setShowSentientAI(true)}
-                  disabled={!lifelineManager.isLifelineAvailable('sentientAI', puzzle.id) || isSubmitting}
-                  className="px-3 py-2 bg-purple-900/30 hover:bg-purple-900/50 border border-purple-500/50 rounded text-sm font-mono disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  <div className="flex flex-col items-center gap-1">
-                    <Cpu className="w-5 h-5" />
-                    <span className="text-xs">Ask AI</span>
-                    <span className="text-xs">
-                      {lifelineManager.isLifelineAvailable('sentientAI', puzzle.id)
-                        ? '100% Right'
-                        : 'Used'}
-                    </span>
-                  </div>
-                </button>
-
-                {/* Characters Button */}
-                <button
-                  onClick={() => setShowCharacters(true)}
-                  disabled={!lifelineManager.isLifelineAvailable('characters', puzzle.id) || isSubmitting}
-                  className="px-3 py-2 bg-yellow-900/30 hover:bg-yellow-900/50 border border-yellow-500/50 rounded text-sm font-mono disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  <div className="flex flex-col items-center gap-1">
-                    <Users className="w-5 h-5" />
-                    <span className="text-xs">Ask Team</span>
-                    <span className="text-xs">
-                      {lifelineManager.isLifelineAvailable('characters', puzzle.id)
-                        ? 'Available'
-                        : 'Used'}
-                    </span>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            {puzzle.type !== 'multiple-choice' && (
-              <button
-                onClick={() => handleSubmit()}
-                disabled={!userAnswer.trim() || isSubmitting}
-                className="w-full py-3 bg-green-600 hover:bg-green-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-mono font-bold rounded-lg transition-all transform hover:scale-105 disabled:scale-100"
-              >
-                {isSubmitting ? 'CHECKING...' : 'SUBMIT ANSWER'}
-              </button>
-            )}
-
-            {/* Result Display */}
-            <AnimatePresence>
-              {result && (
-                <motion.div
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.8, opacity: 0 }}
-                  className={`p-4 rounded-lg border-2 flex items-center gap-3 ${
-                    result === 'correct'
-                      ? 'bg-green-900/50 border-green-400 text-green-100'
-                      : 'bg-red-900/50 border-red-400 text-red-100'
-                  }`}
-                >
-                  {result === 'correct' ? (
-                    <>
-                      <CheckCircle className="w-6 h-6 text-green-400" />
-                      <div>
-                        <p className="font-mono font-bold">CORRECT!</p>
-                        <p className="text-sm opacity-80">+{puzzle.points} points</p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="w-6 h-6 text-red-400" />
-                      <div>
-                        <p className="font-mono font-bold">INCORRECT</p>
-                        {showAnswer ? (
-                          <p className="text-sm opacity-80">
-                            The correct answer was: <span className="font-bold text-yellow-300">{Array.isArray(puzzle.answer) ? puzzle.answer[0] : puzzle.answer}</span>
-                          </p>
-                        ) : (
-                          <p className="text-sm opacity-80">
-                            Attempts remaining: {MAX_ATTEMPTS - attempts}/{MAX_ATTEMPTS}
-                          </p>
-                        )}
-                      </div>
-                    </>
+                {/* Result Display */}
+                <AnimatePresence>
+                  {result && (
+                    <motion.div
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.8, opacity: 0 }}
+                      className={`p-4 rounded-lg border-2 flex items-center gap-3 ${
+                        result === 'correct'
+                          ? 'bg-green-900/50 border-green-400 text-green-100'
+                          : 'bg-red-900/50 border-red-400 text-red-100'
+                      }`}
+                    >
+                      {result === 'correct' ? (
+                        <>
+                          <CheckCircle className="w-6 h-6 text-green-400" />
+                          <div>
+                            <p className="font-mono font-bold">CORRECT!</p>
+                            <p className="text-sm opacity-80">+{puzzle.points} points</p>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="w-6 h-6 text-red-400" />
+                          <div>
+                            <p className="font-mono font-bold">INCORRECT</p>
+                            {showAnswer ? (
+                              <p className="text-sm opacity-80">
+                                The correct answer was: <span className="font-bold text-yellow-300">{Array.isArray(puzzle.answer) ? puzzle.answer[0] : puzzle.answer}</span>
+                              </p>
+                            ) : (
+                              <p className="text-sm opacity-80">
+                                Attempts remaining: {MAX_ATTEMPTS - attempts}/{MAX_ATTEMPTS}
+                              </p>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </motion.div>
                   )}
-                </motion.div>
-              )}
-            </AnimatePresence>
+                </AnimatePresence>
+              </div>
+            </div>
           </div>
         </motion.div>
 
