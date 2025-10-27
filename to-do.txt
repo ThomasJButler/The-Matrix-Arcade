@@ -1,5 +1,0 @@
-
-
-Maybe add a tetris style game. 
-
-refine UX of the site. 
