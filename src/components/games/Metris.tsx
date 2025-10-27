@@ -12,10 +12,10 @@ import { useSaveSystem } from '../../hooks/useSaveSystem';
 const COLS = 10;
 const ROWS = 20;
 const BLOCK_SIZE = 30;
-const INITIAL_DROP_SPEED = 250; // ms - normal drop speed (5s full drop)
-const SPEED_DECREASE = 25; // ms per level decrease
-const MIN_DROP_SPEED = 50; // minimum drop speed
-const SOFT_DROP_SPEED = 25; // ms - fast drop when holding down
+const INITIAL_DROP_SPEED = 400; // ms - normal drop speed (8s full drop)
+const SPEED_DECREASE = 30; // ms per level decrease
+const MIN_DROP_SPEED = 100; // minimum drop speed
+const SOFT_DROP_SPEED = 50; // ms - fast drop when holding down
 const LINES_PER_LEVEL = 10;
 const PARTICLE_COUNT = 30;
 const BULLET_TIME_COST = 5; // lines needed to fill bullet time meter
@@ -116,7 +116,7 @@ interface GameState {
   gameOver: boolean;
   paused: boolean;
   highScore: number;
-  particles: Particle[];
+  // particles removed from state - now in ref for 60fps updates
   bulletTimeMeter: number;
   bulletTimeActive: boolean;
   bulletTimeTimer: number;
@@ -147,7 +147,8 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
     right: 0,
     down: 0
   });
-  const updateGameRef = useRef<(() => void) | null>(null);
+  const dropIntervalIdRef = useRef<NodeJS.Timeout | null>(null);
+  const particlesRef = useRef<Particle[]>([]); // Particles stored in ref for smooth 60fps animation
 
   // 7-Bag randomizer refs
   const pieceBagRef = useRef<TetrominoType[]>([]);
@@ -222,7 +223,6 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       gameOver: false,
       paused: false,
       highScore,
-      particles: [],
       bulletTimeMeter: 0,
       bulletTimeActive: false,
       bulletTimeTimer: 0,
@@ -330,9 +330,8 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
   }, []);
 
   // Check and clear lines
-  const clearLines = useCallback((grid: Block[][]): { newGrid: Block[][], linesCleared: number, particles: Particle[] } => {
+  const clearLines = useCallback((grid: Block[][]): { newGrid: Block[][], linesCleared: number } => {
     const linesToClear: number[] = [];
-    const newParticles: Particle[] = [];
 
     // Find full lines
     for (let y = 0; y < ROWS; y++) {
@@ -342,14 +341,14 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
     }
 
     if (linesToClear.length === 0) {
-      return { newGrid: grid, linesCleared: 0, particles: [] };
+      return { newGrid: grid, linesCleared: 0 };
     }
 
-    // Create particles for cleared lines
+    // Create particles for cleared lines and add directly to particlesRef
     linesToClear.forEach(y => {
       for (let x = 0; x < COLS; x++) {
         for (let i = 0; i < 3; i++) {
-          newParticles.push({
+          particlesRef.current.push({
             x: x * BLOCK_SIZE + BLOCK_SIZE / 2,
             y: y * BLOCK_SIZE + BLOCK_SIZE / 2,
             vx: (Math.random() - 0.5) * 8,
@@ -375,7 +374,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       })));
     }
 
-    return { newGrid, linesCleared: linesToClear.length, particles: newParticles };
+    return { newGrid, linesCleared: linesToClear.length };
   }, []);
 
   // Calculate score
@@ -510,7 +509,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
 
       // Lock the piece immediately at the drop position
       const newGrid = lockPiece(testPiece, prev.grid);
-      const { newGrid: clearedGrid, linesCleared, particles } = clearLines(newGrid);
+      const { newGrid: clearedGrid, linesCleared } = clearLines(newGrid);
 
       const newCombo = linesCleared > 0 ? prev.combo + 1 : 0;
       const scorePoints = calculateScore(linesCleared, prev.level, newCombo);
@@ -537,65 +536,19 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
         level: newLevel,
         lines: newLines,
         combo: newCombo,
-        gameOver,
-        particles: [...prev.particles, ...particles]
+        gameOver
       };
     });
   }, [checkCollision, lockPiece, clearLines, calculateScore, createPiece, synthExplosion, synthPowerUp, isMuted]);
 
-  // Update game state - called every frame
-  const updateGame = useCallback(() => {
+  // Drop piece - called by setInterval at drop speed
+  const dropPiece = useCallback(() => {
     setState(currentState => {
       if (currentState.gameOver || currentState.paused || currentState.waiting || !currentState.currentPiece) {
         return currentState;
       }
 
-      const timestamp = performance.now();
-
-      // Calculate drop speed based on level, bullet time, and soft drop
-      const levelSpeed = Math.max(MIN_DROP_SPEED, INITIAL_DROP_SPEED - (currentState.level - 1) * SPEED_DECREASE);
-      let currentSpeed = currentState.softDropActive ? SOFT_DROP_SPEED : levelSpeed;
-      currentSpeed = currentState.bulletTimeActive ? currentSpeed / BULLET_TIME_SLOWDOWN : currentSpeed;
-      dropIntervalRef.current = currentSpeed;
-
-      // Check if it's time to drop
-      const timeSinceLastDrop = timestamp - lastDropTimeRef.current;
-      if (timestamp - lastDropTimeRef.current < dropIntervalRef.current) {
-        // Not time to drop yet, just update particles and bullet time
-        let updatedState = { ...currentState };
-
-        // Update bullet time
-        if (updatedState.bulletTimeActive) {
-          const remaining = bulletTimeEndRef.current - Date.now();
-          if (remaining <= 0) {
-            if (!isMuted) synthPowerUp('expire');
-            updatedState = { ...updatedState, bulletTimeActive: false, bulletTimeTimer: 0 };
-          } else {
-            updatedState = { ...updatedState, bulletTimeTimer: remaining };
-          }
-        }
-
-        // Update particles
-        updatedState = {
-          ...updatedState,
-          particles: updatedState.particles
-            .map(p => ({
-              ...p,
-              x: p.x + p.vx,
-              y: p.y + p.vy,
-              vy: p.vy + 0.3,
-              opacity: p.opacity * 0.95,
-              life: p.life * 0.95
-            }))
-            .filter(p => p.life > 0.1)
-        };
-
-        return updatedState;
-      }
-
-      // Time to drop the piece
-      lastDropTimeRef.current = timestamp;
-
+      // Try to move piece down
       const newY = currentState.currentPiece.y + 1;
       const newPiece = { ...currentState.currentPiece, y: newY };
 
@@ -603,22 +556,12 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
         // Piece can move down
         return {
           ...currentState,
-          currentPiece: newPiece,
-          particles: currentState.particles
-            .map(p => ({
-              ...p,
-              x: p.x + p.vx,
-              y: p.y + p.vy,
-              vy: p.vy + 0.3,
-              opacity: p.opacity * 0.95,
-              life: p.life * 0.95
-            }))
-            .filter(p => p.life > 0.1)
+          currentPiece: newPiece
         };
       } else {
         // Piece has landed - lock it
         const newGrid = lockPiece(currentState.currentPiece, currentState.grid);
-        const { newGrid: clearedGrid, linesCleared, particles } = clearLines(newGrid);
+        const { newGrid: clearedGrid, linesCleared } = clearLines(newGrid);
 
         const newCombo = linesCleared > 0 ? currentState.combo + 1 : 0;
         const points = calculateScore(linesCleared, currentState.level, newCombo);
@@ -725,7 +668,6 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
           combo: newCombo,
           gameOver,
           highScore: newHighScore,
-          particles: [...currentState.particles, ...particles],
           bulletTimeMeter: bulletTimeActivated ? 0 : newBulletTimeMeter,
           bulletTimeActive: bulletTimeActivated,
           bulletTimeTimer: bulletTimeTimer
@@ -734,32 +676,58 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
     });
   }, [checkCollision, lockPiece, clearLines, createPiece, achievementManager, synthExplosion, synthPowerUp, synthDrum, isMuted]);
 
-  // Keep updateGame ref current
+  // Bullet time countdown timer (updates every 100ms instead of 60fps)
   useEffect(() => {
-    updateGameRef.current = updateGame;
-  }, [updateGame]);
+    if (!state.bulletTimeActive) return;
 
-  // Start/stop game loop based on game state
+    const bulletTimeInterval = setInterval(() => {
+      setState(prev => {
+        if (!prev.bulletTimeActive) return prev;
+
+        const remaining = bulletTimeEndRef.current - Date.now();
+        if (remaining <= 0) {
+          if (!isMuted) synthPowerUp('expire');
+          return { ...prev, bulletTimeActive: false, bulletTimeTimer: 0 };
+        }
+
+        return { ...prev, bulletTimeTimer: remaining };
+      });
+    }, 100); // Update every 100ms for smooth countdown display
+
+    return () => clearInterval(bulletTimeInterval);
+  }, [state.bulletTimeActive, isMuted, synthPowerUp]);
+
+  // Start/stop drop interval based on game state
   useEffect(() => {
     if (state.gameOver || state.paused || state.waiting) {
-      return; // Don't run loop when game is not active
+      // Clear interval when not playing
+      if (dropIntervalIdRef.current) {
+        clearInterval(dropIntervalIdRef.current);
+        dropIntervalIdRef.current = null;
+      }
+      return;
     }
 
-    let animationId: number;
+    // Calculate drop speed based on level, bullet time, and soft drop
+    const levelSpeed = Math.max(MIN_DROP_SPEED, INITIAL_DROP_SPEED - (state.level - 1) * SPEED_DECREASE);
+    let currentSpeed = state.softDropActive ? SOFT_DROP_SPEED : levelSpeed;
+    currentSpeed = state.bulletTimeActive ? currentSpeed / BULLET_TIME_SLOWDOWN : currentSpeed;
 
-    const loop = () => {
-      updateGameRef.current?.();
-      animationId = requestAnimationFrame(loop);
-    };
+    // Clear old interval
+    if (dropIntervalIdRef.current) {
+      clearInterval(dropIntervalIdRef.current);
+    }
 
-    animationId = requestAnimationFrame(loop);
+    // Start new interval at current speed
+    dropIntervalIdRef.current = setInterval(dropPiece, currentSpeed);
 
     return () => {
-      if (animationId) {
-        cancelAnimationFrame(animationId);
+      if (dropIntervalIdRef.current) {
+        clearInterval(dropIntervalIdRef.current);
+        dropIntervalIdRef.current = null;
       }
     };
-  }, [state.gameOver, state.paused, state.waiting]); // Removed updateGame dependency!
+  }, [state.gameOver, state.paused, state.waiting, state.level, state.softDropActive, state.bulletTimeActive, dropPiece]);
 
   // Keyboard controls
   useEffect(() => {
@@ -891,6 +859,18 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       }
       lastRenderTimeRef.current = timestamp;
 
+      // Update particles at 60fps (visual only, not in state)
+      particlesRef.current = particlesRef.current
+        .map(p => ({
+          ...p,
+          x: p.x + p.vx,
+          y: p.y + p.vy,
+          vy: p.vy + 0.3,
+          opacity: p.opacity * 0.95,
+          life: p.life * 0.95
+        }))
+        .filter(p => p.life > 0.1);
+
       // Clear canvas
       ctx.fillStyle = '#001100';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1002,8 +982,8 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
         }
       }
 
-      // Draw particles
-      state.particles.forEach(p => {
+      // Draw particles from ref (updated at 60fps above)
+      particlesRef.current.forEach(p => {
         ctx.fillStyle = p.color;
         ctx.globalAlpha = p.opacity;
         ctx.font = `${p.size}px monospace`;
@@ -1023,7 +1003,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
         cancelAnimationFrame(renderAnimationId);
       }
     };
-  }, [state.grid, state.currentPiece, state.particles, state.bulletTimeActive, getGhostPosition]);
+  }, [state.grid, state.currentPiece, state.bulletTimeActive, getGhostPosition]);
 
   // Restart game
   const restart = () => {
@@ -1044,6 +1024,9 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
     lastGroundedTime.current = 0;
     isGroundedRef.current = false;
 
+    // Clear particles
+    particlesRef.current = [];
+
     setState({
       grid: createEmptyGrid(),
       currentPiece: createPiece(),
@@ -1057,7 +1040,6 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       gameOver: false,
       paused: false,
       highScore,
-      particles: [],
       bulletTimeMeter: 0,
       bulletTimeActive: false,
       bulletTimeTimer: 0,
