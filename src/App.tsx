@@ -1,11 +1,17 @@
+/**
+ * @author Tom Butler
+ * @date 2025-10-25
+ * @description Main application orchestrator for Matrix Arcade. Manages game selection,
+ *              navigation, sound system, achievements, and PWA features.
+ */
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import './styles/theme.css'; // Custom theme.css for the insane styling
+import './styles/theme.css';
 import './styles/animations.css';
 import {
   Monitor,
   Gamepad2,
-  Terminal,
   ChevronLeft,
   ChevronRight,
   Play,
@@ -18,13 +24,14 @@ import {
   X,
   Volume2,
   VolumeX,
+  Blocks,
 } from 'lucide-react';
-import SnakeClassic from './components/games/SnakeClassic';
+import SimpleSnake from './components/games/SimpleSnake';
 import VortexPong from './components/games/VortexPong';
-import TerminalQuest from './components/games/TerminalQuest';
 import CtrlSWorld from './components/games/CtrlSWorld';
 import MatrixCloud from './components/games/MatrixCloud';
 import MatrixInvaders from './components/games/MatrixInvaders';
+import Metris from './components/games/Metris';
 import AudioSettings from './components/ui/AudioSettings';
 import SaveLoadManager from './components/ui/SaveLoadManager';
 import { AchievementQueue } from './components/ui/AchievementNotification';
@@ -35,6 +42,10 @@ import { MobileWarning } from './components/ui/MobileWarning';
 import { useSoundSystem } from './hooks/useSoundSystem';
 import { useAchievementManager } from './hooks/useAchievementManager';
 import { useMobileDetection } from './hooks/useMobileDetection';
+import { useSaveSystem } from './hooks/useSaveSystem';
+import { GameStateProvider } from './contexts/GameStateContext';
+import matrixInvadersPreview from './images/matrixinvaders.webp';
+import metrisPreview from './images/metris.webp';
 
 function App() {
   const [selectedGame, setSelectedGame] = useState<number>(0);
@@ -51,19 +62,24 @@ function App() {
   const footerRef = useRef<HTMLDivElement>(null);
   
   // Initialize sound system and achievement manager
-  const { playSFX, playMusic, stopMusic, toggleMute, isMuted, config: soundConfig, updateConfig } = useSoundSystem();
+  const { playSFX, playMusic, stopMusic, playBackgroundMP3, stopBackgroundMP3, toggleMute, isMuted, config: soundConfig, updateConfig } = useSoundSystem();
   const achievementManager = useAchievementManager();
-  
+  const { saveData } = useSaveSystem();
+
   // Mobile detection
   const { isMobile, isTablet } = useMobileDetection();
   const showMobileWarning = isMobile || isTablet;
-  
+
   // Track global achievements
   const gamesPlayed = useRef(new Set<string>());
   const playStartTime = useRef<number | null>(null);
   const totalPlayTime = useRef(0);
-  
-  // Check achievement milestones
+  const appStartTime = useRef(Date.now());
+
+  /**
+   * @listens achievementManager.stats.unlocked, achievementManager
+   * Tracks achievement milestones for 10, 25, and 50 unlocked achievements
+   */
   useEffect(() => {
     const totalUnlocked = achievementManager.stats.unlocked;
     const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
@@ -87,6 +103,66 @@ function App() {
     }
   }, [achievementManager.stats.unlocked, achievementManager]);
 
+  /**
+   * Track when a game is played and check for "play all games" achievement
+   */
+  useEffect(() => {
+    if (selectedGame !== null) {
+      const gameNames = ['CTRL-S | The World', 'Snake Classic', 'Vortex Pong', 'Matrix Cloud', 'Matrix Invaders', 'Metris'];
+      const gameName = gameNames[selectedGame] || '';
+
+      if (!gamesPlayed.current.has(gameName)) {
+        gamesPlayed.current.add(gameName);
+
+        // Check if all games have been played
+        const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
+        if (gamesPlayed.current.size === 6 && !currentGlobalAchievements.includes('global_all_games')) {
+          achievementManager.updateGlobalStats({
+            globalAchievements: [...currentGlobalAchievements, 'global_all_games']
+          });
+        }
+      }
+    }
+  }, [selectedGame, achievementManager]);
+
+  /**
+   * Track cross-game statistics and achievements
+   */
+  useEffect(() => {
+    const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
+
+    // Calculate total score across all games
+    const totalScore = Object.values(saveData.games || {}).reduce((sum, game: any) => sum + (game.highScore || 0), 0);
+
+    // Total Score achievements
+    if (totalScore >= 10000 && !currentGlobalAchievements.includes('global_score_10k')) {
+      achievementManager.updateGlobalStats({
+        globalAchievements: [...currentGlobalAchievements, 'global_score_10k']
+      });
+    }
+
+    if (totalScore >= 50000 && !currentGlobalAchievements.includes('global_score_50k')) {
+      achievementManager.updateGlobalStats({
+        globalAchievements: [...currentGlobalAchievements, 'global_score_50k']
+      });
+    }
+
+    if (totalScore >= 100000 && !currentGlobalAchievements.includes('global_score_100k')) {
+      achievementManager.updateGlobalStats({
+        globalAchievements: [...currentGlobalAchievements, 'global_score_100k']
+      });
+    }
+
+    // Total games played achievement
+    const totalGamesPlayed = Object.values(saveData.games || {}).reduce((sum, game: any) => sum + (game.stats?.gamesPlayed || 0), 0);
+
+    if (totalGamesPlayed >= 100 && !currentGlobalAchievements.includes('global_100_plays')) {
+      achievementManager.updateGlobalStats({
+        globalAchievements: [...currentGlobalAchievements, 'global_100_plays']
+      });
+    }
+  }, [saveData, achievementManager]);
+
   const games = [
     {
       title: 'CTRL-S | The World',
@@ -102,7 +178,7 @@ function App() {
       description: 'Navigate through the matrix collecting data fragments',
       preview:
         'https://res.cloudinary.com/depqttzlt/image/upload/v1737071599/matrixsnake2_jw29w1.png',
-      component: SnakeClassic,
+      component: SimpleSnake,
     },
     {
       title: 'Vortex Pong',
@@ -111,14 +187,6 @@ function App() {
       preview:
         'https://res.cloudinary.com/depqttzlt/image/upload/v1737071596/vortexpong2_hkjn4k.png',
       component: VortexPong,
-    },
-    {
-      title: 'Terminal Quest',
-      icon: <Terminal className="w-8 h-8" />,
-      description: 'Text-based adventure in the digital realm',
-      preview:
-        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/terminalquest_ddvjkf.png',
-      component: TerminalQuest,
     },
     {
       title: 'Matrix Cloud',
@@ -132,71 +200,103 @@ function App() {
       title: 'Matrix Invaders',
       icon: <Crosshair className="w-8 h-8" />,
       description: 'Defend against the code invasion',
-      preview:
-        'https://res.cloudinary.com/depqttzlt/image/upload/v1751750717/matrix3_zmwcnd.png',
+      preview: matrixInvadersPreview,
       component: MatrixInvaders,
+    },
+    {
+      title: 'Metris',
+      icon: <Blocks className="w-8 h-8" />,
+      description: 'Stack the code blocks and break the Matrix',
+      preview: metrisPreview,
+      component: Metris,
     },
   ];
 
-  // Matrix rain effect
+  /**
+   * @constructs - Initialises Matrix rain effect using RequestAnimationFrame
+   *               Limited to 30 FPS for performance optimisation
+   */
   useEffect(() => {
-    const createMatrixRain = (element: HTMLDivElement) => {
-      const width = element.offsetWidth;
-      const height = element.offsetHeight;
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      canvas.style.position = 'absolute';
-      canvas.style.top = '0';
-      canvas.style.left = '0';
-      canvas.style.zIndex = '0';
-      canvas.style.opacity = '0.15';
-      element.insertBefore(canvas, element.firstChild);
-
+    const createMatrixRain = (canvas: HTMLCanvasElement) => {
       const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+      if (!ctx) return null;
+
+      const parent = canvas.parentElement;
+      if (!parent) return null;
+
+      // Set canvas size
+      canvas.width = parent.offsetWidth;
+      canvas.height = parent.offsetHeight;
 
       const chars =
         'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
       const fontSize = 14;
-      const columns = Math.floor(width / fontSize);
+      const columns = Math.floor(canvas.width / fontSize);
       const drops: number[] = Array(columns).fill(1);
 
-      const draw = () => {
+      let animationId: number;
+      let lastTime = 0;
+
+      const draw = (timestamp: number) => {
+        // Throttle to 30 FPS to reduce CPU usage
+        if (timestamp - lastTime < 33) {
+          animationId = requestAnimationFrame(draw);
+          return;
+        }
+        lastTime = timestamp;
+
         ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-        ctx.fillRect(0, 0, width, height);
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#0F0';
         ctx.font = `${fontSize}px monospace`;
 
         for (let i = 0; i < drops.length; i++) {
           const char = chars[Math.floor(Math.random() * chars.length)];
           ctx.fillText(char, i * fontSize, drops[i] * fontSize);
-          if (drops[i] * fontSize > height && Math.random() > 0.975) {
+          if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
             drops[i] = 0;
           }
           drops[i]++;
         }
+
+        animationId = requestAnimationFrame(draw);
       };
 
-      return setInterval(draw, 33);
+      animationId = requestAnimationFrame(draw);
+      return () => cancelAnimationFrame(animationId);
     };
 
-    const headerInterval =
-      headerRef.current && createMatrixRain(headerRef.current);
-    const footerInterval =
-      footerRef.current && createMatrixRain(footerRef.current);
+    // Create canvases for header and footer
+    let headerCleanup: (() => void) | null = null;
+    let footerCleanup: (() => void) | null = null;
+
+    if (headerRef.current) {
+      const canvas = headerRef.current.querySelector('canvas.matrix-rain');
+      if (canvas instanceof HTMLCanvasElement) {
+        headerCleanup = createMatrixRain(canvas);
+      }
+    }
+
+    if (footerRef.current) {
+      const canvas = footerRef.current.querySelector('canvas.matrix-rain');
+      if (canvas instanceof HTMLCanvasElement) {
+        footerCleanup = createMatrixRain(canvas);
+      }
+    }
 
     return () => {
-      if (headerInterval) clearInterval(headerInterval);
-      if (footerInterval) clearInterval(footerInterval);
+      if (headerCleanup) headerCleanup();
+      if (footerCleanup) footerCleanup();
     };
   }, []);
 
-  // Prevent scrolling when games are active
+  /**
+   * @listens isPlaying - Prevents page scrolling during active gameplay
+   *                       whilst allowing input in text fields
+   */
   useEffect(() => {
     const preventDefault = (e: Event) => {
       const target = e.target as HTMLElement;
-      // Only prevent if isPlaying, and the user isn't typing in an input/textarea
       if (
         isPlaying &&
         target.tagName !== 'INPUT' &&
@@ -216,8 +316,11 @@ function App() {
       window.removeEventListener('touchmove', preventDefault);
     };
   }, [isPlaying]);
-  
-  // Game selection functions
+
+  /**
+   * Handles game selection with transition animation
+   * @param {number} index - Game index to select from games array
+   */
   const selectGame = useCallback((index: number) => {
     const direction = index > selectedGame ? 'right' : 'left';
     setTransitionDirection(direction);
@@ -236,8 +339,11 @@ function App() {
   const handleNext = useCallback(() => {
     selectGame(selectedGame === games.length - 1 ? 0 : selectedGame + 1);
   }, [selectedGame, selectGame]);
-  
-  // Keyboard shortcuts
+
+  /**
+   * @listens isPlaying, achievementManager, stopMusic, playSFX, showMobileWarning, playBackgroundMP3, handlePrevious, handleNext, toggleMute
+   * Global keyboard shortcuts: ESC (exit), Arrow keys (navigate), Enter (play), A (achievements), V (mute)
+   */
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       // Achievement display shortcut (A key)
@@ -272,7 +378,7 @@ function App() {
         e.preventDefault();
         setIsPlaying(true);
         playSFX('score');
-        setTimeout(() => playMusic('gameplay'), 500);
+        setTimeout(() => playBackgroundMP3('/matrixarcaderetrobeat.mp3'), 500);
       }
       
       // V key to toggle mute
@@ -287,12 +393,12 @@ function App() {
     
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isPlaying, achievementManager, stopMusic, playSFX, showMobileWarning, playMusic, handlePrevious, handleNext, toggleMute]);
+  }, [isPlaying, achievementManager, stopMusic, playSFX, showMobileWarning, playBackgroundMP3, handlePrevious, handleNext, toggleMute]);
 
   const GameComponent = games[selectedGame].component;
 
   return (
-    <>
+    <GameStateProvider>
       {/* Mobile Warning */}
       {showMobileWarning && <MobileWarning />}
       
@@ -302,6 +408,10 @@ function App() {
         ref={headerRef}
         className="relative border-b border-green-500/50 p-2 lg:p-3 overflow-hidden backdrop-blur-sm"
       >
+        <canvas
+          className="matrix-rain absolute top-0 left-0 w-full h-full opacity-15 z-0"
+          style={{ pointerEvents: 'none' }}
+        />
         <div className="max-w-7xl mx-auto flex items-center justify-between relative z-10">
           <div className="flex items-center gap-4">
             <div className="relative group">
@@ -319,7 +429,7 @@ function App() {
                 THE MATRIX ARCADE
               </h1>
               <p className="text-xs text-green-400 tracking-widest hidden sm:block">
-                SYSTEM v1.0.5
+                SYSTEM v1.1
               </p>
             </a>
             </div>
@@ -332,42 +442,17 @@ function App() {
             >
               <Save className="w-5 h-5" />
             </button>
-            <div className="relative group">
-              <button
-                onClick={toggleMute}
-                className={`p-2 rounded transition-colors border backdrop-blur-sm ${
-                  isMuted 
-                    ? 'bg-red-900/50 hover:bg-red-800 border-red-500/30' 
-                    : 'bg-green-900/50 hover:bg-green-800 border-green-500/30'
-                }`}
-                title={isMuted ? "Unmute Sound" : "Mute Sound"}
-              >
-                {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-              </button>
-              
-              {/* Volume Slider Popup */}
-              <div className="absolute top-full right-0 mt-2 p-3 bg-gray-900 border border-green-500/30 rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity shadow-xl z-50">
-                <div className="flex items-center gap-2 min-w-[150px]">
-                  <Volume2 className="w-4 h-4 text-green-400" />
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.1"
-                    value={soundConfig.masterVolume}
-                    onChange={(e) => updateConfig({ masterVolume: parseFloat(e.target.value) })}
-                    className="flex-1 slider"
-                  />
-                  <span className="text-xs text-green-400 min-w-[3ch]">{Math.round(soundConfig.masterVolume * 100)}%</span>
-                </div>
-              </div>
-            </div>
+
             <button
               onClick={() => setShowAudioSettings(!showAudioSettings)}
-              className="p-2 bg-green-900/50 rounded hover:bg-green-800 transition-colors border border-green-500/30 backdrop-blur-sm"
-              title="Audio Settings"
+              className={`p-2 rounded transition-colors border backdrop-blur-sm ${
+                isMuted
+                  ? 'bg-red-900/50 hover:bg-red-800 border-red-500/30'
+                  : 'bg-green-900/50 hover:bg-green-800 border-green-500/30'
+              }`}
+              title="Audio Settings (V to mute)"
             >
-              <Settings className="w-5 h-5" />
+              <Settings className={`w-5 h-5 ${isMuted ? 'text-red-400' : ''}`} />
             </button>
             <button
               onClick={() => setShowNav(!showNav)}
@@ -405,8 +490,16 @@ function App() {
         {/* Fullscreen Game View */}
         {isPlaying && GameComponent ? (
           <div className="relative w-full h-full">
-            <GameComponent achievementManager={achievementManager} />
-            
+            <GameComponent achievementManager={achievementManager} isMuted={isMuted} />
+
+            {/* Floating Mute Indicator - More Visible */}
+            {isMuted && (
+              <div className="absolute top-4 left-4 z-50 flex items-center gap-2 px-4 py-2 bg-red-600/90 border-2 border-red-400 rounded-lg animate-pulse-red pointer-events-none shadow-lg shadow-red-500/50">
+                <VolumeX className="w-5 h-5 text-white" />
+                <span className="text-white font-mono text-sm font-bold">MUTED</span>
+              </div>
+            )}
+
             {/* Floating Exit Button */}
             <button
               onClick={() => {
@@ -439,9 +532,9 @@ function App() {
           </div>
         ) : (
           <div className="relative w-full max-w-2xl mx-auto flex flex-col justify-center h-full game-portal-container px-4">
-          {/* Matrix Rain Effect */}
+          {/* Matrix Rain Effect - Reduced for performance */}
           <div className="absolute inset-0 opacity-20 pointer-events-none overflow-hidden">
-            {[...Array(50)].map((_, i) => (
+            {[...Array(20)].map((_, i) => (
               <div
                 key={i}
                 className="absolute text-green-500 animate-matrix-rain"
@@ -518,8 +611,8 @@ function App() {
                           playSFX(isPlaying ? 'menu' : 'score');
                           if (!isPlaying) {
                             // Start ambient music when game starts
-                            setTimeout(() => playMusic('gameplay'), 500);
-                            
+                            setTimeout(() => playBackgroundMP3('/matrixarcaderetrobeat.mp3'), 500);
+
                             // Track game played
                             const gameName = games[selectedGame].title;
                             gamesPlayed.current.add(gameName);
@@ -598,9 +691,13 @@ function App() {
         ref={footerRef}
         className="relative border-t border-green-500/50 p-2 lg:p-3 overflow-hidden backdrop-blur-sm bottom-0 w-full"
       >
+        <canvas
+          className="matrix-rain absolute top-0 left-0 w-full h-full opacity-15 z-0"
+          style={{ pointerEvents: 'none' }}
+        />
         <div className="max-w-7xl mx-auto flex items-center justify-between relative z-10">
           <div className="font-mono text-xs lg:text-sm flex items-center gap-2 lg:gap-4">
-            <p className="tracking-wider hidden lg:block">THE MATRIX ARCADE v1.0.5</p>
+            <p className="tracking-wider hidden lg:block">THE MATRIX ARCADE v1.1</p>
             <div className="h-4 w-px bg-green-500/30 hidden lg:block"></div>
             <p className="text-green-400">TAKE THE RED PILL!</p>
           </div>
@@ -628,9 +725,11 @@ function App() {
       </footer>
 
       {/* Audio Settings Modal */}
-      <AudioSettings 
-        isOpen={showAudioSettings} 
-        onClose={() => setShowAudioSettings(false)} 
+      <AudioSettings
+        isOpen={showAudioSettings}
+        onClose={() => setShowAudioSettings(false)}
+        isMuted={isMuted}
+        toggleMute={toggleMute}
       />
       
       {/* Save/Load Manager Modal */}
@@ -674,7 +773,7 @@ function App() {
         /* Removed conflicting game-container styles that were causing nesting issues */
       `}</style>
     </div>
-    </>
+    </GameStateProvider>
   );
 }
 

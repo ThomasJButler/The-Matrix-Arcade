@@ -1,7 +1,7 @@
 {
   "name": "the-matrix-arcade",
   "private": true,
-  "version": "1.0.5",
+  "version": "1.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,9 +10,11 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "test:log": "vitest run --reporter=verbose > test-results.log 2>&1 || true"
   },
   "dependencies": {
+    "@emotion/is-prop-valid": "^1.4.0",
     "framer-motion": "^11.18.0",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",

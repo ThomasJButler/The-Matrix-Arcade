@@ -1,36 +1,53 @@
-# TheMatrixArcade 🎮
-A collection of games inspired by 'The Matrix' films 🎬
+# The Matrix Arcade
 
-See online at https://tomatic.tech
+Collection of Matrix-themed arcade games built with React and TypeScript.
 
-<img width="1299" height="849" alt="image" src="https://github.com/user-attachments/assets/4467f9e2-4de2-4709-aa5b-71b0add63927" />
+Live: [tomatic.tech](https://tomatic.tech)
 
-The Matrix Arcade is an immersive collection of Matrix-themed games built as a web application. Our flagship game "CTRL-S The World" 💾 is a text-based adventure that follows a thrilling narrative about saving the digital world from a rogue AI.
+![The Matrix Arcade Screenshot](https://github.com/user-attachments/assets/4467f9e2-4de2-4709-aa5b-71b0add63927)
 
-## How To Run 🔑
-Download files using GIT, navigate to TheMatrixArcade and open terminal. 
-- Enter - NPM INSTALL
-- Enter - NPM RUN DEV
-- Enter - NPM install lucide-react
-- Voila 🙏🏻
+## Installation
 
-## Tech Stack 🛠️
+```bash
+npm install
+npm run dev
+```
 
-- **Frontend Framework**: React with TypeScript (App.tsx) ⚛️
-- **Styling**: Tailwind CSS for responsive design 🎨
-- **Build Tool**: Vite for fast development and optimised builds ⚡
-- **Animations**: Custom CSS animations and transitions for Matrix-style effects 🌟
-- **State Management**: React hooks for local state management 🔄
-- **Component Architecture**: Functional components with custom hooks 🏗️
+## Games
 
-## Key Technical Features 🔑
+- **CTRL-S | The World** - Interactive text adventure with 5-chapter narrative
+- **Snake Classic** - Traditional snake with Matrix theme
+- **Vortex Pong** - Pong with power-ups and AI opponent
+- **Matrix Cloud** - Flappy Bird-style with power-ups and levels
+- **Matrix Invaders** - Space Invaders clone with wave progression
+- **Metris** - Matrix-themed Tetris with bullet time mode
 
-- Text typing animation system in CtrlSWorld.tsx ⌨️
-- Terminal-style interface with scrolling 📺
-- Fullscreen mode support 🖥️
-- Responsive layout with Tailwind CSS 📱
-- Matrix-inspired visual effects ✨
+## Tech Stack
 
-The project showcases modern React practices with TypeScript whilst creating an engaging, interactive narrative experience. 🚀
+React 18, TypeScript, Vite, Tailwind CSS, Framer Motion, Vitest, PWA (vite-plugin-pwa), Web Audio API
 
+## Development
+
+```bash
+npm run dev           # Start dev server
+npm run build         # Production build
+npm run preview       # Preview build
+npm run lint          # Run ESLint
+npm test              # Run tests
+npm run test:ui       # Vitest UI
+npm run test:coverage # Coverage report
+```
+
+## Features
+
+- Procedural audio synthesis using Web Audio API
+- Achievement system with persistent save data
+- Progressive Web App with offline support
+- Canvas-based rendering for performance
+- Matrix rain animations with Japanese characters
+- Mobile detection and optimised touch controls
+
+## Architecture
+
+Component-based with custom React hooks for game logic isolation. Each game is self-contained and integrates via a consistent interface. No global state library - uses React Context for CTRL-S game state and localStorage for persistence.
 

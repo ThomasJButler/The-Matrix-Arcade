@@ -1,4 +1,11 @@
-import { useCallback, useRef, useState, useEffect } from 'react';
+/**
+ * @author Tom Butler
+ * @date 2025-10-25
+ * @description Web Audio API sound system with procedural synthesis and ADSR envelopes.
+ *              Provides pre-defined sound effects library and MP3 playback support.
+ */
+
+import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 
 export interface SoundConfig {
   music: boolean;
@@ -31,9 +38,7 @@ const DEFAULT_CONFIG: SoundConfig = {
   sfxVolume: 0.6
 };
 
-// Pre-defined sound effects library
 const SOUND_LIBRARY: Record<string, SoundEffect> = {
-  // Game Actions
   jump: {
     type: 'jump',
     frequency: { start: 440, end: 220 },
@@ -219,6 +224,7 @@ export function useSoundSystem() {
   const musicGainRef = useRef<GainNode | null>(null);
   const sfxGainRef = useRef<GainNode | null>(null);
   const currentMusicRef = useRef<string | null>(null);
+  const backgroundMusicRef = useRef<HTMLAudioElement | null>(null);
   const reverbRef = useRef<ConvolverNode | null>(null);
 
   // Create reverb impulse response
@@ -447,6 +453,48 @@ export function useSoundSystem() {
       musicSourceRef.current.stop();
       musicSourceRef.current = null;
     }
+    // Also stop MP3 background music if playing
+    if (backgroundMusicRef.current) {
+      backgroundMusicRef.current.pause();
+      backgroundMusicRef.current.currentTime = 0;
+    }
+  }, []);
+
+  // Play MP3 background music
+  const playBackgroundMP3 = useCallback((src: string) => {
+    if (!config.music) return;
+
+    // Stop any existing music
+    stopMusic();
+
+    // Create or reuse audio element
+    if (!backgroundMusicRef.current) {
+      backgroundMusicRef.current = new Audio();
+      backgroundMusicRef.current.loop = true;
+    }
+
+    backgroundMusicRef.current.src = src;
+    backgroundMusicRef.current.volume = config.masterVolume * config.musicVolume;
+
+    // Play the music
+    backgroundMusicRef.current.play().catch(error => {
+      console.warn('Error playing background music:', error);
+    });
+
+    // Update volume when config changes
+    return () => {
+      if (backgroundMusicRef.current) {
+        backgroundMusicRef.current.volume = config.masterVolume * config.musicVolume;
+      }
+    };
+  }, [config.music, config.masterVolume, config.musicVolume, stopMusic]);
+
+  // Stop MP3 background music
+  const stopBackgroundMP3 = useCallback(() => {
+    if (backgroundMusicRef.current) {
+      backgroundMusicRef.current.pause();
+      backgroundMusicRef.current.currentTime = 0;
+    }
   }, []);
 
   // Update config
@@ -464,6 +512,11 @@ export function useSoundSystem() {
     }
     if (sfxGainRef.current && updated.sfxVolume !== config.sfxVolume) {
       sfxGainRef.current.gain.setValueAtTime(updated.sfxVolume, 0);
+    }
+
+    // Immediately update MP3 background music volume if it exists
+    if (backgroundMusicRef.current && (updated.masterVolume !== config.masterVolume || updated.musicVolume !== config.musicVolume)) {
+      backgroundMusicRef.current.volume = updated.masterVolume * updated.musicVolume;
     }
   }, [config]);
 
@@ -494,16 +547,30 @@ export function useSoundSystem() {
     };
   }, [stopMusic]);
 
-  return {
-    config,
-    updateConfig,
-    playSFX,
-    playMusic,
-    stopMusic,
-    toggleMute,
-    isMuted,
-    isInitialized: !!audioContextRef.current,
-    soundLibrary: Object.keys(SOUND_LIBRARY),
-    musicSequences: Object.keys(MUSIC_SEQUENCES)
-  };
+  // Update MP3 volume when config changes
+  useEffect(() => {
+    if (backgroundMusicRef.current) {
+      backgroundMusicRef.current.volume = config.masterVolume * config.musicVolume;
+      backgroundMusicRef.current.muted = isMuted || !config.music;
+    }
+  }, [config.masterVolume, config.musicVolume, config.music, isMuted]);
+
+  // Memoize the return value to prevent unnecessary re-renders
+  return useMemo(
+    () => ({
+      config,
+      updateConfig,
+      playSFX,
+      playMusic,
+      stopMusic,
+      playBackgroundMP3,
+      stopBackgroundMP3,
+      toggleMute,
+      isMuted,
+      isInitialized: !!audioContextRef.current,
+      soundLibrary: Object.keys(SOUND_LIBRARY),
+      musicSequences: Object.keys(MUSIC_SEQUENCES)
+    }),
+    [config, updateConfig, playSFX, playMusic, stopMusic, playBackgroundMP3, stopBackgroundMP3, toggleMute, isMuted]
+  );
 }

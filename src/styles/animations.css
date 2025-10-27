@@ -40,6 +40,17 @@
   }
 }
 
+@keyframes pulse-red {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+  }
+  50% {
+    opacity: 0.8;
+    box-shadow: 0 0 40px rgba(239, 68, 68, 0.8);
+  }
+}
+
 @keyframes enhanced-transition {
   0% {
     opacity: 0;

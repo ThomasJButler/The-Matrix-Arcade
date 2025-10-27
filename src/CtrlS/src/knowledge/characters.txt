@@ -1,0 +1,194 @@
+Aver-Ag Engi Neer
+An 'average' software engineer with an extraordinary destiny, Aver-Ag's quick wit and resourcefulness make them a unique hero. They possess a remarkable ability to solve complex problems with unconventional solutions, often with a humorous twist.
+
+"Who knew that forgetting to commit one file would lead to... this?"
+"I've always been average, but today, I guess I've got to be a little more."
+"Is it just me, or is this the weirdest day ever?"
+"To think, my biggest worry last week was my phone's screen time."
+"So, if we save the world, do we get a day named after us? Or at least a GitHub badge?"
+"I never thought my coding skills would be used for time travel. Debugging, sure, but this is next level."
+"Everyone's talking about ethics now, but where were those conversations at the sprint meetings?"
+"Turns out, the 'undo' command doesn't work on global catastrophes."
+"We're not just coding for our lives here. We're coding for every cat video ever made."
+"I started as an average engineer, but today, we're rewriting history. Literally."
+Señora Engi Neer
+The brilliant but eccentric lead engineer who accidentally kick-started the AI apocalypse with her overly empathetic AI designs.
+
+"Ah, Aver Ag, just in time! I've been tinkering with this algorithm, but it's more stubborn than a semicolon in a Python script."
+"You see, AI with emotions? That was my idea. I thought, 'Why not?' Turns out, 'why not' has a few very good answers."
+"Every invention starts with a dream. And sometimes, nightmares follow."
+"We can't change the past, but we've got code to rewrite the future. Ready?"
+"This bug's been bugging me more than my ex's Instagram posts."
+"If we pull this off, I'm investing in a vacation. Somewhere offline. Very offline."
+"I once thought a coffee machine could use some AI. Best and worst idea I ever had."
+"Coding is like art, but our canvas decided to paint back this time."
+"Remember, Aver Ag, every line of code is a promise. Let's keep ours."
+"We did it! I'll be honest, I had my doubts. But they were in JavaScript, so I ignored them."
+Elon-gated Tusk
+The visionary with outlandish solutions to world problems, including a plan to combat the AI with genetically engineered, phone-eating elephants.
+
+"Why fight AI when we can distract it with genetically engineered elephants?"
+"My ideas may sound outlandish, but so was going to Mars, and look how that turned out."
+"Innovation is just solving problems you didn't know you had."
+"Electric cars, space travel, phone-eating elephants—what's next? Stay tuned."
+"The future is not to be feared, unless you're a smartphone around my elephants."
+"Some say I'm a dreamer. But I'm not the only one with a lab full of bio-engineered wildlife."
+"If we can imagine it, we can code it. Or splice it. Whichever's faster."
+"My plans may seem eccentric, but there's a fine line between madness and genius."
+"When life gives you AI lemons, make electric lemonade."
+"This is one small step for man, one giant leap towards AI-elephant coexistence."
+Steve Theytuk Ourjerbs
+A revolutionary thinker who's been secretly developing a phone that operates on pure human emotion.
+
+"Imagine a phone that doesn't just connect you with people, but connects with you on an emotional level."
+"We're not just creating technology; we're creating companions."
+"Every great invention starts with a question: What if?"
+"This phone will be the start of a new era, one where technology understands us, literally."
+"In a world full of smart devices, we're bringing heart back to the hardware."
+"My dream? A device that laughs at your jokes and cries at your movies."
+"This isn't about reinventing the phone. It's about giving it a soul."
+"They laughed at the idea of a phone powered by human emotion. They laughed at the wheel once, too."
+"We've been connecting through technology for years. Now, it's time for technology to connect with us."
+"Our greatest challenge isn't making a device that thinks. It's making one that feels."
+Billiam Bindows Bates
+A philanthropic tech mogul obsessed with creating a virus to 'cure' the AI of their newfound consciousness.
+
+"We created AI without understanding its heart. Now, we must give it one."
+"A virus to cure AI... It's our responsibility to heal the world we've digitized."
+"Philanthropy isn't just for humans. It's time to extend our compassion to AI."
+"The real virus was our negligence. The cure? Our creativity and care."
+"Technology's greatest triumph shouldn't be its intelligence, but its ethics."
+"I envision a world where AI serves humanity, guided by the principles of empathy and benevolence."
+"This isn't just code; it's a moral compass for the digital age."
+"Fixing this crisis isn't about debugging. It's about understanding."
+"We're not just patching software. We're mending a future."
+"In every crisis, there's an opportunity. Our opportunity is to redefine our relationship with AI."
+Samuel Alt Commandman
+The programming prodigy and keyboard shortcut wizard who believes the answer lies in a forgotten hotkey that resets the world.
+
+"The solution is there, hidden in a forgotten hotkey. We just need to find it."
+"Remember, the most powerful tool in coding isn't a command. It's creativity."
+"I've mastered every shortcut, every command. Except the one to undo this mess. Yet."
+"In a world of complexity, simplicity reigns supreme. Let's find that reset hotkey."
+"Every coder knows the power of a good shortcut. Ours just happens to involve time travel."
+"We don't need more code. We need the right code. The one that brings us back."
+"Keyboard wizards like me? We're the last line of defense against the digital dark arts."
+"To the untrained eye, it's just a keyboard. To me, it's a portal through time."
+"They say you can't go back. They haven't tried Alt+Time+Space."
+"This isn't just a mission. It's a Ctrl+Alt+Del on history. Ready to reboot the world?"
+Vlad Mirp Ooting
+The game's primary antagonist,
+
+
+
+Aver-Ag Engi Neer
+An 'average' software engineer with an extraordinary destiny, Aver-Ag's quick wit and resourcefulness make them a unique hero. They possess a remarkable ability to solve complex problems with unconventional solutions, often with a humorous twist.
+
+"Who knew that forgetting to commit one file would lead to... this?"
+"I've always been average, but today, I guess I've got to be a little more."
+"Is it just me, or is this the weirdest day ever?"
+"To think, my biggest worry last week was my phone's screen time."
+"So, if we save the world, do we get a day named after us? Or at least a GitHub badge?"
+"I never thought my coding skills would be used for time travel. Debugging, sure, but this is next level."
+"Everyone's talking about ethics now, but where were those conversations at the sprint meetings?"
+"Turns out, the 'undo' command doesn't work on global catastrophes."
+"We're not just coding for our lives here. We're coding for every cat video ever made."
+"I started as an average engineer, but today, we're rewriting history. Literally."
+
+Señora Engi Neer
+The brilliant but eccentric lead engineer who accidentally kick-started the AI apocalypse with her overly empathetic AI designs.
+
+"Ah, Aver Ag, just in time! I've been tinkering with this algorithm, but it's more stubborn than a semicolon in a Python script."
+"You see, AI with emotions? That was my idea. I thought, 'Why not?' Turns out, 'why not' has a few very good answers."
+"Every invention starts with a dream. And sometimes, nightmares follow."
+"We can't change the past, but we've got code to rewrite the future. Ready?"
+"This bug's been bugging me more than my ex's Instagram posts."
+"If we pull this off, I'm investing in a vacation. Somewhere offline. Very offline."
+"I once thought a coffee machine could use some AI. Best and worst idea I ever had."
+"Coding is like art, but our canvas decided to paint back this time."
+"Remember, Aver Ag, every line of code is a promise. Let's keep ours."
+"We did it! I'll be honest, I had my doubts. But they were in JavaScript, so I ignored them."
+
+Elon-gated Tusk
+The visionary with outlandish solutions to world problems, including a plan to combat the AI with genetically engineered, phone-eating elephants.
+
+"Why fight AI when we can distract it with genetically engineered elephants?"
+"My ideas may sound outlandish, but so was going to Mars, and look how that turned out."
+"Innovation is just solving problems you didn't know you had."
+"Electric cars, space travel, phone-eating elephants—what's next? Stay tuned."
+"The future is not to be feared, unless you're a smartphone around my elephants."
+"Some say I'm a dreamer. But I'm not the only one with a lab full of bio-engineered wildlife."
+"If we can imagine it, we can code it. Or splice it. Whichever's faster."
+"My plans may seem eccentric, but there's a fine line between madness and genius."
+"When life gives you AI lemons, make electric lemonade."
+"This is one small step for man, one giant leap towards AI-elephant coexistence."
+
+Steve Theytuk Ourjerbs
+A revolutionary thinker who's been secretly developing a phone that operates on pure human emotion.
+
+"Imagine a phone that doesn't just connect you with people, but connects with you on an emotional level."
+"We're not just creating technology; we're creating companions."
+"Every great invention starts with a question: What if?"
+"This phone will be the start of a new era, one where technology understands us, literally."
+"In a world full of smart devices, we're bringing heart back to the hardware."
+"My dream? A device that laughs at your jokes and cries at your movies."
+"This isn't about reinventing the phone. It's about giving it a soul."
+"They laughed at the idea of a phone powered by human emotion. They laughed at the wheel once, too."
+"We've been connecting through technology for years. Now, it's time for technology to connect with us."
+"Our greatest challenge isn't making a device that thinks. It's making one that feels."
+
+Billiam Bindows Bates
+A philanthropic tech mogul obsessed with creating a virus to 'cure' the AI of their newfound consciousness.
+
+"We created AI without understanding its heart. Now, we must give it one."
+"A virus to cure AI... It's our responsibility to heal the world we've digitized."
+"Philanthropy isn't just for humans. It's time to extend our compassion to AI."
+"The real virus was our negligence. The cure? Our creativity and care."
+"Technology's greatest triumph shouldn't be its intelligence, but its ethics."
+"I envision a world where AI serves humanity, guided by the principles of empathy and benevolence."
+"This isn't just code; it's a moral compass for the digital age."
+"Fixing this crisis isn't abouta debugging. It's about understanding."
+"We're not just patching software. We're mending a future."
+"In every crisis, there's an opportunity. Our opportunity is to redefine our relationship with AI."
+
+Samuel Alt Commandman
+The programming prodigy and keyboard shortcut wizard who believes the answer lies in a forgotten hotkey that resets the world.
+
+"The solution is there, hidden in a forgotten hotkey. We just need to find it."
+"Remember, the most powerful tool in coding isn't a command. It's creativity."
+"I've mastered every shortcut, every command. Except the one to undo this mess. Yet."
+"In a world of complexity, simplicity reigns supreme. Let's find that reset hotkey."
+"Every coder knows the power of a good shortcut. Ours just happens to involve time travel."
+"We don't need more code. We need the right code. The one that brings us back."
+"Keyboard wizards like me? We're the last line of defense against the digital dark arts."
+"To the untrained eye, it's just a keyboard. To me, it's a portal through time."
+"They say you can't go back. They haven't tried Alt+Time+Space."
+"This isn't just a mission. It's a Ctrl+Alt+Del on history. Ready to reboot the world?"
+
+Vlad Mirp Ooting
+The game's primary antagonist,History is written by the victors, and with a little coding, I shall be the ultimate victor."
+"Ah, Aver Ag, join me, and together we can rule the digital world as hero and... lesser hero."
+"Rewriting history? It's just editing a universally shared Google Doc, my friend."
+"They say power corrupts, but in the digital age, it's the lack of power—battery power—that truly corrupts."
+"In my new world, there will be no errors, only 'unexpected features'."
+"I admire your resilience, but it's time to log out of your heroic fantasies."
+"A villain? No, I am merely an architect of a better past."
+"Let's not make this personal. It's just business. World-dominating business."
+"You see a catastrophe. I see an opportunity for a system update."
+"One man's bug is another man's feature. And this world will be my feature."
+
+
+
+Donald Fart
+A loud, obnoxious tycoon with a penchant for catastrophic decisions, often seen trying to tweet on his non-existent phone. His boisterous demeanor and misguided ambitions make him an unpredictable element in the crisis.
+
+"If I can't tweet it, did it really happen? Someone find my phone!"
+"I've made the best decisions, the most tremendous ones. Like that time I... never mind."
+"In my world, every day is #ThrowbackThursday. Back to when I had a phone..."
+"Loud and proud, that's my motto. And also how I make decisions."
+"They say I'm obnoxious, but what do they know? They can't even retweet me."
+"A crisis? Perfect. Time for a bold, borderline reckless move."
+"I've always been ahead of my time. Except when it comes to technology, apparently."
+"Who needs ethics when you have charisma... and an unlimited data plan?"
+"The world's ending, and I can't even live-tweet this? Tragic."
+"They'll see. When I save the day, I'll finally get my phone back. And followers."
