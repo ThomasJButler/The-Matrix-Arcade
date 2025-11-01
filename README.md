@@ -2,7 +2,7 @@
 
 Collection of Matrix-themed arcade games built with React and TypeScript.
 
-Live: [tomatic.tech](https://tomatic.tech)
+Live: [https://the-matrix-arcade.vercel.app/](https://the-matrix-arcade.vercel.app/)
 
 ![The Matrix Arcade Screenshot](https://github.com/user-attachments/assets/4467f9e2-4de2-4709-aa5b-71b0add63927)
 
