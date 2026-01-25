@@ -359,6 +359,18 @@ export default function SimpleSnake({ achievementManager: _achievementManager, i
   const prevScoreRef = useRef(0);
   const sessionStartTimeRef = useRef<number>(Date.now());
   const foodEatenRef = useRef(0);
+  const powerUpsCollectedRef = useRef(0);
+  const consecutiveFoodRef = useRef(0);
+
+  // Reset achievement tracking refs when starting a new game
+  useEffect(() => {
+    if (gameState.gameState === 'playing' && gameState.score === 0) {
+      foodEatenRef.current = 0;
+      scoreRef.current = 0;
+      powerUpsCollectedRef.current = 0;
+      consecutiveFoodRef.current = 0;
+    }
+  }, [gameState.gameState, gameState.score]);
 
   // Handle keyboard input - Standard controls: ESC (exit handled by App), P (pause), R (restart)
   useEffect(() => {
@@ -426,8 +438,20 @@ export default function SimpleSnake({ achievementManager: _achievementManager, i
       unlockAchievement('snakeClassic', 'snake_score_500');
     }
 
+    // Chain Reaction: Eat 10 consecutive food items
+    if (gameState.consecutiveFood >= 10 && consecutiveFoodRef.current < 10) {
+      unlockAchievement('snakeClassic', 'snake_combo_10');
+    }
+    consecutiveFoodRef.current = gameState.consecutiveFood;
+
+    // Power User: Collect 10 power-ups in one game
+    if (gameState.powerUpsCollected >= 10 && powerUpsCollectedRef.current < 10) {
+      unlockAchievement('snakeClassic', 'snake_power_master');
+    }
+    powerUpsCollectedRef.current = gameState.powerUpsCollected;
+
     scoreRef.current = gameState.score;
-  }, [gameState.score, unlockAchievement]);
+  }, [gameState.score, gameState.consecutiveFood, gameState.powerUpsCollected, unlockAchievement]);
 
   // Track play time and save on game over
   useEffect(() => {
