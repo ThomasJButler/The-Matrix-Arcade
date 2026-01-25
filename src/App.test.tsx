@@ -92,6 +92,38 @@ vi.mock('./hooks/useSaveSystem', () => ({
     isAchievementUnlocked: vi.fn(() => false),
     loadSaveData: vi.fn(),
   }),
+  createDefaultCtrlSGameState: () => ({
+    currentChapter: 1,
+    currentSection: 'intro',
+    completedPuzzles: [],
+    completedChapters: [],
+    stats: {
+      coffeeLevel: 50,
+      hackerRep: 0,
+      wisdomPoints: 0,
+      teamMorale: 50
+    },
+    inventory: [],
+    storyChoices: {},
+    unlockedAchievements: [],
+    achievementProgress: {},
+    difficulty: 'normal',
+    hintsEnabled: true,
+    playtime: 0,
+    startDate: '2026-01-25T00:00:00.000Z',
+    lastSaved: '2026-01-25T00:00:00.000Z'
+  }),
+  createDefaultLifelineData: () => ({
+    freeAnswersRemaining: 10,
+    usedLifelines: { fiftyFifty: [], sentientAI: [], characters: [] },
+    stats: {
+      totalFreeAnswersUsed: 0,
+      totalFiftyFiftyUsed: 0,
+      totalSentientAIUsed: 0,
+      totalCharactersUsed: 0,
+      totalPuzzlesCompletedWithHelp: 0
+    }
+  }),
 }));
 
 describe('App Component', () => {

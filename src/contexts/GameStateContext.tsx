@@ -3,57 +3,22 @@
  * @date 2025-10-25
  * @description React Context provider for CTRL-S game state management.
  *              Handles story progression, inventory, player stats, puzzles, and auto-save.
+ *              Uses useSaveSystem internally for unified persistence across all games.
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode, useRef } from 'react';
+import {
+  useSaveSystem,
+  CtrlSGameState,
+  CtrlSPlayerStats,
+  CtrlSGameItem,
+  createDefaultCtrlSGameState
+} from '../hooks/useSaveSystem';
 
-export interface PlayerStats {
-  coffeeLevel: number;      // 0-200% (can go over 100!)
-  hackerRep: number;         // 0-100
-  wisdomPoints: number;      // Accumulates from choices
-  teamMorale: number;        // 0-100
-}
-
-export interface GameItem {
-  id: string;
-  name: string;
-  description: string;
-  type: 'quest' | 'consumable' | 'collectible' | 'special';
-  usable: boolean;
-  effect?: string;
-  quantity?: number;
-  acquiredAt?: string;
-}
-
-export interface GameState {
-  // Progress tracking
-  currentChapter: number;
-  currentSection: string;
-  completedPuzzles: string[];
-  completedChapters: number[];
-
-  // Player stats
-  stats: PlayerStats;
-
-  // Inventory
-  inventory: GameItem[];
-
-  // Story choices made
-  storyChoices: Record<string, string>;
-
-  // Achievements
-  unlockedAchievements: string[];
-  achievementProgress: Record<string, number>;
-
-  // Settings
-  difficulty: 'easy' | 'normal' | 'hard';
-  hintsEnabled: boolean;
-
-  // Meta
-  playtime: number; // in seconds
-  startDate: string;
-  lastSaved: string;
-}
+// Re-export types for backwards compatibility with existing consumers
+export type PlayerStats = CtrlSPlayerStats;
+export type GameItem = CtrlSGameItem;
+export type GameState = CtrlSGameState;
 
 export interface GameStateContextType {
   state: GameState;
@@ -99,69 +64,57 @@ export interface GameStateContextType {
   getPlaytime: () => number;
 }
 
-const DEFAULT_STATE: GameState = {
-  currentChapter: 1,
-  currentSection: 'intro',
-  completedPuzzles: [],
-  completedChapters: [],
-
-  stats: {
-    coffeeLevel: 50,
-    hackerRep: 0,
-    wisdomPoints: 0,
-    teamMorale: 50
-  },
-
-  inventory: [],
-  storyChoices: {},
-
-  unlockedAchievements: [],
-  achievementProgress: {},
-
-  difficulty: 'normal',
-  hintsEnabled: true,
-
-  playtime: 0,
-  startDate: new Date().toISOString(),
-  lastSaved: new Date().toISOString()
-};
+const LEGACY_STORAGE_KEY = 'matrix-arcade-ctrls-save';
 
 const GameStateContext = createContext<GameStateContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'matrix-arcade-ctrls-save';
-
 /**
  * Provider component for game state context
+ * Uses useSaveSystem internally for unified persistence, maintaining same external API
  * @param {Object} props
  * @param {ReactNode} props.children - Child components
  * @return {JSX.Element}
  * @constructor
  */
 export const GameStateProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { saveData, updateGameSave, isLoading } = useSaveSystem();
+  const migrationAttemptedRef = useRef(false);
+
+  // Local state that mirrors the save system - enables immediate updates while save persists
   const [state, setState] = useState<GameState>(() => {
-    // Load from localStorage on initialisation
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        return JSON.parse(saved) as GameState;
-      } catch (e) {
-        console.error('Failed to parse saved game:', e);
-        return DEFAULT_STATE;
-      }
-    }
-    return DEFAULT_STATE;
+    // Start with default state, will be synced from saveData once loaded
+    return createDefaultCtrlSGameState();
   });
 
-  // Auto-save every 30 seconds
+  // One-time migration from legacy localStorage key to unified save system
   useEffect(() => {
-    const interval = setInterval(() => {
-      saveGame();
-    }, 30000);
+    if (isLoading || migrationAttemptedRef.current) return;
+    migrationAttemptedRef.current = true;
 
-    return () => clearInterval(interval);
-  }, [state]);
+    const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacyData) {
+      try {
+        const parsed = JSON.parse(legacyData) as GameState;
+        // Migrate to unified save system
+        updateGameSave('ctrlSWorld', { ctrlSGameState: parsed });
+        // Remove legacy key after successful migration
+        localStorage.removeItem(LEGACY_STORAGE_KEY);
+      } catch (e) {
+        console.error('Failed to migrate legacy CTRL-S save data:', e);
+        // Remove corrupted legacy data
+        localStorage.removeItem(LEGACY_STORAGE_KEY);
+      }
+    }
+  }, [isLoading, updateGameSave]);
 
-  // Track playtime
+  // Sync local state from save system when it loads or changes
+  useEffect(() => {
+    if (!isLoading && saveData?.games?.ctrlSWorld?.ctrlSGameState) {
+      setState(saveData.games.ctrlSWorld.ctrlSGameState);
+    }
+  }, [isLoading, saveData?.games?.ctrlSWorld?.ctrlSGameState]);
+
+  // Track playtime - increments every second while mounted
   useEffect(() => {
     const interval = setInterval(() => {
       setState(prev => ({
@@ -172,6 +125,19 @@ export const GameStateProvider: React.FC<{ children: ReactNode }> = ({ children 
 
     return () => clearInterval(interval);
   }, []);
+
+  // Auto-save every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const toSave = {
+        ...state,
+        lastSaved: new Date().toISOString()
+      };
+      updateGameSave('ctrlSWorld', { ctrlSGameState: toSave });
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [state, updateGameSave]);
 
   // ========== PROGRESS ==========
   const setChapter = useCallback((chapter: number) => {
@@ -355,25 +321,21 @@ export const GameStateProvider: React.FC<{ children: ReactNode }> = ({ children 
       ...state,
       lastSaved: new Date().toISOString()
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
-  }, [state]);
+    updateGameSave('ctrlSWorld', { ctrlSGameState: toSave });
+  }, [state, updateGameSave]);
 
   const loadGame = useCallback(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const loaded = JSON.parse(saved) as GameState;
-        setState(loaded);
-      } catch (e) {
-        console.error('Failed to load game:', e);
-      }
+    // Reload from save system
+    if (saveData?.games?.ctrlSWorld?.ctrlSGameState) {
+      setState(saveData.games.ctrlSWorld.ctrlSGameState);
     }
-  }, []);
+  }, [saveData]);
 
   const resetGame = useCallback(() => {
-    setState(DEFAULT_STATE);
-    localStorage.removeItem(STORAGE_KEY);
-  }, []);
+    const defaultState = createDefaultCtrlSGameState();
+    setState(defaultState);
+    updateGameSave('ctrlSWorld', { ctrlSGameState: defaultState });
+  }, [updateGameSave]);
 
   // ========== META ==========
   const getPlaytime = useCallback(() => {

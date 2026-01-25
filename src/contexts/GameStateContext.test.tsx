@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { GameStateProvider, useGameState, GameState } from './GameStateContext';
 import React from 'react';
+
+// Storage keys used by the system
+const UNIFIED_SAVE_KEY = 'matrix-arcade-save-data';
+const LEGACY_STORAGE_KEY = 'matrix-arcade-ctrls-save';
 
 describe('GameStateContext', () => {
   const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -18,8 +22,8 @@ describe('GameStateContext', () => {
     localStorage.clear();
   });
 
-  describe('Initialization', () => {
-    it('initializes with default state', () => {
+  describe('Initialisation', () => {
+    it('initialises with default state', () => {
       const { result } = renderHook(() => useGameState(), { wrapper });
 
       expect(result.current.state.currentChapter).toBe(1);
@@ -31,24 +35,122 @@ describe('GameStateContext', () => {
       expect(result.current.state.completedPuzzles.length).toBe(0);
     });
 
-    it('loads saved state from localStorage', () => {
-      const savedState: Partial<GameState> = {
-        currentChapter: 3,
-        stats: {
-          coffeeLevel: 75,
-          hackerRep: 50,
-          wisdomPoints: 100,
-          teamMorale: 80
+    it('loads saved state from unified save system', async () => {
+      // Set up unified save data with ctrlSGameState
+      const unifiedSaveData = {
+        version: '1.0.0',
+        games: {
+          snakeClassic: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          vortexPong: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          matrixCloud: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          ctrlSWorld: {
+            highScore: 0,
+            level: 1,
+            achievements: [],
+            stats: { gamesPlayed: 0, totalScore: 0 },
+            lastPlayed: Date.now(),
+            ctrlSGameState: {
+              currentChapter: 3,
+              currentSection: 'intro',
+              completedPuzzles: ['ch1_team_quiz', 'ch2_console_log'],
+              completedChapters: [],
+              stats: {
+                coffeeLevel: 75,
+                hackerRep: 50,
+                wisdomPoints: 100,
+                teamMorale: 80
+              },
+              inventory: [],
+              storyChoices: {},
+              unlockedAchievements: [],
+              achievementProgress: {},
+              difficulty: 'normal',
+              hintsEnabled: true,
+              playtime: 0,
+              startDate: new Date().toISOString(),
+              lastSaved: new Date().toISOString()
+            }
+          },
+          matrixInvaders: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          terminalQuest: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
         },
-        completedPuzzles: ['ch1_team_quiz', 'ch2_console_log']
+        globalStats: {
+          totalPlayTime: 0,
+          favoriteGame: '',
+          globalAchievements: [],
+          firstPlayDate: Date.now(),
+          playDates: []
+        },
+        settings: { autoSave: true }
       };
 
-      localStorage.setItem('matrix-arcade-ctrls-save', JSON.stringify(savedState));
+      localStorage.setItem(UNIFIED_SAVE_KEY, JSON.stringify(unifiedSaveData));
 
       const { result } = renderHook(() => useGameState(), { wrapper });
 
-      expect(result.current.state.currentChapter).toBe(3);
+      // Wait for state to sync from save system
+      await waitFor(() => {
+        expect(result.current.state.currentChapter).toBe(3);
+      });
+
       expect(result.current.state.stats.coffeeLevel).toBe(75);
+    });
+  });
+
+  describe('Legacy Migration', () => {
+    it('migrates legacy localStorage data to unified save system', async () => {
+      const legacyState: Partial<GameState> = {
+        currentChapter: 4,
+        currentSection: 'chapter4',
+        stats: {
+          coffeeLevel: 120,
+          hackerRep: 75,
+          wisdomPoints: 200,
+          teamMorale: 90
+        },
+        completedPuzzles: ['ch1_team_quiz', 'ch2_console_log', 'ch3_fibonacci'],
+        completedChapters: [1, 2, 3],
+        inventory: [],
+        storyChoices: { 'ch1_decision': 'option_a' },
+        unlockedAchievements: ['first_puzzle'],
+        achievementProgress: {},
+        difficulty: 'hard',
+        hintsEnabled: false,
+        playtime: 1234,
+        startDate: new Date().toISOString(),
+        lastSaved: new Date().toISOString()
+      };
+
+      localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(legacyState));
+
+      const { result } = renderHook(() => useGameState(), { wrapper });
+
+      // Wait for migration to complete
+      await waitFor(() => {
+        expect(result.current.state.currentChapter).toBe(4);
+      });
+
+      // Legacy key should be removed after migration
+      expect(localStorage.getItem(LEGACY_STORAGE_KEY)).toBeNull();
+
+      // Data should be migrated to unified save system
+      const unifiedData = JSON.parse(localStorage.getItem(UNIFIED_SAVE_KEY) || '{}');
+      expect(unifiedData.games?.ctrlSWorld?.ctrlSGameState?.currentChapter).toBe(4);
+    });
+
+    it('handles corrupted legacy data gracefully', async () => {
+      localStorage.setItem(LEGACY_STORAGE_KEY, 'invalid json{{{');
+
+      const { result } = renderHook(() => useGameState(), { wrapper });
+
+      // Should fall back to default state
+      expect(result.current.state.currentChapter).toBe(1);
+
+      // Corrupted legacy key should be removed
+      await waitFor(() => {
+        expect(localStorage.getItem(LEGACY_STORAGE_KEY)).toBeNull();
+      });
     });
   });
 
@@ -306,7 +408,7 @@ describe('GameStateContext', () => {
   });
 
   describe('Save/Load System', () => {
-    it('saves state to localStorage', () => {
+    it('saves state to unified save system', async () => {
       const { result } = renderHook(() => useGameState(), { wrapper });
 
       act(() => {
@@ -318,41 +420,81 @@ describe('GameStateContext', () => {
         result.current.saveGame();
       });
 
-      const saved = localStorage.getItem('matrix-arcade-ctrls-save');
-      expect(saved).toBeTruthy();
-
-      const parsed = JSON.parse(saved!);
-      expect(parsed.currentChapter).toBe(2);
-      expect(parsed.stats.coffeeLevel).toBe(75);
+      // State should be saved to unified save system
+      await waitFor(() => {
+        const saved = localStorage.getItem(UNIFIED_SAVE_KEY);
+        expect(saved).toBeTruthy();
+        const parsed = JSON.parse(saved!);
+        expect(parsed.games?.ctrlSWorld?.ctrlSGameState?.currentChapter).toBe(2);
+        expect(parsed.games?.ctrlSWorld?.ctrlSGameState?.stats?.coffeeLevel).toBe(75);
+      });
     });
 
-    it('loads state from localStorage', () => {
-      const savedState = {
-        currentChapter: 3,
-        currentSection: 'intro',
-        stats: {
-          coffeeLevel: 100,
-          hackerRep: 60,
-          wisdomPoints: 150,
-          teamMorale: 70
+    it('loads state from unified save system', async () => {
+      // Set up initial save data
+      const unifiedSaveData = {
+        version: '1.0.0',
+        games: {
+          snakeClassic: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          vortexPong: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          matrixCloud: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          ctrlSWorld: {
+            highScore: 0,
+            level: 1,
+            achievements: [],
+            stats: { gamesPlayed: 0, totalScore: 0 },
+            lastPlayed: Date.now(),
+            ctrlSGameState: {
+              currentChapter: 3,
+              currentSection: 'intro',
+              completedPuzzles: ['ch1_team_quiz'],
+              completedChapters: [],
+              stats: {
+                coffeeLevel: 100,
+                hackerRep: 60,
+                wisdomPoints: 150,
+                teamMorale: 70
+              },
+              inventory: [],
+              storyChoices: {},
+              unlockedAchievements: [],
+              achievementProgress: {},
+              difficulty: 'normal',
+              hintsEnabled: true,
+              playtime: 0,
+              startDate: new Date().toISOString(),
+              lastSaved: new Date().toISOString()
+            }
+          },
+          matrixInvaders: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          terminalQuest: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
         },
-        completedPuzzles: ['ch1_team_quiz'],
-        completedChapters: [],
-        inventory: [],
-        storyChoices: {},
-        unlockedAchievements: [],
-        achievementProgress: {},
-        difficulty: 'normal',
-        hintsEnabled: true,
-        playtime: 0,
-        startDate: new Date().toISOString(),
-        lastSaved: new Date().toISOString()
+        globalStats: {
+          totalPlayTime: 0,
+          favoriteGame: '',
+          globalAchievements: [],
+          firstPlayDate: Date.now(),
+          playDates: []
+        },
+        settings: { autoSave: true }
       };
 
-      localStorage.setItem('matrix-arcade-ctrls-save', JSON.stringify(savedState));
+      localStorage.setItem(UNIFIED_SAVE_KEY, JSON.stringify(unifiedSaveData));
 
       const { result } = renderHook(() => useGameState(), { wrapper });
 
+      // Wait for initial load
+      await waitFor(() => {
+        expect(result.current.state.currentChapter).toBe(3);
+      });
+
+      // Modify state
+      act(() => {
+        result.current.setChapter(5);
+      });
+
+      // Load should restore from save system
       act(() => {
         result.current.loadGame();
       });
@@ -379,7 +521,7 @@ describe('GameStateContext', () => {
       expect(result.current.state.completedPuzzles.length).toBe(0);
     });
 
-    it('clears localStorage on reset', () => {
+    it('updates unified save system on reset', async () => {
       const { result } = renderHook(() => useGameState(), { wrapper });
 
       act(() => {
@@ -388,29 +530,54 @@ describe('GameStateContext', () => {
         result.current.resetGame();
       });
 
-      const saved = localStorage.getItem('matrix-arcade-ctrls-save');
-      expect(saved).toBeNull();
+      // Reset should update the unified save system with default state
+      await waitFor(() => {
+        const saved = localStorage.getItem(UNIFIED_SAVE_KEY);
+        expect(saved).toBeTruthy();
+        const parsed = JSON.parse(saved!);
+        expect(parsed.games?.ctrlSWorld?.ctrlSGameState?.currentChapter).toBe(1);
+      });
     });
   });
 
   describe('Edge Cases', () => {
-    it('handles corrupted localStorage data', () => {
-      localStorage.setItem('matrix-arcade-ctrls-save', 'invalid json{{{');
+    it('handles missing ctrlSGameState gracefully', async () => {
+      // Set up unified save data WITHOUT ctrlSGameState
+      const unifiedSaveData = {
+        version: '1.0.0',
+        games: {
+          snakeClassic: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          vortexPong: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          matrixCloud: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          ctrlSWorld: {
+            highScore: 0,
+            level: 1,
+            achievements: [],
+            stats: { gamesPlayed: 0, totalScore: 0 },
+            lastPlayed: Date.now()
+            // Note: no ctrlSGameState
+          },
+          matrixInvaders: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          terminalQuest: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
+        },
+        globalStats: {
+          totalPlayTime: 0,
+          favoriteGame: '',
+          globalAchievements: [],
+          firstPlayDate: Date.now(),
+          playDates: []
+        },
+        settings: { autoSave: true }
+      };
+
+      localStorage.setItem(UNIFIED_SAVE_KEY, JSON.stringify(unifiedSaveData));
 
       const { result } = renderHook(() => useGameState(), { wrapper });
 
-      // Should fall back to default state
+      // Should use default state
       expect(result.current.state.currentChapter).toBe(1);
-    });
-
-    it('clears bad localStorage on load error', () => {
-      localStorage.setItem('matrix-arcade-ctrls-save', '{broken}');
-
-      const { result } = renderHook(() => useGameState(), { wrapper });
-
-      // Should initialize with defaults
-      expect(result.current.state).toBeTruthy();
-      expect(result.current.state.currentChapter).toBe(1);
+      expect(result.current.state.stats.coffeeLevel).toBe(50);
     });
   });
 
@@ -428,7 +595,7 @@ describe('GameStateContext', () => {
   });
 
   describe('Component Lifecycle', () => {
-    it('initializes without errors', () => {
+    it('initialises without errors', () => {
       const { result } = renderHook(() => useGameState(), { wrapper });
       expect(result.current).toBeTruthy();
     });

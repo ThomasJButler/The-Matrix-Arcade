@@ -43,7 +43,41 @@ vi.mock('../ui/SaveLoadManager', () => ({
   SaveLoadManager: () => <div data-testid="save-load-manager">Save Load Manager</div>
 }));
 
-// Mock hooks
+// Mock hooks - use static values to avoid memory issues with Date() calls
+const mockCtrlSGameState = {
+  currentChapter: 1,
+  currentSection: 'intro',
+  completedPuzzles: [] as string[],
+  completedChapters: [] as number[],
+  stats: {
+    coffeeLevel: 50,
+    hackerRep: 0,
+    wisdomPoints: 0,
+    teamMorale: 50
+  },
+  inventory: [] as unknown[],
+  storyChoices: {} as Record<string, string>,
+  unlockedAchievements: [] as string[],
+  achievementProgress: {} as Record<string, number>,
+  difficulty: 'normal' as const,
+  hintsEnabled: true,
+  playtime: 0,
+  startDate: '2026-01-25T00:00:00.000Z',
+  lastSaved: '2026-01-25T00:00:00.000Z'
+};
+
+const mockLifelineData = {
+  freeAnswersRemaining: 10,
+  usedLifelines: { fiftyFifty: [] as string[], sentientAI: [] as string[], characters: [] as string[] },
+  stats: {
+    totalFreeAnswersUsed: 0,
+    totalFiftyFiftyUsed: 0,
+    totalSentientAIUsed: 0,
+    totalCharactersUsed: 0,
+    totalPuzzlesCompletedWithHelp: 0
+  }
+};
+
 vi.mock('../../hooks/useSaveSystem', () => ({
   useSaveSystem: () => ({
     saveData: {
@@ -52,13 +86,17 @@ vi.mock('../../hooks/useSaveSystem', () => ({
           chapter: 1,
           section: 0,
           unlockedChapters: [1],
-          stats: {}
+          stats: {},
+          ctrlSGameState: mockCtrlSGameState
         }
       }
     },
     updateGameSave: vi.fn(),
-    unlockAchievement: vi.fn()
-  })
+    unlockAchievement: vi.fn(),
+    isLoading: false
+  }),
+  createDefaultCtrlSGameState: () => ({ ...mockCtrlSGameState }),
+  createDefaultLifelineData: () => ({ ...mockLifelineData }),
 }));
 
 // Mock data modules
