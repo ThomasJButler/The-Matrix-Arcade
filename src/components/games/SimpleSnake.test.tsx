@@ -153,7 +153,7 @@ describe('SimpleSnake', () => {
 
     it('shows start instruction text', () => {
       render(<SimpleSnake />);
-      expect(screen.getByText('Press SPACE to start')).toBeTruthy();
+      expect(screen.getByText('Press ENTER or SPACE to start')).toBeTruthy();
     });
 
     it('starts game when START GAME button is clicked', () => {
@@ -318,7 +318,7 @@ describe('SimpleSnake', () => {
     it('shows clear visual feedback for game state', () => {
       render(<SimpleSnake />);
       // Menu state is clearly indicated
-      expect(screen.getByText('Press SPACE to start')).toBeTruthy();
+      expect(screen.getByText('Press ENTER or SPACE to start')).toBeTruthy();
     });
   });
 
