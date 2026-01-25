@@ -191,6 +191,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
+  const screenShakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [paused, setPaused] = useState(false);
   const [showTutorial, setShowTutorial] = useState(true);
   const [screenShake, setScreenShake] = useState({ x: 0, y: 0 });
@@ -287,8 +288,12 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
       x: (Math.random() - 0.5) * intensity,
       y: (Math.random() - 0.5) * intensity
     });
-    
-    setTimeout(() => setScreenShake({ x: 0, y: 0 }), 50);
+
+    // Clear any existing shake timeout before creating a new one
+    if (screenShakeTimeoutRef.current) {
+      clearTimeout(screenShakeTimeoutRef.current);
+    }
+    screenShakeTimeoutRef.current = setTimeout(() => setScreenShake({ x: 0, y: 0 }), 50);
   }, []);
 
   const spawnBoss = useCallback((level: number) => {
@@ -1115,6 +1120,9 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+      }
+      if (screenShakeTimeoutRef.current) {
+        clearTimeout(screenShakeTimeoutRef.current);
       }
     };
     // Only run on mount - generateParticles is stable via useCallback with no deps

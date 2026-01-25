@@ -581,6 +581,19 @@ interface GameProps {
 - **Result**: Test file reduced from 60 tests to 21 focused tests with proper cleanup. All tests now pass without memory issues.
 - **Additional Improvement**: Added `vitest.config.ts` configuration with `forks` pool strategy for improved test isolation and memory management across the test suite.
 
+### 25 January 2026 - Test Infrastructure Improvements
+
+**Vitest Configuration (FIXED):**
+- Added exclude patterns to vitest.config.ts to prevent Playwright e2e tests from being picked up by Vitest
+- Exclude patterns: `**/node_modules/**`, `**/e2e/**`, `**/*.spec.ts`
+- Result: Test execution time reduced from ~114s to ~16s, no more Playwright/Vitest conflicts
+
+**MatrixCloud Screen Shake Timeout Cleanup (FIXED):**
+- Added `screenShakeTimeoutRef` to track the screen shake setTimeout
+- Updated `addScreenShake` function to clear any existing timeout before creating a new one
+- Added cleanup in unmount effect to clear the timeout ref
+- Result: No more "window is not defined" errors from orphaned setTimeout calls during test cleanup
+
 ---
 
 ## Round 23 Verification Notes (25 January 2026)
