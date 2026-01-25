@@ -356,7 +356,6 @@ export const GameStateProvider: React.FC<{ children: ReactNode }> = ({ children 
       lastSaved: new Date().toISOString()
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
-    console.log('Game saved successfully');
   }, [state]);
 
   const loadGame = useCallback(() => {
@@ -365,7 +364,6 @@ export const GameStateProvider: React.FC<{ children: ReactNode }> = ({ children 
       try {
         const loaded = JSON.parse(saved) as GameState;
         setState(loaded);
-        console.log('Game loaded successfully');
       } catch (e) {
         console.error('Failed to load game:', e);
       }
@@ -375,7 +373,6 @@ export const GameStateProvider: React.FC<{ children: ReactNode }> = ({ children 
   const resetGame = useCallback(() => {
     setState(DEFAULT_STATE);
     localStorage.removeItem(STORAGE_KEY);
-    console.log('Game reset');
   }, []);
 
   // ========== META ==========
