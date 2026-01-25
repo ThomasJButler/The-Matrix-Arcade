@@ -300,7 +300,7 @@ const SnakeMenu: React.FC<SnakeMenuProps> = ({ gameState, score, highScore, onSt
         {gameState === 'menu' && (
           <>
             <h1 className="text-4xl font-bold text-green-400 mb-4">SNAKE</h1>
-            <p className="text-green-500 mb-6">Press SPACE to start</p>
+            <p className="text-green-500 mb-6">Press ENTER or SPACE to start</p>
             <button
               onClick={onStart}
               className="px-6 py-3 bg-green-500 text-black font-bold hover:bg-green-400 transition-colors flex items-center gap-2 mx-auto"
@@ -315,7 +315,8 @@ const SnakeMenu: React.FC<SnakeMenuProps> = ({ gameState, score, highScore, onSt
           <>
             <h2 className="text-3xl font-bold text-red-500 mb-4">GAME OVER</h2>
             <div className="text-green-400 mb-2">Score: {score}</div>
-            <div className="text-yellow-400 mb-6">High Score: {highScore}</div>
+            <div className="text-yellow-400 mb-4">High Score: {highScore}</div>
+            <p className="text-green-500 text-sm mb-4">Press R or ENTER to restart</p>
             <button
               onClick={onReset}
               className="px-6 py-3 bg-green-500 text-black font-bold hover:bg-green-400 transition-colors flex items-center gap-2 mx-auto"
@@ -329,7 +330,7 @@ const SnakeMenu: React.FC<SnakeMenuProps> = ({ gameState, score, highScore, onSt
         {gameState === 'paused' && (
           <>
             <h2 className="text-3xl font-bold text-yellow-400 mb-4">PAUSED</h2>
-            <p className="text-green-500">Press SPACE to continue</p>
+            <p className="text-green-500">Press P or SPACE to continue</p>
           </>
         )}
       </div>
@@ -346,7 +347,7 @@ export default function SimpleSnake({ achievementManager, isMuted }: SimpleSnake
   const sessionStartTimeRef = useRef<number>(Date.now());
   const foodEatenRef = useRef(0);
 
-  // Handle keyboard input
+  // Handle keyboard input - Standard controls: ESC (exit handled by App), P (pause), R (restart)
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (gameState.gameState === 'playing') {
@@ -372,15 +373,23 @@ export default function SimpleSnake({ achievementManager, isMuted }: SimpleSnake
             changeDirection('right');
             break;
           case ' ':
+          case 'p':
+          case 'P':
             togglePause();
             break;
         }
-      } else if (gameState.gameState === 'menu' && e.key === ' ') {
-        startGame();
-      } else if (gameState.gameState === 'paused' && e.key === ' ') {
-        togglePause();
-      } else if (gameState.gameState === 'gameOver' && e.key === ' ') {
-        resetGame();
+      } else if (gameState.gameState === 'menu') {
+        if (e.key === ' ' || e.key === 'Enter') {
+          startGame();
+        }
+      } else if (gameState.gameState === 'paused') {
+        if (e.key === ' ' || e.key === 'p' || e.key === 'P') {
+          togglePause();
+        }
+      } else if (gameState.gameState === 'gameOver') {
+        if (e.key === ' ' || e.key === 'r' || e.key === 'R' || e.key === 'Enter') {
+          resetGame();
+        }
       }
     };
 
@@ -629,7 +638,9 @@ export default function SimpleSnake({ achievementManager, isMuted }: SimpleSnake
           <div className="flex items-center justify-center gap-4 text-xs text-green-400/60">
             <span>↑↓←→ or WASD to move</span>
             <span>•</span>
-            <span>SPACE to pause</span>
+            <span>P to pause</span>
+            <span>•</span>
+            <span>ESC to exit</span>
           </div>
         </div>
       )}
