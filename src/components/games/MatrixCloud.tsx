@@ -1151,7 +1151,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
         />
         
         {/* Enhanced HUD */}
-        <div className="absolute top-4 left-4 flex flex-col gap-2 text-sm">
+        <div className="absolute top-4 left-4 flex flex-col gap-2 text-sm z-10">
           <div className="flex items-center gap-2 bg-black bg-opacity-70 px-2 py-1 rounded">
             <Wifi className="w-4 h-4 text-green-400" />
             <span>Level: {state.level}</span>
@@ -1175,7 +1175,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
         </div>
 
         {/* Active Effects */}
-        <div className="absolute top-4 right-4 flex flex-col gap-2 text-sm">
+        <div className="absolute top-4 right-4 flex flex-col gap-2 text-sm z-10">
           {state.activeEffects.shield && (
             <div className="flex items-center gap-2 bg-black bg-opacity-70 px-2 py-1 rounded animate-pulse">
               <Shield className="w-4 h-4 text-blue-400" />
@@ -1204,7 +1204,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
         </div>
 
         {/* Controls */}
-        <div className="absolute bottom-4 right-4 flex gap-2">
+        <div className="absolute bottom-4 right-4 flex gap-2 z-10">
           <button
             onClick={() => setPaused(p => !p)}
             className="p-2 bg-green-900 rounded hover:bg-green-800 transition-colors"
