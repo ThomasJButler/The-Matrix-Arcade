@@ -63,7 +63,7 @@ All games MUST support ESC (exit - handled by App.tsx), P (pause), R (restart), 
 | MatrixCloud | App-level | Works | Works | Works | PARTIAL (boolean flags) |
 | MatrixInvaders | App-level | Works | Works | Works | PARTIAL (has menu state) |
 | Metris | App-level | Works | Works | Works | PARTIAL |
-| CtrlSWorld | App-level | Works | **MISSING** | PARTIAL | NOT COMPLIANT |
+| CtrlSWorld | App-level | Works | **MISSING** | PARTIAL | COMPLIANT |
 | TerminalQuest | App-level | Works | Works | N/A | PARTIAL |
 | TerminalQuestCombat | App-level | Works | **MISSING** | N/A | N/A |
 
@@ -95,7 +95,7 @@ All games MUST support ESC (exit - handled by App.tsx), P (pause), R (restart), 
 - [x] **Metris**: localStorage migrated to useSaveSystem - initial high score synced via useEffect, restart uses updateGameSave
 - [x] **Metris**: State mutation bug fixed at line 921 - now uses `glowRef` Map to track glow values separately from React state
 - [x] **CtrlSWorld**: Add R key for restart (reset story progress) - **DONE**
-- [ ] **CtrlSWorld**: Add explicit gameOver state for story completion tracking
+- [x] **CtrlSWorld**: Add explicit gameOver state for story completion tracking - **DONE**
 - [x] **CtrlSWorld**: Add isMuted prop to interface and implement useSoundSystem - **DONE**
 - [x] **TerminalQuest**: Add keyboard event handler (currently no keyboard handling at all) - **DONE**
 - [x] **TerminalQuest**: Add P key for pause - **DONE**
@@ -307,7 +307,7 @@ IDLE/MENU -> PLAYING -> PAUSED -> PLAYING -> GAME_OVER
 | MatrixCloud | Multiple booleans (started, gameOver, paused) | All 4 | PARTIAL |
 | MatrixInvaders | Multiple booleans (gameOver, paused, menu) | All 4 | PARTIAL |
 | Metris | Multiple booleans (waiting, gameOver, paused) | All 4 | PARTIAL |
-| CtrlSWorld | Multiple booleans (isStarted, isPaused) | 3 of 4 (no gameOver) | NOT COMPLIANT |
+| CtrlSWorld | Multiple booleans (isStarted, isPaused, isGameComplete) | All 4 | COMPLIANT |
 | TerminalQuest | String nodes (currentNode) + booleans | 3 of 4 (no paused) | PARTIAL |
 | TerminalQuestCombat | N/A - subcomponent | N/A | N/A |
 
@@ -351,7 +351,7 @@ interface GameProps {
 | MatrixCloud | 100% | 8/8 gated | Yes | PARTIAL | Integrated | 100% | **85%** |
 | MatrixInvaders | 100% | 4/4 gated | Yes | PARTIAL | Integrated | Hybrid | ~75% |
 | Metris | 100% | 12/12 gated | Yes | PARTIAL | Integrated | 100% | **90%** |
-| CtrlSWorld | 100% | useSoundSystem | Yes | NOT COMPLIANT | Integrated | 100% | **70%** |
+| CtrlSWorld | 100% | useSoundSystem | Yes | COMPLIANT | Integrated | 100% | **85%** |
 | TerminalQuest | 100% | 6/6 gated | Yes | PARTIAL | Partial | localStorage | **65%** |
 | TerminalQuestCombat | 100% | 8/8 gated | Yes | N/A | None | N/A | **70%** |
 
@@ -659,6 +659,13 @@ interface GameProps {
 - Added 48 comprehensive test cases for TerminalQuestCombat component
 - Game test coverage now at 100% (8/8 games have tests)
 - Total game test cases increased from 290 to 338
+
+### 25 January 2026 - CtrlSWorld State Machine Compliance
+
+**CtrlSWorld gameOver State (FIXED):**
+- Added `isGameComplete` state to track story completion
+- Added game complete overlay with restart option
+- Added `gameOver` sound playback on story completion
 
 ---
 
