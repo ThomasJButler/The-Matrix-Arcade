@@ -1105,22 +1105,28 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
     }
   }, [state.started, state.gameOver, paused, updateGame, render]);
 
-  // Initialize particles and render initial state
+  // Initialize particles on mount only
   useEffect(() => {
     setState(prev => ({
       ...prev,
       particles: generateParticles()
     }));
-    
-    // Render initial state
-    setTimeout(() => render(), 0);
-    
+
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [generateParticles, render]);
+    // Only run on mount - generateParticles is stable via useCallback with no deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Render initial state after particles are generated
+  useEffect(() => {
+    if (state.particles.length > 0 && !state.started) {
+      render();
+    }
+  }, [state.particles.length, state.started, render]);
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center bg-black">
