@@ -888,7 +888,6 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
           category: 'skill',
           unlockedAt: new Date().toISOString()
         }]);
-        gameState.unlockAchievement('ctrl_no_hints');
       }
     }
 
