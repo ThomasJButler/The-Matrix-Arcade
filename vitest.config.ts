@@ -10,6 +10,14 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     css: true,
+    // Use forks pool to isolate tests and prevent memory accumulation
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: false,
+        isolate: true,
+      },
+    },
     // Use Matrix-themed reporter for fun, interactive test output
     // Falls back to default reporter if Matrix reporter is not available
     reporters: process.env.VITEST_MATRIX === 'true' ? [new MatrixReporter()] : ['default'],
