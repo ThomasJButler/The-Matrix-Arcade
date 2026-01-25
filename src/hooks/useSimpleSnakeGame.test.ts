@@ -667,7 +667,7 @@ describe('useSimpleSnakeGame', () => {
   });
 
   describe('High Score', () => {
-    it('updates high score when game ends with new high score', () => {
+    it('calls onHighScoreUpdate when final score exceeds initial high score', () => {
       const onHighScoreUpdate = vi.fn();
       const { result } = renderHook(() =>
         useSimpleSnakeGame({ initialHighScore: 0, onHighScoreUpdate })
@@ -677,17 +677,57 @@ describe('useSimpleSnakeGame', () => {
         result.current.startGame();
       });
 
-      // Move to wall to end game
-      for (let i = 0; i < 10; i++) {
-        act(() => {
-          vi.advanceTimersByTime(150);
-        });
+      // Move until game over - snake will hit wall eventually
+      // Food position is random so we may or may not eat food
+      for (let i = 0; i < 20; i++) {
+        if (result.current.gameState.gameState === 'playing') {
+          act(() => {
+            vi.advanceTimersByTime(150);
+          });
+        }
       }
 
       expect(result.current.gameState.gameState).toBe('gameOver');
-      // If score > 0, callback should be called
-      // Since no food was eaten, score is 0, so callback shouldn't be called
+
+      const finalScore = result.current.gameState.score;
+
+      // Callback should be called if score > 0 (i.e. exceeded initial high score of 0)
+      if (finalScore > 0) {
+        expect(onHighScoreUpdate).toHaveBeenCalledWith(finalScore);
+      } else {
+        // If no food was eaten (score = 0), callback should not be called
+        // since 0 is not greater than initial high score of 0
+        expect(onHighScoreUpdate).not.toHaveBeenCalled();
+      }
+    });
+
+    it('does not call onHighScoreUpdate when score does not exceed initial high score', () => {
+      const onHighScoreUpdate = vi.fn();
+      // Set initial high score very high so it won't be exceeded
+      const { result } = renderHook(() =>
+        useSimpleSnakeGame({ initialHighScore: 1000, onHighScoreUpdate })
+      );
+
+      act(() => {
+        result.current.startGame();
+      });
+
+      // Move until game over
+      for (let i = 0; i < 20; i++) {
+        if (result.current.gameState.gameState === 'playing') {
+          act(() => {
+            vi.advanceTimersByTime(150);
+          });
+        }
+      }
+
+      expect(result.current.gameState.gameState).toBe('gameOver');
+
+      // Score won't exceed 1000 in 20 moves, so callback should not be called
       expect(onHighScoreUpdate).not.toHaveBeenCalled();
+
+      // High score should remain at 1000
+      expect(result.current.gameState.highScore).toBe(1000);
     });
 
     it('preserves high score when current score is lower', () => {
