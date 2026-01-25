@@ -412,6 +412,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
   const [currentText, setCurrentText] = useState('');
   const [isStarted, setIsStarted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [isGameComplete, setIsGameComplete] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [commandInput, setCommandInput] = useState('');
@@ -480,6 +481,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
     // Reset game state
     setIsTyping(true);
     setIsPaused(false);
+    setIsGameComplete(false);
     setUserHasScrolled(false);
 
     // Reset puzzle state
@@ -664,17 +666,10 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
           } else if (currentNode === STORY.length - 1) {
             // Game complete - last paragraph of last chapter
             setIsTyping(false);
-            setIsPaused(true);
-            setTimeout(() => {
-              setDisplayedTexts(prev => [...prev, '']);
-              setDisplayedTexts(prev => [...prev, '═══════════════════════════════════════════════']);
-              setDisplayedTexts(prev => [...prev, '          🎉 GAME COMPLETE 🎉']);
-              setDisplayedTexts(prev => [...prev, '']);
-              setDisplayedTexts(prev => [...prev, '   The world has been saved. The future is bright.']);
-              setDisplayedTexts(prev => [...prev, '']);
-              setDisplayedTexts(prev => [...prev, '═══════════════════════════════════════════════']);
-              scrollToBottom(true);
-            }, 500);
+            setIsGameComplete(true);
+            if (!isMuted) {
+              playSoundEffect('gameOver');
+            }
           } else {
             // Move to next chapter (clear screen for new chapter)
             setDisplayedTexts([]);
@@ -688,7 +683,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
         }, 1500); // Brief pause between paragraphs for readability
       }
     }
-  }, [currentNode, currentTextIndex, currentCharIndex, scrollToBottom, isPaused, gameState.state.completedPuzzles, paragraphsDisplayedOnPage, PARAGRAPHS_PER_PAGE]);
+  }, [currentNode, currentTextIndex, currentCharIndex, scrollToBottom, isPaused, gameState.state.completedPuzzles, paragraphsDisplayedOnPage, PARAGRAPHS_PER_PAGE, isMuted, playSoundEffect]);
 
   // Handle manual story advancement (Enter/Space/Arrow keys)
   const handleNext = useCallback(() => {
@@ -741,17 +736,10 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
         } else if (currentNode === STORY.length - 1) {
           // Game complete - last chapter finished
           setIsTyping(false);
-          setIsPaused(true);
-          setTimeout(() => {
-            setDisplayedTexts(prev => [...prev, '']);
-            setDisplayedTexts(prev => [...prev, '═══════════════════════════════════════════════']);
-            setDisplayedTexts(prev => [...prev, '          🎉 GAME COMPLETE 🎉']);
-            setDisplayedTexts(prev => [...prev, '']);
-            setDisplayedTexts(prev => [...prev, '   The world has been saved. The future is bright.']);
-            setDisplayedTexts(prev => [...prev, '']);
-            setDisplayedTexts(prev => [...prev, '═══════════════════════════════════════════════']);
-            scrollToBottom(true);
-          }, 500);
+          setIsGameComplete(true);
+          if (!isMuted) {
+            playSoundEffect('gameOver');
+          }
         } else {
           // Move to next chapter
           setCurrentNode(prev => prev + 1);
@@ -774,17 +762,10 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
       } else if (currentNode === STORY.length - 1) {
         // Game complete - last paragraph of last chapter
         setIsTyping(false);
-        setIsPaused(true);
-        setTimeout(() => {
-          setDisplayedTexts(prev => [...prev, '']);
-          setDisplayedTexts(prev => [...prev, '═══════════════════════════════════════════════']);
-          setDisplayedTexts(prev => [...prev, '          🎉 GAME COMPLETE 🎉']);
-          setDisplayedTexts(prev => [...prev, '']);
-          setDisplayedTexts(prev => [...prev, '   The world has been saved. The future is bright.']);
-          setDisplayedTexts(prev => [...prev, '']);
-          setDisplayedTexts(prev => [...prev, '═══════════════════════════════════════════════']);
-          scrollToBottom(true);
-        }, 500);
+        setIsGameComplete(true);
+        if (!isMuted) {
+          playSoundEffect('gameOver');
+        }
       } else {
         // Move to next chapter (clear screen for new chapter)
         setDisplayedTexts([]);
@@ -799,7 +780,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
       }
       scrollToBottom(true);
     }
-  }, [isTyping, isPaused, showPuzzle, currentNode, currentTextIndex, currentText, paragraphsDisplayedOnPage, PARAGRAPHS_PER_PAGE, gameState.state.completedPuzzles, scrollToBottom]);
+  }, [isTyping, isPaused, showPuzzle, currentNode, currentTextIndex, currentText, paragraphsDisplayedOnPage, PARAGRAPHS_PER_PAGE, gameState.state.completedPuzzles, scrollToBottom, isMuted, playSoundEffect]);
 
   // Handle puzzle completion
   const handlePuzzleComplete = useCallback((success: boolean, hintsUsed: number, lifelinesUsed: number) => {
@@ -1383,6 +1364,45 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
           onComplete={handlePuzzleComplete}
           playSFX={playSFX}
         />
+      )}
+
+      {/* Game Complete Overlay */}
+      {isGameComplete && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center">
+          <div className="text-center space-y-6 p-8 border-2 border-green-500 rounded-lg bg-black/80 shadow-lg shadow-green-500/20">
+            <div className="text-green-500 text-xs font-mono">
+              ═══════════════════════════════════════════════
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold text-green-400 animate-pulse">
+              GAME COMPLETE
+            </h2>
+            <p className="text-green-500 text-lg">
+              The world has been saved. The future is bright.
+            </p>
+            <div className="text-green-500 text-xs font-mono">
+              ═══════════════════════════════════════════════
+            </div>
+            <div className="space-y-4 pt-4">
+              <p className="text-green-400 text-sm">
+                Chapters Completed: {STORY.length}
+              </p>
+              <p className="text-green-400 text-sm">
+                Puzzles Solved: {gameState.state.completedPuzzles?.length || 0}
+              </p>
+            </div>
+            <div className="pt-6 space-y-2">
+              <button
+                onClick={restartGame}
+                className="px-6 py-3 bg-green-900 hover:bg-green-800 border border-green-500 rounded text-green-400 font-mono transition-colors"
+              >
+                Play Again (R)
+              </button>
+              <p className="text-green-500/60 text-xs">
+                Press R to restart or ESC to exit
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Stats HUD - Only show when game is started */}
