@@ -79,6 +79,7 @@ interface Boss {
   phase: number;
   active: boolean;
   defeated: boolean;
+  elapsedTime: number; // Tracks time for deterministic movement patterns
 }
 
 interface BossAttack {
@@ -284,7 +285,8 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
       attackTimer: 0,
       phase: 1,
       active: true,
-      defeated: false
+      defeated: false,
+      elapsedTime: 0
     };
   }, []);
 
@@ -346,37 +348,42 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
 
   const updateBoss = useCallback((boss: Boss, deltaTime: number): Boss => {
     if (!boss.active) return boss;
-    
-    // Boss movement patterns
+
+    // Accumulate elapsed time for deterministic movement patterns
+    const newElapsedTime = boss.elapsedTime + deltaTime;
+
+    // Boss movement patterns using elapsedTime instead of Date.now()
+    // This ensures movement respects pause state and time manipulation power-ups
     let newVx = boss.vx;
     let newVy = boss.vy;
-    
+
     switch (boss.type) {
       case 'agent_smith':
         // Aggressive horizontal movement
-        newVy = Math.sin(Date.now() / 1000) * 2;
+        newVy = Math.sin(newElapsedTime / 1000) * 2;
         break;
       case 'sentinel':
         // Circular movement
-        newVx = Math.sin(Date.now() / 1500) * 1.5;
-        newVy = Math.cos(Date.now() / 1500) * 1.5;
+        newVx = Math.sin(newElapsedTime / 1500) * 1.5;
+        newVy = Math.cos(newElapsedTime / 1500) * 1.5;
         break;
       case 'architect':
         // Slow, deliberate movement
-        newVy = Math.sin(Date.now() / 2000) * 1;
+        newVy = Math.sin(newElapsedTime / 2000) * 1;
         break;
     }
-    
+
     const newX = Math.max(400, Math.min(700, boss.x + newVx));
     const newY = Math.max(50, Math.min(350, boss.y + newVy));
-    
+
     return {
       ...boss,
       x: newX,
       y: newY,
       vx: newVx,
       vy: newVy,
-      attackTimer: boss.attackTimer + deltaTime
+      attackTimer: boss.attackTimer + deltaTime,
+      elapsedTime: newElapsedTime
     };
   }, []);
 

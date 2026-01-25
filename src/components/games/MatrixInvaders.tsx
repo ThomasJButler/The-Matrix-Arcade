@@ -725,7 +725,8 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
     }
 
     // Wave complete message when health resets
-    if (state.player.health === 100 && state.wave > 1 && Date.now() - state.player.lastHitTime < 2000) {
+    // Use timestamp parameter for consistent timing instead of Date.now()
+    if (state.player.health === 100 && state.wave > 1 && timestamp - state.player.lastHitTime < 2000) {
       ctx.fillStyle = '#00ff00';
       ctx.font = '24px monospace';
       ctx.fillText('WAVE COMPLETE - HEALTH RESTORED!', CANVAS_WIDTH / 2 - 200, CANVAS_HEIGHT / 2 - 100);
