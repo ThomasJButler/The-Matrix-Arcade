@@ -22,6 +22,7 @@ const ENEMY_SPEED = 1;
 const ENEMY_DESCENT = 20;
 const WAVE_SIZE = 8;
 const WAVE_ROWS = 5;
+const POWER_UP_CHANCE = 0.05;
 const BULLET_TIME_DURATION = 5000;
 
 // Enemy types with Matrix theme
@@ -32,7 +33,13 @@ const ENEMY_TYPES = {
   virus: { symbol: 'V', health: 1, points: 20, speed: 2, color: '#ff0000', splits: true }
 };
 
-// Power-up types (scaffolding exists in state.player.powerUps for future implementation)
+// Power-up types
+// const POWER_UPS = {
+//   rapidFire: { icon: '⚡', duration: 5000, color: '#ffff00' },
+//   shield: { icon: '🛡️', duration: 8000, color: '#00ffff' },
+//   timeSlow: { icon: '⏱️', duration: 5000, color: '#ff00ff' },
+//   codeBomb: { icon: '💣', instant: true, color: '#ff8800' }
+// };
 
 // Player ship ASCII art
 const PLAYER_SHIP = [
@@ -252,7 +259,10 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
                 }
               }
 
-              // Power-up drop scaffolding - state.player.powerUps ready for future use
+              // Drop power-up chance
+              if (Math.random() < POWER_UP_CHANCE) {
+                // Power-up implementation would go here
+              }
 
               enemyPool.release(enemy);
             } else {
