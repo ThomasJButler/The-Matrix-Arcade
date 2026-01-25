@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Terminal as TerminalIcon, Info, Shield, Wifi, Key, AlertTriangle, Cpu, Save, RotateCcw, Map as MapIcon } from 'lucide-react';
 import { EXPANDED_GAME_NODES, Choice } from './TerminalQuestContent';
 import { useSoundSystem } from '../../hooks/useSoundSystem';
+import { useSaveSystem } from '../../hooks/useSaveSystem';
 import TerminalQuestCombat from './TerminalQuestCombat';
 
 interface AchievementManager {
@@ -84,6 +85,9 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
 
   // Sound system integration
   const { playSFX, playMusic, stopMusic } = useSoundSystem();
+
+  // Save system integration - replaces direct localStorage usage
+  const { saveData, updateGameSave } = useSaveSystem();
   
   // Achievement unlock function
   const unlockAchievement = useCallback((achievementId: string) => {
@@ -310,28 +314,37 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
     }
   };
 
-  // Save/Load functionality
-  const saveGame = () => {
-    const saveData = {
-      gameState,
-      timestamp: Date.now()
-    };
-    localStorage.setItem('terminalQuestSave', JSON.stringify(saveData));
+  // Save/Load functionality using useSaveSystem
+  const saveGame = useCallback(() => {
+    updateGameSave('terminalQuest', {
+      highScore: gameState.experience,
+      stats: {
+        gamesPlayed: saveData.games.terminalQuest?.stats?.gamesPlayed || 0,
+        totalScore: (saveData.games.terminalQuest?.stats?.totalScore || 0) + gameState.experience,
+        longestSurvival: Math.max(
+          saveData.games.terminalQuest?.stats?.longestSurvival || 0,
+          gameState.health
+        )
+      },
+      preferences: {
+        savedGameState: gameState
+      }
+    });
     setSaveExists(true);
-  };
+  }, [gameState, updateGameSave, saveData.games.terminalQuest]);
 
-  const loadGame = () => {
-    const savedData = localStorage.getItem('terminalQuestSave');
-    if (savedData) {
-      const { gameState: loadedState } = JSON.parse(savedData);
-      setGameState(loadedState);
+  const loadGame = useCallback(() => {
+    const savedState = saveData.games.terminalQuest?.preferences?.savedGameState as GameState | undefined;
+    if (savedState) {
+      setGameState(savedState);
     }
-  };
+  }, [saveData.games.terminalQuest]);
 
-  // Check for save on mount
+  // Check for save on mount and when saveData changes
   useEffect(() => {
-    setSaveExists(!!localStorage.getItem('terminalQuestSave'));
-  }, []);
+    const hasSave = !!saveData.games.terminalQuest?.preferences?.savedGameState;
+    setSaveExists(hasSave);
+  }, [saveData.games.terminalQuest]);
 
   // Restart game function
   const restartGame = useCallback(() => {
