@@ -113,49 +113,8 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
     setTimeout(() => setShakeEffect(false), 500); // Brief screen shake
   };
 
-  const toggleBackgroundGlitch = () => {
-    setBackgroundGlitch(!backgroundGlitch);
-  };
-
-  // Handler for choice actions
-  const handleChoice = (choice: Choice) => {
-
-    // Play sound effects based on choice type
-    if (!isMuted) {
-      playSFX('terminalType');
-    }
-
-    if (choice.damage && gameState.health <= choice.damage) {
-      triggerShake(); // Big damage causes a shake
-      if (!isMuted) {
-        playSFX('hit');
-      }
-    }
-    if (choice.security) {
-      toggleBackgroundGlitch(); // Glitch background on security risks
-      setTimeout(() => toggleBackgroundGlitch(), 1000);
-      if (!isMuted) {
-        playSFX('hit');
-      }
-    }
-    if (choice.gives) {
-      if (!isMuted) {
-        playSFX('powerup');
-      }
-    }
-    if (choice.heal) {
-      if (!isMuted) {
-        playSFX('score');
-      }
-    }
-
-    // Core state update remains consistent
-    const newState = applyChoiceEffects(gameState, choice);
-    setGameState(newState);
-  };
-
   // Function for calculating effects from a choice
-  const applyChoiceEffects = (state: GameState, choice: Choice): GameState => {
+  const applyChoiceEffects = useCallback((state: GameState, choice: Choice): GameState => {
     const updatedInventory = [...state.inventory];
     const newXP = state.experience + (choice.xp || 0);
     const newAchievements = [...state.achievements];
@@ -190,34 +149,34 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
     if (updatedInventory.length >= 10 && !state.achievements.includes('collector')) {
       newAchievements.push('collector');
     }
-    
+
     // Global achievement system checks
     // First choice achievement
     if (!hasFirstChoice.current && state.choiceCount === 0) {
       hasFirstChoice.current = true;
       unlockAchievement('quest_first_choice');
     }
-    
+
     // Tool collector achievement (5 different items)
     if (updatedInventory.length >= 5) {
       unlockAchievement('quest_tool_collector');
     }
-    
+
     // Survivor achievement - check health maintained
     if (newHealth === state.maxHealth && state.choiceCount >= 10) {
       unlockAchievement('quest_survivor');
     }
-    
+
     // Code quality achievement (assuming security level represents code quality)
     if (newSecurity >= 90) {
       unlockAchievement('quest_code_master');
     }
-    
+
     // Team morale achievement (assuming health represents team morale in context)
     if (newHealth >= 80) {
       unlockAchievement('quest_team_leader');
     }
-    
+
     // Check if reaching an ending
     const endingNodes = ['ending_hero', 'ending_sacrifice', 'ending_neutral', 'ending_villain'];
     if (endingNodes.includes(choice.nextNode)) {
@@ -237,7 +196,46 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
         ? state.discovered
         : [...state.discovered, choice.nextNode]
     };
-  };
+  }, [unlockAchievement]);
+
+  // Handler for choice actions
+  const handleChoice = useCallback((choice: Choice) => {
+
+    // Play sound effects based on choice type
+    if (!isMuted) {
+      playSFX('terminalType');
+    }
+
+    // Check damage effects - use current state via setter
+    setGameState(prev => {
+      if (choice.damage && prev.health <= choice.damage) {
+        triggerShake(); // Big damage causes a shake
+        if (!isMuted) {
+          playSFX('hit');
+        }
+      }
+      if (choice.security) {
+        setBackgroundGlitch(b => !b); // Glitch background on security risks
+        setTimeout(() => setBackgroundGlitch(b => !b), 1000);
+        if (!isMuted) {
+          playSFX('hit');
+        }
+      }
+      if (choice.gives) {
+        if (!isMuted) {
+          playSFX('powerup');
+        }
+      }
+      if (choice.heal) {
+        if (!isMuted) {
+          playSFX('score');
+        }
+      }
+
+      // Core state update remains consistent
+      return applyChoiceEffects(prev, choice);
+    });
+  }, [isMuted, playSFX, applyChoiceEffects]);
 
   // Custom hook for ASCII typing - optimised with RAF
   const useTypingEffect = (text: string) => {
@@ -365,19 +363,45 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
     combatVictories.current = 0;
   }, []);
 
-  // Keyboard handler for P (pause) and R (restart)
+  // Keyboard handler for P (pause), R (restart), and ENTER (confirm/start)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'p' || e.key === 'P') {
         setIsPaused(prev => !prev);
       } else if (e.key === 'r' || e.key === 'R') {
         restartGame();
+      } else if (e.key === 'Enter') {
+        // Skip typing effect if still typing
+        if (isTyping) {
+          setIsTyping(false);
+          return;
+        }
+
+        // If paused, resume
+        if (isPaused) {
+          setIsPaused(false);
+          return;
+        }
+
+        // If there are choices available and not in combat, select the first one
+        const node = GAME_NODES[gameState.currentNode];
+        if (!inCombat && node?.choices && node.choices.length > 0) {
+          const firstEnabledChoice = node.choices.find(choice => {
+            const isDisabled = choice.requires &&
+              !choice.requires.every(req => gameState.inventory.includes(req));
+            return !isDisabled;
+          });
+
+          if (firstEnabledChoice) {
+            handleChoice(firstEnabledChoice);
+          }
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [restartGame]);
+  }, [restartGame, isTyping, isPaused, inCombat, gameState.currentNode, gameState.inventory, handleChoice]);
 
   const currentNode = GAME_NODES[gameState.currentNode];
   const typedDescription = useTypingEffect(currentNode?.description || '');
