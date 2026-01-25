@@ -24,6 +24,7 @@ interface AchievementManager {
 
 interface VortexPongProps {
   achievementManager?: AchievementManager;
+  isMuted?: boolean;
 }
 
 type Particle = {
@@ -92,7 +93,7 @@ const getScreenShake = (intensity: number) => ({
   y: (Math.random() - 0.5) * intensity
 });
 
-export default function VortexPong({ achievementManager }: VortexPongProps) {
+export default function VortexPong({ achievementManager, isMuted = false }: VortexPongProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [paddleY, setPaddleY] = useState(150);
   const [paddleVelocity, setPaddleVelocity] = useState(0);
@@ -103,6 +104,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
   const [particles, setParticles] = useState<Particle[]>([]);
   const [score, setScore] = useState({ player: 0, ai: 0 });
   const [gameOver, setGameOver] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [screenShake, setScreenShake] = useState({ x: 0, y: 0 });
   const [impactEffects, setImpactEffects] = useState<Array<{ x: number; y: number; intensity: number; life: number }>>([]);
   const [aiDifficulty, setAiDifficulty] = useState(2.5); // Adaptive AI speed - reduced for easier gameplay
@@ -158,6 +160,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
     setAiPaddleY(150);
     setScore({ player: 0, ai: 0 });
     setGameOver(false);
+    setIsPaused(false);
     setScreenShake({ x: 0, y: 0 });
     setImpactEffects([]);
     setCombo(0);
@@ -217,9 +220,16 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
         setKeyboardControls(prev => ({ ...prev, down: true }));
       } else if (e.key === 'Enter' && gameOver) {
         resetGame();
+      } else if (e.key === 'p' || e.key === 'P') {
+        // P key to toggle pause (only during gameplay, not on game over)
+        if (!gameOver) {
+          setIsPaused(prev => !prev);
+        }
+      } else if (e.key === 'r' || e.key === 'R') {
+        // R key to restart game at any time
+        resetGame();
       } else if (e.key === 'Escape') {
-        // ESC to exit game (consistent with other games)
-        // This would typically be handled by parent component
+        // ESC to exit game (handled by parent component App.tsx)
       }
     };
 
@@ -237,7 +247,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [gameOver, activePowerUps.multi_ball, balls.length, resetGame, playSFX]); // Removed isPaused from deps
+  }, [gameOver, resetGame]);
 
   // Update paddle position based on keyboard input - DIRECT control, no friction
   useEffect(() => {
@@ -287,7 +297,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
 
   // Enhanced main game loop with multi-ball support
   useGameLoop((deltaTime) => {
-    if (gameOver) return;
+    if (gameOver || isPaused) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -337,7 +347,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
           // Special effects for multi-ball power-up
           if (powerUp.type === 'multi_ball' && balls.length < 3) {
             addImpactEffect(powerUp.x, powerUp.y, 15);
-            playSFX('powerup');
+            if (!isMuted) playSFX('powerup');
             // Collect balls to spawn (add later, outside map)
             const ballsToSpawn = Math.min(2, 3 - balls.length);
             for (let i = 0; i < ballsToSpawn; i++) {
@@ -355,7 +365,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
             }
           } else {
             addImpactEffect(powerUp.x, powerUp.y, 8);
-            playSFX('powerup');
+            if (!isMuted) playSFX('powerup');
           }
         }
       });
@@ -364,7 +374,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
       if (newBall.y <= 0 || newBall.y >= 400 - BALL_SIZE) {
         newBall.vy = -newBall.vy;
         addImpactEffect(newBall.x, newBall.y <= 0 ? 0 : 400, 5);
-        playSFX('pongBounce');
+        if (!isMuted) playSFX('pongBounce');
       }
 
       // Enhanced paddle collision detection
@@ -386,7 +396,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
         
         // Enhanced effects
         addImpactEffect(newBall.x, newBall.y, 10);
-        playSFX('pongBounce');
+        if (!isMuted) playSFX('pongBounce');
         setCombo(prev => {
           const newCombo = prev + 1;
           maxComboRef.current = Math.max(maxComboRef.current, newCombo);
@@ -429,7 +439,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
         newBall.vy = -speed * Math.sin(bounceAngle);
         
         addImpactEffect(newBall.x, newBall.y, 8);
-        playSFX('pongBounce');
+        if (!isMuted) playSFX('pongBounce');
         setLastPaddleHit('ai');
       }
 
@@ -446,7 +456,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
         const multiplier = activePowerUps.score_multiplier ? 2 : 1;
         setScore(prev => ({ ...prev, ai: prev.ai + multiplier }));
         addImpactEffect(0, ball.y, 20);
-        playSFX('hit');
+        if (!isMuted) playSFX('hit');
         setCombo(0);
         scoreChanged = true;
         
@@ -458,8 +468,8 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
         const comboBonus = Math.floor(combo / 3);
         setScore(prev => ({ ...prev, player: prev.player + multiplier + comboBonus }));
         addImpactEffect(800, ball.y, 20);
-        playSFX('score');
-        if (comboBonus > 0) playSFX('combo');
+        if (!isMuted) playSFX('score');
+        if (!isMuted && comboBonus > 0) playSFX('combo');
         scoreChanged = true;
         
         // First point achievement
@@ -499,7 +509,7 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
     if (score.player >= 10 || score.ai >= 10) {
       setGameOver(true);
       stopMusic();
-      playSFX(score.player >= 10 ? 'levelUp' : 'gameOver');
+      if (!isMuted) playSFX(score.player >= 10 ? 'levelUp' : 'gameOver');
       addScreenShake(30);
 
       // Save game stats
@@ -822,9 +832,9 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
         />
 
         {/* Controls Help (always visible during gameplay) */}
-        {!gameOver && (
+        {!gameOver && !isPaused && (
           <div className="text-center text-xs text-green-400/60 mt-2">
-            <span>↑↓ or W/S to move</span>
+            <span>↑↓ or W/S to move • P to pause • R to restart</span>
           </div>
         )}
 
@@ -852,9 +862,8 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
         </div>
 
         <div className="text-green-500 text-sm opacity-70 font-mono text-center">
-          <div>Controls: ↑↓ / WASD / Mouse to move</div>
+          <div>Controls: ↑↓ / WASD / Mouse to move • P pause • R restart</div>
           <div className="text-xs mt-1 opacity-50">
-            {/* Removed since SPACE is now for pause */}
             Multi-ball, Screen shake, Adaptive AI
           </div>
         </div>
@@ -862,6 +871,33 @@ export default function VortexPong({ achievementManager }: VortexPongProps) {
 
       <AnimatePresence>
         {gameOver && <GameOverModal score={score} onRestart={resetGame} />}
+      </AnimatePresence>
+
+      {/* Pause overlay */}
+      <AnimatePresence>
+        {isPaused && !gameOver && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/50 flex items-center justify-center z-10"
+          >
+            <div className="text-center">
+              <div className="text-green-500 text-4xl font-mono mb-4 animate-pulse">
+                PAUSED
+              </div>
+              <div className="text-green-400 text-lg font-mono mb-2">
+                Score: {score.player} - {score.ai}
+              </div>
+              <div className="text-green-400/60 text-sm font-mono">
+                Press P to resume
+              </div>
+              <div className="text-green-400/40 text-xs font-mono mt-2">
+                ESC to exit • R to restart
+              </div>
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );
