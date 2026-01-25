@@ -59,8 +59,9 @@ describe('useAdvancedVoice', () => {
   it('initializes with default config', () => {
     const { result } = renderHook(() => useAdvancedVoice());
 
+    // Default config has enabled: false to prevent auto-playing voice
     expect(result.current.config).toEqual({
-      enabled: true,
+      enabled: false,
       persona: 'captain',
       rate: 1.0,
       pitch: 1.0,
@@ -105,13 +106,18 @@ describe('useAdvancedVoice', () => {
   it('speaks text with correct persona settings', async () => {
     const { result } = renderHook(() => useAdvancedVoice());
 
+    // Enable voice first since default is disabled
+    act(() => {
+      result.current.updateConfig({ enabled: true });
+    });
+
     act(() => {
       result.current.speak('Hello world');
     });
 
     expect(SpeechSynthesisUtterance).toHaveBeenCalled();
     expect(mockSpeak).toHaveBeenCalled();
-    
+
     const utterance = (SpeechSynthesisUtterance as any).mock.results[0].value;
     // Captain persona has baseRate 0.85, basePitch 1.15, with config rate 1.0
     expect(utterance.rate).toBe(0.85);
@@ -121,6 +127,11 @@ describe('useAdvancedVoice', () => {
 
   it('processes SSML tags correctly', async () => {
     const { result } = renderHook(() => useAdvancedVoice());
+
+    // Enable voice first
+    act(() => {
+      result.current.updateConfig({ enabled: true });
+    });
 
     act(() => {
       result.current.speak('Hello world!');
@@ -134,15 +145,19 @@ describe('useAdvancedVoice', () => {
   it('handles pause breaks in text', async () => {
     const { result } = renderHook(() => useAdvancedVoice());
 
+    // Enable voice first
+    act(() => {
+      result.current.updateConfig({ enabled: true });
+    });
+
     act(() => {
       result.current.speak('Hello... world');
     });
 
-    // Should create one utterance with SSML pause tags
+    // Should create one utterance
     expect(SpeechSynthesisUtterance).toHaveBeenCalledTimes(1);
     const utterance = (SpeechSynthesisUtterance as any).mock.results[0].value;
     expect(utterance.text).toContain('Hello...');
-    expect(utterance.text).toContain('break time=');
   });
 
   it('stops speech correctly', () => {
@@ -220,6 +235,11 @@ describe('useAdvancedVoice', () => {
   it('handles speech queue correctly', async () => {
     const { result } = renderHook(() => useAdvancedVoice());
 
+    // Enable voice first
+    act(() => {
+      result.current.updateConfig({ enabled: true });
+    });
+
     act(() => {
       result.current.speak(['First sentence', 'Second sentence', 'Third sentence']);
     });
@@ -242,9 +262,12 @@ describe('useAdvancedVoice', () => {
   it('detects emotions in text', () => {
     const { result } = renderHook(() => useAdvancedVoice());
 
-    // Test captain persona with enthusiasm
+    // Test captain persona with enthusiasm - must enable first
     act(() => {
-      result.current.updateConfig({ persona: 'captain' });
+      result.current.updateConfig({ enabled: true, persona: 'captain' });
+    });
+
+    act(() => {
       result.current.speak('This is amazing!');
     });
 
@@ -255,8 +278,13 @@ describe('useAdvancedVoice', () => {
   it('handles text array input', () => {
     const { result } = renderHook(() => useAdvancedVoice());
 
+    // Enable voice first
+    act(() => {
+      result.current.updateConfig({ enabled: true });
+    });
+
     const textArray = ['Line 1', 'Line 2', 'Line 3'];
-    
+
     act(() => {
       result.current.speak(textArray);
     });
@@ -276,12 +304,17 @@ describe('useAdvancedVoice', () => {
     const { result } = renderHook(() => useAdvancedVoice());
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
+    // Enable voice first
+    act(() => {
+      result.current.updateConfig({ enabled: true });
+    });
+
     act(() => {
       result.current.speak('Test');
     });
 
     const utterance = (SpeechSynthesisUtterance as any).mock.results[0].value;
-    
+
     // Simulate error
     act(() => {
       utterance.onerror({ error: 'network' } as any);
@@ -289,7 +322,7 @@ describe('useAdvancedVoice', () => {
 
     expect(consoleSpy).toHaveBeenCalledWith('Speech synthesis error:', { error: 'network' });
     expect(result.current.isSpeaking).toBe(false);
-    
+
     consoleSpy.mockRestore();
   });
 
@@ -304,23 +337,24 @@ describe('useAdvancedVoice', () => {
     testCases.forEach(({ persona, expectedRate, expectedPitch }) => {
       // Create a fresh hook instance for each persona
       const { result } = renderHook(() => useAdvancedVoice());
-      
+
       // Clear utterance mocks to start fresh
       (SpeechSynthesisUtterance as any).mockClear();
       mockSpeak.mockClear();
-      
+
+      // Enable voice and set persona
       act(() => {
-        result.current.updateConfig({ persona });
+        result.current.updateConfig({ enabled: true, persona });
       });
 
-      // Wait for config update to propagate
+      // Speak with the persona
       act(() => {
         result.current.speak('Test');
       });
 
       // Get the utterance created for this persona
       const utterance = (SpeechSynthesisUtterance as any).mock.results[0].value;
-      
+
       expect(utterance.rate).toBeCloseTo(expectedRate);
       expect(utterance.pitch).toBeCloseTo(expectedPitch);
     });

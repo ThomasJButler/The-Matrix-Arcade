@@ -455,8 +455,9 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
   }, [achievementManager, unlockSaveAchievement]);
 
   // Placeholder sound function for puzzle modal
-  const playSFX = useCallback((sound: string) => {
-    console.log(`Playing sound: ${sound}`);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const playSFX = useCallback((_sound: string) => {
+    // Sound integration pending - will use useSoundSystem
   }, []);
   
   // Removed unused voice tracking refs - these are only used in interactive mode
@@ -573,12 +574,6 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
           // Check for puzzle trigger before continuing
           const node = STORY[currentNode];
 
-          console.log('=== PUZZLE CHECK (Page Clear) ===');
-          console.log(`Current Node: ${currentNode} (${node.id})`);
-          console.log(`Current Text Index: ${currentTextIndex}`);
-          console.log(`Puzzle Triggers for this chapter:`, node.puzzleTriggers);
-          console.log(`Completed Puzzles:`, gameState.state.completedPuzzles);
-
           const shouldTriggerPuzzle = node.puzzleTriggers?.find(
             trigger =>
               trigger.afterIndex === currentTextIndex &&
@@ -586,8 +581,7 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
           );
 
           if (shouldTriggerPuzzle) {
-            // PUZZLE FOUND - trigger it and pause
-            console.log(`🎯 TRIGGERING PUZZLE (after page clear): ${shouldTriggerPuzzle.puzzleId}`);
+            // Puzzle found - trigger it and pause
             setCurrentPuzzleId(shouldTriggerPuzzle.puzzleId);
             setShowPuzzle(true);
             setIsPaused(true);
@@ -618,8 +612,7 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
       );
 
       if (shouldTriggerPuzzle) {
-        // PUZZLE FOUND - trigger it and pause
-        console.log(`🎯 TRIGGERING PUZZLE: ${shouldTriggerPuzzle.puzzleId}`);
+        // Puzzle found - trigger it and pause
         setCurrentPuzzleId(shouldTriggerPuzzle.puzzleId);
         setShowPuzzle(true);
         setIsPaused(true);
@@ -632,8 +625,7 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
             setCurrentCharIndex(0);
             setIsTyping(true);
           } else if (currentNode === STORY.length - 1) {
-            // GAME COMPLETE - last paragraph of last chapter
-            console.log('🎉 GAME COMPLETE! Story finished.');
+            // Game complete - last paragraph of last chapter
             setIsTyping(false);
             setIsPaused(true);
             setTimeout(() => {
@@ -687,7 +679,6 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
     );
 
     if (shouldTriggerPuzzle) {
-      console.log(`🎯 TRIGGERING PUZZLE: ${shouldTriggerPuzzle.puzzleId}`);
       setCurrentPuzzleId(shouldTriggerPuzzle.puzzleId);
       setShowPuzzle(true);
       setIsPaused(true);
@@ -711,8 +702,7 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
           setIsTyping(true);
           setUserHasScrolled(false);
         } else if (currentNode === STORY.length - 1) {
-          // GAME COMPLETE - Last chapter finished
-          console.log('🎉 GAME COMPLETE! Story finished.');
+          // Game complete - last chapter finished
           setIsTyping(false);
           setIsPaused(true);
           setTimeout(() => {
@@ -745,8 +735,7 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
         setIsTyping(true);
         setUserHasScrolled(false);
       } else if (currentNode === STORY.length - 1) {
-        // GAME COMPLETE - Last paragraph of last chapter
-        console.log('🎉 GAME COMPLETE! Story finished.');
+        // Game complete - last paragraph of last chapter
         setIsTyping(false);
         setIsPaused(true);
         setTimeout(() => {
@@ -930,7 +919,7 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
     // Auto-enter fullscreen when game starts
     if (isStarted && !document.fullscreenElement && containerRef.current) {
       containerRef.current.requestFullscreen().catch(() => {
-        console.log('Auto-fullscreen requires user interaction');
+        // Fullscreen API requires user interaction in many browsers
       });
       setIsFullscreen(true);
     }
