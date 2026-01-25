@@ -10,6 +10,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     css: true,
+    // Exclude Playwright e2e tests - they should run via playwright, not vitest
+    exclude: ['**/node_modules/**', '**/e2e/**', '**/*.spec.ts'],
     // Use forks pool to isolate tests and prevent memory accumulation
     pool: 'forks',
     poolOptions: {
