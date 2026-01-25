@@ -433,7 +433,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
       setState(prev => {
         // First flight achievement
         if (!prev.started) {
-          setTimeout(() => unlockAchievement('matrixCloud', 'first_flight'), 100);
+          setTimeout(() => unlockAchievement('matrixCloud', 'cloud_first_flight'), 100);
         }
         
         return {
@@ -663,7 +663,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
 
             // Unlock level achievements
             if (newLevel === 5) {
-              unlockAchievement('matrixCloud', 'level_5');
+              unlockAchievement('matrixCloud', 'cloud_level_5');
             }
 
             // Check for boss spawns
@@ -788,9 +788,9 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
 
             // Unlock boss achievements
             if (updatedBoss.type === 'agent_smith') {
-              unlockAchievement('matrixCloud', 'boss_slayer');
+              unlockAchievement('matrixCloud', 'cloud_boss_slayer');
             } else if (updatedBoss.type === 'architect') {
-              unlockAchievement('matrixCloud', 'architect_defeat');
+              unlockAchievement('matrixCloud', 'cloud_architect_defeat');
             }
 
             // Track all bosses defeated

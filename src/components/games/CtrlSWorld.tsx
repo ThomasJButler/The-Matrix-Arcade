@@ -812,9 +812,9 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
       // Unlock achievement for first puzzle
       const completedCount = gameState.state.completedPuzzles.length;
       if (completedCount === 1) {
-        unlockAchievement('first_puzzle');
+        unlockAchievement('ctrl_first_puzzle');
         setUnlockedAchievements(prev => [...prev, {
-          id: 'first_puzzle',
+          id: 'ctrl_first_puzzle',
           title: 'First Steps',
           description: 'Solved your first puzzle',
           category: 'skill',
@@ -823,16 +823,16 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
       }
 
       // Perfect score achievement (no hints AND no lifelines used)
-      if (hintsUsed === 0 && lifelinesUsed === 0 && !gameState.state.unlockedAchievements.includes('no_hints')) {
-        unlockAchievement('no_hints');
+      if (hintsUsed === 0 && lifelinesUsed === 0 && !gameState.state.unlockedAchievements.includes('ctrl_no_hints')) {
+        unlockAchievement('ctrl_no_hints');
         setUnlockedAchievements(prev => [...prev, {
-          id: 'no_hints',
+          id: 'ctrl_no_hints',
           title: 'Quick Thinker',
           description: 'Solved a puzzle without hints or lifelines',
           category: 'skill',
           unlockedAt: new Date().toISOString()
         }]);
-        gameState.unlockAchievement('no_hints');
+        gameState.unlockAchievement('ctrl_no_hints');
       }
     }
 
@@ -876,11 +876,11 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
 
       // Chapter-specific achievements
       if (currentNode === 1) {
-        unlockAchievement('chapter_1');
+        unlockAchievement('ctrl_chapter_1');
       } else if (currentNode === 3) {
-        unlockAchievement('chapter_3');
+        unlockAchievement('ctrl_chapter_3');
       } else if (currentNode === 5) {
-        unlockAchievement('story_complete');
+        unlockAchievement('ctrl_story_complete');
       }
     }
 
@@ -910,7 +910,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
 
       // Speed run achievement: Complete in under 30 minutes
       if (sessionTime < 1800) {
-        unlockAchievement('speed_reader');
+        unlockAchievement('ctrl_speed_reader');
       }
     }
   }, [currentNode, currentTextIndex, isTyping, isStarted, gameState.state.completedPuzzles, saveData, updateGameSave, unlockAchievement]);
@@ -926,7 +926,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
 
     // All puzzles achievement
     if (completedPuzzles.length >= 10) {
-      unlockAchievement('puzzle_master');
+      unlockAchievement('ctrl_puzzle_master');
     }
   }, [gameState.state.completedPuzzles, unlockAchievement]);
 
