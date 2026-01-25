@@ -699,6 +699,53 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
     });
   }, [checkCollision, lockPiece, clearLines, createPiece, achievementManager, synthExplosion, synthPowerUp, synthDrum, isMuted]);
 
+  // Restart game
+  const restart = useCallback(() => {
+    const highScore = Math.max(state.highScore, state.score);
+    localStorage.setItem('metris_highScore', highScore.toString());
+
+    // Reset timing refs
+    lastDropTimeRef.current = 0;
+    dropIntervalRef.current = INITIAL_DROP_SPEED;
+
+    // Reset session tracking refs
+    pieceBagRef.current = [];
+    sessionStartTimeRef.current = Date.now();
+    totalLinesRef.current = 0;
+    tSpinsRef.current = 0;
+    lockDelayRef.current = 0;
+    lockDelayResets.current = 0;
+    lastGroundedTime.current = 0;
+    isGroundedRef.current = false;
+
+    // Clear particles and glow
+    particlesRef.current = [];
+    glowRef.current.clear();
+
+    setState({
+      grid: createEmptyGrid(),
+      currentPiece: createPiece(),
+      nextPiece: createPiece(),
+      holdPiece: null,
+      canHold: true,
+      score: 0,
+      level: 1,
+      lines: 0,
+      combo: 0,
+      gameOver: false,
+      paused: false,
+      highScore,
+      bulletTimeMeter: 0,
+      bulletTimeActive: false,
+      bulletTimeTimer: 0,
+      tSpins: 0,
+      waiting: true,
+      softDropActive: false
+    });
+
+    if (!isMuted) synthPowerUp('activate');
+  }, [state.highScore, state.score, createPiece, synthPowerUp, isMuted]);
+
   // Bullet time countdown timer (updates every 100ms instead of 60fps)
   useEffect(() => {
     if (!state.bulletTimeActive) return;
@@ -755,6 +802,13 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
   // Keyboard controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Handle restart with R key when game is over
+      if (state.gameOver && (e.key === 'r' || e.key === 'R')) {
+        e.preventDefault();
+        restart();
+        return;
+      }
+
       if (state.gameOver) return;
 
       keysRef.current.add(e.key);
@@ -862,7 +916,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [state.gameOver, state.paused, state.waiting, movePiece, handleRotate, holdPiece, hardDrop, synthPowerUp, isMuted]);
+  }, [state.gameOver, state.paused, state.waiting, movePiece, handleRotate, holdPiece, hardDrop, restart, synthPowerUp, isMuted]);
 
   // Render game
   useEffect(() => {
@@ -1034,53 +1088,6 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       }
     };
   }, [state.grid, state.currentPiece, state.bulletTimeActive, getGhostPosition]);
-
-  // Restart game
-  const restart = () => {
-    const highScore = Math.max(state.highScore, state.score);
-    localStorage.setItem('metris_highScore', highScore.toString());
-
-    // Reset timing refs
-    lastDropTimeRef.current = 0;
-    dropIntervalRef.current = INITIAL_DROP_SPEED;
-
-    // Reset session tracking refs
-    pieceBagRef.current = [];
-    sessionStartTimeRef.current = Date.now();
-    totalLinesRef.current = 0;
-    tSpinsRef.current = 0;
-    lockDelayRef.current = 0;
-    lockDelayResets.current = 0;
-    lastGroundedTime.current = 0;
-    isGroundedRef.current = false;
-
-    // Clear particles and glow
-    particlesRef.current = [];
-    glowRef.current.clear();
-
-    setState({
-      grid: createEmptyGrid(),
-      currentPiece: createPiece(),
-      nextPiece: createPiece(),
-      holdPiece: null,
-      canHold: true,
-      score: 0,
-      level: 1,
-      lines: 0,
-      combo: 0,
-      gameOver: false,
-      paused: false,
-      highScore,
-      bulletTimeMeter: 0,
-      bulletTimeActive: false,
-      bulletTimeTimer: 0,
-      tSpins: 0,
-      waiting: true,
-      softDropActive: false
-    });
-
-    if (!isMuted) synthPowerUp('activate');
-  };
 
   // Render piece preview
   const renderPreview = (piece: Piece | null, size: number = 60) => {

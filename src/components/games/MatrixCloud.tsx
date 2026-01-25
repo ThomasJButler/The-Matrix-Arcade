@@ -1211,7 +1211,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
 
         {/* Game Over Screen */}
         {state.gameOver && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90">
+          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 z-40">
             <div className="text-center font-mono">
               <h2 className="text-3xl mb-4 text-red-500 animate-pulse">SYSTEM FAILURE</h2>
               <div className="space-y-2 mb-6">
@@ -1232,7 +1232,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
 
         {/* Tutorial */}
         {showTutorial && !state.started && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90">
+          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 z-30">
             <div className="text-center font-mono text-green-400 max-w-lg p-8 border border-green-500 rounded-lg">
               <h2 className="text-3xl mb-6 font-bold">MATRIX PROTOCOL</h2>
               <div className="space-y-4 mb-8">
@@ -1273,7 +1273,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
 
         {/* Pause Screen */}
         {paused && !state.gameOver && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90">
+          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 z-50">
             <div className="text-center font-mono text-green-500">
               <h2 className="text-3xl mb-4">SYSTEM PAUSED</h2>
               <div className="space-y-2 mb-4">
