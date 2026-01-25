@@ -210,9 +210,8 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
     };
   }, []);
 
-  // Initial state
+  // Initial state - high score loaded from useSaveSystem
   const [state, setState] = useState<GameState>(() => {
-    const highScore = parseInt(localStorage.getItem('metris_highScore') || '0');
     return {
       grid: createEmptyGrid(),
       currentPiece: createPiece(),
@@ -225,7 +224,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       combo: 0,
       gameOver: false,
       paused: false,
-      highScore,
+      highScore: 0, // Will be synced from useSaveSystem
       bulletTimeMeter: 0,
       bulletTimeActive: false,
       bulletTimeTimer: 0,
@@ -234,6 +233,14 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       softDropActive: false
     };
   });
+
+  // Sync high score from useSaveSystem on mount
+  useEffect(() => {
+    const savedHighScore = saveData.games.metris?.highScore || 0;
+    if (savedHighScore > 0) {
+      setState(prev => ({ ...prev, highScore: savedHighScore }));
+    }
+  }, [saveData.games.metris?.highScore]);
 
   // Rotate matrix 90 degrees clockwise
   const rotateMatrix = (matrix: number[][]): number[][] => {
@@ -712,7 +719,10 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
   // Restart game
   const restart = useCallback(() => {
     const highScore = Math.max(state.highScore, state.score);
-    localStorage.setItem('metris_highScore', highScore.toString());
+    // Save high score to useSaveSystem instead of localStorage
+    if (highScore > state.highScore) {
+      updateGameSave('metris', { highScore });
+    }
 
     // Reset timing refs
     lastDropTimeRef.current = 0;
@@ -754,7 +764,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
     });
 
     if (!isMuted) synthPowerUp('activate');
-  }, [state.highScore, state.score, createPiece, synthPowerUp, isMuted]);
+  }, [state.highScore, state.score, createPiece, synthPowerUp, isMuted, updateGameSave]);
 
   // Bullet time countdown timer (updates every 100ms instead of 60fps)
   useEffect(() => {

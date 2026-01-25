@@ -77,6 +77,27 @@ function App() {
   const appStartTime = useRef(Date.now());
 
   /**
+   * Track play time and check for marathon gamer achievement
+   * Extracted to avoid duplication in ESC handler, exit button, and play button
+   */
+  const trackPlayTime = useCallback(() => {
+    if (playStartTime.current) {
+      totalPlayTime.current += (Date.now() - playStartTime.current) / 1000 / 60; // in minutes
+      playStartTime.current = null;
+
+      // Marathon gamer achievement (60 minutes total)
+      if (totalPlayTime.current >= 60) {
+        const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
+        if (!currentGlobalAchievements.includes('global_marathon_gamer')) {
+          achievementManager.updateGlobalStats({
+            globalAchievements: [...currentGlobalAchievements, 'global_marathon_gamer']
+          });
+        }
+      }
+    }
+  }, [achievementManager]);
+
+  /**
    * @listens achievementManager.stats.unlocked, achievementManager
    * Tracks achievement milestones for 10, 25, and 50 unlocked achievements
    */
@@ -107,16 +128,15 @@ function App() {
    * Track when a game is played and check for "play all games" achievement
    */
   useEffect(() => {
-    if (selectedGame !== null) {
-      const gameNames = ['CTRL-S | The World', 'Snake Classic', 'Vortex Pong', 'Matrix Cloud', 'Matrix Invaders', 'Metris'];
-      const gameName = gameNames[selectedGame] || '';
+    if (selectedGame !== null && selectedGame < games.length) {
+      const gameName = games[selectedGame].title;
 
       if (!gamesPlayed.current.has(gameName)) {
         gamesPlayed.current.add(gameName);
 
-        // Check if all games have been played
+        // Check if all games have been played - uses dynamic games.length
         const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
-        if (gamesPlayed.current.size === 6 && !currentGlobalAchievements.includes('global_all_games')) {
+        if (gamesPlayed.current.size === games.length && !currentGlobalAchievements.includes('global_all_games')) {
           achievementManager.updateGlobalStats({
             globalAchievements: [...currentGlobalAchievements, 'global_all_games']
           });
@@ -361,6 +381,7 @@ function App() {
         setIsPlaying(false);
         stopMusic();
         playSFX('menu');
+        trackPlayTime();
       }
       
       // Arrow keys for game navigation (when not playing)
@@ -393,7 +414,7 @@ function App() {
     
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isPlaying, achievementManager, stopMusic, playSFX, showMobileWarning, playBackgroundMP3, handlePrevious, handleNext, toggleMute]);
+  }, [isPlaying, achievementManager, stopMusic, playSFX, showMobileWarning, playBackgroundMP3, handlePrevious, handleNext, toggleMute, trackPlayTime]);
 
   const GameComponent = games[selectedGame].component;
 
@@ -506,22 +527,7 @@ function App() {
                 setIsPlaying(false);
                 stopMusic();
                 playSFX('menu');
-                
-                // Track play time
-                if (playStartTime.current) {
-                  totalPlayTime.current += (Date.now() - playStartTime.current) / 1000 / 60; // in minutes
-                  playStartTime.current = null;
-                  
-                  // Marathon gamer achievement (60 minutes total)
-                  if (totalPlayTime.current >= 60) {
-                    const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
-                    if (!currentGlobalAchievements.includes('global_marathon_gamer')) {
-                      achievementManager.updateGlobalStats({
-                        globalAchievements: [...currentGlobalAchievements, 'global_marathon_gamer']
-                      });
-                    }
-                  }
-                }
+                trackPlayTime();
               }}
               className="absolute top-4 right-4 z-50 p-3 bg-red-900/90 hover:bg-red-700 rounded-lg border-2 border-red-500/80 backdrop-blur-sm transition-all group shadow-lg hover:shadow-red-500/50 hover:scale-110"
               title="Exit Game (ESC)"
@@ -567,7 +573,7 @@ function App() {
                       className="w-full h-full transition-enhanced"
                     >
                       {isPlaying && GameComponent ? (
-                        <GameComponent achievementManager={achievementManager} />
+                        <GameComponent achievementManager={achievementManager} isMuted={isMuted} />
                       ) : (
                         <img
                           src={games[selectedGame].preview}
@@ -640,22 +646,7 @@ function App() {
                             }
                           } else {
                             stopMusic();
-                            
-                            // Track play time
-                            if (playStartTime.current) {
-                              totalPlayTime.current += (Date.now() - playStartTime.current) / 1000 / 60; // in minutes
-                              playStartTime.current = null;
-                              
-                              // Marathon gamer achievement (60 minutes total)
-                              if (totalPlayTime.current >= 60) {
-                                const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
-                                if (!currentGlobalAchievements.includes('global_marathon_gamer')) {
-                                  achievementManager.updateGlobalStats({
-                                    globalAchievements: [...currentGlobalAchievements, 'global_marathon_gamer']
-                                  });
-                                }
-                              }
-                            }
+                            trackPlayTime();
                           }
                         }}
                         className="px-4 py-2 lg:px-6 lg:py-2.5 bg-green-500 text-black font-mono rounded-full hover:bg-green-400 transition-colors flex items-center gap-2 mx-auto transform hover:scale-105 text-sm lg:text-base font-bold"

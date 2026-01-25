@@ -151,7 +151,6 @@ export function useSimpleSnakeGame(options: UseSimpleSnakeGameOptions = {}) {
 
       // Check if snake exists and has segments
       if (!prev.snake || prev.snake.length === 0) {
-        console.error('Snake array is empty');
         return prev;
       }
 
