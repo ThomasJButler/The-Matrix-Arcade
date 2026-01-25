@@ -1,10 +1,17 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { useSaveSystem, createDefaultLifelineData, type LifelineData } from './useSaveSystem';
 
 // ============================================================================
 // LIFELINE MANAGER HOOK
 // Manages lifeline state across all puzzles in CTRL-S The World
+// Now integrated with useSaveSystem for unified persistence
 // ============================================================================
 
+// Legacy localStorage key - used for one-time migration only
+const LEGACY_STORAGE_KEY = 'ctrlsworld_lifelines';
+const INITIAL_FREE_ANSWERS = 10;
+
+// Internal state with Sets for efficient lookup (converted to/from arrays for storage)
 export interface LifelineState {
   freeAnswersRemaining: number;
   usedLifelines: {
@@ -21,64 +28,95 @@ export interface LifelineState {
   };
 }
 
-const STORAGE_KEY = 'ctrlsworld_lifelines';
-const INITIAL_FREE_ANSWERS = 10;
+// Convert storage format (arrays) to internal format (Sets)
+const storageToState = (data: LifelineData): LifelineState => ({
+  ...data,
+  usedLifelines: {
+    fiftyFifty: new Set(data.usedLifelines.fiftyFifty || []),
+    sentientAI: new Set(data.usedLifelines.sentientAI || []),
+    characters: new Set(data.usedLifelines.characters || []),
+  }
+});
 
-const getInitialState = (): LifelineState => {
+// Convert internal format (Sets) to storage format (arrays)
+const stateToStorage = (state: LifelineState): LifelineData => ({
+  ...state,
+  usedLifelines: {
+    fiftyFifty: Array.from(state.usedLifelines.fiftyFifty),
+    sentientAI: Array.from(state.usedLifelines.sentientAI),
+    characters: Array.from(state.usedLifelines.characters),
+  }
+});
+
+// Check for and migrate legacy localStorage data
+const migrateLegacyData = (): LifelineData | null => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      // Convert arrays back to Sets
-      return {
-        ...parsed,
+    const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacyData) {
+      const parsed = JSON.parse(legacyData);
+      // Convert legacy format to new format (arrays are already arrays in storage)
+      const migrated: LifelineData = {
+        freeAnswersRemaining: parsed.freeAnswersRemaining ?? INITIAL_FREE_ANSWERS,
         usedLifelines: {
-          fiftyFifty: new Set(parsed.usedLifelines.fiftyFifty || []),
-          sentientAI: new Set(parsed.usedLifelines.sentientAI || []),
-          characters: new Set(parsed.usedLifelines.characters || []),
+          fiftyFifty: parsed.usedLifelines?.fiftyFifty || [],
+          sentientAI: parsed.usedLifelines?.sentientAI || [],
+          characters: parsed.usedLifelines?.characters || [],
+        },
+        stats: {
+          totalFreeAnswersUsed: parsed.stats?.totalFreeAnswersUsed || 0,
+          totalFiftyFiftyUsed: parsed.stats?.totalFiftyFiftyUsed || 0,
+          totalSentientAIUsed: parsed.stats?.totalSentientAIUsed || 0,
+          totalCharactersUsed: parsed.stats?.totalCharactersUsed || 0,
+          totalPuzzlesCompletedWithHelp: parsed.stats?.totalPuzzlesCompletedWithHelp || 0,
         }
       };
+      // Remove legacy key after successful migration
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+      return migrated;
     }
   } catch (error) {
-    console.warn('Failed to load lifeline state:', error);
+    console.warn('Failed to migrate legacy lifeline data:', error);
   }
-
-  return {
-    freeAnswersRemaining: INITIAL_FREE_ANSWERS,
-    usedLifelines: {
-      fiftyFifty: new Set(),
-      sentientAI: new Set(),
-      characters: new Set(),
-    },
-    stats: {
-      totalFreeAnswersUsed: 0,
-      totalFiftyFiftyUsed: 0,
-      totalSentientAIUsed: 0,
-      totalCharactersUsed: 0,
-      totalPuzzlesCompletedWithHelp: 0,
-    }
-  };
+  return null;
 };
 
 export const useLifelineManager = () => {
-  const [state, setState] = useState<LifelineState>(getInitialState);
+  const { saveData, updateGameSave, isLoading } = useSaveSystem();
+  const hasMigrated = useRef(false);
 
-  // Persist to localStorage whenever state changes
-  useEffect(() => {
-    try {
-      const toStore = {
-        ...state,
-        usedLifelines: {
-          fiftyFifty: Array.from(state.usedLifelines.fiftyFifty),
-          sentientAI: Array.from(state.usedLifelines.sentientAI),
-          characters: Array.from(state.usedLifelines.characters),
-        }
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
-    } catch (error) {
-      console.warn('Failed to save lifeline state:', error);
+  // Get lifeline data from save system, with migration and defaults
+  const getLifelineData = useCallback((): LifelineData => {
+    // Check for legacy data migration (once per session)
+    if (!hasMigrated.current) {
+      hasMigrated.current = true;
+      const legacyData = migrateLegacyData();
+      if (legacyData) {
+        // Persist migrated data to save system
+        updateGameSave('ctrlSWorld', { lifelineData: legacyData });
+        return legacyData;
+      }
     }
-  }, [state]);
+
+    // Return data from save system or defaults
+    return saveData.games.ctrlSWorld.lifelineData || createDefaultLifelineData();
+  }, [saveData.games.ctrlSWorld.lifelineData, updateGameSave]);
+
+  // Local state for efficient Set-based lookups
+  const [state, setState] = useState<LifelineState>(() =>
+    storageToState(getLifelineData())
+  );
+
+  // Sync local state when save data changes (e.g., after load or migration)
+  useEffect(() => {
+    if (!isLoading) {
+      setState(storageToState(getLifelineData()));
+    }
+  }, [getLifelineData, isLoading]);
+
+  // Persist state changes to save system
+  const persistState = useCallback((newState: LifelineState) => {
+    updateGameSave('ctrlSWorld', { lifelineData: stateToStorage(newState) });
+  }, [updateGameSave]);
 
   // Check if a lifeline is available for a specific puzzle
   const isLifelineAvailable = useCallback((
@@ -107,15 +145,19 @@ export const useLifelineManager = () => {
       };
     }
 
-    setState(prev => ({
-      ...prev,
-      freeAnswersRemaining: prev.freeAnswersRemaining - 1,
+    const newState: LifelineState = {
+      ...state,
+      freeAnswersRemaining: state.freeAnswersRemaining - 1,
+      usedLifelines: state.usedLifelines,
       stats: {
-        ...prev.stats,
-        totalFreeAnswersUsed: prev.stats.totalFreeAnswersUsed + 1,
-        totalPuzzlesCompletedWithHelp: prev.stats.totalPuzzlesCompletedWithHelp + 1,
+        ...state.stats,
+        totalFreeAnswersUsed: state.stats.totalFreeAnswersUsed + 1,
+        totalPuzzlesCompletedWithHelp: state.stats.totalPuzzlesCompletedWithHelp + 1,
       }
-    }));
+    };
+
+    setState(newState);
+    persistState(newState);
 
     return {
       success: true,
@@ -125,7 +167,7 @@ export const useLifelineManager = () => {
         reputation: -3
       }
     };
-  }, [state.freeAnswersRemaining]);
+  }, [state, persistState]);
 
   // Use 50/50 lifeline
   const useFiftyFifty = useCallback((puzzleId: string): boolean => {
@@ -133,20 +175,23 @@ export const useLifelineManager = () => {
       return false;
     }
 
-    setState(prev => ({
-      ...prev,
+    const newState: LifelineState = {
+      ...state,
       usedLifelines: {
-        ...prev.usedLifelines,
-        fiftyFifty: new Set([...prev.usedLifelines.fiftyFifty, puzzleId])
+        ...state.usedLifelines,
+        fiftyFifty: new Set([...state.usedLifelines.fiftyFifty, puzzleId])
       },
       stats: {
-        ...prev.stats,
-        totalFiftyFiftyUsed: prev.stats.totalFiftyFiftyUsed + 1,
+        ...state.stats,
+        totalFiftyFiftyUsed: state.stats.totalFiftyFiftyUsed + 1,
       }
-    }));
+    };
+
+    setState(newState);
+    persistState(newState);
 
     return true;
-  }, [state.usedLifelines.fiftyFifty]);
+  }, [state, persistState]);
 
   // Use Sentient AI lifeline
   const useSentientAI = useCallback((puzzleId: string): boolean => {
@@ -154,20 +199,23 @@ export const useLifelineManager = () => {
       return false;
     }
 
-    setState(prev => ({
-      ...prev,
+    const newState: LifelineState = {
+      ...state,
       usedLifelines: {
-        ...prev.usedLifelines,
-        sentientAI: new Set([...prev.usedLifelines.sentientAI, puzzleId])
+        ...state.usedLifelines,
+        sentientAI: new Set([...state.usedLifelines.sentientAI, puzzleId])
       },
       stats: {
-        ...prev.stats,
-        totalSentientAIUsed: prev.stats.totalSentientAIUsed + 1,
+        ...state.stats,
+        totalSentientAIUsed: state.stats.totalSentientAIUsed + 1,
       }
-    }));
+    };
+
+    setState(newState);
+    persistState(newState);
 
     return true;
-  }, [state.usedLifelines.sentientAI]);
+  }, [state, persistState]);
 
   // Use Ask Characters lifeline
   const useCharacters = useCallback((puzzleId: string): boolean => {
@@ -175,25 +223,30 @@ export const useLifelineManager = () => {
       return false;
     }
 
-    setState(prev => ({
-      ...prev,
+    const newState: LifelineState = {
+      ...state,
       usedLifelines: {
-        ...prev.usedLifelines,
-        characters: new Set([...prev.usedLifelines.characters, puzzleId])
+        ...state.usedLifelines,
+        characters: new Set([...state.usedLifelines.characters, puzzleId])
       },
       stats: {
-        ...prev.stats,
-        totalCharactersUsed: prev.stats.totalCharactersUsed + 1,
+        ...state.stats,
+        totalCharactersUsed: state.stats.totalCharactersUsed + 1,
       }
-    }));
+    };
+
+    setState(newState);
+    persistState(newState);
 
     return true;
-  }, [state.usedLifelines.characters]);
+  }, [state, persistState]);
 
   // Reset all lifelines (for new game)
   const resetLifelines = useCallback(() => {
-    setState(getInitialState());
-  }, []);
+    const defaultState = storageToState(createDefaultLifelineData());
+    setState(defaultState);
+    persistState(defaultState);
+  }, [persistState]);
 
   // Get stats summary
   const getStats = useCallback(() => state.stats, [state.stats]);

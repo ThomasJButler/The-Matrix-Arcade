@@ -1,5 +1,22 @@
 import { useCallback, useEffect, useState, useMemo } from 'react';
 
+// Lifeline data structure for CTRL-S World
+export interface LifelineData {
+  freeAnswersRemaining: number;
+  usedLifelines: {
+    fiftyFifty: string[];      // puzzle IDs where 50/50 was used (stored as array for JSON)
+    sentientAI: string[];       // puzzle IDs where AI was asked
+    characters: string[];       // puzzle IDs where characters were asked
+  };
+  stats: {
+    totalFreeAnswersUsed: number;
+    totalFiftyFiftyUsed: number;
+    totalSentientAIUsed: number;
+    totalCharactersUsed: number;
+    totalPuzzlesCompletedWithHelp: number;
+  };
+}
+
 // Save data structure for each game
 export interface GameSaveData {
   highScore: number;
@@ -14,6 +31,7 @@ export interface GameSaveData {
   };
   lastPlayed: number;
   preferences?: Record<string, unknown>;
+  lifelineData?: LifelineData;  // CTRL-S World lifeline tracking
 }
 
 // Global save data structure
@@ -41,6 +59,23 @@ export interface GlobalSaveData {
   };
 }
 
+// Default lifeline data for CTRL-S World
+export const createDefaultLifelineData = (): LifelineData => ({
+  freeAnswersRemaining: 10,
+  usedLifelines: {
+    fiftyFifty: [],
+    sentientAI: [],
+    characters: []
+  },
+  stats: {
+    totalFreeAnswersUsed: 0,
+    totalFiftyFiftyUsed: 0,
+    totalSentientAIUsed: 0,
+    totalCharactersUsed: 0,
+    totalPuzzlesCompletedWithHelp: 0
+  }
+});
+
 // Default save data
 const createDefaultGameSave = (): GameSaveData => ({
   highScore: 0,
@@ -63,7 +98,7 @@ const createDefaultGlobalSave = (): GlobalSaveData => ({
     snakeClassic: createDefaultGameSave(),
     vortexPong: createDefaultGameSave(),
     matrixCloud: createDefaultGameSave(),
-    ctrlSWorld: createDefaultGameSave(),
+    ctrlSWorld: { ...createDefaultGameSave(), lifelineData: createDefaultLifelineData() },
     matrixInvaders: createDefaultGameSave(),
     metris: createDefaultGameSave(),
     terminalQuest: createDefaultGameSave()
