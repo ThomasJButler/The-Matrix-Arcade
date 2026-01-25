@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Swords, Shield, Zap, Heart, AlertTriangle } from 'lucide-react';
 import { Enemy } from './TerminalQuestContent';
@@ -32,8 +32,24 @@ export default function TerminalQuestCombat({
   const [isAnimating, setIsAnimating] = useState(false);
   const [shakeScreen, setShakeScreen] = useState(false);
 
+  // Refs for keyboard handlers to avoid stale closures
+  const handlersRef = useRef<{
+    attack: () => void;
+    defend: () => void;
+    item: (item: string) => void;
+  }>({ attack: () => {}, defend: () => {}, item: () => {} });
+
   // Sound system integration
   const { playSFX } = useSoundSystem();
+
+  // Get available combat items for keyboard shortcuts
+  const getCombatItems = useCallback(() => {
+    const items: string[] = [];
+    if (playerInventory.includes('health_pack')) items.push('health_pack');
+    if (playerInventory.includes('emp_device')) items.push('emp_device');
+    if (playerInventory.includes('ally_beacon')) items.push('ally_beacon');
+    return items;
+  }, [playerInventory]);
 
   // Calculate player damage based on inventory
   const getPlayerDamage = () => {
@@ -134,6 +150,9 @@ export default function TerminalQuestCombat({
     setTimeout(() => enemyTurn(), 1500);
   };
 
+  // Keep handlers ref updated for keyboard event handler
+  handlersRef.current = { attack: handleAttack, defend: handleDefend, item: handleItem };
+
   const enemyTurn = () => {
     if (enemyHealth <= 0) return;
 
@@ -166,6 +185,46 @@ export default function TerminalQuestCombat({
       }, 1000);
     }
   };
+
+  // Keyboard controls for combat
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle keys during player turn and when not animating
+      if (!isPlayerTurn || isAnimating) return;
+
+      switch (e.key) {
+        case '1':
+          e.preventDefault();
+          handlersRef.current.attack();
+          break;
+        case '2':
+          e.preventDefault();
+          handlersRef.current.defend();
+          break;
+        case '3': {
+          e.preventDefault();
+          const items = getCombatItems();
+          if (items.length >= 1) handlersRef.current.item(items[0]);
+          break;
+        }
+        case '4': {
+          e.preventDefault();
+          const items = getCombatItems();
+          if (items.length >= 2) handlersRef.current.item(items[1]);
+          break;
+        }
+        case '5': {
+          e.preventDefault();
+          const items = getCombatItems();
+          if (items.length >= 3) handlersRef.current.item(items[2]);
+          break;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPlayerTurn, isAnimating, getCombatItems]);
 
   // Health bar component
   const HealthBar = ({ current, max, label }: { current: number; max: number; label: string }) => (
@@ -241,8 +300,9 @@ export default function TerminalQuestCombat({
         >
           <Swords className="w-5 h-5" />
           Attack
+          <span className="text-xs opacity-60">[1]</span>
         </button>
-        
+
         <button
           onClick={handleDefend}
           disabled={!isPlayerTurn || isAnimating}
@@ -254,44 +314,54 @@ export default function TerminalQuestCombat({
         >
           <Shield className="w-5 h-5" />
           Defend
+          <span className="text-xs opacity-60">[2]</span>
         </button>
       </div>
 
       {/* Item Usage */}
-      {playerInventory.length > 0 && (
+      {getCombatItems().length > 0 && (
         <div className="mt-4">
           <h3 className="text-sm text-green-400 mb-2">Combat Items:</h3>
           <div className="flex flex-wrap gap-2">
-            {playerInventory.includes('health_pack') && (
-              <button
-                onClick={() => handleItem('health_pack')}
-                disabled={!isPlayerTurn || isAnimating}
-                className="text-xs px-2 py-1 bg-green-700 hover:bg-green-600 rounded disabled:bg-gray-700"
-              >
-                <Heart className="w-3 h-3 inline mr-1" />
-                Health Pack
-              </button>
-            )}
-            {playerInventory.includes('emp_device') && (
-              <button
-                onClick={() => handleItem('emp_device')}
-                disabled={!isPlayerTurn || isAnimating}
-                className="text-xs px-2 py-1 bg-yellow-700 hover:bg-yellow-600 rounded disabled:bg-gray-700"
-              >
-                <Zap className="w-3 h-3 inline mr-1" />
-                EMP
-              </button>
-            )}
-            {playerInventory.includes('ally_beacon') && (
-              <button
-                onClick={() => handleItem('ally_beacon')}
-                disabled={!isPlayerTurn || isAnimating}
-                className="text-xs px-2 py-1 bg-purple-700 hover:bg-purple-600 rounded disabled:bg-gray-700"
-              >
-                <AlertTriangle className="w-3 h-3 inline mr-1" />
-                Call Ally
-              </button>
-            )}
+            {getCombatItems().map((item, index) => {
+              const keyNumber = index + 3;
+              let icon: React.ReactNode;
+              let label: string;
+              let bgClass: string;
+
+              switch (item) {
+                case 'health_pack':
+                  icon = <Heart className="w-3 h-3 inline mr-1" />;
+                  label = 'Health Pack';
+                  bgClass = 'bg-green-700 hover:bg-green-600';
+                  break;
+                case 'emp_device':
+                  icon = <Zap className="w-3 h-3 inline mr-1" />;
+                  label = 'EMP';
+                  bgClass = 'bg-yellow-700 hover:bg-yellow-600';
+                  break;
+                case 'ally_beacon':
+                  icon = <AlertTriangle className="w-3 h-3 inline mr-1" />;
+                  label = 'Call Ally';
+                  bgClass = 'bg-purple-700 hover:bg-purple-600';
+                  break;
+                default:
+                  return null;
+              }
+
+              return (
+                <button
+                  key={item}
+                  onClick={() => handleItem(item)}
+                  disabled={!isPlayerTurn || isAnimating}
+                  className={`text-xs px-2 py-1 ${bgClass} rounded disabled:bg-gray-700`}
+                >
+                  {icon}
+                  {label}
+                  <span className="opacity-60 ml-1">[{keyNumber}]</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
