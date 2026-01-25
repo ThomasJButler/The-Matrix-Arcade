@@ -4,6 +4,7 @@ import { PuzzleModal } from '../ui/PuzzleModal';
 import { getPuzzleById } from '../../data/puzzles';
 import { useGameState } from '../../contexts/GameStateContext';
 import { useSaveSystem } from '../../hooks/useSaveSystem';
+import { useSoundSystem } from '../../hooks/useSoundSystem';
 import { StatsHUD } from '../ui/StatsHUD';
 import { AchievementToastContainer, Achievement } from '../ui/AchievementToast';
 import { InventoryPanel } from '../ui/InventoryPanel';
@@ -17,6 +18,7 @@ interface AchievementManager {
 
 interface CtrlSWorldProps {
   achievementManager?: AchievementManager;
+  isMuted?: boolean;
 }
 
 type PuzzleTrigger = {
@@ -400,7 +402,7 @@ const INFO_CONTENT = [
   "A portfolio piece demonstrating TypeScript, React, and creative storytelling."
 ];
 
-export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
+export default function CtrlSWorld({ achievementManager, isMuted = false }: CtrlSWorldProps) {
   const [currentNode, setCurrentNode] = useState(0);
   const [displayedTexts, setDisplayedTexts] = useState<string[]>([]);
   const [displayedTextIndices, setDisplayedTextIndices] = useState<number[]>([]); // Track paragraph indices for inline ASCII
@@ -446,6 +448,16 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
   const chaptersCompletedThisSession = useRef(new Set<number>());
   const puzzlesSolvedThisSession = useRef(new Set<string>());
 
+  // Sound system integration
+  const { playSFX: playSoundEffect, playMusic, stopMusic } = useSoundSystem();
+
+  // Gated sound function that respects isMuted prop
+  const playSFX = useCallback((sound: string) => {
+    if (!isMuted) {
+      playSoundEffect(sound as Parameters<typeof playSoundEffect>[0]);
+    }
+  }, [isMuted, playSoundEffect]);
+
   // Achievement unlock function
   const unlockAchievement = useCallback((achievementId: string) => {
     if (achievementManager?.unlockAchievement) {
@@ -454,12 +466,37 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
     unlockSaveAchievement('ctrlSWorld', achievementId);
   }, [achievementManager, unlockSaveAchievement]);
 
-  // Placeholder sound function for puzzle modal
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const playSFX = useCallback((_sound: string) => {
-    // Sound integration pending - will use useSoundSystem
-  }, []);
-  
+  // Restart game function - resets all story progress
+  const restartGame = useCallback(() => {
+    // Reset story position
+    setCurrentNode(0);
+    setCurrentTextIndex(0);
+    setCurrentCharIndex(0);
+    setCurrentText('');
+    setDisplayedTexts([]);
+    setDisplayedTextIndices([]);
+    setParagraphsDisplayedOnPage(0);
+
+    // Reset game state
+    setIsTyping(true);
+    setIsPaused(false);
+    setUserHasScrolled(false);
+
+    // Reset puzzle state
+    setShowPuzzle(false);
+    setCurrentPuzzleId(null);
+
+    // Reset session tracking
+    sessionStartTimeRef.current = Date.now();
+    chaptersCompletedThisSession.current.clear();
+    puzzlesSolvedThisSession.current.clear();
+
+    // Play restart sound
+    if (!isMuted) {
+      playSoundEffect('menu');
+    }
+  }, [isMuted, playSoundEffect]);
+
   // Removed unused voice tracking refs - these are only used in interactive mode
 
   const [userHasScrolled, setUserHasScrolled] = useState(false);
@@ -951,6 +988,15 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
         togglePause();
       } else if (e.key === 'f' || e.key === 'F') {
         toggleFullscreen();
+      } else if (e.key === 'r' || e.key === 'R') {
+        // Restart game with R key
+        if (e.target instanceof HTMLElement &&
+            e.target.tagName !== 'INPUT' &&
+            e.target.tagName !== 'TEXTAREA' &&
+            e.target.tagName !== 'SELECT') {
+          e.preventDefault();
+          restartGame();
+        }
       } else if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') {
         // Advance story manually with Enter, Space, or Right Arrow
         if (e.target instanceof HTMLElement &&
@@ -965,7 +1011,7 @@ export default function CtrlSWorld({ achievementManager }: CtrlSWorldProps) {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isStarted, handleNext, togglePause, toggleFullscreen]);
+  }, [isStarted, handleNext, togglePause, toggleFullscreen, restartGame]);
 
   // Set initial scroll position to top
   useEffect(() => {

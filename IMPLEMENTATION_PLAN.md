@@ -94,9 +94,9 @@ All games MUST support ESC (exit - handled by App.tsx), P (pause), R (restart), 
 - [ ] **Metris**: Add levelUp sound when level increases (check at lines 518, 570 when newLevel > currentState.level)
 - [ ] **Metris**: Remove duplicate localStorage usage (lines 212, 1011) - already uses useSaveSystem
 - [x] **Metris**: State mutation bug fixed at line 921 - now uses `glowRef` Map to track glow values separately from React state
-- [ ] **CtrlSWorld**: Add R key for restart (reset story progress)
+- [x] **CtrlSWorld**: Add R key for restart (reset story progress) - **DONE**
 - [ ] **CtrlSWorld**: Add explicit gameOver state for story completion tracking
-- [ ] **CtrlSWorld**: Add isMuted prop to interface (lines 18-20) and implement useSoundSystem (currently placeholder at lines 457-461)
+- [x] **CtrlSWorld**: Add isMuted prop to interface and implement useSoundSystem - **DONE**
 - [x] **TerminalQuest**: Add keyboard event handler (currently no keyboard handling at all) - **DONE**
 - [x] **TerminalQuest**: Add P key for pause - **DONE**
 - [x] **TerminalQuest**: Add R key for restart - **DONE**
@@ -118,7 +118,7 @@ All games MUST use useSoundSystem or useSoundSynthesis with proper isMuted gatin
 | TerminalQuest | useSoundSystem | Yes | 6/6 | 0 | **COMPLIANT** |
 | MatrixInvaders | useSoundSynthesis | Yes | 4/4 | 0 | **COMPLIANT** |
 | SimpleSnake | Inline WebAudio | Yes | Gated | N/A | NOT STANDARD |
-| CtrlSWorld | Placeholder | **Missing** | N/A | N/A | NOT COMPLIANT |
+| CtrlSWorld | useSoundSystem | Yes | All gated | 0 | **COMPLIANT** |
 | TerminalQuestCombat | useSoundSystem | Yes | 8/8 | 0 | **COMPLIANT** |
 
 **Tasks:**
@@ -127,7 +127,7 @@ All games MUST use useSoundSystem or useSoundSynthesis with proper isMuted gatin
 - [x] **MatrixInvaders**: Add isMuted prop and gate all 4 synthesis calls - **DONE**
 - [ ] **Metris**: Add levelUp sound when level increases
 - [ ] **SimpleSnake**: Replace inline Web Audio API (lines 474-523) with useSoundSystem hook
-- [ ] **CtrlSWorld**: Replace placeholder playSFX (lines 457-461) with actual useSoundSystem integration
+- [x] **CtrlSWorld**: Replace placeholder playSFX with actual useSoundSystem integration - **DONE**
 - [x] **TerminalQuestCombat**: Add useSoundSystem for attack, hit, powerup, gameOver sounds - **DONE**
 
 #### Visual Bugs (Confirmed from Screenshots)
@@ -350,7 +350,7 @@ interface GameProps {
 | MatrixCloud | 100% | 8/8 gated | Yes | PARTIAL | Integrated | 100% | **85%** |
 | MatrixInvaders | 100% | 4/4 gated | Yes | PARTIAL | Integrated | Hybrid | ~75% |
 | Metris | 100% | 11/11 gated | Yes | PARTIAL | Integrated | Hybrid | **80%** |
-| CtrlSWorld | 75% | Placeholder | **Missing** | NOT COMPLIANT | Integrated | 100% | 45% |
+| CtrlSWorld | 100% | useSoundSystem | Yes | NOT COMPLIANT | Integrated | 100% | **70%** |
 | TerminalQuest | 100% | 6/6 gated | Yes | PARTIAL | Partial | localStorage | **65%** |
 | TerminalQuestCombat | 0% | 8/8 gated | Yes | N/A | None | N/A | **50%** |
 
@@ -373,8 +373,8 @@ interface GameProps {
    - ~~Gate all ungated sound calls in TerminalQuest (6)~~ **DONE**
    - ~~Gate all sound calls in TerminalQuestCombat (8)~~ **DONE**
    - ~~Add P and R keys to TerminalQuest~~ **DONE**
-   - Add isMuted prop to CtrlSWorld
-   - Add R key to CtrlSWorld
+   - ~~Add isMuted prop to CtrlSWorld~~ **DONE**
+   - ~~Add R key to CtrlSWorld~~ **DONE**
 
 2. **P2 - Medium Priority (Code Quality)**:
    - Console.log cleanup (9 to remove, 1 to convert)
@@ -469,6 +469,24 @@ interface GameProps {
 
 **TerminalQuest Props Passing (FIXED):**
 - TerminalQuest now passes `isMuted` and `achievementManager` props to TerminalQuestCombat component
+
+### 25 January 2026 - CtrlSWorld Compliance Fixes
+
+**CtrlSWorld isMuted Prop (FIXED):**
+- Added `isMuted?: boolean` to CtrlSWorldProps interface
+- Replaced placeholder `playSFX` function with actual `useSoundSystem` hook integration
+- Created gated wrapper function that checks `!isMuted` before playing sounds
+- Sound effects now work correctly with mute toggle
+
+**CtrlSWorld Keyboard Controls (FIXED):**
+- Added R key handler for restart functionality
+- Implemented `restartGame` function using useCallback to properly reset all game state:
+  - Resets story position (currentNode, currentTextIndex, currentCharIndex)
+  - Clears displayed texts and text indices
+  - Resets game state flags (isTyping, isPaused, userHasScrolled)
+  - Clears puzzle state (showPuzzle, currentPuzzleId)
+  - Resets session tracking (timestamps, completed chapters/puzzles)
+  - Plays 'menu' sound on restart (respects isMuted)
 
 ---
 
