@@ -78,6 +78,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
   const keysRef = useRef<Set<string>>(new Set());
   const lastFireRef = useRef<number>(0);
   const matrixRainRef = useRef<{ x: number; y: number; char: string; speed: number }[]>([]);
+  const renderTimeRef = useRef<number>(0); // Track animation time for render effects
   
   // State
   const [state, setState] = useState<GameState>({
@@ -452,8 +453,8 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
     );
   }, [state, projectilePool, enemyPool, particlePool, checkCollisions, fireBullet, trackActiveObjects]);
   
-  // Render game
-  const render = useCallback(() => {
+  // Render game - accepts timestamp from RAF for consistent animations
+  const render = useCallback((timestamp: number) => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!ctx || !canvas) return;
@@ -513,9 +514,9 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
     
     // Draw player
     if (!state.gameOver) {
-      // Flash effect during invulnerability
+      // Flash effect during invulnerability - using RAF timestamp for frame-rate independent animation
       if (state.player.invulnerable) {
-        ctx.globalAlpha = Math.sin(Date.now() * 0.01) > 0 ? 0.3 : 1;
+        ctx.globalAlpha = Math.sin(timestamp * 0.01) > 0 ? 0.3 : 1;
       }
 
       ctx.fillStyle = state.player.powerUps?.shield ? '#00ffff' : '#00ff00';
@@ -560,8 +561,8 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
       ctx.fillStyle = '#ffff00'; // Yellow
     } else {
       ctx.fillStyle = '#ff0000'; // Red
-      // Pulse effect when critical health
-      const pulse = Math.sin(Date.now() * 0.005) * 0.3 + 0.7;
+      // Pulse effect when critical health - using RAF timestamp for frame-rate independent animation
+      const pulse = Math.sin(timestamp * 0.005) * 0.3 + 0.7;
       ctx.globalAlpha = pulse;
     }
 
@@ -599,30 +600,58 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
     trackDrawCall();
   }, [state, projectilePool, enemyPool, particlePool, trackDrawCall]);
   
-  // Game loop
+  // Update player position - integrated into main loop for consistent timing
+  const updatePlayer = useCallback(() => {
+    if (state.menu || state.gameOver || state.paused) return;
+
+    setState(prev => {
+      let newX = prev.player.x;
+
+      if (keysRef.current.has('ArrowLeft') || keysRef.current.has('a')) {
+        newX = Math.max(0, newX - PLAYER_SPEED);
+      }
+      if (keysRef.current.has('ArrowRight') || keysRef.current.has('d')) {
+        newX = Math.min(CANVAS_WIDTH - PLAYER_WIDTH, newX + PLAYER_SPEED);
+      }
+
+      // Only update if position changed to avoid unnecessary re-renders
+      if (newX === prev.player.x) return prev;
+
+      return {
+        ...prev,
+        player: { ...prev.player, x: newX }
+      };
+    });
+  }, [state.menu, state.gameOver, state.paused]);
+
+  // Game loop - uses RAF timestamp for all timing to ensure frame-rate independent behaviour
   const gameLoop = useCallback(() => {
     let animationId: number;
-    
+
     const loop = (timestamp: number) => {
       const deltaTime = timestamp - (animationFrameRef.current || timestamp);
       animationFrameRef.current = timestamp;
-      
+      renderTimeRef.current = timestamp;
+
+      // Update player position in main loop (replaces setInterval)
+      updatePlayer();
+
       updateGame(deltaTime * 0.06); // Normalize to ~60fps
-      render();
-      
+      render(timestamp); // Pass timestamp for frame-rate independent animations
+
       if (!state.gameOver && !state.paused) {
         animationId = requestAnimationFrame(loop);
       }
     };
-    
+
     animationId = requestAnimationFrame(loop);
-    
+
     return () => {
       if (animationId) {
         cancelAnimationFrame(animationId);
       }
     };
-  }, [updateGame, render, state.gameOver, state.paused]);
+  }, [updateGame, updatePlayer, render, state.gameOver, state.paused]);
 
   // Start game from menu
   const startGame = useCallback(() => {
@@ -744,31 +773,6 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
     };
   }, [state, fireBullet, resetGame, startGame]);
   
-  // Update player position
-  useEffect(() => {
-    const updatePlayer = () => {
-      if (state.menu || state.gameOver || state.paused) return;
-      
-      setState(prev => {
-        let newX = prev.player.x;
-        
-        if (keysRef.current.has('ArrowLeft') || keysRef.current.has('a')) {
-          newX = Math.max(0, newX - PLAYER_SPEED);
-        }
-        if (keysRef.current.has('ArrowRight') || keysRef.current.has('d')) {
-          newX = Math.min(CANVAS_WIDTH - PLAYER_WIDTH, newX + PLAYER_SPEED);
-        }
-        
-        return {
-          ...prev,
-          player: { ...prev.player, x: newX }
-        };
-      });
-    };
-    
-    const interval = setInterval(updatePlayer, 16);
-    return () => clearInterval(interval);
-  }, [state.gameOver, state.paused]);
   
   // Start game and handle restart
   useEffect(() => {
