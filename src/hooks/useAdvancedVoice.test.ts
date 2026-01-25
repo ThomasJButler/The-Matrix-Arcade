@@ -23,7 +23,7 @@ global.speechSynthesis = {
   pending: false,
   addEventListener: vi.fn(),
   removeEventListener: vi.fn(),
-} as any;
+} as unknown as SpeechSynthesis;
 
 global.SpeechSynthesisUtterance = vi.fn().mockImplementation(() => ({
   text: '',
@@ -37,7 +37,7 @@ global.SpeechSynthesisUtterance = vi.fn().mockImplementation(() => ({
   onresume: null,
   onboundary: null,
   onerror: null,
-})) as any;
+})) as unknown as typeof SpeechSynthesisUtterance;
 
 describe('useAdvancedVoice', () => {
   beforeEach(() => {
@@ -94,7 +94,7 @@ describe('useAdvancedVoice', () => {
 
     // Test without speechSynthesis
     const originalSpeechSynthesis = global.speechSynthesis;
-    // @ts-ignore
+    // @ts-expect-error - Intentionally testing without speechSynthesis
     delete global.speechSynthesis;
     
     const { result: result2 } = renderHook(() => useAdvancedVoice());
@@ -118,7 +118,7 @@ describe('useAdvancedVoice', () => {
     expect(SpeechSynthesisUtterance).toHaveBeenCalled();
     expect(mockSpeak).toHaveBeenCalled();
 
-    const utterance = (SpeechSynthesisUtterance as any).mock.results[0].value;
+    const utterance = (SpeechSynthesisUtterance as unknown as { mock: { results: Array<{ value: Record<string, unknown> }> } }).mock.results[0].value;
     // Captain persona has baseRate 0.85, basePitch 1.15, with config rate 1.0
     expect(utterance.rate).toBe(0.85);
     expect(utterance.pitch).toBe(1.15);
@@ -137,7 +137,7 @@ describe('useAdvancedVoice', () => {
       result.current.speak('Hello world!');
     });
 
-    const utterance = (SpeechSynthesisUtterance as any).mock.results[0].value;
+    const utterance = (SpeechSynthesisUtterance as unknown as { mock: { results: Array<{ value: Record<string, unknown> }> } }).mock.results[0].value;
     // The hook adds SSML tags internally
     expect(utterance.text).toContain('Hello world!');
   });
@@ -156,7 +156,7 @@ describe('useAdvancedVoice', () => {
 
     // Should create one utterance
     expect(SpeechSynthesisUtterance).toHaveBeenCalledTimes(1);
-    const utterance = (SpeechSynthesisUtterance as any).mock.results[0].value;
+    const utterance = (SpeechSynthesisUtterance as unknown as { mock: { results: Array<{ value: Record<string, unknown> }> } }).mock.results[0].value;
     expect(utterance.text).toContain('Hello...');
   });
 
@@ -271,7 +271,7 @@ describe('useAdvancedVoice', () => {
       result.current.speak('This is amazing!');
     });
 
-    const utterance = (SpeechSynthesisUtterance as any).mock.results[0].value;
+    const utterance = (SpeechSynthesisUtterance as unknown as { mock: { results: Array<{ value: Record<string, unknown> }> } }).mock.results[0].value;
     expect(utterance.pitch).toBeGreaterThan(1.0); // Should increase pitch for enthusiasm
   });
 
@@ -313,11 +313,11 @@ describe('useAdvancedVoice', () => {
       result.current.speak('Test');
     });
 
-    const utterance = (SpeechSynthesisUtterance as any).mock.results[0].value;
+    const utterance = (SpeechSynthesisUtterance as unknown as { mock: { results: Array<{ value: Record<string, unknown> }> } }).mock.results[0].value;
 
     // Simulate error
     act(() => {
-      utterance.onerror({ error: 'network' } as any);
+      (utterance.onerror as (event: unknown) => void)({ error: 'network' });
     });
 
     expect(consoleSpy).toHaveBeenCalledWith('Speech synthesis error:', { error: 'network' });
@@ -339,7 +339,7 @@ describe('useAdvancedVoice', () => {
       const { result } = renderHook(() => useAdvancedVoice());
 
       // Clear utterance mocks to start fresh
-      (SpeechSynthesisUtterance as any).mockClear();
+      (SpeechSynthesisUtterance as unknown as { mockClear: () => void }).mockClear();
       mockSpeak.mockClear();
 
       // Enable voice and set persona
@@ -353,7 +353,7 @@ describe('useAdvancedVoice', () => {
       });
 
       // Get the utterance created for this persona
-      const utterance = (SpeechSynthesisUtterance as any).mock.results[0].value;
+      const utterance = (SpeechSynthesisUtterance as unknown as { mock: { results: Array<{ value: Record<string, unknown> }> } }).mock.results[0].value;
 
       expect(utterance.rate).toBeCloseTo(expectedRate);
       expect(utterance.pitch).toBeCloseTo(expectedPitch);

@@ -6,11 +6,10 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import MatrixInvaders from './MatrixInvaders';
 import {
-  createMockAchievementManager,
-  simulateGameLoop
+  createMockAchievementManager
 } from '../../test/matrix-test-utils';
 
 // Mock hooks with proper return types

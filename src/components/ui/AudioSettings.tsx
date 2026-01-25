@@ -28,7 +28,7 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
   isMuted = false,
   toggleMute
 }) => {
-  const { config, updateConfig, playSFX, playMusic, stopMusic, playBackgroundMP3, stopBackgroundMP3 } = useSoundSystem();
+  const { config, updateConfig, playSFX, playBackgroundMP3, stopBackgroundMP3 } = useSoundSystem();
   const [testingSound, setTestingSound] = useState<string | null>(null);
   const [showSaved, setShowSaved] = useState(false);
 

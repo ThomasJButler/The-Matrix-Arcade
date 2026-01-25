@@ -18,18 +18,12 @@ const SPEED_DECREASE = 30; // ms per level decrease
 const MIN_DROP_SPEED = 100; // minimum drop speed
 const SOFT_DROP_SPEED = 50; // ms - fast drop when holding down
 const LINES_PER_LEVEL = 10;
-const PARTICLE_COUNT = 30;
-const BULLET_TIME_COST = 5; // lines needed to fill bullet time meter
 const BULLET_TIME_DURATION = 8000; // ms
 const BULLET_TIME_SLOWDOWN = 0.4; // 40% speed
-const DAS_DELAY = 170; // ms - Delayed Auto Shift initial delay
 const DAS_REPEAT = 50; // ms - DAS repeat rate
-const LOCK_DELAY = 500; // ms - time before piece locks when grounded
-const MAX_LOCK_RESETS = 15; // maximum lock delay resets per piece
 
 // Matrix characters for blocks
 const MATRIX_CHARS = '01アイウエオカキクケコ';
-const GLOW_COLORS = ['#00ff00', '#00cc00', '#009900', '#00ffaa'];
 
 // Tetromino shapes (using SRS - Super Rotation System)
 const TETROMINOES = {
@@ -137,7 +131,6 @@ interface MetrisProps {
 
 export default function Metris({ achievementManager, isMuted }: MetrisProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationFrameRef = useRef<number>();
   const lastDropTimeRef = useRef<number>(0);
   const lastRenderTimeRef = useRef<number>(0);
   const bulletTimeEndRef = useRef<number>(0);
@@ -165,7 +158,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
   // Hooks
   const { synthLaser, synthExplosion, synthPowerUp, synthDrum } = useSoundSynthesis();
   const { playSFX } = useSoundSystem();
-  const { saveData, updateGameSave, unlockAchievement: unlockAchievementSave } = useSaveSystem();
+  const { saveData, updateGameSave } = useSaveSystem();
 
   // Initialize empty grid
   const createEmptyGrid = (): Block[][] => {
@@ -478,8 +471,8 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
     });
   }, [createPiece, synthLaser, isMuted]);
 
-  // Toggle bullet time
-  const toggleBulletTime = useCallback(() => {
+  // Toggle bullet time - available for future keyboard binding
+  const _toggleBulletTime = useCallback(() => {
     setState(prev => {
       if (prev.gameOver || prev.paused || prev.bulletTimeActive) return prev;
 
@@ -526,7 +519,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       if (prev.gameOver || prev.paused || prev.waiting || !prev.currentPiece) return prev;
 
       let dropDistance = 0;
-      let testPiece = { ...prev.currentPiece };
+      const testPiece = { ...prev.currentPiece };
 
       // Find how far the piece can drop
       while (!checkCollision({ ...testPiece, y: testPiece.y + 1 }, prev.grid)) {
@@ -1038,8 +1031,6 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       // Draw ghost piece
       if (state.currentPiece) {
         const ghostY = getGhostPosition(state.currentPiece, state.grid);
-        const template = TETROMINOES[state.currentPiece.type];
-
         ctx.fillStyle = 'rgba(0, 255, 0, 0.2)';
         ctx.strokeStyle = '#00ff00';
         ctx.lineWidth = 2;

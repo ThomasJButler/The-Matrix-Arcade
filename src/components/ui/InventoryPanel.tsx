@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Package, X, Coffee, FileText, Clock, Key, Award, Sparkles } from 'lucide-react';
+import { Package, X, Coffee, FileText, Key, Award, Sparkles } from 'lucide-react';
 import { useGameState, GameItem } from '../../contexts/GameStateContext';
 
 // ============================================================================

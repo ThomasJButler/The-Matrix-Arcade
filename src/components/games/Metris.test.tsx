@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import Metris from './Metris';
 
 // Mock hooks
@@ -319,7 +319,7 @@ describe('Metris', () => {
       // High score should be saved when game over occurs
       // and score is higher than previous high score
 
-      const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+      vi.spyOn(Storage.prototype, 'setItem');
 
       // Simulate game over with high score
       // (In real test, this would trigger from actual gameplay)

@@ -758,7 +758,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
   // Save game stats on game over
   useEffect(() => {
     if (state.gameOver) {
-      const sessionTime = Math.floor((Date.now() - sessionStartTimeRef.current) / 1000);
+      // Session time tracked but not currently displayed in game over screen
       const currentHighScore = saveData.games.matrixInvaders?.highScore || 0;
       const newHighScore = Math.max(currentHighScore, state.score);
       const previousGamesPlayed = saveData.games.matrixInvaders?.stats?.gamesPlayed || 0;

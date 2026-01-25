@@ -22,10 +22,9 @@ interface SnakeCanvasProps {
   snake: Position[];
   food: Position;
   gridSize: number;
-  gameState: string;
   foodEaten: number;
-  powerUp?: any; // PowerUp type from the hook
-  activePowerUps: any; // ActivePowerUps type from the hook
+  powerUp?: Record<string, unknown>; // PowerUp type from the hook
+  activePowerUps: Record<string, boolean>; // ActivePowerUps type from the hook
   direction: string;
 }
 
@@ -33,7 +32,6 @@ const SnakeCanvas: React.FC<SnakeCanvasProps> = ({
   snake,
   food,
   gridSize,
-  gameState,
   foodEaten,
   powerUp,
   activePowerUps,
@@ -339,7 +337,7 @@ const SnakeMenu: React.FC<SnakeMenuProps> = ({ gameState, score, highScore, onSt
   );
 };
 
-export default function SimpleSnake({ achievementManager, isMuted }: SimpleSnakeProps) {
+export default function SimpleSnake({ achievementManager: _achievementManager, isMuted }: SimpleSnakeProps) {
   const { saveData, updateGameSave, unlockAchievement } = useSaveSystem();
   const { playSFX } = useSoundSystem();
 

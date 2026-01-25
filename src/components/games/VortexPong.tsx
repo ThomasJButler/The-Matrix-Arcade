@@ -315,7 +315,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
     const normalizedDelta = deltaTime / (1000 / 60);
 
     // Collect new balls to add after map (for multi-ball power-up)
-    let newBallsToAdd: Ball[] = [];
+    const newBallsToAdd: Ball[] = [];
 
     // Update all balls
     const updatedBalls = balls.map(ball => {
@@ -517,8 +517,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
       if (!isMuted) playSFX(score.player >= 10 ? 'levelUp' : 'gameOver');
       addScreenShake(30);
 
-      // Save game stats
-      const sessionTime = Math.floor((Date.now() - sessionStartTimeRef.current) / 1000);
+      // Save game stats - session time tracked but not currently displayed
       const playerWon = score.player >= 10;
       const currentHighScore = saveData.games.vortexPong?.highScore || 0;
       const newHighScore = Math.max(currentHighScore, score.player);

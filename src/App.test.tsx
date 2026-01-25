@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import App from './App';
 
 // Create mock objects
@@ -154,8 +154,8 @@ describe('App Component', () => {
   });
 
   it('handles keyboard navigation', () => {
-    const { container } = render(<App />);
-    
+    render(<App />);
+
     // Test arrow key navigation
     fireEvent.keyDown(window, { key: 'ArrowRight' });
     // Should change to next game

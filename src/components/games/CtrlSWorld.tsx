@@ -450,7 +450,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
   const puzzlesSolvedThisSession = useRef(new Set<string>());
 
   // Sound system integration
-  const { playSFX: playSoundEffect, playMusic, stopMusic } = useSoundSystem();
+  const { playSFX: playSoundEffect } = useSoundSystem();
 
   // Gated sound function that respects isMuted prop
   const playSFX = useCallback((sound: string) => {
