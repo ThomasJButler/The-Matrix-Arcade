@@ -29,7 +29,8 @@ const ENEMY_TYPES = {
   code: { symbol: '01', health: 1, points: 10, speed: 1, color: '#00ff00' },
   agent: { symbol: 'A', health: 2, points: 30, speed: 1.5, color: '#00cc00' },
   sentinel: { symbol: 'S', health: 3, points: 50, speed: 1.2, color: '#009900' },
-  virus: { symbol: 'V', health: 1, points: 20, speed: 2, color: '#ff0000', splits: true }
+  virus: { symbol: 'V', health: 1, points: 20, speed: 2, color: '#ff0000', splits: true },
+  boss: { symbol: '▓█▓', health: 50, points: 500, speed: 0.5, color: '#ff00ff', isBoss: true }
 };
 
 // Power-up types (scaffolding exists in state.player.powerUps for future implementation)
@@ -121,6 +122,8 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
   const bulletTimeAchievementUnlockedRef = useRef(false);
   const perfectWaveAchievementUnlockedRef = useRef(false);
   const highScoreAchievementUnlockedRef = useRef(false);
+  const bossDefeatedRef = useRef(false);  // Track if a boss has been defeated this session
+  const bossAchievementUnlockedRef = useRef(false);  // Track if boss defeat achievement unlocked
 
   // Timeout tracking for cleanup (prevents memory leaks)
   const invulnerabilityTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -149,20 +152,53 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
     }
   }, []);
   
+  // Check if a wave is a boss wave (every 5 waves)
+  const isBossWave = useCallback((wave: number): boolean => {
+    return wave > 0 && wave % 5 === 0;
+  }, []);
+
+  // Spawn boss enemy for boss waves
+  const spawnBoss = useCallback((wave: number) => {
+    const boss = enemyPool.acquire();
+    if (boss) {
+      const bossData = ENEMY_TYPES.boss;
+      // Boss health scales with wave number (base 50 + 10 per boss encounter)
+      const bossHealthMultiplier = Math.floor(wave / 5);
+      const scaledHealth = bossData.health + (bossHealthMultiplier - 1) * 10;
+
+      boss.x = CANVAS_WIDTH / 2 - 60;  // Centre the boss
+      boss.y = 80;
+      boss.vx = ENEMY_SPEED * bossData.speed;
+      boss.vy = 0;
+      boss.health = scaledHealth;
+      boss.maxHealth = scaledHealth;
+      boss.type = 'boss';
+      boss.value = bossData.points * bossHealthMultiplier;  // Scale points with difficulty
+      boss.width = 120;  // Larger hitbox for boss
+      boss.height = 60;
+    }
+  }, [enemyPool]);
+
   // Spawn enemies for new wave
   const spawnWave = useCallback((wave: number) => {
-    const enemyTypes = Object.keys(ENEMY_TYPES);
-    const waveEnemyType = wave <= 2 ? 'code' : 
+    // Boss waves spawn a boss instead of regular enemies
+    if (isBossWave(wave)) {
+      spawnBoss(wave);
+      return;
+    }
+
+    const enemyTypes = Object.keys(ENEMY_TYPES).filter(t => t !== 'boss');  // Exclude boss from random spawns
+    const waveEnemyType = wave <= 2 ? 'code' :
                           wave <= 5 ? ['code', 'agent'][Math.floor(Math.random() * 2)] :
                           enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
-    
+
     for (let row = 0; row < WAVE_ROWS; row++) {
       for (let col = 0; col < WAVE_SIZE; col++) {
         const enemy = enemyPool.acquire();
         if (enemy) {
           const type = row === 0 && wave > 10 ? 'sentinel' : waveEnemyType;
           const enemyData = ENEMY_TYPES[type as keyof typeof ENEMY_TYPES];
-          
+
           enemy.x = 50 + col * 80;
           enemy.y = 50 + row * 50;
           enemy.vx = ENEMY_SPEED * enemyData.speed;
@@ -176,7 +212,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
         }
       }
     }
-  }, [enemyPool]);
+  }, [enemyPool, isBossWave, spawnBoss]);
   
   // Fire bullet
   const fireBullet = useCallback((x: number, y: number, isEnemy: boolean = false) => {
@@ -248,7 +284,17 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
               });
 
               enemiesKilledRef.current += 1;
-              createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+
+              // Boss defeats get a massive explosion
+              if (enemy.type === 'boss') {
+                // Multiple explosions for dramatic effect
+                createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, '#ff00ff');
+                createExplosion(enemy.x + 20, enemy.y + 20, '#ff00ff');
+                createExplosion(enemy.x + enemy.width - 20, enemy.y + 20, '#ff00ff');
+                createExplosion(enemy.x + enemy.width / 2, enemy.y + 10, '#ffffff');
+              } else {
+                createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+              }
 
               // Achievements
               if (achievementManager) {
@@ -262,6 +308,14 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
                 if (enemiesKilledRef.current >= 100) {
                   achievementManager.unlockAchievement('matrixInvaders', 'invaders_100_enemies');
                   unlockSaveAchievement('matrixInvaders', 'invaders_100_enemies');
+                }
+
+                // Boss defeat achievement
+                if (enemy.type === 'boss' && !bossAchievementUnlockedRef.current) {
+                  bossDefeatedRef.current = true;
+                  bossAchievementUnlockedRef.current = true;
+                  achievementManager.unlockAchievement('matrixInvaders', 'invaders_boss_defeat');
+                  unlockSaveAchievement('matrixInvaders', 'invaders_boss_defeat');
                 }
               }
 
@@ -418,13 +472,27 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
     let shouldDescend = false;
     enemyPool.activeObjects.forEach(enemy => {
       enemy.x += enemy.vx * scaledDelta;
-      
+
       if (enemy.x <= 0 || enemy.x >= CANVAS_WIDTH - enemy.width) {
         shouldDescend = true;
       }
-      
+
       // Enemy shooting - reduced firing rate for better gameplay balance
-      if (Math.random() < 0.0003 * Math.min(state.wave, 10)) { // Cap at wave 10 to prevent overwhelming fire
+      if (enemy.type === 'boss') {
+        // Boss fires more frequently and from multiple positions
+        if (Math.random() < 0.002) {
+          // Fire from left side
+          fireBullet(enemy.x + 20, enemy.y + enemy.height, true);
+        }
+        if (Math.random() < 0.002) {
+          // Fire from centre
+          fireBullet(enemy.x + enemy.width / 2, enemy.y + enemy.height, true);
+        }
+        if (Math.random() < 0.002) {
+          // Fire from right side
+          fireBullet(enemy.x + enemy.width - 20, enemy.y + enemy.height, true);
+        }
+      } else if (Math.random() < 0.0003 * Math.min(state.wave, 10)) { // Cap at wave 10 to prevent overwhelming fire
         fireBullet(enemy.x + enemy.width / 2, enemy.y + enemy.height, true);
       }
     });
@@ -505,16 +573,62 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
     ctx.font = '20px monospace';
     enemyPool.activeObjects.forEach(enemy => {
       const enemyData = ENEMY_TYPES[enemy.type as keyof typeof ENEMY_TYPES];
-      ctx.fillStyle = enemyData.color;
-      ctx.fillText(enemyData.symbol, enemy.x + 10, enemy.y + 20);
-      
-      // Health bar for multi-hit enemies
-      if (enemy.maxHealth > 1) {
+
+      // Boss enemies have special rendering
+      if (enemy.type === 'boss') {
+        // Draw boss with larger font and glow effect
+        ctx.font = '32px monospace';
+        ctx.fillStyle = enemyData.color;
+        ctx.shadowColor = '#ff00ff';
+        ctx.shadowBlur = 15;
+        ctx.fillText(enemyData.symbol, enemy.x + 20, enemy.y + 35);
+        ctx.shadowBlur = 0;
+
+        // Large health bar for boss
         const healthPercent = enemy.health / enemy.maxHealth;
-        ctx.fillStyle = '#ff0000';
-        ctx.fillRect(enemy.x, enemy.y - 5, enemy.width, 3);
-        ctx.fillStyle = '#00ff00';
-        ctx.fillRect(enemy.x, enemy.y - 5, enemy.width * healthPercent, 3);
+        const barWidth = enemy.width;
+        const barHeight = 8;
+        const barX = enemy.x;
+        const barY = enemy.y - 15;
+
+        // Health bar background
+        ctx.fillStyle = '#330000';
+        ctx.fillRect(barX, barY, barWidth, barHeight);
+
+        // Health bar fill with colour gradient based on health
+        if (healthPercent > 0.5) {
+          ctx.fillStyle = '#ff00ff';  // Magenta when healthy
+        } else if (healthPercent > 0.25) {
+          ctx.fillStyle = '#ff6600';  // Orange when damaged
+        } else {
+          ctx.fillStyle = '#ff0000';  // Red when critical
+        }
+        ctx.fillRect(barX, barY, barWidth * healthPercent, barHeight);
+
+        // Health bar border
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+        // Boss label
+        ctx.font = '10px monospace';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('BOSS', barX + barWidth / 2 - 15, barY - 3);
+
+        ctx.font = '20px monospace';  // Reset font
+      } else {
+        // Regular enemy rendering
+        ctx.fillStyle = enemyData.color;
+        ctx.fillText(enemyData.symbol, enemy.x + 10, enemy.y + 20);
+
+        // Health bar for multi-hit enemies
+        if (enemy.maxHealth > 1) {
+          const healthPercent = enemy.health / enemy.maxHealth;
+          ctx.fillStyle = '#ff0000';
+          ctx.fillRect(enemy.x, enemy.y - 5, enemy.width, 3);
+          ctx.fillStyle = '#00ff00';
+          ctx.fillRect(enemy.x, enemy.y - 5, enemy.width * healthPercent, 3);
+        }
       }
     });
     trackDrawCall();
@@ -615,6 +729,16 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
       ctx.fillStyle = '#00ff00';
       ctx.font = '24px monospace';
       ctx.fillText('WAVE COMPLETE - HEALTH RESTORED!', CANVAS_WIDTH / 2 - 200, CANVAS_HEIGHT / 2 - 100);
+
+      // Boss wave incoming warning
+      if (isBossWave(state.wave)) {
+        ctx.fillStyle = '#ff00ff';
+        ctx.font = '28px monospace';
+        ctx.shadowColor = '#ff00ff';
+        ctx.shadowBlur = 20;
+        ctx.fillText('⚠ BOSS INCOMING ⚠', CANVAS_WIDTH / 2 - 120, CANVAS_HEIGHT / 2 - 60);
+        ctx.shadowBlur = 0;
+      }
     }
     
     trackDrawCall();
@@ -715,6 +839,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
     // Reset achievement tracking for new session
     bulletTimeUsedRef.current = 0;
     waveDamageTakenRef.current = false;
+    bossDefeatedRef.current = false;
     // Note: Don't reset achievement unlocked flags - they persist across sessions via save system
 
     spawnWave(1);
