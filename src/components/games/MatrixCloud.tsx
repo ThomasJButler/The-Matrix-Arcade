@@ -184,9 +184,10 @@ interface AchievementManager {
 
 interface MatrixCloudProps {
   achievementManager?: AchievementManager;
+  isMuted?: boolean;
 }
 
-export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
+export default function MatrixCloud({ achievementManager, isMuted = false }: MatrixCloudProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
@@ -224,12 +225,12 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
 
   // Start background music when game starts
   useEffect(() => {
-    if (state.started && !state.gameOver) {
+    if (state.started && !state.gameOver && !isMuted) {
       playMusic('gameplay');
     } else {
       stopMusic();
     }
-  }, [state.started, state.gameOver, playMusic, stopMusic]);
+  }, [state.started, state.gameOver, playMusic, stopMusic, isMuted]);
 
   const generateParticles = useCallback((): Particle[] => {
     return Array.from({ length: PARTICLE_COUNT }, () => ({
@@ -307,9 +308,9 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
       powerUps: [] // Clear power-ups during boss battle
     }));
     
-    playSFX('levelUp');
+    if (!isMuted) playSFX('levelUp');
     addScreenShake(15);
-  }, [createBoss, playSFX, addScreenShake]);
+  }, [createBoss, playSFX, addScreenShake, isMuted]);
 
   const createBossAttack = useCallback((boss: Boss): BossAttack | null => {
     const attackTypes = {
@@ -419,8 +420,8 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
       };
     });
     
-    playSFX('powerup');
-  }, [playSFX]);
+    if (!isMuted) playSFX('powerup');
+  }, [playSFX, isMuted]);
 
   const jump = useCallback(() => {
     if (!state.gameOver && !paused) {
@@ -436,10 +437,10 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
           started: true
         };
       });
-      playSFX('jump');
+      if (!isMuted) playSFX('jump');
       addScreenShake(3);
     }
-  }, [state.gameOver, paused, playSFX, addScreenShake, unlockAchievement]);
+  }, [state.gameOver, paused, playSFX, addScreenShake, unlockAchievement, isMuted]);
 
   const reset = useCallback(() => {
     if (animationFrameRef.current) {
@@ -466,9 +467,9 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
 
   const handleCollision = useCallback((state: GameState): GameState => {
     if (state.invulnerable) return state;
-    
+
     if (state.activeEffects.shield) {
-      playSFX('hit');
+      if (!isMuted) playSFX('hit');
       addScreenShake(5);
       return {
         ...state,
@@ -479,7 +480,7 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
     }
 
     const newLives = state.lives - 1;
-    playSFX('hit');
+    if (!isMuted) playSFX('hit');
     addScreenShake(10);
 
     if (newLives <= 0) {
@@ -515,7 +516,7 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
       invulnerable: true,
       shakeIntensity: 8
     };
-  }, [playSFX, addScreenShake, updateGameSave, saveData]);
+  }, [playSFX, addScreenShake, updateGameSave, saveData, isMuted]);
 
   const updateGame = useCallback((timestamp: number) => {
     if (paused) return;
@@ -538,6 +539,13 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
 
       // Update pipes (only if not in boss battle)
       let newPipes = [...prev.pipes];
+      let newPowerUps = prev.powerUps
+        .filter(p => !p.collected)
+        .map(powerUp => ({
+          ...powerUp,
+          x: powerUp.x - PIPE_SPEED * speedMultiplier * frameDelta
+        }));
+
       if (!prev.inBossBattle) {
         if (newPipes.length === 0 || newPipes[newPipes.length - 1].x < 800 - PIPE_SPACING) {
           newPipes.push({
@@ -546,11 +554,11 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
             passed: false,
             glowIntensity: 0
           });
-          
-          // Chance to spawn power-up
+
+          // Chance to spawn power-up (immutably add to newPowerUps)
           const powerUp = spawnPowerUp();
           if (powerUp) {
-            prev.powerUps.push(powerUp);
+            newPowerUps = [...newPowerUps, powerUp];
           }
         }
       }
@@ -569,13 +577,7 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
         } : {})
       }));
 
-      // Update power-ups
-      let newPowerUps = prev.powerUps
-        .filter(p => !p.collected)
-        .map(powerUp => ({
-          ...powerUp,
-          x: powerUp.x - PIPE_SPEED * speedMultiplier * frameDelta
-        }));
+      // Power-ups already updated above, so this section is removed
 
       // Move pipes with glow effect
       newPipes = newPipes
@@ -617,8 +619,11 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
         return powerUp;
       });
 
-      // Check pipe collisions
-      for (const pipe of newPipes) {
+      // Check pipe collisions and scoring - track pipe updates immutably
+      const pipesToMark: Set<number> = new Set();
+
+      for (let i = 0; i < newPipes.length; i++) {
+        const pipe = newPipes[i];
         const topPipe = {
           x: pipe.x,
           y: 0,
@@ -640,6 +645,7 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
 
         // Score points
         if (!pipe.passed && pipe.x < 50) {
+          pipesToMark.add(i);
           const baseScore = SCORE_PER_PIPE * Math.min(newState.combo, MAX_COMBO);
           const scoreMultiplier = newState.activeEffects.doublePoints ? 2 : 1;
           const scoreIncrement = Math.floor(baseScore * scoreMultiplier);
@@ -647,23 +653,21 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
           const newLevel = Math.floor(newScore / LEVEL_THRESHOLD) + 1;
 
           if (newLevel > newState.level) {
-            playSFX('levelUp');
+            if (!isMuted) playSFX('levelUp');
             addScreenShake(7);
-            
+
             // Unlock level achievements
             if (newLevel === 5) {
               unlockAchievement('matrixCloud', 'level_5');
             }
-            
+
             // Check for boss spawns
             if (BOSS_SPAWN_LEVELS.includes(newLevel) && !newState.inBossBattle) {
               setTimeout(() => spawnBoss(newLevel), 1000);
             }
           }
 
-          pipe.passed = true;
-          pipe.glowIntensity = 1;
-          playSFX('score');
+          if (!isMuted) playSFX('score');
 
           newState = {
             ...newState,
@@ -671,13 +675,20 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
             combo: Math.min(newState.combo + COMBO_INCREMENT, MAX_COMBO),
             level: newLevel
           };
-          
+
           // Track altitude for achievement (score represents altitude)
           maxAltitude.current = Math.max(maxAltitude.current, newScore);
           if (maxAltitude.current >= 1000) {
             unlockAchievement('matrixCloud', 'cloud_high_flyer');
           }
         }
+      }
+
+      // Apply pipe updates immutably
+      if (pipesToMark.size > 0) {
+        newPipes = newPipes.map((pipe, i) =>
+          pipesToMark.has(i) ? { ...pipe, passed: true, glowIntensity: 1 } : pipe
+        );
       }
 
       // Ground and ceiling collision
@@ -694,26 +705,28 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
       }
 
       // Boss battle logic
-      let updatedBoss = newState.boss;
+      let updatedBoss = newState.boss ? { ...newState.boss } : null;
       let newBossAttacks = [...prev.bossAttacks];
       let newBossTimer = prev.bossTimer;
-      
+      let bossDefeatedThisFrame = false;
+      let bossTimedOut = false;
+
       if (newState.inBossBattle && updatedBoss) {
         // Update boss timer
         newBossTimer = Math.max(0, newBossTimer - deltaTime);
-        
+
         // Update boss position and behavior
         updatedBoss = updateBoss(updatedBoss, deltaTime);
-        
+
         // Boss attacks
         if (updatedBoss.attackTimer >= BOSS_ATTACK_INTERVAL) {
           const attack = createBossAttack(updatedBoss);
           if (attack) {
-            newBossAttacks.push(attack);
+            newBossAttacks = [...newBossAttacks, attack];
           }
-          updatedBoss.attackTimer = 0;
+          updatedBoss = { ...updatedBoss, attackTimer: 0 };
         }
-        
+
         // Update boss attacks
         newBossAttacks = newBossAttacks
           .map(attack => ({
@@ -723,7 +736,7 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
             life: attack.life - 0.02
           }))
           .filter(attack => attack.life > 0 && attack.x > -50);
-        
+
         // Check boss attack collisions with player
         for (const attack of newBossAttacks) {
           if (checkCollision(playerBox, {
@@ -738,7 +751,7 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
             break;
           }
         }
-        
+
         // Check player collision with boss
         if (checkCollision(playerBox, {
           x: updatedBoss.x - updatedBoss.size/2,
@@ -746,20 +759,20 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
           width: updatedBoss.size,
           height: updatedBoss.size
         })) {
-          // Damage boss
-          updatedBoss.health -= 10;
-          playSFX('hit');
+          // Damage boss - immutably
+          const newHealth = updatedBoss.health - 10;
+          if (!isMuted) playSFX('hit');
           addScreenShake(8);
-          
-          if (updatedBoss.health <= 0) {
-            // Boss defeated
-            updatedBoss.defeated = true;
-            updatedBoss.active = false;
+
+          if (newHealth <= 0) {
+            // Boss defeated - immutably update
+            updatedBoss = { ...updatedBoss, health: 0, defeated: true, active: false };
             const bossScore = updatedBoss.maxHealth * 2;
-            newState.score += bossScore;
-            playSFX('levelUp');
+            newState = { ...newState, score: newState.score + bossScore };
+            if (!isMuted) playSFX('levelUp');
             addScreenShake(15);
-            
+            bossDefeatedThisFrame = true;
+
             // Update boss defeat count
             updateGameSave('matrixCloud', {
               stats: {
@@ -767,37 +780,39 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
                 bossesDefeated: (saveData?.games?.matrixCloud?.stats?.bossesDefeated || 0) + 1
               }
             });
-            
+
             // Unlock boss achievements
             if (updatedBoss.type === 'agent_smith') {
               unlockAchievement('matrixCloud', 'boss_slayer');
             } else if (updatedBoss.type === 'architect') {
               unlockAchievement('matrixCloud', 'architect_defeat');
             }
-            
+
             // Track all bosses defeated
             bossesDefeated.current.add(updatedBoss.type);
             if (bossesDefeated.current.size >= 3) {
               unlockAchievement('matrixCloud', 'cloud_all_bosses');
             }
-            
-            // End boss battle
-            newState.inBossBattle = false;
-            newState.boss = null;
-            newBossAttacks = [];
           } else {
+            // Update boss health immutably
+            updatedBoss = { ...updatedBoss, health: newHealth };
             // Player takes damage from collision
             newState = handleCollision(newState);
           }
         }
-        
+
         // Boss battle timeout
         if (newBossTimer <= 0) {
-          newState.inBossBattle = false;
-          newState.boss = null;
-          newBossAttacks = [];
-          playSFX('hit'); // Failure sound
+          bossTimedOut = true;
+          if (!isMuted) playSFX('hit'); // Failure sound
         }
+      }
+
+      // Apply boss battle state changes immutably
+      if (bossDefeatedThisFrame || bossTimedOut) {
+        newState = { ...newState, inBossBattle: false };
+        updatedBoss = null;
+        newBossAttacks = [];
       }
       
       // Reset invulnerability after a short time
@@ -825,7 +840,7 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
   // Keyboard controls
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.code === 'Space') {
+      if (e.code === 'Space' || e.code === 'Enter') {
         e.preventDefault();
         if (state.gameOver) {
           reset();
@@ -834,6 +849,8 @@ export default function MatrixCloud({ achievementManager }: MatrixCloudProps) {
         }
       } else if (e.code === 'KeyP') {
         setPaused(p => !p);
+      } else if (e.code === 'KeyR') {
+        reset();
       }
     };
 

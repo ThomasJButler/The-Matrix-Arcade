@@ -149,6 +149,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
   });
   const dropIntervalIdRef = useRef<NodeJS.Timeout | null>(null);
   const particlesRef = useRef<Particle[]>([]); // Particles stored in ref for smooth 60fps animation
+  const glowRef = useRef<Map<string, number>>(new Map()); // Track block glow decay separately from state to avoid mutations
 
   // 7-Bag randomizer refs
   const pieceBagRef = useRef<TetrominoType[]>([]);
@@ -319,8 +320,10 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
               filled: true,
               color: template.color,
               char: template.char,
-              glow: 1
+              glow: 0 // Glow is now tracked in glowRef, not in state
             };
+            // Set initial glow value in ref for visual effect
+            glowRef.current.set(`${gridY}-${gridX}`, 1);
           }
         }
       }
@@ -360,6 +363,8 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
             size: 12 + Math.random() * 8
           });
         }
+        // Clear glow for cleared line
+        glowRef.current.delete(`${y}-${x}`);
       }
     });
 
@@ -373,6 +378,24 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
         glow: 0
       })));
     }
+
+    // Update glowRef keys to account for shifted rows
+    // Rows above cleared lines shift down by the number of lines cleared below them
+    const newGlowMap = new Map<string, number>();
+    glowRef.current.forEach((value, key) => {
+      const [y, x] = key.split('-').map(Number);
+      // Count how many cleared lines are below this row
+      const linesBelowCleared = linesToClear.filter(clearY => clearY > y).length;
+      if (linesBelowCleared > 0) {
+        // This row shifts down
+        newGlowMap.set(`${y + linesBelowCleared}-${x}`, value);
+      } else if (!linesToClear.includes(y)) {
+        // This row doesn't shift (it's below all cleared lines)
+        newGlowMap.set(key, value);
+      }
+      // Rows that were cleared are already deleted above
+    });
+    glowRef.current = newGlowMap;
 
     return { newGrid, linesCleared: linesToClear.length };
   }, []);
@@ -909,16 +932,23 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
             ctx.fillStyle = block.color;
             ctx.fillRect(blockX + 2, blockY + 2, BLOCK_SIZE - 4, BLOCK_SIZE - 4);
 
-            // Glow effect
-            if (block.glow && block.glow > 0) {
+            // Glow effect - using ref to track glow decay (avoids state mutation)
+            const glowKey = `${y}-${x}`;
+            const glowValue = glowRef.current.get(glowKey) || 0;
+            if (glowValue > 0) {
               ctx.shadowBlur = 20;
               ctx.shadowColor = block.color;
               ctx.fillStyle = block.color;
               ctx.fillRect(blockX + 2, blockY + 2, BLOCK_SIZE - 4, BLOCK_SIZE - 4);
               ctx.shadowBlur = 0;
 
-              // Decay glow
-              state.grid[y][x].glow = Math.max(0, block.glow - 0.02);
+              // Decay glow in ref (not state) - this is safe as it's purely visual
+              const newGlow = Math.max(0, glowValue - 0.02);
+              if (newGlow > 0) {
+                glowRef.current.set(glowKey, newGlow);
+              } else {
+                glowRef.current.delete(glowKey);
+              }
             }
 
             // Character
@@ -1024,8 +1054,9 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
     lastGroundedTime.current = 0;
     isGroundedRef.current = false;
 
-    // Clear particles
+    // Clear particles and glow
     particlesRef.current = [];
+    glowRef.current.clear();
 
     setState({
       grid: createEmptyGrid(),
