@@ -19,7 +19,7 @@ Run `./loop.sh plan` to analyse the codebase and generate tasks.
 - **Console.log Statements**: 11 debug statements across 6 files (9 to remove, 1 to convert)
 - **Legacy localStorage Usage**: 11 storage keys across 8 files still use direct localStorage
 - **State Machine Compliance**: 1/8 games (12.5%) - Only SimpleSnake fully compliant
-- **isMuted Prop Gating**: VortexPong COMPLIANT (9/9 gated), MatrixCloud COMPLIANT (8/8 gated), Metris COMPLIANT (11/11 gated), MatrixInvaders COMPLIANT (4/4 gated), others missing prop entirely
+- **isMuted Prop Gating**: VortexPong COMPLIANT (9/9 gated), MatrixCloud COMPLIANT (8/8 gated), Metris COMPLIANT (11/11 gated), MatrixInvaders COMPLIANT (4/4 gated), TerminalQuest COMPLIANT (6/6 gated), TerminalQuestCombat COMPLIANT (8/8 gated), others missing prop entirely
 - **Critical State Mutations**: All fixed - MatrixCloud and Metris now use immutable state updates
 - **Last Analysis**: 25 January 2026 (Round 23 - comprehensive verification, updated with fixes)
 
@@ -64,7 +64,7 @@ All games MUST support ESC (exit - handled by App.tsx), P (pause), R (restart), 
 | MatrixInvaders | App-level | Works | Works | Works | PARTIAL (has menu state) |
 | Metris | App-level | Works | Works | Works | PARTIAL |
 | CtrlSWorld | App-level | Works | **MISSING** | PARTIAL | NOT COMPLIANT |
-| TerminalQuest | App-level | **MISSING** | **MISSING** | N/A | PARTIAL |
+| TerminalQuest | App-level | Works | Works | N/A | PARTIAL |
 | TerminalQuestCombat | App-level | **MISSING** | **MISSING** | N/A | N/A |
 
 **Note:** ESC key is handled globally in App.tsx (lines 359-364) for all games - no per-game implementation needed.
@@ -97,14 +97,14 @@ All games MUST support ESC (exit - handled by App.tsx), P (pause), R (restart), 
 - [ ] **CtrlSWorld**: Add R key for restart (reset story progress)
 - [ ] **CtrlSWorld**: Add explicit gameOver state for story completion tracking
 - [ ] **CtrlSWorld**: Add isMuted prop to interface (lines 18-20) and implement useSoundSystem (currently placeholder at lines 457-461)
-- [ ] **TerminalQuest**: Add keyboard event handler (currently no keyboard handling at all)
-- [ ] **TerminalQuest**: Add P key for pause
-- [ ] **TerminalQuest**: Add R key for restart
-- [ ] **TerminalQuest**: Add isMuted prop to interface (lines 11-13) and gate all 6 sound calls (lines 99, 116, 120, 125, 128, 131)
+- [x] **TerminalQuest**: Add keyboard event handler (currently no keyboard handling at all) - **DONE**
+- [x] **TerminalQuest**: Add P key for pause - **DONE**
+- [x] **TerminalQuest**: Add R key for restart - **DONE**
+- [x] **TerminalQuest**: Add isMuted prop to interface (lines 11-13) and gate all 6 sound calls (lines 99, 116, 120, 125, 128, 131) - **DONE**
 - [ ] **TerminalQuest**: Migrate localStorage (lines 305, 310, 319) to useSaveSystem
 - [ ] **TerminalQuestCombat**: Add keyboard controls (1-3 for quick actions, Enter to confirm)
-- [ ] **TerminalQuestCombat**: Add isMuted and achievementManager props to interface (lines 6-11)
-- [ ] **TerminalQuest**: Pass isMuted and achievementManager props to TerminalQuestCombat (lines 374-379)
+- [x] **TerminalQuestCombat**: Add isMuted and achievementManager props to interface (lines 6-11) - **DONE**
+- [x] **TerminalQuest**: Pass isMuted and achievementManager props to TerminalQuestCombat (lines 374-379) - **DONE**
 
 #### Sound System Standardisation
 
@@ -115,20 +115,20 @@ All games MUST use useSoundSystem or useSoundSynthesis with proper isMuted gatin
 | VortexPong | useSoundSystem | Yes | 9/9 | 0 | **COMPLIANT** |
 | MatrixCloud | useSoundSystem | Yes | 8/8 | 0 | **COMPLIANT** |
 | Metris | useSoundSynthesis | Yes | 11/11 gated | Missing levelUp | **COMPLIANT** |
-| TerminalQuest | useSoundSystem | **Missing** | 0/6 | 6 | NOT COMPLIANT |
+| TerminalQuest | useSoundSystem | Yes | 6/6 | 0 | **COMPLIANT** |
 | MatrixInvaders | useSoundSynthesis | Yes | 4/4 | 0 | **COMPLIANT** |
 | SimpleSnake | Inline WebAudio | Yes | Gated | N/A | NOT STANDARD |
 | CtrlSWorld | Placeholder | **Missing** | N/A | N/A | NOT COMPLIANT |
-| TerminalQuestCombat | None | **Missing** | N/A | N/A | NOT COMPLIANT |
+| TerminalQuestCombat | useSoundSystem | Yes | 8/8 | 0 | **COMPLIANT** |
 
 **Tasks:**
 - [x] **MatrixCloud**: All 8 sound calls now properly gated
-- [ ] **TerminalQuest**: Add isMuted prop and gate all 6 sound calls (includes playMusic)
+- [x] **TerminalQuest**: Add isMuted prop and gate all 6 sound calls (includes playMusic) - **DONE**
 - [x] **MatrixInvaders**: Add isMuted prop and gate all 4 synthesis calls - **DONE**
 - [ ] **Metris**: Add levelUp sound when level increases
 - [ ] **SimpleSnake**: Replace inline Web Audio API (lines 474-523) with useSoundSystem hook
 - [ ] **CtrlSWorld**: Replace placeholder playSFX (lines 457-461) with actual useSoundSystem integration
-- [ ] **TerminalQuestCombat**: Add useSoundSystem for attack, hit, powerup, gameOver sounds
+- [x] **TerminalQuestCombat**: Add useSoundSystem for attack, hit, powerup, gameOver sounds - **DONE**
 
 #### Visual Bugs (Confirmed from Screenshots)
 
@@ -351,8 +351,8 @@ interface GameProps {
 | MatrixInvaders | 100% | 4/4 gated | Yes | PARTIAL | Integrated | Hybrid | ~75% |
 | Metris | 100% | 11/11 gated | Yes | PARTIAL | Integrated | Hybrid | **80%** |
 | CtrlSWorld | 75% | Placeholder | **Missing** | NOT COMPLIANT | Integrated | 100% | 45% |
-| TerminalQuest | 0% | 0/6 gated | **Missing** | PARTIAL | Partial | localStorage | 25% |
-| TerminalQuestCombat | 0% | None | **Missing** | N/A | None | N/A | 15% |
+| TerminalQuest | 100% | 6/6 gated | Yes | PARTIAL | Partial | localStorage | **65%** |
+| TerminalQuestCombat | 0% | 8/8 gated | Yes | N/A | None | N/A | **50%** |
 
 ---
 
@@ -368,8 +368,12 @@ interface GameProps {
    - ~~Add ENTER key to MatrixInvaders~~ **DONE**
    - ~~Add R key to Metris~~ **DONE**
    - ~~Fix MatrixCloud pause modal text overlap~~ **DONE**
-   - Add isMuted prop to TerminalQuest, TerminalQuestCombat, CtrlSWorld
-   - Gate all ungated sound calls (TerminalQuest 6)
+   - ~~Add isMuted prop to TerminalQuest~~ **DONE**
+   - ~~Add isMuted prop to TerminalQuestCombat~~ **DONE**
+   - ~~Gate all ungated sound calls in TerminalQuest (6)~~ **DONE**
+   - ~~Gate all sound calls in TerminalQuestCombat (8)~~ **DONE**
+   - ~~Add P and R keys to TerminalQuest~~ **DONE**
+   - Add isMuted prop to CtrlSWorld
    - Add R key to CtrlSWorld
 
 2. **P2 - Medium Priority (Code Quality)**:
@@ -429,6 +433,43 @@ interface GameProps {
 - Added z-30 to tutorial/power-up guide
 - Ensures pause modal always appears above other overlays
 
+### 25 January 2026 - TerminalQuest Compliance Fixes
+
+**TerminalQuest isMuted Prop (FIXED):**
+- Added `isMuted?: boolean` to TerminalQuestProps interface
+- All 6 sound calls now properly gated with `if (!isMuted)` checks:
+  - Line 99: `playMusic('menu')` - gated
+  - Line 116: `playSFX('terminalType')` - gated
+  - Line 120: `playSFX('hit')` (damage) - gated
+  - Line 125: `playSFX('hit')` (security) - gated
+  - Line 128: `playSFX('powerup')` - gated
+  - Line 131: `playSFX('score')` - gated
+
+**TerminalQuest Keyboard Controls (FIXED):**
+- Added keyboard event handler with P key for pause/resume
+- Added R key for restart (full game reset)
+- Added pause state variable
+- Added pause overlay UI with Matrix styling
+
+**TerminalQuest restartGame Function (FIXED):**
+- Implemented with useCallback to properly reset all game state
+- Resets currentNode, inventory, health, security, gameProgress flags
+
+**TerminalQuestCombat Props Interface (FIXED):**
+- Added `isMuted?: boolean` to CombatScreenProps interface
+- Added `achievementManager?: AchievementManager` to CombatScreenProps interface
+
+**TerminalQuestCombat Sound System (FIXED):**
+- Added useSoundSystem hook integration
+- 8 sound effects properly gated with `if (!isMuted)` checks:
+  - handleAttack: `playSFX('hit')` on damage, `playSFX('score')` on victory
+  - handleDefend: `playSFX('powerup')` on defensive stance
+  - handleItem: `playSFX('powerup')` for health/ally, `playSFX('hit')` for EMP
+  - enemyTurn: `playSFX('hit')` on enemy attack, `playSFX('gameOver')` on defeat
+
+**TerminalQuest Props Passing (FIXED):**
+- TerminalQuest now passes `isMuted` and `achievementManager` props to TerminalQuestCombat component
+
 ---
 
 ## Round 23 Verification Notes (25 January 2026)
@@ -474,10 +515,11 @@ interface GameProps {
    - Uses `Date.now()` directly in render for multi-ball indicator animation
    - Should use `props.timestamp` for consistency with other animations (lines 675, 739)
 
-6. **TerminalQuest No Keyboard Handler** (still pending):
-   - No useEffect with keydown listener at all
-   - Missing P (pause), R (restart) functionality
-   - Missing isMuted prop and sound gating
+6. **TerminalQuest Keyboard Handler** - **FIXED**:
+   - Added useEffect with keydown listener
+   - P key for pause/resume implemented
+   - R key for restart implemented
+   - isMuted prop added and all 6 sound calls gated
 
 7. **useSaveSystem Missing TerminalQuest** (still pending):
    - Not in GlobalSaveData interface (lines 20-29)
@@ -489,14 +531,14 @@ interface GameProps {
 
 **Overall Spec Compliance:**
 - State machine: 1/8 (12.5%)
-- Keyboard controls: 4/8 (50%) - improved from 37.5%
-- Props interface (isMuted): 5/8 (62.5%) - improved from 50%
-- Sound gating: 4/8 (50%) - improved from 37.5%
+- Keyboard controls: 5/8 (62.5%) - improved from 50%
+- Props interface (isMuted): 7/8 (87.5%) - improved from 62.5%
+- Sound gating: 6/8 (75%) - improved from 50%
 - State mutations: 8/8 (100%) - improved from 75%
 - Save system: 3/8 (37.5%)
 - Matrix theme: 8/8 (100%)
 
-**Average Game Compliance: 63%** (improved from 61%)
+**Average Game Compliance: 69%** (improved from 63%)
 
 ---
 

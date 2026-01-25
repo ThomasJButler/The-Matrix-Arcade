@@ -2,19 +2,28 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Swords, Shield, Zap, Heart, AlertTriangle } from 'lucide-react';
 import { Enemy } from './TerminalQuestContent';
+import { useSoundSystem } from '../../hooks/useSoundSystem';
+
+interface AchievementManager {
+  unlockAchievement(gameId: string, achievementId: string): void;
+}
 
 interface CombatScreenProps {
   enemy: Enemy;
   playerHealth: number;
   playerInventory: string[];
   onCombatEnd: (victory: boolean, damageDealt: number, damageTaken: number) => void;
+  achievementManager?: AchievementManager;
+  isMuted?: boolean;
 }
 
 export default function TerminalQuestCombat({
   enemy,
   playerHealth,
   playerInventory,
-  onCombatEnd
+  onCombatEnd,
+  achievementManager,
+  isMuted = false
 }: CombatScreenProps) {
   const [enemyHealth, setEnemyHealth] = useState(enemy.health);
   const [currentPlayerHealth, setCurrentPlayerHealth] = useState(playerHealth);
@@ -22,6 +31,9 @@ export default function TerminalQuestCombat({
   const [isPlayerTurn, setIsPlayerTurn] = useState(true);
   const [isAnimating, setIsAnimating] = useState(false);
   const [shakeScreen, setShakeScreen] = useState(false);
+
+  // Sound system integration
+  const { playSFX } = useSoundSystem();
 
   // Calculate player damage based on inventory
   const getPlayerDamage = () => {
@@ -43,16 +55,23 @@ export default function TerminalQuestCombat({
 
   const handleAttack = () => {
     if (!isPlayerTurn || isAnimating) return;
-    
+
     setIsAnimating(true);
     const damage = getPlayerDamage();
     const newEnemyHealth = Math.max(0, enemyHealth - damage);
-    
+
+    if (!isMuted) {
+      playSFX('hit');
+    }
+
     setCombatLog(prev => [...prev, `You deal ${damage} damage!`]);
     setEnemyHealth(newEnemyHealth);
-    
+
     if (newEnemyHealth <= 0) {
       setTimeout(() => {
+        if (!isMuted) {
+          playSFX('score');
+        }
         setCombatLog(prev => [...prev, `${enemy.name} defeated!`]);
         onCombatEnd(true, enemy.health, playerHealth - currentPlayerHealth);
       }, 1000);
@@ -63,61 +82,80 @@ export default function TerminalQuestCombat({
 
   const handleDefend = () => {
     if (!isPlayerTurn || isAnimating) return;
-    
+
     setIsAnimating(true);
+    if (!isMuted) {
+      playSFX('powerup');
+    }
     setCombatLog(prev => [...prev, 'You take a defensive stance...']);
-    
+
     // Heal a small amount
     const healAmount = 5 + getPlayerDefense();
     setCurrentPlayerHealth(prev => Math.min(playerHealth, prev + healAmount));
-    
+
     setTimeout(() => enemyTurn(), 1500);
   };
 
   const handleItem = (item: string) => {
     if (!isPlayerTurn || isAnimating) return;
-    
+
     setIsAnimating(true);
-    
+
     switch (item) {
       case 'health_pack': {
         const healAmount = 50;
         setCurrentPlayerHealth(prev => Math.min(playerHealth, prev + healAmount));
+        if (!isMuted) {
+          playSFX('powerup');
+        }
         setCombatLog(prev => [...prev, `Health Pack used! +${healAmount} HP`]);
         break;
       }
       case 'emp_device': {
         const empDamage = 40;
         setEnemyHealth(prev => Math.max(0, prev - empDamage));
+        if (!isMuted) {
+          playSFX('hit');
+        }
         setCombatLog(prev => [...prev, `EMP blast deals ${empDamage} damage!`]);
         break;
       }
       case 'ally_beacon': {
         const allyDamage = 25;
         setEnemyHealth(prev => Math.max(0, prev - allyDamage));
+        if (!isMuted) {
+          playSFX('powerup');
+        }
         setCombatLog(prev => [...prev, `Ally arrives and deals ${allyDamage} damage!`]);
         break;
       }
     }
-    
+
     setTimeout(() => enemyTurn(), 1500);
   };
 
   const enemyTurn = () => {
     if (enemyHealth <= 0) return;
-    
+
     setIsPlayerTurn(false);
     const damage = Math.max(0, enemy.damage - getPlayerDefense() - Math.floor(Math.random() * 5));
     const newPlayerHealth = Math.max(0, currentPlayerHealth - damage);
-    
+
     setShakeScreen(true);
     setTimeout(() => setShakeScreen(false), 300);
-    
+
+    if (!isMuted) {
+      playSFX('hit');
+    }
+
     setCombatLog(prev => [...prev, `${enemy.name} attacks for ${damage} damage!`]);
     setCurrentPlayerHealth(newPlayerHealth);
-    
+
     if (newPlayerHealth <= 0) {
       setTimeout(() => {
+        if (!isMuted) {
+          playSFX('gameOver');
+        }
         setCombatLog(prev => [...prev, 'You have been defeated...']);
         onCombatEnd(false, enemy.health - enemyHealth, playerHealth);
       }, 1000);

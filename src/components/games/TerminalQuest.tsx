@@ -10,6 +10,7 @@ interface AchievementManager {
 
 interface TerminalQuestProps {
   achievementManager?: AchievementManager;
+  isMuted?: boolean;
 }
 
 type GameState = {
@@ -62,7 +63,7 @@ const InventoryBadge = ({ item }: { item: string }) => {
   );
 };
 
-export default function TerminalQuest({ achievementManager }: TerminalQuestProps) {
+export default function TerminalQuest({ achievementManager, isMuted = false }: TerminalQuestProps) {
   const [gameState, setGameState] = useState<GameState>({
     currentNode: 'start',
     inventory: [],
@@ -79,6 +80,7 @@ export default function TerminalQuest({ achievementManager }: TerminalQuestProps
   const [isTyping, setIsTyping] = useState(false);
   const [shakeEffect, setShakeEffect] = useState(false); // Dynamic screen shake
   const [backgroundGlitch, setBackgroundGlitch] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
 
   // Sound system integration
   const { playSFX, playMusic, stopMusic } = useSoundSystem();
@@ -96,9 +98,11 @@ export default function TerminalQuest({ achievementManager }: TerminalQuestProps
   
   // Start background music when component mounts
   useEffect(() => {
-    playMusic('menu');
+    if (!isMuted) {
+      playMusic('menu');
+    }
     return () => stopMusic();
-  }, [playMusic, stopMusic]);
+  }, [playMusic, stopMusic, isMuted]);
 
   const triggerShake = () => {
     setShakeEffect(true);
@@ -111,24 +115,34 @@ export default function TerminalQuest({ achievementManager }: TerminalQuestProps
 
   // Handler for choice actions
   const handleChoice = (choice: Choice) => {
-    
+
     // Play sound effects based on choice type
-    playSFX('terminalType');
-    
+    if (!isMuted) {
+      playSFX('terminalType');
+    }
+
     if (choice.damage && gameState.health <= choice.damage) {
       triggerShake(); // Big damage causes a shake
-      playSFX('hit');
+      if (!isMuted) {
+        playSFX('hit');
+      }
     }
     if (choice.security) {
       toggleBackgroundGlitch(); // Glitch background on security risks
       setTimeout(() => toggleBackgroundGlitch(), 1000);
-      playSFX('hit');
+      if (!isMuted) {
+        playSFX('hit');
+      }
     }
     if (choice.gives) {
-      playSFX('powerup');
+      if (!isMuted) {
+        playSFX('powerup');
+      }
     }
     if (choice.heal) {
-      playSFX('score');
+      if (!isMuted) {
+        playSFX('score');
+      }
     }
 
     // Core state update remains consistent
@@ -319,6 +333,39 @@ export default function TerminalQuest({ achievementManager }: TerminalQuestProps
     setSaveExists(!!localStorage.getItem('terminalQuestSave'));
   }, []);
 
+  // Restart game function
+  const restartGame = useCallback(() => {
+    setGameState({
+      currentNode: 'start',
+      inventory: [],
+      health: 100,
+      maxHealth: 100,
+      securityLevel: 50,
+      discovered: ['start'],
+      experience: 0,
+      achievements: [],
+      choiceCount: 0
+    });
+    setInCombat(false);
+    setIsPaused(false);
+    hasFirstChoice.current = false;
+    combatVictories.current = 0;
+  }, []);
+
+  // Keyboard handler for P (pause) and R (restart)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'p' || e.key === 'P') {
+        setIsPaused(prev => !prev);
+      } else if (e.key === 'r' || e.key === 'R') {
+        restartGame();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [restartGame]);
+
   const currentNode = GAME_NODES[gameState.currentNode];
   const typedDescription = useTypingEffect(currentNode?.description || '');
 
@@ -333,6 +380,21 @@ export default function TerminalQuest({ achievementManager }: TerminalQuestProps
     <div
       className={`relative w-full h-full bg-black text-green-500 font-mono flex flex-col ${shakeEffect ? 'shake-animation' : ''} ${backgroundGlitch ? 'bg-glitch-effect' : ''}`}
     >
+      {/* Pause Overlay */}
+      {isPaused && (
+        <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50">
+          <div className="text-center p-8 border-2 border-green-500 bg-black rounded-lg shadow-[0_0_20px_#00ff00]">
+            <h2 className="text-3xl font-bold text-green-500 mb-4" style={{ textShadow: '0 0 10px #00ff00' }}>
+              PAUSED
+            </h2>
+            <p className="text-green-400 mb-2">XP: {gameState.experience}</p>
+            <p className="text-green-400 mb-4">Health: {gameState.health}/{gameState.maxHealth}</p>
+            <p className="text-sm text-green-300">Press P to resume</p>
+            <p className="text-sm text-green-300">Press R to restart</p>
+            <p className="text-sm text-green-300">Press ESC to exit</p>
+          </div>
+        </div>
+      )}
       {/* Header with Dynamic Indicators */}
       <header className="flex justify-between items-center p-4 bg-black border-b border-green-500">
         <h2 className="text-lg tracking-wide flex items-center gap-2">
@@ -376,6 +438,8 @@ export default function TerminalQuest({ achievementManager }: TerminalQuestProps
             playerHealth={gameState.health}
             playerInventory={gameState.inventory}
             onCombatEnd={handleCombatEnd}
+            achievementManager={achievementManager}
+            isMuted={isMuted}
           />
         ) : (
           <>
