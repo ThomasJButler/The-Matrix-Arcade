@@ -24,7 +24,6 @@ const StatDisplay: React.FC<StatDisplayProps> = ({
   label,
   value,
   maxValue,
-  color,
   unit = '',
   showDelta = false,
   previousValue = 0

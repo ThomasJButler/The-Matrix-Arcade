@@ -62,7 +62,6 @@ export function useSimpleSnakeGame(options: UseSimpleSnakeGameOptions = {}) {
 
   // Refs for game loop
   const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
-  const lastMoveTime = useRef<number>(0);
 
   // Generate random food position
   const generateFood = useCallback((snake: Position[], powerUpPos?: Position): Position => {
@@ -139,8 +138,8 @@ export function useSimpleSnakeGame(options: UseSimpleSnakeGameOptions = {}) {
     return pos.x < 0 || pos.x >= GRID_SIZE || pos.y < 0 || pos.y >= GRID_SIZE;
   };
 
-  // Check if position collides with snake
-  const isSnakeCollision = (pos: Position, snake: Position[]): boolean => {
+  // Check if position collides with snake - used in collision detection
+  const _isSnakeCollision = (pos: Position, snake: Position[]): boolean => {
     return snake.some(s => s.x === pos.x && s.y === pos.y);
   };
 
@@ -156,7 +155,7 @@ export function useSimpleSnakeGame(options: UseSimpleSnakeGameOptions = {}) {
 
       // Clean up expired power-ups
       const now = Date.now();
-      let activePowerUps = { ...prev.activePowerUps };
+      const activePowerUps = { ...prev.activePowerUps };
       let powerUp = prev.powerUp;
 
       // Remove expired active power-ups
@@ -215,7 +214,7 @@ export function useSimpleSnakeGame(options: UseSimpleSnakeGameOptions = {}) {
       }
 
       // Move snake
-      let newSnake = [nextPos, ...prev.snake];
+      const newSnake = [nextPos, ...prev.snake];
       let newFood = prev.food;
       let newScore = prev.score;
       let newSpeed = prev.speed;

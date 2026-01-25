@@ -22,7 +22,7 @@ export default function TerminalQuestCombat({
   playerHealth,
   playerInventory,
   onCombatEnd,
-  achievementManager,
+  achievementManager: _achievementManager,
   isMuted = false
 }: CombatScreenProps) {
   const [enemyHealth, setEnemyHealth] = useState(enemy.health);

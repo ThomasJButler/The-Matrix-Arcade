@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useSoundSystem } from './useSoundSystem';
 
 // Mock AudioContext
@@ -67,7 +67,7 @@ const mockAudioContext = {
   sampleRate: 48000,
 };
 
-(global as any).AudioContext = vi.fn(() => mockAudioContext);
+(global as unknown as Record<string, unknown>).AudioContext = vi.fn(() => mockAudioContext);
 
 describe('useSoundSystem', () => {
   beforeEach(() => {
@@ -292,7 +292,7 @@ describe('useSoundSystem', () => {
   it('handles audio context errors gracefully', async () => {
     const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     
-    (global as any).AudioContext = vi.fn(() => {
+(global as unknown as Record<string, unknown>).AudioContext = vi.fn(() => {
       throw new Error('Audio not supported');
     });
 
@@ -303,9 +303,9 @@ describe('useSoundSystem', () => {
     });
 
     expect(consoleSpy).toHaveBeenCalledWith('Failed to initialize audio context:', expect.any(Error));
-    
+
     // Restore
-    (global as any).AudioContext = vi.fn(() => mockAudioContext);
+    (global as unknown as Record<string, unknown>).AudioContext = vi.fn(() => mockAudioContext);
     consoleSpy.mockRestore();
   });
 

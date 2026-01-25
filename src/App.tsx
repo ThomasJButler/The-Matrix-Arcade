@@ -22,7 +22,6 @@ import {
   Save,
   Crosshair,
   X,
-  Volume2,
   VolumeX,
   Blocks,
   Terminal,
@@ -64,7 +63,7 @@ function App() {
   const footerRef = useRef<HTMLDivElement>(null);
   
   // Initialize sound system and achievement manager
-  const { playSFX, playMusic, stopMusic, playBackgroundMP3, stopBackgroundMP3, toggleMute, isMuted, config: soundConfig, updateConfig } = useSoundSystem();
+  const { playSFX, stopMusic, playBackgroundMP3, toggleMute, isMuted } = useSoundSystem();
   const achievementManager = useAchievementManager();
   const { saveData } = useSaveSystem();
 
@@ -76,7 +75,6 @@ function App() {
   const gamesPlayed = useRef(new Set<string>());
   const playStartTime = useRef<number | null>(null);
   const totalPlayTime = useRef(0);
-  const appStartTime = useRef(Date.now());
 
   /**
    * Track play time and check for marathon gamer achievement
@@ -154,7 +152,7 @@ function App() {
     const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
 
     // Calculate total score across all games
-    const totalScore = Object.values(saveData.games || {}).reduce((sum, game: any) => sum + (game.highScore || 0), 0);
+    const totalScore = Object.values(saveData.games || {}).reduce((sum, game) => sum + ((game as { highScore?: number }).highScore || 0), 0);
 
     // Total Score achievements
     if (totalScore >= 10000 && !currentGlobalAchievements.includes('global_score_10k')) {
@@ -176,7 +174,7 @@ function App() {
     }
 
     // Total games played achievement
-    const totalGamesPlayed = Object.values(saveData.games || {}).reduce((sum, game: any) => sum + (game.stats?.gamesPlayed || 0), 0);
+    const totalGamesPlayed = Object.values(saveData.games || {}).reduce((sum, game) => sum + ((game as { stats?: { gamesPlayed?: number } }).stats?.gamesPlayed || 0), 0);
 
     if (totalGamesPlayed >= 100 && !currentGlobalAchievements.includes('global_100_plays')) {
       achievementManager.updateGlobalStats({

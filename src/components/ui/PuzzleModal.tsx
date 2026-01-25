@@ -59,7 +59,7 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
 
   // Lifeline system
   const lifelineManager = useLifelineManager();
-  const [showFiftyFifty, setShowFiftyFifty] = useState(false);
+  const [_showFiftyFifty, setShowFiftyFifty] = useState(false);
   const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
   const [showSentientAI, setShowSentientAI] = useState(false);
   const [showCharacters, setShowCharacters] = useState(false);

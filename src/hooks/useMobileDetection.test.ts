@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useMobileDetection } from './useMobileDetection';
 
@@ -18,7 +18,7 @@ describe('useMobileDetection', () => {
       configurable: true,
     });
     // Remove touch support
-    delete (window as any).ontouchstart;
+    delete (window as unknown as Record<string, unknown>).ontouchstart;
   });
 
   afterEach(() => {
@@ -33,9 +33,9 @@ describe('useMobileDetection', () => {
     });
     // Restore ontouchstart if it existed
     if (originalOntouchstart !== undefined) {
-      (window as any).ontouchstart = originalOntouchstart;
+      (window as unknown as Record<string, unknown>).ontouchstart = originalOntouchstart;
     } else {
-      delete (window as any).ontouchstart;
+      delete (window as unknown as Record<string, unknown>).ontouchstart;
     }
   });
 
@@ -132,7 +132,7 @@ describe('useMobileDetection', () => {
   });
 
   it('detects touch support via ontouchstart', () => {
-    // @ts-ignore
+    // @ts-expect-error - Setting ontouchstart for testing touch detection
     window.ontouchstart = () => {};
 
     const { result } = renderHook(() => useMobileDetection());
@@ -140,7 +140,7 @@ describe('useMobileDetection', () => {
     expect(result.current.isTouchDevice).toBe(true);
 
     // Clean up
-    // @ts-ignore
+    // @ts-expect-error - Cleaning up test touch detection property
     delete window.ontouchstart;
   });
 

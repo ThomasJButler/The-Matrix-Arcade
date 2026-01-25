@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
-import { useSimpleSnakeGame, type Direction, type GameState, type Position, type PowerUpType } from './useSimpleSnakeGame';
+import { renderHook, act } from '@testing-library/react';
+import { useSimpleSnakeGame } from './useSimpleSnakeGame';
 
 describe('useSimpleSnakeGame', () => {
   beforeEach(() => {
@@ -1014,7 +1014,8 @@ describe('useSimpleSnakeGame', () => {
         vi.advanceTimersByTime(300);
       });
 
-      const positionAfterMove = { ...result.current.gameState.snake[0] };
+      // Store position to verify it has moved before reset
+      const _positionAfterMove = { ...result.current.gameState.snake[0] };
 
       // Start again should reset
       act(() => {

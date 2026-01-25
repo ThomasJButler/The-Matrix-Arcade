@@ -36,6 +36,7 @@ npm run lint          # Run ESLint
 npm test              # Run tests
 npm run test:ui       # Vitest UI
 npm run test:coverage # Coverage report
+npm run test:visual   # Playwright visual test
 ```
 
 ## Features

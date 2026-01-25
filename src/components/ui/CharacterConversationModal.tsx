@@ -45,8 +45,8 @@ export const CharacterConversationModal: React.FC<CharacterConversationModalProp
     let allOptions: string[] = [];
     if (puzzle.type === 'multiple-choice') {
       // Extract options from puzzle (assuming optionA, optionB, etc.)
-      const puzzleAny = puzzle as any;
-      allOptions = ['A', 'B', 'C', 'D'].filter(opt => puzzleAny[`option${opt}`]);
+      const puzzleRecord = puzzle as unknown as Record<string, unknown>;
+      allOptions = ['A', 'B', 'C', 'D'].filter(opt => puzzleRecord[`option${opt}`]);
     } else {
       // For other types, we'll just use correct/incorrect binary
       allOptions = [correctAnswer];
@@ -62,7 +62,7 @@ export const CharacterConversationModal: React.FC<CharacterConversationModalProp
     );
 
     // Generate conversation lines
-    const lines: ConversationLine[] = characters.map((char, index) => {
+    const lines: ConversationLine[] = characters.map((char) => {
       // Determine if this character will be right or wrong based on consensus
       const roll = Math.random() * 100;
       let chosenAnswer = correctAnswer;
@@ -78,7 +78,7 @@ export const CharacterConversationModal: React.FC<CharacterConversationModalProp
       }
 
       const isCorrect = chosenAnswer === correctAnswer;
-      const opinion = generateCharacterOpinion(char, chosenAnswer, isCorrect, puzzle.type);
+      const opinion = generateCharacterOpinion(char, chosenAnswer, isCorrect);
 
       return {
         character: char,
