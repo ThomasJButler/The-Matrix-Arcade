@@ -39,11 +39,7 @@ export const SaveLoadManager: React.FC<SaveLoadManagerProps> = ({ isOpen, onClos
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = () => {
-    const success = exportSaveData();
-    if (success) {
-      // Could add a toast notification here
-      console.log('Save data exported successfully');
-    }
+    exportSaveData();
   };
 
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,13 +47,9 @@ export const SaveLoadManager: React.FC<SaveLoadManagerProps> = ({ isOpen, onClos
     if (!file) return;
 
     setImporting(true);
-    const success = await importSaveData(file);
+    await importSaveData(file);
     setImporting(false);
-    
-    if (success) {
-      console.log('Save data imported successfully');
-    }
-    
+
     // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
