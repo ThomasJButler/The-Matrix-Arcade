@@ -26,6 +26,7 @@ export interface GlobalSaveData {
     ctrlSWorld: GameSaveData;
     matrixInvaders: GameSaveData;
     metris: GameSaveData;
+    terminalQuest: GameSaveData;
   };
   globalStats: {
     totalPlayTime: number;
@@ -63,7 +64,8 @@ const createDefaultGlobalSave = (): GlobalSaveData => ({
     matrixCloud: createDefaultGameSave(),
     ctrlSWorld: createDefaultGameSave(),
     matrixInvaders: createDefaultGameSave(),
-    metris: createDefaultGameSave()
+    metris: createDefaultGameSave(),
+    terminalQuest: createDefaultGameSave()
   },
   globalStats: {
     totalPlayTime: 0,
@@ -148,13 +150,22 @@ export const GAME_ACHIEVEMENTS: Record<string, Achievement[]> = {
     { id: 'architect', name: 'Architect', description: 'Build to 18 rows without clearing', game: 'Metris' },
     { id: 't_spin_master', name: 'T-Spin Master', description: 'Perform 5 T-spins', game: 'Metris' },
     { id: 'immortal', name: 'Immortal', description: 'Reach level 20', game: 'Metris' }
+  ],
+  terminalQuest: [
+    { id: 'quest_first_choice', name: 'First Decision', description: 'Make your first choice in the Matrix', game: 'Terminal Quest' },
+    { id: 'quest_tool_collector', name: 'Tool Collector', description: 'Collect 5 different tools', game: 'Terminal Quest' },
+    { id: 'quest_survivor', name: 'Survivor', description: 'Complete 10 choices without taking damage', game: 'Terminal Quest' },
+    { id: 'quest_code_master', name: 'Code Master', description: 'Achieve security level 90+', game: 'Terminal Quest' },
+    { id: 'quest_team_leader', name: 'Team Leader', description: 'Maintain health above 80%', game: 'Terminal Quest' },
+    { id: 'quest_combat_victor', name: 'Combat Victor', description: 'Win 10 combat encounters', game: 'Terminal Quest' },
+    { id: 'quest_story_end', name: 'Story Complete', description: 'Reach one of the game endings', game: 'Terminal Quest' }
   ]
 };
 
 // Global achievements (meta achievements)
 export const GLOBAL_ACHIEVEMENTS: Achievement[] = [
   { id: 'global_first_game', name: 'Welcome to the Matrix', description: 'Play your first game' },
-  { id: 'global_all_games', name: 'Matrix Master', description: 'Play all 5 games' },
+  { id: 'global_all_games', name: 'Matrix Master', description: 'Play all 7 games' },
   { id: 'global_10_achievements', name: 'Achievement Hunter', description: 'Unlock 10 achievements' },
   { id: 'global_25_achievements', name: 'Achievement Expert', description: 'Unlock 25 achievements' },
   { id: 'global_50_achievements', name: 'Achievement Legend', description: 'Unlock 50 achievements' },
