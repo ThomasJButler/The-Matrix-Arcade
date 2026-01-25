@@ -101,7 +101,7 @@ All games MUST support ESC (exit - handled by App.tsx), P (pause), R (restart), 
 - [x] **TerminalQuest**: Add P key for pause - **DONE**
 - [x] **TerminalQuest**: Add R key for restart - **DONE**
 - [x] **TerminalQuest**: Add isMuted prop to interface (lines 11-13) and gate all 6 sound calls (lines 99, 116, 120, 125, 128, 131) - **DONE**
-- [ ] **TerminalQuest**: Migrate localStorage (lines 305, 310, 319) to useSaveSystem
+- [x] **TerminalQuest**: Migrate localStorage (lines 305, 310, 319) to useSaveSystem - **DONE** (already fixed in earlier round)
 - [x] **TerminalQuestCombat**: Add keyboard controls (keys 1-5 map to Attack, Defend, and up to 3 combat items, UI shows keyboard shortcuts)
 - [x] **TerminalQuestCombat**: Add isMuted and achievementManager props to interface (lines 6-11) - **DONE**
 - [x] **TerminalQuest**: Pass isMuted and achievementManager props to TerminalQuestCombat (lines 374-379) - **DONE**
@@ -189,7 +189,7 @@ All terminalQuest support has been added:
 | File | Lines | Current Usage | Action |
 |------|-------|---------------|--------|
 | Metris.tsx | ~~215, 715~~ | localStorage for highScore | **FIXED** - Migrated to useSaveSystem |
-| MatrixInvaders.tsx | 96, 709, 742 | localStorage for highScore | Remove (already uses useSaveSystem at lines 694-710) |
+| MatrixInvaders.tsx | ~~96, 709, 742~~ | localStorage for highScore | **FIXED** - Now uses useSaveSystem exclusively |
 | TerminalQuest.tsx | ~~305, 310, 319~~ | Direct localStorage for save/load | **FIXED** - Migrated to useSaveSystem, stores gameState in preferences field |
 | useSimpleSnakeGame.ts | 44, 208 | localStorage for highScore | Migrate to useSaveSystem |
 | useLifelineManager.ts | 29, 77 | localStorage for lifeline state | Consider migrating to useSaveSystem for consistency |
@@ -349,7 +349,7 @@ interface GameProps {
 | SimpleSnake | 100% | useSoundSystem (gated) | Yes | **COMPLIANT** | Integrated | 100% | **95%** |
 | VortexPong | 100% | 9/9 gated | Yes | **COMPLIANT** | Integrated | 100% | **95%** |
 | MatrixCloud | 100% | 8/8 gated | Yes | PARTIAL | Integrated | 100% | **85%** |
-| MatrixInvaders | 100% | 4/4 gated | Yes | PARTIAL | Integrated | Hybrid | ~75% |
+| MatrixInvaders | 100% | 4/4 gated | Yes | PARTIAL | Integrated | 100% | ~75% |
 | Metris | 100% | 12/12 gated | Yes | PARTIAL | Integrated | 100% | **90%** |
 | CtrlSWorld | 100% | useSoundSystem | Yes | COMPLIANT | Integrated | 100% | **85%** |
 | TerminalQuest | 100% | 6/6 gated | Yes | PARTIAL | Partial | 100% | **75%** |
@@ -688,6 +688,13 @@ interface GameProps {
 - Experience tracked as highScore for consistency with other games
 - Stats updated: gamesPlayed, totalScore, longestSurvival
 - Tests updated to reflect new save system integration
+
+### 25 January 2026 - MatrixInvaders localStorage Migration
+
+**MatrixInvaders localStorage Removed (FIXED):**
+- Line 99: Initial high score now set to 0 and synced from useSaveSystem via useEffect
+- Line 638: resetGame function now reads high score from saveData.games.matrixInvaders
+- Lines 783-786: Removed redundant localStorage.setItem for backward compatibility (useSaveSystem is now the single source of truth)
 
 ---
 

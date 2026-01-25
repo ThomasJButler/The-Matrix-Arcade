@@ -96,11 +96,11 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
     gameOver: false,
     paused: false,
     combo: 0,
-    highScore: parseInt(localStorage.getItem('matrixInvaders_highScore') || '0'),
+    highScore: 0,
     bulletTimeActive: false,
     timeScale: 1
   });
-  
+
   // Hooks
   const { synthLaser, synthExplosion, synthDrum } = useSoundSynthesis();
   const projectilePool = useObjectPool({ create: createProjectile, maxSize: 100 });
@@ -114,7 +114,15 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
   const maxWaveRef = useRef(0);
   const maxComboRef = useRef(0);
   const enemiesKilledRef = useRef(0);
-  
+
+  // Sync high score from useSaveSystem on mount
+  useEffect(() => {
+    const savedHighScore = saveData.games.matrixInvaders?.highScore || 0;
+    if (savedHighScore > 0) {
+      setState(prev => ({ ...prev, highScore: savedHighScore }));
+    }
+  }, [saveData.games.matrixInvaders?.highScore]);
+
   // Initialize Matrix rain
   useEffect(() => {
     const chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノ01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -627,7 +635,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
       gameOver: false,
       paused: false,
       combo: 0,
-      highScore: parseInt(localStorage.getItem('matrixInvaders_highScore') || '0'),
+      highScore: saveData.games.matrixInvaders?.highScore || 0,
       bulletTimeActive: false,
       timeScale: 1
     });
@@ -639,7 +647,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
     enemiesKilledRef.current = 0;
 
     spawnWave(1);
-  }, [projectilePool, enemyPool, particlePool, spawnWave]);
+  }, [projectilePool, enemyPool, particlePool, spawnWave, saveData.games.matrixInvaders?.highScore]);
 
   // Handle keyboard input
   useEffect(() => {
@@ -771,11 +779,6 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
             bestCombo: Math.max(previousBestCombo, maxComboRef.current)
           }
         });
-
-        // Also update localStorage for backward compatibility
-        if (state.score > state.highScore) {
-          localStorage.setItem('matrixInvaders_highScore', state.score.toString());
-        }
       }, 100);
 
       // Combo achievement: Get 10x combo
