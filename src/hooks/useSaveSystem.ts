@@ -108,7 +108,8 @@ export const GAME_ACHIEVEMENTS: Record<string, Achievement[]> = {
     { id: 'pong_perfect_game', name: 'Flawless Victory', description: 'Win without losing a point', game: 'Vortex Pong' },
     { id: 'pong_multi_ball', name: 'Ball Juggler', description: 'Handle 3 balls simultaneously', game: 'Vortex Pong' },
     { id: 'pong_combo_king', name: 'Combo King', description: 'Score 5 consecutive paddle hits', game: 'Vortex Pong' },
-    { id: 'pong_rally_master', name: 'Rally Master', description: '20 hits in a single rally', game: 'Vortex Pong' }
+    { id: 'pong_rally_master', name: 'Rally Master', description: '20 hits in a single rally', game: 'Vortex Pong' },
+    { id: 'pong_power_master', name: 'Power Master', description: 'Collect 5 power-ups in one game', game: 'Vortex Pong' }
   ],
   matrixCloud: [
     { id: 'cloud_first_flight', name: 'Digital Pilot', description: 'Complete your first flight', game: 'Matrix Cloud' },

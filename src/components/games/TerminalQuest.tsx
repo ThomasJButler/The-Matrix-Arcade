@@ -87,14 +87,16 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
   const { playSFX, playMusic, stopMusic } = useSoundSystem();
 
   // Save system integration - replaces direct localStorage usage
-  const { saveData, updateGameSave } = useSaveSystem();
-  
-  // Achievement unlock function
+  const { saveData, updateGameSave, unlockAchievement: unlockSaveAchievement } = useSaveSystem();
+
+  // Achievement unlock function - calls BOTH achievementManager (for UI notification) AND useSaveSystem (for persistence)
   const unlockAchievement = useCallback((achievementId: string) => {
     if (achievementManager?.unlockAchievement) {
       achievementManager.unlockAchievement('terminalQuest', achievementId);
     }
-  }, [achievementManager]);
+    // Also persist via useSaveSystem - this was previously missing and caused achievements to be lost between sessions
+    unlockSaveAchievement('terminalQuest', achievementId);
+  }, [achievementManager, unlockSaveAchievement]);
   
   // Track various achievement conditions
   const hasFirstChoice = React.useRef(false);
@@ -138,17 +140,6 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
     const damageAmount = choice.damage || 0;
     const newHealth = Math.max(0, Math.min(state.maxHealth, state.health - damageAmount + healAmount));
     const newSecurity = Math.max(0, Math.min(100, state.securityLevel + (choice.security || 0)));
-
-    // Check achievements
-    if (newXP >= 100 && !state.achievements.includes('first_100_xp')) {
-      newAchievements.push('first_100_xp');
-    }
-    if (state.choiceCount === 0 && choice.nextNode.includes('combat')) {
-      newAchievements.push('first_combat');
-    }
-    if (updatedInventory.length >= 10 && !state.achievements.includes('collector')) {
-      newAchievements.push('collector');
-    }
 
     // Global achievement system checks
     // First choice achievement

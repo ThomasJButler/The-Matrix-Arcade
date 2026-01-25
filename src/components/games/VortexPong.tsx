@@ -95,6 +95,7 @@ const getScreenShake = (intensity: number) => ({
 
 export default function VortexPong({ achievementManager, isMuted = false }: VortexPongProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [paddleY, setPaddleY] = useState(150);
   const [paddleVelocity, setPaddleVelocity] = useState(0);
   const [keyboardControls, setKeyboardControls] = useState({ up: false, down: false });
@@ -151,6 +152,11 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
       });
     }
     setParticles(newParticles);
+  }, []);
+
+  // Auto-focus container on mount so ENTER key works immediately
+  useEffect(() => {
+    containerRef.current?.focus();
   }, []);
 
   // Removed duplicate keyboard handler - using velocity-based system below instead
@@ -221,6 +227,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
         e.preventDefault();
         setKeyboardControls(prev => ({ ...prev, down: true }));
       } else if (e.key === 'Enter') {
+        e.preventDefault();
         // ENTER starts game from menu or restarts from game over
         if (showMenu || gameOver) {
           resetGame();
@@ -820,7 +827,11 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
   }, [renderParticles]);
 
   return (
-    <div className="h-full w-full flex items-center justify-center bg-black relative">
+    <div
+      ref={containerRef}
+      tabIndex={0}
+      className="h-full w-full flex items-center justify-center bg-black relative outline-none"
+    >
       <div className="flex flex-col items-center gap-4 max-w-[800px] w-full">
         <motion.canvas
           ref={canvasRef}

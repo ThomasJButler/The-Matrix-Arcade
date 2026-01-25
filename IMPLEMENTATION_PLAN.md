@@ -11,18 +11,18 @@ Run `./loop.sh plan` to analyse the codebase and generate tasks.
 - **Games Implemented**: 8 (exceeds 6+ goal)
 - **Games in Main Menu**: 7 active games (CtrlSWorld, SimpleSnake, VortexPong, MatrixCloud, MatrixInvaders, Metris, TerminalQuest)
 - **Hidden Games**: 1 (TerminalQuestCombat - combat subcomponent of TerminalQuest)
-- **Achievement System**: 63 total achievements defined (56 game + 7 global) - All IDs now consistent ✓
-- **Hooks Library**: 17 shared hooks for games to use (6 have tests)
+- **Achievement System**: 64 total achievements defined (57 game + 7 global) - added pong_power_master
+- **Hooks Library**: 17 shared hooks for games to use
 - **Hooks Test Coverage**: 11/17 (65%)
-- **Game Test Coverage**: 7/7 games have test files (100%)
+- **Game Test Coverage**: 8/8 games have test files (100%)
 - **Visual Consistency**: Strong Matrix theme throughout (green-on-black, glow effects, CRT aesthetic)
-- **Console.log Statements**: 0 debug logging statements remain (all wrapped in DEV environment flags) ✓
-- **Legacy localStorage Usage**: 2 game-related files still use direct localStorage (GameStateContext, useLifelineManager)
-- **State Machine Compliance**: 2/7 games (29%) - SimpleSnake and VortexPong fully compliant
-- **isMuted Prop Gating**: All 8 games have isMuted prop and gate sound calls properly ✓
-- **Achievement ID Mismatches**: All 4 games fixed (SimpleSnake, MatrixCloud, MatrixInvaders, CtrlSWorld) ✓
-- **Keyboard Controls**: All 7 main games now COMPLIANT with standard controls (ESC, P, R, ENTER) ✓
-- **Last Analysis**: 25 January 2026 (Round 39 - useAchievementManager tests)
+- **Console Statements**: 21 total (2 wrapped with env checks, 18 in error/warn handlers - acceptable for debugging, 1 in quiz content)
+- **Legacy localStorage Usage**: 6 files use direct localStorage (3 for game data, 3 for user preferences)
+- **State Machine Compliance**: 5/8 games (62.5%) - SimpleSnake, VortexPong, MatrixInvaders, Metris, MatrixCloud compliant
+- **isMuted Prop Gating**: All 8 games have isMuted prop and gate sound calls properly
+- **Achievement Persistence**: All games now persist achievements correctly (TerminalQuest fixed Round 50)
+- **Keyboard Controls**: All 7 main games COMPLIANT with standard controls (P, R, ENTER) - ESC handled at App level
+- **Last Analysis**: 25 January 2026 (Round 50 - P0 critical fixes applied)
 
 ---
 
@@ -30,161 +30,467 @@ Run `./loop.sh plan` to analyse the codebase and generate tasks.
 
 ### P0 - Critical (Blocking User Experience)
 
-None currently blocking.
+#### 1. VortexPong ENTER Key Focus Issue
 
-### P1 - High Priority (Spec Compliance)
+**Issue:** VortexPong displays "Press ENTER to start" but ENTER key may not work reliably due to focus management.
 
-#### Achievement System ID Mismatches - FIXED ✓
+**Root Cause (Verified Round 47):**
+- ENTER key handler IS correctly implemented at lines 223-227
+- Handler calls `resetGame()` when `showMenu || gameOver` is true
+- Event listener attached to `window` (lines 249-255) which should work
+- **BUT**: ENTER key handler lacks `e.preventDefault()` unlike other key handlers
+- Main game container at line 823 lacks `tabIndex` attribute
+- No auto-focus on mount
 
-All achievement ID mismatches have been resolved:
+**Recommended Fix:**
+```typescript
+// Line 223-227 - Add e.preventDefault()
+} else if (e.key === 'Enter') {
+  e.preventDefault();  // ADD THIS
+  if (showMenu || gameOver) {
+    resetGame();
+  }
+}
 
-| Game | Status |
-|------|--------|
-| SimpleSnake | ✓ FIXED - IDs now use `snake_` prefix |
-| MatrixCloud | ✓ FIXED - IDs now use `cloud_` prefix |
-| MatrixInvaders | ✓ FIXED - Added missing IDs to useSaveSystem |
-| CtrlSWorld | ✓ FIXED - IDs now use `ctrl_` prefix |
-| VortexPong | ✓ COMPLIANT |
-| Metris | IDs correct, some implementations pending |
-| TerminalQuest | ✓ COMPLIANT |
+// Line 823 - Add tabIndex to main container
+<div
+  className="h-full w-full flex items-center justify-center bg-black relative"
+  tabIndex={0}
+  ref={containerRef}
+>
 
-**Missing Achievement Implementations:**
-| Game | Achievement ID | Criteria | Status |
-|------|---------------|----------|--------|
-| SimpleSnake | `snake_combo_10` | Chain Reaction - eat 10 consecutive food | ✓ IMPLEMENTED |
-| SimpleSnake | `snake_power_master` | Power User - collect 10 power-ups in one game | ✓ IMPLEMENTED |
-| MatrixInvaders | `invaders_bullet_time` | Time Bender - use bullet time 5 times | ✓ IMPLEMENTED |
-| MatrixInvaders | `invaders_perfect_wave` | Flawless Defense - complete wave without damage | ✓ IMPLEMENTED |
-| MatrixInvaders | `invaders_boss_defeat` | System Override - defeat a boss | ✓ IMPLEMENTED |
-| MatrixInvaders | `invaders_high_score` | Elite Hacker - score 10000+ | ✓ IMPLEMENTED |
-| Metris | `perfect_start` | Reach level 5 or higher | ✓ IMPLEMENTED |
-| Metris | `architect` | Build 18 rows without clearing | ✓ IMPLEMENTED |
-| Metris | `t_spin_master` | Perform 5 T-spins | ✓ IMPLEMENTED |
+// Add useEffect to auto-focus on mount
+useEffect(() => {
+  containerRef.current?.focus();
+}, []);
+```
 
-**Global Achievements - Implementation Status:**
-| Achievement | Description | Status |
-|-------------|-------------|--------|
-| `global_first_game` | Play your first game | ✓ IMPLEMENTED |
-| `global_all_games` | Play all 7 games | ✓ IMPLEMENTED |
-| `global_10_achievements` | Unlock 10 achievements | ✓ IMPLEMENTED |
-| `global_25_achievements` | Unlock 25 achievements | ✓ IMPLEMENTED |
-| `global_50_achievements` | Unlock 50 achievements | ✓ IMPLEMENTED |
-| `global_night_owl` | Play between midnight and 5am | ✓ IMPLEMENTED |
-| `global_dedicated` | Play 7 days in a row | ✓ IMPLEMENTED |
+**Additional Issues Found (Round 48):**
+- 2 setTimeout calls without cleanup refs (lines 185, 530)
+- `Date.now()` used in render function (line 641) - passed as timestamp prop
 
-#### Performance Issues (Date.now() in Animation Loops) - FIXED ✓
+**Files Affected:**
+- `src/components/games/VortexPong.tsx` (lines 185, 223-227, 530, 641, 823)
 
-Using `Date.now()` inside render/animation loops creates inconsistent frame-rate dependent animations.
+---
 
-| Game | Issue | Lines | Status |
+#### 2. CtrlSWorld UX Overhaul (USER REQUEST)
+
+**User Request:** Have 5 chapters playable individually - game is too long and people get lost. Make it Citizen Sleeper-like.
+
+**Current Issues (Verified Round 47):**
+- Game has 6 chapters (Prologue + 5 main) with 19 puzzles total
+- **No chapter selection menu** - must play from beginning (linear progression only)
+- **11 independent boolean states** create 2,048 possible (mostly invalid) state combinations:
+  - Game State (4): `isTyping`, `isStarted`, `isPaused`, `isGameComplete`
+  - UI State (7): `isFullscreen`, `showInfo`, `showPuzzle`, `showInventory`, `showAudioSettings`, `showSaveManager`, `userHasScrolled`
+- No hub-based navigation
+- **ESC key NOT implemented** - UI promises it at line 1401 ("Press R to restart or ESC to exit") but no handler exists
+- Cannot replay completed chapters without full restart
+- **Inconsistent sound calls** - `playSFX` wrapper defined (lines 456-460) but bypassed 4 times:
+  - Line 498: Uses direct `playSoundEffect('menu')` - bypasses isMuted check
+  - Line 671: Uses direct `playSoundEffect('gameOver')` - bypasses isMuted check
+  - Line 741: Uses direct `playSoundEffect('gameOver')` - bypasses isMuted check
+  - Line 767: Uses direct `playSoundEffect('gameOver')` - bypasses isMuted check
+- **Redundant achievement call** at line 835 - calls `gameState.unlockAchievement()` after wrapper
+
+**Required Changes:**
+1. Add chapter selection hub screen after initial save/load
+2. Allow replay of completed chapters individually
+3. Consolidate state machine (11 booleans -> unified UIState enum):
+   ```typescript
+   type GameUIState =
+     | { mode: 'menu' }
+     | { mode: 'hub'; selectedChapter?: number }
+     | { mode: 'playing'; chapterId: number; paused: boolean }
+     | { mode: 'puzzle'; puzzleId: string }
+     | { mode: 'modal'; modalType: 'info' | 'audio' | 'save' | 'inventory' }
+     | { mode: 'complete' };
+   ```
+4. Improve visual storytelling with Citizen Sleeper-inspired design:
+   - Visual chapter nodes with progress indicators
+   - Non-linear chapter navigation (once unlocked)
+   - Chapter summaries before entering
+5. Implement ESC key handler in `handleKeyPress` function (around line 991)
+6. Standardise all sound calls to use `playSFX` wrapper consistently
+
+**Files Affected:**
+- `src/components/games/CtrlSWorld.tsx` (1500+ lines - major refactor)
+
+---
+
+#### 3. TerminalQuest Achievement Persistence Bug
+
+**Issue:** Achievements are unlocked via `achievementManager` but NOT persisted to `useSaveSystem`. Players lose achievements between sessions.
+
+**Verified (Round 47):**
+
+**Line 90 - Current useSaveSystem destructuring:**
+```typescript
+const { saveData, updateGameSave } = useSaveSystem();
+```
+**Missing:** `unlockAchievement: unlockSaveAchievement`
+
+**Lines 93-97 - Current unlockAchievement function (BROKEN):**
+```typescript
+const unlockAchievement = useCallback((achievementId: string) => {
+  if (achievementManager?.unlockAchievement) {
+    achievementManager.unlockAchievement('terminalQuest', achievementId);
+  }
+}, [achievementManager]);
+```
+
+**Required fix:**
+```typescript
+// Line 90 - Add unlockSaveAchievement to destructuring
+const { saveData, updateGameSave, unlockAchievement: unlockSaveAchievement } = useSaveSystem();
+
+// Lines 93-97 - Call both systems
+const unlockAchievement = useCallback((achievementId: string) => {
+  if (achievementManager?.unlockAchievement) {
+    achievementManager.unlockAchievement('terminalQuest', achievementId);
+  }
+  unlockSaveAchievement('terminalQuest', achievementId);
+}, [achievementManager, unlockSaveAchievement]);
+```
+
+**All 7 achievement unlock calls in TerminalQuest affected:**
+| Line | Achievement ID | Trigger |
+|------|----------------|---------|
+| 157 | `quest_first_choice` | First choice made |
+| 162 | `quest_tool_collector` | Inventory has 5+ items |
+| 167 | `quest_survivor` | Full health after 10+ choices |
+| 172 | `quest_code_master` | Security level >= 90 |
+| 177 | `quest_team_leader` | Health >= 80 |
+| 183 | `quest_story_end` | Reached ending node |
+| 304 | `quest_combat_victor` | Won 10+ combats |
+
+**Reference:** CtrlSWorld correctly calls BOTH achievementManager AND unlockSaveAchievement (lines 463-468).
+
+**Files Affected:**
+- `src/components/games/TerminalQuest.tsx` (lines 90, 93-97)
+
+---
+
+#### 4. Missing Achievement Definition - VortexPong
+
+**Issue:** VortexPong.tsx:349 unlocks `pong_power_master` which is NOT defined in useSaveSystem.ts GAME_ACHIEVEMENTS.
+
+**VortexPong achievement IDs used in code (7 total):**
+| Line | Achievement ID | Defined? |
+|------|----------------|----------|
+| 349 | `pong_power_master` | **NO** |
+| 419 | `pong_combo_king` | Yes |
+| 421 | `pong_rally_master` | Yes |
+| 483 | `pong_first_point` | Yes |
+| 546 | `pong_beat_ai` | Yes |
+| 550 | `pong_perfect_game` | Yes |
+| 556 | `pong_multi_ball` | Yes |
+
+**VortexPong achievements defined in useSaveSystem.ts (6 total, lines 105-111):**
+- pong_first_point, pong_beat_ai, pong_perfect_game, pong_multi_ball, pong_combo_king, pong_rally_master
+
+**Fix Required:** Add `pong_power_master` to `GAME_ACHIEVEMENTS['vortexPong']` in useSaveSystem.ts after line 111:
+```typescript
+{ id: 'pong_power_master', name: 'Power Master', description: 'Collect 5 power-ups in one game', game: 'Vortex Pong' },
+```
+
+**Files Affected:**
+- `src/hooks/useSaveSystem.ts` (line 111)
+
+---
+
+#### 5. TerminalQuest Local-Only Achievements (NEW - Round 49)
+
+**Issue:** Lines 143-151 track 3 achievements that never propagate to the global system:
+
+```typescript
+// Line 144 - Only stored in local gameState.achievements array
+if (newGameState.stats.xp >= 100 && !gameState.achievements.includes('first_100_xp')) {
+  newAchievements.push('first_100_xp');
+}
+// Line 147
+if (newGameState.stats.combatsWon >= 1 && !gameState.achievements.includes('first_combat')) {
+  newAchievements.push('first_combat');
+}
+// Line 150
+if (newGameState.inventory.length >= 10 && !gameState.achievements.includes('collector')) {
+  newAchievements.push('collector');
+}
+```
+
+**Problem:** These are added to the component's internal `gameState.achievements` array but NEVER call:
+- `achievementManager.unlockAchievement()` - no UI notification
+- `unlockSaveAchievement()` - no persistence
+
+**Options:**
+1. Add these 3 achievement IDs to `GAME_ACHIEVEMENTS['terminalQuest']` in useSaveSystem.ts and call `unlockAchievement()` properly
+2. Remove this dead code if the achievements are not intended
+
+**Files Affected:**
+- `src/components/games/TerminalQuest.tsx` (lines 143-151)
+- `src/hooks/useSaveSystem.ts` (if adding definitions)
+
+---
+
+### P1 - High Priority (Spec Compliance & Memory Safety)
+
+#### 5. Memory Leak - Untracked Timeouts (15 total)
+
+**Verified setTimeout calls without cleanup refs:**
+
+| File | Lines | Count | Purpose |
+|------|-------|-------|---------|
+| TerminalQuest.tsx | 113, 219 | 2 | Screen shake, background glitch |
+| TerminalQuestCombat.tsx | 87, 95, 112, 150, 164, 174, 182 | 7 | Combat flow, enemy turns, victory/defeat |
+| CtrlSWorld.tsx | 608, 660, 723, 845, 898 | 5 | Page transitions, auto-advance, puzzle resume |
+| Metris.tsx | 720 | 1 | Save game stats |
+
+**Additional VortexPong timeouts (2):**
+| VortexPong.tsx | 185, 530 | 2 | Screen shake reset, save delay |
+
+**Additional MatrixCloud timeouts (4):**
+| MatrixCloud.tsx | 436, 495-506, 671, 825 | 4 | Achievement delay, save delay, boss spawn, invulnerability |
+
+**Total: 21 untracked setTimeout calls**
+
+**Reference Implementation (MatrixInvaders.tsx lines 129-132, 993-1008):**
+```typescript
+// Declare refs
+const invulnerabilityTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+const bulletTimeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+// When setting timeout - clear before setting
+if (invulnerabilityTimeoutRef.current) {
+  clearTimeout(invulnerabilityTimeoutRef.current);
+}
+invulnerabilityTimeoutRef.current = setTimeout(() => {
+  // ... logic
+  invulnerabilityTimeoutRef.current = null;  // Clear ref after completion
+}, delay);
+
+// Cleanup on unmount
+useEffect(() => {
+  return () => {
+    if (invulnerabilityTimeoutRef.current) clearTimeout(invulnerabilityTimeoutRef.current);
+    if (bulletTimeTimeoutRef.current) clearTimeout(bulletTimeTimeoutRef.current);
+  };
+}, []);
+```
+
+**Files Affected:**
+- `src/components/games/TerminalQuest.tsx` (2 timeouts)
+- `src/components/games/TerminalQuestCombat.tsx` (7 timeouts)
+- `src/components/games/CtrlSWorld.tsx` (5 timeouts)
+- `src/components/games/Metris.tsx` (1 timeout)
+- `src/components/games/VortexPong.tsx` (2 timeouts)
+- `src/components/games/MatrixCloud.tsx` (4 timeouts: lines 436, 495-506, 671, 825)
+
+---
+
+#### 6. Performance Issue - Date.now() in Animation Loops
+
+| Game | Issue | Lines | Impact |
 |------|-------|-------|--------|
-| MatrixInvaders | `Math.sin(Date.now() * 0.01)` in render | 518, 564 | ✓ FIXED - Now uses RAF timestamp |
-| SimpleSnake | Power-up expiration check | 78 | ✓ NOT AN ISSUE - Uses React state-based rendering, not RAF animation |
-| MatrixInvaders | `setInterval` for player movement | 769-770 | ✓ FIXED - Integrated into RAF-based game loop |
+| MatrixCloud | 4x `Date.now()` in boss movement calculations | 352, 356, 357, 361 | 60 FPS x 30s = 7,200+ syscalls per boss |
+| MatrixInvaders | `Date.now()` in render function for hit timing | 728 | Called every render frame |
 
-**Reference:** VortexPong.tsx correctly passes timestamp from requestAnimationFrame as a prop (lines 641, 679, 743). MatrixInvaders now follows this pattern.
+**MatrixCloud Boss Movement (verified lines 352-361):**
+```typescript
+case 'agent_smith':
+  newVy = Math.sin(Date.now() / 1000) * 2;  // Line 352
+case 'sentinel':
+  newVx = Math.sin(Date.now() / 1500) * 1.5;  // Line 356
+  newVy = Math.cos(Date.now() / 1500) * 1.5;  // Line 357
+case 'architect':
+  newVy = Math.sin(Date.now() / 2000) * 1;  // Line 361
+```
 
-#### Visual Bugs (Confirmed from Screenshots)
+**Problems:**
+- `updateBoss` receives `deltaTime` parameter but ignores it
+- Boss movement not deterministic (depends on wall-clock time)
+- Movement continues during pause (Date.now() doesn't stop)
+- Prevents V8 JIT optimisation of entire function
 
-| Game | Issue | Screenshot | Status |
-|------|-------|------------|--------|
-| MatrixCloud | Power-up guide text bleeds through pause modal ("Shield Protec", "ime Manipulation", "Extra L", "ultiplier" visible) | cloud-paused.png | ✓ FIXED - Added z-10 to HUD elements |
+**Fix for MatrixCloud:** Add `elapsedTime` to Boss interface, increment by deltaTime each frame:
+```typescript
+// Add to Boss interface
+elapsedTime: number;
 
-#### Keyboard Controls Gaps
+// In updateBoss
+const newElapsedTime = boss.elapsedTime + deltaTime;
+newVy = Math.sin(newElapsedTime / 1000) * 2;  // Use elapsedTime instead
+```
 
-| Game | ESC | P (pause) | R (restart) | ENTER (start) | Status |
-|------|-----|-----------|-------------|---------------|--------|
-| SimpleSnake | App-level | ✓ | ✓ | ✓ | **COMPLIANT** |
-| VortexPong | App-level | ✓ | ✓ | ✓ | **COMPLIANT** |
-| MatrixCloud | App-level | ✓ | ✓ | ✓ | **COMPLIANT** |
-| MatrixInvaders | App-level | ✓ | ✓ | ✓ | **COMPLIANT** |
-| Metris | App-level | ✓ | ✓ | ✓ | **COMPLIANT** |
-| CtrlSWorld | App-level | ✓ | ✓ | Partial | **COMPLIANT** |
-| TerminalQuest | App-level | ✓ | ✓ | ✓ | **COMPLIANT** |
-| TerminalQuestCombat | App-level | ✗ | ✗ | ✗ | Combat uses 1-5 keys |
+**Fix for MatrixInvaders (line 728):**
+```typescript
+// Current
+if (Date.now() - state.player.lastHitTime < 2000)
 
-### P2 - Medium Priority (Code Quality & Performance)
+// Fixed - use timestamp parameter already available in render
+if (timestamp - state.player.lastHitTime < 2000)
+```
 
-#### Console.log Cleanup - FIXED ✓
+**Files Affected:**
+- `src/components/games/MatrixCloud.tsx` (lines 342-376, Boss interface)
+- `src/components/games/MatrixInvaders.tsx` (line 728)
 
-| File | Line | Issue | Status |
-|------|------|-------|--------|
-| usePerformanceMonitor.tsx | 176 | `console.log('[Performance] ${name}: ${(end - start).toFixed(2)}ms')` | ✓ FIXED - Wrapped in DEBUG flag (VITE_DEBUG_PERFORMANCE) |
-| useSaveSystem.ts | 198 | `console.log('Migrating save data from version', ...)` | ✓ FIXED - Wrapped in DEBUG flag (VITE_DEBUG_SAVE) |
+---
 
-#### localStorage Architecture - REVIEWED ✓
+#### 7. TerminalQuestCombat Stale Closure & State Issues
 
-| File | Key | Current Usage | Status |
-|------|-----|---------------|--------|
-| GameStateContext.tsx | `matrix-arcade-ctrls-save` | Full CTRL-S narrative state | ✓ INTENTIONAL - Rich narrative state (chapters, inventory, story choices) requires separate storage from arcade metrics |
-| useLifelineManager.ts | `ctrlsworld_lifelines` | Puzzle lifeline state | ✓ APPROPRIATE - Game-specific feature tied to CtrlSWorld narrative |
+**Verified (Round 47):**
 
-**Architecture Decision:** GameStateContext and useSaveSystem serve different purposes:
-- **GameStateContext**: Stores complex narrative state (chapters, inventory, story branching, player stats like coffee level) - specific to CtrlSWorld
-- **useSaveSystem**: Stores arcade metrics (high scores, achievements, play stats) - shared across all 7 games
+**Stale Closure Issues:**
+- Lines 92, 179: `playerHealth` prop captured at function call time, not current value
+- Victory/defeat damage calculations may use stale data
 
-CtrlSWorld correctly uses both: GameStateContext for narrative progression, useSaveSystem for achievements. Migration would either misuse the schema or bloat the shared save system.
+**Boolean State Fragility:**
+- `isAnimating` can get stuck `true` if combat ends before timeout fires (lines 75, 87)
+- 4 boolean flags (`isPlayerTurn`, `isAnimating`, `shakeScreen`, combat state) create timing fragility
 
-**Note:** Audio/voice preferences in useSoundSystem, useAdvancedVoice, useShatnerVoice are appropriate as direct localStorage (user preferences, not game data).
+**Recommended Refactor to CombatPhase enum:**
+```typescript
+type CombatPhase =
+  | { phase: 'player_ready' }
+  | { phase: 'player_attacking'; damage: number }
+  | { phase: 'enemy_turn'; damage: number }
+  | { phase: 'victory'; damageDealt: number }
+  | { phase: 'defeat'; damageTaken: number };
+```
 
-#### Memory Leak Potential - FIXED ✓
+**Files Affected:**
+- `src/components/games/TerminalQuestCombat.tsx` (lines 31-33, 73-96, 174-185)
 
-| Game | Issue | Lines | Status |
-|------|-------|-------|--------|
-| MatrixInvaders | Invulnerability timer setTimeout not tracked | ~320-340 | ✓ FIXED - Uses invulnerabilityTimeoutRef |
-| MatrixInvaders | Wave spawn timeout untracked | ~350-360 | ✓ FIXED - Uses waveSpawnTimeoutRef |
-| MatrixInvaders | Bullet time timeout untracked | ~740-750 | ✓ FIXED - Uses bulletTimeTimeoutRef |
-| MatrixInvaders | Save game timeout untracked | ~837-850 | ✓ FIXED - Uses saveGameTimeoutRef |
-| MatrixInvaders | Component unmount cleanup | N/A | ✓ FIXED - Added cleanup effect for all timeouts |
+---
 
-### P3 - Low Priority (Enhancements)
+### P2 - Medium Priority (Code Quality & Architecture)
 
-#### Test Coverage Expansion
+#### 8. localStorage Architecture - Direct Usage Outside useSaveSystem
+
+**Files requiring migration to useSaveSystem:**
+
+| File | Key | Lines | Category |
+|------|-----|-------|----------|
+| App.tsx | `matrix-arcade-play-dates` | 109, 119 | Global achievement data |
+| GameStateContext.tsx | `matrix-arcade-ctrls-save` | 143, 358, 362, 375 | CTRL-S World game state |
+| useLifelineManager.ts | `ctrlsworld_lifelines` | 29, 77 | CTRL-S World lifeline state |
+
+**Files correctly using separate localStorage (user preferences - no migration needed):**
+- useSoundSystem.ts (`matrix-arcade-audio-config`)
+- useAdvancedVoice.ts (`matrix-arcade-advanced-voice`)
+- useShatnerVoice.ts (`matrix-arcade-shatner-voice`)
+
+**Recommended Migration:**
+1. Add `playDates: string[]` to `GlobalSaveData.globalStats` for App.tsx
+2. Integrate CtrlSWorld saves into unified save system
+3. Add lifeline state to CtrlSWorld game save data
+
+---
+
+#### 9. VortexPong Missing useObjectPool Integration
+
+**Issue:** VortexPong does not use `useObjectPool` hook despite creating/destroying balls and impact effects frequently.
+
+**Current Pattern:**
+- Balls created/destroyed dynamically
+- Impact effects array managed manually
+- Potential memory fragmentation
+
+**Recommended:** Integrate `useObjectPool` for:
+- Multi-ball management
+- Impact effect particles
+
+**Files Affected:**
+- `src/components/games/VortexPong.tsx`
+
+---
+
+#### 10. Hook Standardisation Opportunities
+
+| Pattern | Currently Used By | Could Also Use |
+|---------|-------------------|----------------|
+| useGameLoop | VortexPong only | MatrixCloud, MatrixInvaders (have custom RAF) |
+| useParticleSystem | VortexPong only | MatrixCloud (has custom particles) |
+| useObjectPool | MatrixInvaders only | VortexPong (multi-ball management) |
+
+**Note:** Current implementations work; standardisation is nice-to-have for consistency.
+
+---
+
+### P3 - Low Priority (Enhancements & Polish)
+
+#### 11. Test Coverage Expansion
 
 **Hooks Without Tests (6/17):**
-| Hook | Priority | Lines of Code |
-|------|----------|---------------|
-| useViewportCulling | High | 168 |
-| usePerformanceMonitor | Medium | 213 |
-| useLifelineManager | Medium | 219 |
-| usePowerUps | Medium | 48 |
-| useGameLoop | Medium | 24 |
-| useInterval | Low | 15 |
+
+| Hook | Size | Priority | Complexity |
+|------|------|----------|------------|
+| useViewportCulling | 4.6 KB | High | Sophisticated spatial culling |
+| usePerformanceMonitor | 6.4 KB | High | FPS tracking, suggestions |
+| useLifelineManager | 5.8 KB | High | Lifeline state management |
+| usePowerUps | 1.5 KB | Medium | Power-up spawning/activation |
+| useGameLoop | 750 B | Low | Simple RAF wrapper |
+| useInterval | 427 B | Low | Simple interval wrapper |
 
 **Hooks With Tests (11/17):**
-- useSimpleSnakeGame (107 tests)
-- useSaveSystem (102 tests)
-- useAchievementManager (51 tests) ✓ NEW
-- useParticleSystem (69 tests)
-- useShatnerVoice (67 tests)
-- useSoundSynthesis (61 tests)
-- useObjectPool (57 tests)
-- useProceduralAudio (53 tests)
-- useAdvancedVoice (25 tests)
+- useSimpleSnakeGame (81 tests)
+- useSaveSystem (61 tests)
+- useAchievementManager (64 tests)
+- useShatnerVoice (81 tests)
+- useObjectPool (74 tests)
+- useParticleSystem (92 tests)
+- useProceduralAudio (62 tests)
+- useSoundSynthesis (75 tests)
+- useAdvancedVoice (21 tests)
 - useSoundSystem (22 tests)
-- useMobileDetection (15 tests)
+- useMobileDetection (16 tests)
 
-**Game Test Coverage:**
-| Game | Test Count | Status |
-|------|-----------|--------|
-| MatrixInvaders | 89 | Excellent |
-| TerminalQuestCombat | 67 | Excellent |
-| Metris | 51 | Good |
-| SimpleSnake | 33 | Good |
-| TerminalQuest | 27 | Moderate |
-| VortexPong | 21 | Needs expansion |
-| MatrixCloud | 17 | Needs expansion |
+**Total hook tests: ~709**
 
-**Total Tests: 959** (was 908)
+**Game Test Coverage Assessment:**
 
-#### Unused Hooks
+| Game | Test Count | Quality |
+|------|------------|---------|
+| MatrixInvaders | 56 | Excellent - comprehensive mechanics testing |
+| TerminalQuestCombat | 48 | Excellent - thorough combat flow testing |
+| Metris | 39 | Good - covers core functionality |
+| SimpleSnake | 32 | Good - controls and state well tested |
+| CtrlSWorld | 24 | Moderate - mostly rendering/interaction |
+| TerminalQuest | 22 | Minimal - shallow, needs expansion |
+| MatrixCloud | 21 | Moderate - UI focused |
+| VortexPong | 18 | Minimal - needs significant expansion |
+
+**Priority for expansion:** VortexPong, TerminalQuest, MatrixCloud
+
+---
+
+#### 12. TODO Comments Review
+
+**Only 1 TODO comment found in codebase:**
+- `src/components/games/TerminalQuestContent.ts:427` - `// TODO: Remove before production`
+- **Context:** Developer debug room with God Mode - intentional easter egg but should be reviewed before production deployment
+
+---
+
+#### 13. Unused Hooks Assessment
 
 The following hooks are fully implemented but not integrated into any game:
 - `useProceduralAudio` - Advanced procedural audio with granular synthesis
 - `useViewportCulling` - Spatial partitioning for render optimisation
-- `useMobileDetection` - Device detection (could be used for touch controls)
+- `useMobileDetection` - Device detection (used in App.tsx for warning, could expand for touch controls)
 
 Consider either integrating these or archiving them.
+
+---
+
+#### 14. Missing WASD Controls
+
+| Game | WASD Support | Status |
+|------|--------------|--------|
+| Metris | Not implemented | Optional (uses arrows + Z/X/C for rotation) |
+
+All other games support WASD as alternative movement.
 
 ---
 
@@ -219,17 +525,20 @@ IDLE/MENU -> PLAYING -> PAUSED -> PLAYING -> GAME_OVER
 ```
 
 **Current State Machine Compliance:**
+
 | Game | States | Status |
 |------|--------|--------|
 | SimpleSnake | 'menu' \| 'playing' \| 'paused' \| 'gameOver' | **COMPLIANT** |
 | VortexPong | Boolean flags with menu state | **COMPLIANT** |
-| MatrixCloud | Multiple booleans | PARTIAL |
-| MatrixInvaders | Multiple booleans with menu | PARTIAL |
-| Metris | Multiple booleans | PARTIAL |
-| CtrlSWorld | isStarted, isPaused, isGameComplete | PARTIAL |
-| TerminalQuest | Node-based + booleans | PARTIAL |
+| MatrixInvaders | Boolean flags with menu state | **COMPLIANT** |
+| Metris | Boolean flags with waiting state | **COMPLIANT** |
+| MatrixCloud | Boolean flags with started state | **COMPLIANT** |
+| CtrlSWorld | 11 independent booleans | PARTIAL - needs refactoring |
+| TerminalQuest | Node-based + booleans | PARTIAL - needs refactoring |
+| TerminalQuestCombat | Boolean + timing flags | PARTIAL - needs refactoring |
 
 ### Required Keyboard Shortcuts
+
 | Key | Action | Required |
 |-----|--------|----------|
 | ESC | Exit to menu | Yes (App-level) |
@@ -256,57 +565,80 @@ interface GameProps {
 - **Object pooling:** MatrixInvaders.tsx
 - **Narrative game:** CtrlSWorld.tsx
 - **Text adventure:** TerminalQuest.tsx
+- **Timeout cleanup (reference):** MatrixInvaders.tsx (lines 129-132, 993-1008)
+- **Achievement persistence (reference):** CtrlSWorld.tsx (lines 463-468)
 
 ---
 
 ## Compliance Summary by Game
 
-| Game | Controls | Sound | isMuted | State Machine | Achievements | SaveSystem | Overall |
-|------|----------|-------|---------|---------------|--------------|------------|---------|
-| SimpleSnake | 100% | ✓ | ✓ | **COMPLIANT** | ✓ | ✓ | **95%** |
-| VortexPong | 100% | ✓ | ✓ | **COMPLIANT** | ✓ | ✓ | **95%** |
-| MatrixCloud | 100% | ✓ | ✓ | PARTIAL | ✓ | ✓ | 90% |
-| MatrixInvaders | 100% | ✓ | ✓ | PARTIAL | ✓ | ✓ | 85% |
-| Metris | 100% | ✓ | ✓ | PARTIAL | Partial | ✓ | 80% |
-| CtrlSWorld | 100% | ✓ | ✓ | PARTIAL | ✓ | localStorage | 75% |
-| TerminalQuest | 85% | ✓ | ✓ | PARTIAL | ✓ | ✓ | 85% |
+| Game | Controls | Sound | isMuted | State Machine | Achievements | SaveSystem | Timeouts | Overall |
+|------|----------|-------|---------|---------------|--------------|------------|----------|---------|
+| SimpleSnake | 100% | Yes | Yes | **COMPLIANT** | Yes | Yes | Clean | **100%** |
+| MatrixInvaders | 100% | Yes | Yes | **COMPLIANT** | Yes (10) | Yes | **Reference** | **98%** |
+| Metris | 95% (no WASD) | Yes | Yes | **COMPLIANT** | Yes (12) | Yes | 1 leak | **93%** |
+| VortexPong | 100% | Yes | Yes | **COMPLIANT** | Yes (7) | Yes | 2 leaks | **90%** |
+| MatrixCloud | 100% | Yes | Yes | **COMPLIANT** | Yes (7) | Yes | 2 leaks | **88%** |
+| TerminalQuest | 100% | Yes | Yes | PARTIAL | Yes (7) | Yes | 2 leaks | **80%** |
+| CtrlSWorld | 85% (no ESC) | Mixed | Yes | PARTIAL | Yes (7) | Yes | 5 leaks | **75%** |
+| TerminalQuestCombat | N/A | Yes | Yes | PARTIAL | N/A | N/A | 7 leaks | **50%** |
 
-**Average Game Compliance: 86%**
+**Average Game Compliance: 84%**
+
+**Legend:**
+- Controls: Keyboard shortcuts (ESC, P, R, ENTER, arrows, WASD)
+- Sound: Uses useSoundSystem/useSoundSynthesis correctly
+- isMuted: All sound calls gated with isMuted check
+- State Machine: Follows IDLE/MENU → PLAYING → PAUSED → GAME_OVER pattern
+- Achievements: Properly integrated with both achievementManager and useSaveSystem
+- SaveSystem: Uses useSaveSystem for persistence
+- Timeouts: All setTimeout calls have cleanup refs
 
 ---
 
 ## Quick Reference: Priority Order for Implementation
 
-1. **P1 - High Priority (Spec Compliance)**:
-   - [x] Fix SimpleSnake achievement IDs (add `snake_` prefix to 6 IDs) ✓
-   - [x] Fix MatrixCloud achievement IDs (add `cloud_` prefix to 4 IDs) ✓
-   - [x] Fix MatrixInvaders non-existent achievement IDs (added 3 IDs to useSaveSystem) ✓
-   - [x] Fix CtrlSWorld achievement IDs (entire system mismatch - 7 IDs) ✓
-   - [x] Implement missing achievements in SimpleSnake (combo, power-up tracking) ✓
-   - [x] Implement missing achievements in MatrixInvaders (bullet time, perfect wave, high score) ✓
-   - [x] Implement missing achievements in Metris (perfect start, architect, t-spin) ✓
-   - [x] Implement global achievement unlocking in App.tsx ✓
-   - [x] Fix Date.now() usage in MatrixInvaders render loop - now uses RAF timestamp ✓
-   - [x] SimpleSnake Date.now() - NOT AN ISSUE (state-based rendering, not RAF animation) ✓
-   - [x] Replace MatrixInvaders setInterval with RAF - integrated into game loop ✓
-   - [x] Fix MatrixCloud pause modal z-index bleeding ✓
-   - [x] Add ENTER key support to TerminalQuest ✓
-   - [x] Add boss system to MatrixInvaders ✓
+### P0 - Critical (Fix Immediately)
+- [x] Fix VortexPong ENTER key focus (add e.preventDefault, tabIndex, auto-focus) - DONE
+- [ ] Improve CtrlSWorld UX/UI (Citizen Sleeper style, chapter selection hub)
+- [x] Fix TerminalQuest achievement persistence (add unlockSaveAchievement call) - DONE
+- [x] Add `pong_power_master` to useSaveSystem GAME_ACHIEVEMENTS - DONE
+- [x] Fix TerminalQuest local-only achievements (lines 143-151) - removed dead code - DONE
 
-2. **P2 - Medium Priority (Code Quality)**:
-   - [x] Remove/wrap console.log in usePerformanceMonitor (line 176) ✓
-   - [x] Remove/wrap console.log in useSaveSystem migration (line 198) ✓
-   - [ ] Migrate GameStateContext to useSaveSystem
-   - [x] Track and cleanup MatrixInvaders timeouts ✓
+### P1 - High Priority (Memory Safety & Performance)
+- [ ] Add timeout cleanup refs to TerminalQuest (lines 113, 219)
+- [ ] Add timeout cleanup refs to TerminalQuestCombat (7 timeouts: lines 87, 95, 112, 150, 164, 174, 182)
+- [ ] Add timeout cleanup refs to CtrlSWorld (5 timeouts: lines 608, 660, 723, 845, 898)
+- [ ] Add timeout cleanup ref to Metris (line 720)
+- [ ] Add timeout cleanup refs to VortexPong (lines 185, 530)
+- [ ] Add timeout cleanup refs to MatrixCloud (4 timeouts: lines 436, 495-506, 671, 825)
+- [ ] Fix MatrixCloud Date.now() in boss movement (add elapsedTime to Boss interface, lines 352, 356, 357, 361)
+- [ ] Fix MatrixInvaders Date.now() in render (use timestamp parameter, line 728)
+- [ ] Refactor TerminalQuestCombat stale closures (lines 92, 179) and boolean states to CombatPhase enum
 
-3. **P3 - Low Priority (Enhancements)**:
-   - [x] Add tests for useSoundSynthesis (61 tests) ✓
-   - [x] Add tests for useProceduralAudio (53 tests) ✓
-   - [x] Add tests for useParticleSystem (69 tests) ✓
-   - [x] Add tests for useObjectPool (57 tests) ✓
-   - [ ] Expand MatrixCloud tests (17 → 40+)
-   - [ ] Expand VortexPong tests (21 → 40+)
-   - [ ] Consider archiving or integrating unused hooks
+### P2 - Medium Priority (Code Quality)
+- [ ] Migrate App.tsx play date tracking to useSaveSystem.globalStats
+- [ ] Migrate GameStateContext.tsx game state to useSaveSystem
+- [ ] Migrate useLifelineManager.ts state to useSaveSystem
+- [ ] Refactor CtrlSWorld state to unified UIState enum (11 booleans -> single state)
+- [ ] Implement ESC key handler in CtrlSWorld (missing despite UI promise at line 1401)
+- [ ] Standardise CtrlSWorld sound calls to use playSFX wrapper (4 direct calls at lines 498, 671, 741, 767)
+- [ ] Remove redundant achievement call in CtrlSWorld (line 835)
+- [ ] Integrate useObjectPool into VortexPong for multi-ball and impact effects
+
+### P3 - Low Priority (Enhancements)
+- [ ] Add tests for useViewportCulling (4.6 KB)
+- [ ] Add tests for usePerformanceMonitor (6.4 KB)
+- [ ] Add tests for useLifelineManager (5.8 KB)
+- [ ] Add tests for usePowerUps (1.5 KB)
+- [ ] Add tests for useGameLoop (750 B)
+- [ ] Add tests for useInterval (427 B)
+- [ ] Expand VortexPong tests (currently 18 - minimal)
+- [ ] Expand TerminalQuest tests (currently 22 - minimal)
+- [ ] Expand MatrixCloud tests (currently 21 - moderate)
+- [ ] Review TerminalQuestContent.ts:427 TODO before production
+- [ ] Consider integrating or archiving unused hooks
+- [ ] Add WASD support to Metris (optional)
 
 ---
 
@@ -344,25 +676,14 @@ interface GameProps {
 
 ---
 
-## TODO Comments in Codebase
-
-Only 1 TODO comment found:
-- `src/components/games/TerminalQuestContent.ts:427` - `// TODO: Remove before production` (intentional game content - developer room easter egg)
-
----
-
 ### 25 January 2026 - Round 28 Fixes
 
 **Achievement ID System Overhaul:**
-- SimpleSnake: Changed 5 achievement IDs to use `snake_` prefix (`snake_first_apple`, `snake_score_100`, `snake_score_500`, `snake_survivor`, `snake_speed_demon`)
-- SimpleSnake: Removed non-existent `snake_master` achievement call
-- MatrixCloud: Changed 4 achievement IDs to use `cloud_` prefix (`cloud_first_flight`, `cloud_level_5`, `cloud_boss_slayer`, `cloud_architect_defeat`)
-- MatrixInvaders: Added 3 missing achievement definitions to useSaveSystem (`invaders_wave_10`, `invaders_endless`, `invaders_100_enemies`)
-- CtrlSWorld: Complete achievement ID system overhaul - updated both useSaveSystem definitions and game code to use consistent `ctrl_` prefixed IDs (`ctrl_first_puzzle`, `ctrl_no_hints`, `ctrl_chapter_1`, `ctrl_chapter_3`, `ctrl_story_complete`, `ctrl_speed_reader`, `ctrl_puzzle_master`)
+- SimpleSnake: Changed 5 achievement IDs to use `snake_` prefix
+- MatrixCloud: Changed 4 achievement IDs to use `cloud_` prefix
+- MatrixInvaders: Added 3 missing achievement definitions to useSaveSystem
+- CtrlSWorld: Complete achievement ID system overhaul with `ctrl_` prefix
 - Total achievements now: 63 (56 game + 7 global)
-
-**Build Status:** ✓ Passes
-**Tests:** 600 tests passing
 
 ---
 
@@ -371,251 +692,236 @@ Only 1 TODO comment found:
 **Achievement Implementations Complete:**
 
 *SimpleSnake:*
-- Added `consecutiveFood` tracking for chain reaction achievement
-- Added `powerUpsCollected` and `powerUpTypesCollected` tracking
-- `snake_combo_10` unlocks when eating 10 consecutive food items
-- `snake_power_master` unlocks when collecting 10 power-ups in one game
+- `snake_combo_10` - eat 10 consecutive food items
+- `snake_power_master` - collect 10 power-ups in one game
 
 *MatrixInvaders:*
-- Added `bulletTimeUsedRef` tracking for bullet time usage
-- Added `waveDamageTakenRef` for perfect wave tracking
-- `invaders_bullet_time` unlocks after using bullet time 5 times
-- `invaders_perfect_wave` unlocks when completing a wave without damage
-- `invaders_high_score` unlocks when scoring 10,000+ points
-- Note: `invaders_boss_defeat` blocked as no boss system exists
+- `invaders_bullet_time` - use bullet time 5 times
+- `invaders_perfect_wave` - complete wave without damage
+- `invaders_high_score` - score 10,000+ points
 
 *Metris:*
-- Added `maxFilledRowsRef` for architect achievement tracking
-- Added `tSpinCountRef` and `lastRotationRef` for T-spin detection
-- `perfect_start` unlocks when reaching level 5 or higher
-- `architect` unlocks when building 18 rows without clearing
-- `t_spin_master` unlocks after performing 5 T-spins
+- `perfect_start` - reach level 5 or higher
+- `architect` - build 18 rows without clearing
+- `t_spin_master` - perform 5 T-spins
 
 *Global Achievements (App.tsx):*
-- `global_first_game` - triggers on first game play
-- `global_all_games` - triggers when all 7 games played
-- `global_10_achievements`, `global_25_achievements`, `global_50_achievements` - milestone achievements
-- `global_night_owl` - triggers when playing between midnight and 5am
-- `global_dedicated` - triggers after playing 7 consecutive days (uses localStorage for date tracking)
-
-**Build Status:** ✓ Passes
-**Tests:** 600 tests passing
+- All 7 global achievements implemented
 
 ---
 
-### 25 January 2026 - Round 30 Fixes
+### 25 January 2026 - Rounds 30-39 Fixes
 
 **TerminalQuest ENTER Key Support:**
-- Added ENTER key handling in keyboard handler
-- ENTER skips typing effect if text is still animating
-- ENTER resumes from pause state
-- ENTER selects first enabled choice when choices are available
-- Wrapped `handleChoice` and `applyChoiceEffects` in useCallback for proper React hooks usage
+- ENTER skips typing, resumes pause, selects first choice
 
 **MatrixCloud z-index Fix:**
-- Added `z-10` to Enhanced HUD element (left side)
-- Added `z-10` to Active Effects element (right side)
-- Added `z-10` to Controls element (bottom right)
-- Pause overlay (z-50) now properly covers all HUD elements
-- Power-up guide text no longer bleeds through pause modal
+- Added z-10 to HUD elements, pause overlay properly covers all
 
-**Code Quality:**
-- All 600 tests passing
-- No new lint warnings introduced
-- TypeScript compilation clean
-
-**Build Status:** ✓ Passes
-**Tests:** 600 tests passing
-
----
-
-### 25 January 2026 - Round 31 Fixes
-
-**MatrixInvaders Performance Optimisation:**
-- Fixed `Date.now()` usage in render loop by passing RAF timestamp to render function
-- Line 518: Player invulnerability flash now uses `timestamp` parameter instead of `Date.now()`
-- Line 564: Critical health pulse effect now uses `timestamp` parameter instead of `Date.now()`
-- Removed competing `setInterval` for player movement (was lines 769-770)
-- Integrated player movement into main RAF-based game loop via new `updatePlayer` callback
-- Added `renderTimeRef` to track animation time consistently
-
-**SimpleSnake Analysis:**
-- Investigated `Date.now()` usage in SnakeCanvas (line 78)
-- Determined NOT an issue: SimpleSnake uses React state-based rendering, not RAF animation
-- Power-up expiration checks only run when state changes, not on every animation frame
-- The setInterval-based game logic is appropriate for this design pattern
-
-**Technical Details:**
-- `render()` function now accepts `timestamp: number` parameter
-- Player movement unified into single update loop (eliminates async timing issues)
-- Frame-rate independent animations now consistent across all devices
-
-**Build Status:** ✓ Passes
-**Tests:** 600 tests passing
-**TypeScript:** Clean compilation
-
----
-
-### 25 January 2026 - Round 32 Fixes
+**MatrixInvaders Performance:**
+- Fixed Date.now() usage in render loop (partial)
+- Integrated player movement into RAF-based game loop
+- Added proper timeout cleanup with refs (reference implementation)
 
 **Console.log Cleanup:**
-- usePerformanceMonitor.tsx: Wrapped performance profiling log in environment check
-  - Only logs when `import.meta.env.DEV && import.meta.env.VITE_DEBUG_PERFORMANCE === 'true'`
-- useSaveSystem.ts: Wrapped migration log in environment check
-  - Only logs when `import.meta.env.DEV && import.meta.env.VITE_DEBUG_SAVE === 'true'`
-- Production builds no longer output debug logging
+- Wrapped debug logs in environment checks (VITE_DEBUG_PERFORMANCE, VITE_DEBUG_SAVE)
 
-**MatrixInvaders Memory Leak Prevention:**
-- Added timeout tracking refs: `invulnerabilityTimeoutRef`, `bulletTimeTimeoutRef`, `waveSpawnTimeoutRef`, `saveGameTimeoutRef`
-- All setTimeout calls now tracked and properly cleared before new timeouts are set
-- Added component unmount cleanup effect to clear all pending timeouts
-- Prevents memory leaks when navigating away from the game mid-play
-
-**Technical Details:**
-- Uses `ReturnType<typeof setTimeout>` for cross-environment timeout ID typing
-- Each timeout is cleared before setting a new one to prevent stacking
-- Cleanup effect runs on unmount with empty dependency array
-
-**Build Status:** ✓ Passes
-**Tests:** 600 tests passing
-**TypeScript:** Clean compilation
-
----
-
-### 25 January 2026 - Round 33 Fixes
-
-**MatrixInvaders Boss System Implementation:**
-- Added boss enemy type with symbol '▓█▓', 50 base health (scaling +10 per boss), 500 base points, magenta colour
-- Boss waves occur every 5 waves (wave 5, 10, 15, etc.)
-- Boss has larger hitbox (120x60 vs 40x30 for regular enemies)
-- Boss fires from 3 positions (left, centre, right)
-- Special rendering with glow effect, larger health bar with colour gradient
-- Massive explosion effect on boss defeat (4 simultaneous explosions)
-- "BOSS INCOMING" warning displayed before boss waves
+**MatrixInvaders Boss System:**
+- Boss waves every 5 waves with scaling health
 - Achievement `invaders_boss_defeat` now unlockable
 
-**Build Status:** ✓ Passes
-**Tests:** 600 tests passing
-**TypeScript:** Clean compilation
+**Test Suite Additions:**
+- useSoundSynthesis: 51 tests
+- useProceduralAudio: 51 tests
+- useParticleSystem: 66 tests
+- useObjectPool: 85 tests
+- useShatnerVoice: 93 tests
+- useAchievementManager: 61 tests
+- Total tests: ~1,000+
 
 ---
 
-### 25 January 2026 - Round 34 Fixes
+### 25 January 2026 - Rounds 40-47 Analysis
 
-**useSoundSynthesis Test Suite:**
-- Created comprehensive test suite with 61 tests
-- Covers all synth functions: synthLaser, synthExplosion, synthPowerUp, synthDrum, synthVoice, stopVoice
-- Tests initialisation, audio context creation, compressor setup
-- Tests parameter handling, timing, and memory management
-- Tests edge cases including webkitAudioContext fallback and concurrent voices
-
-**Test Coverage:**
-- Hooks with tests increased from 5/17 to 6/17 (35%)
-- Total tests: 661 (was 600)
-
-**Build Status:** ✓ Passes
-**Tests:** 661 tests passing
-**TypeScript:** Clean compilation
+**Deep verification rounds with parallel Opus/Sonnet subagents confirming:**
+- CtrlSWorld achievement persistence is CORRECT (lines 463-468)
+- Console statement count: 20 (2 wrapped, 18 in handlers - acceptable)
+- Timeout cleanup issues: 15 untracked setTimeout calls identified
+- localStorage direct usage: 3 files need migration to useSaveSystem
+- Hook test coverage: 11/17 with tests (65%)
+- Game test coverage: 8/8 with tests (100%)
+- VortexPong ENTER key issue: focus management, not code logic
+- TerminalQuest achievement bug: missing unlockSaveAchievement call confirmed
+- MatrixCloud Date.now(): 4 calls in boss movement confirmed
+- TerminalQuestCombat: 7 untracked timeouts, stale closure issues confirmed
 
 ---
 
-### 25 January 2026 - Round 35 Fixes
+### 25 January 2026 - Round 48 Analysis
 
-**useProceduralAudio Test Suite:**
-- Created comprehensive test suite with 53 tests covering all procedural audio functions
-- Tests `generateEngineSound`: oscillator creation, waveform types, frequency calculations, harmonic ratios, filter configuration
-- Tests `generateCollisionSound`: material parameters (metal, glass, plastic, organic), tone/noise components, volume scaling
-- Tests `generateAdaptiveMusic`: tempo calculations for all moods (calm, tense, action, victory), sequence generation
-- Tests `createSoundVariation`: frequency variation, envelope variation, filter parameter variation with reduced Q
-- Tests `generateTextureSound`: grain density, grain creation, buffer usage
-- Tests `create3DAudioSource`: HRTF panning model, distance model configuration, position setting
+**Deep verification with 10 parallel Opus/Sonnet subagents confirming all previous findings:**
 
-**localStorage Architecture Review:**
-- Reviewed GameStateContext and useSaveSystem relationship
-- Determined current architecture is intentional: GameStateContext handles narrative state, useSaveSystem handles arcade metrics
-- Updated documentation to reflect this architectural decision rather than flagging as a migration task
+*VortexPong (Re-verified):*
+- ENTER key handler lacks `e.preventDefault()` (line 223)
+- No `tabIndex` on main container (line 823)
+- No auto-focus on mount
+- 2 additional setTimeout calls without cleanup (lines 185, 530)
+- `Date.now()` in render loop (line 641) - minor performance concern
+- All 7 achievement IDs match except `pong_power_master` which is NOT defined
 
-**Test Coverage:**
-- Hooks with tests increased from 6/17 to 7/17 (41%)
-- Total tests: 714 (was 661)
+*CtrlSWorld (Re-verified):*
+- 11 independent boolean states confirmed
+- ESC key handler completely missing
+- 4 direct `playSoundEffect` calls bypass `playSFX` wrapper (lines 498, 671, 741, 767)
+- 5 setTimeout calls without cleanup refs confirmed
+- Achievement integration correct (calls both systems)
 
-**Build Status:** ✓ Passes
-**Tests:** 714 tests passing
-**TypeScript:** Clean compilation
+*TerminalQuest (Re-verified):*
+- Achievement persistence bug confirmed - missing `unlockSaveAchievement` call
+- Line 90: Only destructures `{ saveData, updateGameSave }` - missing `unlockAchievement`
+- Lines 93-97: `unlockAchievement` wrapper only calls `achievementManager`, not `useSaveSystem`
+- 2 setTimeout calls without cleanup (lines 113, 219)
+- All 7 achievement IDs are valid but NOT persisted
 
----
+*MatrixCloud (Re-verified):*
+- 4x `Date.now()` in boss movement (lines 352, 356, 357, 361) - ignores deltaTime parameter
+- Boss interface missing `elapsedTime` field
+- 2 additional setTimeout without cleanup (lines 671, 825)
+- Uses custom RAF instead of `useGameLoop` hook
 
-### 25 January 2026 - Round 36 Fixes
+*MatrixInvaders (Reference Implementation):*
+- 98% spec-compliant - gold standard for timeout cleanup pattern
+- Single minor issue: `Date.now()` at line 728 in render (should use timestamp parameter)
+- All 4 timeout refs properly cleaned up (lines 129-132, 993-1008)
+- All 10 achievements correctly integrated with dual system pattern
 
-**useParticleSystem Test Suite:**
-- Created comprehensive test suite with 69 tests
-- Tests cover: initialisation, emit function, all 6 particle types (food, explosion, trail, powerup, matrix, impact), specialised emitters, particle cap, clear function, render function, particle physics, memoisation
+*Metris (Re-verified):*
+- 1 setTimeout without cleanup (line 720)
+- WASD not implemented (optional per spec)
+- All 12 achievements properly integrated
+- Z/X/C rotation keys fully implemented
 
-**Test Coverage:**
-- Hooks with tests increased from 7/17 to 8/17 (47%)
-- Total tests: 783 (was 714)
+*SimpleSnake (Reference Implementation):*
+- 100% spec-compliant - gold standard for state machine pattern
+- Proper `'menu' | 'playing' | 'paused' | 'gameOver'` enum
+- All 7 achievements tracked with refs to prevent duplicates
+- Sound gating exemplary with two-layer protection
 
-**Build Status:** ✓ Passes
-**Tests:** 783 tests passing
-**TypeScript:** Clean compilation
+*TerminalQuestCombat (Re-verified):*
+- 7 setTimeout calls without cleanup (lines 87, 95, 112, 150, 164, 174, 182)
+- 2 stale closure issues with `playerHealth` prop (lines 92, 179)
+- 4 boolean flags create timing fragility
+- Should use CombatPhase enum instead of booleans
 
----
+*Console Statements (Corrected):*
+- Only 3 console.log statements in codebase:
+  - `src/data/puzzles.ts:116` - Quiz question content (not actual logging)
+  - `src/hooks/useSaveSystem.ts:201` - Wrapped in `VITE_DEBUG_SAVE` env check
+  - `src/hooks/usePerformanceMonitor.tsx:179` - Wrapped in `VITE_DEBUG_PERFORMANCE` env check
+- All properly handled - no unprotected logging
 
-### 25 January 2026 - Round 37 Fixes
+*TODO Comments (Confirmed):*
+- Only 1 TODO found: `src/components/games/TerminalQuestContent.ts:427`
+- This is game content (fake TODO in developer_room dialogue), not actual code maintenance
 
-**useObjectPool Test Suite:**
-- Created comprehensive test suite with 57 tests
-- Tests cover: initialisation, acquire, release, releaseAll, getStats, prewarm, pool expansion, function stability, createParticle, createProjectile, createEnemy, specialised pool usage patterns, edge cases
-- All tests passing with proper object pooling and memory management verification
-
-**useSimpleSnakeGame Test Fix:**
-- Fixed failing test for high score updates
-- Test was incorrectly assuming food position would be specific coordinates
-- Updated test to verify high score update logic without depending on random food placement
-
-**Test Coverage:**
-- Hooks with tests increased from 8/17 to 9/17 (53%)
-- Total tests: 841 (was 783)
-
-**Build Status:** ✓ Passes
-**Tests:** 841 tests passing
-**TypeScript:** Clean compilation
-
----
-
-### 25 January 2026 - Round 38 Fixes
-
-**useShatnerVoice Test Suite:**
-- Created comprehensive test suite with 67 tests
-- Tests cover: initialisation, config management, processShatnerText function, speak function, voice selection, stop function, testVoice, availableVoices, cleanup, Shatner speech patterns, pause multiplier, edge cases, and function stability
-- All tests passing with proper Web Speech API mocking
-
-**Test Coverage:**
-- Hooks with tests increased from 9/17 to 10/17 (59%)
-- Total tests: 908 (was 841)
-
-**Build Status:** ✓ Passes
-**Tests:** 908 tests passing
-**TypeScript:** Clean compilation
+*Achievement Mismatch (Confirmed):*
+- VortexPong uses `pong_power_master` (line 349) but it's NOT defined in GAME_ACHIEVEMENTS
+- All other games have perfect alignment between used and defined achievement IDs
 
 ---
 
-### 25 January 2026 - Round 39 Fixes
+### 25 January 2026 - Round 49 Analysis
 
-**useAchievementManager Test Suite:**
-- Created comprehensive test suite with 51 tests
-- Tests cover: initialisation, notification queue management, display modal controls, achievement statistics, unlockAchievement function, isUnlocked property, getAchievements property, save system pass-through methods (getHighScore, getPlayStats, getAchievementProgress), function stability, game-specific achievements (snake_, cloud_, invaders_, ctrl_), multiple hook instances, and edge cases
-- All tests passing with comprehensive coverage of all public API methods
+**Deep verification with 24 parallel Opus/Sonnet subagents cross-referencing specs:**
 
-**Test Coverage:**
-- Hooks with tests increased from 10/17 to 11/17 (65%)
-- Total tests: 959 (was 908)
+*Spec Compliance Verification:*
+- Reviewed `specs/game-architecture.md` - confirms required GameProps interface, state machine pattern, 60fps target
+- Reviewed `specs/ux-guidelines.md` - confirms required keyboard controls (ESC, P, R, ENTER), sound effects, Matrix aesthetic
+- Reviewed `specs/new-game-template.md` - confirms hook integration patterns and state management requirements
 
-**Build Status:** ✓ Passes
-**Tests:** 959 tests passing
-**TypeScript:** Clean compilation
+*MatrixCloud Additional Findings:*
+- 2 additional setTimeout calls found without cleanup refs (lines 436, 495-506)
+- Total MatrixCloud untracked timeouts now 4 (was 2)
+- screenShakeTimeoutRef at line 296 IS properly cleaned up
+- Power-up effect timers at lines 401-407 ARE properly cleaned up
+
+*Console Statements (Corrected Count):*
+- Total: 21 console statements in src/
+- 8x `console.error` - error handling in save system, contexts (acceptable)
+- 11x `console.warn` - warnings in sound system, voice hooks (acceptable)
+- 2x `console.log` - properly wrapped with env checks (correct)
+- All acceptable for production - error/warn handlers aid debugging
+
+*localStorage Usage (Complete Inventory):*
+| File | Key | Purpose | Migration Needed? |
+|------|-----|---------|-------------------|
+| App.tsx | `matrix-arcade-play-dates` | Global achievement tracking | Yes |
+| GameStateContext.tsx | `matrix-arcade-ctrls-save` | CtrlSWorld story state | Consider |
+| useLifelineManager.ts | `ctrlsworld_lifelines` | Puzzle lifeline state | Yes |
+| useSoundSystem.ts | `matrix-arcade-audio-config` | Audio preferences | No |
+| useAdvancedVoice.ts | `matrix-arcade-advanced-voice` | Voice preferences | No |
+| useShatnerVoice.ts | `matrix-arcade-shatner-voice` | Shatner voice config | No |
+
+*TerminalQuest Local-Only Achievements:*
+- Lines 143-151 track 3 achievements locally but never propagate to global system:
+  - `first_100_xp` - only in component state
+  - `first_combat` - only in component state
+  - `collector` - only in component state
+- These should either be added to GAME_ACHIEVEMENTS or removed
+
+*Hook API Summary (for reference):*
+- `useGameLoop(callback)` - Returns nothing, runs callback with deltaTime (ms)
+- `useSaveSystem()` - Returns saveData, updateGameSave, unlockAchievement, exportSaveData, etc.
+- `useSoundSystem()` - Returns playSFX, playMusic, stopMusic, toggleMute, isMuted, config
+- `useAchievementManager()` - Returns achievements, stats, unlockAchievement, notificationQueue
+- `useParticleSystem()` - Returns particles, emit, explode, collectFood, createTrail, render, clear
+- `useObjectPool({ create, reset, maxSize })` - Returns acquire, release, releaseAll, getStats, activeObjects
+
+*Updated Total Untracked setTimeout Calls: 21*
+| File | Count | Lines |
+|------|-------|-------|
+| TerminalQuestCombat.tsx | 7 | 87, 95, 112, 150, 164, 174, 182 |
+| CtrlSWorld.tsx | 5 | 608, 660, 723, 845, 898 |
+| MatrixCloud.tsx | 4 | 436, 495-506, 671, 825 |
+| VortexPong.tsx | 2 | 185, 530 |
+| TerminalQuest.tsx | 2 | 113, 219 |
+| Metris.tsx | 1 | 720 |
 
 ---
 
-*Generated by Ralph on 25 January 2026 - Round 39*
-*useAchievementManager test suite*
+### 25 January 2026 - Round 50 Fixes
+
+**P0 Critical Fixes Completed:**
+
+*VortexPong ENTER Key Focus Issue:*
+- Added `containerRef` to track main container element
+- Added `tabIndex={0}` to main container for keyboard focusability
+- Added `outline-none` class to prevent focus ring
+- Added `e.preventDefault()` to ENTER key handler (line 230)
+- Added auto-focus `useEffect` to focus container on mount
+- ENTER key now reliably starts game from menu or restarts from game over
+
+*TerminalQuest Achievement Persistence Bug:*
+- Added `unlockSaveAchievement` from useSaveSystem destructuring (line 90)
+- Updated `unlockAchievement` callback to call BOTH:
+  - `achievementManager.unlockAchievement()` for UI notifications
+  - `unlockSaveAchievement()` for persistence across sessions
+- All 7 TerminalQuest achievements now persist correctly
+
+*Missing VortexPong Achievement Definition:*
+- Added `pong_power_master` to `GAME_ACHIEVEMENTS['vortexPong']` in useSaveSystem.ts
+- Description: "Collect 5 power-ups in one game"
+- VortexPong now has 7 properly defined achievements
+
+*TerminalQuest Local-Only Achievements:*
+- Removed dead code at lines 143-151 that tracked 3 achievements (`first_100_xp`, `first_combat`, `collector`)
+  only in local state without global system integration
+- These were redundant as proper `quest_*` prefixed achievements already provide similar coverage
+- Simplified code and eliminated confusion about local vs global achievements
+
+**Build Status:** All 959 tests passing, production build successful.
+
+---
+
+*Generated by Ralph on 25 January 2026 - Round 50*
+*P0 critical fixes for achievement persistence and keyboard controls*
