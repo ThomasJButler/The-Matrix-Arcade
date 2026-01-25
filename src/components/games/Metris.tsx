@@ -142,6 +142,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
     down: 0
   });
   const dropIntervalIdRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null); // Timeout ref for game save to prevent memory leaks
   const particlesRef = useRef<Particle[]>([]); // Particles stored in ref for smooth 60fps animation
   const glowRef = useRef<Map<string, number>>(new Map()); // Track block glow decay separately from state to avoid mutations
 
@@ -717,7 +718,11 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
           const previousBestCombo = saveData.games.metris.stats.bestCombo || 0;
           const previousLongestSurvival = saveData.games.metris.stats.longestSurvival || 0;
 
-          setTimeout(() => {
+          // Clear any existing save timeout before setting new one
+          if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+          }
+          saveTimeoutRef.current = setTimeout(() => {
             updateGameSave('metris', {
               highScore: newHighScore,
               level: newLevel,
@@ -728,6 +733,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
                 longestSurvival: Math.max(previousLongestSurvival, sessionTime)
               }
             });
+            saveTimeoutRef.current = null;
           }, 100);
 
           // Marathon achievement: Survive 10 minutes
@@ -868,6 +874,11 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       if (dropIntervalIdRef.current) {
         clearInterval(dropIntervalIdRef.current);
         dropIntervalIdRef.current = null;
+      }
+      // Also cleanup save timeout on unmount to prevent memory leaks
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
       }
     };
   }, [state.gameOver, state.paused, state.waiting, state.level, state.softDropActive, state.bulletTimeActive, dropPiece]);

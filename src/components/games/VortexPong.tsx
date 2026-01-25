@@ -140,6 +140,10 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
   const maxComboRef = useRef(0);
   const maxRallyRef = useRef(0);
 
+  // Timeout refs for cleanup - prevents memory leaks when component unmounts
+  const screenShakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Initialize particles
   useEffect(() => {
     const newParticles: Particle[] = [];
@@ -188,7 +192,14 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
   // Screen shake effect
   const addScreenShake = useCallback((intensity: number) => {
     setScreenShake(getScreenShake(intensity));
-    setTimeout(() => setScreenShake({ x: 0, y: 0 }), 100);
+    // Clear any existing shake timeout before setting new one
+    if (screenShakeTimeoutRef.current) {
+      clearTimeout(screenShakeTimeoutRef.current);
+    }
+    screenShakeTimeoutRef.current = setTimeout(() => {
+      setScreenShake({ x: 0, y: 0 });
+      screenShakeTimeoutRef.current = null;
+    }, 100);
   }, []);
 
   // Impact effect system
@@ -260,6 +271,18 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, [gameOver, showMenu, resetGame]);
+
+  // Cleanup timeout refs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (screenShakeTimeoutRef.current) {
+        clearTimeout(screenShakeTimeoutRef.current);
+      }
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Update paddle position based on keyboard input - DIRECT control, no friction
   useEffect(() => {
@@ -534,7 +557,11 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
       const previousBestCombo = saveData.games.vortexPong?.stats?.bestCombo || 0;
       const previousLongestRally = saveData.games.vortexPong?.stats?.longestRally || 0;
 
-      setTimeout(() => {
+      // Clear any existing save timeout before setting new one
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      saveTimeoutRef.current = setTimeout(() => {
         updateGameSave('vortexPong', {
           highScore: newHighScore,
           level: 1,
@@ -546,6 +573,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
             longestRally: Math.max(previousLongestRally, maxRallyRef.current)
           }
         });
+        saveTimeoutRef.current = null;
       }, 100);
 
       // Check achievements on game over

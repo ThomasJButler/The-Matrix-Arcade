@@ -39,6 +39,27 @@ export default function TerminalQuestCombat({
     item: (item: string) => void;
   }>({ attack: () => {}, defend: () => {}, item: () => {} });
 
+  // Timeout refs for cleanup - prevents memory leaks when component unmounts during combat
+  const timeoutRefs = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+
+  // Helper to create tracked timeouts that auto-cleanup
+  const safeSetTimeout = useCallback((callback: () => void, delay: number) => {
+    const timeoutId = setTimeout(() => {
+      timeoutRefs.current.delete(timeoutId);
+      callback();
+    }, delay);
+    timeoutRefs.current.add(timeoutId);
+    return timeoutId;
+  }, []);
+
+  // Cleanup all timeouts on unmount
+  useEffect(() => {
+    return () => {
+      timeoutRefs.current.forEach(id => clearTimeout(id));
+      timeoutRefs.current.clear();
+    };
+  }, []);
+
   // Sound system integration
   const { playSFX } = useSoundSystem();
 
@@ -84,7 +105,7 @@ export default function TerminalQuestCombat({
     setEnemyHealth(newEnemyHealth);
 
     if (newEnemyHealth <= 0) {
-      setTimeout(() => {
+      safeSetTimeout(() => {
         if (!isMuted) {
           playSFX('score');
         }
@@ -92,7 +113,7 @@ export default function TerminalQuestCombat({
         onCombatEnd(true, enemy.health, playerHealth - currentPlayerHealth);
       }, 1000);
     } else {
-      setTimeout(() => enemyTurn(), 1500);
+      safeSetTimeout(() => enemyTurn(), 1500);
     }
   };
 
@@ -109,7 +130,7 @@ export default function TerminalQuestCombat({
     const healAmount = 5 + getPlayerDefense();
     setCurrentPlayerHealth(prev => Math.min(playerHealth, prev + healAmount));
 
-    setTimeout(() => enemyTurn(), 1500);
+    safeSetTimeout(() => enemyTurn(), 1500);
   };
 
   const handleItem = (item: string) => {
@@ -147,7 +168,7 @@ export default function TerminalQuestCombat({
       }
     }
 
-    setTimeout(() => enemyTurn(), 1500);
+    safeSetTimeout(() => enemyTurn(), 1500);
   };
 
   // Keep handlers ref updated for keyboard event handler
@@ -161,7 +182,7 @@ export default function TerminalQuestCombat({
     const newPlayerHealth = Math.max(0, currentPlayerHealth - damage);
 
     setShakeScreen(true);
-    setTimeout(() => setShakeScreen(false), 300);
+    safeSetTimeout(() => setShakeScreen(false), 300);
 
     if (!isMuted) {
       playSFX('hit');
@@ -171,7 +192,7 @@ export default function TerminalQuestCombat({
     setCurrentPlayerHealth(newPlayerHealth);
 
     if (newPlayerHealth <= 0) {
-      setTimeout(() => {
+      safeSetTimeout(() => {
         if (!isMuted) {
           playSFX('gameOver');
         }
@@ -179,7 +200,7 @@ export default function TerminalQuestCombat({
         onCombatEnd(false, enemy.health - enemyHealth, playerHealth);
       }, 1000);
     } else {
-      setTimeout(() => {
+      safeSetTimeout(() => {
         setIsPlayerTurn(true);
         setIsAnimating(false);
       }, 1000);

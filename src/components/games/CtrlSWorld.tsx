@@ -444,6 +444,19 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Timeout refs for cleanup - prevents memory leaks when component unmounts
+  const timeoutRefs = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+
+  // Helper to create tracked timeouts that auto-cleanup
+  const safeSetTimeout = useCallback((callback: () => void, delay: number) => {
+    const timeoutId = setTimeout(() => {
+      timeoutRefs.current.delete(timeoutId);
+      callback();
+    }, delay);
+    timeoutRefs.current.add(timeoutId);
+    return timeoutId;
+  }, []);
+
   // Session tracking
   const sessionStartTimeRef = useRef<number>(Date.now());
   const chaptersCompletedThisSession = useRef(new Set<number>());
@@ -605,7 +618,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
       // Check if page is full (5 paragraphs shown)
       if (willPageBeFull) {
         // PAGE COMPLETE - clear screen and continue after brief delay
-        setTimeout(() => {
+        safeSetTimeout(() => {
           setDisplayedTexts([]); // Clear screen
           setDisplayedTextIndices([]); // Clear indices too
           setParagraphsDisplayedOnPage(0);
@@ -657,7 +670,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
         setIsPaused(true);
       } else {
         // No puzzle - auto-advance to next paragraph after brief delay
-        setTimeout(() => {
+        safeSetTimeout(() => {
           if (currentTextIndex < node.content.length - 1) {
             // More paragraphs in this chapter
             setCurrentTextIndex(prev => prev + 1);
@@ -720,7 +733,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
     // Check if page is full (5 paragraphs displayed)
     if (paragraphsDisplayedOnPage >= PARAGRAPHS_PER_PAGE - 1) {
       // Clear screen and reset page counter
-      setTimeout(() => {
+      safeSetTimeout(() => {
         setDisplayedTexts([]);
         setDisplayedTextIndices([]);
         setParagraphsDisplayedOnPage(0);
@@ -842,7 +855,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
     setIsPaused(false);
 
     // Resume story at next paragraph
-    setTimeout(() => {
+    safeSetTimeout(() => {
       const node = STORY[currentNode];
 
       // Check if there are more paragraphs in current chapter
@@ -864,7 +877,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
         setUserHasScrolled(false);
       }
     }, 500);
-  }, [currentPuzzleId, currentNode, currentTextIndex, gameState, unlockAchievement]);
+  }, [currentPuzzleId, currentNode, currentTextIndex, gameState, unlockAchievement, safeSetTimeout]);
 
   // Track chapter completion and save game stats
   useEffect(() => {
@@ -895,7 +908,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
       const previousChaptersCompleted = saveData.games.ctrlSWorld?.stats?.chaptersCompleted || 0;
       const previousPuzzlesSolved = saveData.games.ctrlSWorld?.stats?.puzzlesSolved || 0;
 
-      setTimeout(() => {
+      safeSetTimeout(() => {
         updateGameSave('ctrlSWorld', {
           highScore: completedPuzzles.length,
           level: totalChapters,
@@ -1025,6 +1038,14 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
       return () => clearTimeout(timer);
     }
   }, [isStarted, isPaused, isTyping, typeNextCharacter, textSpeed]);
+
+  // Cleanup all tracked timeouts on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      timeoutRefs.current.forEach(id => clearTimeout(id));
+      timeoutRefs.current.clear();
+    };
+  }, []);
 
   // Determine which ASCII art to display in the left panel
   const displayAsciiData = React.useMemo(() => {

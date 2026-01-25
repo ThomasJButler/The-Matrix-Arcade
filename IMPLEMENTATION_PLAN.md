@@ -22,7 +22,7 @@ Run `./loop.sh plan` to analyse the codebase and generate tasks.
 - **isMuted Prop Gating**: All 8 games have isMuted prop and gate sound calls properly
 - **Achievement Persistence**: All games now persist achievements correctly (TerminalQuest fixed Round 50)
 - **Keyboard Controls**: All 7 main games COMPLIANT with standard controls (P, R, ENTER) - ESC handled at App level
-- **Last Analysis**: 25 January 2026 (Round 50 - P0 critical fixes applied)
+- **Last Analysis**: 25 January 2026 (Round 51 - P1 timeout cleanup completed)
 
 ---
 
@@ -235,24 +235,20 @@ if (newGameState.inventory.length >= 10 && !gameState.achievements.includes('col
 
 ### P1 - High Priority (Spec Compliance & Memory Safety)
 
-#### 5. Memory Leak - Untracked Timeouts (15 total)
+#### 5. Memory Leak - Untracked Timeouts (All Fixed)
 
-**Verified setTimeout calls without cleanup refs:**
+**All setTimeout calls now have proper cleanup refs:**
 
-| File | Lines | Count | Purpose |
-|------|-------|-------|---------|
-| TerminalQuest.tsx | 113, 219 | 2 | Screen shake, background glitch |
-| TerminalQuestCombat.tsx | 87, 95, 112, 150, 164, 174, 182 | 7 | Combat flow, enemy turns, victory/defeat |
-| CtrlSWorld.tsx | 608, 660, 723, 845, 898 | 5 | Page transitions, auto-advance, puzzle resume |
-| Metris.tsx | 720 | 1 | Save game stats |
+| File | Lines | Count | Purpose | Status |
+|------|-------|-------|---------|--------|
+| TerminalQuest.tsx | 113, 219 | 2 | Screen shake, background glitch | **FIXED** |
+| TerminalQuestCombat.tsx | 87, 95, 112, 150, 164, 174, 182 | 7 | Combat flow, enemy turns, victory/defeat | **FIXED** |
+| CtrlSWorld.tsx | 608, 660, 723, 845, 898 | 5 | Page transitions, auto-advance, puzzle resume | **FIXED** |
+| Metris.tsx | 720 | 1 | Save game stats | **FIXED** |
+| VortexPong.tsx | 185, 530 | 2 | Screen shake reset, save delay | **FIXED** |
+| MatrixCloud.tsx | 436, 495-506, 671, 825 | 4 | Achievement delay, save delay, boss spawn, invulnerability | **FIXED** |
 
-**Additional VortexPong timeouts (2):**
-| VortexPong.tsx | 185, 530 | 2 | Screen shake reset, save delay |
-
-**Additional MatrixCloud timeouts (4):**
-| MatrixCloud.tsx | 436, 495-506, 671, 825 | 4 | Achievement delay, save delay, boss spawn, invulnerability |
-
-**Total: 21 untracked setTimeout calls**
+**Total: 0 untracked setTimeout calls (was 21)**
 
 **Reference Implementation (MatrixInvaders.tsx lines 129-132, 993-1008):**
 ```typescript
@@ -576,12 +572,12 @@ interface GameProps {
 |------|----------|-------|---------|---------------|--------------|------------|----------|---------|
 | SimpleSnake | 100% | Yes | Yes | **COMPLIANT** | Yes | Yes | Clean | **100%** |
 | MatrixInvaders | 100% | Yes | Yes | **COMPLIANT** | Yes (10) | Yes | **Reference** | **98%** |
-| Metris | 95% (no WASD) | Yes | Yes | **COMPLIANT** | Yes (12) | Yes | 1 leak | **93%** |
-| VortexPong | 100% | Yes | Yes | **COMPLIANT** | Yes (7) | Yes | 2 leaks | **90%** |
-| MatrixCloud | 100% | Yes | Yes | **COMPLIANT** | Yes (7) | Yes | 2 leaks | **88%** |
-| TerminalQuest | 100% | Yes | Yes | PARTIAL | Yes (7) | Yes | 2 leaks | **80%** |
-| CtrlSWorld | 85% (no ESC) | Mixed | Yes | PARTIAL | Yes (7) | Yes | 5 leaks | **75%** |
-| TerminalQuestCombat | N/A | Yes | Yes | PARTIAL | N/A | N/A | 7 leaks | **50%** |
+| Metris | 95% (no WASD) | Yes | Yes | **COMPLIANT** | Yes (12) | Yes | Clean | **95%** |
+| VortexPong | 100% | Yes | Yes | **COMPLIANT** | Yes (7) | Yes | Clean | **95%** |
+| MatrixCloud | 100% | Yes | Yes | **COMPLIANT** | Yes (7) | Yes | Clean | **93%** |
+| TerminalQuest | 100% | Yes | Yes | PARTIAL | Yes (7) | Yes | Clean | **85%** |
+| CtrlSWorld | 85% (no ESC) | Mixed | Yes | PARTIAL | Yes (7) | Yes | Clean | **80%** |
+| TerminalQuestCombat | N/A | Yes | Yes | PARTIAL | N/A | N/A | Clean | **60%** |
 
 **Average Game Compliance: 84%**
 
@@ -606,12 +602,12 @@ interface GameProps {
 - [x] Fix TerminalQuest local-only achievements (lines 143-151) - removed dead code - DONE
 
 ### P1 - High Priority (Memory Safety & Performance)
-- [ ] Add timeout cleanup refs to TerminalQuest (lines 113, 219)
-- [ ] Add timeout cleanup refs to TerminalQuestCombat (7 timeouts: lines 87, 95, 112, 150, 164, 174, 182)
-- [ ] Add timeout cleanup refs to CtrlSWorld (5 timeouts: lines 608, 660, 723, 845, 898)
-- [ ] Add timeout cleanup ref to Metris (line 720)
-- [ ] Add timeout cleanup refs to VortexPong (lines 185, 530)
-- [ ] Add timeout cleanup refs to MatrixCloud (4 timeouts: lines 436, 495-506, 671, 825)
+- [x] Add timeout cleanup refs to TerminalQuest (lines 113, 219)
+- [x] Add timeout cleanup refs to TerminalQuestCombat (7 timeouts: lines 87, 95, 112, 150, 164, 174, 182)
+- [x] Add timeout cleanup refs to CtrlSWorld (5 timeouts: lines 608, 660, 723, 845, 898)
+- [x] Add timeout cleanup ref to Metris (line 720)
+- [x] Add timeout cleanup refs to VortexPong (lines 185, 530)
+- [x] Add timeout cleanup refs to MatrixCloud (4 timeouts: lines 436, 495-506, 671, 825)
 - [ ] Fix MatrixCloud Date.now() in boss movement (add elapsedTime to Boss interface, lines 352, 356, 357, 361)
 - [ ] Fix MatrixInvaders Date.now() in render (use timestamp parameter, line 728)
 - [ ] Refactor TerminalQuestCombat stale closures (lines 92, 179) and boolean states to CombatPhase enum
@@ -923,5 +919,38 @@ interface GameProps {
 
 ---
 
-*Generated by Ralph on 25 January 2026 - Round 50*
-*P0 critical fixes for achievement persistence and keyboard controls*
+### 25 January 2026 - Round 51 Fixes
+
+**P1 Timeout Cleanup Completed:**
+
+All 21 untracked setTimeout calls across 6 game files now have proper cleanup refs:
+
+*TerminalQuest.tsx (2 timeouts):*
+- Line 113: Screen shake timeout - added cleanup ref
+- Line 219: Background glitch timeout - added cleanup ref
+
+*TerminalQuestCombat.tsx (7 timeouts):*
+- Lines 87, 95, 112, 150, 164, 174, 182: Combat flow, enemy turns, victory/defeat
+- All timeouts now use refs with proper cleanup on unmount
+
+*CtrlSWorld.tsx (5 timeouts):*
+- Lines 608, 660, 723, 845, 898: Page transitions, auto-advance, puzzle resume
+- All timeouts now tracked with refs and cleaned up properly
+
+*Metris.tsx (1 timeout):*
+- Line 720: Save game stats timeout - added cleanup ref
+
+*VortexPong.tsx (2 timeouts):*
+- Line 185: Screen shake reset - added cleanup ref
+- Line 530: Save delay timeout - added cleanup ref
+
+*MatrixCloud.tsx (4 timeouts):*
+- Lines 436, 495-506, 671, 825: Achievement delay, save delay, boss spawn, invulnerability
+- All timeouts now properly tracked and cleaned up
+
+**Memory Safety:** All games now follow the MatrixInvaders reference implementation pattern for timeout cleanup.
+
+---
+
+*Generated by Ralph on 25 January 2026 - Round 51*
+*P1 timeout cleanup - all 21 memory leaks fixed*

@@ -192,6 +192,11 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
   const animationFrameRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
   const screenShakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Timeout refs for cleanup - prevents memory leaks when component unmounts
+  const achievementTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bossSpawnTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const invulnerabilityTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [paused, setPaused] = useState(false);
   const [showTutorial, setShowTutorial] = useState(true);
   const [screenShake, setScreenShake] = useState({ x: 0, y: 0 });
@@ -433,7 +438,13 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
       setState(prev => {
         // First flight achievement
         if (!prev.started) {
-          setTimeout(() => unlockAchievement('matrixCloud', 'cloud_first_flight'), 100);
+          if (achievementTimeoutRef.current) {
+            clearTimeout(achievementTimeoutRef.current);
+          }
+          achievementTimeoutRef.current = setTimeout(() => {
+            unlockAchievement('matrixCloud', 'cloud_first_flight');
+            achievementTimeoutRef.current = null;
+          }, 100);
         }
         
         return {
@@ -492,7 +503,10 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
       const newHighScore = Math.max(state.score, state.highScore);
       
       // Save game statistics when game ends
-      setTimeout(() => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      saveTimeoutRef.current = setTimeout(() => {
         updateGameSave('matrixCloud', {
           highScore: newHighScore,
           level: state.level,
@@ -503,6 +517,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
             bossesDefeated: saveData?.games?.matrixCloud?.stats?.bossesDefeated || 0
           }
         });
+        saveTimeoutRef.current = null;
       }, 100);
       
       return {
@@ -668,7 +683,13 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
 
             // Check for boss spawns
             if (BOSS_SPAWN_LEVELS.includes(newLevel) && !newState.inBossBattle) {
-              setTimeout(() => spawnBoss(newLevel), 1000);
+              if (bossSpawnTimeoutRef.current) {
+                clearTimeout(bossSpawnTimeoutRef.current);
+              }
+              bossSpawnTimeoutRef.current = setTimeout(() => {
+                spawnBoss(newLevel);
+                bossSpawnTimeoutRef.current = null;
+              }, 1000);
             }
           }
 
@@ -822,8 +843,12 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
       
       // Reset invulnerability after a short time
       if (newState.invulnerable) {
-        setTimeout(() => {
+        if (invulnerabilityTimeoutRef.current) {
+          clearTimeout(invulnerabilityTimeoutRef.current);
+        }
+        invulnerabilityTimeoutRef.current = setTimeout(() => {
           setState(p => ({ ...p, invulnerable: false }));
+          invulnerabilityTimeoutRef.current = null;
         }, 1500);
       }
 
@@ -1121,8 +1146,21 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
+      // Cleanup all timeout refs to prevent memory leaks
       if (screenShakeTimeoutRef.current) {
         clearTimeout(screenShakeTimeoutRef.current);
+      }
+      if (achievementTimeoutRef.current) {
+        clearTimeout(achievementTimeoutRef.current);
+      }
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      if (bossSpawnTimeoutRef.current) {
+        clearTimeout(bossSpawnTimeoutRef.current);
+      }
+      if (invulnerabilityTimeoutRef.current) {
+        clearTimeout(invulnerabilityTimeoutRef.current);
       }
     };
     // Only run on mount - generateParticles is stable via useCallback with no deps

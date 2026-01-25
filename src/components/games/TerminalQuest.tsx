@@ -83,6 +83,10 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
   const [backgroundGlitch, setBackgroundGlitch] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
 
+  // Timeout refs for cleanup - prevents memory leaks when component unmounts
+  const shakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const glitchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Sound system integration
   const { playSFX, playMusic, stopMusic } = useSoundSystem();
 
@@ -112,7 +116,14 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
 
   const triggerShake = () => {
     setShakeEffect(true);
-    setTimeout(() => setShakeEffect(false), 500); // Brief screen shake
+    // Clear any existing shake timeout before setting new one
+    if (shakeTimeoutRef.current) {
+      clearTimeout(shakeTimeoutRef.current);
+    }
+    shakeTimeoutRef.current = setTimeout(() => {
+      setShakeEffect(false);
+      shakeTimeoutRef.current = null;
+    }, 500); // Brief screen shake
   };
 
   // Function for calculating effects from a choice
@@ -207,7 +218,14 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
       }
       if (choice.security) {
         setBackgroundGlitch(b => !b); // Glitch background on security risks
-        setTimeout(() => setBackgroundGlitch(b => !b), 1000);
+        // Clear any existing glitch timeout before setting new one
+        if (glitchTimeoutRef.current) {
+          clearTimeout(glitchTimeoutRef.current);
+        }
+        glitchTimeoutRef.current = setTimeout(() => {
+          setBackgroundGlitch(b => !b);
+          glitchTimeoutRef.current = null;
+        }, 1000);
         if (!isMuted) {
           playSFX('hit');
         }
@@ -393,6 +411,18 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [restartGame, isTyping, isPaused, inCombat, gameState.currentNode, gameState.inventory, handleChoice]);
+
+  // Cleanup timeout refs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (shakeTimeoutRef.current) {
+        clearTimeout(shakeTimeoutRef.current);
+      }
+      if (glitchTimeoutRef.current) {
+        clearTimeout(glitchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const currentNode = GAME_NODES[gameState.currentNode];
   const typedDescription = useTypingEffect(currentNode?.description || '');
