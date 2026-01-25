@@ -25,6 +25,7 @@ import {
   Volume2,
   VolumeX,
   Blocks,
+  Terminal,
 } from 'lucide-react';
 import SimpleSnake from './components/games/SimpleSnake';
 import VortexPong from './components/games/VortexPong';
@@ -32,6 +33,7 @@ import CtrlSWorld from './components/games/CtrlSWorld';
 import MatrixCloud from './components/games/MatrixCloud';
 import MatrixInvaders from './components/games/MatrixInvaders';
 import Metris from './components/games/Metris';
+import TerminalQuest from './components/games/TerminalQuest';
 import AudioSettings from './components/ui/AudioSettings';
 import SaveLoadManager from './components/ui/SaveLoadManager';
 import { AchievementQueue } from './components/ui/AchievementNotification';
@@ -229,6 +231,14 @@ function App() {
       description: 'Stack the code blocks and break the Matrix',
       preview: metrisPreview,
       component: Metris,
+    },
+    {
+      title: 'Terminal Quest',
+      icon: <Terminal className="w-8 h-8" />,
+      description: 'A text-based adventure through the digital realm',
+      preview:
+        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
+      component: TerminalQuest,
     },
   ];
 
