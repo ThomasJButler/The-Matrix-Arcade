@@ -154,6 +154,13 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
   const lockDelayResets = useRef<number>(0);
   const lastGroundedTime = useRef<number>(0);
   const isGroundedRef = useRef<boolean>(false);
+  // Achievement tracking refs
+  const maxFilledRowsRef = useRef<number>(0);  // Track max rows filled without clearing (for architect achievement)
+  const tSpinCountRef = useRef<number>(0);  // Track T-spins performed (for t_spin_master achievement)
+  const lastRotationRef = useRef<boolean>(false);  // Track if last move was a rotation (for T-spin detection)
+  const perfectStartUnlockedRef = useRef<boolean>(false);
+  const architectUnlockedRef = useRef<boolean>(false);
+  const tSpinMasterUnlockedRef = useRef<boolean>(false);
 
   // Hooks
   const { synthLaser, synthExplosion, synthPowerUp, synthDrum } = useSoundSynthesis();
@@ -335,8 +342,27 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
   }, []);
 
   // Check and clear lines
-  const clearLines = useCallback((grid: Block[][]): { newGrid: Block[][], linesCleared: number } => {
+  const clearLines = useCallback((grid: Block[][], wasRotation: boolean = false, pieceType?: TetrominoType): { newGrid: Block[][], linesCleared: number, wasTSpin: boolean } => {
     const linesToClear: number[] = [];
+
+    // Count filled rows before clearing (for architect achievement)
+    let filledRows = 0;
+    for (let y = 0; y < ROWS; y++) {
+      if (grid[y].some(block => block.filled)) {
+        filledRows++;
+      }
+    }
+
+    // Update max filled rows tracking
+    if (filledRows > maxFilledRowsRef.current) {
+      maxFilledRowsRef.current = filledRows;
+
+      // Architect achievement: Build to 18 rows without clearing
+      if (filledRows >= 18 && !architectUnlockedRef.current && achievementManager) {
+        architectUnlockedRef.current = true;
+        achievementManager.unlockAchievement('metris', 'architect');
+      }
+    }
 
     // Find full lines
     for (let y = 0; y < ROWS; y++) {
@@ -345,8 +371,21 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       }
     }
 
+    // Detect T-spin: T piece + last move was rotation + lines cleared
+    let wasTSpin = false;
+    if (pieceType === 'T' && wasRotation && linesToClear.length > 0) {
+      wasTSpin = true;
+      tSpinCountRef.current++;
+
+      // T-Spin Master achievement: Perform 5 T-spins
+      if (tSpinCountRef.current >= 5 && !tSpinMasterUnlockedRef.current && achievementManager) {
+        tSpinMasterUnlockedRef.current = true;
+        achievementManager.unlockAchievement('metris', 't_spin_master');
+      }
+    }
+
     if (linesToClear.length === 0) {
-      return { newGrid: grid, linesCleared: 0 };
+      return { newGrid: grid, linesCleared: 0, wasTSpin: false };
     }
 
     // Create particles for cleared lines and add directly to particlesRef
@@ -399,8 +438,8 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
     });
     glowRef.current = newGlowMap;
 
-    return { newGrid, linesCleared: linesToClear.length };
-  }, []);
+    return { newGrid, linesCleared: linesToClear.length, wasTSpin };
+  }, [achievementManager]);
 
   // Calculate score
   const calculateScore = (linesCleared: number, level: number, combo: number): number => {
@@ -417,6 +456,10 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
 
       if (!checkCollision(newPiece, prev.grid)) {
         if (dx !== 0 && !isMuted) synthLaser(400, 300, 0.05);
+        // Horizontal moves reset rotation tracking (standard T-spin rules)
+        if (dx !== 0) {
+          lastRotationRef.current = false;
+        }
         return { ...prev, currentPiece: newPiece };
       }
 
@@ -433,6 +476,8 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
 
       if (rotated) {
         if (!isMuted) synthLaser(600, 800, 0.08);
+        // Track rotation for T-spin detection
+        lastRotationRef.current = true;
         return { ...prev, currentPiece: rotated };
       }
 
@@ -534,7 +579,8 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
 
       // Lock the piece immediately at the drop position
       const newGrid = lockPiece(testPiece, prev.grid);
-      const { newGrid: clearedGrid, linesCleared } = clearLines(newGrid);
+      const { newGrid: clearedGrid, linesCleared } = clearLines(newGrid, lastRotationRef.current, testPiece.type);
+      lastRotationRef.current = false;  // Reset rotation tracking
 
       const newCombo = linesCleared > 0 ? prev.combo + 1 : 0;
       const scorePoints = calculateScore(linesCleared, prev.level, newCombo);
@@ -590,7 +636,8 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       } else {
         // Piece has landed - lock it
         const newGrid = lockPiece(currentState.currentPiece, currentState.grid);
-        const { newGrid: clearedGrid, linesCleared } = clearLines(newGrid);
+        const { newGrid: clearedGrid, linesCleared } = clearLines(newGrid, lastRotationRef.current, currentState.currentPiece.type);
+        lastRotationRef.current = false;  // Reset rotation tracking
 
         const newCombo = linesCleared > 0 ? currentState.combo + 1 : 0;
         const points = calculateScore(linesCleared, currentState.level, newCombo);
@@ -687,6 +734,13 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
           if (achievementManager && sessionTime >= 600) {
             achievementManager.unlockAchievement('metris', 'marathon_runner');
           }
+
+          // Perfect Start achievement: Reach level 5 or higher before game over
+          // This is awarded when the player reaches level 5+, meaning they didn't game over before level 5
+          if (achievementManager && newLevel >= 5 && !perfectStartUnlockedRef.current) {
+            perfectStartUnlockedRef.current = true;
+            achievementManager.unlockAchievement('metris', 'perfect_start');
+          }
         }
 
         return {
@@ -730,6 +784,12 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
     lockDelayResets.current = 0;
     lastGroundedTime.current = 0;
     isGroundedRef.current = false;
+
+    // Reset achievement tracking refs for new game session
+    maxFilledRowsRef.current = 0;
+    tSpinCountRef.current = 0;
+    lastRotationRef.current = false;
+    // Note: Don't reset achievement unlocked flags - they persist via save system
 
     // Clear particles and glow
     particlesRef.current = [];

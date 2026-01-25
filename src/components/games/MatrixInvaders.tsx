@@ -114,6 +114,12 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
   const maxWaveRef = useRef(0);
   const maxComboRef = useRef(0);
   const enemiesKilledRef = useRef(0);
+  // Achievement tracking
+  const bulletTimeUsedRef = useRef(0);
+  const waveDamageTakenRef = useRef(false);  // Track if damage taken this wave
+  const bulletTimeAchievementUnlockedRef = useRef(false);
+  const perfectWaveAchievementUnlockedRef = useRef(false);
+  const highScoreAchievementUnlockedRef = useRef(false);
 
   // Sync high score from useSaveSystem on mount
   useEffect(() => {
@@ -285,7 +291,9 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
             bullet.y < state.player.y + PLAYER_HEIGHT &&
             bullet.y + bullet.height > state.player.y) {
 
-          // Player takes damage
+          // Player takes damage - mark that damage was taken this wave
+          waveDamageTakenRef.current = true;
+
           setState(prev => {
             const newHealth = Math.max(0, prev.player.health - 5);
             return {
@@ -357,7 +365,17 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
           achievementManager.unlockAchievement('matrixInvaders', 'invaders_endless');
           unlockSaveAchievement('matrixInvaders', 'invaders_endless');
         }
+
+        // Perfect wave achievement: Complete a wave without taking damage
+        if (!waveDamageTakenRef.current && !perfectWaveAchievementUnlockedRef.current && state.wave > 1) {
+          perfectWaveAchievementUnlockedRef.current = true;
+          achievementManager.unlockAchievement('matrixInvaders', 'invaders_perfect_wave');
+          unlockSaveAchievement('matrixInvaders', 'invaders_perfect_wave');
+        }
       }
+
+      // Reset damage tracking for next wave
+      waveDamageTakenRef.current = false;
     }
   }, [projectilePool, enemyPool, state.wave, state.player, achievementManager, unlockSaveAchievement, createExplosion, synthDrum, synthExplosion, spawnWave, isMuted]);
   
@@ -645,6 +663,10 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
     maxWaveRef.current = 0;
     maxComboRef.current = 0;
     enemiesKilledRef.current = 0;
+    // Reset achievement tracking for new session
+    bulletTimeUsedRef.current = 0;
+    waveDamageTakenRef.current = false;
+    // Note: Don't reset achievement unlocked flags - they persist across sessions via save system
 
     spawnWave(1);
   }, [projectilePool, enemyPool, particlePool, spawnWave, saveData.games.matrixInvaders?.highScore]);
@@ -665,15 +687,25 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
       }
       
       if (e.key === 'b' && !state.menu && !state.gameOver && !state.bulletTimeActive) {
-        setState(prev => ({ 
-          ...prev, 
+        // Track bullet time usage for achievement
+        bulletTimeUsedRef.current += 1;
+
+        // Unlock achievement when bullet time is used 5 times
+        if (bulletTimeUsedRef.current >= 5 && !bulletTimeAchievementUnlockedRef.current && achievementManager) {
+          bulletTimeAchievementUnlockedRef.current = true;
+          achievementManager.unlockAchievement('matrixInvaders', 'invaders_bullet_time');
+          unlockSaveAchievement('matrixInvaders', 'invaders_bullet_time');
+        }
+
+        setState(prev => ({
+          ...prev,
           bulletTimeActive: true,
           timeScale: 0.3
         }));
-        
+
         setTimeout(() => {
-          setState(prev => ({ 
-            ...prev, 
+          setState(prev => ({
+            ...prev,
             bulletTimeActive: false,
             timeScale: 1
           }));
@@ -785,6 +817,13 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
       if (maxComboRef.current >= 10 && achievementManager) {
         achievementManager.unlockAchievement('matrixInvaders', 'invaders_combo_10');
         unlockSaveAchievement('matrixInvaders', 'invaders_combo_10');
+      }
+
+      // High score achievement: Score over 10,000 points
+      if (state.score >= 10000 && !highScoreAchievementUnlockedRef.current && achievementManager) {
+        highScoreAchievementUnlockedRef.current = true;
+        achievementManager.unlockAchievement('matrixInvaders', 'invaders_high_score');
+        unlockSaveAchievement('matrixInvaders', 'invaders_high_score');
       }
     }
   }, [state.gameOver, state.score, state.wave, state.highScore, saveData, updateGameSave, achievementManager, unlockSaveAchievement]);

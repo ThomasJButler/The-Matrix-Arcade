@@ -75,6 +75,74 @@ function App() {
   const gamesPlayed = useRef(new Set<string>());
   const playStartTime = useRef<number | null>(null);
   const totalPlayTime = useRef(0);
+  const nightOwlCheckedRef = useRef(false);
+  const dedicatedCheckedRef = useRef(false);
+
+  /**
+   * Check for Night Owl achievement (playing between midnight and 5am)
+   */
+  const checkNightOwlAchievement = useCallback(() => {
+    if (nightOwlCheckedRef.current) return;
+
+    const currentHour = new Date().getHours();
+    // Night owl: play between midnight (0) and 5am (5)
+    if (currentHour >= 0 && currentHour < 5) {
+      const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
+      if (!currentGlobalAchievements.includes('global_night_owl')) {
+        nightOwlCheckedRef.current = true;
+        achievementManager.updateGlobalStats({
+          globalAchievements: [...currentGlobalAchievements, 'global_night_owl']
+        });
+      }
+    }
+  }, [achievementManager]);
+
+  /**
+   * Check for Dedicated Player achievement (play 7 days in a row)
+   * Uses localStorage to track play dates
+   */
+  const checkDedicatedAchievement = useCallback(() => {
+    if (dedicatedCheckedRef.current) return;
+
+    const today = new Date().toDateString();
+    const playDatesKey = 'matrix-arcade-play-dates';
+    const storedDates = localStorage.getItem(playDatesKey);
+    let playDates: string[] = storedDates ? JSON.parse(storedDates) : [];
+
+    // Add today if not already in list
+    if (!playDates.includes(today)) {
+      playDates.push(today);
+      // Only keep last 7 days
+      if (playDates.length > 7) {
+        playDates = playDates.slice(-7);
+      }
+      localStorage.setItem(playDatesKey, JSON.stringify(playDates));
+    }
+
+    // Check if played 7 consecutive days
+    if (playDates.length >= 7) {
+      // Verify they are consecutive
+      const dates = playDates.map(d => new Date(d).getTime()).sort((a, b) => a - b);
+      let consecutive = true;
+      for (let i = 1; i < dates.length; i++) {
+        const dayDiff = (dates[i] - dates[i - 1]) / (1000 * 60 * 60 * 24);
+        if (dayDiff > 1) {
+          consecutive = false;
+          break;
+        }
+      }
+
+      if (consecutive) {
+        const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
+        if (!currentGlobalAchievements.includes('global_dedicated')) {
+          dedicatedCheckedRef.current = true;
+          achievementManager.updateGlobalStats({
+            globalAchievements: [...currentGlobalAchievements, 'global_dedicated']
+          });
+        }
+      }
+    }
+  }, [achievementManager]);
 
   /**
    * Track play time and check for marathon gamer achievement
@@ -408,6 +476,23 @@ function App() {
         setIsPlaying(true);
         playSFX('score');
         setTimeout(() => playBackgroundMP3('/matrixarcaderetrobeat.mp3'), 500);
+
+        // Track game played and check achievements (same as button click)
+        const gameName = games[selectedGame].title;
+        gamesPlayed.current.add(gameName);
+        playStartTime.current = Date.now();
+        checkNightOwlAchievement();
+        checkDedicatedAchievement();
+
+        // First game achievement
+        if (gamesPlayed.current.size === 1) {
+          const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
+          if (!currentGlobalAchievements.includes('global_first_game')) {
+            achievementManager.updateGlobalStats({
+              globalAchievements: [...currentGlobalAchievements, 'global_first_game']
+            });
+          }
+        }
       }
       
       // V key to toggle mute
@@ -422,7 +507,7 @@ function App() {
     
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isPlaying, achievementManager, stopMusic, playSFX, showMobileWarning, playBackgroundMP3, handlePrevious, handleNext, toggleMute, trackPlayTime]);
+  }, [isPlaying, achievementManager, stopMusic, playSFX, showMobileWarning, playBackgroundMP3, handlePrevious, handleNext, toggleMute, trackPlayTime, checkNightOwlAchievement, checkDedicatedAchievement, selectedGame]);
 
   const GameComponent = games[selectedGame].component;
 
@@ -631,7 +716,11 @@ function App() {
                             const gameName = games[selectedGame].title;
                             gamesPlayed.current.add(gameName);
                             playStartTime.current = Date.now();
-                            
+
+                            // Check time-based global achievements
+                            checkNightOwlAchievement();
+                            checkDedicatedAchievement();
+
                             // Check global achievements
                             if (gamesPlayed.current.size === 1) {
                               // First game achievement
@@ -642,7 +731,7 @@ function App() {
                                 });
                               }
                             }
-                            
+
                             if (gamesPlayed.current.size === games.length) {
                               // All games played achievement
                               const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];

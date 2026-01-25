@@ -30,6 +30,10 @@ export interface SnakeGameState {
   foodEaten: number;  // track for head/tail unlock
   powerUp?: PowerUp;
   activePowerUps: ActivePowerUps;
+  // Achievement tracking
+  consecutiveFood: number;  // Track consecutive food eaten for chain reaction achievement
+  powerUpsCollected: number;  // Track power-ups collected this game
+  powerUpTypesCollected: Set<PowerUpType>;  // Track unique power-up types collected
 }
 
 const GRID_SIZE = 20;
@@ -57,7 +61,11 @@ export function useSimpleSnakeGame(options: UseSimpleSnakeGameOptions = {}) {
     speed: INITIAL_SPEED,
     foodEaten: 0,
     powerUp: undefined,
-    activePowerUps: {}
+    activePowerUps: {},
+    // Achievement tracking
+    consecutiveFood: 0,
+    powerUpsCollected: 0,
+    powerUpTypesCollected: new Set<PowerUpType>()
   });
 
   // Refs for game loop
@@ -221,8 +229,17 @@ export function useSimpleSnakeGame(options: UseSimpleSnakeGameOptions = {}) {
       let newFoodEaten = prev.foodEaten;
       let newPowerUp = powerUp;
 
+      // Track achievement stats
+      let newPowerUpsCollected = prev.powerUpsCollected;
+      const newPowerUpTypesCollected = new Set(prev.powerUpTypesCollected);
+      let newConsecutiveFood = prev.consecutiveFood;
+
       // Check if power-up collected
       if (powerUp && nextPos.x === powerUp.position.x && nextPos.y === powerUp.position.y) {
+        // Track power-up collection for achievements
+        newPowerUpsCollected++;
+        newPowerUpTypesCollected.add(powerUp.type);
+
         switch (powerUp.type) {
           case 'speed':
             activePowerUps.speed = now + 5000; // 5 seconds
@@ -245,6 +262,8 @@ export function useSimpleSnakeGame(options: UseSimpleSnakeGameOptions = {}) {
       if (nextPos.x === prev.food.x && nextPos.y === prev.food.y) {
         // Don't remove tail (snake grows)
         newFoodEaten++;
+        // Increment consecutive food counter for chain reaction achievement
+        newConsecutiveFood++;
 
         // Calculate points (with double power-up check)
         let points = 10;
@@ -289,7 +308,10 @@ export function useSimpleSnakeGame(options: UseSimpleSnakeGameOptions = {}) {
         speed: newSpeed,
         foodEaten: newFoodEaten,
         powerUp: newPowerUp,
-        activePowerUps
+        activePowerUps,
+        consecutiveFood: newConsecutiveFood,
+        powerUpsCollected: newPowerUpsCollected,
+        powerUpTypesCollected: newPowerUpTypesCollected
       };
     });
   }, [generateFood, generatePowerUp]);
@@ -310,7 +332,11 @@ export function useSimpleSnakeGame(options: UseSimpleSnakeGameOptions = {}) {
       speed: INITIAL_SPEED,
       foodEaten: 0,
       powerUp: undefined,
-      activePowerUps: {}
+      activePowerUps: {},
+      // Reset achievement tracking for new game
+      consecutiveFood: 0,
+      powerUpsCollected: 0,
+      powerUpTypesCollected: new Set<PowerUpType>()
     }));
   }, [generateFood]);
 
