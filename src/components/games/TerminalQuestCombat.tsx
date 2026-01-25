@@ -17,6 +17,17 @@ interface CombatScreenProps {
   isMuted?: boolean;
 }
 
+// Discriminated union type for combat phases - eliminates boolean state fragility
+// Each phase carries exactly the data it needs, making transitions explicit and type-safe
+type CombatPhase =
+  | { phase: 'player_ready' }
+  | { phase: 'player_attacking' }
+  | { phase: 'player_defending' }
+  | { phase: 'player_using_item' }
+  | { phase: 'enemy_turn' }
+  | { phase: 'victory'; damageDealt: number; damageTaken: number }
+  | { phase: 'defeat'; damageDealt: number; damageTaken: number };
+
 export default function TerminalQuestCombat({
   enemy,
   playerHealth,
@@ -28,9 +39,17 @@ export default function TerminalQuestCombat({
   const [enemyHealth, setEnemyHealth] = useState(enemy.health);
   const [currentPlayerHealth, setCurrentPlayerHealth] = useState(playerHealth);
   const [combatLog, setCombatLog] = useState<string[]>([`${enemy.name} appears!`]);
-  const [isPlayerTurn, setIsPlayerTurn] = useState(true);
-  const [isAnimating, setIsAnimating] = useState(false);
   const [shakeScreen, setShakeScreen] = useState(false);
+
+  // Single state machine for combat phase - replaces isPlayerTurn + isAnimating booleans
+  // This prevents impossible states (e.g., animating while it's enemy turn but player ready)
+  const [combatPhase, setCombatPhase] = useState<CombatPhase>({ phase: 'player_ready' });
+
+  // Derived state for backwards compatibility and cleaner conditionals
+  const isPlayerTurn = combatPhase.phase === 'player_ready';
+  const isAnimating = combatPhase.phase !== 'player_ready' &&
+                      combatPhase.phase !== 'victory' &&
+                      combatPhase.phase !== 'defeat';
 
   // Refs for keyboard handlers to avoid stale closures
   const handlersRef = useRef<{
@@ -91,9 +110,9 @@ export default function TerminalQuestCombat({
   };
 
   const handleAttack = () => {
-    if (!isPlayerTurn || isAnimating) return;
+    if (combatPhase.phase !== 'player_ready') return;
 
-    setIsAnimating(true);
+    setCombatPhase({ phase: 'player_attacking' });
     const damage = getPlayerDamage();
     const newEnemyHealth = Math.max(0, enemyHealth - damage);
 
@@ -105,12 +124,15 @@ export default function TerminalQuestCombat({
     setEnemyHealth(newEnemyHealth);
 
     if (newEnemyHealth <= 0) {
+      // Capture current health values for victory callback to avoid stale closure
+      const damageTaken = playerHealth - currentPlayerHealth;
       safeSetTimeout(() => {
         if (!isMuted) {
           playSFX('score');
         }
         setCombatLog(prev => [...prev, `${enemy.name} defeated!`]);
-        onCombatEnd(true, enemy.health, playerHealth - currentPlayerHealth);
+        setCombatPhase({ phase: 'victory', damageDealt: enemy.health, damageTaken });
+        onCombatEnd(true, enemy.health, damageTaken);
       }, 1000);
     } else {
       safeSetTimeout(() => enemyTurn(), 1500);
@@ -118,9 +140,9 @@ export default function TerminalQuestCombat({
   };
 
   const handleDefend = () => {
-    if (!isPlayerTurn || isAnimating) return;
+    if (combatPhase.phase !== 'player_ready') return;
 
-    setIsAnimating(true);
+    setCombatPhase({ phase: 'player_defending' });
     if (!isMuted) {
       playSFX('powerup');
     }
@@ -134,9 +156,9 @@ export default function TerminalQuestCombat({
   };
 
   const handleItem = (item: string) => {
-    if (!isPlayerTurn || isAnimating) return;
+    if (combatPhase.phase !== 'player_ready') return;
 
-    setIsAnimating(true);
+    setCombatPhase({ phase: 'player_using_item' });
 
     switch (item) {
       case 'health_pack': {
@@ -177,7 +199,7 @@ export default function TerminalQuestCombat({
   const enemyTurn = () => {
     if (enemyHealth <= 0) return;
 
-    setIsPlayerTurn(false);
+    setCombatPhase({ phase: 'enemy_turn' });
     const damage = Math.max(0, enemy.damage - getPlayerDefense() - Math.floor(Math.random() * 5));
     const newPlayerHealth = Math.max(0, currentPlayerHealth - damage);
 
@@ -192,17 +214,19 @@ export default function TerminalQuestCombat({
     setCurrentPlayerHealth(newPlayerHealth);
 
     if (newPlayerHealth <= 0) {
+      // Capture damage values for defeat callback to avoid stale closure
+      const damageDealt = enemy.health - enemyHealth;
       safeSetTimeout(() => {
         if (!isMuted) {
           playSFX('gameOver');
         }
         setCombatLog(prev => [...prev, 'You have been defeated...']);
-        onCombatEnd(false, enemy.health - enemyHealth, playerHealth);
+        setCombatPhase({ phase: 'defeat', damageDealt, damageTaken: playerHealth });
+        onCombatEnd(false, damageDealt, playerHealth);
       }, 1000);
     } else {
       safeSetTimeout(() => {
-        setIsPlayerTurn(true);
-        setIsAnimating(false);
+        setCombatPhase({ phase: 'player_ready' });
       }, 1000);
     }
   };
@@ -210,8 +234,8 @@ export default function TerminalQuestCombat({
   // Keyboard controls for combat
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Only handle keys during player turn and when not animating
-      if (!isPlayerTurn || isAnimating) return;
+      // Only handle keys when player is ready (single phase check replaces dual boolean check)
+      if (combatPhase.phase !== 'player_ready') return;
 
       switch (e.key) {
         case '1':
@@ -245,7 +269,7 @@ export default function TerminalQuestCombat({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlayerTurn, isAnimating, getCombatItems]);
+  }, [combatPhase.phase, getCombatItems]);
 
   // Health bar component
   const HealthBar = ({ current, max, label }: { current: number; max: number; label: string }) => (
