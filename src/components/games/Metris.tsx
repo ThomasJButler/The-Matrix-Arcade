@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Play, Pause, RotateCw, Square, Clock, Trophy, Zap } from 'lucide-react';
 import { useSoundSynthesis } from '../../hooks/useSoundSynthesis';
+import { useSoundSystem } from '../../hooks/useSoundSystem';
 import { useSaveSystem } from '../../hooks/useSaveSystem';
 const COLS = 10;
 const ROWS = 20;
@@ -163,6 +164,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
 
   // Hooks
   const { synthLaser, synthExplosion, synthPowerUp, synthDrum } = useSoundSynthesis();
+  const { playSFX } = useSoundSystem();
   const { saveData, updateGameSave, unlockAchievement: unlockAchievementSave } = useSaveSystem();
 
   // Initialize empty grid
@@ -544,6 +546,10 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       if (!isMuted) {
         synthExplosion(1, 0.15);
         if (linesCleared > 0) synthPowerUp('collect');
+        // Play level up sound when level increases
+        if (newLevel > prev.level) {
+          playSFX('levelUp');
+        }
       }
 
       const nextPiece = prev.nextPiece || createPiece();
@@ -562,7 +568,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
         gameOver
       };
     });
-  }, [checkCollision, lockPiece, clearLines, calculateScore, createPiece, synthExplosion, synthPowerUp, isMuted]);
+  }, [checkCollision, lockPiece, clearLines, calculateScore, createPiece, synthExplosion, synthPowerUp, playSFX, isMuted]);
 
   // Drop piece - called by setInterval at drop speed
   const dropPiece = useCallback(() => {
@@ -641,6 +647,10 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
             synthPowerUp('collect');
           }
           synthDrum({ type: 'kick', pitch: 1.2 });
+          // Play level up sound when level increases
+          if (newLevel > currentState.level) {
+            playSFX('levelUp');
+          }
         }
 
         const nextPiece = currentState.nextPiece || createPiece();
@@ -697,7 +707,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
         };
       }
     });
-  }, [checkCollision, lockPiece, clearLines, createPiece, achievementManager, synthExplosion, synthPowerUp, synthDrum, isMuted]);
+  }, [checkCollision, lockPiece, clearLines, createPiece, achievementManager, synthExplosion, synthPowerUp, synthDrum, playSFX, isMuted]);
 
   // Restart game
   const restart = useCallback(() => {

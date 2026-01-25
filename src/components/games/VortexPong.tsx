@@ -103,6 +103,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
   const [balls, setBalls] = useState<Ball[]>([createBall(400, 200, -INITIAL_BALL_SPEED, 0)]);
   const [particles, setParticles] = useState<Particle[]>([]);
   const [score, setScore] = useState({ player: 0, ai: 0 });
+  const [showMenu, setShowMenu] = useState(true);
   const [gameOver, setGameOver] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [screenShake, setScreenShake] = useState({ x: 0, y: 0 });
@@ -159,6 +160,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
     setPaddleY(150);
     setAiPaddleY(150);
     setScore({ player: 0, ai: 0 });
+    setShowMenu(false);
     setGameOver(false);
     setIsPaused(false);
     setScreenShake({ x: 0, y: 0 });
@@ -218,8 +220,11 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
       } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
         e.preventDefault();
         setKeyboardControls(prev => ({ ...prev, down: true }));
-      } else if (e.key === 'Enter' && gameOver) {
-        resetGame();
+      } else if (e.key === 'Enter') {
+        // ENTER starts game from menu or restarts from game over
+        if (showMenu || gameOver) {
+          resetGame();
+        }
       } else if (e.key === 'p' || e.key === 'P') {
         // P key to toggle pause (only during gameplay, not on game over)
         if (!gameOver) {
@@ -247,7 +252,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [gameOver, resetGame]);
+  }, [gameOver, showMenu, resetGame]);
 
   // Update paddle position based on keyboard input - DIRECT control, no friction
   useEffect(() => {
@@ -297,7 +302,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
 
   // Enhanced main game loop with multi-ball support
   useGameLoop((deltaTime) => {
-    if (gameOver || isPaused) return;
+    if (showMenu || gameOver || isPaused) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -775,7 +780,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
       
       // Multi-ball indicator
       if (props.balls.length > 1) {
-        ctx.fillStyle = `rgba(255, 0, 255, ${0.5 + Math.sin(Date.now() / 200 + index) * 0.3})`;
+        ctx.fillStyle = `rgba(255, 0, 255, ${0.5 + Math.sin(props.timestamp / 200 + index) * 0.3})`;
         ctx.beginPath();
         ctx.arc(ball.x + ball.size/2, ball.y + ball.size/2, ball.size * 1.5, 0, Math.PI * 2);
         ctx.fill();
@@ -873,9 +878,40 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
         {gameOver && <GameOverModal score={score} onRestart={resetGame} />}
       </AnimatePresence>
 
+      {/* Menu overlay */}
+      <AnimatePresence>
+        {showMenu && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/80 flex items-center justify-center z-20"
+          >
+            <div className="text-center">
+              <div className="text-green-500 text-4xl font-mono mb-6" style={{ textShadow: '0 0 10px #00ff00, 0 0 20px #00ff00' }}>
+                VORTEX PONG
+              </div>
+              <div className="text-green-400 text-lg font-mono mb-4">
+                High Score: {saveData.games.vortexPong?.highScore || 0}
+              </div>
+              <div className="text-green-400/80 text-sm font-mono mb-6 space-y-1">
+                <div>↑↓ or W/S or Mouse to move paddle</div>
+                <div>First to 10 points wins</div>
+              </div>
+              <div className="text-green-500 text-xl font-mono animate-pulse mb-4">
+                Press ENTER to start
+              </div>
+              <div className="text-green-400/40 text-xs font-mono">
+                ESC to exit • P to pause during game
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Pause overlay */}
       <AnimatePresence>
-        {isPaused && !gameOver && (
+        {isPaused && !gameOver && !showMenu && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
