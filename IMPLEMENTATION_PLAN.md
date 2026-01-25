@@ -12,8 +12,8 @@ Run `./loop.sh plan` to analyse the codebase and generate tasks.
 - **Games in Main Menu**: 7 active games (CtrlSWorld, SimpleSnake, VortexPong, MatrixCloud, MatrixInvaders, Metris, TerminalQuest)
 - **Hidden Games**: 1 (TerminalQuestCombat - combat subcomponent of TerminalQuest)
 - **Achievement System**: 46 game achievements + 7 global = 53 total (TerminalQuest achievements NOT defined in useSaveSystem)
-- **Hooks Library**: 18 shared hooks for games to use (3 have tests)
-- **Hooks Test Coverage**: 3/18 (17%) - significant gap
+- **Hooks Library**: 18 shared hooks for games to use (4 have tests)
+- **Hooks Test Coverage**: 4/18 (22%) - significant gap
 - **Game Test Coverage**: 8/8 games have test files (100%) - all games covered
 - **Visual Consistency**: Strong Matrix theme throughout (green-on-black, glow effects, CRT aesthetic)
 - **Console.log Statements**: CLEANED - All debug statements removed, only appropriate console.error/warn kept
@@ -234,13 +234,13 @@ All terminalQuest support has been added:
 
 **Total Game Test Cases: 299 (reduced from 338 but more focused and memory-efficient)**
 
-**Hooks (3/18 have tests - 17%):**
+**Hooks (4/18 have tests - 22%):**
 | Hook | Test Status | Priority | LOC |
 |------|-------------|----------|-----|
 | useAdvancedVoice.ts | Has tests (19 tests) | - | 503 |
 | useMobileDetection.ts | Has tests (15 tests) | - | 47 |
 | useSoundSystem.ts | Has tests (21 tests) | - | 575 |
-| useSaveSystem.ts | MISSING | **Critical** | 481 |
+| useSaveSystem.ts | Has tests (46 tests) | - | 481 |
 | useSimpleSnakeGame.ts | MISSING | **Critical** | 419 |
 | useSoundSynthesis.ts | MISSING | **Critical** | 367 |
 | useProceduralAudio.ts | MISSING | **Critical** | 360 |
@@ -703,6 +703,14 @@ interface GameProps {
 - Line 99: Initial high score now set to 0 and synced from useSaveSystem via useEffect
 - Line 638: resetGame function now reads high score from saveData.games.matrixInvaders
 - Lines 783-786: Removed redundant localStorage.setItem for backward compatibility (useSaveSystem is now the single source of truth)
+
+### 25 January 2026 - useSaveSystem Test Coverage
+
+**useSaveSystem.ts Tests Added (FIXED):**
+- Added 46 comprehensive test cases for useSaveSystem hook
+- Tests cover: initialisation, loading/saving from localStorage, updateGameSave, unlockAchievement, updateGlobalStats, clearSaveData, saveNow, restoreFromBackup, loadSaveData, isAchievementUnlocked, getGameAchievements, achievements computed property, GAME_ACHIEVEMENTS and GLOBAL_ACHIEVEMENTS constants, and edge cases
+- Hooks test coverage improved from 17% to 22%
+- Total test count increased from 492 to 538
 
 ---
 
