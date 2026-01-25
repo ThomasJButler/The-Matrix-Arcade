@@ -9,8 +9,8 @@ Run `./loop.sh plan` to analyse the codebase and generate tasks.
 ## Current State Summary
 
 - **Games Implemented**: 8 (exceeds 6+ goal)
-- **Games in Main Menu**: 6 active games (CtrlSWorld, SimpleSnake, VortexPong, MatrixCloud, MatrixInvaders, Metris)
-- **Hidden Games**: 2 (TerminalQuest, TerminalQuestCombat - fully implemented but not in menu)
+- **Games in Main Menu**: 7 active games (CtrlSWorld, SimpleSnake, VortexPong, MatrixCloud, MatrixInvaders, Metris, TerminalQuest)
+- **Hidden Games**: 1 (TerminalQuestCombat - combat subcomponent of TerminalQuest)
 - **Achievement System**: 46 game achievements + 7 global = 53 total (TerminalQuest achievements NOT defined in useSaveSystem)
 - **Hooks Library**: 18 shared hooks for games to use (3 have tests)
 - **Hooks Test Coverage**: 3/18 (17%) - significant gap
@@ -21,7 +21,7 @@ Run `./loop.sh plan` to analyse the codebase and generate tasks.
 - **State Machine Compliance**: 2/8 games (25%) - SimpleSnake and VortexPong fully compliant
 - **isMuted Prop Gating**: VortexPong COMPLIANT (9/9 gated), MatrixCloud COMPLIANT (8/8 gated), Metris COMPLIANT (11/11 gated), MatrixInvaders COMPLIANT (4/4 gated), TerminalQuest COMPLIANT (6/6 gated), TerminalQuestCombat COMPLIANT (8/8 gated), others missing prop entirely
 - **Critical State Mutations**: All fixed - MatrixCloud and Metris now use immutable state updates
-- **Last Analysis**: 25 January 2026 (Round 24 - MatrixCloud test memory optimization, vitest config improvements)
+- **Last Analysis**: 25 January 2026 (Round 25 - TerminalQuest added to main menu, now 7 accessible games)
 
 ---
 
@@ -200,21 +200,21 @@ All terminalQuest support has been added:
 
 ### P3 - Low Priority (Enhancements)
 
-#### Missing Game Exposure
+#### Missing Game Exposure - COMPLETED
 
-TerminalQuest is fully implemented but hidden from the main menu.
+~~TerminalQuest is fully implemented but hidden from the main menu.~~
 
-- [ ] **TerminalQuest**: Import in App.tsx and add to games array
-- [ ] **App.tsx**: Update hardcoded gameNames array to include 'Terminal Quest'
-- [ ] **App.tsx**: Derive game count from games.length instead of hardcoded numbers
+- [x] **TerminalQuest**: Import in App.tsx and add to games array - **DONE** (25 Jan 2026)
+- [x] **App.tsx**: Update hardcoded gameNames array to include 'Terminal Quest' - **N/A** (already uses dynamic games[selectedGame].title)
+- [x] **App.tsx**: Derive game count from games.length instead of hardcoded numbers - **ALREADY DONE** (previously fixed)
 
-**TerminalQuest Features Already Implemented:**
+**TerminalQuest Features (Now Accessible in Main Menu):**
 - ASCII art animations and typing effects
 - Inventory system with items
 - Turn-based combat system (TerminalQuestCombat.tsx)
 - Health and security level tracking
 - Multiple story paths and endings
-- 7 achievement unlock calls (but IDs not defined in save system)
+- 7 achievement unlock calls (IDs defined in useSaveSystem)
 - Sound effects via useSoundSystem (properly gated with isMuted)
 - Manual save/load via useSaveSystem (migrated from localStorage)
 
@@ -388,14 +388,22 @@ interface GameProps {
    - ~~useSimpleSnakeGame: Remove console.error debug statement~~ **DONE**
 
 3. **P3 - Low Priority (Enhancements)**:
-   - TerminalQuest menu integration
+   - ~~TerminalQuest menu integration~~ **DONE**
    - localStorage migration to useSaveSystem
    - Test coverage expansion (hooks priority: useSaveSystem, useSimpleSnakeGame, useSoundSynthesis, useProceduralAudio)
-   - SimpleSnake sound system migration to useSoundSystem
 
 ---
 
 ## Completed Fixes Log
+
+### 25 January 2026 - TerminalQuest Menu Integration
+
+**TerminalQuest Added to Main Menu (FIXED):**
+- Imported TerminalQuest component in App.tsx
+- Added Terminal icon from lucide-react
+- Added TerminalQuest to games array with title "Terminal Quest", description, and preview image
+- Games count now 7 (was 6) - TerminalQuest is now accessible from main menu
+- TerminalQuestCombat remains as a subcomponent (not a standalone game)
 
 ### 25 January 2026 - State Mutation & Sound Gating Fixes
 
