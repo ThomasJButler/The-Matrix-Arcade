@@ -169,11 +169,17 @@ export function usePerformanceMonitor(options: PerformanceOptions = {}) {
   }, [showOverlay, updateFPS]);
 
   // Performance profiling
+  // Note: Logging disabled in production. Enable by setting DEBUG_PERFORMANCE=true in development.
   const profile = useCallback((name: string, fn: () => void) => {
     const start = performance.now();
     fn();
     const end = performance.now();
-    console.log(`[Performance] ${name}: ${(end - start).toFixed(2)}ms`);
+    if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_PERFORMANCE === 'true') {
+      // eslint-disable-next-line no-console
+      console.log(`[Performance] ${name}: ${(end - start).toFixed(2)}ms`);
+    }
+    // Performance timing available for programmatic use if needed
+    void end - start;
   }, []);
 
   // Batch operations for better performance

@@ -195,7 +195,11 @@ export function useSaveSystem() {
         
         // Version migration if needed
         if (parsed.version !== '1.0.0') {
-          console.log('Migrating save data from version', parsed.version, 'to 1.0.0');
+          // Migration logging disabled in production. Enable by setting DEBUG_SAVE=true in development.
+          if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_SAVE === 'true') {
+            // eslint-disable-next-line no-console
+            console.log('Migrating save data from version', parsed.version, 'to 1.0.0');
+          }
           // Add migration logic here in the future
         }
         

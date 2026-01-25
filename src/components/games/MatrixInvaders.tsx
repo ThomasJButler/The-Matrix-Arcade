@@ -122,6 +122,12 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
   const perfectWaveAchievementUnlockedRef = useRef(false);
   const highScoreAchievementUnlockedRef = useRef(false);
 
+  // Timeout tracking for cleanup (prevents memory leaks)
+  const invulnerabilityTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bulletTimeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const waveSpawnTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveGameTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Sync high score from useSaveSystem on mount
   useEffect(() => {
     const savedHighScore = saveData.games.matrixInvaders?.highScore || 0;
@@ -319,8 +325,13 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
           // Remove the bullet
           projectilePool.release(bullet);
 
+          // Clear any existing invulnerability timer
+          if (invulnerabilityTimeoutRef.current) {
+            clearTimeout(invulnerabilityTimeoutRef.current);
+          }
+
           // Set invulnerability timer
-          setTimeout(() => {
+          invulnerabilityTimeoutRef.current = setTimeout(() => {
             setState(prev => ({
               ...prev,
               player: {
@@ -328,6 +339,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
                 invulnerable: false
               }
             }));
+            invulnerabilityTimeoutRef.current = null;
           }, 500); // 0.5 seconds of invulnerability
         }
       }
@@ -339,8 +351,16 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
         const newWave = prev.wave + 1;
         maxWaveRef.current = Math.max(maxWaveRef.current, newWave);
 
+        // Clear any existing wave spawn timeout
+        if (waveSpawnTimeoutRef.current) {
+          clearTimeout(waveSpawnTimeoutRef.current);
+        }
+
         // Spawn next wave after state update
-        setTimeout(() => spawnWave(newWave), 100);
+        waveSpawnTimeoutRef.current = setTimeout(() => {
+          spawnWave(newWave);
+          waveSpawnTimeoutRef.current = null;
+        }, 100);
         // Reset health on new wave
         return {
           ...prev,
@@ -726,18 +746,24 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
           unlockSaveAchievement('matrixInvaders', 'invaders_bullet_time');
         }
 
+        // Clear any existing bullet time timeout
+        if (bulletTimeTimeoutRef.current) {
+          clearTimeout(bulletTimeTimeoutRef.current);
+        }
+
         setState(prev => ({
           ...prev,
           bulletTimeActive: true,
           timeScale: 0.3
         }));
 
-        setTimeout(() => {
+        bulletTimeTimeoutRef.current = setTimeout(() => {
           setState(prev => ({
             ...prev,
             bulletTimeActive: false,
             timeScale: 1
           }));
+          bulletTimeTimeoutRef.current = null;
         }, BULLET_TIME_DURATION);
       }
       
@@ -803,7 +829,12 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
       const previousTotalKills = saveData.games.matrixInvaders?.stats?.totalKills || 0;
       const previousBestCombo = saveData.games.matrixInvaders?.stats?.bestCombo || 0;
 
-      setTimeout(() => {
+      // Clear any existing save game timeout
+      if (saveGameTimeoutRef.current) {
+        clearTimeout(saveGameTimeoutRef.current);
+      }
+
+      saveGameTimeoutRef.current = setTimeout(() => {
         updateGameSave('matrixInvaders', {
           highScore: newHighScore,
           level: state.wave,
@@ -815,6 +846,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
             bestCombo: Math.max(previousBestCombo, maxComboRef.current)
           }
         });
+        saveGameTimeoutRef.current = null;
       }, 100);
 
       // Combo achievement: Get 10x combo
@@ -831,7 +863,25 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
       }
     }
   }, [state.gameOver, state.score, state.wave, state.highScore, saveData, updateGameSave, achievementManager, unlockSaveAchievement]);
-  
+
+  // Cleanup all timeouts on component unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (invulnerabilityTimeoutRef.current) {
+        clearTimeout(invulnerabilityTimeoutRef.current);
+      }
+      if (bulletTimeTimeoutRef.current) {
+        clearTimeout(bulletTimeTimeoutRef.current);
+      }
+      if (waveSpawnTimeoutRef.current) {
+        clearTimeout(waveSpawnTimeoutRef.current);
+      }
+      if (saveGameTimeoutRef.current) {
+        clearTimeout(saveGameTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div className="relative w-full h-full flex items-center justify-center bg-black">
       <div className="relative">
