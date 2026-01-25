@@ -65,7 +65,7 @@ function App() {
   // Initialize sound system and achievement manager
   const { playSFX, stopMusic, playBackgroundMP3, toggleMute, isMuted } = useSoundSystem();
   const achievementManager = useAchievementManager();
-  const { saveData } = useSaveSystem();
+  const { saveData, updateGlobalStats } = useSaveSystem();
 
   // Mobile detection
   const { isMobile, isTablet } = useMobileDetection();
@@ -99,15 +99,13 @@ function App() {
 
   /**
    * Check for Dedicated Player achievement (play 7 days in a row)
-   * Uses localStorage to track play dates
+   * Uses useSaveSystem globalStats.playDates for persistence
    */
   const checkDedicatedAchievement = useCallback(() => {
     if (dedicatedCheckedRef.current) return;
 
     const today = new Date().toDateString();
-    const playDatesKey = 'matrix-arcade-play-dates';
-    const storedDates = localStorage.getItem(playDatesKey);
-    let playDates: string[] = storedDates ? JSON.parse(storedDates) : [];
+    let playDates: string[] = [...(saveData.globalStats.playDates || [])];
 
     // Add today if not already in list
     if (!playDates.includes(today)) {
@@ -116,7 +114,8 @@ function App() {
       if (playDates.length > 7) {
         playDates = playDates.slice(-7);
       }
-      localStorage.setItem(playDatesKey, JSON.stringify(playDates));
+      // Persist via save system
+      updateGlobalStats({ playDates });
     }
 
     // Check if played 7 consecutive days
@@ -142,7 +141,7 @@ function App() {
         }
       }
     }
-  }, [achievementManager]);
+  }, [achievementManager, saveData.globalStats.playDates, updateGlobalStats]);
 
   /**
    * Track play time and check for marathon gamer achievement

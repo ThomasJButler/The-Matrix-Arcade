@@ -33,6 +33,7 @@ export interface GlobalSaveData {
     favoriteGame: string;
     globalAchievements: string[];
     firstPlayDate: number;
+    playDates: string[];  // Array of date strings for tracking consecutive play days
   };
   settings: {
     lastBackupDate?: number;
@@ -71,7 +72,8 @@ const createDefaultGlobalSave = (): GlobalSaveData => ({
     totalPlayTime: 0,
     favoriteGame: '',
     globalAchievements: [],
-    firstPlayDate: Date.now()
+    firstPlayDate: Date.now(),
+    playDates: []
   },
   settings: {
     autoSave: true
