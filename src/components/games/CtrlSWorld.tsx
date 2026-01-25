@@ -435,6 +435,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
   const [unlockedAchievements, setUnlockedAchievements] = useState<Achievement[]>([]);
   const [showAudioSettings, setShowAudioSettings] = useState(false);
   const [showSaveManager, setShowSaveManager] = useState(false);
+  const [showChapterHub, setShowChapterHub] = useState(false);
 
   // Game state context
   const gameState = useGameState();
@@ -507,10 +508,56 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
     puzzlesSolvedThisSession.current.clear();
 
     // Play restart sound
-    if (!isMuted) {
-      playSoundEffect('menu');
+    playSFX('menu');
+  }, [playSFX]);
+
+  // Start game from a specific chapter (for chapter selection hub)
+  const startFromChapter = useCallback((chapterIndex: number) => {
+    // Reset story position to the selected chapter
+    setCurrentNode(chapterIndex);
+    setCurrentTextIndex(0);
+    setCurrentCharIndex(0);
+    setCurrentText('');
+    setDisplayedTexts([]);
+    setDisplayedTextIndices([]);
+    setParagraphsDisplayedOnPage(0);
+
+    // Reset game state
+    setIsTyping(true);
+    setIsPaused(false);
+    setIsGameComplete(false);
+    setUserHasScrolled(false);
+
+    // Reset puzzle state
+    setShowPuzzle(false);
+    setCurrentPuzzleId(null);
+
+    // Close hub and start game
+    setShowChapterHub(false);
+    setIsStarted(true);
+
+    // Reset session tracking
+    sessionStartTimeRef.current = Date.now();
+    chaptersCompletedThisSession.current.clear();
+    puzzlesSolvedThisSession.current.clear();
+
+    // Play start sound
+    playSFX('menu');
+  }, [playSFX]);
+
+  // Get the highest chapter the player can access (based on completed chapters)
+  const getMaxAccessibleChapter = useCallback(() => {
+    const completedChapters = gameState.state.completedChapters || [];
+    // Allow access to prologue (0) always, plus next chapter after each completed one
+    // If chapter N is completed, player can access chapter N+1
+    let maxChapter = 0; // Prologue always accessible
+    for (let i = 0; i < STORY.length; i++) {
+      if (completedChapters.includes(i) || i === 0) {
+        maxChapter = Math.min(i + 1, STORY.length - 1);
+      }
     }
-  }, [isMuted, playSoundEffect]);
+    return maxChapter;
+  }, [gameState.state.completedChapters]);
 
   // Removed unused voice tracking refs - these are only used in interactive mode
 
@@ -569,8 +616,10 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
     e.preventDefault();
     const command = commandInput.trim().toLowerCase();
     if (command === 'save-the-world') {
-      setIsStarted(true);
+      // Show chapter hub instead of starting immediately
+      setShowChapterHub(true);
       setCommandInput('');
+      playSFX('menu');
     }
   };
 
@@ -680,9 +729,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
             // Game complete - last paragraph of last chapter
             setIsTyping(false);
             setIsGameComplete(true);
-            if (!isMuted) {
-              playSoundEffect('gameOver');
-            }
+            playSFX('gameOver');
           } else {
             // Move to next chapter (clear screen for new chapter)
             setDisplayedTexts([]);
@@ -696,7 +743,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
         }, 1500); // Brief pause between paragraphs for readability
       }
     }
-  }, [currentNode, currentTextIndex, currentCharIndex, scrollToBottom, isPaused, gameState.state.completedPuzzles, paragraphsDisplayedOnPage, PARAGRAPHS_PER_PAGE, isMuted, playSoundEffect]);
+  }, [currentNode, currentTextIndex, currentCharIndex, scrollToBottom, isPaused, gameState.state.completedPuzzles, paragraphsDisplayedOnPage, PARAGRAPHS_PER_PAGE, playSFX, safeSetTimeout]);
 
   // Handle manual story advancement (Enter/Space/Arrow keys)
   const handleNext = useCallback(() => {
@@ -750,9 +797,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
           // Game complete - last chapter finished
           setIsTyping(false);
           setIsGameComplete(true);
-          if (!isMuted) {
-            playSoundEffect('gameOver');
-          }
+          playSFX('gameOver');
         } else {
           // Move to next chapter
           setCurrentNode(prev => prev + 1);
@@ -776,9 +821,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
         // Game complete - last paragraph of last chapter
         setIsTyping(false);
         setIsGameComplete(true);
-        if (!isMuted) {
-          playSoundEffect('gameOver');
-        }
+        playSFX('gameOver');
       } else {
         // Move to next chapter (clear screen for new chapter)
         setDisplayedTexts([]);
@@ -793,7 +836,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
       }
       scrollToBottom(true);
     }
-  }, [isTyping, isPaused, showPuzzle, currentNode, currentTextIndex, currentText, paragraphsDisplayedOnPage, PARAGRAPHS_PER_PAGE, gameState.state.completedPuzzles, scrollToBottom, isMuted, playSoundEffect]);
+  }, [isTyping, isPaused, showPuzzle, currentNode, currentTextIndex, currentText, paragraphsDisplayedOnPage, PARAGRAPHS_PER_PAGE, gameState.state.completedPuzzles, scrollToBottom, playSFX, safeSetTimeout]);
 
   // Handle puzzle completion
   const handlePuzzleComplete = useCallback((success: boolean, hintsUsed: number, lifelinesUsed: number) => {
@@ -975,6 +1018,44 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
         return;
       }
 
+      // ESC key handler - close modals/panels or exit fullscreen
+      if (e.key === 'Escape') {
+        // Priority 1: Close modals/panels (in order of most recently opened)
+        if (showPuzzle) {
+          // Don't close puzzle modal with ESC - user must complete or close via X
+          return;
+        }
+        if (showSaveManager) {
+          setShowSaveManager(false);
+          return;
+        }
+        if (showAudioSettings) {
+          setShowAudioSettings(false);
+          return;
+        }
+        if (showInventory) {
+          setShowInventory(false);
+          return;
+        }
+        if (showInfo) {
+          setShowInfo(false);
+          return;
+        }
+        // Priority 2: Exit fullscreen
+        if (isFullscreen && document.fullscreenElement) {
+          document.exitFullscreen();
+          setIsFullscreen(false);
+          return;
+        }
+        // Priority 3: Close chapter hub (return to command prompt)
+        if (showChapterHub && !isStarted) {
+          setShowChapterHub(false);
+          return;
+        }
+        // Note: ESC to exit game is handled at App level
+        return;
+      }
+
       if (!isStarted) return;
 
       // Keyboard shortcuts
@@ -1005,7 +1086,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isStarted, handleNext, togglePause, toggleFullscreen, restartGame]);
+  }, [isStarted, handleNext, togglePause, toggleFullscreen, restartGame, showPuzzle, showSaveManager, showAudioSettings, showInventory, showInfo, isFullscreen, showChapterHub]);
 
   // Set initial scroll position to top
   useEffect(() => {
@@ -1157,7 +1238,152 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
       )}
 
       {/* Main Content - Side-by-Side Layout */}
-      {!isStarted ? (
+      {showChapterHub && !isStarted ? (
+        /* Chapter Selection Hub - Citizen Sleeper-inspired design */
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-20">
+          <div className="max-w-4xl mx-auto">
+            {/* Hub Header */}
+            <div className="text-center mb-8">
+              <div className="text-green-500 text-xs font-mono mb-2">
+                ═══════════════════════════════════════════════
+              </div>
+              <h2 className="text-2xl md:text-3xl font-bold text-green-400 mb-2">
+                MISSION SELECT
+              </h2>
+              <p className="text-green-500/70 text-sm">
+                Choose your chapter. Progress is saved automatically.
+              </p>
+              <div className="text-green-500 text-xs font-mono mt-2">
+                ═══════════════════════════════════════════════
+              </div>
+            </div>
+
+            {/* Chapter Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {STORY.map((chapter, index) => {
+                const isCompleted = gameState.state.completedChapters?.includes(index);
+                const isAccessible = index <= getMaxAccessibleChapter();
+                const puzzleCount = chapter.puzzleTriggers?.length || 0;
+                const completedPuzzlesInChapter = chapter.puzzleTriggers?.filter(
+                  t => gameState.state.completedPuzzles.includes(t.puzzleId)
+                ).length || 0;
+
+                return (
+                  <button
+                    key={chapter.id}
+                    onClick={() => isAccessible && startFromChapter(index)}
+                    disabled={!isAccessible}
+                    className={`
+                      relative p-4 rounded-lg border-2 text-left transition-all duration-200
+                      ${isAccessible
+                        ? isCompleted
+                          ? 'border-green-400 bg-green-900/30 hover:bg-green-900/50 cursor-pointer'
+                          : 'border-green-500/50 bg-black/60 hover:bg-green-900/30 hover:border-green-400 cursor-pointer'
+                        : 'border-gray-700 bg-gray-900/30 cursor-not-allowed opacity-50'
+                      }
+                    `}
+                  >
+                    {/* Chapter number badge */}
+                    <div className={`
+                      absolute -top-2 -left-2 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+                      ${isCompleted
+                        ? 'bg-green-500 text-black'
+                        : isAccessible
+                          ? 'bg-green-900 text-green-400 border border-green-500'
+                          : 'bg-gray-800 text-gray-500 border border-gray-700'
+                      }
+                    `}>
+                      {index === 0 ? 'P' : index}
+                    </div>
+
+                    {/* Completion indicator */}
+                    {isCompleted && (
+                      <div className="absolute -top-2 -right-2 text-green-400 text-lg">✓</div>
+                    )}
+                    {!isAccessible && (
+                      <div className="absolute -top-2 -right-2 text-gray-500 text-lg">🔒</div>
+                    )}
+
+                    {/* Chapter title */}
+                    <h3 className={`
+                      font-bold mb-2 pr-6
+                      ${isAccessible ? 'text-green-400' : 'text-gray-500'}
+                    `}>
+                      {chapter.title}
+                    </h3>
+
+                    {/* Chapter description */}
+                    <p className={`
+                      text-xs mb-3 line-clamp-2
+                      ${isAccessible ? 'text-green-500/70' : 'text-gray-600'}
+                    `}>
+                      {chapter.content[0].substring(0, 100)}...
+                    </p>
+
+                    {/* Chapter stats */}
+                    <div className={`
+                      flex items-center gap-4 text-xs
+                      ${isAccessible ? 'text-green-500/60' : 'text-gray-600'}
+                    `}>
+                      <span>📖 {chapter.content.length} passages</span>
+                      {puzzleCount > 0 && (
+                        <span>🧩 {completedPuzzlesInChapter}/{puzzleCount} puzzles</span>
+                      )}
+                    </div>
+
+                    {/* Progress bar for completed puzzles */}
+                    {puzzleCount > 0 && isAccessible && (
+                      <div className="mt-2 h-1 bg-gray-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-green-500 transition-all duration-300"
+                          style={{ width: `${(completedPuzzlesInChapter / puzzleCount) * 100}%` }}
+                        />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Stats Summary */}
+            <div className="mt-8 p-4 border border-green-500/30 rounded-lg bg-black/40">
+              <div className="flex flex-wrap justify-center gap-6 text-sm">
+                <div className="text-center">
+                  <div className="text-green-400 font-bold text-xl">
+                    {gameState.state.completedChapters?.length || 0}/{STORY.length}
+                  </div>
+                  <div className="text-green-500/60 text-xs">Chapters Complete</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-green-400 font-bold text-xl">
+                    {gameState.state.completedPuzzles?.length || 0}
+                  </div>
+                  <div className="text-green-500/60 text-xs">Puzzles Solved</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-green-400 font-bold text-xl">
+                    {gameState.state.stats?.wisdomPoints || 0}
+                  </div>
+                  <div className="text-green-500/60 text-xs">Wisdom Points</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Start Button */}
+            <div className="mt-6 text-center">
+              <button
+                onClick={() => startFromChapter(0)}
+                className="px-6 py-3 bg-green-900 hover:bg-green-800 border-2 border-green-500 rounded-lg text-green-400 font-mono transition-colors"
+              >
+                ▶ Start from Beginning
+              </button>
+              <p className="text-green-500/40 text-xs mt-2">
+                Press ESC to return to main menu
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : !isStarted ? (
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-20">
           <div className="flex flex-col items-start">
             <p className="mb-2">Welcome to the terminal. To begin your journey, please enter:</p>
@@ -1356,6 +1582,20 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
               <span className="hidden sm:inline">Full</span>
             </button>
 
+            {/* Chapter Select Button */}
+            <button
+              onClick={() => {
+                setIsStarted(false);
+                setShowChapterHub(true);
+                setIsPaused(true);
+              }}
+              className="flex items-center gap-1 px-2 py-1 bg-green-900/50 hover:bg-green-800 border border-green-500/50 rounded text-xs font-mono text-green-400 transition-colors"
+              title="Chapter Select"
+            >
+              <span>📖</span>
+              <span className="hidden sm:inline">Chapters</span>
+            </button>
+
             {/* Resume Puzzle button - shows when puzzle was closed but not completed */}
             {currentPuzzleId && !showPuzzle && (
               <button
@@ -1411,13 +1651,25 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
                 Puzzles Solved: {gameState.state.completedPuzzles?.length || 0}
               </p>
             </div>
-            <div className="pt-6 space-y-2">
-              <button
-                onClick={restartGame}
-                className="px-6 py-3 bg-green-900 hover:bg-green-800 border border-green-500 rounded text-green-400 font-mono transition-colors"
-              >
-                Play Again (R)
-              </button>
+            <div className="pt-6 space-y-3">
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <button
+                  onClick={restartGame}
+                  className="px-6 py-3 bg-green-900 hover:bg-green-800 border border-green-500 rounded text-green-400 font-mono transition-colors"
+                >
+                  Play Again (R)
+                </button>
+                <button
+                  onClick={() => {
+                    setIsGameComplete(false);
+                    setIsStarted(false);
+                    setShowChapterHub(true);
+                  }}
+                  className="px-6 py-3 bg-gray-900 hover:bg-gray-800 border border-green-500/50 rounded text-green-400 font-mono transition-colors"
+                >
+                  Chapter Select
+                </button>
+              </div>
               <p className="text-green-500/60 text-xs">
                 Press R to restart or ESC to exit
               </p>

@@ -21,8 +21,8 @@ Run `./loop.sh plan` to analyse the codebase and generate tasks.
 - **State Machine Compliance**: 6/8 games (75%) - SimpleSnake, VortexPong, MatrixInvaders, Metris, MatrixCloud, TerminalQuestCombat compliant
 - **isMuted Prop Gating**: All 8 games have isMuted prop and gate sound calls properly
 - **Achievement Persistence**: All games now persist achievements correctly (TerminalQuest fixed Round 50)
-- **Keyboard Controls**: All 7 main games COMPLIANT with standard controls (P, R, ENTER) - ESC handled at App level
-- **Last Analysis**: 25 January 2026 (Round 53 - P1 TerminalQuestCombat refactor completed)
+- **Keyboard Controls**: All 7 main games COMPLIANT with standard controls (P, R, ENTER, ESC) - ESC handled at App level and in-game
+- **Last Analysis**: 25 January 2026 (Round 54 - CtrlSWorld chapter hub and ESC key handler completed)
 
 ---
 
@@ -74,30 +74,32 @@ useEffect(() => {
 
 ---
 
-#### 2. CtrlSWorld UX Overhaul (USER REQUEST)
+#### 2. CtrlSWorld UX Overhaul (USER REQUEST) - PARTIALLY COMPLETED
 
 **User Request:** Have 5 chapters playable individually - game is too long and people get lost. Make it Citizen Sleeper-like.
 
-**Current Issues (Verified Round 47):**
+**Status (Round 54):**
+- [x] Chapter selection hub implemented (Citizen Sleeper-inspired visual chapter cards)
+- [x] ESC key handler implemented for closing modals/panels
+- [x] All sound calls standardised to use `playSFX` wrapper (4 direct calls fixed)
+- [x] Chapter Select button added to settings panel during gameplay
+- [x] Chapter Select option on game complete screen
+- [ ] Full state machine refactor to unified UIState enum (P2 - still pending)
+
+**Original Issues (Verified Round 47):**
 - Game has 6 chapters (Prologue + 5 main) with 19 puzzles total
-- **No chapter selection menu** - must play from beginning (linear progression only)
+- ~~**No chapter selection menu** - must play from beginning (linear progression only)~~ **FIXED**
 - **11 independent boolean states** create 2,048 possible (mostly invalid) state combinations:
   - Game State (4): `isTyping`, `isStarted`, `isPaused`, `isGameComplete`
   - UI State (7): `isFullscreen`, `showInfo`, `showPuzzle`, `showInventory`, `showAudioSettings`, `showSaveManager`, `userHasScrolled`
-- No hub-based navigation
-- **ESC key NOT implemented** - UI promises it at line 1401 ("Press R to restart or ESC to exit") but no handler exists
-- Cannot replay completed chapters without full restart
-- **Inconsistent sound calls** - `playSFX` wrapper defined (lines 456-460) but bypassed 4 times:
-  - Line 498: Uses direct `playSoundEffect('menu')` - bypasses isMuted check
-  - Line 671: Uses direct `playSoundEffect('gameOver')` - bypasses isMuted check
-  - Line 741: Uses direct `playSoundEffect('gameOver')` - bypasses isMuted check
-  - Line 767: Uses direct `playSoundEffect('gameOver')` - bypasses isMuted check
+- ~~No hub-based navigation~~ **FIXED**
+- ~~**ESC key NOT implemented** - UI promises it at line 1401 ("Press R to restart or ESC to exit") but no handler exists~~ **FIXED**
+- ~~Cannot replay completed chapters without full restart~~ **FIXED**
+- ~~**Inconsistent sound calls** - `playSFX` wrapper defined (lines 456-460) but bypassed 4 times~~ **FIXED**
 - **Redundant achievement call** at line 835 - calls `gameState.unlockAchievement()` after wrapper
 
-**Required Changes:**
-1. Add chapter selection hub screen after initial save/load
-2. Allow replay of completed chapters individually
-3. Consolidate state machine (11 booleans -> unified UIState enum):
+**Remaining Work (P2):**
+1. Consolidate state machine (11 booleans -> unified UIState enum):
    ```typescript
    type GameUIState =
      | { mode: 'menu' }
@@ -107,15 +109,9 @@ useEffect(() => {
      | { mode: 'modal'; modalType: 'info' | 'audio' | 'save' | 'inventory' }
      | { mode: 'complete' };
    ```
-4. Improve visual storytelling with Citizen Sleeper-inspired design:
-   - Visual chapter nodes with progress indicators
-   - Non-linear chapter navigation (once unlocked)
-   - Chapter summaries before entering
-5. Implement ESC key handler in `handleKeyPress` function (around line 991)
-6. Standardise all sound calls to use `playSFX` wrapper consistently
 
 **Files Affected:**
-- `src/components/games/CtrlSWorld.tsx` (1500+ lines - major refactor)
+- `src/components/games/CtrlSWorld.tsx` (1500+ lines - state machine refactor pending)
 
 ---
 
@@ -551,10 +547,10 @@ interface GameProps {
 | VortexPong | 100% | Yes | Yes | **COMPLIANT** | Yes (7) | Yes | Clean | **95%** |
 | MatrixCloud | 100% | Yes | Yes | **COMPLIANT** | Yes (7) | Yes | Clean | **93%** |
 | TerminalQuest | 100% | Yes | Yes | PARTIAL | Yes (7) | Yes | Clean | **85%** |
-| CtrlSWorld | 85% (no ESC) | Mixed | Yes | PARTIAL | Yes (7) | Yes | Clean | **80%** |
+| CtrlSWorld | 100% | Yes | Yes | PARTIAL | Yes (7) | Yes | Clean | **88%** |
 | TerminalQuestCombat | N/A | Yes | Yes | **COMPLIANT** | N/A | N/A | Clean | **75%** |
 
-**Average Game Compliance: 84%**
+**Average Game Compliance: 85%**
 
 **Legend:**
 - Controls: Keyboard shortcuts (ESC, P, R, ENTER, arrows, WASD)
@@ -571,7 +567,7 @@ interface GameProps {
 
 ### P0 - Critical (Fix Immediately)
 - [x] Fix VortexPong ENTER key focus (add e.preventDefault, tabIndex, auto-focus) - DONE
-- [ ] Improve CtrlSWorld UX/UI (Citizen Sleeper style, chapter selection hub)
+- [x] Improve CtrlSWorld UX/UI (Citizen Sleeper style, chapter selection hub) - PARTIALLY DONE (hub implemented, state refactor pending as P2)
 - [x] Fix TerminalQuest achievement persistence (add unlockSaveAchievement call) - DONE
 - [x] Add `pong_power_master` to useSaveSystem GAME_ACHIEVEMENTS - DONE
 - [x] Fix TerminalQuest local-only achievements (lines 143-151) - removed dead code - DONE
@@ -592,8 +588,8 @@ interface GameProps {
 - [ ] Migrate GameStateContext.tsx game state to useSaveSystem
 - [ ] Migrate useLifelineManager.ts state to useSaveSystem
 - [ ] Refactor CtrlSWorld state to unified UIState enum (11 booleans -> single state)
-- [ ] Implement ESC key handler in CtrlSWorld (missing despite UI promise at line 1401)
-- [ ] Standardise CtrlSWorld sound calls to use playSFX wrapper (4 direct calls at lines 498, 671, 741, 767)
+- [x] Implement ESC key handler in CtrlSWorld (missing despite UI promise at line 1401) - DONE Round 54
+- [x] Standardise CtrlSWorld sound calls to use playSFX wrapper (4 direct calls at lines 498, 671, 741, 767) - DONE Round 54
 - [ ] Remove redundant achievement call in CtrlSWorld (line 835)
 - [ ] Integrate useObjectPool into VortexPong for multi-ball and impact effects
 
@@ -973,5 +969,40 @@ All 21 untracked setTimeout calls across 6 game files now have proper cleanup re
 
 ---
 
-*Generated by Ralph on 25 January 2026 - Round 53*
-*P1 TerminalQuestCombat stale closure and state refactor completed*
+### 25 January 2026 - Round 54 Fixes
+
+**CtrlSWorld UX Overhaul (Partial Completion):**
+
+*Chapter Selection Hub:*
+- Added Citizen Sleeper-inspired chapter selection hub with visual chapter cards
+- Each chapter card displays title, description, and completion status
+- Hub accessible after initial save/load screen
+- Players can now jump directly to any unlocked chapter
+
+*ESC Key Handler:*
+- Implemented ESC key handler for closing modals and panels
+- ESC now properly closes settings panel, inventory, puzzle modal, etc.
+- Fulfills UI promise at line 1401 ("Press R to restart or ESC to exit")
+
+*Sound Call Standardisation:*
+- Fixed 4 direct `playSoundEffect()` calls that bypassed `isMuted` check
+- All sound calls now route through `playSFX()` wrapper for consistent muting behaviour
+- Lines fixed: 498, 671, 741, 767
+
+*Navigation Improvements:*
+- Added "Chapter Select" button to settings panel during gameplay
+- Added "Chapter Select" option on game complete screen
+- Players can replay completed chapters without full restart
+
+**Test Results:**
+- All 959 tests passing
+- No regressions introduced
+
+**Remaining Work:**
+- Full state machine refactor to unified UIState enum moved to P2
+- 11 boolean states still need consolidation for cleaner code architecture
+
+---
+
+*Generated by Ralph on 25 January 2026 - Round 54*
+*CtrlSWorld chapter hub and ESC key handler completed*
