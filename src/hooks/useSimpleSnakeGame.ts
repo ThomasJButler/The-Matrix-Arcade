@@ -37,15 +37,13 @@ const INITIAL_SPEED = 150;
 const SPEED_INCREMENT = 5; // Speed up by 5ms every 50 points
 const MIN_SPEED = 50; // Fastest speed
 
-export function useSimpleSnakeGame() {
-  // Load high score from localStorage
-  const loadHighScore = () => {
-    try {
-      return parseInt(localStorage.getItem('simpleSnakeHighScore') || '0', 10);
-    } catch {
-      return 0;
-    }
-  };
+export interface UseSimpleSnakeGameOptions {
+  initialHighScore?: number;
+  onHighScoreUpdate?: (newHighScore: number) => void;
+}
+
+export function useSimpleSnakeGame(options: UseSimpleSnakeGameOptions = {}) {
+  const { initialHighScore = 0, onHighScoreUpdate } = options;
 
   // Initial state
   const [gameState, setGameState] = useState<SnakeGameState>({
@@ -54,7 +52,7 @@ export function useSimpleSnakeGame() {
     direction: 'right',
     nextDirection: null,
     score: 0,
-    highScore: loadHighScore(),
+    highScore: initialHighScore,
     gameState: 'menu',
     speed: INITIAL_SPEED,
     foodEaten: 0,
@@ -204,8 +202,9 @@ export function useSimpleSnakeGame() {
         } else {
           // Game over
           const newHighScore = Math.max(prev.score, prev.highScore);
-          if (newHighScore > prev.highScore) {
-            localStorage.setItem('simpleSnakeHighScore', newHighScore.toString());
+          if (newHighScore > prev.highScore && onHighScoreUpdate) {
+            // Notify via callback - actual persistence handled by component via useSaveSystem
+            onHighScoreUpdate(newHighScore);
           }
           return {
             ...prev,
@@ -379,35 +378,8 @@ export function useSimpleSnakeGame() {
     };
   }, [gameState.gameState, gameState.speed, moveSnake]);
 
-  // Handle keyboard input
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Prevent default for game keys
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd', ' ', 'Enter'].includes(e.key)) {
-        e.preventDefault();
-      }
-
-      // Direction controls
-      if (e.key === 'ArrowUp' || e.key === 'w') changeDirection('up');
-      else if (e.key === 'ArrowDown' || e.key === 's') changeDirection('down');
-      else if (e.key === 'ArrowLeft' || e.key === 'a') changeDirection('left');
-      else if (e.key === 'ArrowRight' || e.key === 'd') changeDirection('right');
-
-      // Game controls
-      else if (e.key === ' ') {
-        if (gameState.gameState === 'playing' || gameState.gameState === 'paused') {
-          togglePause();
-        }
-      } else if (e.key === 'Enter') {
-        if (gameState.gameState === 'menu' || gameState.gameState === 'gameOver') {
-          startGame();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [gameState.gameState, changeDirection, togglePause, startGame]);
+  // Note: Keyboard input is handled in SimpleSnake.tsx component
+  // to support the full spec-compliant control scheme (P, R, WASD with case insensitivity)
 
   return {
     gameState,
