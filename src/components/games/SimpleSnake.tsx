@@ -414,19 +414,16 @@ export default function SimpleSnake({ achievementManager: _achievementManager, i
   useEffect(() => {
     // First Apple: First food collected
     if (gameState.score > 0 && foodEatenRef.current === 0) {
-      unlockAchievement('snakeClassic', 'first_apple');
+      unlockAchievement('snakeClassic', 'snake_first_apple');
       foodEatenRef.current = 1;
     }
 
     // Score achievements
     if (gameState.score >= 100 && scoreRef.current < 100) {
-      unlockAchievement('snakeClassic', 'score_100');
+      unlockAchievement('snakeClassic', 'snake_score_100');
     }
     if (gameState.score >= 500 && scoreRef.current < 500) {
-      unlockAchievement('snakeClassic', 'score_500');
-    }
-    if (gameState.score >= 1000 && scoreRef.current < 1000) {
-      unlockAchievement('snakeClassic', 'snake_master');
+      unlockAchievement('snakeClassic', 'snake_score_500');
     }
 
     scoreRef.current = gameState.score;
@@ -465,12 +462,12 @@ export default function SimpleSnake({ achievementManager: _achievementManager, i
       // Achievements - using useSaveSystem as single source of truth
       // Survivor: Play for 5 minutes
       if (playTime >= 300) {
-        unlockAchievement('snakeClassic', 'survivor');
+        unlockAchievement('snakeClassic', 'snake_survivor');
       }
 
       // Speed Demon: Score 100+ at max speed
       if (gameState.score >= 100 && (gameState.level || 1) >= 10) {
-        unlockAchievement('snakeClassic', 'speed_demon');
+        unlockAchievement('snakeClassic', 'snake_speed_demon');
       }
     }
   }, [gameState.gameState, gameState.score, gameState.level, gameState.snake, saveData, updateGameSave, unlockAchievement]);

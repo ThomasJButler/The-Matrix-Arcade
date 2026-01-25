@@ -122,6 +122,9 @@ export const GAME_ACHIEVEMENTS: Record<string, Achievement[]> = {
   matrixInvaders: [
     { id: 'invaders_first_kill', name: 'Code Breaker', description: 'Destroy your first invader', game: 'Matrix Invaders' },
     { id: 'invaders_wave_5', name: 'Wave Survivor', description: 'Reach wave 5', game: 'Matrix Invaders' },
+    { id: 'invaders_wave_10', name: 'Matrix Veteran', description: 'Reach wave 10', game: 'Matrix Invaders' },
+    { id: 'invaders_endless', name: 'Endless Defender', description: 'Reach wave 20', game: 'Matrix Invaders' },
+    { id: 'invaders_100_enemies', name: 'Centurion', description: 'Destroy 100 enemies', game: 'Matrix Invaders' },
     { id: 'invaders_combo_10', name: 'Combo Master', description: 'Achieve a 10x combo', game: 'Matrix Invaders' },
     { id: 'invaders_bullet_time', name: 'Time Bender', description: 'Use bullet time 5 times', game: 'Matrix Invaders' },
     { id: 'invaders_perfect_wave', name: 'Flawless Defense', description: 'Complete a wave without taking damage', game: 'Matrix Invaders' },
@@ -129,13 +132,13 @@ export const GAME_ACHIEVEMENTS: Record<string, Achievement[]> = {
     { id: 'invaders_high_score', name: 'Elite Hacker', description: 'Score over 10,000 points', game: 'Matrix Invaders' }
   ],
   ctrlSWorld: [
-    { id: 'ctrl_coffee_addict', name: 'Caffeine Dependent', description: 'Reach 100% coffee level', game: 'CTRL-S World' },
-    { id: 'ctrl_clean_coder', name: 'Clean Code Master', description: 'Achieve 90+ code quality', game: 'CTRL-S World' },
-    { id: 'ctrl_choice_master', name: 'Decision Maker', description: 'Make 50 choices', game: 'CTRL-S World' },
+    { id: 'ctrl_first_puzzle', name: 'First Steps', description: 'Complete your first puzzle', game: 'CTRL-S World' },
+    { id: 'ctrl_no_hints', name: 'Quick Thinker', description: 'Complete a puzzle without hints or lifelines', game: 'CTRL-S World' },
+    { id: 'ctrl_chapter_1', name: 'Chapter One', description: 'Complete chapter 1', game: 'CTRL-S World' },
+    { id: 'ctrl_chapter_3', name: 'Midway There', description: 'Complete chapter 3', game: 'CTRL-S World' },
     { id: 'ctrl_story_complete', name: 'Epic Journey', description: 'Complete the main storyline', game: 'CTRL-S World' },
-    { id: 'ctrl_collector', name: 'Item Hoarder', description: 'Collect 10 different items', game: 'CTRL-S World' },
-    { id: 'ctrl_voice_master', name: 'Voice Commander', description: 'Use Shatner voice for 5 minutes', game: 'CTRL-S World' },
-    { id: 'ctrl_bug_free', name: 'Bug Free', description: 'Achieve 0 bugs', game: 'CTRL-S World' }
+    { id: 'ctrl_speed_reader', name: 'Speed Reader', description: 'Complete in under 30 minutes', game: 'CTRL-S World' },
+    { id: 'ctrl_puzzle_master', name: 'Puzzle Master', description: 'Complete 10 or more puzzles', game: 'CTRL-S World' }
   ],
   metris: [
     { id: 'first_line', name: 'First Steps', description: 'Clear your first line', game: 'Metris' },
