@@ -19,7 +19,7 @@ Run `./loop.sh plan` to analyse the codebase and generate tasks.
 - **Console.log Statements**: 11 debug statements across 6 files (9 to remove, 1 to convert)
 - **Legacy localStorage Usage**: 11 storage keys across 8 files still use direct localStorage
 - **State Machine Compliance**: 1/8 games (12.5%) - Only SimpleSnake fully compliant
-- **isMuted Prop Gating**: VortexPong COMPLIANT (9/9 gated), MatrixCloud COMPLIANT (8/8 gated), Metris COMPLIANT (11/11 gated), others missing prop entirely
+- **isMuted Prop Gating**: VortexPong COMPLIANT (9/9 gated), MatrixCloud COMPLIANT (8/8 gated), Metris COMPLIANT (11/11 gated), MatrixInvaders COMPLIANT (4/4 gated), others missing prop entirely
 - **Critical State Mutations**: All fixed - MatrixCloud and Metris now use immutable state updates
 - **Last Analysis**: 25 January 2026 (Round 23 - comprehensive verification, updated with fixes)
 
@@ -61,7 +61,7 @@ All games MUST support ESC (exit - handled by App.tsx), P (pause), R (restart), 
 | SimpleSnake | App-level | Works | Works | Works | **COMPLIANT** |
 | VortexPong | App-level | Works | Works | Works | PARTIAL (no MENU state) |
 | MatrixCloud | App-level | Works | Works | Works | PARTIAL (boolean flags) |
-| MatrixInvaders | App-level | Works | **MISSING** | **MISSING** (auto-starts) | NOT COMPLIANT |
+| MatrixInvaders | App-level | Works | Works | Works | PARTIAL (has menu state) |
 | Metris | App-level | Works | **MISSING** | Works | PARTIAL |
 | CtrlSWorld | App-level | Works | **MISSING** | PARTIAL | NOT COMPLIANT |
 | TerminalQuest | App-level | **MISSING** | **MISSING** | N/A | PARTIAL |
@@ -86,10 +86,10 @@ All games MUST support ESC (exit - handled by App.tsx), P (pause), R (restart), 
 - [x] **MatrixCloud**: State mutations fixed at lines 665-666 (pipe.passed and pipe.glowIntensity now updated immutably via map)
 - [x] **MatrixCloud**: Boss state mutations fixed at lines 714, 723, 725, 751, 757-758, 760, 786-788, 797-799 (now uses spread operator and flags)
 - [ ] **MatrixCloud**: Fix pause modal text overlap with power-up guide (visible in e2e/screenshots/cloud-paused.png) - add z-index or hide guide during pause
-- [ ] **MatrixInvaders**: Add R key binding to resetGame() (keyboard handler around line 621)
-- [ ] **MatrixInvaders**: Add ENTER key to start/restart game
-- [ ] **MatrixInvaders**: Add isMuted prop to interface (lines 69-71) and gate all 4 synthesis calls (lines 168, 190, 259, 289)
-- [ ] **MatrixInvaders**: Add explicit MENU state (currently auto-starts with no menu)
+- [x] **MatrixInvaders**: Add R key binding to resetGame() (keyboard handler around line 621) - **DONE**
+- [x] **MatrixInvaders**: Add ENTER key to start/restart game - **DONE**
+- [x] **MatrixInvaders**: Add isMuted prop to interface (lines 69-71) and gate all 4 synthesis calls (lines 168, 190, 259, 289) - **DONE**
+- [x] **MatrixInvaders**: Add explicit MENU state (currently auto-starts with no menu) - **DONE**
 - [ ] **Metris**: Add R key for restart (keyboard handler lines 733-842)
 - [ ] **Metris**: Add levelUp sound when level increases (check at lines 518, 570 when newLevel > currentState.level)
 - [ ] **Metris**: Remove duplicate localStorage usage (lines 212, 1011) - already uses useSaveSystem
@@ -116,7 +116,7 @@ All games MUST use useSoundSystem or useSoundSynthesis with proper isMuted gatin
 | MatrixCloud | useSoundSystem | Yes | 8/8 | 0 | **COMPLIANT** |
 | Metris | useSoundSynthesis | Yes | 11/11 gated | Missing levelUp | **COMPLIANT** |
 | TerminalQuest | useSoundSystem | **Missing** | 0/6 | 6 | NOT COMPLIANT |
-| MatrixInvaders | useSoundSynthesis | **Missing** | 0/4 | 4 | NOT COMPLIANT |
+| MatrixInvaders | useSoundSynthesis | Yes | 4/4 | 0 | **COMPLIANT** |
 | SimpleSnake | Inline WebAudio | Yes | Gated | N/A | NOT STANDARD |
 | CtrlSWorld | Placeholder | **Missing** | N/A | N/A | NOT COMPLIANT |
 | TerminalQuestCombat | None | **Missing** | N/A | N/A | NOT COMPLIANT |
@@ -124,7 +124,7 @@ All games MUST use useSoundSystem or useSoundSynthesis with proper isMuted gatin
 **Tasks:**
 - [x] **MatrixCloud**: All 8 sound calls now properly gated
 - [ ] **TerminalQuest**: Add isMuted prop and gate all 6 sound calls (includes playMusic)
-- [ ] **MatrixInvaders**: Add isMuted prop and gate all 4 synthesis calls
+- [x] **MatrixInvaders**: Add isMuted prop and gate all 4 synthesis calls - **DONE**
 - [ ] **Metris**: Add levelUp sound when level increases
 - [ ] **SimpleSnake**: Replace inline Web Audio API (lines 474-523) with useSoundSystem hook
 - [ ] **CtrlSWorld**: Replace placeholder playSFX (lines 457-461) with actual useSoundSystem integration
@@ -304,7 +304,7 @@ IDLE/MENU -> PLAYING -> PAUSED -> PLAYING -> GAME_OVER
 | SimpleSnake | String enum ('menu' \| 'playing' \| 'paused' \| 'gameOver') | All 4 | **COMPLIANT** |
 | VortexPong | Boolean flags (gameOver, isPaused) | 3 of 4 (no menu) | PARTIAL |
 | MatrixCloud | Multiple booleans (started, gameOver, paused) | All 4 | PARTIAL |
-| MatrixInvaders | Multiple booleans (gameOver, paused) | 3 of 4 (no menu) | NOT COMPLIANT |
+| MatrixInvaders | Multiple booleans (gameOver, paused, menu) | All 4 | PARTIAL |
 | Metris | Multiple booleans (waiting, gameOver, paused) | All 4 | PARTIAL |
 | CtrlSWorld | Multiple booleans (isStarted, isPaused) | 3 of 4 (no gameOver) | NOT COMPLIANT |
 | TerminalQuest | String nodes (currentNode) + booleans | 3 of 4 (no paused) | PARTIAL |
@@ -334,7 +334,7 @@ interface GameProps {
 - **State machine pattern:** SimpleSnake.tsx / useSimpleSnakeGame.ts (proper 4-state enum)
 - **Canvas rendering + hooks:** VortexPong.tsx (uses useGameLoop, useSoundSystem, useSaveSystem, usePowerUps) - All 9 sound calls properly gated
 - **Immutable state updates:** MatrixCloud.tsx (uses spread operators and flags for state changes)
-- **Sound synthesis:** MatrixInvaders.tsx, Metris.tsx (useSoundSynthesis)
+- **Sound synthesis:** MatrixInvaders.tsx, Metris.tsx (useSoundSynthesis) - MatrixInvaders now fully gated
 - **Object pooling:** MatrixInvaders.tsx
 - **Narrative game:** CtrlSWorld.tsx (useAdvancedVoice, useLifelineManager)
 - **Text adventure:** TerminalQuest.tsx (useSoundSystem, node-based flow)
@@ -348,7 +348,7 @@ interface GameProps {
 | SimpleSnake | 100% | Inline WebAudio | Yes | **COMPLIANT** | Dual system | Hybrid | 75% |
 | VortexPong | 100% | 9/9 gated | Yes | PARTIAL | Integrated | 100% | **90%** |
 | MatrixCloud | 100% | 8/8 gated | Yes | PARTIAL | Integrated | 100% | **85%** |
-| MatrixInvaders | 50% | 0/4 gated | **Missing** | NOT COMPLIANT | Integrated | Hybrid | 40% |
+| MatrixInvaders | 100% | 4/4 gated | Yes | PARTIAL | Integrated | Hybrid | ~75% |
 | Metris | 65% | 11/11 gated | Yes | PARTIAL | Integrated | Hybrid | 75% |
 | CtrlSWorld | 75% | Placeholder | **Missing** | NOT COMPLIANT | Integrated | 100% | 45% |
 | TerminalQuest | 0% | 0/6 gated | **Missing** | PARTIAL | Partial | localStorage | 25% |
@@ -362,10 +362,13 @@ interface GameProps {
    - ~~Fix critical state mutations in MatrixCloud (lines 554, 665-666, 714, 751, 757-760, 786-788, 797-799)~~ **DONE**
    - ~~Fix state mutation in Metris (line 921)~~ **DONE**
    - ~~Gate all MatrixCloud sound calls~~ **DONE**
-   - Add isMuted prop to MatrixInvaders, TerminalQuest, TerminalQuestCombat, CtrlSWorld
-   - Gate all ungated sound calls (MatrixInvaders 4, TerminalQuest 6)
-   - Add R key to MatrixInvaders, Metris, CtrlSWorld
-   - Add ENTER key to MatrixInvaders
+   - ~~Add isMuted prop to MatrixInvaders~~ **DONE**
+   - ~~Gate all ungated sound calls in MatrixInvaders (4)~~ **DONE**
+   - ~~Add R key to MatrixInvaders~~ **DONE**
+   - ~~Add ENTER key to MatrixInvaders~~ **DONE**
+   - Add isMuted prop to TerminalQuest, TerminalQuestCombat, CtrlSWorld
+   - Gate all ungated sound calls (TerminalQuest 6)
+   - Add R key to Metris, CtrlSWorld
    - Fix MatrixCloud pause modal text overlap
    - Fix SimpleSnake paused state showing start screen
 
@@ -398,6 +401,20 @@ interface GameProps {
 
 **MatrixCloud Sound Gating (FIXED):**
 - Lines 667, 752, 761, 800 - All ungated `playSFX` calls now have proper `if (!isMuted)` checks
+
+### 25 January 2026 - MatrixInvaders Compliance Fixes
+
+**MatrixInvaders isMuted Prop (FIXED):**
+- Added `isMuted` prop to component interface
+- All 4 sound synthesis calls now properly gated with `if (!isMuted)` checks
+
+**MatrixInvaders Keyboard Controls (FIXED):**
+- Added R key binding to `resetGame()` for restart functionality
+- Added ENTER key to start/restart game from menu and game over states
+
+**MatrixInvaders Menu State (FIXED):**
+- Added explicit MENU state - game no longer auto-starts on mount
+- Players must now press ENTER or click START to begin playing
 
 ---
 
@@ -459,14 +476,14 @@ interface GameProps {
 
 **Overall Spec Compliance:**
 - State machine: 1/8 (12.5%)
-- Keyboard controls: 2/8 (25%)
-- Props interface (isMuted): 4/8 (50%)
-- Sound gating: 3/8 (37.5%) - improved from 25%
+- Keyboard controls: 3/8 (37.5%) - improved from 25%
+- Props interface (isMuted): 5/8 (62.5%) - improved from 50%
+- Sound gating: 4/8 (50%) - improved from 37.5%
 - State mutations: 8/8 (100%) - improved from 75%
 - Save system: 3/8 (37.5%)
 - Matrix theme: 8/8 (100%)
 
-**Average Game Compliance: 58%** (improved from 54%)
+**Average Game Compliance: 61%** (improved from 58%)
 
 ---
 

@@ -54,6 +54,7 @@ interface GameState {
   };
   score: number;
   wave: number;
+  menu: boolean;
   gameOver: boolean;
   paused: boolean;
   combo: number;
@@ -68,9 +69,10 @@ interface AchievementManager {
 
 interface MatrixInvadersProps {
   achievementManager?: AchievementManager;
+  isMuted?: boolean;
 }
 
-export default function MatrixInvaders({ achievementManager }: MatrixInvadersProps) {
+export default function MatrixInvaders({ achievementManager, isMuted = false }: MatrixInvadersProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
   const keysRef = useRef<Set<string>>(new Set());
@@ -90,6 +92,7 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
     },
     score: 0,
     wave: 1,
+    menu: true,
     gameOver: false,
     paused: false,
     combo: 0,
@@ -165,9 +168,11 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
       bullet.type = isEnemy ? 'enemy' : 'player';
       bullet.damage = 1;
       
-      synthLaser(isEnemy ? 500 : 1000, 100, 0.1);
+      if (!isMuted) {
+        synthLaser(isEnemy ? 500 : 1000, 100, 0.1);
+      }
     }
-  }, [projectilePool, synthLaser]);
+  }, [projectilePool, synthLaser, isMuted]);
   
   // Create explosion particles
   const createExplosion = useCallback((x: number, y: number, color: string = '#00ff00') => {
@@ -187,8 +192,10 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
         particle.size = 2 + Math.random() * 4;
       }
     }
-    synthExplosion(0.5, 0.7);
-  }, [particlePool, synthExplosion]);
+    if (!isMuted) {
+      synthExplosion(0.5, 0.7);
+    }
+  }, [particlePool, synthExplosion, isMuted]);
   
   // Handle collisions
   const checkCollisions = useCallback(() => {
@@ -256,7 +263,9 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
 
               enemyPool.release(enemy);
             } else {
-              synthDrum({ type: 'hihat' });
+              if (!isMuted) {
+                synthDrum({ type: 'hihat' });
+              }
             }
           }
         });
@@ -286,7 +295,9 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
 
           // Visual feedback for damage
           createExplosion(state.player.x + PLAYER_WIDTH / 2, state.player.y + PLAYER_HEIGHT / 2, '#ff0000');
-          synthExplosion(0.3, 0.5);
+          if (!isMuted) {
+            synthExplosion(0.3, 0.5);
+          }
 
           // Remove the bullet
           projectilePool.release(bullet);
@@ -340,11 +351,11 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
         }
       }
     }
-  }, [projectilePool, enemyPool, state.wave, state.player, achievementManager, unlockSaveAchievement, createExplosion, synthDrum, synthExplosion, spawnWave]);
+  }, [projectilePool, enemyPool, state.wave, state.player, achievementManager, unlockSaveAchievement, createExplosion, synthDrum, synthExplosion, spawnWave, isMuted]);
   
   // Update game state
   const updateGame = useCallback((deltaTime: number) => {
-    if (state.gameOver || state.paused) return;
+    if (state.menu || state.gameOver || state.paused) return;
     
     const scaledDelta = deltaTime * state.timeScale;
     
@@ -586,13 +597,56 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
       }
     };
   }, [updateGame, render, state.gameOver, state.paused]);
-  
+
+  // Start game from menu
+  const startGame = useCallback(() => {
+    setState(prev => ({ ...prev, menu: false }));
+    spawnWave(1);
+    sessionStartTimeRef.current = Date.now();
+  }, [spawnWave]);
+
+  // Reset game
+  const resetGame = useCallback(() => {
+    projectilePool.releaseAll();
+    enemyPool.releaseAll();
+    particlePool.releaseAll();
+
+    setState({
+      player: {
+        x: CANVAS_WIDTH / 2 - PLAYER_WIDTH / 2,
+        y: CANVAS_HEIGHT - PLAYER_HEIGHT - 20,
+        health: 100,
+        maxHealth: 100,
+        powerUps: {},
+        invulnerable: false,
+        lastHitTime: 0
+      },
+      score: 0,
+      wave: 1,
+      menu: false,
+      gameOver: false,
+      paused: false,
+      combo: 0,
+      highScore: parseInt(localStorage.getItem('matrixInvaders_highScore') || '0'),
+      bulletTimeActive: false,
+      timeScale: 1
+    });
+
+    // Reset session tracking
+    sessionStartTimeRef.current = Date.now();
+    maxWaveRef.current = 0;
+    maxComboRef.current = 0;
+    enemiesKilledRef.current = 0;
+
+    spawnWave(1);
+  }, [projectilePool, enemyPool, particlePool, spawnWave]);
+
   // Handle keyboard input
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       keysRef.current.add(e.key);
       
-      if (e.key === ' ' && !state.gameOver && !state.paused) {
+      if (e.key === ' ' && !state.menu && !state.gameOver && !state.paused) {
         const now = Date.now();
         const fireRate = state.player.powerUps?.rapidFire ? 100 : 250;
         
@@ -602,7 +656,7 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
         }
       }
       
-      if (e.key === 'b' && !state.bulletTimeActive) {
+      if (e.key === 'b' && !state.menu && !state.gameOver && !state.bulletTimeActive) {
         setState(prev => ({ 
           ...prev, 
           bulletTimeActive: true,
@@ -618,8 +672,22 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
         }, BULLET_TIME_DURATION);
       }
       
-      if (e.key === 'p') {
+      if (e.key === 'p' && !state.menu && !state.gameOver) {
         setState(prev => ({ ...prev, paused: !prev.paused }));
+      }
+
+      // R key to restart when game over
+      if ((e.key === 'r' || e.key === 'R') && state.gameOver) {
+        resetGame();
+      }
+
+      // ENTER key to start from menu or restart from game over
+      if (e.key === 'Enter') {
+        if (state.menu) {
+          startGame();
+        } else if (state.gameOver) {
+          resetGame();
+        }
       }
     };
     
@@ -634,12 +702,12 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [state, fireBullet]);
+  }, [state, fireBullet, resetGame, startGame]);
   
   // Update player position
   useEffect(() => {
     const updatePlayer = () => {
-      if (state.gameOver || state.paused) return;
+      if (state.menu || state.gameOver || state.paused) return;
       
       setState(prev => {
         let newX = prev.player.x;
@@ -665,19 +733,19 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
   // Start game and handle restart
   useEffect(() => {
     let cleanup: (() => void) | undefined;
-    
-    if (!state.gameOver && !state.paused) {
+
+    if (!state.menu && !state.gameOver && !state.paused) {
       // Initial spawn only if there are no active enemies
       if (enemyPool.activeObjects.length === 0) {
         spawnWave(state.wave);
       }
       cleanup = gameLoop();
     }
-    
+
     return () => {
       if (cleanup) cleanup();
     };
-  }, [state.gameOver, state.paused, state.wave, enemyPool, spawnWave, gameLoop]);
+  }, [state.menu, state.gameOver, state.paused, state.wave, enemyPool, spawnWave, gameLoop]);
   
   // Save game stats on game over
   useEffect(() => {
@@ -718,41 +786,6 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
     }
   }, [state.gameOver, state.score, state.wave, state.highScore, saveData, updateGameSave, achievementManager, unlockSaveAchievement]);
   
-  // Reset game
-  const resetGame = useCallback(() => {
-    projectilePool.releaseAll();
-    enemyPool.releaseAll();
-    particlePool.releaseAll();
-
-    setState({
-      player: {
-        x: CANVAS_WIDTH / 2 - PLAYER_WIDTH / 2,
-        y: CANVAS_HEIGHT - PLAYER_HEIGHT - 20,
-        health: 100,
-        maxHealth: 100,
-        powerUps: {},
-        invulnerable: false,
-        lastHitTime: 0
-      },
-      score: 0,
-      wave: 1,
-      gameOver: false,
-      paused: false,
-      combo: 0,
-      highScore: parseInt(localStorage.getItem('matrixInvaders_highScore') || '0'),
-      bulletTimeActive: false,
-      timeScale: 1
-    });
-
-    // Reset session tracking
-    sessionStartTimeRef.current = Date.now();
-    maxWaveRef.current = 0;
-    maxComboRef.current = 0;
-    enemiesKilledRef.current = 0;
-
-    spawnWave(1);
-  }, [projectilePool, enemyPool, particlePool, spawnWave, gameLoop]);
-  
   return (
     <div className="relative w-full h-full flex items-center justify-center bg-black">
       <div className="relative">
@@ -763,6 +796,44 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
           className="border-2 border-green-500 shadow-[0_0_20px_rgba(0,255,0,0.5)]"
         />
         
+        {/* Menu Overlay */}
+        <AnimatePresence>
+          {state.menu && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 flex items-center justify-center bg-black/90"
+            >
+              <div className="text-center">
+                <h1 className="text-5xl font-mono text-green-500 mb-4 drop-shadow-[0_0_10px_rgba(0,255,0,0.8)]">
+                  MATRIX INVADERS
+                </h1>
+                {state.highScore > 0 && (
+                  <p className="text-xl font-mono text-green-400 mb-4">
+                    High Score: {state.highScore}
+                  </p>
+                )}
+                <div className="text-green-400 font-mono text-sm mb-6 space-y-1">
+                  <p>MOVE: ← → or A/D</p>
+                  <p>FIRE: SPACE</p>
+                  <p>BULLET TIME: B</p>
+                  <p>PAUSE: P</p>
+                </div>
+                <p className="text-2xl font-mono text-green-500 animate-pulse">
+                  Press ENTER to Start
+                </p>
+                <button
+                  onClick={startGame}
+                  className="mt-4 px-6 py-3 bg-green-500 text-black font-mono rounded hover:bg-green-400 transition-colors"
+                >
+                  START GAME
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Game Over Overlay */}
         <AnimatePresence>
           {state.gameOver && (
@@ -775,7 +846,15 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
               <div className="text-center">
                 <h2 className="text-4xl font-mono text-green-500 mb-4">GAME OVER</h2>
                 <p className="text-2xl font-mono text-green-400 mb-2">Score: {state.score}</p>
-                <p className="text-xl font-mono text-green-400 mb-6">Wave: {state.wave}</p>
+                <p className="text-xl font-mono text-green-400 mb-4">Wave: {state.wave}</p>
+                {state.score > state.highScore && state.score > 0 && (
+                  <p className="text-xl font-mono text-yellow-400 mb-4 animate-pulse">
+                    NEW HIGH SCORE!
+                  </p>
+                )}
+                <p className="text-lg font-mono text-green-400 mb-6">
+                  Press R or ENTER to Restart
+                </p>
                 <button
                   onClick={resetGame}
                   className="px-6 py-3 bg-green-500 text-black font-mono rounded hover:bg-green-400 transition-colors flex items-center gap-2 mx-auto"
@@ -805,12 +884,14 @@ export default function MatrixInvaders({ achievementManager }: MatrixInvadersPro
           )}
         </AnimatePresence>
         
-        {/* Controls */}
-        <div className="mt-4 text-center">
-          <p className="text-green-400 font-mono text-sm">
-            MOVE: ← → or A/D | FIRE: SPACE | BULLET TIME: B | PAUSE: P
-          </p>
-        </div>
+        {/* Controls - only show during gameplay */}
+        {!state.menu && (
+          <div className="mt-4 text-center">
+            <p className="text-green-400 font-mono text-sm">
+              MOVE: ← → or A/D | FIRE: SPACE | BULLET TIME: B | PAUSE: P
+            </p>
+          </div>
+        )}
       </div>
       
       <PerformanceOverlay />
