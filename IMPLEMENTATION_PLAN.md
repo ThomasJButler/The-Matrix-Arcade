@@ -71,11 +71,11 @@ All games MUST support ESC (exit - handled by App.tsx), P (pause), R (restart), 
 
 **Tasks:**
 - [x] **SimpleSnake**: Keyboard controls fully compliant (P, R, ENTER all work)
-- [ ] **SimpleSnake**: Remove duplicate keyboard handler in useSimpleSnakeGame.ts (lines 383-410) - redundant with component handler
-- [ ] **SimpleSnake**: Replace inline Web Audio API (lines 474-523) with useSoundSystem hook for consistency
+- [x] **SimpleSnake**: Remove duplicate keyboard handler in useSimpleSnakeGame.ts (lines 383-410) - redundant with component handler
+- [x] **SimpleSnake**: Replace inline Web Audio API (lines 474-523) with useSoundSystem hook for consistency
 - [ ] **SimpleSnake**: Review console.error at useSimpleSnakeGame.ts line 156 - consider removing or converting to proper error handling
-- [ ] **SimpleSnake**: Remove direct localStorage usage (lines 44, 208) - use useSaveSystem exclusively
-- [ ] **SimpleSnake**: Consolidate dual achievement system (uses both achievementManager and useSaveSystem with different IDs)
+- [x] **SimpleSnake**: Remove direct localStorage usage (lines 44, 208) - use useSaveSystem exclusively
+- [x] **SimpleSnake**: Consolidate dual achievement system (uses both achievementManager and useSaveSystem with different IDs)
 - [x] **VortexPong**: Keyboard controls compliant (P, R, ENTER all work)
 - [x] **VortexPong**: Sound calls verified as properly gated (all 9 playSFX calls have `if (!isMuted)` checks)
 - [x] **VortexPong**: Add IDLE/MENU state - game now shows "Press ENTER to start" screen with high score and controls info
@@ -117,7 +117,7 @@ All games MUST use useSoundSystem or useSoundSynthesis with proper isMuted gatin
 | Metris | useSoundSynthesis + useSoundSystem | Yes | 12/12 gated | 0 | **COMPLIANT** |
 | TerminalQuest | useSoundSystem | Yes | 6/6 | 0 | **COMPLIANT** |
 | MatrixInvaders | useSoundSynthesis | Yes | 4/4 | 0 | **COMPLIANT** |
-| SimpleSnake | Inline WebAudio | Yes | Gated | N/A | NOT STANDARD |
+| SimpleSnake | useSoundSystem | Yes | 2/2 gated | 0 | **COMPLIANT** |
 | CtrlSWorld | useSoundSystem | Yes | All gated | 0 | **COMPLIANT** |
 | TerminalQuestCombat | useSoundSystem | Yes | 8/8 | 0 | **COMPLIANT** |
 
@@ -126,7 +126,7 @@ All games MUST use useSoundSystem or useSoundSynthesis with proper isMuted gatin
 - [x] **TerminalQuest**: Add isMuted prop and gate all 6 sound calls (includes playMusic) - **DONE**
 - [x] **MatrixInvaders**: Add isMuted prop and gate all 4 synthesis calls - **DONE**
 - [x] **Metris**: Add levelUp sound when level increases
-- [ ] **SimpleSnake**: Replace inline Web Audio API (lines 474-523) with useSoundSystem hook
+- [x] **SimpleSnake**: Replace inline Web Audio API (lines 474-523) with useSoundSystem hook - **DONE**
 - [x] **CtrlSWorld**: Replace placeholder playSFX with actual useSoundSystem integration - **DONE**
 - [x] **TerminalQuestCombat**: Add useSoundSystem for attack, hit, powerup, gameOver sounds - **DONE**
 
@@ -346,7 +346,7 @@ interface GameProps {
 
 | Game | Controls | Sound | isMuted Prop | State Machine | Achievements | SaveSystem | Overall |
 |------|----------|-------|--------------|---------------|--------------|------------|---------|
-| SimpleSnake | 100% | Inline WebAudio | Yes | **COMPLIANT** | Dual system | Hybrid | 75% |
+| SimpleSnake | 100% | useSoundSystem (gated) | Yes | **COMPLIANT** | Integrated | 100% | **95%** |
 | VortexPong | 100% | 9/9 gated | Yes | **COMPLIANT** | Integrated | 100% | **95%** |
 | MatrixCloud | 100% | 8/8 gated | Yes | PARTIAL | Integrated | 100% | **85%** |
 | MatrixInvaders | 100% | 4/4 gated | Yes | PARTIAL | Integrated | Hybrid | ~75% |
@@ -515,6 +515,29 @@ interface GameProps {
   - Clears puzzle state (showPuzzle, currentPuzzleId)
   - Resets session tracking (timestamps, completed chapters/puzzles)
   - Plays 'menu' sound on restart (respects isMuted)
+
+### 25 January 2026 - SimpleSnake Standardisation Fixes
+
+**SimpleSnake Keyboard Handler Consolidation (FIXED):**
+- Removed duplicate keyboard handler in useSimpleSnakeGame.ts (lines 383-410)
+- Component handler in SimpleSnake.tsx now serves as the single source of truth
+- Supports P, R, ENTER keys and case-insensitive WASD
+
+**SimpleSnake Sound System Migration (FIXED):**
+- Replaced inline Web Audio API code (lines 474-523) with useSoundSystem hook
+- Food eaten sound now uses `playSFX('snakeEat')`
+- Game over sound now uses `playSFX('gameOver')`
+- All sound calls properly gated with `if (!isMuted)` check
+
+**SimpleSnake localStorage Removal (FIXED):**
+- Removed direct localStorage calls in useSimpleSnakeGame.ts (lines 44, 208)
+- Hook now accepts `initialHighScore` option and `onHighScoreUpdate` callback
+- Component integrates with useSaveSystem for persistence
+
+**SimpleSnake Achievement System Consolidation (FIXED):**
+- Removed dual achievement system calls
+- Now uses only useSaveSystem's `unlockAchievement()` as single source of truth
+- Removed `achievementManager.unlockAchievement()` calls that were duplicating work
 
 ---
 

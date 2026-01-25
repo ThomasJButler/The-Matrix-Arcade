@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { useSimpleSnakeGame } from '../../hooks/useSimpleSnakeGame';
 import { useSaveSystem } from '../../hooks/useSaveSystem';
+import { useSoundSystem } from '../../hooks/useSoundSystem';
 import { Trophy, Zap, Play, RotateCcw } from 'lucide-react';
 
 interface AchievementManager {
@@ -339,8 +340,22 @@ const SnakeMenu: React.FC<SnakeMenuProps> = ({ gameState, score, highScore, onSt
 };
 
 export default function SimpleSnake({ achievementManager, isMuted }: SimpleSnakeProps) {
-  const { gameState, startGame, togglePause, resetGame, changeDirection, gridSize } = useSimpleSnakeGame();
   const { saveData, updateGameSave, unlockAchievement } = useSaveSystem();
+  const { playSFX } = useSoundSystem();
+
+  // Get initial high score from save system
+  const initialHighScore = saveData.games.snakeClassic?.highScore || 0;
+
+  // Callback for when high score is updated in the hook
+  const handleHighScoreUpdate = useCallback((newHighScore: number) => {
+    updateGameSave('snakeClassic', { highScore: newHighScore });
+  }, [updateGameSave]);
+
+  const { gameState, startGame, togglePause, resetGame, changeDirection, gridSize } = useSimpleSnakeGame({
+    initialHighScore,
+    onHighScoreUpdate: handleHighScoreUpdate
+  });
+
   const scoreRef = useRef(0);
   const playTimeRef = useRef<number>(Date.now());
   const prevScoreRef = useRef(0);
@@ -397,32 +412,27 @@ export default function SimpleSnake({ achievementManager, isMuted }: SimpleSnake
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [gameState.gameState, changeDirection, startGame, togglePause, resetGame]);
 
-  // Track achievements
+  // Track achievements - using useSaveSystem as single source of truth
   useEffect(() => {
-    if (achievementManager) {
-      // First Apple: First food collected
-      if (gameState.score > 0 && foodEatenRef.current === 0) {
-        unlockAchievement('snakeClassic', 'first_apple');
-        foodEatenRef.current = 1;
-      }
-
-      // Score achievements
-      if (gameState.score >= 100 && scoreRef.current < 100) {
-        unlockAchievement('snakeClassic', 'score_100');
-        achievementManager.unlockAchievement('snake', 'snake_score_100');
-      }
-      if (gameState.score >= 500 && scoreRef.current < 500) {
-        unlockAchievement('snakeClassic', 'score_500');
-        achievementManager.unlockAchievement('snake', 'snake_score_500');
-      }
-      if (gameState.score >= 1000 && scoreRef.current < 1000) {
-        unlockAchievement('snakeClassic', 'snake_master');
-        achievementManager.unlockAchievement('snake', 'snake_master');
-      }
-
-      scoreRef.current = gameState.score;
+    // First Apple: First food collected
+    if (gameState.score > 0 && foodEatenRef.current === 0) {
+      unlockAchievement('snakeClassic', 'first_apple');
+      foodEatenRef.current = 1;
     }
-  }, [gameState.score, achievementManager, unlockAchievement]);
+
+    // Score achievements
+    if (gameState.score >= 100 && scoreRef.current < 100) {
+      unlockAchievement('snakeClassic', 'score_100');
+    }
+    if (gameState.score >= 500 && scoreRef.current < 500) {
+      unlockAchievement('snakeClassic', 'score_500');
+    }
+    if (gameState.score >= 1000 && scoreRef.current < 1000) {
+      unlockAchievement('snakeClassic', 'snake_master');
+    }
+
+    scoreRef.current = gameState.score;
+  }, [gameState.score, unlockAchievement]);
 
   // Track play time and save on game over
   useEffect(() => {
@@ -454,73 +464,36 @@ export default function SimpleSnake({ achievementManager, isMuted }: SimpleSnake
         });
       }, 100);
 
-      // Achievements
-      if (achievementManager) {
-        // Survivor: Play for 5 minutes
-        if (playTime >= 300) {
-          unlockAchievement('snakeClassic', 'survivor');
-          achievementManager.unlockAchievement('snake', 'snake_survivor');
-        }
+      // Achievements - using useSaveSystem as single source of truth
+      // Survivor: Play for 5 minutes
+      if (playTime >= 300) {
+        unlockAchievement('snakeClassic', 'survivor');
+      }
 
-        // Speed Demon: Score 100+ at max speed
-        if (gameState.score >= 100 && (gameState.level || 1) >= 10) {
-          unlockAchievement('snakeClassic', 'speed_demon');
-        }
+      // Speed Demon: Score 100+ at max speed
+      if (gameState.score >= 100 && (gameState.level || 1) >= 10) {
+        unlockAchievement('snakeClassic', 'speed_demon');
       }
     }
-  }, [gameState.gameState, gameState.score, gameState.level, gameState.snake, achievementManager, saveData, updateGameSave, unlockAchievement]);
+  }, [gameState.gameState, gameState.score, gameState.level, gameState.snake, saveData, updateGameSave, unlockAchievement]);
 
-  // Simple sound effects (only if not muted)
+  // Sound effects using useSoundSystem (properly gated with isMuted)
   useEffect(() => {
     if (isMuted) return;
 
     if (gameState.score > prevScoreRef.current && gameState.score > 0) {
-      // Food eaten sound
-      try {
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-
-        oscillator.frequency.value = 800;
-        oscillator.type = 'square';
-        gainNode.gain.value = 0.1;
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.1);
-      } catch (e) {
-        // Ignore audio errors
-      }
+      // Food eaten sound - use snakeEat for this game-specific sound
+      playSFX('snakeEat');
     }
     prevScoreRef.current = gameState.score;
-  }, [gameState.score, isMuted]);
+  }, [gameState.score, isMuted, playSFX]);
 
   // Game over sound
   useEffect(() => {
     if (gameState.gameState === 'gameOver' && !isMuted) {
-      try {
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-
-        oscillator.frequency.value = 200;
-        oscillator.type = 'sawtooth';
-        gainNode.gain.value = 0.15;
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.5);
-      } catch (e) {
-        // Ignore audio errors
-      }
+      playSFX('gameOver');
     }
-  }, [gameState.gameState, isMuted]);
+  }, [gameState.gameState, isMuted, playSFX]);
 
   return (
     <div className="w-full h-full bg-black flex flex-col font-mono relative">
