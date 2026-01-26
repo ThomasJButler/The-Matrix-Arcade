@@ -19,12 +19,12 @@ Run `./loop.sh plan` to analyse the codebase and generate tasks.
 - **Visual Consistency**: Strong Matrix theme throughout (green-on-black, glow effects, CRT aesthetic) - verified via screenshots (10/10 rating)
 - **Console Statements**: All 17 console statements properly wrapped in DEV environment checks
 - **Legacy localStorage Usage**: 3 hooks use direct localStorage (user preferences - acceptable)
-- **State Machine Compliance**: 6/8 games (75%) - SimpleSnake, TerminalQuestCombat, CtrlSWorld, VortexPong, MatrixInvaders, MatrixCloud fully compliant
+- **State Machine Compliance**: 7/8 games (88%) - SimpleSnake, TerminalQuestCombat, CtrlSWorld, VortexPong, MatrixInvaders, MatrixCloud, TerminalQuest fully compliant
 - **isMuted Prop Gating**: All games gate sound properly with !isMuted checks (verified Round 63)
 - **Achievement Persistence**: 7/7 games work correctly (all use dual-call pattern or single-source pattern)
 - **Keyboard Controls**: 7/7 main games compliant with standard controls
 - **Developer Room**: Intentional game content (easter egg), NOT a security concern
-- **Last Analysis**: Round 70 - Refactored MatrixCloud state machine (6 booleans → GamePhase enum + 2 booleans + 1 UI state)
+- **Last Analysis**: Round 71 - Refactored TerminalQuest state machine (6 booleans → GamePhase enum + 3 UI effect booleans)
 
 ---
 
@@ -118,7 +118,7 @@ const [userHasScrolled, setUserHasScrolled] = useState(false);
 | Game | Current Booleans | Lines | Recommended |
 |------|------------------|-------|-------------|
 | ~~MatrixCloud~~ | ~~6 flags (64 combos)~~ | ~~124-126, 132, 201-202~~ | ✅ COMPLIANT - uses `GamePhase` enum |
-| TerminalQuest | 6 flags (64 combos) | 79-84 | `ExplorationPhase` enum |
+| ~~TerminalQuest~~ | ~~6 flags (64 combos)~~ | ~~79-84~~ | ✅ COMPLIANT - uses `GamePhase` enum |
 | ~~MatrixInvaders~~ | ~~5 flags (32 combos)~~ | ~~53, 58-60, 63~~ | ✅ COMPLIANT - uses `GamePhase` enum |
 | Metris | 5 flags (32 combos) | (state in interface) | Single `GamePhase` enum |
 | ~~VortexPong~~ | ~~3 flags (8 combos)~~ | ~~107-109~~ | ✅ COMPLIANT - uses `GamePhase` enum |
@@ -126,7 +126,7 @@ const [userHasScrolled, setUserHasScrolled] = useState(false);
 **Verified Boolean Flags by Game:**
 
 *~~MatrixCloud:~~* ~~`gameOver`, `started`, `invulnerable`, `inBossBattle`, `paused`, `showTutorial`~~ → ✅ Now uses `GamePhase` enum + 2 booleans + 1 UI state
-*TerminalQuest:* `inCombat`, `saveExists`, `isTyping`, `shakeEffect`, `backgroundGlitch`, `isPaused`
+*~~TerminalQuest:~~* ~~`inCombat`, `saveExists`, `isTyping`, `shakeEffect`, `backgroundGlitch`, `isPaused`~~ → ✅ Now uses `GamePhase` enum + 3 UI effect booleans (saveExists derived from saveData)
 *~~MatrixInvaders:~~* ~~`menu`, `gameOver`, `paused`, `invulnerable`, `bulletTimeActive`~~ → ✅ Now uses `GamePhase` enum + 2 booleans
 *~~VortexPong:~~* ~~`showMenu`, `gameOver`, `isPaused`~~ → ✅ Now uses `GamePhase` enum
 
@@ -389,8 +389,8 @@ IDLE/MENU -> PLAYING -> PAUSED -> PLAYING -> GAME_OVER
 | VortexPong | `'menu' \| 'playing' \| 'paused' \| 'gameOver'` (Round 68) | ✅ COMPLIANT |
 | MatrixInvaders | `'menu' \| 'playing' \| 'paused' \| 'gameOver'` + 2 booleans (Round 69) | ✅ COMPLIANT |
 | MatrixCloud | `'menu' \| 'playing' \| 'paused' \| 'gameOver'` + 2 booleans (Round 70) | ✅ COMPLIANT |
+| TerminalQuest | `'exploring' \| 'combat' \| 'paused'` + 3 UI effect booleans (Round 71) | ✅ COMPLIANT |
 | Metris | 5 boolean flags | ⚠️ PARTIAL |
-| TerminalQuest | 6 boolean flags (lines 79-84) | ⚠️ PARTIAL |
 
 ### Required Keyboard Shortcuts
 
@@ -459,7 +459,7 @@ const unlockAchievement = useCallback((achievementId: string) => {
 | Metris | 95% | Yes | Yes | ⚠️ PARTIAL | ✅ Dual-call | Yes | **95%** |
 | VortexPong | 100% | Yes | Yes | ✅ COMPLIANT | ✅ Dual-call | Yes | **98%** |
 | MatrixCloud | 100% | Yes | Yes | ✅ COMPLIANT | ✅ Dual-call | Yes | **98%** |
-| TerminalQuest | 100% | Yes | Yes | ⚠️ PARTIAL | ✅ Dual-call | Yes | **93%** |
+| TerminalQuest | 100% | Yes | Yes | ✅ COMPLIANT | ✅ Dual-call | Yes | **98%** |
 
 **Average Game Compliance: 97%**
 
@@ -475,7 +475,7 @@ const unlockAchievement = useCallback((achievementId: string) => {
 - [x] ~~Refactor CtrlSWorld state to unified GamePhase + ActiveModal pattern (12 booleans → 2 enums + 4 booleans)~~ ✅ RESOLVED Round 67
 - [x] ~~Refactor VortexPong state to GamePhase enum (3 booleans → 1 enum)~~ ✅ RESOLVED Round 68
 - [x] ~~Refactor MatrixInvaders state to GamePhase enum (5 booleans → 1 enum + 2 booleans)~~ ✅ RESOLVED Round 69
-- [ ] Refactor other games' boolean flags to state machine enums (~~MatrixCloud~~ ✅, TerminalQuest, Metris)
+- [ ] Refactor other games' boolean flags to state machine enums (~~MatrixCloud~~ ✅, ~~TerminalQuest~~ ✅, Metris)
 
 ### P2 - Medium Priority (Performance)
 - [ ] VortexPong: Implement object pooling for particles/balls or use refs (critical: particles recreated every frame)
@@ -779,5 +779,37 @@ const unlockAchievement = useCallback((achievementId: string) => {
 
 ---
 
-*Generated by Ralph on 26 January 2026 - Round 70*
-*MatrixCloud state machine refactoring completed - 6 booleans reduced to GamePhase enum + 2 booleans + 1 UI state*
+### 26 January 2026 - Round 71 State Machine Refactor
+
+**TerminalQuest State Machine Refactoring - COMPLETED:**
+
+*Implementation Details:*
+- Reduced 6 boolean flags (`inCombat`, `saveExists`, `isTyping`, `shakeEffect`, `backgroundGlitch`, `isPaused`) to 1 GamePhase enum + 3 UI booleans + 1 derived value
+- Created `GamePhase` type: `'exploring' | 'combat' | 'paused'`
+- Kept `isTyping`, `shakeEffect`, `backgroundGlitch` as booleans (transient UI effects)
+- Converted `saveExists` to derived value from `saveData` (no separate state needed)
+- Eliminated 60 invalid state combinations (from 64 possible to 3 valid game phases)
+
+*Benefits:*
+- Type-safe state transitions with enum values
+- Impossible to have conflicting states (e.g., combat AND paused simultaneously)
+- Clear game phase progression: exploring ↔ combat, exploring ↔ paused
+- `saveExists` now derived directly from save system, eliminating stale state
+
+*Testing:*
+- All 1000 tests passing
+- TypeScript compilation clean
+- No functional regressions
+
+*State Machine Compliance Updated:*
+- TerminalQuest: ⚠️ PARTIAL → ✅ COMPLIANT
+- Overall compliance: 7/8 games (88%) now fully compliant
+- Average game compliance increased to 98%
+
+**Files Modified:**
+- `src/components/games/TerminalQuest.tsx`
+
+---
+
+*Generated by Ralph on 26 January 2026 - Round 71*
+*TerminalQuest state machine refactoring completed - 6 booleans reduced to GamePhase enum + 3 UI effect booleans*

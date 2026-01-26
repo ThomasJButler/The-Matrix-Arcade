@@ -64,6 +64,10 @@ const InventoryBadge = ({ item }: { item: string }) => {
   );
 };
 
+// Game phase enum - replaces independent inCombat/isPaused booleans
+// This eliminates 4 invalid state combinations (e.g., combat AND paused simultaneously)
+type GamePhase = 'exploring' | 'combat' | 'paused';
+
 export default function TerminalQuest({ achievementManager, isMuted = false }: TerminalQuestProps) {
   const [gameState, setGameState] = useState<GameState>({
     currentNode: 'start',
@@ -76,12 +80,12 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
     achievements: [],
     choiceCount: 0
   });
-  const [inCombat, setInCombat] = useState(false);
-  const [saveExists, setSaveExists] = useState(false);
+  // Unified game phase - replaces inCombat and isPaused booleans
+  const [gamePhase, setGamePhase] = useState<GamePhase>('exploring');
+  // Transient UI effect states - kept as independent booleans
   const [isTyping, setIsTyping] = useState(false);
   const [shakeEffect, setShakeEffect] = useState(false); // Dynamic screen shake
   const [backgroundGlitch, setBackgroundGlitch] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
 
   // Timeout refs for cleanup - prevents memory leaks when component unmounts
   const shakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -295,8 +299,8 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
 
   // Combat handler
   const handleCombatEnd = (victory: boolean, damageDealt: number, damageTaken: number) => {
-    setInCombat(false);
-    
+    setGamePhase('exploring');
+
     if (victory) {
       const xpGain = Math.floor(damageDealt / 2);
       setGameState(prev => ({
@@ -337,7 +341,6 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
         savedGameState: gameState
       }
     });
-    setSaveExists(true);
   }, [gameState, updateGameSave, saveData.games.terminalQuest]);
 
   const loadGame = useCallback(() => {
@@ -347,11 +350,8 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
     }
   }, [saveData.games.terminalQuest]);
 
-  // Check for save on mount and when saveData changes
-  useEffect(() => {
-    const hasSave = !!saveData.games.terminalQuest?.preferences?.savedGameState;
-    setSaveExists(hasSave);
-  }, [saveData.games.terminalQuest]);
+  // Derive saveExists from saveData - no need for separate state
+  const saveExists = !!saveData.games.terminalQuest?.preferences?.savedGameState;
 
   // Restart game function
   const restartGame = useCallback(() => {
@@ -366,8 +366,7 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
       achievements: [],
       choiceCount: 0
     });
-    setInCombat(false);
-    setIsPaused(false);
+    setGamePhase('exploring');
     hasFirstChoice.current = false;
     combatVictories.current = 0;
   }, []);
@@ -376,7 +375,8 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'p' || e.key === 'P') {
-        setIsPaused(prev => !prev);
+        // Toggle pause - only allowed when exploring or already paused
+        setGamePhase(prev => prev === 'paused' ? 'exploring' : prev === 'exploring' ? 'paused' : prev);
       } else if (e.key === 'r' || e.key === 'R') {
         restartGame();
       } else if (e.key === 'Enter') {
@@ -387,14 +387,14 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
         }
 
         // If paused, resume
-        if (isPaused) {
-          setIsPaused(false);
+        if (gamePhase === 'paused') {
+          setGamePhase('exploring');
           return;
         }
 
         // If there are choices available and not in combat, select the first one
         const node = GAME_NODES[gameState.currentNode];
-        if (!inCombat && node?.choices && node.choices.length > 0) {
+        if (gamePhase === 'exploring' && node?.choices && node.choices.length > 0) {
           const firstEnabledChoice = node.choices.find(choice => {
             const isDisabled = choice.requires &&
               !choice.requires.every(req => gameState.inventory.includes(req));
@@ -410,7 +410,7 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [restartGame, isTyping, isPaused, inCombat, gameState.currentNode, gameState.inventory, handleChoice]);
+  }, [restartGame, isTyping, gamePhase, gameState.currentNode, gameState.inventory, handleChoice]);
 
   // Cleanup timeout refs on unmount to prevent memory leaks
   useEffect(() => {
@@ -429,17 +429,17 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
 
   // Handle combat nodes - moved to useEffect to avoid state update during render
   useEffect(() => {
-    if (currentNode?.isCombat && currentNode.enemy && !inCombat) {
-      setInCombat(true);
+    if (currentNode?.isCombat && currentNode.enemy && gamePhase === 'exploring') {
+      setGamePhase('combat');
     }
-  }, [currentNode, inCombat]);
+  }, [currentNode, gamePhase]);
 
   return (
     <div
       className={`relative w-full h-full bg-black text-green-500 font-mono flex flex-col ${shakeEffect ? 'shake-animation' : ''} ${backgroundGlitch ? 'bg-glitch-effect' : ''}`}
     >
       {/* Pause Overlay */}
-      {isPaused && (
+      {gamePhase === 'paused' && (
         <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50">
           <div className="text-center p-8 border-2 border-green-500 bg-black rounded-lg shadow-[0_0_20px_#00ff00]">
             <h2 className="text-3xl font-bold text-green-500 mb-4" style={{ textShadow: '0 0 10px #00ff00' }}>
@@ -490,7 +490,7 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
 
       {/* Main Terminal Content */}
       <main className="flex-1 p-4 overflow-y-auto bg-opacity-90">
-        {inCombat && currentNode?.enemy ? (
+        {gamePhase === 'combat' && currentNode?.enemy ? (
           <TerminalQuestCombat
             enemy={currentNode.enemy}
             playerHealth={gameState.health}
