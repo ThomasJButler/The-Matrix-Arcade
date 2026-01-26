@@ -214,7 +214,7 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 **File:** `src/components/games/MatrixAscension.tsx`
 
 **Polish Required (non-blocking):**
-- [ ] Add jetpack fuel gauge visualisation (lines 908-910 show text only, no visual bar)
+- [x] Add jetpack fuel gauge visualisation ✓ FIXED (26 Jan 2026) - Added orange/yellow gradient progress bar with smooth transitions
 - [ ] Add spring platform compression animation (lines 697-704 render static; no compression on landing)
 - [ ] Add enemy death animation (lines 544, 590 set `active = false` instantly)
 - [x] Add distinct shooting sound ✓ ALREADY FIXED - Line 322 uses 'shoot' sound (not 'jump')

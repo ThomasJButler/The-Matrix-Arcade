@@ -914,7 +914,15 @@ export default function MatrixAscension({ achievementManager, isMuted = false }:
           <p className="text-lg">Altitude: {displayAltitude}</p>
           <p className="text-sm text-green-600">Best: {highScore}</p>
           {jetpackFuel > 0 && (
-            <p className="text-orange-400 text-xs">Jetpack: {jetpackFuel}</p>
+            <div className="mt-1">
+              <p className="text-orange-400 text-xs mb-1">Jetpack</p>
+              <div className="w-20 h-2 bg-gray-800 border border-orange-600 rounded-sm overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-orange-600 to-yellow-400 transition-all duration-100"
+                  style={{ width: `${jetpackFuel}%` }}
+                />
+              </div>
+            </div>
           )}
           {hasShield && (
             <p className="text-cyan-400 text-xs animate-pulse">SHIELD</p>
