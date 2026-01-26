@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, act, cleanup } from '@testing-library/react';
+import { render, fireEvent, act, cleanup } from '@testing-library/react';
 import JimmyMatrix from './JimmyMatrix';
 
 // Mock localStorage

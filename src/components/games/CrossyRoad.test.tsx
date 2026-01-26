@@ -462,8 +462,8 @@ describe('CrossyRoad', () => {
       // Pause
       fireEvent.keyDown(window, { key: 'p' });
 
-      // Clear raf count
-      const initialCalls = (global.requestAnimationFrame as ReturnType<typeof vi.fn>).mock.calls.length;
+      // Clear raf count (prefixed with underscore as we're only checking pause state)
+      const _initialCalls = (global.requestAnimationFrame as ReturnType<typeof vi.fn>).mock.calls.length;
 
       // Try to run more frames - game loop should not continue
       triggerAnimationFrame(32);
