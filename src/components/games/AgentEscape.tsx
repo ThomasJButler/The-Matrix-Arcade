@@ -166,14 +166,16 @@ interface AgentEscapeProps {
     unlockAchievement: (gameId: string, achievementId: string) => void;
   };
   isMuted?: boolean;
+  autoStart?: boolean;
 }
 
 // Matrix rain character
 const getMatrixChar = () => String.fromCharCode(0x30A0 + Math.floor(Math.random() * 96));
 
-export default function AgentEscape({ achievementManager, isMuted = false }: AgentEscapeProps) {
-  // Game state
-  const [gamePhase, setGamePhase] = useState<GamePhase>('menu');
+export default function AgentEscape({ achievementManager, isMuted = false, autoStart = false }: AgentEscapeProps) {
+  // Game state - start in 'menu' unless autoStart is true
+  const [gamePhase, setGamePhase] = useState<GamePhase>(autoStart ? 'playing' : 'menu');
+  const autoStartRef = useRef(autoStart);
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [level, setLevel] = useState(1);
@@ -397,6 +399,13 @@ export default function AgentEscape({ achievementManager, isMuted = false }: Age
       });
     }
   }, [initMaze, initGhosts]);
+
+  // Auto-start on mount if autoStart prop is true
+  useEffect(() => {
+    if (autoStartRef.current) {
+      initializeGame();
+    }
+  }, [initializeGame]);
 
   // Reset after death
   const resetAfterDeath = useCallback(() => {
@@ -1093,7 +1102,7 @@ export default function AgentEscape({ achievementManager, isMuted = false }: Age
   return (
     <div
       ref={containerRef}
-      className="w-full h-full bg-black flex flex-col items-center justify-center font-mono"
+      className="w-full h-full bg-black flex flex-col items-center justify-center font-mono relative"
       tabIndex={0}
     >
       <canvas

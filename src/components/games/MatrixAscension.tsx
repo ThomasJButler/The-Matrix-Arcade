@@ -101,6 +101,7 @@ interface MatrixAscensionProps {
     unlockAchievement: (gameId: string, achievementId: string) => void;
   };
   isMuted?: boolean;
+  autoStart?: boolean;
 }
 
 // Matrix characters for background
@@ -118,9 +119,10 @@ const getPlatformColour = (type: PlatformType): string => {
   }
 };
 
-export default function MatrixAscension({ achievementManager, isMuted = false }: MatrixAscensionProps) {
-  // Game state
-  const [gamePhase, setGamePhase] = useState<GamePhase>('menu');
+export default function MatrixAscension({ achievementManager, isMuted = false, autoStart = false }: MatrixAscensionProps) {
+  // Game state - start in 'menu' unless autoStart is true
+  const [gamePhase, setGamePhase] = useState<GamePhase>(autoStart ? 'playing' : 'menu');
+  const autoStartRef = useRef(autoStart);
   const [_altitude, setAltitude] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [maxAltitude, setMaxAltitude] = useState(0);
@@ -315,6 +317,13 @@ export default function MatrixAscension({ achievementManager, isMuted = false }:
       });
     }
   }, [generatePlatforms]);
+
+  // Auto-start on mount if autoStart prop is true
+  useEffect(() => {
+    if (autoStartRef.current) {
+      initializeGame();
+    }
+  }, [initializeGame]);
 
   // Shoot projectile
   const shoot = useCallback(() => {
@@ -936,7 +945,7 @@ export default function MatrixAscension({ achievementManager, isMuted = false }:
   return (
     <div
       ref={containerRef}
-      className="w-full h-full bg-black flex flex-col items-center justify-center font-mono"
+      className="w-full h-full bg-black flex flex-col items-center justify-center font-mono relative"
       tabIndex={0}
     >
       <canvas

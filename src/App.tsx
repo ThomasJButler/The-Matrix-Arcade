@@ -643,7 +643,7 @@ function App() {
         {/* Fullscreen Game View */}
         {isPlaying && GameComponent ? (
           <div className="relative w-full h-full">
-            <GameComponent achievementManager={achievementManager} isMuted={isMuted} />
+            <GameComponent achievementManager={achievementManager} isMuted={isMuted} autoStart={true} />
 
             {/* Floating Mute Indicator - More Visible */}
             {isMuted && (
@@ -705,7 +705,7 @@ function App() {
                       className="w-full h-full transition-enhanced"
                     >
                       {isPlaying && GameComponent ? (
-                        <GameComponent achievementManager={achievementManager} isMuted={isMuted} />
+                        <GameComponent achievementManager={achievementManager} isMuted={isMuted} autoStart={true} />
                       ) : (
                         <img
                           src={games[selectedGame].preview}
