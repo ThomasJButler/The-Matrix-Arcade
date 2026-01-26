@@ -28,6 +28,7 @@ const BOSS_TYPES = ['agent_smith', 'sentinel', 'architect'] as const;
 
 type PowerUpType = typeof POWER_UP_TYPES[number];
 type BossType = typeof BOSS_TYPES[number];
+type GamePhase = 'menu' | 'playing' | 'paused' | 'gameOver';
 
 // Boss battle constants
 const BOSS_SPAWN_LEVELS = [5, 10, 15]; // Levels where bosses appear
@@ -121,8 +122,7 @@ interface GameState {
   combo: number;
   lives: number;
   level: number;
-  gameOver: boolean;
-  started: boolean;
+  gamePhase: GamePhase;
   invulnerable: boolean;
   shakeIntensity: number;
   // Boss battle system
@@ -168,8 +168,7 @@ const initialGameState: GameState = {
   combo: 1,
   lives: INITIAL_LIVES,
   level: 1,
-  gameOver: false,
-  started: false,
+  gamePhase: 'menu',
   invulnerable: false,
   shakeIntensity: 0,
   // Boss battle initialization
@@ -198,7 +197,6 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bossSpawnTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const invulnerabilityTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [paused, setPaused] = useState(false);
   const [showTutorial, setShowTutorial] = useState(true);
   const [screenShake, setScreenShake] = useState({ x: 0, y: 0 });
   
@@ -232,12 +230,12 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
 
   // Start background music when game starts
   useEffect(() => {
-    if (state.started && !state.gameOver && !isMuted) {
+    if (state.gamePhase === 'playing' && !isMuted) {
       playMusic('gameplay');
     } else {
       stopMusic();
     }
-  }, [state.started, state.gameOver, playMusic, stopMusic, isMuted]);
+  }, [state.gamePhase, playMusic, stopMusic, isMuted]);
 
   const generateParticles = useCallback((): Particle[] => {
     return Array.from({ length: PARTICLE_COUNT }, () => ({
@@ -441,10 +439,10 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
   }, [playSFX, isMuted]);
 
   const jump = useCallback(() => {
-    if (!state.gameOver && !paused) {
+    if (state.gamePhase === 'menu' || state.gamePhase === 'playing') {
       setState(prev => {
         // First flight achievement
-        if (!prev.started) {
+        if (prev.gamePhase === 'menu') {
           if (achievementTimeoutRef.current) {
             clearTimeout(achievementTimeoutRef.current);
           }
@@ -453,38 +451,37 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
             achievementTimeoutRef.current = null;
           }, 100);
         }
-        
+
         return {
           ...prev,
           playerVelocity: JUMP_FORCE * (prev.activeEffects.timeSlow ? 0.7 : 1),
-          started: true
+          gamePhase: 'playing'
         };
       });
       if (!isMuted) playSFX('jump');
       addScreenShake(3);
     }
-  }, [state.gameOver, paused, playSFX, addScreenShake, unlockAchievement, isMuted]);
+  }, [state.gamePhase, playSFX, addScreenShake, unlockAchievement, isMuted]);
 
   const reset = useCallback(() => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
-    
+
     // Clear all power-up timers
     setState(prev => {
       Object.values(prev.effectTimers).forEach(timer => {
         if (timer) window.clearTimeout(timer);
       });
-      
+
       return {
         ...initialGameState,
         particles: generateParticles(),
         highScore: prev.highScore
       };
     });
-    
+
     setShowTutorial(true);
-    setPaused(false);
     setScreenShake({ x: 0, y: 0 });
   }, [generateParticles]);
 
@@ -508,7 +505,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
 
     if (newLives <= 0) {
       const newHighScore = Math.max(state.score, state.highScore);
-      
+
       // Save game statistics when game ends
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
@@ -526,11 +523,11 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
         });
         saveTimeoutRef.current = null;
       }, 100);
-      
+
       return {
         ...state,
         lives: 0,
-        gameOver: true,
+        gamePhase: 'gameOver',
         highScore: newHighScore,
         shakeIntensity: 10
       };
@@ -546,8 +543,6 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
   }, [playSFX, addScreenShake, updateGameSave, saveData, isMuted]);
 
   const updateGame = useCallback((timestamp: number) => {
-    if (paused) return;
-
     const deltaTime = timestamp - lastUpdateRef.current;
     lastUpdateRef.current = timestamp;
 
@@ -558,7 +553,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
     const frameDelta = Math.min(deltaTime / 16.67, 2); // Cap at 2x to prevent large jumps
 
     setState(prev => {
-      if (prev.gameOver) return prev;
+      if (prev.gamePhase !== 'playing') return prev;
 
       const speedMultiplier = prev.activeEffects.timeSlow ? 0.6 : 1;
       let newY = prev.playerY + prev.playerVelocity * speedMultiplier * frameDelta;
@@ -667,7 +662,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
 
         if (checkCollision(playerBox, topPipe) || checkCollision(playerBox, bottomPipe)) {
           newState = handleCollision(newState);
-          if (newState.gameOver) return newState;
+          if (newState.gamePhase === 'gameOver') return newState;
         }
 
         // Score points
@@ -730,7 +725,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
         newVelocity = 0;
         if (!newState.invulnerable) {
           newState = handleCollision(newState);
-          if (newState.gameOver) return newState;
+          if (newState.gamePhase === 'gameOver') return newState;
         }
       } else if (newY < 0) {
         newY = 0;
@@ -872,20 +867,32 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
         bossTimer: newBossTimer
       };
     });
-  }, [paused, spawnPowerUp, activatePowerUp, handleCollision, playSFX, addScreenShake, spawnBoss, updateBoss, createBossAttack, unlockAchievement]);
+  }, [spawnPowerUp, activatePowerUp, handleCollision, playSFX, addScreenShake, spawnBoss, updateBoss, createBossAttack, unlockAchievement]);
+
+  // Toggle pause handler
+  const togglePause = useCallback(() => {
+    setState(prev => {
+      if (prev.gamePhase === 'playing') {
+        return { ...prev, gamePhase: 'paused' };
+      } else if (prev.gamePhase === 'paused') {
+        return { ...prev, gamePhase: 'playing' };
+      }
+      return prev;
+    });
+  }, []);
 
   // Keyboard controls
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.code === 'Space' || e.code === 'Enter') {
         e.preventDefault();
-        if (state.gameOver) {
+        if (state.gamePhase === 'gameOver') {
           reset();
         } else {
           jump();
         }
       } else if (e.code === 'KeyP') {
-        setPaused(p => !p);
+        togglePause();
       } else if (e.code === 'KeyR') {
         reset();
       }
@@ -893,7 +900,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [state.gameOver, jump, reset]);
+  }, [state.gamePhase, jump, reset, togglePause]);
 
   // Render game with enhanced visuals
   const render = useCallback(() => {
@@ -1126,21 +1133,21 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
 
   // Game loop with timestamp
   useEffect(() => {
-    if (state.started && !state.gameOver && !paused) {
+    if (state.gamePhase === 'playing') {
       const gameLoop = (timestamp: number) => {
         updateGame(timestamp);
         render();
         animationFrameRef.current = requestAnimationFrame(gameLoop);
       };
       animationFrameRef.current = requestAnimationFrame(gameLoop);
-      
+
       return () => {
         if (animationFrameRef.current) {
           cancelAnimationFrame(animationFrameRef.current);
         }
       };
     }
-  }, [state.started, state.gameOver, paused, updateGame, render]);
+  }, [state.gamePhase, updateGame, render]);
 
   // Initialize particles on mount only
   useEffect(() => {
@@ -1176,10 +1183,10 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
 
   // Render initial state after particles are generated
   useEffect(() => {
-    if (state.particles.length > 0 && !state.started) {
+    if (state.particles.length > 0 && state.gamePhase === 'menu') {
       render();
     }
-  }, [state.particles.length, state.started, render]);
+  }, [state.particles.length, state.gamePhase, render]);
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center bg-black">
@@ -1251,12 +1258,12 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
         {/* Controls */}
         <div className="absolute bottom-4 right-4 flex gap-2 z-10">
           <button
-            onClick={() => setPaused(p => !p)}
+            onClick={togglePause}
             className="p-2 bg-green-900 rounded hover:bg-green-800 transition-colors"
             type="button"
-            aria-label={paused ? "Resume game" : "Pause game"}
+            aria-label={state.gamePhase === 'paused' ? "Resume game" : "Pause game"}
           >
-            {paused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
+            {state.gamePhase === 'paused' ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
           </button>
           <button
             onClick={reset}
@@ -1269,7 +1276,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
         </div>
 
         {/* Game Over Screen */}
-        {state.gameOver && (
+        {state.gamePhase === 'gameOver' && (
           <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 z-40">
             <div className="text-center font-mono">
               <h2 className="text-3xl mb-4 text-red-500 animate-pulse">SYSTEM FAILURE</h2>
@@ -1290,7 +1297,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
         )}
 
         {/* Tutorial */}
-        {showTutorial && !state.started && (
+        {showTutorial && state.gamePhase === 'menu' && (
           <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 z-30">
             <div className="text-center font-mono text-green-400 max-w-lg p-8 border border-green-500 rounded-lg">
               <h2 className="text-3xl mb-6 font-bold">MATRIX PROTOCOL</h2>
@@ -1331,7 +1338,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
         )}
 
         {/* Pause Screen */}
-        {paused && !state.gameOver && (
+        {state.gamePhase === 'paused' && (
           <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 z-50">
             <div className="text-center font-mono text-green-500">
               <h2 className="text-3xl mb-4">SYSTEM PAUSED</h2>
