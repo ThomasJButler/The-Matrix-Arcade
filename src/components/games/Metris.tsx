@@ -203,7 +203,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
 
   // Wrapper function for achievement unlocking that handles both UI notifications and persistence
   // Following the CtrlSWorld pattern for dual-call achievement integration
-  const unlockGameAchievement = useCallback((achievementId: string) => {
+  const _unlockGameAchievement = useCallback((achievementId: string) => {
     achievementManager?.unlockAchievement('metris', achievementId);
     unlockSaveAchievement('metris', achievementId);
   }, [achievementManager, unlockSaveAchievement]);

@@ -275,7 +275,7 @@ describe('useViewportCulling', () => {
 
       // First call (frame 1) - frameCount % updateFrequency = 1 % 3 = 1 !== 0
       // So it won't update visibility, just filter by existing visible flags (undefined)
-      let visible = result.current.cullObjects(objects);
+      const visible = result.current.cullObjects(objects);
       // Objects without visible flag are filtered out (visible !== false check)
       // Actually, it filters by obj.visible !== false, so undefined passes
       expect(visible.length).toBeLessThanOrEqual(2);

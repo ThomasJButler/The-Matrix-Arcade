@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useParticleSystem, Particle, ParticleEmitter } from './useParticleSystem';
+import { useParticleSystem } from './useParticleSystem';
 
 // Mock requestAnimationFrame
 let rafCallback: ((time: number) => void) | null = null;
@@ -669,7 +669,7 @@ describe('useParticleSystem', () => {
         result.current.emit({ x: 0, y: 0, count: 300, type: 'food' });
       });
 
-      const firstBatchIds = result.current.particles.map(p => p.id);
+      const _firstBatchIds = result.current.particles.map(p => p.id);
 
       act(() => {
         // Second batch that exceeds cap
@@ -816,8 +816,8 @@ describe('useParticleSystem', () => {
         });
       });
 
-      const initialX = result.current.particles[0].x;
-      const initialY = result.current.particles[0].y;
+      const _initialX = result.current.particles[0].x;
+      const _initialY = result.current.particles[0].y;
 
       // Simulate animation frame
       act(() => {
@@ -1098,7 +1098,7 @@ describe('useParticleSystem', () => {
       const initialEmit = result.current.emit;
       const initialExplode = result.current.explode;
       const initialClear = result.current.clear;
-      const initialRender = result.current.render;
+      const _initialRender = result.current.render;
 
       rerender();
 

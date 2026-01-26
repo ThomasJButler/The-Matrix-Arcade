@@ -5,13 +5,13 @@ import React from 'react';
 import { usePerformanceMonitor } from './usePerformanceMonitor';
 
 describe('usePerformanceMonitor', () => {
-  let mockPerformanceNow: ReturnType<typeof vi.spyOn>;
+  let _mockPerformanceNow: ReturnType<typeof vi.spyOn>;
   let currentTime = 0;
 
   beforeEach(() => {
     vi.useFakeTimers();
     currentTime = 0;
-    mockPerformanceNow = vi.spyOn(performance, 'now').mockImplementation(() => currentTime);
+    _mockPerformanceNow = vi.spyOn(performance, 'now').mockImplementation(() => currentTime);
   });
 
   afterEach(() => {
@@ -462,9 +462,7 @@ describe('usePerformanceMonitor', () => {
       });
 
       // Mock RAF
-      let rafCallback: FrameRequestCallback | null = null;
-      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
-        rafCallback = cb;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => {
         return 1;
       });
 
@@ -485,7 +483,7 @@ describe('usePerformanceMonitor', () => {
         processed.push(item);
       });
 
-      let rafCallbacks: FrameRequestCallback[] = [];
+      const rafCallbacks: FrameRequestCallback[] = [];
       vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
         rafCallbacks.push(cb);
         return rafCallbacks.length;
@@ -588,7 +586,7 @@ describe('usePerformanceMonitor', () => {
       );
 
       // Initial stats
-      const initialFPS = result.current.stats.fps;
+      const _initialFPS = result.current.stats.fps;
 
       // Advance time and simulate frame updates
       advanceTime(1000);

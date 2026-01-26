@@ -295,8 +295,8 @@ describe('useInterval', () => {
       const fast = vi.fn();
       const slow = vi.fn();
 
-      const { result: r1 } = renderHook(() => useInterval(fast, 50));
-      const { result: r2 } = renderHook(() => useInterval(slow, 200));
+      renderHook(() => useInterval(fast, 50));
+      renderHook(() => useInterval(slow, 200));
 
       vi.advanceTimersByTime(200);
 
