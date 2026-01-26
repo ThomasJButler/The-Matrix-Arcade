@@ -9,13 +9,13 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 ## Completion Status
 
 - **Status**: IN PROGRESS - Phase 2 Final Polish
-- **Last Assessment**: 26 January 2026 15:35 UTC (6 P0 bugs FIXED, build passes, game tests pass)
-- **Outstanding Critical Work**: 3 test failures remain (SaveLoadManager.test.tsx x2, SentientAIModal.test.tsx x1)
+- **Last Assessment**: 26 January 2026 15:40 UTC (6 P0 bugs FIXED, 3 test failures FIXED, build passes)
+- **Outstanding Critical Work**: None - all P0/P1 critical bugs and test failures resolved
 - **Test Coverage**: Hooks 100%, Production Games 100%, New Games Unit ~70% (72 smoke tests exist), E2E Visual 55% (6/11 games)
-- **Test Status**: 3 FAILURES total: SaveLoadManager.test.tsx (lines 244, 265 - multiple element query issue), SentientAIModal.test.tsx (line 297 - async timeout waiting for element)
+- **Test Status**: ALL PASS (SaveLoadManager 45 tests, SentientAIModal 29 tests)
 - **Build Status**: PASSES (warning: 664KB chunk exceeds 500KB limit)
 - **Spec Compliance**: 95%+ across all games (all critical mechanics now implemented)
-- **Notes**: All 11 games fully playable. All 6 P0 bugs FIXED. Remaining work is test fixes and polish.
+- **Notes**: All 11 games fully playable. All 6 P0 bugs FIXED. All 3 test failures FIXED. Remaining work is P2 polish.
 
 ---
 
@@ -94,25 +94,23 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ### P1 - High Priority (Testing)
 
-#### 5. Fix Failing Unit Tests (BLOCKING)
+#### 5. Fix Failing Unit Tests ✓ FIXED (26 Jan 2026 15:40 UTC)
 
-**Status:** 3 test failures must be fixed before expanding test coverage.
+**Status:** All 3 test failures resolved.
 
-**Files with failures:**
+**Fixes applied:**
 
-1. **`src/components/ui/SaveLoadManager.test.tsx`** - 2 failures (VERIFIED):
-   - Line 244: `screen.getByText('High Score')` fails - 2+ elements match (one per game card)
-   - Line 265: `screen.getByText('Recent Achievements:')` fails - 2+ elements match
-   - **Fix:** Change to `getAllByText()[0]` or `getAllByText().length > 0` pattern (already used elsewhere in file, lines 251-252, 259-260)
+1. **`src/components/ui/SaveLoadManager.test.tsx`** - 2 failures FIXED:
+   - Line 244: Changed `getByText('High Score')` to `getAllByText('High Score')` with length check
+   - Line 265: Changed `getByText('Recent Achievements:')` to `getAllByText()` pattern
+   - Added `it.todo()` placeholders for empty Loading State and Error State describe blocks
 
-2. **`src/components/ui/SentientAIModal.test.tsx`** - 1 failure (VERIFIED):
-   - Line 297: `waitFor` times out waiting for `.bg-cyan-900\\/40.border-cyan-400` element
-   - CSS selector `.bg-cyan-900\\/40.border-cyan-400` is a compound class selector that may not match rendered output
-   - **Fix:** Either increase timeout, split the selector, or use a data-testid attribute
+2. **`src/components/ui/SentientAIModal.test.tsx`** - 1 failure FIXED:
+   - Line 297: Changed compound CSS selector to attribute selector `[class*="border-cyan-400"][class*="bg-cyan-900"]`
+   - Increased timer advance from 2000ms to 2500ms to ensure revealing stage is active
+   - Removed async waitFor wrapper since synchronous check is sufficient after timer advance
 
-**Estimated Work:** ~4 LOC total
-
-**Note:** Test suite crashes with heap memory error after running many tests. Run with `NODE_OPTIONS=--max-old-space-size=4096` or reduce test parallelism via `--pool=forks --poolOptions.forks.singleFork`.
+**Note:** Test suite may crash with heap memory error when running all tests at once. Run with `NODE_OPTIONS=--max-old-space-size=4096` or reduce test parallelism via `--pool=forks --poolOptions.forks.singleFork`.
 
 ---
 
@@ -358,8 +356,8 @@ const playSound = useCallback((sound: string) => {
 3. [x] MatrixAscension.tsx - **1 BUG FIXED**: deltaTime applied to all physics
 4. [x] JimmyMatrix.tsx - **1 BUG FIXED**: hold/double note types implemented
 
-### P1 - High Priority (Testing - 3 Failures)
-5. [ ] **Fix failing tests** - SaveLoadManager.test.tsx lines 244/265 + SentientAIModal.test.tsx line 297 (~4 LOC)
+### P1 - High Priority (Testing - All Critical Tests FIXED ✓)
+5. [x] **Fix failing tests** - SaveLoadManager.test.tsx lines 244/265 + SentientAIModal.test.tsx line 297 ✓ FIXED
 6. [ ] Expand unit tests for 4 new games (deeper coverage)
 7. [ ] Add visual E2E tests for 5 games missing coverage
 
@@ -387,10 +385,10 @@ const playSound = useCallback((sound: string) => {
 
 ---
 
-*Updated on 26 January 2026 15:35 UTC - ALL 6 P0 BUGS FIXED*
+*Updated on 26 January 2026 15:40 UTC - ALL 6 P0 BUGS FIXED, ALL 3 TEST FAILURES FIXED*
 *All 11 games playable and production ready*
 *Build: PASSES (warning: 664KB chunk exceeds 500KB limit)*
-*Tests: 3 FAILURES remain - SaveLoadManager (2), SentientAIModal (1)*
+*Tests: ALL PASS*
 
 **6 BUGS FIXED ✓ (26 Jan 2026):**
 1. ✓ CrossyRoad magnet: Added attraction logic - red pills now gravitate toward player when magnet is active
@@ -400,6 +398,7 @@ const playSound = useCallback((sound: string) => {
 5. ✓ MatrixAscension deltaTime: Applied deltaTime normalisation to all physics calculations
 6. ✓ JimmyMatrix notes: Added hold/double note type generation with difficulty-based distribution and rendering
 
-**Test fixes still needed:**
-- SaveLoadManager.test.tsx lines 244/265: use getAllByText() pattern instead of getByText()
-- SentientAIModal.test.tsx line 297: fix async waitFor timeout (CSS selector issue)
+**3 TEST FAILURES FIXED ✓ (26 Jan 2026):**
+1. ✓ SaveLoadManager.test.tsx line 244: Changed getByText('High Score') to getAllByText() pattern
+2. ✓ SaveLoadManager.test.tsx line 265: Changed getByText('Recent Achievements:') to getAllByText() pattern
+3. ✓ SentientAIModal.test.tsx line 297: Fixed CSS selector and timer advance for answer highlight test

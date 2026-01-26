@@ -297,14 +297,15 @@ describe('SentientAIModal', () => {
     it('answer section has special styling', async () => {
       const { container } = render(<SentientAIModal {...defaultProps} />);
 
+      // Advance past the 2 second thinking phase to trigger reveal
       act(() => {
-        vi.advanceTimersByTime(2000);
+        vi.advanceTimersByTime(2500);
       });
 
-      await waitFor(() => {
-        const answerBox = container.querySelector('.bg-cyan-900\\/40.border-cyan-400');
-        expect(answerBox).toBeTruthy();
-      });
+      // The answer box has classes: bg-cyan-900/40 border-2 border-cyan-400
+      // After revealing stage, the element should be in the DOM
+      const answerBox = container.querySelector('[class*="border-cyan-400"][class*="bg-cyan-900"]');
+      expect(answerBox).toBeTruthy();
     });
   });
 });

@@ -241,7 +241,8 @@ describe('SaveLoadManager', () => {
 
     it('displays high scores', () => {
       render(<SaveLoadManager {...defaultProps} />);
-      expect(screen.getByText('High Score')).toBeInTheDocument();
+      const highScoreLabels = screen.getAllByText('High Score');
+      expect(highScoreLabels.length).toBeGreaterThan(0);
       expect(screen.getByText('1,500')).toBeInTheDocument();
       expect(screen.getByText('800')).toBeInTheDocument();
     });
@@ -262,7 +263,8 @@ describe('SaveLoadManager', () => {
 
     it('displays recent achievements', () => {
       render(<SaveLoadManager {...defaultProps} />);
-      expect(screen.getByText('Recent Achievements:')).toBeInTheDocument();
+      const recentAchievementsLabels = screen.getAllByText('Recent Achievements:');
+      expect(recentAchievementsLabels.length).toBeGreaterThan(0);
     });
   });
 
@@ -401,8 +403,8 @@ describe('SaveLoadManager - Loading State', () => {
     }));
   });
 
-  // Note: Loading state test would require re-importing the component
-  // with the mocked loading state
+  // Loading state test would require re-importing the component with the mocked loading state
+  it.todo('displays loading indicator when data is loading');
 });
 
 describe('SaveLoadManager - Error State', () => {
@@ -424,6 +426,6 @@ describe('SaveLoadManager - Error State', () => {
     }));
   });
 
-  // Note: Error state test would require re-importing the component
-  // with the mocked error state
+  // Error state test would require re-importing the component with the mocked error state
+  it.todo('displays error message when save data fails to load');
 });
