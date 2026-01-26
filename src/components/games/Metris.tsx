@@ -129,14 +129,16 @@ interface AchievementManager {
 interface MetrisProps {
   achievementManager?: AchievementManager;
   isMuted?: boolean;
+  autoStart?: boolean;
 }
 
-export default function Metris({ achievementManager, isMuted }: MetrisProps) {
+export default function Metris({ achievementManager, isMuted, autoStart = false }: MetrisProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const lastDropTimeRef = useRef<number>(0);
   const lastRenderTimeRef = useRef<number>(0);
   const bulletTimeEndRef = useRef<number>(0);
   const dropIntervalRef = useRef<number>(INITIAL_DROP_SPEED);
+  const autoStartRef = useRef(autoStart);
   const keysRef = useRef<Set<string>>(new Set());
   const moveDelayRef = useRef<{ left: number; right: number; down: number }>({
     left: 0,
@@ -252,6 +254,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
   }, []);
 
   // Initial state - high score loaded from useSaveSystem
+  // Auto-start directly into playing state if autoStart prop is true
   const [state, setState] = useState<GameState>(() => {
     return {
       grid: createEmptyGrid(),
@@ -263,7 +266,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       level: 1,
       lines: 0,
       combo: 0,
-      gamePhase: 'menu',  // Start in menu state (waiting for player to press Enter)
+      gamePhase: autoStart ? 'playing' : 'menu',
       highScore: 0, // Will be synced from useSaveSystem
       bulletTimeMeter: 0,
       bulletTimeActive: false,
@@ -280,6 +283,21 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       setState(prev => ({ ...prev, highScore: savedHighScore }));
     }
   }, [saveData.games.metris?.highScore]);
+
+  // Start game function for autoStart
+  const startGame = useCallback(() => {
+    setState(prev => ({ ...prev, gamePhase: 'playing' }));
+    lastDropTimeRef.current = performance.now();
+    sessionStartTimeRef.current = Date.now();
+    synthPowerUp('activate');
+  }, [synthPowerUp]);
+
+  // Auto-start on mount if autoStart prop is true
+  useEffect(() => {
+    if (autoStartRef.current) {
+      startGame();
+    }
+  }, [startGame]);
 
   // Rotate matrix 90 degrees clockwise
   const rotateMatrix = (matrix: number[][]): number[][] => {

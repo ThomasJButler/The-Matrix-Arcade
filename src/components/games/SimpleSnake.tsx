@@ -11,6 +11,7 @@ interface AchievementManager {
 interface SimpleSnakeProps {
   achievementManager?: AchievementManager;
   isMuted?: boolean;
+  autoStart?: boolean;
 }
 
 interface Position {
@@ -337,7 +338,7 @@ const SnakeMenu: React.FC<SnakeMenuProps> = ({ gameState, score, highScore, onSt
   );
 };
 
-export default function SimpleSnake({ achievementManager: _achievementManager, isMuted }: SimpleSnakeProps) {
+export default function SimpleSnake({ achievementManager: _achievementManager, isMuted, autoStart = false }: SimpleSnakeProps) {
   const { saveData, updateGameSave, unlockAchievement } = useSaveSystem();
   const { playSFX: playSoundEffect } = useSoundSystem();
 
@@ -358,7 +359,8 @@ export default function SimpleSnake({ achievementManager: _achievementManager, i
 
   const { gameState, startGame, togglePause, resetGame, changeDirection, gridSize } = useSimpleSnakeGame({
     initialHighScore,
-    onHighScoreUpdate: handleHighScoreUpdate
+    onHighScoreUpdate: handleHighScoreUpdate,
+    autoStart
   });
 
   const scoreRef = useRef(0);

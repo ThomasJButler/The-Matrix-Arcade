@@ -44,12 +44,14 @@ const MIN_SPEED = 50; // Fastest speed
 export interface UseSimpleSnakeGameOptions {
   initialHighScore?: number;
   onHighScoreUpdate?: (newHighScore: number) => void;
+  autoStart?: boolean;
 }
 
 export function useSimpleSnakeGame(options: UseSimpleSnakeGameOptions = {}) {
-  const { initialHighScore = 0, onHighScoreUpdate } = options;
+  const { initialHighScore = 0, onHighScoreUpdate, autoStart = false } = options;
+  const autoStartRef = useRef(autoStart);
 
-  // Initial state
+  // Initial state - auto-start directly into playing state if autoStart prop is true
   const [gameState, setGameState] = useState<SnakeGameState>({
     snake: [{ x: 10, y: 10 }],
     food: { x: 15, y: 10 },
@@ -57,7 +59,7 @@ export function useSimpleSnakeGame(options: UseSimpleSnakeGameOptions = {}) {
     nextDirection: null,
     score: 0,
     highScore: initialHighScore,
-    gameState: 'menu',
+    gameState: autoStart ? 'playing' : 'menu',
     speed: INITIAL_SPEED,
     foodEaten: 0,
     powerUp: undefined,
@@ -339,6 +341,13 @@ export function useSimpleSnakeGame(options: UseSimpleSnakeGameOptions = {}) {
       powerUpTypesCollected: new Set<PowerUpType>()
     }));
   }, [generateFood]);
+
+  // Auto-start on mount if autoStart prop is true
+  useEffect(() => {
+    if (autoStartRef.current) {
+      startGame();
+    }
+  }, [startGame]);
 
   // Pause/Resume game
   const togglePause = useCallback(() => {

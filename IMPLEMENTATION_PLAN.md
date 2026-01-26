@@ -8,9 +8,9 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ## Completion Status
 
-- **Status**: POLISHED - All P0/P1/P2 tasks complete, all games fully playable
+- **Status**: COMPLETE - All games now auto-start
 - **Last Assessment**: 26 January 2026
-- **Outstanding Critical Work**: NONE
+- **Outstanding Critical Work**: None - all P0/P1/P2 complete
 - **Test Coverage**: Hooks 100%, Production Games 100%, New Games Unit 90%+ (152 tests), E2E Visual 100% (11/11 games)
 - **Test Status**: ALL PASS (412 game tests total, SaveLoadManager 45 tests, SentientAIModal 29 tests)
 - **Test Reliability**: Vitest configured with isolate=true and forks pool for localStorage isolation
@@ -38,9 +38,9 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 5. **Check console for errors**: DevTools (F12) → Console tab
 
 **How Games Start:**
-- Games with `autoStart={true}` prop (VortexPong, CrossyRoad, MatrixAscension, AgentEscape, JimmyMatrix) start playing immediately when launched
+- All games now have `autoStart={true}` prop and start playing immediately when launched
 - JimmyMatrix goes to track selection first, then starts after user picks a track
-- Other games (SimpleSnake, MatrixCloud, etc.) show their internal menu and require Enter/click to start
+- CtrlSWorld goes to chapter hub first, then user selects a chapter to read
 
 **Verified Code Locations**:
 - `src/App.tsx` lines 646, 708: passes `autoStart={true}` to all games
@@ -63,9 +63,26 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ## Priority Tasks
 
-### P0 - Critical (All Complete ✓)
+### P0 - Critical
 
-#### 0. Enter Key UX Bug - ✓ FIXED (26 Jan 2026)
+#### 0. REGRESSION: Games Freeze on Enter - ✓ FIXED (26 Jan 2026)
+
+**User Report:** Games (VortexPong, new games) appear frozen when pressing Enter to start. Cannot play these games.
+
+**Root Cause:** 5 games (SimpleSnake, MatrixCloud, MatrixInvaders, Metris, CtrlSWorld) did not have the `autoStart` prop in their interfaces, causing them to ignore the prop passed from App.tsx and always start in 'menu' phase.
+
+**Fix Applied (26 Jan 2026):**
+- [x] Added `autoStart` prop to SimpleSnake.tsx (via useSimpleSnakeGame hook) - skips 'menu' phase when true
+- [x] Added `autoStart` prop to MatrixCloud.tsx - skips 'menu' phase when true
+- [x] Added `autoStart` prop to MatrixInvaders.tsx - skips 'menu' phase when true
+- [x] Added `autoStart` prop to Metris.tsx - skips 'menu' phase when true
+- [x] Added `autoStart` prop to CtrlSWorld.tsx - skips 'command_prompt' phase, goes to 'chapter_hub' when true
+
+**All 11 games now support autoStart prop and will start immediately when launched from App.tsx.**
+
+---
+
+#### 0b. Enter Key UX Bug - Previously Fixed (26 Jan 2026)
 
 **Original Report:** Pressing Enter does not start games - they appear frozen/unresponsive on menu screen.
 
