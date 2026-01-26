@@ -206,10 +206,23 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
   const groundPatternRef = useRef<CanvasGradient | null>(null);
   
   // Sound system integration
-  const { playSFX, playMusic, stopMusic } = useSoundSystem();
-  
+  const { playSFX: playSoundEffect, playMusic: playMusicEffect, stopMusic } = useSoundSystem();
+
   // Save system integration
   const { saveData, updateGameSave, unlockAchievement: unlockSaveAchievement } = useSaveSystem();
+
+  // Sound wrapper functions - encapsulate isMuted check for consistency
+  const playSFX = useCallback((sound: Parameters<typeof playSoundEffect>[0]) => {
+    if (!isMuted) {
+      playSoundEffect(sound);
+    }
+  }, [isMuted, playSoundEffect]);
+
+  const playMusic = useCallback((track: Parameters<typeof playMusicEffect>[0]) => {
+    if (!isMuted) {
+      playMusicEffect(track);
+    }
+  }, [isMuted, playMusicEffect]);
 
   // Track achievements
   const powerUpsCollected = useRef(0);
@@ -232,12 +245,12 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
 
   // Start background music when game starts
   useEffect(() => {
-    if (state.gamePhase === 'playing' && !isMuted) {
+    if (state.gamePhase === 'playing') {
       playMusic('gameplay');
     } else {
       stopMusic();
     }
-  }, [state.gamePhase, playMusic, stopMusic, isMuted]);
+  }, [state.gamePhase, playMusic, stopMusic]);
 
   // Initialize particles into ref (avoids state updates every frame)
   const initializeParticles = useCallback(() => {
@@ -325,7 +338,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
       powerUps: [] // Clear power-ups during boss battle
     }));
     
-    if (!isMuted) playSFX('levelUp');
+    playSFX('levelUp');
     addScreenShake(15);
   }, [createBoss, playSFX, addScreenShake, isMuted]);
 
@@ -442,8 +455,8 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
       };
     });
     
-    if (!isMuted) playSFX('powerup');
-  }, [playSFX, isMuted]);
+    playSFX('powerup');
+  }, [playSFX]);
 
   const jump = useCallback(() => {
     if (state.gamePhase === 'menu' || state.gamePhase === 'playing') {
@@ -465,7 +478,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
           gamePhase: 'playing'
         };
       });
-      if (!isMuted) playSFX('jump');
+      playSFX('jump');
       addScreenShake(3);
     }
   }, [state.gamePhase, playSFX, addScreenShake, unlockAchievement, isMuted]);
@@ -508,7 +521,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
     if (state.invulnerable) return state;
 
     if (state.activeEffects.shield) {
-      if (!isMuted) playSFX('hit');
+      playSFX('hit');
       addScreenShake(5);
       return {
         ...state,
@@ -519,7 +532,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
     }
 
     const newLives = state.lives - 1;
-    if (!isMuted) playSFX('hit');
+    playSFX('hit');
     addScreenShake(10);
 
     if (newLives <= 0) {
@@ -700,7 +713,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
           const newLevel = Math.floor(newScore / LEVEL_THRESHOLD) + 1;
 
           if (newLevel > newState.level) {
-            if (!isMuted) playSFX('levelUp');
+            playSFX('levelUp');
             addScreenShake(7);
 
             // Unlock level achievements
@@ -720,7 +733,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
             }
           }
 
-          if (!isMuted) playSFX('score');
+          playSFX('score');
 
           newState = {
             ...newState,
@@ -814,7 +827,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
         })) {
           // Damage boss - immutably
           const newHealth = updatedBoss.health - 10;
-          if (!isMuted) playSFX('hit');
+          playSFX('hit');
           addScreenShake(8);
 
           if (newHealth <= 0) {
@@ -822,7 +835,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
             updatedBoss = { ...updatedBoss, health: 0, defeated: true, active: false };
             const bossScore = updatedBoss.maxHealth * 2;
             newState = { ...newState, score: newState.score + bossScore };
-            if (!isMuted) playSFX('levelUp');
+            playSFX('levelUp');
             addScreenShake(15);
             bossDefeatedThisFrame = true;
 
@@ -857,7 +870,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
         // Boss battle timeout
         if (newBossTimer <= 0) {
           bossTimedOut = true;
-          if (!isMuted) playSFX('hit'); // Failure sound
+          playSFX('hit'); // Failure sound
         }
       }
 

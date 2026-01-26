@@ -127,8 +127,15 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
   // Use custom hooks
   const { powerUps, setPowerUps, activePowerUps, spawnPowerUp, activatePowerUp } = usePowerUps();
   const { explode, createTrail, render: renderParticles } = useParticleSystem();
-  const { playSFX, stopMusic } = useSoundSystem();
+  const { playSFX: playSoundEffect, stopMusic } = useSoundSystem();
   const { saveData, updateGameSave, unlockAchievement: unlockSaveAchievement } = useSaveSystem();
+
+  // Sound wrapper function - encapsulates isMuted check for consistency
+  const playSFX = useCallback((sound: Parameters<typeof playSoundEffect>[0]) => {
+    if (!isMuted) {
+      playSoundEffect(sound);
+    }
+  }, [isMuted, playSoundEffect]);
 
   // Achievement unlock function
   const unlockAchievement = useCallback((achievementId: string) => {
@@ -395,7 +402,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
           // Special effects for multi-ball power-up
           if (powerUp.type === 'multi_ball' && balls.length < 3) {
             addImpactEffect(powerUp.x, powerUp.y, 15);
-            if (!isMuted) playSFX('powerup');
+            playSFX('powerup');
             // Collect balls to spawn (add later, outside map)
             const ballsToSpawn = Math.min(2, 3 - balls.length);
             for (let i = 0; i < ballsToSpawn; i++) {
@@ -413,7 +420,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
             }
           } else {
             addImpactEffect(powerUp.x, powerUp.y, 8);
-            if (!isMuted) playSFX('powerup');
+            playSFX('powerup');
           }
         }
       });
@@ -422,7 +429,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
       if (newBall.y <= 0 || newBall.y >= 400 - BALL_SIZE) {
         newBall.vy = -newBall.vy;
         addImpactEffect(newBall.x, newBall.y <= 0 ? 0 : 400, 5);
-        if (!isMuted) playSFX('pongBounce');
+        playSFX('pongBounce');
       }
 
       // Enhanced paddle collision detection
@@ -444,7 +451,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
         
         // Enhanced effects
         addImpactEffect(newBall.x, newBall.y, 10);
-        if (!isMuted) playSFX('pongBounce');
+        playSFX('pongBounce');
         setCombo(prev => {
           const newCombo = prev + 1;
           maxComboRef.current = Math.max(maxComboRef.current, newCombo);
@@ -487,7 +494,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
         newBall.vy = -speed * Math.sin(bounceAngle);
         
         addImpactEffect(newBall.x, newBall.y, 8);
-        if (!isMuted) playSFX('pongBounce');
+        playSFX('pongBounce');
         setLastPaddleHit('ai');
       }
 
@@ -504,7 +511,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
         const multiplier = activePowerUps.score_multiplier ? 2 : 1;
         setScore(prev => ({ ...prev, ai: prev.ai + multiplier }));
         addImpactEffect(0, ball.y, 20);
-        if (!isMuted) playSFX('hit');
+        playSFX('hit');
         setCombo(0);
         scoreChanged = true;
         
@@ -516,8 +523,8 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
         const comboBonus = Math.floor(combo / 3);
         setScore(prev => ({ ...prev, player: prev.player + multiplier + comboBonus }));
         addImpactEffect(800, ball.y, 20);
-        if (!isMuted) playSFX('score');
-        if (!isMuted && comboBonus > 0) playSFX('combo');
+        playSFX('score');
+        if (comboBonus > 0) playSFX('combo');
         scoreChanged = true;
         
         // First point achievement
@@ -557,7 +564,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
     if (score.player >= 10 || score.ai >= 10) {
       setGamePhase('gameOver');
       stopMusic();
-      if (!isMuted) playSFX(score.player >= 10 ? 'levelUp' : 'gameOver');
+      playSFX(score.player >= 10 ? 'levelUp' : 'gameOver');
       addScreenShake(30);
 
       // Save game stats - session time tracked but not currently displayed

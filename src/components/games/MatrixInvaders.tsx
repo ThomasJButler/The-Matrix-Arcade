@@ -103,12 +103,31 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
   });
 
   // Hooks
-  const { synthLaser, synthExplosion, synthDrum } = useSoundSynthesis();
+  const { synthLaser: playSynthLaser, synthExplosion: playSynthExplosion, synthDrum: playSynthDrum } = useSoundSynthesis();
   const projectilePool = useObjectPool({ create: createProjectile, maxSize: 100 });
   const enemyPool = useObjectPool({ create: createEnemy, maxSize: 100 });
   const particlePool = useObjectPool({ create: createParticle, maxSize: 500 });
   const { trackDrawCall, trackActiveObjects, PerformanceOverlay } = usePerformanceMonitor({ showOverlay: false });
   const { saveData, updateGameSave, unlockAchievement: unlockSaveAchievement } = useSaveSystem();
+
+  // Sound wrapper functions - encapsulate isMuted check for consistency
+  const synthLaser = useCallback((freq: number, duration: number, volume: number) => {
+    if (!isMuted) {
+      playSynthLaser(freq, duration, volume);
+    }
+  }, [isMuted, playSynthLaser]);
+
+  const synthExplosion = useCallback((volume: number, decay: number) => {
+    if (!isMuted) {
+      playSynthExplosion(volume, decay);
+    }
+  }, [isMuted, playSynthExplosion]);
+
+  const synthDrum = useCallback((options: Parameters<typeof playSynthDrum>[0]) => {
+    if (!isMuted) {
+      playSynthDrum(options);
+    }
+  }, [isMuted, playSynthDrum]);
 
   // Session tracking
   const sessionStartTimeRef = useRef<number>(Date.now());
@@ -224,11 +243,9 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
       bullet.type = isEnemy ? 'enemy' : 'player';
       bullet.damage = 1;
       
-      if (!isMuted) {
-        synthLaser(isEnemy ? 500 : 1000, 100, 0.1);
-      }
+      synthLaser(isEnemy ? 500 : 1000, 100, 0.1);
     }
-  }, [projectilePool, synthLaser, isMuted]);
+  }, [projectilePool, synthLaser]);
   
   // Create explosion particles
   const createExplosion = useCallback((x: number, y: number, color: string = '#00ff00') => {
@@ -248,10 +265,8 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
         particle.size = 2 + Math.random() * 4;
       }
     }
-    if (!isMuted) {
-      synthExplosion(0.5, 0.7);
-    }
-  }, [particlePool, synthExplosion, isMuted]);
+    synthExplosion(0.5, 0.7);
+  }, [particlePool, synthExplosion]);
   
   // Handle collisions
   const checkCollisions = useCallback(() => {
@@ -337,9 +352,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
 
               enemyPool.release(enemy);
             } else {
-              if (!isMuted) {
-                synthDrum({ type: 'hihat' });
-              }
+              synthDrum({ type: 'hihat' });
             }
           }
         });
@@ -371,9 +384,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
 
           // Visual feedback for damage
           createExplosion(state.player.x + PLAYER_WIDTH / 2, state.player.y + PLAYER_HEIGHT / 2, '#ff0000');
-          if (!isMuted) {
-            synthExplosion(0.3, 0.5);
-          }
+          synthExplosion(0.3, 0.5);
 
           // Remove the bullet
           projectilePool.release(bullet);

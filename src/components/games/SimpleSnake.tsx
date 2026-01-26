@@ -339,7 +339,14 @@ const SnakeMenu: React.FC<SnakeMenuProps> = ({ gameState, score, highScore, onSt
 
 export default function SimpleSnake({ achievementManager: _achievementManager, isMuted }: SimpleSnakeProps) {
   const { saveData, updateGameSave, unlockAchievement } = useSaveSystem();
-  const { playSFX } = useSoundSystem();
+  const { playSFX: playSoundEffect } = useSoundSystem();
+
+  // Sound wrapper function - encapsulates isMuted check for consistency
+  const playSFX = useCallback((sound: Parameters<typeof playSoundEffect>[0]) => {
+    if (!isMuted) {
+      playSoundEffect(sound);
+    }
+  }, [isMuted, playSoundEffect]);
 
   // Get initial high score from save system
   const initialHighScore = saveData.games.snakeClassic?.highScore || 0;
@@ -496,23 +503,21 @@ export default function SimpleSnake({ achievementManager: _achievementManager, i
     }
   }, [gameState.gameState, gameState.score, gameState.level, gameState.snake, saveData, updateGameSave, unlockAchievement]);
 
-  // Sound effects using useSoundSystem (properly gated with isMuted)
+  // Sound effects using wrapper function (isMuted check encapsulated)
   useEffect(() => {
-    if (isMuted) return;
-
     if (gameState.score > prevScoreRef.current && gameState.score > 0) {
       // Food eaten sound - use snakeEat for this game-specific sound
       playSFX('snakeEat');
     }
     prevScoreRef.current = gameState.score;
-  }, [gameState.score, isMuted, playSFX]);
+  }, [gameState.score, playSFX]);
 
   // Game over sound
   useEffect(() => {
-    if (gameState.gameState === 'gameOver' && !isMuted) {
+    if (gameState.gameState === 'gameOver') {
       playSFX('gameOver');
     }
-  }, [gameState.gameState, isMuted, playSFX]);
+  }, [gameState.gameState, playSFX]);
 
   return (
     <div className="w-full h-full bg-black flex flex-col font-mono relative">

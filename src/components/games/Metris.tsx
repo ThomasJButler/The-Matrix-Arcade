@@ -166,9 +166,40 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
   const tSpinMasterUnlockedRef = useRef<boolean>(false);
 
   // Hooks
-  const { synthLaser, synthExplosion, synthPowerUp, synthDrum } = useSoundSynthesis();
-  const { playSFX } = useSoundSystem();
+  const { synthLaser: playSynthLaser, synthExplosion: playSynthExplosion, synthPowerUp: playSynthPowerUp, synthDrum: playSynthDrum } = useSoundSynthesis();
+  const { playSFX: playSoundEffect } = useSoundSystem();
   const { saveData, updateGameSave, unlockAchievement: unlockSaveAchievement } = useSaveSystem();
+
+  // Sound wrapper functions - encapsulate isMuted check for consistency
+  const synthLaser = useCallback((freq: number, duration: number, volume: number) => {
+    if (!isMuted) {
+      playSynthLaser(freq, duration, volume);
+    }
+  }, [isMuted, playSynthLaser]);
+
+  const synthExplosion = useCallback((volume: number, decay: number) => {
+    if (!isMuted) {
+      playSynthExplosion(volume, decay);
+    }
+  }, [isMuted, playSynthExplosion]);
+
+  const synthPowerUp = useCallback((type: Parameters<typeof playSynthPowerUp>[0]) => {
+    if (!isMuted) {
+      playSynthPowerUp(type);
+    }
+  }, [isMuted, playSynthPowerUp]);
+
+  const synthDrum = useCallback((options: Parameters<typeof playSynthDrum>[0]) => {
+    if (!isMuted) {
+      playSynthDrum(options);
+    }
+  }, [isMuted, playSynthDrum]);
+
+  const playSFX = useCallback((sound: Parameters<typeof playSoundEffect>[0]) => {
+    if (!isMuted) {
+      playSoundEffect(sound);
+    }
+  }, [isMuted, playSoundEffect]);
 
   // Wrapper function for achievement unlocking that handles both UI notifications and persistence
   // Following the CtrlSWorld pattern for dual-call achievement integration
@@ -465,7 +496,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       const newPiece = { ...prev.currentPiece, x: prev.currentPiece.x + dx, y: prev.currentPiece.y + dy };
 
       if (!checkCollision(newPiece, prev.grid)) {
-        if (dx !== 0 && !isMuted) synthLaser(400, 300, 0.05);
+        if (dx !== 0) synthLaser(400, 300, 0.05);
         // Horizontal moves reset rotation tracking (standard T-spin rules)
         if (dx !== 0) {
           lastRotationRef.current = false;
@@ -485,7 +516,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       const rotated = rotatePiece(prev.currentPiece, direction, prev.grid);
 
       if (rotated) {
-        if (!isMuted) synthLaser(600, 800, 0.08);
+        synthLaser(600, 800, 0.08);
         // Track rotation for T-spin detection
         lastRotationRef.current = true;
         return { ...prev, currentPiece: rotated };
@@ -514,7 +545,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
         newHoldPiece = createPiece(prev.currentPiece.type);
       }
 
-      if (!isMuted) synthLaser(800, 1000, 0.1);
+      synthLaser(800, 1000, 0.1);
 
       return {
         ...prev,
@@ -524,7 +555,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
         canHold: false
       };
     });
-  }, [createPiece, synthLaser, isMuted]);
+  }, [createPiece, synthLaser]);
 
   // Toggle bullet time - available for future keyboard binding
   const _toggleBulletTime = useCallback(() => {
@@ -532,10 +563,8 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       if (prev.gamePhase !== 'playing' || prev.bulletTimeActive) return prev;
 
       if (prev.bulletTimeMeter >= 100) {
-        if (!isMuted) {
-          synthDrum({ type: 'kick', pitch: 0.5, decay: 1 });
-          synthPowerUp('activate');
-        }
+        synthDrum({ type: 'kick', pitch: 0.5, decay: 1 });
+        synthPowerUp('activate');
 
         bulletTimeEndRef.current = Date.now() + BULLET_TIME_DURATION;
 
@@ -598,13 +627,11 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       const newLevel = Math.floor(newLines / LINES_PER_LEVEL) + 1;
 
       // Sound
-      if (!isMuted) {
-        synthExplosion(1, 0.15);
-        if (linesCleared > 0) synthPowerUp('collect');
-        // Play level up sound when level increases
-        if (newLevel > prev.level) {
-          playSFX('levelUp');
-        }
+      synthExplosion(1, 0.15);
+      if (linesCleared > 0) synthPowerUp('collect');
+      // Play level up sound when level increases
+      if (newLevel > prev.level) {
+        playSFX('levelUp');
       }
 
       const nextPiece = prev.nextPiece || createPiece();
@@ -623,7 +650,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
         gamePhase: isGameOver ? 'gameOver' : prev.gamePhase
       };
     });
-  }, [checkCollision, lockPiece, clearLines, calculateScore, createPiece, synthExplosion, synthPowerUp, playSFX, isMuted]);
+  }, [checkCollision, lockPiece, clearLines, calculateScore, createPiece, synthExplosion, synthPowerUp, playSFX]);
 
   // Drop piece - called by setInterval at drop speed
   const dropPiece = useCallback(() => {
@@ -664,10 +691,8 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
           bulletTimeEndRef.current = Date.now() + BULLET_TIME_DURATION;
 
           // Sound effects for bullet time activation
-          if (!isMuted) {
-            synthDrum({ type: 'kick', pitch: 0.5, decay: 1 });
-            synthPowerUp('activate');
-          }
+          synthDrum({ type: 'kick', pitch: 0.5, decay: 1 });
+          synthPowerUp('activate');
         }
 
         // Achievements - using dual-call pattern for UI notifications and persistence
@@ -701,23 +726,21 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
         }
 
         // Sound
-        if (!isMuted) {
-          if (linesCleared === 4) {
-            synthExplosion(1.5, 0.8);
-          } else if (linesCleared > 0) {
-            synthPowerUp('collect');
-          }
-          synthDrum({ type: 'kick', pitch: 1.2 });
-          // Play level up sound when level increases
-          if (newLevel > currentState.level) {
-            playSFX('levelUp');
-          }
+        if (linesCleared === 4) {
+          synthExplosion(1.5, 0.8);
+        } else if (linesCleared > 0) {
+          synthPowerUp('collect');
+        }
+        synthDrum({ type: 'kick', pitch: 1.2 });
+        // Play level up sound when level increases
+        if (newLevel > currentState.level) {
+          playSFX('levelUp');
         }
 
         const nextPiece = currentState.nextPiece || createPiece();
         const isGameOver = checkCollision(nextPiece, clearedGrid);
 
-        if (isGameOver && !isMuted) {
+        if (isGameOver) {
           synthExplosion(2, 0.3);
         }
 
@@ -835,8 +858,8 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       softDropActive: false
     });
 
-    if (!isMuted) synthPowerUp('activate');
-  }, [state.highScore, state.score, createPiece, synthPowerUp, isMuted, updateGameSave]);
+    synthPowerUp('activate');
+  }, [state.highScore, state.score, createPiece, synthPowerUp, updateGameSave]);
 
   // Bullet time countdown timer (updates every 100ms instead of 60fps)
   useEffect(() => {
@@ -848,7 +871,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
 
         const remaining = bulletTimeEndRef.current - Date.now();
         if (remaining <= 0) {
-          if (!isMuted) synthPowerUp('expire');
+          synthPowerUp('expire');
           return { ...prev, bulletTimeActive: false, bulletTimeTimer: 0 };
         }
 
@@ -857,7 +880,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
     }, 100); // Update every 100ms for smooth countdown display
 
     return () => clearInterval(bulletTimeInterval);
-  }, [state.bulletTimeActive, isMuted, synthPowerUp]);
+  }, [state.bulletTimeActive, synthPowerUp]);
 
   // Start/stop drop interval based on game state
   useEffect(() => {
@@ -916,7 +939,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
         setState(prev => ({ ...prev, gamePhase: 'playing' }));
         lastDropTimeRef.current = performance.now();
         sessionStartTimeRef.current = Date.now();
-        if (!isMuted) synthPowerUp('activate');
+        synthPowerUp('activate');
         return;
       }
 

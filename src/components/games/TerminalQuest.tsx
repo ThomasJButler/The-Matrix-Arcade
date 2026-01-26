@@ -92,10 +92,23 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
   const glitchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Sound system integration
-  const { playSFX, playMusic, stopMusic } = useSoundSystem();
+  const { playSFX: playSoundEffect, playMusic: playMusicEffect, stopMusic } = useSoundSystem();
 
   // Save system integration - replaces direct localStorage usage
   const { saveData, updateGameSave, unlockAchievement: unlockSaveAchievement } = useSaveSystem();
+
+  // Sound wrapper functions - encapsulate isMuted check for consistency
+  const playSFX = useCallback((sound: Parameters<typeof playSoundEffect>[0]) => {
+    if (!isMuted) {
+      playSoundEffect(sound);
+    }
+  }, [isMuted, playSoundEffect]);
+
+  const playMusic = useCallback((track: Parameters<typeof playMusicEffect>[0]) => {
+    if (!isMuted) {
+      playMusicEffect(track);
+    }
+  }, [isMuted, playMusicEffect]);
 
   // Achievement unlock function - calls BOTH achievementManager (for UI notification) AND useSaveSystem (for persistence)
   const unlockAchievement = useCallback((achievementId: string) => {
@@ -112,11 +125,9 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
   
   // Start background music when component mounts
   useEffect(() => {
-    if (!isMuted) {
-      playMusic('menu');
-    }
+    playMusic('menu');
     return () => stopMusic();
-  }, [playMusic, stopMusic, isMuted]);
+  }, [playMusic, stopMusic]);
 
   const triggerShake = () => {
     setShakeEffect(true);
@@ -208,17 +219,13 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
   const handleChoice = useCallback((choice: Choice) => {
 
     // Play sound effects based on choice type
-    if (!isMuted) {
-      playSFX('terminalType');
-    }
+    playSFX('terminalType');
 
     // Check damage effects - use current state via setter
     setGameState(prev => {
       if (choice.damage && prev.health <= choice.damage) {
         triggerShake(); // Big damage causes a shake
-        if (!isMuted) {
-          playSFX('hit');
-        }
+        playSFX('hit');
       }
       if (choice.security) {
         setBackgroundGlitch(b => !b); // Glitch background on security risks
@@ -230,25 +237,19 @@ export default function TerminalQuest({ achievementManager, isMuted = false }: T
           setBackgroundGlitch(b => !b);
           glitchTimeoutRef.current = null;
         }, 1000);
-        if (!isMuted) {
-          playSFX('hit');
-        }
+        playSFX('hit');
       }
       if (choice.gives) {
-        if (!isMuted) {
-          playSFX('powerup');
-        }
+        playSFX('powerup');
       }
       if (choice.heal) {
-        if (!isMuted) {
-          playSFX('score');
-        }
+        playSFX('score');
       }
 
       // Core state update remains consistent
       return applyChoiceEffects(prev, choice);
     });
-  }, [isMuted, playSFX, applyChoiceEffects]);
+  }, [playSFX, applyChoiceEffects]);
 
   // Custom hook for ASCII typing - optimised with RAF
   const useTypingEffect = (text: string) => {
