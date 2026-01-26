@@ -9,11 +9,12 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 ## Completion Status
 
 - **Status**: POLISHED - All P0/P1/P2 items complete
-- **Last Assessment**: 26 January 2026 (vitest config improved for test reliability)
+- **Last Assessment**: 26 January 2026 (lint errors resolved, v1.8.1 tagged)
 - **Outstanding Critical Work**: None - all P0/P1/P2 items resolved
 - **Test Coverage**: Hooks 100%, Production Games 100%, New Games Unit 90%+ (152 tests), E2E Visual 100% (11/11 games)
 - **Test Status**: ALL PASS (412 game tests total, SaveLoadManager 45 tests, SentientAIModal 29 tests)
 - **Test Reliability**: Vitest configured with isolate=true and forks pool for localStorage isolation
+- **Lint Status**: 0 errors, 46 warnings (acceptable)
 - **Build Status**: PASSES (warning: 669KB chunk exceeds 500KB limit)
 - **Spec Compliance**: 95%+ across all games (all critical mechanics now implemented)
 - **Notes**: All 11 games fully playable and polished. P0/P1/P2 complete. AgentEscape 4/4 core items done, siren moved to P3 as optional enhancement. CrossyRoad 5/5, MatrixAscension 6/6, JimmyMatrix 5/5 all complete.
