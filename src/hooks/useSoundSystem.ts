@@ -291,7 +291,10 @@ export function useSoundSystem() {
 
       return audioContext;
     } catch (error) {
-      console.warn('Failed to initialize audio context:', error);
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.warn('Failed to initialize audio context:', error);
+      }
       return null;
     }
   }, [config.masterVolume, config.musicVolume, config.sfxVolume, createReverbBuffer]);
@@ -308,7 +311,10 @@ export function useSoundSystem() {
       : SOUND_LIBRARY[soundType];
     
     if (!soundConfig) {
-      console.warn(`Sound effect '${soundType}' not found in library`);
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.warn(`Sound effect '${soundType}' not found in library`);
+      }
       return;
     }
 
@@ -373,7 +379,10 @@ export function useSoundSystem() {
       oscillator.stop(audioContext.currentTime + soundConfig.duration);
 
     } catch (error) {
-      console.warn('Error playing sound effect:', error);
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.warn('Error playing sound effect:', error);
+      }
     }
   }, [config.sfx, initializeAudio]);
 
@@ -442,7 +451,10 @@ export function useSoundSystem() {
 
       playSequence();
     } catch (error) {
-      console.warn('Error playing background music:', error);
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.warn('Error playing background music:', error);
+      }
     }
   }, [config.music, initializeAudio]);
 
@@ -478,7 +490,10 @@ export function useSoundSystem() {
 
     // Play the music
     backgroundMusicRef.current.play().catch(error => {
-      console.warn('Error playing background music:', error);
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.warn('Error playing background music:', error);
+      }
     });
 
     // Update volume when config changes

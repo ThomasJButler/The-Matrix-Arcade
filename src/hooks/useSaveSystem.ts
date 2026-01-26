@@ -341,7 +341,10 @@ export function useSaveSystem() {
       
       setError(null);
     } catch (err) {
-      console.error('Failed to load save data:', err);
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to load save data:', err);
+      }
       setError('Failed to load save data');
       setSaveData(createDefaultGlobalSave());
     } finally {
@@ -367,7 +370,10 @@ export function useSaveSystem() {
       setError(null);
       return true;
     } catch (err) {
-      console.error('Failed to save data:', err);
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to save data:', err);
+      }
       setError('Failed to save data');
       return false;
     }
@@ -470,7 +476,10 @@ export function useSaveSystem() {
       URL.revokeObjectURL(url);
       return true;
     } catch (err) {
-      console.error('Failed to export save data:', err);
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to export save data:', err);
+      }
       setError('Failed to export save data');
       return false;
     }
@@ -495,7 +504,10 @@ export function useSaveSystem() {
           saveToDisk(imported);
           resolve(true);
         } catch (err) {
-          console.error('Failed to import save data:', err);
+          if (import.meta.env.DEV) {
+            // eslint-disable-next-line no-console
+            console.error('Failed to import save data:', err);
+          }
           setError('Failed to import save data: Invalid file format');
           resolve(false);
         }
@@ -520,7 +532,10 @@ export function useSaveSystem() {
       setError(null);
       return true;
     } catch (err) {
-      console.error('Failed to clear save data:', err);
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to clear save data:', err);
+      }
       setError('Failed to clear save data');
       return false;
     }
@@ -541,7 +556,10 @@ export function useSaveSystem() {
         return false;
       }
     } catch (err) {
-      console.error('Failed to restore from backup:', err);
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to restore from backup:', err);
+      }
       setError('Failed to restore from backup');
       return false;
     }

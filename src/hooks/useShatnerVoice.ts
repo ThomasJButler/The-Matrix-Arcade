@@ -213,7 +213,10 @@ export function useShatnerVoice() {
       };
 
       utterance.onerror = () => {
-        console.warn('Speech synthesis error, continuing to next sentence');
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.warn('Speech synthesis error, continuing to next sentence');
+        }
         speakSentence(sentenceIndex + 1);
       };
 
