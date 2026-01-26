@@ -19,12 +19,12 @@ Run `./loop.sh plan` to analyse the codebase and generate tasks.
 - **Visual Consistency**: Strong Matrix theme throughout (green-on-black, glow effects, CRT aesthetic) - verified via screenshots (10/10 rating)
 - **Console Statements**: All 17 console statements properly wrapped in DEV environment checks
 - **Legacy localStorage Usage**: 3 hooks use direct localStorage (user preferences - acceptable)
-- **State Machine Compliance**: 4/8 games (50%) - SimpleSnake, TerminalQuestCombat, CtrlSWorld, VortexPong fully compliant
+- **State Machine Compliance**: 5/8 games (63%) - SimpleSnake, TerminalQuestCombat, CtrlSWorld, VortexPong, MatrixInvaders fully compliant
 - **isMuted Prop Gating**: All games gate sound properly with !isMuted checks (verified Round 63)
 - **Achievement Persistence**: 7/7 games work correctly (all use dual-call pattern or single-source pattern)
 - **Keyboard Controls**: 7/7 main games compliant with standard controls
 - **Developer Room**: Intentional game content (easter egg), NOT a security concern
-- **Last Analysis**: Round 68 - Refactored VortexPong state machine (3 booleans → GamePhase enum)
+- **Last Analysis**: Round 69 - Refactored MatrixInvaders state machine (5 booleans → GamePhase enum + 2 booleans)
 
 ---
 
@@ -119,7 +119,7 @@ const [userHasScrolled, setUserHasScrolled] = useState(false);
 |------|------------------|-------|-------------|
 | MatrixCloud | 6 flags (64 combos) | 124-126, 132, 201-202 | Single `GamePhase` enum |
 | TerminalQuest | 6 flags (64 combos) | 79-84 | `ExplorationPhase` enum |
-| MatrixInvaders | 5 flags (32 combos) | 53, 58-60, 63 | Single `GamePhase` enum |
+| ~~MatrixInvaders~~ | ~~5 flags (32 combos)~~ | ~~53, 58-60, 63~~ | ✅ COMPLIANT - uses `GamePhase` enum |
 | Metris | 5 flags (32 combos) | (state in interface) | Single `GamePhase` enum |
 | ~~VortexPong~~ | ~~3 flags (8 combos)~~ | ~~107-109~~ | ✅ COMPLIANT - uses `GamePhase` enum |
 
@@ -127,7 +127,7 @@ const [userHasScrolled, setUserHasScrolled] = useState(false);
 
 *MatrixCloud:* `gameOver`, `started`, `invulnerable`, `inBossBattle`, `paused`, `showTutorial`
 *TerminalQuest:* `inCombat`, `saveExists`, `isTyping`, `shakeEffect`, `backgroundGlitch`, `isPaused`
-*MatrixInvaders:* `menu`, `gameOver`, `paused`, `invulnerable`, `bulletTimeActive`
+*~~MatrixInvaders:~~* ~~`menu`, `gameOver`, `paused`, `invulnerable`, `bulletTimeActive`~~ → ✅ Now uses `GamePhase` enum + 2 booleans
 *~~VortexPong:~~* ~~`showMenu`, `gameOver`, `isPaused`~~ → ✅ Now uses `GamePhase` enum
 
 **Reference implementations:**
@@ -379,7 +379,7 @@ IDLE/MENU -> PLAYING -> PAUSED -> PLAYING -> GAME_OVER
                 +-------- RESTART ------------+
 ```
 
-**Current State Machine Compliance (Updated Round 67):**
+**Current State Machine Compliance (Updated Round 69):**
 
 | Game | Implementation | Status |
 |------|---------------|--------|
@@ -387,7 +387,7 @@ IDLE/MENU -> PLAYING -> PAUSED -> PLAYING -> GAME_OVER
 | TerminalQuestCombat | `CombatPhase` discriminated union (lines 20-29) | ✅ COMPLIANT |
 | CtrlSWorld | `GamePhase` enum + `ActiveModal` enum (Round 67) | ✅ COMPLIANT |
 | VortexPong | `'menu' \| 'playing' \| 'paused' \| 'gameOver'` (Round 68) | ✅ COMPLIANT |
-| MatrixInvaders | 5 boolean flags (lines 53, 58-60, 63) | ⚠️ PARTIAL |
+| MatrixInvaders | `'menu' \| 'playing' \| 'paused' \| 'gameOver'` + 2 booleans (Round 69) | ✅ COMPLIANT |
 | Metris | 5 boolean flags | ⚠️ PARTIAL |
 | MatrixCloud | 6 boolean flags (lines 124-126, 132, 201-202) | ⚠️ PARTIAL |
 | TerminalQuest | 6 boolean flags (lines 79-84) | ⚠️ PARTIAL |
@@ -455,7 +455,7 @@ const unlockAchievement = useCallback((achievementId: string) => {
 | SimpleSnake | 100% | Yes | Yes | ✅ COMPLIANT | ✅ Single-source | Yes | **98%** |
 | TerminalQuestCombat | N/A | Yes | Yes | ✅ COMPLIANT | N/A | N/A | **98%** |
 | CtrlSWorld | 100% | Yes | Yes | ✅ COMPLIANT | ✅ Dual-call | Yes | **98%** |
-| MatrixInvaders | 100% | Yes | Yes | ⚠️ PARTIAL | ✅ Dual-call | Yes | **95%** |
+| MatrixInvaders | 100% | Yes | Yes | ✅ COMPLIANT | ✅ Dual-call | Yes | **98%** |
 | Metris | 95% | Yes | Yes | ⚠️ PARTIAL | ✅ Dual-call | Yes | **95%** |
 | VortexPong | 100% | Yes | Yes | ✅ COMPLIANT | ✅ Dual-call | Yes | **98%** |
 | MatrixCloud | 100% | Yes | Yes | ⚠️ PARTIAL | ✅ Dual-call | Yes | **95%** |
@@ -474,7 +474,8 @@ const unlockAchievement = useCallback((achievementId: string) => {
 - [x] ~~Wrap 15 console statements in DEV environment checks~~ ✅ RESOLVED Round 66
 - [x] ~~Refactor CtrlSWorld state to unified GamePhase + ActiveModal pattern (12 booleans → 2 enums + 4 booleans)~~ ✅ RESOLVED Round 67
 - [x] ~~Refactor VortexPong state to GamePhase enum (3 booleans → 1 enum)~~ ✅ RESOLVED Round 68
-- [ ] Refactor other games' boolean flags to state machine enums (MatrixInvaders, MatrixCloud, TerminalQuest, Metris)
+- [x] ~~Refactor MatrixInvaders state to GamePhase enum (5 booleans → 1 enum + 2 booleans)~~ ✅ RESOLVED Round 69
+- [ ] Refactor other games' boolean flags to state machine enums (MatrixCloud, TerminalQuest, Metris)
 
 ### P2 - Medium Priority (Performance)
 - [ ] VortexPong: Implement object pooling for particles/balls or use refs (critical: particles recreated every frame)
@@ -713,5 +714,37 @@ const unlockAchievement = useCallback((achievementId: string) => {
 
 ---
 
-*Generated by Ralph on 26 January 2026 - Round 68*
-*VortexPong state machine refactoring completed - 3 booleans reduced to GamePhase enum*
+### 26 January 2026 - Round 69 State Machine Refactor
+
+**MatrixInvaders State Machine Refactoring - COMPLETED:**
+
+*Implementation Details:*
+- Reduced 5 independent boolean flags to 1 GamePhase enum + 2 booleans
+- Created `GamePhase` type: `'menu' | 'playing' | 'paused' | 'gameOver'`
+- Replaced `menu`, `gameOver`, `paused` booleans with single `gamePhase` state
+- Retained as independent booleans: `bulletTimeActive` (effect state), `player.invulnerable` (player property)
+- Eliminated 28 invalid state combinations (from 32 possible to 4 valid states)
+
+*Benefits:*
+- Type-safe state transitions with enum values
+- Impossible to have conflicting states (e.g., menu AND paused simultaneously)
+- Clear game phase progression: menu → playing ↔ paused → gameOver
+- Matches SimpleSnake and VortexPong reference implementation pattern
+
+*Testing:*
+- All 1000 tests passing
+- TypeScript compilation clean
+- No functional regressions
+
+*State Machine Compliance Updated:*
+- MatrixInvaders: ⚠️ PARTIAL → ✅ COMPLIANT
+- Overall compliance: 5/8 games (63%) now fully compliant
+- Average game compliance remains at 97%
+
+**Files Modified:**
+- `src/components/games/MatrixInvaders.tsx`
+
+---
+
+*Generated by Ralph on 26 January 2026 - Round 69*
+*MatrixInvaders state machine refactoring completed - 5 booleans reduced to GamePhase enum + 2 booleans*

@@ -42,6 +42,9 @@ const PLAYER_SHIP = [
   "█████"
 ];
 
+// Game phase enum for state machine compliance
+type GamePhase = 'menu' | 'playing' | 'paused' | 'gameOver';
+
 // Game state interface
 interface GameState {
   player: {
@@ -55,9 +58,7 @@ interface GameState {
   };
   score: number;
   wave: number;
-  menu: boolean;
-  gameOver: boolean;
-  paused: boolean;
+  gamePhase: GamePhase;
   combo: number;
   highScore: number;
   bulletTimeActive: boolean;
@@ -94,9 +95,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
     },
     score: 0,
     wave: 1,
-    menu: true,
-    gameOver: false,
-    paused: false,
+    gamePhase: 'menu',
     combo: 0,
     highScore: 0,
     bulletTimeActive: false,
@@ -365,7 +364,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
                 invulnerable: true,
                 lastHitTime: Date.now()
               },
-              gameOver: newHealth <= 0,
+              gamePhase: newHealth <= 0 ? 'gameOver' : prev.gamePhase,
               combo: 0 // Reset combo on hit
             };
           });
@@ -456,7 +455,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
   
   // Update game state
   const updateGame = useCallback((deltaTime: number) => {
-    if (state.menu || state.gameOver || state.paused) return;
+    if (state.gamePhase !== 'playing') return;
     
     const scaledDelta = deltaTime * state.timeScale;
     
@@ -504,7 +503,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
         
         // Game over if enemies reach player
         if (enemy.y + enemy.height >= state.player.y) {
-          setState(prev => ({ ...prev, gameOver: true }));
+          setState(prev => ({ ...prev, gamePhase: 'gameOver' }));
         }
       });
     }
@@ -647,7 +646,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
     trackDrawCall();
     
     // Draw player
-    if (!state.gameOver) {
+    if (state.gamePhase !== 'gameOver') {
       // Flash effect during invulnerability - using RAF timestamp for frame-rate independent animation
       if (state.player.invulnerable) {
         ctx.globalAlpha = Math.sin(timestamp * 0.01) > 0 ? 0.3 : 1;
@@ -747,7 +746,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
   
   // Update player position - integrated into main loop for consistent timing
   const updatePlayer = useCallback(() => {
-    if (state.menu || state.gameOver || state.paused) return;
+    if (state.gamePhase !== 'playing') return;
 
     setState(prev => {
       let newX = prev.player.x;
@@ -767,7 +766,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
         player: { ...prev.player, x: newX }
       };
     });
-  }, [state.menu, state.gameOver, state.paused]);
+  }, [state.gamePhase]);
 
   // Game loop - uses RAF timestamp for all timing to ensure frame-rate independent behaviour
   const gameLoop = useCallback(() => {
@@ -784,7 +783,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
       updateGame(deltaTime * 0.06); // Normalize to ~60fps
       render(timestamp); // Pass timestamp for frame-rate independent animations
 
-      if (!state.gameOver && !state.paused) {
+      if (state.gamePhase === 'playing') {
         animationId = requestAnimationFrame(loop);
       }
     };
@@ -796,11 +795,11 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
         cancelAnimationFrame(animationId);
       }
     };
-  }, [updateGame, updatePlayer, render, state.gameOver, state.paused]);
+  }, [updateGame, updatePlayer, render, state.gamePhase]);
 
   // Start game from menu
   const startGame = useCallback(() => {
-    setState(prev => ({ ...prev, menu: false }));
+    setState(prev => ({ ...prev, gamePhase: 'playing' }));
     spawnWave(1);
     sessionStartTimeRef.current = Date.now();
   }, [spawnWave]);
@@ -823,9 +822,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
       },
       score: 0,
       wave: 1,
-      menu: false,
-      gameOver: false,
-      paused: false,
+      gamePhase: 'playing',
       combo: 0,
       highScore: saveData.games.matrixInvaders?.highScore || 0,
       bulletTimeActive: false,
@@ -851,7 +848,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
     const handleKeyDown = (e: KeyboardEvent) => {
       keysRef.current.add(e.key);
       
-      if (e.key === ' ' && !state.menu && !state.gameOver && !state.paused) {
+      if (e.key === ' ' && state.gamePhase === 'playing') {
         const now = Date.now();
         const fireRate = state.player.powerUps?.rapidFire ? 100 : 250;
         
@@ -861,7 +858,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
         }
       }
       
-      if (e.key === 'b' && !state.menu && !state.gameOver && !state.bulletTimeActive) {
+      if (e.key === 'b' && state.gamePhase === 'playing' && !state.bulletTimeActive) {
         // Track bullet time usage for achievement
         bulletTimeUsedRef.current += 1;
 
@@ -893,20 +890,23 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
         }, BULLET_TIME_DURATION);
       }
       
-      if (e.key === 'p' && !state.menu && !state.gameOver) {
-        setState(prev => ({ ...prev, paused: !prev.paused }));
+      if (e.key === 'p' && (state.gamePhase === 'playing' || state.gamePhase === 'paused')) {
+        setState(prev => ({
+          ...prev,
+          gamePhase: prev.gamePhase === 'paused' ? 'playing' : 'paused'
+        }));
       }
 
       // R key to restart when game over
-      if ((e.key === 'r' || e.key === 'R') && state.gameOver) {
+      if ((e.key === 'r' || e.key === 'R') && state.gamePhase === 'gameOver') {
         resetGame();
       }
 
       // ENTER key to start from menu or restart from game over
       if (e.key === 'Enter') {
-        if (state.menu) {
+        if (state.gamePhase === 'menu') {
           startGame();
-        } else if (state.gameOver) {
+        } else if (state.gamePhase === 'gameOver') {
           resetGame();
         }
       }
@@ -930,7 +930,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
   useEffect(() => {
     let cleanup: (() => void) | undefined;
 
-    if (!state.menu && !state.gameOver && !state.paused) {
+    if (state.gamePhase === 'playing') {
       // Initial spawn only if there are no active enemies
       if (enemyPool.activeObjects.length === 0) {
         spawnWave(state.wave);
@@ -941,11 +941,11 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
     return () => {
       if (cleanup) cleanup();
     };
-  }, [state.menu, state.gameOver, state.paused, state.wave, enemyPool, spawnWave, gameLoop]);
+  }, [state.gamePhase, state.wave, enemyPool, spawnWave, gameLoop]);
   
   // Save game stats on game over
   useEffect(() => {
-    if (state.gameOver) {
+    if (state.gamePhase === 'gameOver') {
       // Session time tracked but not currently displayed in game over screen
       const currentHighScore = saveData.games.matrixInvaders?.highScore || 0;
       const newHighScore = Math.max(currentHighScore, state.score);
@@ -988,7 +988,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
         unlockSaveAchievement('matrixInvaders', 'invaders_high_score');
       }
     }
-  }, [state.gameOver, state.score, state.wave, state.highScore, saveData, updateGameSave, achievementManager, unlockSaveAchievement]);
+  }, [state.gamePhase, state.score, state.wave, state.highScore, saveData, updateGameSave, achievementManager, unlockSaveAchievement]);
 
   // Cleanup all timeouts on component unmount to prevent memory leaks
   useEffect(() => {
@@ -1020,7 +1020,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
         
         {/* Menu Overlay */}
         <AnimatePresence>
-          {state.menu && (
+          {state.gamePhase === 'menu' && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -1058,7 +1058,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
 
         {/* Game Over Overlay */}
         <AnimatePresence>
-          {state.gameOver && (
+          {state.gamePhase === 'gameOver' && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -1091,7 +1091,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
         
         {/* Pause Overlay */}
         <AnimatePresence>
-          {state.paused && !state.gameOver && (
+          {state.gamePhase === 'paused' && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -1107,7 +1107,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
         </AnimatePresence>
         
         {/* Controls - only show during gameplay */}
-        {!state.menu && (
+        {state.gamePhase !== 'menu' && (
           <div className="mt-4 text-center">
             <p className="text-green-400 font-mono text-sm">
               MOVE: ← → or A/D | FIRE: SPACE | BULLET TIME: B | PAUSE: P
