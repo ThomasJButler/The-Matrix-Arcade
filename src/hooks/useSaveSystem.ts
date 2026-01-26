@@ -125,6 +125,10 @@ export interface GlobalSaveData {
     matrixInvaders: GameSaveData;
     metris: GameSaveData;
     terminalQuest: GameSaveData;
+    crossyRoad: GameSaveData;
+    matrixAscension: GameSaveData;
+    agentEscape: GameSaveData;
+    jimmyMatrix: GameSaveData;
   };
   globalStats: {
     totalPlayTime: number;
@@ -181,7 +185,11 @@ const createDefaultGlobalSave = (): GlobalSaveData => ({
     ctrlSWorld: { ...createDefaultGameSave(), lifelineData: createDefaultLifelineData(), ctrlSGameState: createDefaultCtrlSGameState() },
     matrixInvaders: createDefaultGameSave(),
     metris: createDefaultGameSave(),
-    terminalQuest: createDefaultGameSave()
+    terminalQuest: createDefaultGameSave(),
+    crossyRoad: createDefaultGameSave(),
+    matrixAscension: createDefaultGameSave(),
+    agentEscape: createDefaultGameSave(),
+    jimmyMatrix: createDefaultGameSave()
   },
   globalStats: {
     totalPlayTime: 0,
@@ -280,13 +288,52 @@ export const GAME_ACHIEVEMENTS: Record<string, Achievement[]> = {
     { id: 'quest_team_leader', name: 'Team Leader', description: 'Maintain health above 80%', game: 'Terminal Quest' },
     { id: 'quest_combat_victor', name: 'Combat Victor', description: 'Win 10 combat encounters', game: 'Terminal Quest' },
     { id: 'quest_story_end', name: 'Story Complete', description: 'Reach one of the game endings', game: 'Terminal Quest' }
+  ],
+  crossyRoad: [
+    { id: 'crossy_first_hop', name: 'First Step', description: 'Make your first move', game: 'Crossy Road' },
+    { id: 'crossy_100_distance', name: 'Escape Artist', description: 'Travel 100 units', game: 'Crossy Road' },
+    { id: 'crossy_500_distance', name: 'Marathon Runner', description: 'Travel 500 units', game: 'Crossy Road' },
+    { id: 'crossy_dodge_10', name: 'Dodge Master', description: 'Dodge 10 Agents in one run', game: 'Crossy Road' },
+    { id: 'crossy_red_pills_10', name: 'Awakened', description: 'Collect 10 red pills', game: 'Crossy Road' },
+    { id: 'crossy_no_death_50', name: 'Untouchable', description: 'Travel 50 units without dying', game: 'Crossy Road' },
+    { id: 'crossy_bullet_time', name: 'Time Bender', description: 'Use bullet time 5 times', game: 'Crossy Road' }
+  ],
+  matrixAscension: [
+    { id: 'doodle_first_jump', name: 'Leap of Faith', description: 'Make your first jump', game: 'Matrix Ascension' },
+    { id: 'doodle_1000_altitude', name: 'Rising Star', description: 'Reach 1000 altitude', game: 'Matrix Ascension' },
+    { id: 'doodle_5000_altitude', name: 'Cloud Walker', description: 'Reach 5000 altitude', game: 'Matrix Ascension' },
+    { id: 'doodle_10000_altitude', name: 'The Source', description: 'Reach 10000 altitude', game: 'Matrix Ascension' },
+    { id: 'doodle_kill_agent', name: 'Agent Slayer', description: 'Defeat an Agent', game: 'Matrix Ascension' },
+    { id: 'doodle_combo_platforms', name: 'Bounce Master', description: 'Hit 10 platforms without falling', game: 'Matrix Ascension' },
+    { id: 'doodle_spring_10', name: 'Spring Loaded', description: 'Use 10 spring platforms', game: 'Matrix Ascension' },
+    { id: 'doodle_no_shoot', name: 'Pacifist', description: 'Reach 2000 altitude without shooting', game: 'Matrix Ascension' }
+  ],
+  agentEscape: [
+    { id: 'pacman_first_dot', name: 'First Taste', description: 'Collect your first red pill', game: 'Agent Escape' },
+    { id: 'pacman_eat_ghost', name: 'System Override', description: 'Eat your first Agent', game: 'Agent Escape' },
+    { id: 'pacman_all_ghosts', name: 'Agent Eliminator', description: 'Eat all 4 Agents in one power-up', game: 'Agent Escape' },
+    { id: 'pacman_level_1', name: 'Level Complete', description: 'Complete level 1', game: 'Agent Escape' },
+    { id: 'pacman_level_5', name: 'Veteran Escapee', description: 'Reach level 5', game: 'Agent Escape' },
+    { id: 'pacman_10000', name: 'High Scorer', description: 'Score 10,000 points', game: 'Agent Escape' },
+    { id: 'pacman_no_death', name: 'Flawless', description: 'Complete a level without dying', game: 'Agent Escape' },
+    { id: 'pacman_fruit_all', name: 'Collector', description: 'Collect all bonus items in a level', game: 'Agent Escape' }
+  ],
+  jimmyMatrix: [
+    { id: 'rhythm_first_perfect', name: 'Perfect Timing', description: 'Hit your first perfect note', game: 'Jimmy Matrix' },
+    { id: 'rhythm_100_combo', name: 'Combo Starter', description: 'Achieve 100 combo', game: 'Jimmy Matrix' },
+    { id: 'rhythm_500_combo', name: 'Combo Master', description: 'Achieve 500 combo', game: 'Jimmy Matrix' },
+    { id: 'rhythm_full_combo', name: 'Full Combo', description: 'Complete a track with no misses', game: 'Jimmy Matrix' },
+    { id: 'rhythm_track_complete', name: 'Track Complete', description: 'Finish any track', game: 'Jimmy Matrix' },
+    { id: 'rhythm_all_tracks', name: 'Completionist', description: 'Complete all 5 tracks', game: 'Jimmy Matrix' },
+    { id: 'rhythm_score_100k', name: 'High Scorer', description: 'Score 100,000 points total', game: 'Jimmy Matrix' },
+    { id: 'rhythm_the_one', name: 'The One', description: 'Complete "The One" track', game: 'Jimmy Matrix' }
   ]
 };
 
 // Global achievements (meta achievements)
 export const GLOBAL_ACHIEVEMENTS: Achievement[] = [
   { id: 'global_first_game', name: 'Welcome to the Matrix', description: 'Play your first game' },
-  { id: 'global_all_games', name: 'Matrix Master', description: 'Play all 7 games' },
+  { id: 'global_all_games', name: 'Matrix Master', description: 'Play all 11 games' },
   { id: 'global_10_achievements', name: 'Achievement Hunter', description: 'Unlock 10 achievements' },
   { id: 'global_25_achievements', name: 'Achievement Expert', description: 'Unlock 25 achievements' },
   { id: 'global_50_achievements', name: 'Achievement Legend', description: 'Unlock 50 achievements' },
@@ -320,7 +367,8 @@ const migrations: Record<string, MigrationFunction> = {
     const defaultGameSave = createDefaultGameSave();
     const gameIds: Array<keyof GlobalSaveData['games']> = [
       'snakeClassic', 'vortexPong', 'matrixCloud',
-      'ctrlSWorld', 'matrixInvaders', 'metris', 'terminalQuest'
+      'ctrlSWorld', 'matrixInvaders', 'metris', 'terminalQuest',
+      'crossyRoad', 'matrixAscension', 'agentEscape', 'jimmyMatrix'
     ];
 
     for (const gameId of gameIds) {

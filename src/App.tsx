@@ -25,6 +25,10 @@ import {
   VolumeX,
   Blocks,
   Terminal,
+  Footprints,
+  ArrowUp,
+  Circle,
+  Music,
 } from 'lucide-react';
 import SimpleSnake from './components/games/SimpleSnake';
 import VortexPong from './components/games/VortexPong';
@@ -33,6 +37,10 @@ import MatrixCloud from './components/games/MatrixCloud';
 import MatrixInvaders from './components/games/MatrixInvaders';
 import Metris from './components/games/Metris';
 import TerminalQuest from './components/games/TerminalQuest';
+import CrossyRoad from './components/games/CrossyRoad';
+import MatrixAscension from './components/games/MatrixAscension';
+import AgentEscape from './components/games/AgentEscape';
+import JimmyMatrix from './components/games/JimmyMatrix';
 import AudioSettings from './components/ui/AudioSettings';
 import SaveLoadManager from './components/ui/SaveLoadManager';
 import { AchievementQueue } from './components/ui/AchievementNotification';
@@ -304,6 +312,38 @@ function App() {
       preview:
         'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
       component: TerminalQuest,
+    },
+    {
+      title: 'Crossy Road',
+      icon: <Footprints className="w-8 h-8" />,
+      description: 'Escape the Matrix - dodge Agents and Sentinels',
+      preview:
+        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
+      component: CrossyRoad,
+    },
+    {
+      title: 'Matrix Ascension',
+      icon: <ArrowUp className="w-8 h-8" />,
+      description: 'Jump through simulation layers to reach The Source',
+      preview:
+        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
+      component: MatrixAscension,
+    },
+    {
+      title: 'Agent Escape',
+      icon: <Circle className="w-8 h-8" />,
+      description: 'Collect red pills while evading Agent Smith',
+      preview:
+        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
+      component: AgentEscape,
+    },
+    {
+      title: 'Jimmy Matrix',
+      icon: <Music className="w-8 h-8" />,
+      description: 'Epic rhythm game - catch code in beat',
+      preview:
+        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
+      component: JimmyMatrix,
     },
   ];
 
