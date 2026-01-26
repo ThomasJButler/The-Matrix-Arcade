@@ -8,7 +8,7 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ## Completion Status
 
-- **Status**: COMPLETE - All games now auto-start
+- **Status**: POLISHED - All P0/P1/P2 complete, only optional enhancements remain
 - **Last Assessment**: 26 January 2026
 - **Outstanding Critical Work**: None - all P0/P1/P2 complete
 - **Test Coverage**: Hooks 100%, Production Games 100%, New Games Unit 90%+ (152 tests), E2E Visual 100% (11/11 games)
