@@ -9,15 +9,42 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 ## Completion Status
 
 - **Status**: POLISHED - All P0/P1/P2 tasks complete, all games fully playable
-- **Last Assessment**: 26 January 2026 (P0 Enter key UX bug fixed)
-- **Outstanding Critical Work**: None - all critical work complete
+- **Last Assessment**: 26 January 2026
+- **Outstanding Critical Work**: NONE
 - **Test Coverage**: Hooks 100%, Production Games 100%, New Games Unit 90%+ (152 tests), E2E Visual 100% (11/11 games)
 - **Test Status**: ALL PASS (412 game tests total, SaveLoadManager 45 tests, SentientAIModal 29 tests)
 - **Test Reliability**: Vitest configured with isolate=true and forks pool for localStorage isolation
 - **Lint Status**: 0 errors, 46 warnings (acceptable)
 - **Build Status**: PASSES (warning: 673KB chunk exceeds 500KB limit)
 - **Spec Compliance**: 95%+ across all games (all critical mechanics now implemented)
-- **Notes**: All 11 games fully playable and polished. P0/P1/P2 complete. Enter key UX bug FIXED - all 5 affected games now have clickable START buttons matching SimpleSnake pattern.
+- **Notes**: All 11 games fully playable and polished. P0/P1/P2 complete. Games auto-start when launched from App via `autoStart={true}` prop.
+
+### ⚠️ TROUBLESHOOTING: Games Appear Frozen / Press Enter Not Working
+
+**If games appear frozen after pressing Enter, try these steps:**
+
+1. **Hard refresh browser**: Press `Ctrl+Shift+R` (Windows/Linux) or `Cmd+Shift+R` (Mac) to bypass cache
+
+2. **Restart dev server**:
+   ```bash
+   pkill -f vite
+   npm run dev
+   ```
+
+3. **Clear browser cache**: DevTools (F12) → Application → Storage → "Clear site data"
+
+4. **Try incognito window**: This ensures no cached code is used
+
+5. **Check console for errors**: DevTools (F12) → Console tab
+
+**How Games Start:**
+- Games with `autoStart={true}` prop (VortexPong, CrossyRoad, MatrixAscension, AgentEscape, JimmyMatrix) start playing immediately when launched
+- JimmyMatrix goes to track selection first, then starts after user picks a track
+- Other games (SimpleSnake, MatrixCloud, etc.) show their internal menu and require Enter/click to start
+
+**Verified Code Locations**:
+- `src/App.tsx` lines 646, 708: passes `autoStart={true}` to all games
+- Each game's initial `gamePhase` state respects the autoStart prop
 
 ---
 
@@ -53,6 +80,35 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 - [x] **JimmyMatrix.tsx** - Added full HTML overlay with START button (replaced canvas-only menu), includes track selection UI with navigation buttons
 
 **Status:** ✓ FIXED - All games now have clickable START buttons. Users can click the button immediately after game loads without needing a second Enter keypress.
+
+**Additional Fix (26 Jan 2026):** Missing `relative` CSS class on game container divs.
+
+**Root Cause:** Four games (CrossyRoad, MatrixAscension, AgentEscape, JimmyMatrix) were missing the `relative` class on their main container div. This caused the `absolute inset-0` menu overlays to position themselves relative to a parent further up the DOM tree instead of the game container, breaking button click registration.
+
+**Fix Applied:**
+- [x] **CrossyRoad.tsx** - Added `relative` to container className at line 935
+- [x] **MatrixAscension.tsx** - Added `relative` to container className at line 939
+- [x] **AgentEscape.tsx** - Added `relative` to container className at line 1096
+- [x] **JimmyMatrix.tsx** - Added `relative` to container className at line 1174
+
+**Verification:** VortexPong and SimpleSnake already had `relative` on their containers, which is why they worked correctly.
+
+**Final Fix (26 Jan 2026):** Auto-start prop to skip internal game menu.
+
+**Root Cause (Identified):** Even with clickable buttons, users experienced games appearing "frozen" because:
+1. User presses Enter at App level → App sets `isPlaying=true` → Game component mounts
+2. Game starts with `gamePhase='menu'` showing its own menu overlay
+3. User sees this as "frozen" because they expect the game to start immediately after pressing Enter once
+
+**Solution Applied:** Added `autoStart` prop to all affected games:
+- [x] **VortexPong.tsx** - Added `autoStart` prop, initialises `gamePhase` to `'playing'` when true, calls `resetGame()` on mount
+- [x] **CrossyRoad.tsx** - Added `autoStart` prop, initialises `gamePhase` to `'playing'` when true, calls `initializeGame()` on mount
+- [x] **MatrixAscension.tsx** - Added `autoStart` prop, initialises `gamePhase` to `'playing'` when true, calls `initializeGame()` on mount
+- [x] **AgentEscape.tsx** - Added `autoStart` prop, initialises `gamePhase` to `'playing'` when true, calls `initializeGame()` on mount
+- [x] **JimmyMatrix.tsx** - Added `autoStart` prop, initialises `gamePhase` to `'trackSelect'` when true (user still selects track, then game starts)
+- [x] **App.tsx** - Updated to pass `autoStart={true}` to all GameComponent renders
+
+**Result:** Games now start immediately when launched from App. No double-Enter required. JimmyMatrix still shows track selection (intentional - user needs to choose difficulty/track).
 
 ---
 

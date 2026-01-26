@@ -27,6 +27,7 @@ interface AchievementManager {
 interface VortexPongProps {
   achievementManager?: AchievementManager;
   isMuted?: boolean;
+  autoStart?: boolean;
 }
 
 // Game phase enum replaces 3 boolean flags (showMenu, gameOver, isPaused)
@@ -99,7 +100,7 @@ const getScreenShake = (intensity: number) => ({
   y: (Math.random() - 0.5) * intensity
 });
 
-export default function VortexPong({ achievementManager, isMuted = false }: VortexPongProps) {
+export default function VortexPong({ achievementManager, isMuted = false, autoStart = false }: VortexPongProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [paddleY, setPaddleY] = useState(150);
@@ -112,7 +113,9 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
   const particlesRef = useRef<Particle[]>([]);
   const [score, setScore] = useState({ player: 0, ai: 0 });
   // Single GamePhase enum replaces showMenu, gameOver, isPaused booleans
-  const [gamePhase, setGamePhase] = useState<GamePhase>('menu');
+  // Auto-start directly into playing state if autoStart prop is true
+  const [gamePhase, setGamePhase] = useState<GamePhase>(autoStart ? 'playing' : 'menu');
+  const autoStartRef = useRef(autoStart);
   const [screenShake, setScreenShake] = useState({ x: 0, y: 0 });
   // Use ref for impact effects to reduce GC pressure from frequent updates
   const impactEffectsRef = useRef<Array<{ x: number; y: number; intensity: number; life: number }>>([]);
@@ -200,6 +203,13 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
     maxComboRef.current = 0;
     maxRallyRef.current = 0;
   }, []);
+
+  // Auto-start on mount if autoStart prop is true
+  useEffect(() => {
+    if (autoStartRef.current) {
+      resetGame();
+    }
+  }, [resetGame]);
 
   // Screen shake effect
   const addScreenShake = useCallback((intensity: number) => {

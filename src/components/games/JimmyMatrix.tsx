@@ -140,10 +140,12 @@ interface JimmyMatrixProps {
     unlockAchievement: (gameId: string, achievementId: string) => void;
   };
   isMuted?: boolean;
+  autoStart?: boolean;
 }
 
-export default function JimmyMatrix({ achievementManager, isMuted = false }: JimmyMatrixProps) {
-  const [gamePhase, setGamePhase] = useState<GamePhase>('menu');
+export default function JimmyMatrix({ achievementManager, isMuted = false, autoStart = false }: JimmyMatrixProps) {
+  // Auto-start skips to track selection (user still needs to choose a track)
+  const [gamePhase, setGamePhase] = useState<GamePhase>(autoStart ? 'trackSelect' : 'menu');
   const [selectedTrack, setSelectedTrack] = useState(0);
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
@@ -1171,7 +1173,7 @@ export default function JimmyMatrix({ achievementManager, isMuted = false }: Jim
   return (
     <div
       ref={containerRef}
-      className="w-full h-full bg-black flex flex-col items-center justify-center font-mono"
+      className="w-full h-full bg-black flex flex-col items-center justify-center font-mono relative"
       tabIndex={0}
     >
       <canvas

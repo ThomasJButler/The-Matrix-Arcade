@@ -103,6 +103,7 @@ interface CrossyRoadProps {
     unlockAchievement: (gameId: string, achievementId: string) => void;
   };
   isMuted?: boolean;
+  autoStart?: boolean;
 }
 
 // Generate lane configuration based on distance from start
@@ -199,9 +200,9 @@ const getPowerUpColour = (type: PowerUpType): string => {
   }
 };
 
-export default function CrossyRoad({ achievementManager, isMuted = false }: CrossyRoadProps) {
-  // Game state
-  const [gamePhase, setGamePhase] = useState<GamePhase>('menu');
+export default function CrossyRoad({ achievementManager, isMuted = false, autoStart = false }: CrossyRoadProps) {
+  // Game state - start in 'menu' unless autoStart is true
+  const [gamePhase, setGamePhase] = useState<GamePhase>(autoStart ? 'playing' : 'menu');
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [lives, setLives] = useState(1);
@@ -267,6 +268,9 @@ export default function CrossyRoad({ achievementManager, isMuted = false }: Cros
     }
   }, [saveData]);
 
+  // Auto-start initialisation - must be before initializeGame definition
+  const autoStartRef = useRef(autoStart);
+
   // Initialise game world
   const initializeGame = useCallback(() => {
     // Generate initial lanes
@@ -320,6 +324,13 @@ export default function CrossyRoad({ achievementManager, isMuted = false }: Cros
     }
     setMatrixDrops(drops);
   }, []);
+
+  // Auto-start on mount if autoStart prop is true
+  useEffect(() => {
+    if (autoStartRef.current) {
+      initializeGame();
+    }
+  }, [initializeGame]);
 
   // Handle player hop
   const hop = useCallback((dx: number, dy: number) => {
@@ -932,7 +943,7 @@ export default function CrossyRoad({ achievementManager, isMuted = false }: Cros
   return (
     <div
       ref={containerRef}
-      className="w-full h-full bg-black flex flex-col items-center justify-center font-mono"
+      className="w-full h-full bg-black flex flex-col items-center justify-center font-mono relative"
       tabIndex={0}
     >
       <canvas
