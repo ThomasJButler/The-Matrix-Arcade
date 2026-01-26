@@ -192,7 +192,8 @@ describe('CrossyRoad', () => {
       render(<CrossyRoad />);
       // Menu overlay should contain game title
       expect(screen.getByText('CROSSY ROAD')).toBeInTheDocument();
-      expect(screen.getByText(/Press ENTER to Start/)).toBeInTheDocument();
+      expect(screen.getByText('START GAME')).toBeInTheDocument();
+      expect(screen.getByText(/or press ENTER/)).toBeInTheDocument();
     });
 
     it('transitions from menu to playing on Enter', () => {

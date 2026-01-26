@@ -23,6 +23,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Play } from 'lucide-react';
 import { useSaveSystem } from '../../hooks/useSaveSystem';
 import { useSoundSystem } from '../../hooks/useSoundSystem';
 import { useGameLoop } from '../../hooks/useGameLoop';
@@ -1111,8 +1112,18 @@ export default function AgentEscape({ achievementManager, isMuted = false }: Age
           </h1>
           <p className="text-green-400 mb-2">Collect Red Pills</p>
           <p className="text-green-300 text-sm mb-8">Evade the Agents</p>
-          <div className="text-green-500 animate-pulse">Press ENTER to Start</div>
-          <div className="mt-8 text-green-600 text-sm">
+          <button
+            onClick={() => {
+              initializeGame();
+              setGamePhase('playing');
+            }}
+            className="px-6 py-3 bg-green-500 text-black font-bold hover:bg-green-400 transition-colors flex items-center gap-2 mx-auto mb-4"
+          >
+            <Play className="w-5 h-5" />
+            START GAME
+          </button>
+          <div className="text-green-500 text-sm mb-4">or press ENTER</div>
+          <div className="mt-4 text-green-600 text-sm">
             <p>WASD or Arrows - Move</p>
             <p>P - Pause | R - Restart</p>
           </div>

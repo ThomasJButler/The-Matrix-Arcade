@@ -14,6 +14,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Play, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSaveSystem } from '../../hooks/useSaveSystem';
 import { useSoundSystem } from '../../hooks/useSoundSystem';
 import { useParticleSystem } from '../../hooks/useParticleSystem';
@@ -1184,6 +1185,90 @@ export default function JimmyMatrix({ achievementManager, isMuted = false }: Jim
           maxHeight: '100%'
         }}
       />
+
+      {/* Menu Overlay - HTML for better accessibility */}
+      {gamePhase === 'menu' && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 pointer-events-auto">
+          <h1 className="text-4xl font-bold text-green-500 mb-2" style={{ textShadow: '0 0 20px #00ff00' }}>
+            JIMMY MATRIX
+          </h1>
+          <p className="text-green-400 mb-2">Epic Matrix Rhythm Game</p>
+          <p className="text-green-300 text-sm mb-8">Catch the code in beat</p>
+          <div className="flex gap-2 mb-4">
+            {['D', 'F', 'J', 'K'].map((key, i) => (
+              <div
+                key={key}
+                className="w-12 h-12 border-2 rounded flex items-center justify-center font-bold text-xl"
+                style={{ borderColor: ['#ff0000', '#00ff00', '#0088ff', '#ffff00'][i], color: ['#ff0000', '#00ff00', '#0088ff', '#ffff00'][i] }}
+              >
+                {key}
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => {
+              setGamePhase('trackSelect');
+              playSound('menu');
+            }}
+            className="px-6 py-3 bg-green-500 text-black font-bold hover:bg-green-400 transition-colors flex items-center gap-2 mx-auto mb-4"
+          >
+            <Play className="w-5 h-5" />
+            START GAME
+          </button>
+          <div className="text-green-500 text-sm mb-4">or press ENTER</div>
+          <div className="text-green-600 text-xs">
+            <p>Hit the falling notes as they reach the line</p>
+            <p>Perfect timing = Maximum points!</p>
+          </div>
+        </div>
+      )}
+
+      {/* Track Select Overlay */}
+      {gamePhase === 'trackSelect' && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 pointer-events-auto">
+          <h2 className="text-3xl font-bold text-green-500 mb-6" style={{ textShadow: '0 0 10px #00ff00' }}>
+            SELECT TRACK
+          </h2>
+          <div className="flex items-center gap-4 mb-6">
+            <button
+              onClick={() => setSelectedTrack((prev) => (prev - 1 + TRACKS.length) % TRACKS.length)}
+              className="p-2 text-green-500 hover:text-green-400 transition-colors"
+            >
+              <ChevronLeft className="w-8 h-8" />
+            </button>
+            <div className="text-center w-64">
+              <p className="text-2xl text-green-400 font-bold">{TRACKS[selectedTrack].name}</p>
+              <p className="text-green-500">{TRACKS[selectedTrack].artist}</p>
+              <p className="text-green-600 text-sm mt-2">
+                BPM: {TRACKS[selectedTrack].bpm} • {TRACKS[selectedTrack].difficulty.toUpperCase()}
+              </p>
+              {highScores[TRACKS[selectedTrack].id] && (
+                <p className="text-green-400 text-sm mt-1">Best: {highScores[TRACKS[selectedTrack].id]}</p>
+              )}
+            </div>
+            <button
+              onClick={() => setSelectedTrack((prev) => (prev + 1) % TRACKS.length)}
+              className="p-2 text-green-500 hover:text-green-400 transition-colors"
+            >
+              <ChevronRight className="w-8 h-8" />
+            </button>
+          </div>
+          <button
+            onClick={startGame}
+            className="px-6 py-3 bg-green-500 text-black font-bold hover:bg-green-400 transition-colors flex items-center gap-2 mx-auto mb-4"
+          >
+            <Play className="w-5 h-5" />
+            PLAY TRACK
+          </button>
+          <div className="text-green-500 text-sm mb-4">or press ENTER</div>
+          <button
+            onClick={() => setGamePhase('menu')}
+            className="text-green-600 text-sm hover:text-green-400 transition-colors"
+          >
+            Press ESC to go back
+          </button>
+        </div>
+      )}
 
       {/* Footer instructions */}
       <div className="absolute bottom-4 right-4 text-green-600 text-xs">

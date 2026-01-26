@@ -8,16 +8,16 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ## Completion Status
 
-- **Status**: POLISHED - All P0/P1/P2 items complete
-- **Last Assessment**: 26 January 2026 (lint errors resolved, v1.8.1 tagged)
-- **Outstanding Critical Work**: None - all P0/P1/P2 items resolved
+- **Status**: POLISHED - All P0/P1/P2 tasks complete, all games fully playable
+- **Last Assessment**: 26 January 2026 (P0 Enter key UX bug fixed)
+- **Outstanding Critical Work**: None - all critical work complete
 - **Test Coverage**: Hooks 100%, Production Games 100%, New Games Unit 90%+ (152 tests), E2E Visual 100% (11/11 games)
 - **Test Status**: ALL PASS (412 game tests total, SaveLoadManager 45 tests, SentientAIModal 29 tests)
 - **Test Reliability**: Vitest configured with isolate=true and forks pool for localStorage isolation
 - **Lint Status**: 0 errors, 46 warnings (acceptable)
-- **Build Status**: PASSES (warning: 669KB chunk exceeds 500KB limit)
+- **Build Status**: PASSES (warning: 673KB chunk exceeds 500KB limit)
 - **Spec Compliance**: 95%+ across all games (all critical mechanics now implemented)
-- **Notes**: All 11 games fully playable and polished. P0/P1/P2 complete. AgentEscape 4/4 core items done, siren moved to P3 as optional enhancement. CrossyRoad 5/5, MatrixAscension 6/6, JimmyMatrix 5/5 all complete.
+- **Notes**: All 11 games fully playable and polished. P0/P1/P2 complete. Enter key UX bug FIXED - all 5 affected games now have clickable START buttons matching SimpleSnake pattern.
 
 ---
 
@@ -36,7 +36,25 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ## Priority Tasks
 
-### P0 - Critical (All 6 Bugs FIXED ✓)
+### P0 - Critical (All Complete ✓)
+
+#### 0. Enter Key UX Bug - ✓ FIXED (26 Jan 2026)
+
+**Original Report:** Pressing Enter does not start games - they appear frozen/unresponsive on menu screen.
+
+**Root Cause:** Games required TWO Enter key presses to start (one at App level to mount game, another at game level to start playing). Users expected a single keypress or click to start immediately.
+
+**Fix Applied (26 Jan 2026):** Added clickable START buttons to all 5 affected games, matching SimpleSnake pattern:
+
+- [x] **VortexPong.tsx** - Added START button with Play icon, calls `resetGame()` on click
+- [x] **CrossyRoad.tsx** - Added START button with Play icon, calls `initializeGame()` + `setGamePhase('playing')` on click
+- [x] **MatrixAscension.tsx** - Added START button with Play icon, calls `initializeGame()` + `setGamePhase('playing')` on click
+- [x] **AgentEscape.tsx** - Added START button with Play icon, calls `initializeGame()` + `setGamePhase('playing')` on click
+- [x] **JimmyMatrix.tsx** - Added full HTML overlay with START button (replaced canvas-only menu), includes track selection UI with navigation buttons
+
+**Status:** ✓ FIXED - All games now have clickable START buttons. Users can click the button immediately after game loads without needing a second Enter keypress.
+
+---
 
 #### 1. CrossyRoad.tsx - 3 BUGS ✓ FIXED (26 Jan 2026 15:35 UTC)
 
@@ -353,7 +371,13 @@ const playSound = useCallback((sound: string) => {
 
 ## Quick Reference: Priority Order for Implementation
 
-### P0 - Critical (All 6 Bugs FIXED ✓)
+### P0 - Critical (ALL COMPLETE ✓)
+0. [x] **Enter key UX bug - FIXED** - Added clickable START buttons to all 5 affected games:
+   - [x] VortexPong.tsx - START button added
+   - [x] CrossyRoad.tsx - START button added
+   - [x] MatrixAscension.tsx - START button added
+   - [x] AgentEscape.tsx - START button added
+   - [x] JimmyMatrix.tsx - Full HTML overlay with START button and track selection UI
 1. [x] CrossyRoad.tsx - **3 BUGS FIXED**: magnet attraction, dodge counter, magnet HUD
 2. [x] AgentEscape.tsx - **1 BUG FIXED**: fruit system implemented
 3. [x] MatrixAscension.tsx - **1 BUG FIXED**: deltaTime applied to all physics
@@ -389,13 +413,21 @@ const playSound = useCallback((sound: string) => {
 
 ---
 
-*Updated on 26 January 2026 17:00 UTC - ALL P0/P1/P2 ITEMS COMPLETE*
-*All 11 games playable, polished, and production ready*
-*Build: PASSES (warning: 669KB chunk exceeds 500KB limit)*
+*Updated on 26 January 2026 - ALL P0/P1/P2 COMPLETE*
+*Build: PASSES (warning: 673KB chunk exceeds 500KB limit)*
 *Tests: ALL PASS (412 game tests total)*
 *E2E Visual: 100% coverage (11/11 games with 47 new visual tests)*
 
-**6 BUGS FIXED ✓ (26 Jan 2026):**
+**ENTER KEY UX BUG - ✓ FIXED (26 Jan 2026):**
+- [x] Root cause confirmed: App.tsx Enter mounts game, game has its own Enter handler
+- [x] Fix applied: Added clickable START buttons to 5 games (matching SimpleSnake pattern)
+- [x] VortexPong.tsx - Added START button with Play icon, calls resetGame()
+- [x] CrossyRoad.tsx - Added START button with Play icon, calls initializeGame() + setGamePhase('playing')
+- [x] MatrixAscension.tsx - Added START button with Play icon, calls initializeGame() + setGamePhase('playing')
+- [x] AgentEscape.tsx - Added START button with Play icon, calls initializeGame() + setGamePhase('playing')
+- [x] JimmyMatrix.tsx - Added full HTML overlay with START button and track selection UI (replaced canvas-only menus)
+
+**7 BUGS FIXED ✓ (26 Jan 2026):**
 1. ✓ CrossyRoad magnet: Added attraction logic - red pills now gravitate toward player when magnet is active
 2. ✓ CrossyRoad dodge: Moved near-miss tracking outside collision block - now tracks actual near-misses
 3. ✓ CrossyRoad HUD: Added magnet indicator to HUD with fuchsia colour

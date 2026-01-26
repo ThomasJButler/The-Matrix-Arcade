@@ -265,7 +265,8 @@ describe('AgentEscape', () => {
 
     it('shows menu controls', () => {
       render(<AgentEscape />);
-      expect(screen.getByText(/Press ENTER to Start/)).toBeInTheDocument();
+      expect(screen.getByText('START GAME')).toBeInTheDocument();
+      expect(screen.getByText(/or press ENTER/)).toBeInTheDocument();
     });
   });
 

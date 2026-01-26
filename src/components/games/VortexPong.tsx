@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Play } from 'lucide-react';
 import { useGameLoop } from '../../hooks/useGameLoop';
 import { usePowerUps } from '../../hooks/usePowerUps';
 import { useParticleSystem } from '../../hooks/useParticleSystem';
@@ -954,8 +955,15 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
                 <div>↑↓ or W/S or Mouse to move paddle</div>
                 <div>First to 10 points wins</div>
               </div>
-              <div className="text-green-500 text-xl font-mono animate-pulse mb-4">
-                Press ENTER to start
+              <button
+                onClick={resetGame}
+                className="px-6 py-3 bg-green-500 text-black font-bold hover:bg-green-400 transition-colors flex items-center gap-2 mx-auto mb-4"
+              >
+                <Play className="w-5 h-5" />
+                START GAME
+              </button>
+              <div className="text-green-500 text-sm font-mono mb-4">
+                or press ENTER
               </div>
               <div className="text-green-400/40 text-xs font-mono">
                 ESC to exit • P to pause during game
