@@ -21,6 +21,11 @@ interface CtrlSWorldProps {
   isMuted?: boolean;
 }
 
+// State machine types - reduces 12 boolean flags to 2 enums + 4 booleans
+// This prevents invalid state combinations and makes transitions explicit
+type GamePhase = 'command_prompt' | 'chapter_hub' | 'playing' | 'game_complete';
+type ActiveModal = 'none' | 'puzzle' | 'save_manager' | 'audio_settings' | 'inventory' | 'info';
+
 type PuzzleTrigger = {
   afterIndex: number;  // Trigger puzzle after this paragraph index
   puzzleId: string;
@@ -410,11 +415,17 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
   const [currentCharIndex, setCurrentCharIndex] = useState(0);
   const [isTyping, setIsTyping] = useState(true);
   const [currentText, setCurrentText] = useState('');
-  const [isStarted, setIsStarted] = useState(false);
+
+  // State machine: GamePhase replaces isStarted, isGameComplete, showChapterHub
+  const [gamePhase, setGamePhase] = useState<GamePhase>('command_prompt');
+
+  // State machine: ActiveModal replaces showPuzzle, showSaveManager, showAudioSettings, showInventory, showInfo
+  const [activeModal, setActiveModal] = useState<ActiveModal>('none');
+
+  // Independent boolean states (can be true alongside any game phase or modal)
   const [isPaused, setIsPaused] = useState(false);
-  const [isGameComplete, setIsGameComplete] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showInfo, setShowInfo] = useState(false);
+
   const [commandInput, setCommandInput] = useState('');
 
   // Paged display state
@@ -426,16 +437,11 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
   const [textSpeed, setTextSpeed] = useState<5 | 15 | 30>(15); // ms per character
   const [fontSize, setFontSize] = useState<'sm' | 'base' | 'lg'>('base');
 
-  // Puzzle state
-  const [showPuzzle, setShowPuzzle] = useState(false);
+  // Puzzle state (currentPuzzleId tracks which puzzle is active, activeModal='puzzle' shows it)
   const [currentPuzzleId, setCurrentPuzzleId] = useState<string | null>(null);
 
   // UI state
-  const [showInventory, setShowInventory] = useState(false);
   const [unlockedAchievements, setUnlockedAchievements] = useState<Achievement[]>([]);
-  const [showAudioSettings, setShowAudioSettings] = useState(false);
-  const [showSaveManager, setShowSaveManager] = useState(false);
-  const [showChapterHub, setShowChapterHub] = useState(false);
 
   // Game state context
   const gameState = useGameState();
@@ -492,14 +498,14 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
     setDisplayedTextIndices([]);
     setParagraphsDisplayedOnPage(0);
 
-    // Reset game state
+    // Reset game state - use state machine enums
     setIsTyping(true);
     setIsPaused(false);
-    setIsGameComplete(false);
+    setGamePhase('command_prompt');
+    setActiveModal('none');
     setUserHasScrolled(false);
 
     // Reset puzzle state
-    setShowPuzzle(false);
     setCurrentPuzzleId(null);
 
     // Reset session tracking
@@ -522,19 +528,17 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
     setDisplayedTextIndices([]);
     setParagraphsDisplayedOnPage(0);
 
-    // Reset game state
+    // Reset game state - use state machine enums
     setIsTyping(true);
     setIsPaused(false);
-    setIsGameComplete(false);
     setUserHasScrolled(false);
 
     // Reset puzzle state
-    setShowPuzzle(false);
+    setActiveModal('none');
     setCurrentPuzzleId(null);
 
-    // Close hub and start game
-    setShowChapterHub(false);
-    setIsStarted(true);
+    // Start game (transition from chapter_hub to playing)
+    setGamePhase('playing');
 
     // Reset session tracking
     sessionStartTimeRef.current = Date.now();
@@ -617,7 +621,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
     const command = commandInput.trim().toLowerCase();
     if (command === 'save-the-world') {
       // Show chapter hub instead of starting immediately
-      setShowChapterHub(true);
+      setGamePhase('chapter_hub');
       setCommandInput('');
       playSFX('menu');
     }
@@ -682,9 +686,9 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
           );
 
           if (shouldTriggerPuzzle) {
-            // Puzzle found - trigger it and pause
+            // Puzzle found - trigger it and pause (use state machine)
             setCurrentPuzzleId(shouldTriggerPuzzle.puzzleId);
-            setShowPuzzle(true);
+            setActiveModal('puzzle');
             setIsPaused(true);
           } else {
             // No puzzle - continue to next paragraph
@@ -713,9 +717,9 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
       );
 
       if (shouldTriggerPuzzle) {
-        // Puzzle found - trigger it and pause
+        // Puzzle found - trigger it and pause (use state machine)
         setCurrentPuzzleId(shouldTriggerPuzzle.puzzleId);
-        setShowPuzzle(true);
+        setActiveModal('puzzle');
         setIsPaused(true);
       } else {
         // No puzzle - auto-advance to next paragraph after brief delay
@@ -726,9 +730,9 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
             setCurrentCharIndex(0);
             setIsTyping(true);
           } else if (currentNode === STORY.length - 1) {
-            // Game complete - last paragraph of last chapter
+            // Game complete - last paragraph of last chapter (transition to game_complete phase)
             setIsTyping(false);
-            setIsGameComplete(true);
+            setGamePhase('game_complete');
             playSFX('gameOver');
           } else {
             // Move to next chapter (clear screen for new chapter)
@@ -747,8 +751,8 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
 
   // Handle manual story advancement (Enter/Space/Arrow keys)
   const handleNext = useCallback(() => {
-    // Don't allow advancing while typing or if puzzle is showing
-    if (isTyping || showPuzzle) {
+    // Don't allow advancing while typing or if puzzle modal is showing
+    if (isTyping || activeModal === 'puzzle') {
       return;
     }
 
@@ -771,8 +775,9 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
     );
 
     if (shouldTriggerPuzzle) {
+      // Puzzle found - use state machine
       setCurrentPuzzleId(shouldTriggerPuzzle.puzzleId);
-      setShowPuzzle(true);
+      setActiveModal('puzzle');
       setIsPaused(true);
       return;
     }
@@ -794,9 +799,9 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
           setIsTyping(true);
           setUserHasScrolled(false);
         } else if (currentNode === STORY.length - 1) {
-          // Game complete - last chapter finished
+          // Game complete - last chapter finished (use state machine)
           setIsTyping(false);
-          setIsGameComplete(true);
+          setGamePhase('game_complete');
           playSFX('gameOver');
         } else {
           // Move to next chapter
@@ -818,9 +823,9 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
         setIsTyping(true);
         setUserHasScrolled(false);
       } else if (currentNode === STORY.length - 1) {
-        // Game complete - last paragraph of last chapter
+        // Game complete - last paragraph of last chapter (use state machine)
         setIsTyping(false);
-        setIsGameComplete(true);
+        setGamePhase('game_complete');
         playSFX('gameOver');
       } else {
         // Move to next chapter (clear screen for new chapter)
@@ -836,7 +841,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
       }
       scrollToBottom(true);
     }
-  }, [isTyping, isPaused, showPuzzle, currentNode, currentTextIndex, currentText, paragraphsDisplayedOnPage, PARAGRAPHS_PER_PAGE, gameState.state.completedPuzzles, scrollToBottom, playSFX, safeSetTimeout]);
+  }, [isTyping, isPaused, activeModal, currentNode, currentTextIndex, currentText, paragraphsDisplayedOnPage, PARAGRAPHS_PER_PAGE, gameState.state.completedPuzzles, scrollToBottom, playSFX, safeSetTimeout]);
 
   // Handle puzzle completion
   const handlePuzzleComplete = useCallback((success: boolean, hintsUsed: number, lifelinesUsed: number) => {
@@ -891,8 +896,8 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
       }
     }
 
-    // Close puzzle and resume story
-    setShowPuzzle(false);
+    // Close puzzle and resume story (use state machine)
+    setActiveModal('none');
     setCurrentPuzzleId(null);
     setIsPaused(false);
 
@@ -923,7 +928,8 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
 
   // Track chapter completion and save game stats
   useEffect(() => {
-    if (!isStarted) return;
+    // Only track when actively playing
+    if (gamePhase !== 'playing') return;
 
     // Track chapter completion
     if (!chaptersCompletedThisSession.current.has(currentNode)) {
@@ -968,7 +974,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
         unlockAchievement('ctrl_speed_reader');
       }
     }
-  }, [currentNode, currentTextIndex, isTyping, isStarted, gameState.state.completedPuzzles, saveData, updateGameSave, unlockAchievement]);
+  }, [currentNode, currentTextIndex, isTyping, gamePhase, gameState.state.completedPuzzles, saveData, updateGameSave, unlockAchievement]);
 
   // Track puzzle completion
   useEffect(() => {
@@ -986,58 +992,48 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
   }, [gameState.state.completedPuzzles, unlockAchievement]);
 
   useEffect(() => {
-    if (!isStarted && inputRef.current) {
-      inputRef.current.focus(); // Ensure the input is focused when the component mounts
+    // Focus input when at command prompt
+    if (gamePhase === 'command_prompt' && inputRef.current) {
+      inputRef.current.focus();
     }
-    // Auto-enter fullscreen when game starts
-    if (isStarted && !document.fullscreenElement && containerRef.current) {
+    // Auto-enter fullscreen when game starts playing
+    if (gamePhase === 'playing' && !document.fullscreenElement && containerRef.current) {
       containerRef.current.requestFullscreen().catch(() => {
         // Fullscreen API requires user interaction in many browsers
       });
       setIsFullscreen(true);
     }
-  }, [isStarted]);
+  }, [gamePhase]);
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      // Toggle inventory panel with 'I' key
+      // Toggle inventory panel with 'I' key (state machine: toggle between 'none' and 'inventory')
       if (e.key === 'i' || e.key === 'I') {
         if (e.target instanceof HTMLElement &&
             e.target.tagName !== 'INPUT' &&
             e.target.tagName !== 'TEXTAREA') {
           e.preventDefault();
-          setShowInventory(prev => !prev);
+          setActiveModal(prev => prev === 'inventory' ? 'none' : 'inventory');
         }
         return;
       }
 
-      // Toggle info with '?' key
+      // Toggle info with '?' key (state machine: toggle between 'none' and 'info')
       if (e.key === '?') {
-        setShowInfo(prev => !prev);
+        setActiveModal(prev => prev === 'info' ? 'none' : 'info');
         return;
       }
 
       // ESC key handler - close modals/panels or exit fullscreen
       if (e.key === 'Escape') {
-        // Priority 1: Close modals/panels (in order of most recently opened)
-        if (showPuzzle) {
+        // Priority 1: Close modals/panels (state machine approach)
+        if (activeModal === 'puzzle') {
           // Don't close puzzle modal with ESC - user must complete or close via X
           return;
         }
-        if (showSaveManager) {
-          setShowSaveManager(false);
-          return;
-        }
-        if (showAudioSettings) {
-          setShowAudioSettings(false);
-          return;
-        }
-        if (showInventory) {
-          setShowInventory(false);
-          return;
-        }
-        if (showInfo) {
-          setShowInfo(false);
+        if (activeModal !== 'none') {
+          // Close any open modal
+          setActiveModal('none');
           return;
         }
         // Priority 2: Exit fullscreen
@@ -1047,15 +1043,16 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
           return;
         }
         // Priority 3: Close chapter hub (return to command prompt)
-        if (showChapterHub && !isStarted) {
-          setShowChapterHub(false);
+        if (gamePhase === 'chapter_hub') {
+          setGamePhase('command_prompt');
           return;
         }
         // Note: ESC to exit game is handled at App level
         return;
       }
 
-      if (!isStarted) return;
+      // Only allow gameplay shortcuts when playing
+      if (gamePhase !== 'playing' && gamePhase !== 'game_complete') return;
 
       // Keyboard shortcuts
       if (e.key === 'p' || e.key === 'P') {
@@ -1085,7 +1082,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isStarted, handleNext, togglePause, toggleFullscreen, restartGame, showPuzzle, showSaveManager, showAudioSettings, showInventory, showInfo, isFullscreen, showChapterHub]);
+  }, [gamePhase, activeModal, handleNext, togglePause, toggleFullscreen, restartGame, isFullscreen]);
 
   // Set initial scroll position to top
   useEffect(() => {
@@ -1113,11 +1110,12 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
   }, []);
 
   useEffect(() => {
-    if (isStarted && !isPaused && isTyping) {
+    // Only type when actively playing (not paused, not in other phases)
+    if (gamePhase === 'playing' && !isPaused && isTyping) {
       const timer = setTimeout(typeNextCharacter, textSpeed); // Use textSpeed setting
       return () => clearTimeout(timer);
     }
-  }, [isStarted, isPaused, isTyping, typeNextCharacter, textSpeed]);
+  }, [gamePhase, isPaused, isTyping, typeNextCharacter, textSpeed]);
 
   // Cleanup all tracked timeouts on unmount to prevent memory leaks
   useEffect(() => {
@@ -1188,7 +1186,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
         </div>
         <div className="flex items-center gap-8">
           <button
-            onClick={() => setShowInfo(prev => !prev)}
+            onClick={() => setActiveModal(prev => prev === 'info' ? 'none' : 'info')}
             className="p-2 hover:bg-green-900 rounded transition-colors"
             title="Show Info"
           >
@@ -1212,14 +1210,14 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
       </div>
 
 
-      {/* Info Panel */}
-      {showInfo && (
+      {/* Info Panel (state machine: activeModal === 'info') */}
+      {activeModal === 'info' && (
         <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
           <div className="bg-gray-900 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto border-2 border-green-500 terminal-scroll">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold">Game Information</h3>
               <button
-                onClick={() => setShowInfo(false)}
+                onClick={() => setActiveModal('none')}
                 className="text-green-500 hover:text-green-400"
               >
                 ×
@@ -1236,8 +1234,8 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
         </div>
       )}
 
-      {/* Main Content - Side-by-Side Layout */}
-      {showChapterHub && !isStarted ? (
+      {/* Main Content - Side-by-Side Layout (state machine: gamePhase === 'chapter_hub') */}
+      {gamePhase === 'chapter_hub' ? (
         /* Chapter Selection Hub - Citizen Sleeper-inspired design */
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-20">
           <div className="max-w-4xl mx-auto">
@@ -1382,7 +1380,8 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
             </div>
           </div>
         </div>
-      ) : !isStarted ? (
+      ) : gamePhase === 'command_prompt' ? (
+        /* Command Prompt - Initial screen (state machine: gamePhase === 'command_prompt') */
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-20">
           <div className="flex flex-col items-start">
             <p className="mb-2">Welcome to the terminal. To begin your journey, please enter:</p>
@@ -1402,6 +1401,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
           </div>
         </div>
       ) : (
+        /* Active Gameplay (state machine: gamePhase === 'playing' or 'game_complete') */
         <div className="flex-1 flex flex-col md:flex-row gap-4 p-4 overflow-hidden">
           {/* Left Panel - ASCII Art (Desktop Only, Fixed/Sticky) */}
           <div className="hidden md:flex md:w-[35%] items-start justify-center pt-8">
@@ -1510,8 +1510,8 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
         </div>
       )}
 
-      {/* Settings Panel */}
-      {isStarted && (
+      {/* Settings Panel - only show when playing (state machine) */}
+      {gamePhase === 'playing' && (
         <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-30 backdrop-blur-sm bg-black/80 px-4 py-2 rounded-lg border border-green-500/30 shadow-lg">
           <div className="flex items-center gap-3">
             {/* Text Speed */}
@@ -1542,9 +1542,9 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
               </select>
             </div>
 
-            {/* Audio Settings */}
+            {/* Audio Settings (state machine) */}
             <button
-              onClick={() => setShowAudioSettings(true)}
+              onClick={() => setActiveModal('audio_settings')}
               className="flex items-center gap-1 px-2 py-1 bg-green-900/50 hover:bg-green-800 border border-green-500/50 rounded text-xs font-mono text-green-400 transition-colors"
               title="Audio Settings"
             >
@@ -1552,9 +1552,9 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
               <span className="hidden sm:inline">Audio</span>
             </button>
 
-            {/* Save Manager */}
+            {/* Save Manager (state machine) */}
             <button
-              onClick={() => setShowSaveManager(true)}
+              onClick={() => setActiveModal('save_manager')}
               className="flex items-center gap-1 px-2 py-1 bg-green-900/50 hover:bg-green-800 border border-green-500/50 rounded text-xs font-mono text-green-400 transition-colors"
               title="Save/Load"
             >
@@ -1581,11 +1581,10 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
               <span className="hidden sm:inline">Full</span>
             </button>
 
-            {/* Chapter Select Button */}
+            {/* Chapter Select Button (state machine: transition to chapter_hub) */}
             <button
               onClick={() => {
-                setIsStarted(false);
-                setShowChapterHub(true);
+                setGamePhase('chapter_hub');
                 setIsPaused(true);
               }}
               className="flex items-center gap-1 px-2 py-1 bg-green-900/50 hover:bg-green-800 border border-green-500/50 rounded text-xs font-mono text-green-400 transition-colors"
@@ -1595,11 +1594,11 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
               <span className="hidden sm:inline">Chapters</span>
             </button>
 
-            {/* Resume Puzzle button - shows when puzzle was closed but not completed */}
-            {currentPuzzleId && !showPuzzle && (
+            {/* Resume Puzzle button - shows when puzzle was closed but not completed (state machine) */}
+            {currentPuzzleId && activeModal !== 'puzzle' && (
               <button
                 onClick={() => {
-                  setShowPuzzle(true);
+                  setActiveModal('puzzle');
                   setIsPaused(true);
                 }}
                 className="flex items-center gap-1 px-3 py-1 bg-yellow-900 hover:bg-yellow-800 border border-yellow-500/50 rounded text-xs font-mono border-2 transition-colors ml-2"
@@ -1611,13 +1610,13 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
         </div>
       )}
 
-      {/* Puzzle Modal */}
-      {showPuzzle && currentPuzzleId && (
+      {/* Puzzle Modal (state machine: activeModal === 'puzzle') */}
+      {activeModal === 'puzzle' && currentPuzzleId && (
         <PuzzleModal
-          isOpen={showPuzzle}
+          isOpen={activeModal === 'puzzle'}
           puzzle={getPuzzleById(currentPuzzleId)!}
           onClose={() => {
-            setShowPuzzle(false);
+            setActiveModal('none');
             setCurrentPuzzleId(null);
             setIsPaused(false);
           }}
@@ -1626,8 +1625,8 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
         />
       )}
 
-      {/* Game Complete Overlay */}
-      {isGameComplete && (
+      {/* Game Complete Overlay (state machine: gamePhase === 'game_complete') */}
+      {gamePhase === 'game_complete' && (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center">
           <div className="text-center space-y-6 p-8 border-2 border-green-500 rounded-lg bg-black/80 shadow-lg shadow-green-500/20">
             <div className="text-green-500 text-xs font-mono">
@@ -1660,9 +1659,8 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
                 </button>
                 <button
                   onClick={() => {
-                    setIsGameComplete(false);
-                    setIsStarted(false);
-                    setShowChapterHub(true);
+                    // Transition to chapter_hub (state machine)
+                    setGamePhase('chapter_hub');
                   }}
                   className="px-6 py-3 bg-gray-900 hover:bg-gray-800 border border-green-500/50 rounded text-green-400 font-mono transition-colors"
                 >
@@ -1677,8 +1675,8 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
         </div>
       )}
 
-      {/* Stats HUD - Only show when game is started */}
-      {isStarted && <StatsHUD />}
+      {/* Stats HUD - Only show when game is playing (state machine) */}
+      {gamePhase === 'playing' && <StatsHUD />}
 
       {/* Achievement Toast Notifications */}
       <AchievementToastContainer
@@ -1686,22 +1684,22 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
         playSFX={playSFX}
       />
 
-      {/* Inventory Panel */}
+      {/* Inventory Panel (state machine: activeModal === 'inventory') */}
       <InventoryPanel
-        isOpen={showInventory}
-        onClose={() => setShowInventory(false)}
+        isOpen={activeModal === 'inventory'}
+        onClose={() => setActiveModal('none')}
       />
 
-      {/* Audio Settings Modal */}
+      {/* Audio Settings Modal (state machine: activeModal === 'audio_settings') */}
       <AudioSettings
-        isOpen={showAudioSettings}
-        onClose={() => setShowAudioSettings(false)}
+        isOpen={activeModal === 'audio_settings'}
+        onClose={() => setActiveModal('none')}
       />
 
-      {/* Save Manager Modal */}
+      {/* Save Manager Modal (state machine: activeModal === 'save_manager') */}
       <SaveLoadManager
-        isOpen={showSaveManager}
-        onClose={() => setShowSaveManager(false)}
+        isOpen={activeModal === 'save_manager'}
+        onClose={() => setActiveModal('none')}
       />
     </div>
   );

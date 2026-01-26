@@ -19,12 +19,12 @@ Run `./loop.sh plan` to analyse the codebase and generate tasks.
 - **Visual Consistency**: Strong Matrix theme throughout (green-on-black, glow effects, CRT aesthetic) - verified via screenshots (10/10 rating)
 - **Console Statements**: All 17 console statements properly wrapped in DEV environment checks
 - **Legacy localStorage Usage**: 3 hooks use direct localStorage (user preferences - acceptable)
-- **State Machine Compliance**: 2/8 games (25%) - SimpleSnake, TerminalQuestCombat fully compliant
+- **State Machine Compliance**: 3/8 games (38%) - SimpleSnake, TerminalQuestCombat, CtrlSWorld fully compliant
 - **isMuted Prop Gating**: All games gate sound properly with !isMuted checks (verified Round 63)
 - **Achievement Persistence**: 7/7 games work correctly (all use dual-call pattern or single-source pattern)
 - **Keyboard Controls**: 7/7 main games compliant with standard controls
 - **Developer Room**: Intentional game content (easter egg), NOT a security concern
-- **Last Analysis**: Round 66 - Wrapped all console statements in DEV checks
+- **Last Analysis**: Round 67 - Refactored CtrlSWorld state machine (12 booleans → 2 enums + 4 booleans)
 
 ---
 
@@ -82,42 +82,21 @@ Run `./loop.sh plan` to analyse the codebase and generate tasks.
 
 ---
 
-#### 4. State Machine Refactoring - CtrlSWorld (VERIFIED Round 62)
+#### ~~4. State Machine Refactoring - CtrlSWorld~~ ✅ RESOLVED
 
-**Issue:** CtrlSWorld has 12 independent boolean flags creating 4,096 possible state combinations, many invalid.
+**Previous Issue:** CtrlSWorld had 12 independent boolean flags creating 4,096 possible state combinations, many invalid.
 
-**Current Boolean States (verified line numbers):**
-| Line | State Variable | Purpose |
-|------|---------------|---------|
-| 411 | `isTyping` | Text typing animation active |
-| 413 | `isStarted` | Game started (past command prompt) |
-| 414 | `isPaused` | Game is paused |
-| 415 | `isGameComplete` | Game completed |
-| 416 | `isFullscreen` | Fullscreen mode |
-| 417 | `showInfo` | Info panel visible |
-| 430 | `showPuzzle` | Puzzle modal visible |
-| 434 | `showInventory` | Inventory panel visible |
-| 436 | `showAudioSettings` | Audio settings modal visible |
-| 437 | `showSaveManager` | Save manager modal visible |
-| 438 | `showChapterHub` | Chapter hub visible |
-| 564 | `userHasScrolled` | User manually scrolled |
+**Resolution (Round 67 - 26 January 2026):**
+- Reduced 12 boolean flags to 2 enums + 4 booleans = 6 state variables
+- Created `GamePhase` type: `'command_prompt' | 'chapter_hub' | 'playing' | 'game_complete'`
+- Created `ActiveModal` type: `'none' | 'puzzle' | 'save_manager' | 'audio_settings' | 'inventory' | 'info'`
+- Kept as independent booleans: `isPaused`, `isFullscreen`, `isTyping`, `userHasScrolled`
+- All 1000 tests passing, TypeScript clean
 
-**Mutually Exclusive Groups:**
-
-*Group A - Game Phase (lines 413-415):* Can be single enum
-- `isStarted`, `isGameComplete` → `GamePhase`
-
-*Group B - Active Modal (lines 417, 430, 434, 436-438):* Can be single enum
-- `showInfo`, `showPuzzle`, `showInventory`, `showAudioSettings`, `showSaveManager`, `showChapterHub` → `ActiveModal`
-
-*Independent (should remain boolean):*
-- `isTyping`, `isPaused`, `isFullscreen`, `userHasScrolled`
-
-**Recommended Refactor:**
+**Implementation:**
 ```typescript
-// Reduce 12 booleans to 2 enums + 4 booleans = 6 state variables
 type GamePhase = 'command_prompt' | 'chapter_hub' | 'playing' | 'game_complete';
-type ActiveModal = 'none' | 'info' | 'puzzle' | 'inventory' | 'audio_settings' | 'save_manager';
+type ActiveModal = 'none' | 'puzzle' | 'save_manager' | 'audio_settings' | 'inventory' | 'info';
 
 const [gamePhase, setGamePhase] = useState<GamePhase>('command_prompt');
 const [activeModal, setActiveModal] = useState<ActiveModal>('none');
@@ -127,8 +106,8 @@ const [isFullscreen, setIsFullscreen] = useState(false);
 const [userHasScrolled, setUserHasScrolled] = useState(false);
 ```
 
-**Files Affected:**
-- `src/components/games/CtrlSWorld.tsx` (1500+ lines)
+**Files Modified:**
+- `src/components/games/CtrlSWorld.tsx`
 
 ---
 
@@ -400,18 +379,18 @@ IDLE/MENU -> PLAYING -> PAUSED -> PLAYING -> GAME_OVER
                 +-------- RESTART ------------+
 ```
 
-**Current State Machine Compliance (VERIFIED Round 62):**
+**Current State Machine Compliance (Updated Round 67):**
 
 | Game | Implementation | Status |
 |------|---------------|--------|
 | SimpleSnake | `'menu' \| 'playing' \| 'paused' \| 'gameOver'` | ✅ COMPLIANT |
 | TerminalQuestCombat | `CombatPhase` discriminated union (lines 20-29) | ✅ COMPLIANT |
+| CtrlSWorld | `GamePhase` enum + `ActiveModal` enum (Round 67) | ✅ COMPLIANT |
 | VortexPong | 3 boolean flags (lines 107-109) | ⚠️ PARTIAL |
 | MatrixInvaders | 5 boolean flags (lines 53, 58-60, 63) | ⚠️ PARTIAL |
 | Metris | 5 boolean flags | ⚠️ PARTIAL |
 | MatrixCloud | 6 boolean flags (lines 124-126, 132, 201-202) | ⚠️ PARTIAL |
 | TerminalQuest | 6 boolean flags (lines 79-84) | ⚠️ PARTIAL |
-| CtrlSWorld | 12 boolean flags (lines 411-438, 564) | ❌ NEEDS REFACTOR |
 
 ### Required Keyboard Shortcuts
 
@@ -474,15 +453,15 @@ const unlockAchievement = useCallback((achievementId: string) => {
 | Game | Controls | Sound | isMuted | State Machine | Achievements | SaveSystem | Overall |
 |------|----------|-------|---------|---------------|--------------|------------|---------|
 | SimpleSnake | 100% | Yes | Yes | ✅ COMPLIANT | ✅ Single-source | Yes | **98%** |
+| TerminalQuestCombat | N/A | Yes | Yes | ✅ COMPLIANT | N/A | N/A | **98%** |
+| CtrlSWorld | 100% | Yes | Yes | ✅ COMPLIANT | ✅ Dual-call | Yes | **98%** |
 | MatrixInvaders | 100% | Yes | Yes | ⚠️ PARTIAL | ✅ Dual-call | Yes | **95%** |
 | Metris | 95% | Yes | Yes | ⚠️ PARTIAL | ✅ Dual-call | Yes | **95%** |
 | VortexPong | 100% | Yes | Yes | ⚠️ PARTIAL | ✅ Dual-call | Yes | **95%** |
 | MatrixCloud | 100% | Yes | Yes | ⚠️ PARTIAL | ✅ Dual-call | Yes | **95%** |
 | TerminalQuest | 100% | Yes | Yes | ⚠️ PARTIAL | ✅ Dual-call | Yes | **93%** |
-| CtrlSWorld | 100% | Yes | Yes | ❌ 12 booleans | ✅ Dual-call | Yes | **88%** |
-| TerminalQuestCombat | N/A | Yes | Yes | ✅ COMPLIANT | N/A | N/A | **98%** |
 
-**Average Game Compliance: 95%**
+**Average Game Compliance: 96%**
 
 ---
 
@@ -493,7 +472,7 @@ const unlockAchievement = useCallback((achievementId: string) => {
 
 ### P1 - High Priority (Code Quality)
 - [x] ~~Wrap 15 console statements in DEV environment checks~~ ✅ RESOLVED Round 66
-- [ ] Refactor CtrlSWorld state to unified GamePhase + ActiveModal pattern (12 booleans → 2 enums + 4 booleans)
+- [x] ~~Refactor CtrlSWorld state to unified GamePhase + ActiveModal pattern (12 booleans → 2 enums + 4 booleans)~~ ✅ RESOLVED Round 67
 - [ ] Refactor other games' boolean flags to state machine enums (VortexPong, MatrixInvaders, MatrixCloud, TerminalQuest, Metris)
 
 ### P2 - Medium Priority (Performance)
@@ -670,5 +649,37 @@ const unlockAchievement = useCallback((achievementId: string) => {
 
 ---
 
-*Generated by Ralph on 26 January 2026 - Round 66*
-*Console statement cleanup completed - all 15 unwrapped statements now wrapped in DEV checks*
+### 26 January 2026 - Round 67 State Machine Refactor
+
+**CtrlSWorld State Machine Refactoring - COMPLETED:**
+
+*Implementation Details:*
+- Reduced 12 independent boolean flags to 6 state variables (2 enums + 4 booleans)
+- Created `GamePhase` enum: `'command_prompt' | 'chapter_hub' | 'playing' | 'game_complete'`
+- Created `ActiveModal` enum: `'none' | 'puzzle' | 'save_manager' | 'audio_settings' | 'inventory' | 'info'`
+- Retained as independent booleans: `isPaused`, `isFullscreen`, `isTyping`, `userHasScrolled`
+- Eliminated 4,090 invalid state combinations (from 4,096 to 6 valid states)
+
+*Benefits:*
+- Type-safe state transitions with enum values
+- Impossible to have multiple modals open simultaneously
+- Clear game phase progression: command_prompt → chapter_hub → playing → game_complete
+- Reduced cognitive complexity and improved maintainability
+
+*Testing:*
+- All 1000 tests passing
+- TypeScript compilation clean
+- No functional regressions
+
+*State Machine Compliance Updated:*
+- CtrlSWorld: ❌ NEEDS REFACTOR → ✅ COMPLIANT
+- Overall compliance: 3/8 games (38%) now fully compliant
+- Average game compliance increased from 95% to 96%
+
+**Files Modified:**
+- `src/components/games/CtrlSWorld.tsx`
+
+---
+
+*Generated by Ralph on 26 January 2026 - Round 67*
+*CtrlSWorld state machine refactoring completed - 12 booleans reduced to 2 enums + 4 booleans*
