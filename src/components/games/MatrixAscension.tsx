@@ -59,6 +59,8 @@ interface Platform {
   opacity: number;
   moveDirection?: 1 | -1;
   moveSpeed?: number;
+  compression?: number; // Spring compression amount (0-1)
+  compressionTime?: number; // Timestamp when compression started
 }
 
 interface Enemy {
@@ -69,6 +71,7 @@ interface Enemy {
   direction: 1 | -1;
   speed: number;
   active: boolean;
+  deathTime?: number; // Timestamp when enemy was killed (for death animation)
 }
 
 interface Projectile {
@@ -153,8 +156,8 @@ export default function MatrixAscension({ achievementManager, isMuted = false }:
   const enemiesKilledRef = useRef(0);
   const shotsFiredRef = useRef(0);
 
-  // Matrix rain
-  const matrixDropsRef = useRef<Array<{ x: number; y: number; char: string; speed: number }>>([]);
+  // Matrix rain with parallax layers
+  const matrixDropsRef = useRef<Array<{ x: number; y: number; char: string; speed: number; layer: number }>>([]);
 
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -298,14 +301,16 @@ export default function MatrixAscension({ achievementManager, isMuted = false }:
     enemiesKilledRef.current = 0;
     shotsFiredRef.current = 0;
 
-    // Initialise matrix rain
+    // Initialise matrix rain with parallax layers (3 layers: back, mid, front)
     matrixDropsRef.current = [];
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 35; i++) {
+      const layer = i < 12 ? 0 : i < 24 ? 1 : 2; // Back, mid, front
       matrixDropsRef.current.push({
         x: Math.random() * CANVAS_WIDTH,
         y: Math.random() * CANVAS_HEIGHT,
         char: MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)],
-        speed: 1 + Math.random() * 2
+        speed: 0.5 + layer * 0.8 + Math.random() * 0.5, // Slower = further back
+        layer
       });
     }
   }, [generatePlatforms]);
@@ -449,6 +454,9 @@ export default function MatrixAscension({ achievementManager, isMuted = false }:
               player.vy = SPRING_VELOCITY * speedMod;
               playSound('powerup');
               collectFood(platform.x + platform.width / 2, platform.y, '#FFFF00');
+              // Trigger compression animation
+              platform.compression = 1;
+              platform.compressionTime = now;
               springCountRef.current++;
               if (springCountRef.current >= 10) {
                 unlockGameAchievement('doodle_spring_10');
@@ -533,7 +541,7 @@ export default function MatrixAscension({ achievementManager, isMuted = false }:
 
     // Update enemies
     enemiesRef.current.forEach(enemy => {
-      if (!enemy.active) return;
+      if (!enemy.active || enemy.deathTime) return; // Skip dead enemies
 
       enemy.x += enemy.speed * enemy.direction * speedMod;
       if (enemy.x <= 0 || enemy.x + enemy.width >= CANVAS_WIDTH) {
@@ -549,7 +557,8 @@ export default function MatrixAscension({ achievementManager, isMuted = false }:
 
         // Check if jumping on enemy
         if (player.vy > 0 && player.y + PLAYER_HEIGHT < enemyScreenY + enemy.height / 2) {
-          enemy.active = false;
+          // Trigger death animation instead of instant removal
+          enemy.deathTime = now;
           player.vy = JUMP_VELOCITY * speedMod;
           enemiesKilledRef.current++;
           unlockGameAchievement('doodle_kill_agent');
@@ -571,10 +580,36 @@ export default function MatrixAscension({ achievementManager, isMuted = false }:
           return;
         } else {
           setHasShield(false);
-          enemy.active = false;
+          // Trigger death animation instead of instant removal
+          enemy.deathTime = now;
           playSound('hit');
         }
       }
+    });
+
+    // Update spring platform compression animations
+    platformsRef.current.forEach(platform => {
+      if (platform.compression && platform.compressionTime) {
+        const elapsed = now - platform.compressionTime;
+        // Spring bounce animation: compress then release over 200ms
+        if (elapsed < 100) {
+          platform.compression = 1 - (elapsed / 100); // Compress
+        } else if (elapsed < 200) {
+          platform.compression = (elapsed - 100) / 100 * 0.3; // Release with overshoot
+        } else {
+          platform.compression = 0;
+          platform.compressionTime = undefined;
+        }
+      }
+    });
+
+    // Update enemy death animations and remove dead enemies after animation
+    enemiesRef.current = enemiesRef.current.filter(enemy => {
+      if (enemy.deathTime) {
+        // Keep enemy visible during 300ms death animation
+        return now - enemy.deathTime < 300;
+      }
+      return enemy.active;
     });
 
     // Remove off-screen enemies
@@ -590,12 +625,13 @@ export default function MatrixAscension({ achievementManager, isMuted = false }:
 
       // Check collision with enemies
       enemiesRef.current.forEach(enemy => {
-        if (!enemy.active) return;
+        if (!enemy.active || enemy.deathTime) return;
 
         if (proj.x > enemy.x && proj.x < enemy.x + enemy.width &&
             proj.y > enemy.y && proj.y < enemy.y + enemy.height) {
           proj.active = false;
-          enemy.active = false;
+          // Trigger death animation instead of instant removal
+          enemy.deathTime = now;
           enemiesKilledRef.current++;
           unlockGameAchievement('doodle_kill_agent');
           playSound('hit');
@@ -655,9 +691,17 @@ export default function MatrixAscension({ achievementManager, isMuted = false }:
       return;
     }
 
-    // Update matrix rain with deltaTime
+    // Update matrix rain with deltaTime and parallax effect
+    const cameraVelocity = player.vy < 0 ? -player.vy : 0; // Only apply parallax when ascending
     matrixDropsRef.current.forEach(drop => {
-      drop.y += drop.speed * dt;
+      // Base fall speed
+      let yDelta = drop.speed * dt;
+
+      // Add parallax effect based on layer (back layer moves less than camera, front moves more)
+      const parallaxMultiplier = 0.3 + drop.layer * 0.35; // 0.3, 0.65, 1.0 for layers 0, 1, 2
+      yDelta += cameraVelocity * parallaxMultiplier * 0.1;
+
+      drop.y += yDelta;
       if (drop.y > CANVAS_HEIGHT) {
         drop.y = 0;
         drop.x = Math.random() * CANVAS_WIDTH;
@@ -677,10 +721,17 @@ export default function MatrixAscension({ achievementManager, isMuted = false }:
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    // Draw matrix rain background
-    ctx.font = '14px monospace';
-    matrixDropsRef.current.forEach(drop => {
-      ctx.fillStyle = 'rgba(0, 255, 0, 0.15)';
+    // Draw matrix rain background with parallax depth
+    // Sort by layer to draw back layers first
+    const sortedDrops = [...matrixDropsRef.current].sort((a, b) => a.layer - b.layer);
+
+    sortedDrops.forEach(drop => {
+      // Layer-based sizing and opacity for depth effect
+      const fontSize = 10 + drop.layer * 3; // 10px, 13px, 16px
+      const opacity = 0.08 + drop.layer * 0.06; // 0.08, 0.14, 0.20
+
+      ctx.font = `${fontSize}px monospace`;
+      ctx.fillStyle = `rgba(0, 255, 0, ${opacity})`;
       ctx.fillText(drop.char, drop.x, drop.y);
     });
 
@@ -699,15 +750,21 @@ export default function MatrixAscension({ achievementManager, isMuted = false }:
       ctx.shadowBlur = 8;
       ctx.shadowColor = getPlatformColour(platform.type);
 
-      ctx.fillRect(platform.x, platform.y, platform.width, PLATFORM_HEIGHT);
+      // Apply compression for spring platforms
+      const compression = platform.compression || 0;
+      const platformHeight = PLATFORM_HEIGHT * (1 - compression * 0.5);
+      const platformY = platform.y + (PLATFORM_HEIGHT - platformHeight);
 
-      // Spring indicator
+      ctx.fillRect(platform.x, platformY, platform.width, platformHeight);
+
+      // Spring indicator with compression animation
       if (platform.type === 'spring') {
         ctx.fillStyle = '#FF0000';
+        const springHeight = 8 * (1 - compression * 0.7);
         ctx.beginPath();
-        ctx.moveTo(platform.x + platform.width / 2 - 5, platform.y);
-        ctx.lineTo(platform.x + platform.width / 2 + 5, platform.y);
-        ctx.lineTo(platform.x + platform.width / 2, platform.y - 8);
+        ctx.moveTo(platform.x + platform.width / 2 - 5, platformY);
+        ctx.lineTo(platform.x + platform.width / 2 + 5, platformY);
+        ctx.lineTo(platform.x + platform.width / 2, platformY - springHeight);
         ctx.fill();
       }
 
@@ -716,25 +773,49 @@ export default function MatrixAscension({ achievementManager, isMuted = false }:
     });
 
     // Draw enemies
+    const now = timestamp;
     enemiesRef.current.forEach(enemy => {
-      if (!enemy.active) return;
+      if (!enemy.active && !enemy.deathTime) return;
+
+      // Death animation: scale down, spin, and fade out over 300ms
+      let scale = 1;
+      let rotation = 0;
+      let alpha = 1;
+      if (enemy.deathTime) {
+        const deathProgress = Math.min((now - enemy.deathTime) / 300, 1);
+        scale = 1 - deathProgress * 0.8;
+        rotation = deathProgress * Math.PI * 2;
+        alpha = 1 - deathProgress;
+      }
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+
+      // Transform for death animation
+      const centerX = enemy.x + enemy.width / 2;
+      const centerY = enemy.y + enemy.height / 2;
+      ctx.translate(centerX, centerY);
+      ctx.rotate(rotation);
+      ctx.scale(scale, scale);
+      ctx.translate(-enemy.width / 2, -enemy.height / 2);
 
       // Agent body (simplified humanoid)
-      ctx.fillStyle = '#FFFFFF';
+      ctx.fillStyle = enemy.deathTime ? '#FF0000' : '#FFFFFF';
       ctx.shadowBlur = 5;
-      ctx.shadowColor = '#FFFFFF';
+      ctx.shadowColor = enemy.deathTime ? '#FF0000' : '#FFFFFF';
 
       // Body
-      ctx.fillRect(enemy.x + 8, enemy.y + 8, 14, 15);
+      ctx.fillRect(8, 8, 14, 15);
       // Head
       ctx.beginPath();
-      ctx.arc(enemy.x + enemy.width / 2, enemy.y + 6, 6, 0, Math.PI * 2);
+      ctx.arc(enemy.width / 2, 6, 6, 0, Math.PI * 2);
       ctx.fill();
       // Sunglasses
       ctx.fillStyle = '#000000';
-      ctx.fillRect(enemy.x + 10, enemy.y + 4, 10, 3);
+      ctx.fillRect(10, 4, 10, 3);
 
       ctx.shadowBlur = 0;
+      ctx.restore();
     });
 
     // Draw power-ups

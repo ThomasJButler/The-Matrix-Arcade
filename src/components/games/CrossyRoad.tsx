@@ -232,6 +232,12 @@ export default function CrossyRoad({ achievementManager, isMuted = false }: Cros
   const hasFirstHopRef = useRef(false);
   const deathCountRef = useRef(0);
 
+  // Combo system for consecutive dodges
+  const [comboCount, setComboCount] = useState(0);
+  const [comboMultiplier, setComboMultiplier] = useState(1);
+  const comboTimerRef = useRef(0);
+  const lastDodgeTimeRef = useRef(0);
+
   // Timing refs
   const lastMatrixRainRef = useRef(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -285,6 +291,12 @@ export default function CrossyRoad({ achievementManager, isMuted = false }: Cros
       magnet: 0,
       shield: false
     });
+
+    // Reset combo system
+    setComboCount(0);
+    setComboMultiplier(1);
+    comboTimerRef.current = 0;
+    lastDodgeTimeRef.current = 0;
 
     // Reset achievement tracking
     maxDistanceRef.current = 0;
@@ -406,7 +418,7 @@ export default function CrossyRoad({ achievementManager, isMuted = false }: Cros
   }, [activePowerUps, lives, playerPos, playSound, explode, score, highScore, updateGameSave, saveData]);
 
   // Check collision with obstacles
-  const checkCollision = useCallback((playerX: number, playerY: number): boolean => {
+  const checkCollision = useCallback((playerX: number, playerY: number, now: number): boolean => {
     const worldY = playerY + Math.floor(cameraOffset / CELL_SIZE);
     if (worldY < 0 || worldY >= lanes.length) return false;
 
@@ -422,24 +434,61 @@ export default function CrossyRoad({ achievementManager, isMuted = false }: Cros
 
       // Check for actual collision
       if (playerRight > obsLeft && playerLeft < obsRight) {
+        // Reset combo on hit (if not protected by shield/ghost)
+        setComboCount(0);
+        setComboMultiplier(1);
         return true;
       }
 
-      // Near miss tracking for dodge achievement - player narrowly avoided obstacle
+      // Near miss tracking for dodge achievement and combo system
       // Check if player just passed by obstacle edge (within 15px) without colliding
       const nearMissLeft = playerRight > obsLeft - 15 && playerRight <= obsLeft;
       const nearMissRight = playerLeft < obsRight + 15 && playerLeft >= obsRight;
 
       if (nearMissLeft || nearMissRight) {
-        dodgeCountRef.current++;
-        if (dodgeCountRef.current >= 10) {
-          unlockGameAchievement('crossy_dodge_10');
+        // Avoid counting the same dodge multiple times (300ms cooldown per obstacle)
+        if (now - lastDodgeTimeRef.current > 300) {
+          lastDodgeTimeRef.current = now;
+          dodgeCountRef.current++;
+
+          // Update combo system
+          setComboCount(prev => {
+            const newCount = prev + 1;
+
+            // Award combo bonus points (multiplied by current multiplier)
+            const comboBonus = Math.floor(5 * comboMultiplier);
+            setScore(s => s + comboBonus);
+
+            // Play combo sound at milestones
+            if (newCount % 5 === 0) {
+              playSound('combo');
+            }
+
+            return newCount;
+          });
+
+          // Increase multiplier at thresholds: 5 dodges = 2x, 10 = 3x, 20 = 4x, 30 = 5x
+          setComboMultiplier(prev => {
+            const newCount = dodgeCountRef.current;
+            if (newCount >= 30) return 5;
+            if (newCount >= 20) return 4;
+            if (newCount >= 10) return 3;
+            if (newCount >= 5) return 2;
+            return prev;
+          });
+
+          // Reset combo timer (combo expires after 3 seconds without a dodge)
+          comboTimerRef.current = now + 3000;
+
+          if (dodgeCountRef.current >= 10) {
+            unlockGameAchievement('crossy_dodge_10');
+          }
         }
       }
     }
 
     return false;
-  }, [lanes, cameraOffset, unlockGameAchievement]);
+  }, [lanes, cameraOffset, unlockGameAchievement, comboMultiplier, playSound]);
 
   // Keyboard handler
   useEffect(() => {
@@ -575,8 +624,15 @@ export default function CrossyRoad({ achievementManager, isMuted = false }: Cros
       }
     }
 
+    // Check and expire combo if no dodge for 3 seconds
+    if (comboTimerRef.current > 0 && now > comboTimerRef.current) {
+      setComboCount(0);
+      setComboMultiplier(1);
+      comboTimerRef.current = 0;
+    }
+
     // Check collision
-    if (checkCollision(playerPos.x, Math.floor(playerPos.y))) {
+    if (checkCollision(playerPos.x, Math.floor(playerPos.y), now)) {
       handleDeath();
     }
 
@@ -935,6 +991,13 @@ export default function CrossyRoad({ achievementManager, isMuted = false }: Cros
         <div className="absolute top-4 left-4 text-green-500">
           <p className="text-lg">Distance: {score}</p>
           <p className="text-sm text-green-600">High: {highScore}</p>
+          {comboCount > 0 && (
+            <div className="mt-1">
+              <p className={`text-xs font-bold ${comboMultiplier >= 4 ? 'text-yellow-400 animate-pulse' : comboMultiplier >= 2 ? 'text-orange-400' : 'text-green-400'}`}>
+                COMBO x{comboCount} ({comboMultiplier}x)
+              </p>
+            </div>
+          )}
           {activePowerUps.bulletTime > Date.now() && (
             <p className="text-yellow-400 text-xs animate-pulse">BULLET TIME</p>
           )}

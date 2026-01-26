@@ -9,13 +9,13 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 ## Completion Status
 
 - **Status**: IN PROGRESS - Phase 2 Final Polish (nearly complete)
-- **Last Assessment**: 26 January 2026 (CrossyRoad difficulty/animation, MatrixAscension enemy scaling/fuel gauge)
+- **Last Assessment**: 26 January 2026 (CrossyRoad combo system, MatrixAscension visual polish)
 - **Outstanding Critical Work**: None - all P0/P1 items resolved
 - **Test Coverage**: Hooks 100%, Production Games 100%, New Games Unit 90%+ (152 tests), E2E Visual 100% (11/11 games)
 - **Test Status**: ALL PASS (412 game tests total, SaveLoadManager 45 tests, SentientAIModal 29 tests)
-- **Build Status**: PASSES (warning: 668KB chunk exceeds 500KB limit)
+- **Build Status**: PASSES (warning: 669KB chunk exceeds 500KB limit)
 - **Spec Compliance**: 95%+ across all games (all critical mechanics now implemented)
-- **Notes**: All 11 games fully playable. P0/P1 complete. P2 mostly complete (CrossyRoad 4/5, MatrixAscension 3/6, JimmyMatrix 5/5). Remaining P2 items are optional visual polish and background audio loops.
+- **Notes**: All 11 games fully playable. P0/P1 complete. P2 mostly complete (CrossyRoad 5/5, MatrixAscension 6/6, JimmyMatrix 5/5). Remaining P2 items are optional background audio loops for AgentEscape.
 
 ---
 
@@ -196,30 +196,30 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ---
 
-#### 11. CrossyRoad - Difficulty and Feature Polish
+#### 11. CrossyRoad - Difficulty and Feature Polish ✓ COMPLETE (26 Jan 2026)
 
 **File:** `src/components/games/CrossyRoad.tsx`
 
-**Polish Required (non-blocking):**
+**All items resolved:**
 - [x] Add progressive difficulty scaling ✓ FIXED (26 Jan 2026) - Obstacle count now scales with distance: base 2-4 at start, 3-6 at distance 500+, with tighter gaps
 - [x] Add shield consumption visual feedback ✓ FIXED (26 Jan 2026) - Green particle burst on shield break via explode()
 - [x] Add Agent blinking eye animation ✓ FIXED (26 Jan 2026) - Agents blink every 2-3 seconds with pseudo-random timing per agent
 - [x] Add distinct sound per power-up type - ✓ Uses `powerupBulletTime`, `powerupGhost`, `powerupShield`, `powerupMagnet` (lines 629-646)
-- [ ] Add combo/multiplier system for consecutive dodges
+- [x] Add combo/multiplier system for consecutive dodges ✓ FIXED (26 Jan 2026) - Near-miss dodges build combo counter with score multiplier (2x at 5, 3x at 10, 4x at 20, 5x at 30), combo expires after 3s without dodge, HUD displays combo count and multiplier
 
 ---
 
-#### 12. MatrixAscension - Visual and Audio Polish
+#### 12. MatrixAscension - Visual and Audio Polish ✓ COMPLETE (26 Jan 2026)
 
 **File:** `src/components/games/MatrixAscension.tsx`
 
-**Polish Required (non-blocking):**
+**All items resolved:**
 - [x] Add jetpack fuel gauge visualisation ✓ FIXED (26 Jan 2026) - Added orange/yellow gradient progress bar with smooth transitions
-- [ ] Add spring platform compression animation (lines 697-704 render static; no compression on landing)
-- [ ] Add enemy death animation (lines 544, 590 set `active = false` instantly)
+- [x] Add spring platform compression animation ✓ FIXED (26 Jan 2026) - Springs compress on landing then bounce back with 200ms animation, visual height reduction
+- [x] Add enemy death animation ✓ FIXED (26 Jan 2026) - Enemies spin, scale down, turn red and fade out over 300ms when killed
 - [x] Add distinct shooting sound ✓ ALREADY FIXED - Line 322 uses 'shoot' sound (not 'jump')
 - [x] Scale enemy spawn rate progressively with altitude ✓ FIXED (26 Jan 2026) - Enemies now spawn starting at 500m with 3% chance, scaling to 20% at 5000m
-- [ ] Add parallax scrolling for matrix rain (lines 651-677: single layer, no depth parallax)
+- [x] Add parallax scrolling for matrix rain ✓ FIXED (26 Jan 2026) - Three depth layers with different speeds, sizes, and opacities creating parallax depth effect
 
 ---
 
@@ -384,9 +384,9 @@ const playSound = useCallback((sound: string) => {
 
 ---
 
-*Updated on 26 January 2026 15:57 UTC - ALL P0/P1 ITEMS COMPLETE*
+*Updated on 26 January 2026 16:40 UTC - ALL P0/P1 ITEMS COMPLETE, P2 NEAR COMPLETE*
 *All 11 games playable and production ready*
-*Build: PASSES (warning: 664KB chunk exceeds 500KB limit)*
+*Build: PASSES (warning: 669KB chunk exceeds 500KB limit)*
 *Tests: ALL PASS (412 game tests total)*
 *E2E Visual: 100% coverage (11/11 games with 47 new visual tests)*
 
@@ -408,3 +408,9 @@ const playSound = useCallback((sound: string) => {
 - MatrixAscension.test.tsx: 17 → 38 tests (+21 tests for state machine, achievements, HUD, shooting, platforms)
 - AgentEscape.test.tsx: 17 → 35 tests (+18 tests for state machine, achievements, HUD, movement, ghost AI)
 - JimmyMatrix.test.tsx: 22 → 43 tests (+21 tests for state machine, track selection, lane keys, note generation)
+
+**P2 VISUAL POLISH ✓ (26 Jan 2026 16:40 UTC):**
+- CrossyRoad combo system: Near-miss dodges build combo with score multiplier (2x-5x), 3s expiry timer, HUD display
+- MatrixAscension spring compression: 200ms bounce animation with visual height reduction
+- MatrixAscension enemy death: 300ms spin/scale/fade animation with colour change to red
+- MatrixAscension parallax rain: 3 depth layers with different speeds, sizes, and opacities
