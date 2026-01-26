@@ -166,7 +166,14 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
   // Hooks
   const { synthLaser, synthExplosion, synthPowerUp, synthDrum } = useSoundSynthesis();
   const { playSFX } = useSoundSystem();
-  const { saveData, updateGameSave } = useSaveSystem();
+  const { saveData, updateGameSave, unlockAchievement: unlockSaveAchievement } = useSaveSystem();
+
+  // Wrapper function for achievement unlocking that handles both UI notifications and persistence
+  // Following the CtrlSWorld pattern for dual-call achievement integration
+  const unlockGameAchievement = useCallback((achievementId: string) => {
+    achievementManager?.unlockAchievement('metris', achievementId);
+    unlockSaveAchievement('metris', achievementId);
+  }, [achievementManager, unlockSaveAchievement]);
 
   // Initialize empty grid
   const createEmptyGrid = (): Block[][] => {
@@ -359,9 +366,10 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       maxFilledRowsRef.current = filledRows;
 
       // Architect achievement: Build to 18 rows without clearing
-      if (filledRows >= 18 && !architectUnlockedRef.current && achievementManager) {
+      if (filledRows >= 18 && !architectUnlockedRef.current) {
         architectUnlockedRef.current = true;
-        achievementManager.unlockAchievement('metris', 'architect');
+        achievementManager?.unlockAchievement('metris', 'architect');
+        unlockSaveAchievement('metris', 'architect');
       }
     }
 
@@ -379,9 +387,10 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       tSpinCountRef.current++;
 
       // T-Spin Master achievement: Perform 5 T-spins
-      if (tSpinCountRef.current >= 5 && !tSpinMasterUnlockedRef.current && achievementManager) {
+      if (tSpinCountRef.current >= 5 && !tSpinMasterUnlockedRef.current) {
         tSpinMasterUnlockedRef.current = true;
-        achievementManager.unlockAchievement('metris', 't_spin_master');
+        achievementManager?.unlockAchievement('metris', 't_spin_master');
+        unlockSaveAchievement('metris', 't_spin_master');
       }
     }
 
@@ -440,7 +449,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
     glowRef.current = newGlowMap;
 
     return { newGrid, linesCleared: linesToClear.length, wasTSpin };
-  }, [achievementManager]);
+  }, [achievementManager, unlockSaveAchievement]);
 
   // Calculate score
   const calculateScore = (linesCleared: number, level: number, combo: number): number => {
@@ -531,20 +540,19 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
         bulletTimeEndRef.current = Date.now() + BULLET_TIME_DURATION;
 
         // Achievement
-        if (achievementManager) {
-          const currentCount = (saveData.games.metris.preferences?.bulletTimeCount as number) || 0;
-          const newBulletTimeCount = currentCount + 1;
+        const currentCount = (saveData.games.metris.preferences?.bulletTimeCount as number) || 0;
+        const newBulletTimeCount = currentCount + 1;
 
-          updateGameSave('metris', {
-            preferences: {
-              ...saveData.games.metris.preferences,
-              bulletTimeCount: newBulletTimeCount
-            }
-          });
-
-          if (newBulletTimeCount >= 10) {
-            achievementManager.unlockAchievement('metris', 'neos_apprentice');
+        updateGameSave('metris', {
+          preferences: {
+            ...saveData.games.metris.preferences,
+            bulletTimeCount: newBulletTimeCount
           }
+        });
+
+        if (newBulletTimeCount >= 10) {
+          achievementManager?.unlockAchievement('metris', 'neos_apprentice');
+          unlockSaveAchievement('metris', 'neos_apprentice');
         }
 
         return {
@@ -557,7 +565,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
 
       return prev;
     });
-  }, [achievementManager, saveData, updateGameSave, synthDrum, synthPowerUp, isMuted]);
+  }, [achievementManager, saveData, updateGameSave, synthDrum, synthPowerUp, isMuted, unlockSaveAchievement]);
 
   // Hard drop - instantly drop piece and lock
   const hardDrop = useCallback(() => {
@@ -662,29 +670,34 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
           }
         }
 
-        // Achievements
-        if (achievementManager) {
-          if (linesCleared === 1 && currentState.lines === 0) {
-            achievementManager.unlockAchievement('metris', 'first_line');
-          }
-          if (linesCleared === 4) {
-            achievementManager.unlockAchievement('metris', 'tetris');
-          }
-          if (newLevel >= 10) {
-            achievementManager.unlockAchievement('metris', 'level_10');
-          }
-          if (newScore >= 10000) {
-            achievementManager.unlockAchievement('metris', 'high_roller');
-          }
-          if (newLines >= 100) {
-            achievementManager.unlockAchievement('metris', 'line_clearer');
-          }
-          if (newCombo >= 5) {
-            achievementManager.unlockAchievement('metris', 'combo_king');
-          }
-          if (newLevel >= 20) {
-            achievementManager.unlockAchievement('metris', 'immortal');
-          }
+        // Achievements - using dual-call pattern for UI notifications and persistence
+        if (linesCleared === 1 && currentState.lines === 0) {
+          achievementManager?.unlockAchievement('metris', 'first_line');
+          unlockSaveAchievement('metris', 'first_line');
+        }
+        if (linesCleared === 4) {
+          achievementManager?.unlockAchievement('metris', 'tetris');
+          unlockSaveAchievement('metris', 'tetris');
+        }
+        if (newLevel >= 10) {
+          achievementManager?.unlockAchievement('metris', 'level_10');
+          unlockSaveAchievement('metris', 'level_10');
+        }
+        if (newScore >= 10000) {
+          achievementManager?.unlockAchievement('metris', 'high_roller');
+          unlockSaveAchievement('metris', 'high_roller');
+        }
+        if (newLines >= 100) {
+          achievementManager?.unlockAchievement('metris', 'line_clearer');
+          unlockSaveAchievement('metris', 'line_clearer');
+        }
+        if (newCombo >= 5) {
+          achievementManager?.unlockAchievement('metris', 'combo_king');
+          unlockSaveAchievement('metris', 'combo_king');
+        }
+        if (newLevel >= 20) {
+          achievementManager?.unlockAchievement('metris', 'immortal');
+          unlockSaveAchievement('metris', 'immortal');
         }
 
         // Sound
@@ -737,15 +750,17 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
           }, 100);
 
           // Marathon achievement: Survive 10 minutes
-          if (achievementManager && sessionTime >= 600) {
-            achievementManager.unlockAchievement('metris', 'marathon_runner');
+          if (sessionTime >= 600) {
+            achievementManager?.unlockAchievement('metris', 'marathon_runner');
+            unlockSaveAchievement('metris', 'marathon_runner');
           }
 
           // Perfect Start achievement: Reach level 5 or higher before game over
           // This is awarded when the player reaches level 5+, meaning they didn't game over before level 5
-          if (achievementManager && newLevel >= 5 && !perfectStartUnlockedRef.current) {
+          if (newLevel >= 5 && !perfectStartUnlockedRef.current) {
             perfectStartUnlockedRef.current = true;
-            achievementManager.unlockAchievement('metris', 'perfect_start');
+            achievementManager?.unlockAchievement('metris', 'perfect_start');
+            unlockSaveAchievement('metris', 'perfect_start');
           }
         }
 
@@ -767,7 +782,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
         };
       }
     });
-  }, [checkCollision, lockPiece, clearLines, createPiece, achievementManager, synthExplosion, synthPowerUp, synthDrum, playSFX, isMuted]);
+  }, [checkCollision, lockPiece, clearLines, createPiece, achievementManager, synthExplosion, synthPowerUp, synthDrum, playSFX, isMuted, unlockSaveAchievement]);
 
   // Restart game
   const restart = useCallback(() => {
