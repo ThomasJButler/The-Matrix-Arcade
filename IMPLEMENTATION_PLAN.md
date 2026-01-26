@@ -8,14 +8,14 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ## Completion Status
 
-- **Status**: IN PROGRESS - Phase 2 Final Polish
-- **Last Assessment**: 26 January 2026 (AgentEscape ghost speed/difficulty scaling)
+- **Status**: IN PROGRESS - Phase 2 Final Polish (nearly complete)
+- **Last Assessment**: 26 January 2026 (CrossyRoad difficulty/animation, MatrixAscension enemy scaling/fuel gauge)
 - **Outstanding Critical Work**: None - all P0/P1 items resolved
 - **Test Coverage**: Hooks 100%, Production Games 100%, New Games Unit 90%+ (152 tests), E2E Visual 100% (11/11 games)
 - **Test Status**: ALL PASS (412 game tests total, SaveLoadManager 45 tests, SentientAIModal 29 tests)
-- **Build Status**: PASSES (warning: 666KB chunk exceeds 500KB limit)
+- **Build Status**: PASSES (warning: 668KB chunk exceeds 500KB limit)
 - **Spec Compliance**: 95%+ across all games (all critical mechanics now implemented)
-- **Notes**: All 11 games fully playable. All P0/P1 items complete. P2 sound integration complete. JimmyMatrix audio/visual polish complete. Remaining work is P2 visual/audio polish only (CrossyRoad, MatrixAscension, AgentEscape background sounds).
+- **Notes**: All 11 games fully playable. P0/P1 complete. P2 mostly complete (CrossyRoad 4/5, MatrixAscension 3/6, JimmyMatrix 5/5). Remaining P2 items are optional visual polish and background audio loops.
 
 ---
 
