@@ -9,7 +9,7 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 ## Completion Status
 
 - **Status**: IN PROGRESS - Phase 2 Final Polish
-- **Last Assessment**: 26 January 2026 16:22 UTC (JimmyMatrix track-ending warning + animated menu rain)
+- **Last Assessment**: 26 January 2026 (AgentEscape ghost speed/difficulty scaling)
 - **Outstanding Critical Work**: None - all P0/P1 items resolved
 - **Test Coverage**: Hooks 100%, Production Games 100%, New Games Unit 90%+ (152 tests), E2E Visual 100% (11/11 games)
 - **Test Status**: ALL PASS (412 game tests total, SaveLoadManager 45 tests, SentientAIModal 29 tests)
@@ -179,7 +179,7 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 - [x] Add staggered ghost release from house - Smith starts active, Brown at 3s, Jones at 7s, Johnson at 12s ✓ (26 Jan 2026)
 - [ ] Add continuous background siren during chase mode
 - [ ] Add waka-waka eating sound loop (line 652 plays single 'score' on dot collect)
-- [ ] Scale ghost speed/AI difficulty with level (GHOST_SPEED constant lines 38-39 is fixed)
+- [x] Scale ghost speed/AI difficulty with level ✓ FIXED (26 Jan 2026) - Added getLevelDifficulty() function with 8% speed increase per level (capping at level 7) and decreasing frightened duration (min 3s)
 
 ---
 

@@ -35,14 +35,24 @@ const GRID_ROWS = 31;
 const CANVAS_WIDTH = GRID_COLS * CELL_SIZE;
 const CANVAS_HEIGHT = GRID_ROWS * CELL_SIZE;
 const PLAYER_SPEED = 0.15;
-const GHOST_SPEED = 0.12;
-const FRIGHTENED_SPEED = 0.08;
+const BASE_GHOST_SPEED = 0.12;
+const BASE_FRIGHTENED_SPEED = 0.08;
 const DOT_POINTS = 10;
 const POWER_PELLET_POINTS = 50;
 const GHOST_POINTS = [200, 400, 800, 1600];
-const FRIGHTENED_DURATION = 10000;
+const BASE_FRIGHTENED_DURATION = 10000;
 const SCATTER_DURATION = 7000;
 const CHASE_DURATION = 20000;
+
+// Level-based difficulty scaling (authentic Pacman progression)
+// Returns multiplier for ghost speed and adjusted frightened duration
+const getLevelDifficulty = (level: number): { speedMult: number; frightenedDuration: number } => {
+  // Ghost speed increases ~8% per level, capping at level 7
+  const speedMult = 1 + Math.min(level - 1, 6) * 0.08;
+  // Frightened duration decreases by 1s per level, minimum 3s
+  const frightenedDuration = Math.max(3000, BASE_FRIGHTENED_DURATION - (level - 1) * 1000);
+  return { speedMult, frightenedDuration };
+};
 
 // Direction vectors
 const DIRECTIONS = {
@@ -723,8 +733,9 @@ export default function AgentEscape({ achievementManager, isMuted = false }: Age
         setDotsRemaining(prev => prev - 1);
         playSound('powerup');
 
-        // Frighten ghosts
-        frightenedTimerRef.current = now + FRIGHTENED_DURATION;
+        // Frighten ghosts (duration scales with level)
+        const { frightenedDuration } = getLevelDifficulty(level);
+        frightenedTimerRef.current = now + frightenedDuration;
         ghostsEatenRef.current = 0;
         ghostsRef.current.forEach(ghost => {
           if (ghost.mode !== 'eaten') {
@@ -766,8 +777,11 @@ export default function AgentEscape({ achievementManager, isMuted = false }: Age
       }
 
       updateGhostTarget(ghost, player);
-      const speed = ghost.mode === 'frightened' ? FRIGHTENED_SPEED :
-                    ghost.mode === 'eaten' ? GHOST_SPEED * 2 : GHOST_SPEED;
+      // Apply level-based speed scaling
+      const { speedMult } = getLevelDifficulty(level);
+      const baseSpeed = ghost.mode === 'frightened' ? BASE_FRIGHTENED_SPEED :
+                        ghost.mode === 'eaten' ? BASE_GHOST_SPEED * 2 : BASE_GHOST_SPEED;
+      const speed = baseSpeed * speedMult;
       moveGhost(ghost, speed);
 
       // Check collision with player
