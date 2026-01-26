@@ -219,8 +219,11 @@ export default function MatrixAscension({ achievementManager, isMuted = false }:
         moveSpeed: type === 'moving' ? 1 + Math.random() * 2 : undefined
       });
 
-      // Occasionally add enemies at higher altitudes
-      if (baseAltitude > 1000 && Math.random() < 0.1) {
+      // Progressive enemy spawn rate based on altitude
+      // Enemies start appearing at 500m with 3% chance, scaling to 20% at 5000m
+      const enemySpawnChance = baseAltitude < 500 ? 0 :
+        Math.min(0.03 + (baseAltitude - 500) * 0.000034, 0.20);
+      if (Math.random() < enemySpawnChance) {
         enemiesRef.current.push({
           x: Math.random() * (CANVAS_WIDTH - 30),
           y: y - 30,

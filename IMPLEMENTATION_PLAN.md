@@ -201,9 +201,9 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 **File:** `src/components/games/CrossyRoad.tsx`
 
 **Polish Required (non-blocking):**
-- [ ] Add progressive difficulty scaling (only speed scales via line 122; obstacle count fixed at 2-4 per lane)
-- [ ] Add shield consumption visual feedback (line 373 plays sound only; no particles/flash when shield blocks hit)
-- [ ] Add Agent blinking eye animation (lines 682-688 render static eyes)
+- [x] Add progressive difficulty scaling ✓ FIXED (26 Jan 2026) - Obstacle count now scales with distance: base 2-4 at start, 3-6 at distance 500+, with tighter gaps
+- [x] Add shield consumption visual feedback ✓ FIXED (26 Jan 2026) - Green particle burst on shield break via explode()
+- [x] Add Agent blinking eye animation ✓ FIXED (26 Jan 2026) - Agents blink every 2-3 seconds with pseudo-random timing per agent
 - [x] Add distinct sound per power-up type - ✓ Uses `powerupBulletTime`, `powerupGhost`, `powerupShield`, `powerupMagnet` (lines 629-646)
 - [ ] Add combo/multiplier system for consecutive dodges
 
@@ -217,8 +217,8 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 - [ ] Add jetpack fuel gauge visualisation (lines 908-910 show text only, no visual bar)
 - [ ] Add spring platform compression animation (lines 697-704 render static; no compression on landing)
 - [ ] Add enemy death animation (lines 544, 590 set `active = false` instantly)
-- [ ] Add distinct shooting sound (line 322 uses 'jump' sound)
-- [ ] Scale enemy spawn rate progressively with altitude (lines 223-233: binary 0%/10% threshold at altitude 1000)
+- [x] Add distinct shooting sound ✓ ALREADY FIXED - Line 322 uses 'shoot' sound (not 'jump')
+- [x] Scale enemy spawn rate progressively with altitude ✓ FIXED (26 Jan 2026) - Enemies now spawn starting at 500m with 3% chance, scaling to 20% at 5000m
 - [ ] Add parallax scrolling for matrix rain (lines 651-677: single layer, no depth parallax)
 
 ---

@@ -150,10 +150,13 @@ const generateLane = (rowIndex: number, distance: number): Lane => {
     obstacleType = 'train';
   }
 
-  // Generate obstacles for lane
-  const obstacleCount = 2 + Math.floor(Math.random() * 3);
+  // Generate obstacles for lane - count increases with distance for progressive difficulty
+  // Base: 2-4 obstacles, scaling to 3-6 at distance 500+
+  const difficultyTier = Math.min(Math.floor(distance / 200), 3); // 0-3 tiers
+  const baseCount = 2 + difficultyTier;
+  const obstacleCount = baseCount + Math.floor(Math.random() * (2 + difficultyTier));
   const obstacles: Obstacle[] = [];
-  const minGap = 80; // Minimum gap between obstacles
+  const minGap = Math.max(50, 80 - difficultyTier * 10); // Tighter gaps at higher difficulty
 
   for (let i = 0; i < obstacleCount; i++) {
     const width = obstacleType === 'train' ? 120 : (20 + Math.random() * 40);
@@ -371,6 +374,8 @@ export default function CrossyRoad({ achievementManager, isMuted = false }: Cros
     if (activePowerUps.shield) {
       setActivePowerUps(prev => ({ ...prev, shield: false }));
       playSound('hit');
+      // Shield break visual feedback - green particle burst around player
+      explode(playerPos.x * CELL_SIZE + CELL_SIZE / 2, playerPos.y * CELL_SIZE + CELL_SIZE / 2, '#00FF00');
       return;
     }
 
@@ -716,8 +721,14 @@ export default function CrossyRoad({ achievementManager, isMuted = false }: Cros
           // Agent: humanoid shape
           ctx.fillRect(obstacle.x + 5, y + 2, obstacle.width - 10, CELL_SIZE - 4);
           ctx.fillStyle = '#000000';
-          ctx.fillRect(obstacle.x + 8, y + 4, 3, 3); // Eye
-          ctx.fillRect(obstacle.x + obstacle.width - 15, y + 4, 3, 3); // Eye
+          // Animated blinking eyes - blink for 100ms every 2-3 seconds (randomised per agent)
+          const blinkCycle = 2500 + ((obstacle.x * 17) % 1000); // Pseudo-random blink timing per agent
+          const blinkPhase = timestamp % blinkCycle;
+          const isBlinking = blinkPhase < 100;
+          const eyeHeight = isBlinking ? 1 : 3;
+          const eyeY = isBlinking ? y + 5 : y + 4;
+          ctx.fillRect(obstacle.x + 8, eyeY, 3, eyeHeight); // Left eye
+          ctx.fillRect(obstacle.x + obstacle.width - 15, eyeY, 3, eyeHeight); // Right eye
         } else if (obstacle.type === 'sentinel') {
           // Sentinel: mechanical spider shape
           ctx.beginPath();
