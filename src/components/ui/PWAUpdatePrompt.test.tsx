@@ -183,4 +183,5 @@ describe('PWAUpdatePrompt - No Update Available', () => {
   // Note: Due to module caching, this test may not work as expected
   // in all scenarios. The component behaviour when needRefresh is false
   // is tested through the AnimatePresence not rendering children
+  it.todo('does not render when no update is available (module caching limitation)');
 });
