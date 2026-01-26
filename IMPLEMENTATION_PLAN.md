@@ -9,13 +9,13 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 ## Completion Status
 
 - **Status**: IN PROGRESS - Phase 2 Final Polish
-- **Last Assessment**: 26 January 2026 16:08 UTC (Sound integration complete for all 4 new games)
+- **Last Assessment**: 26 January 2026 16:17 UTC (AgentEscape ghost AI polish: frightened flashing + staggered release)
 - **Outstanding Critical Work**: None - all P0/P1 items resolved
 - **Test Coverage**: Hooks 100%, Production Games 100%, New Games Unit 90%+ (152 tests), E2E Visual 100% (11/11 games)
 - **Test Status**: ALL PASS (412 game tests total, SaveLoadManager 45 tests, SentientAIModal 29 tests)
 - **Build Status**: PASSES (warning: 666KB chunk exceeds 500KB limit)
 - **Spec Compliance**: 95%+ across all games (all critical mechanics now implemented)
-- **Notes**: All 11 games fully playable. All P0/P1 items complete. P2 sound integration for new games complete. Remaining work is P2 visual polish only.
+- **Notes**: All 11 games fully playable. All P0/P1 items complete. P2 sound integration complete. AgentEscape ghost polish (2 items) complete. Remaining work is P2 visual/audio polish only.
 
 ---
 
@@ -175,8 +175,8 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 **File:** `src/components/games/AgentEscape.tsx`
 
 **Polish Required (non-blocking):**
-- [ ] Add frightened mode flashing warning (lines 583-592 end mode without visual warning in last 2-3 seconds)
-- [ ] Add staggered ghost release from house (initGhosts lines 230-293 initialises all at once)
+- [x] Add frightened mode flashing warning - ghosts flash blue/white in last 3 seconds, pupils flash red ✓ (26 Jan 2026)
+- [x] Add staggered ghost release from house - Smith starts active, Brown at 3s, Jones at 7s, Johnson at 12s ✓ (26 Jan 2026)
 - [ ] Add continuous background siren during chase mode
 - [ ] Add waka-waka eating sound loop (line 652 plays single 'score' on dot collect)
 - [ ] Scale ghost speed/AI difficulty with level (GHOST_SPEED constant lines 38-39 is fixed)

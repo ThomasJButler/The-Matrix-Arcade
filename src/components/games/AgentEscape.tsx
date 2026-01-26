@@ -118,6 +118,8 @@ interface Ghost {
   mode: GhostMode;
   scatterTarget: Position;
   homeTarget: Position;
+  releaseTime: number; // Timestamp when ghost exits the house
+  inHouse: boolean;    // Whether ghost is still in the starting house
 }
 
 interface Player {
@@ -251,8 +253,10 @@ export default function AgentEscape({ achievementManager, isMuted = false }: Age
     return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
   };
 
-  // Initialise ghosts
+  // Initialise ghosts with staggered release times
+  // Smith starts outside immediately, others release after delay (like classic Pacman)
   const initGhosts = useCallback(() => {
+    const now = Date.now();
     ghostsRef.current = [
       {
         id: 'smith',
@@ -260,13 +264,15 @@ export default function AgentEscape({ achievementManager, isMuted = false }: Age
         colour: '#FFFFFF',
         frightenedColour: '#0000FF',
         x: 14,
-        y: 11,
+        y: 11,          // Starts outside ghost house
         targetX: 14,
         targetY: 23,
-        direction: 'up',
+        direction: 'left',
         mode: 'scatter',
         scatterTarget: { x: GRID_COLS - 3, y: -2 },
-        homeTarget: { x: 14, y: 14 }
+        homeTarget: { x: 14, y: 14 },
+        releaseTime: now, // Immediately active
+        inHouse: false
       },
       {
         id: 'brown',
@@ -274,13 +280,15 @@ export default function AgentEscape({ achievementManager, isMuted = false }: Age
         colour: '#8B4513',
         frightenedColour: '#0000FF',
         x: 12,
-        y: 14,
+        y: 14,          // Inside ghost house
         targetX: 14,
         targetY: 23,
         direction: 'up',
         mode: 'scatter',
         scatterTarget: { x: 2, y: -2 },
-        homeTarget: { x: 12, y: 14 }
+        homeTarget: { x: 12, y: 14 },
+        releaseTime: now + 3000, // Release after 3 seconds
+        inHouse: true
       },
       {
         id: 'jones',
@@ -288,13 +296,15 @@ export default function AgentEscape({ achievementManager, isMuted = false }: Age
         colour: '#0088FF',
         frightenedColour: '#0000FF',
         x: 14,
-        y: 14,
+        y: 14,          // Inside ghost house
         targetX: 14,
         targetY: 23,
         direction: 'up',
         mode: 'scatter',
         scatterTarget: { x: GRID_COLS - 1, y: GRID_ROWS + 2 },
-        homeTarget: { x: 14, y: 14 }
+        homeTarget: { x: 14, y: 14 },
+        releaseTime: now + 7000, // Release after 7 seconds
+        inHouse: true
       },
       {
         id: 'johnson',
@@ -302,17 +312,19 @@ export default function AgentEscape({ achievementManager, isMuted = false }: Age
         colour: '#808080',
         frightenedColour: '#0000FF',
         x: 16,
-        y: 14,
+        y: 14,          // Inside ghost house
         targetX: 14,
         targetY: 23,
         direction: 'up',
         mode: 'scatter',
         scatterTarget: { x: 0, y: GRID_ROWS + 2 },
-        homeTarget: { x: 16, y: 14 }
+        homeTarget: { x: 16, y: 14 },
+        releaseTime: now + 12000, // Release after 12 seconds
+        inHouse: true
       }
     ];
     ghostModeRef.current = 'scatter';
-    ghostModeTimerRef.current = Date.now();
+    ghostModeTimerRef.current = now;
     frightenedTimerRef.current = 0;
     ghostsEatenRef.current = 0;
   }, []);
@@ -526,6 +538,9 @@ export default function AgentEscape({ achievementManager, isMuted = false }: Age
     if (ghost.mode === 'eaten' &&
         Math.abs(ghost.x - ghost.homeTarget.x) < 0.5 &&
         Math.abs(ghost.y - ghost.homeTarget.y) < 0.5) {
+      // Brief pause in house before re-emerging (1 second delay)
+      ghost.inHouse = true;
+      ghost.releaseTime = Date.now() + 1000;
       ghost.mode = ghostModeRef.current === 'scatter' ? 'scatter' : 'chase';
     }
   }, [isWalkable]);
@@ -620,6 +635,10 @@ export default function AgentEscape({ achievementManager, isMuted = false }: Age
       });
       ghostsEatenRef.current = 0;
     }
+
+    // Calculate time remaining in frightened mode (for flashing warning)
+    const frightenedTimeRemaining = frightenedTimerRef.current > 0 ? frightenedTimerRef.current - now : 0;
+    const isFrightenedFlashing = frightenedTimeRemaining > 0 && frightenedTimeRemaining < 3000;
 
     // Update scatter/chase mode
     const timeSinceMode = now - ghostModeTimerRef.current;
@@ -730,6 +749,22 @@ export default function AgentEscape({ achievementManager, isMuted = false }: Age
 
     // Update ghosts
     ghostsRef.current.forEach(ghost => {
+      // Handle staggered ghost release from house
+      if (ghost.inHouse) {
+        if (now >= ghost.releaseTime) {
+          // Time to exit the house
+          ghost.inHouse = false;
+          ghost.x = 14; // Move to house exit position
+          ghost.y = 11; // Exit point above ghost house
+          ghost.direction = 'left';
+        } else {
+          // Bob up and down while waiting in house
+          const bobOffset = Math.sin(now / 300) * 0.3;
+          ghost.y = ghost.homeTarget.y + bobOffset;
+          return; // Skip normal movement and collision while in house
+        }
+      }
+
       updateGhostTarget(ghost, player);
       const speed = ghost.mode === 'frightened' ? FRIGHTENED_SPEED :
                     ghost.mode === 'eaten' ? GHOST_SPEED * 2 : GHOST_SPEED;
@@ -833,11 +868,11 @@ export default function AgentEscape({ achievementManager, isMuted = false }: Age
     });
 
     // Render
-    render(ctx, now);
+    render(ctx, now, isFrightenedFlashing);
   });
 
   // Render function
-  const render = useCallback((ctx: CanvasRenderingContext2D, _timestamp: number) => {
+  const render = useCallback((ctx: CanvasRenderingContext2D, timestamp: number, isFrightenedFlashing: boolean) => {
     const player = playerRef.current;
 
     // Clear canvas
@@ -950,8 +985,20 @@ export default function AgentEscape({ achievementManager, isMuted = false }: Age
         ctx.arc(gx + 15, gy + 9, 2, 0, Math.PI * 2);
         ctx.fill();
       } else {
-        // Full ghost
-        ctx.fillStyle = ghost.mode === 'frightened' ? ghost.frightenedColour : ghost.colour;
+        // Full ghost - determine colour based on mode and flashing state
+        let ghostColour: string;
+        if (ghost.mode === 'frightened') {
+          // Flash between blue and white in last 3 seconds of frightened mode
+          if (isFrightenedFlashing && Math.floor(timestamp / 200) % 2 === 0) {
+            ghostColour = '#FFFFFF'; // Flash white
+          } else {
+            ghostColour = ghost.frightenedColour; // Blue
+          }
+        } else {
+          ghostColour = ghost.colour;
+        }
+
+        ctx.fillStyle = ghostColour;
         ctx.shadowBlur = 8;
         ctx.shadowColor = ctx.fillStyle as string;
 
@@ -966,13 +1013,16 @@ export default function AgentEscape({ achievementManager, isMuted = false }: Age
         }
         ctx.fill();
 
-        // Eyes
+        // Eyes - also flash when frightened mode ending
         ctx.fillStyle = '#FFFFFF';
         ctx.beginPath();
         ctx.arc(gx + 6, gy + 8, 3, 0, Math.PI * 2);
         ctx.arc(gx + 14, gy + 8, 3, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = ghost.mode === 'frightened' ? '#FFFFFF' : '#0000FF';
+        // Pupils - flash colour indicates frightened mode ending
+        ctx.fillStyle = ghost.mode === 'frightened'
+          ? (isFrightenedFlashing && Math.floor(timestamp / 200) % 2 === 0 ? '#FF0000' : '#FFFFFF')
+          : '#0000FF';
         ctx.beginPath();
         ctx.arc(gx + 7, gy + 9, 1.5, 0, Math.PI * 2);
         ctx.arc(gx + 15, gy + 9, 1.5, 0, Math.PI * 2);
