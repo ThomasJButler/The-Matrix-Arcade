@@ -19,6 +19,7 @@ interface AchievementManager {
 interface CtrlSWorldProps {
   achievementManager?: AchievementManager;
   isMuted?: boolean;
+  autoStart?: boolean;
 }
 
 // State machine types - reduces 12 boolean flags to 2 enums + 4 booleans
@@ -407,7 +408,7 @@ const INFO_CONTENT = [
   "A portfolio piece demonstrating TypeScript, React, and creative storytelling."
 ];
 
-export default function CtrlSWorld({ achievementManager, isMuted = false }: CtrlSWorldProps) {
+export default function CtrlSWorld({ achievementManager, isMuted = false, autoStart = false }: CtrlSWorldProps) {
   const [currentNode, setCurrentNode] = useState(0);
   const [displayedTexts, setDisplayedTexts] = useState<string[]>([]);
   const [displayedTextIndices, setDisplayedTextIndices] = useState<number[]>([]); // Track paragraph indices for inline ASCII
@@ -417,7 +418,8 @@ export default function CtrlSWorld({ achievementManager, isMuted = false }: Ctrl
   const [currentText, setCurrentText] = useState('');
 
   // State machine: GamePhase replaces isStarted, isGameComplete, showChapterHub
-  const [gamePhase, setGamePhase] = useState<GamePhase>('command_prompt');
+  // Auto-start directly into chapter_hub state if autoStart prop is true (skip command_prompt)
+  const [gamePhase, setGamePhase] = useState<GamePhase>(autoStart ? 'chapter_hub' : 'command_prompt');
 
   // State machine: ActiveModal replaces showPuzzle, showSaveManager, showAudioSettings, showInventory, showInfo
   const [activeModal, setActiveModal] = useState<ActiveModal>('none');

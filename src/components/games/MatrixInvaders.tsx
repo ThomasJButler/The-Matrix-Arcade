@@ -72,17 +72,19 @@ interface AchievementManager {
 interface MatrixInvadersProps {
   achievementManager?: AchievementManager;
   isMuted?: boolean;
+  autoStart?: boolean;
 }
 
-export default function MatrixInvaders({ achievementManager, isMuted = false }: MatrixInvadersProps) {
+export default function MatrixInvaders({ achievementManager, isMuted = false, autoStart = false }: MatrixInvadersProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
   const keysRef = useRef<Set<string>>(new Set());
   const lastFireRef = useRef<number>(0);
   const matrixRainRef = useRef<{ x: number; y: number; char: string; speed: number }[]>([]);
+  const autoStartRef = useRef(autoStart);
   const renderTimeRef = useRef<number>(0); // Track animation time for render effects
   
-  // State
+  // State - auto-start directly into playing state if autoStart prop is true
   const [state, setState] = useState<GameState>({
     player: {
       x: CANVAS_WIDTH / 2 - PLAYER_WIDTH / 2,
@@ -95,7 +97,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
     },
     score: 0,
     wave: 1,
-    gamePhase: 'menu',
+    gamePhase: autoStart ? 'playing' : 'menu',
     combo: 0,
     highScore: 0,
     bulletTimeActive: false,
@@ -814,6 +816,13 @@ export default function MatrixInvaders({ achievementManager, isMuted = false }: 
     spawnWave(1);
     sessionStartTimeRef.current = Date.now();
   }, [spawnWave]);
+
+  // Auto-start on mount if autoStart prop is true
+  useEffect(() => {
+    if (autoStartRef.current) {
+      startGame();
+    }
+  }, [startGame]);
 
   // Reset game
   const resetGame = useCallback(() => {

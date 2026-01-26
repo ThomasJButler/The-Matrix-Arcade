@@ -185,15 +185,17 @@ interface AchievementManager {
 interface MatrixCloudProps {
   achievementManager?: AchievementManager;
   isMuted?: boolean;
+  autoStart?: boolean;
 }
 
-export default function MatrixCloud({ achievementManager, isMuted = false }: MatrixCloudProps) {
+export default function MatrixCloud({ achievementManager, isMuted = false, autoStart = false }: MatrixCloudProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
   const screenShakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Use ref for particles to avoid recreating objects every frame (performance optimisation)
   const particlesRef = useRef<Particle[]>([]);
+  const autoStartRef = useRef(autoStart);
   // Timeout refs for cleanup - prevents memory leaks when component unmounts
   const achievementTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -229,9 +231,10 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
   const bossesDefeated = useRef(new Set<string>());
   const maxAltitude = useRef(0);
 
-  // Initialize state with saved high score
+  // Initialize state with saved high score - auto-start directly into playing state if autoStart prop is true
   const [state, setState] = useState<GameState>(() => ({
     ...initialGameState,
+    gamePhase: autoStart ? 'playing' : 'menu',
     highScore: saveData?.games?.matrixCloud?.highScore || 0
   }));
 
@@ -482,6 +485,13 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
       addScreenShake(3);
     }
   }, [state.gamePhase, playSFX, addScreenShake, unlockAchievement, isMuted]);
+
+  // Auto-start on mount if autoStart prop is true
+  useEffect(() => {
+    if (autoStartRef.current) {
+      jump();
+    }
+  }, [jump]);
 
   const reset = useCallback(() => {
     if (animationFrameRef.current) {
