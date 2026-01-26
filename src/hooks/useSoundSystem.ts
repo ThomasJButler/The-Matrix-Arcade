@@ -187,6 +187,149 @@ const SOUND_LIBRARY: Record<string, SoundEffect> = {
     release: 0.3,
     filterType: 'lowpass',
     filterFreq: 600
+  },
+
+  // CrossyRoad distinct power-up sounds
+  powerupBulletTime: {
+    type: 'powerupBulletTime',
+    frequency: { start: 880, end: 440 },
+    oscillatorType: 'sine',
+    duration: 0.5,
+    attack: 0.05,
+    decay: 0.15,
+    sustain: 0.5,
+    release: 0.3,
+    filterType: 'lowpass',
+    filterFreq: 1200,
+    reverb: true
+  },
+  powerupGhost: {
+    type: 'powerupGhost',
+    frequency: { start: 300, end: 600 },
+    oscillatorType: 'triangle',
+    duration: 0.6,
+    attack: 0.1,
+    decay: 0.2,
+    sustain: 0.4,
+    release: 0.3,
+    filterType: 'bandpass',
+    filterFreq: 800,
+    reverb: true
+  },
+  powerupShield: {
+    type: 'powerupShield',
+    frequency: { start: 523, end: 1046 },
+    oscillatorType: 'square',
+    duration: 0.35,
+    attack: 0.02,
+    decay: 0.1,
+    sustain: 0.6,
+    release: 0.23,
+    filterType: 'highpass',
+    filterFreq: 400
+  },
+  powerupMagnet: {
+    type: 'powerupMagnet',
+    frequency: { start: 196, end: 392 },
+    oscillatorType: 'sawtooth',
+    duration: 0.4,
+    attack: 0.05,
+    decay: 0.1,
+    sustain: 0.5,
+    release: 0.25,
+    filterType: 'bandpass',
+    filterFreq: 600
+  },
+
+  // MatrixAscension shooting sound
+  shoot: {
+    type: 'shoot',
+    frequency: { start: 1200, end: 300 },
+    oscillatorType: 'sawtooth',
+    duration: 0.15,
+    attack: 0.001,
+    decay: 0.05,
+    sustain: 0.2,
+    release: 0.099,
+    filterType: 'bandpass',
+    filterFreq: 1800
+  },
+
+  // JimmyMatrix rhythm game sounds
+  rhythmMiss: {
+    type: 'rhythmMiss',
+    frequency: { start: 200, end: 100 },
+    oscillatorType: 'sawtooth',
+    duration: 0.2,
+    attack: 0.01,
+    decay: 0.05,
+    sustain: 0.1,
+    release: 0.14,
+    filterType: 'lowpass',
+    filterFreq: 350
+  },
+  rhythmGood: {
+    type: 'rhythmGood',
+    frequency: { start: 440, end: 550 },
+    oscillatorType: 'sine',
+    duration: 0.12,
+    attack: 0.01,
+    decay: 0.03,
+    sustain: 0.4,
+    release: 0.08,
+    filterType: 'bandpass',
+    filterFreq: 900
+  },
+  rhythmPerfect: {
+    type: 'rhythmPerfect',
+    frequency: { start: 880, end: 1100 },
+    oscillatorType: 'triangle',
+    duration: 0.18,
+    attack: 0.01,
+    decay: 0.05,
+    sustain: 0.5,
+    release: 0.12,
+    filterType: 'bandpass',
+    filterFreq: 1500
+  },
+  rhythmCombo: {
+    type: 'rhythmCombo',
+    frequency: { start: 523, end: 784 },
+    oscillatorType: 'square',
+    duration: 0.3,
+    attack: 0.02,
+    decay: 0.1,
+    sustain: 0.6,
+    release: 0.18,
+    filterType: 'bandpass',
+    filterFreq: 1200,
+    reverb: true
+  },
+
+  // AgentEscape sounds
+  wakaWaka: {
+    type: 'wakaWaka',
+    frequency: { start: 600, end: 400 },
+    oscillatorType: 'square',
+    duration: 0.08,
+    attack: 0.005,
+    decay: 0.02,
+    sustain: 0.3,
+    release: 0.055,
+    filterType: 'bandpass',
+    filterFreq: 800
+  },
+  ghostEat: {
+    type: 'ghostEat',
+    frequency: { start: 200, end: 800 },
+    oscillatorType: 'square',
+    duration: 0.4,
+    attack: 0.01,
+    decay: 0.15,
+    sustain: 0.5,
+    release: 0.24,
+    filterType: 'bandpass',
+    filterFreq: 1200
   }
 };
 

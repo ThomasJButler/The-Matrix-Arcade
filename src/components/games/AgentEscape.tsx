@@ -679,7 +679,7 @@ export default function AgentEscape({ achievementManager, isMuted = false }: Age
         });
         setDotsRemaining(prev => prev - 1);
         unlockGameAchievement('pacman_first_dot');
-        playSound('score');
+        playSound('wakaWaka');
         collectFood(currentX * CELL_SIZE + CELL_SIZE / 2, currentY * CELL_SIZE + CELL_SIZE / 2, '#FF0000');
 
         // Track dots eaten for fruit spawning
@@ -746,7 +746,7 @@ export default function AgentEscape({ achievementManager, isMuted = false }: Age
           setScore(prev => prev + points);
           ghostsEatenRef.current++;
           totalGhostsEatenRef.current++;
-          playSound('hit');
+          playSound('ghostEat');
           explode(ghost.x * CELL_SIZE + CELL_SIZE / 2, ghost.y * CELL_SIZE + CELL_SIZE / 2, ghost.colour);
           unlockGameAchievement('pacman_eat_ghost');
 

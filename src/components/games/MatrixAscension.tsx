@@ -319,7 +319,7 @@ export default function MatrixAscension({ achievementManager, isMuted = false }:
     });
 
     shotsFiredRef.current++;
-    playSound('jump');
+    playSound('shoot');
   }, [gamePhase, playSound]);
 
   // Keyboard handlers

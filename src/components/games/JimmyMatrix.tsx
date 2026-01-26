@@ -375,16 +375,17 @@ export default function JimmyMatrix({ achievementManager, isMuted = false }: Jim
           case 'perfect':
             points = PERFECT_SCORE;
             setPerfectCount(c => c + 1);
-            playSound('score');
+            playSound('rhythmPerfect');
             break;
           case 'great':
             points = GREAT_SCORE;
             setGreatCount(c => c + 1);
-            playSound('select');
+            playSound('score');
             break;
           case 'good':
             points = GOOD_SCORE;
             setGoodCount(c => c + 1);
+            playSound('rhythmGood');
             break;
         }
 
@@ -420,7 +421,7 @@ export default function JimmyMatrix({ achievementManager, isMuted = false }: Jim
     nextNoteTimeRef.current = [0, 0, 0, 0];
     particles.clear();
     setGamePhase('playing');
-    playSound('powerUp');
+    playSound('levelUp');
   }, [playSound, particles]);
 
   // End track
@@ -511,6 +512,7 @@ export default function JimmyMatrix({ achievementManager, isMuted = false }: Jim
             note.missed = true;
             setMissCount(m => m + 1);
             setCombo(0);
+            playSound('rhythmMiss');
             setHealth(h => {
               const newHealth = Math.max(0, h - MISS_PENALTY);
               if (newHealth <= 0) {
@@ -778,11 +780,15 @@ export default function JimmyMatrix({ achievementManager, isMuted = false }: Jim
     };
   }, [gamePhase, currentTrack, speedMultiplier, getLaneX, generateNote, endTrack, particles, score, combo, multiplier, health]);
 
-  // Check combo achievements
+  // Check combo achievements and play milestone sounds
   useEffect(() => {
+    // Play combo milestone sounds at 50, 100, and 500
+    if (combo === 50 || combo === 100 || combo === 500) {
+      playSound('rhythmCombo');
+    }
     if (combo >= 100) unlockGameAchievement('rhythm_100_combo');
     if (combo >= 500) unlockGameAchievement('rhythm_500_combo');
-  }, [combo, unlockGameAchievement]);
+  }, [combo, unlockGameAchievement, playSound]);
 
   // Check perfect achievement
   useEffect(() => {
@@ -803,17 +809,17 @@ export default function JimmyMatrix({ achievementManager, isMuted = false }: Jim
         case 'menu':
           if (key === 'enter') {
             setGamePhase('trackSelect');
-            playSound('select');
+            playSound('menu');
           }
           break;
 
         case 'trackSelect':
           if (key === 'arrowup' || key === 'w') {
             setSelectedTrack(prev => (prev - 1 + TRACKS.length) % TRACKS.length);
-            playSound('select');
+            playSound('menu');
           } else if (key === 'arrowdown' || key === 's') {
             setSelectedTrack(prev => (prev + 1) % TRACKS.length);
-            playSound('select');
+            playSound('menu');
           } else if (key === 'enter') {
             startGame();
           } else if (key === 'escape') {

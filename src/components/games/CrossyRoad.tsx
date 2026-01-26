@@ -363,7 +363,7 @@ export default function CrossyRoad({ achievementManager, isMuted = false }: Cros
       unlockGameAchievement('crossy_bullet_time');
     }
 
-    playSound('powerup');
+    playSound('powerupBulletTime');
   }, [gamePhase, playSound, unlockGameAchievement]);
 
   // Handle player death
@@ -626,20 +626,22 @@ export default function CrossyRoad({ achievementManager, isMuted = false }: Cros
         if (!powerUp.collected &&
             Math.abs(powerUp.x - playerPos.x) < 1 &&
             Math.abs(powerUp.y - playerPos.y) < 1) {
-          playSound('powerup');
-
-          // Activate power-up
+          // Play distinct sound per power-up type
           switch (powerUp.type) {
             case 'bulletTime':
+              playSound('powerupBulletTime');
               setActivePowerUps(p => ({ ...p, bulletTime: Date.now() + 5000 }));
               break;
             case 'ghost':
+              playSound('powerupGhost');
               setActivePowerUps(p => ({ ...p, ghost: Date.now() + 3000 }));
               break;
             case 'shield':
+              playSound('powerupShield');
               setActivePowerUps(p => ({ ...p, shield: true }));
               break;
             case 'magnet':
+              playSound('powerupMagnet');
               setActivePowerUps(p => ({ ...p, magnet: Date.now() + 5000 }));
               break;
           }
