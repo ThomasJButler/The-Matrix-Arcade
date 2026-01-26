@@ -521,7 +521,7 @@ describe('useAchievementManager', () => {
         expect(typeof result.current.getSaveData).toBe('function');
         const saveData = result.current.getSaveData();
         expect(saveData).toBeDefined();
-        expect(saveData.version).toBe('1.0.0');
+        expect(saveData.version).toBe('1.1.0');
       });
     });
 

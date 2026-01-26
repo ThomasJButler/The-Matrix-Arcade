@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useSaveSystem, GAME_ACHIEVEMENTS, GLOBAL_ACHIEVEMENTS, type GlobalSaveData } from './useSaveSystem';
+import { useSaveSystem, GAME_ACHIEVEMENTS, GLOBAL_ACHIEVEMENTS, type GlobalSaveData, migrateSaveData } from './useSaveSystem';
 
 // Storage key constants matching the hook
 const STORAGE_KEY = 'matrix-arcade-save-data';
 const BACKUP_KEY = 'matrix-arcade-backup';
+const CURRENT_VERSION = '1.1.0';
 
 describe('useSaveSystem', () => {
   beforeEach(() => {
@@ -24,7 +25,7 @@ describe('useSaveSystem', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      expect(result.current.saveData.version).toBe('1.0.0');
+      expect(result.current.saveData.version).toBe(CURRENT_VERSION);
       expect(result.current.saveData.games.snakeClassic).toBeDefined();
       expect(result.current.saveData.games.vortexPong).toBeDefined();
       expect(result.current.saveData.games.matrixCloud).toBeDefined();
@@ -85,7 +86,7 @@ describe('useSaveSystem', () => {
       });
 
       expect(result.current.error).toBe('Failed to load save data');
-      expect(result.current.saveData.version).toBe('1.0.0');
+      expect(result.current.saveData.version).toBe(CURRENT_VERSION);
       consoleSpy.mockRestore();
     });
 
@@ -136,7 +137,7 @@ describe('useSaveSystem', () => {
       const stored = localStorage.getItem(STORAGE_KEY);
       expect(stored).not.toBeNull();
       const parsed = JSON.parse(stored!);
-      expect(parsed.version).toBe('1.0.0');
+      expect(parsed.version).toBe(CURRENT_VERSION);
     });
   });
 
@@ -842,6 +843,219 @@ describe('useSaveSystem', () => {
       const stored = localStorage.getItem(STORAGE_KEY);
       const parsed = JSON.parse(stored!);
       expect(parsed.games.snakeClassic.highScore).toBe(Number.MAX_SAFE_INTEGER);
+    });
+  });
+
+  describe('migrateSaveData', () => {
+    it('migrates from 1.0.0 to 1.1.0', () => {
+      const oldData: GlobalSaveData = {
+        version: '1.0.0',
+        games: {
+          snakeClassic: { highScore: 100, level: 2, achievements: ['snake_first_apple'], stats: { gamesPlayed: 5, totalScore: 500 }, lastPlayed: Date.now() },
+          vortexPong: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          matrixCloud: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          ctrlSWorld: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          matrixInvaders: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          terminalQuest: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
+        },
+        globalStats: { totalPlayTime: 1000, favoriteGame: 'snakeClassic', globalAchievements: [], firstPlayDate: Date.now() },
+        settings: { autoSave: true }
+      };
+
+      const migrated = migrateSaveData(oldData);
+
+      expect(migrated.version).toBe('1.1.0');
+      // Should preserve existing data
+      expect(migrated.games.snakeClassic.highScore).toBe(100);
+      expect(migrated.games.snakeClassic.achievements).toContain('snake_first_apple');
+      expect(migrated.globalStats.totalPlayTime).toBe(1000);
+    });
+
+    it('adds missing ctrlSWorld lifelineData and ctrlSGameState', () => {
+      const oldData: GlobalSaveData = {
+        version: '1.0.0',
+        games: {
+          snakeClassic: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          vortexPong: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          matrixCloud: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          ctrlSWorld: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          matrixInvaders: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          terminalQuest: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
+        },
+        globalStats: { totalPlayTime: 0, favoriteGame: '', globalAchievements: [], firstPlayDate: Date.now() },
+        settings: { autoSave: true }
+      };
+
+      const migrated = migrateSaveData(oldData);
+
+      expect(migrated.games.ctrlSWorld.lifelineData).toBeDefined();
+      expect(migrated.games.ctrlSWorld.lifelineData?.freeAnswersRemaining).toBe(10);
+      expect(migrated.games.ctrlSWorld.ctrlSGameState).toBeDefined();
+      expect(migrated.games.ctrlSWorld.ctrlSGameState?.currentChapter).toBe(1);
+    });
+
+    it('adds missing playDates array to globalStats', () => {
+      const oldData = {
+        version: '1.0.0',
+        games: {
+          snakeClassic: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          vortexPong: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          matrixCloud: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          ctrlSWorld: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          matrixInvaders: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          terminalQuest: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
+        },
+        globalStats: { totalPlayTime: 0, favoriteGame: '', globalAchievements: [], firstPlayDate: Date.now() },
+        settings: { autoSave: true }
+      } as GlobalSaveData;
+
+      const migrated = migrateSaveData(oldData);
+
+      expect(migrated.globalStats.playDates).toBeDefined();
+      expect(Array.isArray(migrated.globalStats.playDates)).toBe(true);
+    });
+
+    it('fills in missing stats fields with defaults', () => {
+      const oldData = {
+        version: '1.0.0',
+        games: {
+          snakeClassic: { highScore: 100, level: 2, achievements: [], stats: { gamesPlayed: 5 }, lastPlayed: Date.now() },
+          vortexPong: { highScore: 0, level: 1, achievements: [], stats: {}, lastPlayed: Date.now() },
+          matrixCloud: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          ctrlSWorld: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          matrixInvaders: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          terminalQuest: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
+        },
+        globalStats: { totalPlayTime: 0, favoriteGame: '', globalAchievements: [], firstPlayDate: Date.now() },
+        settings: { autoSave: true }
+      } as GlobalSaveData;
+
+      const migrated = migrateSaveData(oldData);
+
+      // Should preserve existing value
+      expect(migrated.games.snakeClassic.stats.gamesPlayed).toBe(5);
+      // Should add missing fields with defaults
+      expect(migrated.games.snakeClassic.stats.totalScore).toBe(0);
+      expect(migrated.games.snakeClassic.stats.bestCombo).toBe(0);
+      expect(migrated.games.vortexPong.stats.gamesPlayed).toBe(0);
+    });
+
+    it('handles data without version (pre-1.0.0)', () => {
+      const oldData = {
+        games: {
+          snakeClassic: { highScore: 50, level: 1, achievements: [], stats: { gamesPlayed: 2, totalScore: 100 }, lastPlayed: Date.now() },
+          vortexPong: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          matrixCloud: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          ctrlSWorld: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          matrixInvaders: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          terminalQuest: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
+        },
+        globalStats: { totalPlayTime: 0, favoriteGame: '', globalAchievements: [], firstPlayDate: Date.now() },
+        settings: { autoSave: true }
+      } as GlobalSaveData;
+
+      const migrated = migrateSaveData(oldData);
+
+      expect(migrated.version).toBe('1.1.0');
+      expect(migrated.games.snakeClassic.highScore).toBe(50);
+    });
+
+    it('handles unknown version gracefully', () => {
+      const oldData = {
+        version: '0.5.0',
+        games: {
+          snakeClassic: { highScore: 25, level: 1, achievements: [], stats: { gamesPlayed: 1, totalScore: 50 }, lastPlayed: Date.now() },
+          vortexPong: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          matrixCloud: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          ctrlSWorld: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          matrixInvaders: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          terminalQuest: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
+        },
+        globalStats: { totalPlayTime: 0, favoriteGame: '', globalAchievements: [], firstPlayDate: Date.now() },
+        settings: { autoSave: true }
+      } as GlobalSaveData;
+
+      const migrated = migrateSaveData(oldData);
+
+      expect(migrated.version).toBe('1.1.0');
+      expect(migrated.games.snakeClassic.highScore).toBe(25);
+    });
+
+    it('does not modify data at current version', () => {
+      const currentData: GlobalSaveData = {
+        version: '1.1.0',
+        games: {
+          snakeClassic: { highScore: 200, level: 3, achievements: ['snake_first_apple', 'snake_score_100'], stats: { gamesPlayed: 10, totalScore: 1000, bestCombo: 5 }, lastPlayed: Date.now() },
+          vortexPong: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          matrixCloud: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          ctrlSWorld: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          matrixInvaders: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          terminalQuest: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
+        },
+        globalStats: { totalPlayTime: 5000, favoriteGame: 'snakeClassic', globalAchievements: ['global_first_game'], firstPlayDate: Date.now(), playDates: ['2026-01-26'] },
+        settings: { autoSave: true }
+      };
+
+      const migrated = migrateSaveData(currentData);
+
+      expect(migrated.version).toBe('1.1.0');
+      expect(migrated.games.snakeClassic.highScore).toBe(200);
+      expect(migrated.globalStats.totalPlayTime).toBe(5000);
+    });
+
+    it('adds missing game entries', () => {
+      const oldData = {
+        version: '1.0.0',
+        games: {
+          snakeClassic: { highScore: 100, level: 2, achievements: [], stats: { gamesPlayed: 5, totalScore: 500 }, lastPlayed: Date.now() }
+        },
+        globalStats: { totalPlayTime: 0, favoriteGame: '', globalAchievements: [], firstPlayDate: Date.now() },
+        settings: { autoSave: true }
+      } as unknown as GlobalSaveData;
+
+      const migrated = migrateSaveData(oldData);
+
+      // Should preserve existing game
+      expect(migrated.games.snakeClassic.highScore).toBe(100);
+      // Should add missing games
+      expect(migrated.games.vortexPong).toBeDefined();
+      expect(migrated.games.matrixCloud).toBeDefined();
+      expect(migrated.games.ctrlSWorld).toBeDefined();
+      expect(migrated.games.matrixInvaders).toBeDefined();
+      expect(migrated.games.metris).toBeDefined();
+      expect(migrated.games.terminalQuest).toBeDefined();
+    });
+
+    it('preserves achievements array during migration', () => {
+      const oldData: GlobalSaveData = {
+        version: '1.0.0',
+        games: {
+          snakeClassic: { highScore: 500, level: 5, achievements: ['snake_first_apple', 'snake_score_100', 'snake_score_500'], stats: { gamesPlayed: 20, totalScore: 5000 }, lastPlayed: Date.now() },
+          vortexPong: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          matrixCloud: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          ctrlSWorld: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          matrixInvaders: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
+          terminalQuest: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
+        },
+        globalStats: { totalPlayTime: 3600, favoriteGame: 'snakeClassic', globalAchievements: ['global_first_game', 'global_10_achievements'], firstPlayDate: Date.now() },
+        settings: { autoSave: true }
+      };
+
+      const migrated = migrateSaveData(oldData);
+
+      expect(migrated.games.snakeClassic.achievements).toHaveLength(3);
+      expect(migrated.games.snakeClassic.achievements).toContain('snake_first_apple');
+      expect(migrated.games.snakeClassic.achievements).toContain('snake_score_100');
+      expect(migrated.games.snakeClassic.achievements).toContain('snake_score_500');
+      expect(migrated.globalStats.globalAchievements).toHaveLength(2);
     });
   });
 });

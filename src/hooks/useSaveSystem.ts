@@ -173,7 +173,7 @@ const createDefaultGameSave = (): GameSaveData => ({
 });
 
 const createDefaultGlobalSave = (): GlobalSaveData => ({
-  version: '1.0.0',
+  version: CURRENT_VERSION,
   games: {
     snakeClassic: createDefaultGameSave(),
     vortexPong: createDefaultGameSave(),
@@ -296,6 +296,121 @@ export const GLOBAL_ACHIEVEMENTS: Achievement[] = [
 
 const STORAGE_KEY = 'matrix-arcade-save-data';
 const BACKUP_KEY = 'matrix-arcade-backup';
+const CURRENT_VERSION = '1.1.0';
+
+/**
+ * Migration functions for save data versions.
+ * Each migration function transforms data from one version to the next.
+ * Migrations are applied sequentially to bring old data up to the current version.
+ */
+type MigrationFunction = (data: GlobalSaveData) => GlobalSaveData;
+
+const migrations: Record<string, MigrationFunction> = {
+  /**
+   * Migrate from 1.0.0 to 1.1.0:
+   * - Ensures all game entries have proper default structures
+   * - Adds missing ctrlSWorld-specific fields (lifelineData, ctrlSGameState)
+   * - Adds playDates array if missing from globalStats
+   * - Ensures stats objects are complete with all expected fields
+   */
+  '1.0.0': (data: GlobalSaveData): GlobalSaveData => {
+    const migratedData = { ...data };
+
+    // Ensure all game entries exist with proper defaults
+    const defaultGameSave = createDefaultGameSave();
+    const gameIds: Array<keyof GlobalSaveData['games']> = [
+      'snakeClassic', 'vortexPong', 'matrixCloud',
+      'ctrlSWorld', 'matrixInvaders', 'metris', 'terminalQuest'
+    ];
+
+    for (const gameId of gameIds) {
+      if (!migratedData.games[gameId]) {
+        migratedData.games[gameId] = { ...defaultGameSave };
+      } else {
+        // Ensure stats object has all expected fields
+        const currentStats = migratedData.games[gameId].stats || {};
+        migratedData.games[gameId].stats = {
+          gamesPlayed: currentStats.gamesPlayed ?? 0,
+          totalScore: currentStats.totalScore ?? 0,
+          bestCombo: currentStats.bestCombo ?? 0,
+          longestSurvival: currentStats.longestSurvival ?? 0,
+          bossesDefeated: currentStats.bossesDefeated ?? 0
+        };
+
+        // Ensure achievements array exists
+        if (!migratedData.games[gameId].achievements) {
+          migratedData.games[gameId].achievements = [];
+        }
+      }
+    }
+
+    // Ensure ctrlSWorld has lifelineData and ctrlSGameState
+    if (!migratedData.games.ctrlSWorld.lifelineData) {
+      migratedData.games.ctrlSWorld.lifelineData = createDefaultLifelineData();
+    }
+    if (!migratedData.games.ctrlSWorld.ctrlSGameState) {
+      migratedData.games.ctrlSWorld.ctrlSGameState = createDefaultCtrlSGameState();
+    }
+
+    // Ensure globalStats has playDates array
+    if (!migratedData.globalStats.playDates) {
+      migratedData.globalStats.playDates = [];
+    }
+
+    // Ensure globalAchievements array exists
+    if (!migratedData.globalStats.globalAchievements) {
+      migratedData.globalStats.globalAchievements = [];
+    }
+
+    // Ensure settings exist
+    if (!migratedData.settings) {
+      migratedData.settings = { autoSave: true };
+    }
+
+    migratedData.version = '1.1.0';
+    return migratedData;
+  }
+};
+
+/**
+ * Apply all necessary migrations to bring save data to the current version.
+ * Migrations are applied sequentially in version order.
+ *
+ * @param data - The save data to migrate
+ * @returns The migrated save data at the current version
+ */
+export function migrateSaveData(data: GlobalSaveData): GlobalSaveData {
+  let migratedData = { ...data };
+  const versionOrder = ['1.0.0', '1.1.0'];
+
+  // Handle legacy data without version (pre-1.0.0)
+  if (!migratedData.version) {
+    migratedData.version = '1.0.0';
+  }
+
+  // Find current version index and apply migrations sequentially
+  let currentIndex = versionOrder.indexOf(migratedData.version);
+
+  // If version not found, assume it's very old and start from beginning
+  if (currentIndex === -1) {
+    currentIndex = 0;
+    migratedData.version = '1.0.0';
+  }
+
+  // Apply each migration from current version to latest
+  while (currentIndex < versionOrder.length - 1) {
+    const currentVersion = versionOrder[currentIndex];
+    const migration = migrations[currentVersion];
+
+    if (migration) {
+      migratedData = migration(migratedData);
+    }
+
+    currentIndex++;
+  }
+
+  return migratedData;
+}
 
 export function useSaveSystem() {
   const [saveData, setSaveData] = useState<GlobalSaveData>(createDefaultGlobalSave);
@@ -309,18 +424,18 @@ export function useSaveSystem() {
       const stored = localStorage.getItem(STORAGE_KEY);
       
       if (stored) {
-        const parsed = JSON.parse(stored) as GlobalSaveData;
-        
+        let parsed = JSON.parse(stored) as GlobalSaveData;
+
         // Version migration if needed
-        if (parsed.version !== '1.0.0') {
+        if (parsed.version !== CURRENT_VERSION) {
           // Migration logging disabled in production. Enable by setting DEBUG_SAVE=true in development.
           if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_SAVE === 'true') {
             // eslint-disable-next-line no-console
-            console.log('Migrating save data from version', parsed.version, 'to 1.0.0');
+            console.log('Migrating save data from version', parsed.version, 'to', CURRENT_VERSION);
           }
-          // Add migration logic here in the future
+          parsed = migrateSaveData(parsed);
         }
-        
+
         // Merge with defaults to ensure all properties exist
         const mergedData = {
           ...createDefaultGlobalSave(),
