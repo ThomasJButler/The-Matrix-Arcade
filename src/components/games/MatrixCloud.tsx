@@ -113,7 +113,7 @@ interface GameState {
   playerY: number;
   playerVelocity: number;
   pipes: Pipe[];
-  particles: Particle[];
+  // particles moved to ref for performance (avoids GC pressure from object recreation)
   powerUps: PowerUp[];
   activeEffects: Record<PowerUpType, boolean>;
   effectTimers: Record<PowerUpType, number | null>;
@@ -149,7 +149,7 @@ const initialGameState: GameState = {
       glowIntensity: 0
     }
   ],
-  particles: [],
+  // particles moved to particlesRef for performance
   powerUps: [],
   activeEffects: {
     shield: false,
@@ -192,6 +192,8 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
   const animationFrameRef = useRef<number>();
   const lastUpdateRef = useRef<number>(0);
   const screenShakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Use ref for particles to avoid recreating objects every frame (performance optimisation)
+  const particlesRef = useRef<Particle[]>([]);
   // Timeout refs for cleanup - prevents memory leaks when component unmounts
   const achievementTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -237,17 +239,22 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
     }
   }, [state.gamePhase, playMusic, stopMusic, isMuted]);
 
-  const generateParticles = useCallback((): Particle[] => {
-    return Array.from({ length: PARTICLE_COUNT }, () => ({
-      x: Math.random() * 800,
-      y: Math.random() * 400,
-      char: MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)],
-      speed: 2 + Math.random() * 3,
-      opacity: 0.1 + Math.random() * 0.5,
-      scale: 0.8 + Math.random() * 0.4,
-      rotation: Math.random() * Math.PI * 2,
-      glowColor: GLOW_COLORS[Math.floor(Math.random() * GLOW_COLORS.length)]
-    }));
+  // Initialize particles into ref (avoids state updates every frame)
+  const initializeParticles = useCallback(() => {
+    if (particlesRef.current.length === 0) {
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        particlesRef.current.push({
+          x: Math.random() * 800,
+          y: Math.random() * 400,
+          char: MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)],
+          speed: 2 + Math.random() * 3,
+          opacity: 0.1 + Math.random() * 0.5,
+          scale: 0.8 + Math.random() * 0.4,
+          rotation: Math.random() * Math.PI * 2,
+          glowColor: GLOW_COLORS[Math.floor(Math.random() * GLOW_COLORS.length)]
+        });
+      }
+    }
   }, []);
 
   // Boss creation and management
@@ -476,14 +483,26 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
 
       return {
         ...initialGameState,
-        particles: generateParticles(),
         highScore: prev.highScore
       };
     });
 
+    // Reset particles in ref (reuse existing array, just reset positions)
+    for (let i = 0; i < particlesRef.current.length; i++) {
+      const particle = particlesRef.current[i];
+      particle.x = Math.random() * 800;
+      particle.y = Math.random() * 400;
+      particle.char = MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)];
+      particle.speed = 2 + Math.random() * 3;
+      particle.opacity = 0.1 + Math.random() * 0.5;
+      particle.scale = 0.8 + Math.random() * 0.4;
+      particle.rotation = Math.random() * Math.PI * 2;
+      particle.glowColor = GLOW_COLORS[Math.floor(Math.random() * GLOW_COLORS.length)];
+    }
+
     setShowTutorial(true);
     setScreenShake({ x: 0, y: 0 });
-  }, [generateParticles]);
+  }, []);
 
   const handleCollision = useCallback((state: GameState): GameState => {
     if (state.invulnerable) return state;
@@ -585,19 +604,25 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
         }
       }
 
-      // Update particles with improved effects
-      const newParticles = prev.particles.map(particle => ({
-        ...particle,
-        y: particle.y + particle.speed * speedMultiplier * frameDelta,
-        char: Math.random() < 0.1 ? MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)] : particle.char,
-        opacity: particle.y > 400 ? 0.1 + Math.random() * 0.5 : particle.opacity,
-        rotation: particle.rotation + 0.01 * speedMultiplier * frameDelta,
-        ...(particle.y > 400 ? {
-          y: 0,
-          scale: 0.8 + Math.random() * 0.4,
-          glowColor: GLOW_COLORS[Math.floor(Math.random() * GLOW_COLORS.length)]
-        } : {})
-      }));
+      // Update particles in-place using ref (avoids GC pressure from object recreation)
+      for (let i = 0; i < particlesRef.current.length; i++) {
+        const particle = particlesRef.current[i];
+        particle.y += particle.speed * speedMultiplier * frameDelta;
+        particle.rotation += 0.01 * speedMultiplier * frameDelta;
+
+        // Occasionally change character for visual effect
+        if (Math.random() < 0.1) {
+          particle.char = MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)];
+        }
+
+        // Reset particle when it goes off-screen (reuse instead of recreate)
+        if (particle.y > 400) {
+          particle.y = 0;
+          particle.opacity = 0.1 + Math.random() * 0.5;
+          particle.scale = 0.8 + Math.random() * 0.4;
+          particle.glowColor = GLOW_COLORS[Math.floor(Math.random() * GLOW_COLORS.length)];
+        }
+      }
 
       // Power-ups already updated above, so this section is removed
 
@@ -859,7 +884,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
         playerY: newY,
         playerVelocity: newVelocity,
         pipes: newPipes,
-        particles: newParticles,
+        // particles updated in-place via ref, no need to include in state
         powerUps: newPowerUps,
         shakeIntensity: Math.max(0, newState.shakeIntensity - 0.2),
         boss: updatedBoss,
@@ -867,7 +892,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
         bossTimer: newBossTimer
       };
     });
-  }, [spawnPowerUp, activatePowerUp, handleCollision, playSFX, addScreenShake, spawnBoss, updateBoss, createBossAttack, unlockAchievement]);
+  }, [spawnPowerUp, activatePowerUp, handleCollision, playSFX, addScreenShake, spawnBoss, updateBoss, createBossAttack, unlockAchievement, isMuted]);
 
   // Toggle pause handler
   const togglePause = useCallback(() => {
@@ -918,17 +943,18 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
     ctx.fillStyle = 'black';
     ctx.fillRect(0, 0, 800, 400);
 
-    // Draw particles with optimised rendering
+    // Draw particles with optimised rendering (using ref for performance)
     ctx.font = '12px monospace';
     ctx.fillStyle = 'rgba(0, 255, 0, 0.5)'; // Single color for all particles
-    
-    state.particles.forEach(particle => {
+
+    for (let i = 0; i < particlesRef.current.length; i++) {
+      const particle = particlesRef.current[i];
       ctx.save();
       ctx.globalAlpha = particle.opacity;
       ctx.translate(particle.x, particle.y);
       ctx.fillText(particle.char, 0, 0);
       ctx.restore();
-    });
+    }
 
     // Draw pipes with optimised rendering
     ctx.fillStyle = '#006600'; // Default pipe color
@@ -1149,12 +1175,9 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
     }
   }, [state.gamePhase, updateGame, render]);
 
-  // Initialize particles on mount only
+  // Initialize particles on mount using ref (avoids state updates every frame)
   useEffect(() => {
-    setState(prev => ({
-      ...prev,
-      particles: generateParticles()
-    }));
+    initializeParticles();
 
     return () => {
       if (animationFrameRef.current) {
@@ -1177,16 +1200,16 @@ export default function MatrixCloud({ achievementManager, isMuted = false }: Mat
         clearTimeout(invulnerabilityTimeoutRef.current);
       }
     };
-    // Only run on mount - generateParticles is stable via useCallback with no deps
+    // Only run on mount - initializeParticles is stable via useCallback with no deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Render initial state after particles are generated
+  // Render initial state after particles are initialized in ref
   useEffect(() => {
-    if (state.particles.length > 0 && state.gamePhase === 'menu') {
+    if (particlesRef.current.length > 0 && state.gamePhase === 'menu') {
       render();
     }
-  }, [state.particles.length, state.gamePhase, render]);
+  }, [state.gamePhase, render]);
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center bg-black">
