@@ -27,6 +27,10 @@ interface VortexPongProps {
   isMuted?: boolean;
 }
 
+// Game phase enum replaces 3 boolean flags (showMenu, gameOver, isPaused)
+// This eliminates 5 invalid state combinations (8 possible → 4 valid states)
+type GamePhase = 'menu' | 'playing' | 'paused' | 'gameOver';
+
 type Particle = {
   x: number;
   y: number;
@@ -104,9 +108,8 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
   const [balls, setBalls] = useState<Ball[]>([createBall(400, 200, -INITIAL_BALL_SPEED, 0)]);
   const [particles, setParticles] = useState<Particle[]>([]);
   const [score, setScore] = useState({ player: 0, ai: 0 });
-  const [showMenu, setShowMenu] = useState(true);
-  const [gameOver, setGameOver] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
+  // Single GamePhase enum replaces showMenu, gameOver, isPaused booleans
+  const [gamePhase, setGamePhase] = useState<GamePhase>('menu');
   const [screenShake, setScreenShake] = useState({ x: 0, y: 0 });
   const [impactEffects, setImpactEffects] = useState<Array<{ x: number; y: number; intensity: number; life: number }>>([]);
   const [aiDifficulty, setAiDifficulty] = useState(2.5); // Adaptive AI speed - reduced for easier gameplay
@@ -170,9 +173,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
     setPaddleY(150);
     setAiPaddleY(150);
     setScore({ player: 0, ai: 0 });
-    setShowMenu(false);
-    setGameOver(false);
-    setIsPaused(false);
+    setGamePhase('playing');
     setScreenShake({ x: 0, y: 0 });
     setImpactEffects([]);
     setCombo(0);
@@ -240,13 +241,15 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
       } else if (e.key === 'Enter') {
         e.preventDefault();
         // ENTER starts game from menu or restarts from game over
-        if (showMenu || gameOver) {
+        if (gamePhase === 'menu' || gamePhase === 'gameOver') {
           resetGame();
         }
       } else if (e.key === 'p' || e.key === 'P') {
-        // P key to toggle pause (only during gameplay, not on game over)
-        if (!gameOver) {
-          setIsPaused(prev => !prev);
+        // P key to toggle pause (only during gameplay)
+        if (gamePhase === 'playing') {
+          setGamePhase('paused');
+        } else if (gamePhase === 'paused') {
+          setGamePhase('playing');
         }
       } else if (e.key === 'r' || e.key === 'R') {
         // R key to restart game at any time
@@ -270,7 +273,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [gameOver, showMenu, resetGame]);
+  }, [gamePhase, resetGame]);
 
   // Cleanup timeout refs on unmount to prevent memory leaks
   useEffect(() => {
@@ -332,7 +335,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
 
   // Enhanced main game loop with multi-ball support
   useGameLoop((deltaTime) => {
-    if (showMenu || gameOver || isPaused) return;
+    if (gamePhase !== 'playing') return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -542,7 +545,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
 
     // Check win condition
     if (score.player >= 10 || score.ai >= 10) {
-      setGameOver(true);
+      setGamePhase('gameOver');
       stopMusic();
       if (!isMuted) playSFX(score.player >= 10 ? 'levelUp' : 'gameOver');
       addScreenShake(30);
@@ -875,7 +878,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
         />
 
         {/* Controls Help (always visible during gameplay) */}
-        {!gameOver && !isPaused && (
+        {gamePhase === 'playing' && (
           <div className="text-center text-xs text-green-400/60 mt-2">
             <span>↑↓ or W/S to move • P to pause • R to restart</span>
           </div>
@@ -913,12 +916,12 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
       </div>
 
       <AnimatePresence>
-        {gameOver && <GameOverModal score={score} onRestart={resetGame} />}
+        {gamePhase === 'gameOver' && <GameOverModal score={score} onRestart={resetGame} />}
       </AnimatePresence>
 
       {/* Menu overlay */}
       <AnimatePresence>
-        {showMenu && (
+        {gamePhase === 'menu' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -949,7 +952,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
 
       {/* Pause overlay */}
       <AnimatePresence>
-        {isPaused && !gameOver && !showMenu && (
+        {gamePhase === 'paused' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
