@@ -17,6 +17,7 @@ const PARTICLE_COUNT = 15; // Reduced for better performance
 const INITIAL_BALL_SPEED = 7;
 const SPEED_INCREMENT = 0.1; // Speed increases over time
 const MAX_BALL_SPEED = 15;
+const MAX_IMPACT_EFFECTS = 10; // Limit impact effects for performance
 
 interface AchievementManager {
   unlockAchievement(gameId: string, achievementId: string): void;
@@ -106,12 +107,14 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
   const [aiPaddleY, setAiPaddleY] = useState(150);
   const [aiPaddleVelocity, setAiPaddleVelocity] = useState(0);
   const [balls, setBalls] = useState<Ball[]>([createBall(400, 200, -INITIAL_BALL_SPEED, 0)]);
-  const [particles, setParticles] = useState<Particle[]>([]);
+  // Use ref for particles to avoid recreating objects every frame (performance optimisation)
+  const particlesRef = useRef<Particle[]>([]);
   const [score, setScore] = useState({ player: 0, ai: 0 });
   // Single GamePhase enum replaces showMenu, gameOver, isPaused booleans
   const [gamePhase, setGamePhase] = useState<GamePhase>('menu');
   const [screenShake, setScreenShake] = useState({ x: 0, y: 0 });
-  const [impactEffects, setImpactEffects] = useState<Array<{ x: number; y: number; intensity: number; life: number }>>([]);
+  // Use ref for impact effects to reduce GC pressure from frequent updates
+  const impactEffectsRef = useRef<Array<{ x: number; y: number; intensity: number; life: number }>>([]);
   const [aiDifficulty, setAiDifficulty] = useState(2.5); // Adaptive AI speed - reduced for easier gameplay
   const frameCounter = useRef(0); // For performance optimization
 
@@ -147,18 +150,18 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
   const screenShakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Initialize particles
+  // Initialize particles using ref (avoids state updates every frame)
   useEffect(() => {
-    const newParticles: Particle[] = [];
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      newParticles.push({
-        x: Math.random() * 800,
-        y: Math.random() * 400,
-        z: Math.random() * 100,
-        speed: Math.random() * 2 + 1,
-      });
+    if (particlesRef.current.length === 0) {
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        particlesRef.current.push({
+          x: Math.random() * 800,
+          y: Math.random() * 400,
+          z: Math.random() * 100,
+          speed: Math.random() * 2 + 1,
+        });
+      }
     }
-    setParticles(newParticles);
   }, []);
 
   // Auto-focus container on mount so ENTER key works immediately
@@ -175,7 +178,7 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
     setScore({ player: 0, ai: 0 });
     setGamePhase('playing');
     setScreenShake({ x: 0, y: 0 });
-    setImpactEffects([]);
+    impactEffectsRef.current = []; // Clear impact effects via ref
     setCombo(0);
     setAiDifficulty(2.5);
     setTimeSinceLastGoal(0);
@@ -203,10 +206,17 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
     }, 100);
   }, []);
 
-  // Impact effect system
+  // Impact effect system - uses ref to avoid GC pressure from state updates
   const addImpactEffect = useCallback((x: number, y: number, intensity: number) => {
     const effect = { x, y, intensity, life: 1.0 };
-    setImpactEffects(prev => [...prev, effect]);
+    // Add to ref, limiting to MAX_IMPACT_EFFECTS for performance
+    if (impactEffectsRef.current.length < MAX_IMPACT_EFFECTS) {
+      impactEffectsRef.current.push(effect);
+    } else {
+      // Reuse oldest slot to avoid array growth
+      impactEffectsRef.current.shift();
+      impactEffectsRef.current.push(effect);
+    }
     explode(x, y, '#ffffff');
     addScreenShake(intensity * 2);
   }, [explode, addScreenShake]);
@@ -637,45 +647,43 @@ export default function VortexPong({ achievementManager, isMuted = false }: Vort
       });
     }
 
-    // Update impact effects - limit to 10 for performance
-    setImpactEffects(prev =>
-      prev.map(effect => ({ ...effect, life: effect.life - 0.05 }))
-          .filter(effect => effect.life > 0)
-          .slice(0, 10) // Keep max 10 effects
-    );
+    // Update impact effects in-place using ref (no object recreation)
+    let writeIndex = 0;
+    for (let i = 0; i < impactEffectsRef.current.length; i++) {
+      const effect = impactEffectsRef.current[i];
+      effect.life -= 0.05;
+      if (effect.life > 0) {
+        impactEffectsRef.current[writeIndex++] = effect;
+      }
+    }
+    impactEffectsRef.current.length = writeIndex;
 
-    // Update particle system - optimize by filtering out off-screen particles
-    setParticles(prevParticles =>
-      prevParticles
-        .filter(p => p.z > 0) // Remove off-screen particles first
-        .map(particle => ({
-          ...particle,
-          z: particle.z - particle.speed
-        }))
-        .concat(
-          // Add new particles to replace removed ones
-          Array.from({ length: PARTICLE_COUNT - prevParticles.filter(p => p.z > 0).length }, () => ({
-            x: Math.random() * 800,
-            y: Math.random() * 400,
-            z: 100,
-            speed: 0.5 + Math.random() * 1
-          }))
-        )
-    );
+    // Update particle system in-place using ref (avoids GC pressure from object recreation)
+    for (let i = 0; i < particlesRef.current.length; i++) {
+      const particle = particlesRef.current[i];
+      particle.z -= particle.speed;
+      // Reset particle when it goes off-screen (reuse instead of recreate)
+      if (particle.z <= 0) {
+        particle.x = Math.random() * 800;
+        particle.y = Math.random() * 400;
+        particle.z = 100;
+        particle.speed = 0.5 + Math.random() * 1;
+      }
+    }
 
-    // Enhanced rendering
+    // Enhanced rendering - pass refs directly to avoid state updates
     render(canvas, {
       balls: updatedBalls,
       paddleY,
-    paddleVelocity,
+      paddleVelocity,
       aiPaddleY,
-      particles,
+      particles: particlesRef.current,
       powerUps,
       activePowerUps,
       score,
       speedMultiplier,
       screenShake,
-      impactEffects,
+      impactEffects: impactEffectsRef.current,
       timestamp: Date.now(),
       combo
     });
