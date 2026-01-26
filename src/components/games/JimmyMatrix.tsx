@@ -497,6 +497,10 @@ export default function JimmyMatrix({ achievementManager, isMuted = false }: Jim
         return;
       }
 
+      // Calculate time remaining for track-ending warning
+      const timeRemaining = currentTrack.duration - gameTimeRef.current;
+      const isTrackEnding = timeRemaining < 10000 && timeRemaining > 0;
+
       // Generate new notes
       generateNote(gameTimeRef.current);
 
@@ -722,15 +726,37 @@ export default function JimmyMatrix({ achievementManager, isMuted = false }: Jim
       // Draw particles
       particles.render(ctx);
 
-      // Draw progress bar
+      // Draw progress bar with track-ending warning
       const progress = gameTimeRef.current / currentTrack.duration;
       ctx.fillStyle = '#333333';
       ctx.fillRect(50, 20, CANVAS_WIDTH - 100, 10);
-      ctx.fillStyle = '#00ff00';
+
+      // Flash progress bar when track is ending (<10 seconds)
+      if (isTrackEnding) {
+        const flashIntensity = Math.floor(timestamp / 200) % 2 === 0;
+        ctx.fillStyle = flashIntensity ? '#ffff00' : '#ff6600';
+        // Draw warning border around entire canvas
+        ctx.strokeStyle = flashIntensity ? '#ffff00' : '#ff6600';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(2, 2, CANVAS_WIDTH - 4, CANVAS_HEIGHT - 4);
+      } else {
+        ctx.fillStyle = '#00ff00';
+      }
       ctx.fillRect(50, 20, (CANVAS_WIDTH - 100) * progress, 10);
-      ctx.strokeStyle = '#00ff00';
+      ctx.strokeStyle = isTrackEnding ? '#ffff00' : '#00ff00';
       ctx.lineWidth = 1;
       ctx.strokeRect(50, 20, CANVAS_WIDTH - 100, 10);
+
+      // Draw countdown timer when track is ending
+      if (isTrackEnding) {
+        const secondsLeft = Math.ceil(timeRemaining / 1000);
+        ctx.fillStyle = Math.floor(timestamp / 200) % 2 === 0 ? '#ffff00' : '#ff6600';
+        ctx.font = 'bold 48px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(secondsLeft.toString(), CANVAS_WIDTH / 2, 150);
+        ctx.font = '18px monospace';
+        ctx.fillText('FINISH!', CANVAS_WIDTH / 2, 180);
+      }
 
       // Draw score
       ctx.fillStyle = '#00ff00';
@@ -874,31 +900,61 @@ export default function JimmyMatrix({ achievementManager, isMuted = false }: Jim
     };
   }, [gamePhase, playSound, startGame, tryHitNote]);
 
-  // Draw non-playing screens on canvas
+  // Animated matrix rain for non-playing screens
+  const menuRainRef = useRef<Array<{ x: number; y: number; char: string; speed: number }>>([]);
+  const menuAnimationRef = useRef<number>(0);
+
+  // Initialise menu rain drops
+  useEffect(() => {
+    if (menuRainRef.current.length === 0) {
+      for (let i = 0; i < 100; i++) {
+        menuRainRef.current.push({
+          x: Math.random() * CANVAS_WIDTH,
+          y: Math.random() * CANVAS_HEIGHT,
+          char: String.fromCharCode(0x30A0 + Math.floor(Math.random() * 96)),
+          speed: 1 + Math.random() * 3
+        });
+      }
+    }
+  }, []);
+
+  // Draw non-playing screens on canvas with animated matrix rain
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    if (gamePhase === 'playing') return;
-
-    // Clear canvas
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-    // Draw matrix rain background
-    ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
-    for (let i = 0; i < 100; i++) {
-      const x = Math.random() * CANVAS_WIDTH;
-      const y = Math.random() * CANVAS_HEIGHT;
-      ctx.font = '14px monospace';
-      ctx.fillText(String.fromCharCode(0x30A0 + Math.random() * 96), x, y);
+    if (gamePhase === 'playing') {
+      if (menuAnimationRef.current) {
+        cancelAnimationFrame(menuAnimationRef.current);
+        menuAnimationRef.current = 0;
+      }
+      return;
     }
 
-    ctx.textAlign = 'center';
+    const drawMenuScreen = () => {
+      // Clear canvas
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    if (gamePhase === 'menu') {
+      // Draw animated matrix rain background
+      ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
+      ctx.font = '14px monospace';
+      menuRainRef.current.forEach(drop => {
+        ctx.fillText(drop.char, drop.x, drop.y);
+        // Update position for next frame
+        drop.y += drop.speed;
+        if (drop.y > CANVAS_HEIGHT) {
+          drop.y = 0;
+          drop.x = Math.random() * CANVAS_WIDTH;
+          drop.char = String.fromCharCode(0x30A0 + Math.floor(Math.random() * 96));
+        }
+      });
+
+      ctx.textAlign = 'center';
+
+      if (gamePhase === 'menu') {
       // Title
       ctx.shadowBlur = 30;
       ctx.shadowColor = '#00ff00';
@@ -1095,6 +1151,20 @@ export default function JimmyMatrix({ achievementManager, isMuted = false }: Jim
       ctx.font = '20px monospace';
       ctx.fillText('Press ENTER to continue • R to retry', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 40);
     }
+
+      // Continue animation loop for non-playing screens
+      menuAnimationRef.current = requestAnimationFrame(drawMenuScreen);
+    };
+
+    // Start the animation loop
+    drawMenuScreen();
+
+    return () => {
+      if (menuAnimationRef.current) {
+        cancelAnimationFrame(menuAnimationRef.current);
+        menuAnimationRef.current = 0;
+      }
+    };
   }, [gamePhase, selectedTrack, highScores, completedTracks, score, perfectCount, greatCount, goodCount, missCount, maxCombo]);
 
   return (

@@ -9,13 +9,13 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 ## Completion Status
 
 - **Status**: IN PROGRESS - Phase 2 Final Polish
-- **Last Assessment**: 26 January 2026 16:17 UTC (AgentEscape ghost AI polish: frightened flashing + staggered release)
+- **Last Assessment**: 26 January 2026 16:22 UTC (JimmyMatrix track-ending warning + animated menu rain)
 - **Outstanding Critical Work**: None - all P0/P1 items resolved
 - **Test Coverage**: Hooks 100%, Production Games 100%, New Games Unit 90%+ (152 tests), E2E Visual 100% (11/11 games)
 - **Test Status**: ALL PASS (412 game tests total, SaveLoadManager 45 tests, SentientAIModal 29 tests)
 - **Build Status**: PASSES (warning: 666KB chunk exceeds 500KB limit)
 - **Spec Compliance**: 95%+ across all games (all critical mechanics now implemented)
-- **Notes**: All 11 games fully playable. All P0/P1 items complete. P2 sound integration complete. AgentEscape ghost polish (2 items) complete. Remaining work is P2 visual/audio polish only.
+- **Notes**: All 11 games fully playable. All P0/P1 items complete. P2 sound integration complete. JimmyMatrix audio/visual polish complete. Remaining work is P2 visual/audio polish only (CrossyRoad, MatrixAscension, AgentEscape background sounds).
 
 ---
 
@@ -183,16 +183,16 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ---
 
-#### 10. JimmyMatrix - Audio and Visual Polish
+#### 10. JimmyMatrix - Audio and Visual Polish ✓ COMPLETE (26 Jan 2026)
 
 **File:** `src/components/games/JimmyMatrix.tsx`
 
-**Polish Required (non-blocking):**
-- [ ] Add miss sound effect (currently silent on miss, lines 453-472)
-- [ ] Add 'good' hit sound (lines 330-332 have no sound for 'good' grade)
-- [ ] Add track-ending warning (visual flashing when <10 seconds remain)
-- [ ] Add combo milestone sounds at 50/100/500 combos (achievement checks exist at lines 665-668)
-- [ ] Animate menu screen matrix rain (gameplay rain IS animated lines 487-494, menu rain is static lines 767-774)
+**All items resolved:**
+- [x] Add miss sound effect - ✓ Uses `rhythmMiss` sound (line 515)
+- [x] Add 'good' hit sound - ✓ Uses `rhythmGood` sound (line 388)
+- [x] Add track-ending warning - ✓ Visual flashing + countdown when <10 seconds remain
+- [x] Add combo milestone sounds at 50/100/500 combos - ✓ Uses `rhythmCombo` sound (lines 784-791)
+- [x] Animate menu screen matrix rain - ✓ Animated with requestAnimationFrame loop
 
 ---
 
@@ -204,7 +204,7 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 - [ ] Add progressive difficulty scaling (only speed scales via line 122; obstacle count fixed at 2-4 per lane)
 - [ ] Add shield consumption visual feedback (line 373 plays sound only; no particles/flash when shield blocks hit)
 - [ ] Add Agent blinking eye animation (lines 682-688 render static eyes)
-- [ ] Add distinct sound per power-up type (line 598 uses generic 'powerup' for all 4 types)
+- [x] Add distinct sound per power-up type - ✓ Uses `powerupBulletTime`, `powerupGhost`, `powerupShield`, `powerupMagnet` (lines 629-646)
 - [ ] Add combo/multiplier system for consecutive dodges
 
 ---
