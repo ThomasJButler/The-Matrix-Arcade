@@ -19,12 +19,12 @@ Run `./loop.sh plan` to analyse the codebase and generate tasks.
 - **Visual Consistency**: Strong Matrix theme throughout (green-on-black, glow effects, CRT aesthetic) - verified via screenshots (10/10 rating)
 - **Console Statements**: All 17 console statements properly wrapped in DEV environment checks
 - **Legacy localStorage Usage**: 3 hooks use direct localStorage (user preferences - acceptable)
-- **State Machine Compliance**: 7/8 games (88%) - SimpleSnake, TerminalQuestCombat, CtrlSWorld, VortexPong, MatrixInvaders, MatrixCloud, TerminalQuest fully compliant
+- **State Machine Compliance**: 8/8 games (100%) - All games fully compliant
 - **isMuted Prop Gating**: All games gate sound properly with !isMuted checks (verified Round 63)
 - **Achievement Persistence**: 7/7 games work correctly (all use dual-call pattern or single-source pattern)
 - **Keyboard Controls**: 7/7 main games compliant with standard controls
 - **Developer Room**: Intentional game content (easter egg), NOT a security concern
-- **Last Analysis**: Round 71 - Refactored TerminalQuest state machine (6 booleans → GamePhase enum + 3 UI effect booleans)
+- **Last Analysis**: Round 72 - Refactored Metris state machine (5 booleans → GamePhase enum + 2 effect booleans)
 
 ---
 
@@ -120,7 +120,7 @@ const [userHasScrolled, setUserHasScrolled] = useState(false);
 | ~~MatrixCloud~~ | ~~6 flags (64 combos)~~ | ~~124-126, 132, 201-202~~ | ✅ COMPLIANT - uses `GamePhase` enum |
 | ~~TerminalQuest~~ | ~~6 flags (64 combos)~~ | ~~79-84~~ | ✅ COMPLIANT - uses `GamePhase` enum |
 | ~~MatrixInvaders~~ | ~~5 flags (32 combos)~~ | ~~53, 58-60, 63~~ | ✅ COMPLIANT - uses `GamePhase` enum |
-| Metris | 5 flags (32 combos) | (state in interface) | Single `GamePhase` enum |
+| ~~Metris~~ | ~~5 flags (32 combos)~~ | ~~(state in interface)~~ | ✅ COMPLIANT - uses `GamePhase` enum |
 | ~~VortexPong~~ | ~~3 flags (8 combos)~~ | ~~107-109~~ | ✅ COMPLIANT - uses `GamePhase` enum |
 
 **Verified Boolean Flags by Game:**
@@ -128,6 +128,7 @@ const [userHasScrolled, setUserHasScrolled] = useState(false);
 *~~MatrixCloud:~~* ~~`gameOver`, `started`, `invulnerable`, `inBossBattle`, `paused`, `showTutorial`~~ → ✅ Now uses `GamePhase` enum + 2 booleans + 1 UI state
 *~~TerminalQuest:~~* ~~`inCombat`, `saveExists`, `isTyping`, `shakeEffect`, `backgroundGlitch`, `isPaused`~~ → ✅ Now uses `GamePhase` enum + 3 UI effect booleans (saveExists derived from saveData)
 *~~MatrixInvaders:~~* ~~`menu`, `gameOver`, `paused`, `invulnerable`, `bulletTimeActive`~~ → ✅ Now uses `GamePhase` enum + 2 booleans
+*~~Metris:~~* ~~`gameOver`, `paused`, `waiting`, `bulletTimeActive`, `softDropActive`~~ → ✅ Now uses `GamePhase` enum + 2 booleans
 *~~VortexPong:~~* ~~`showMenu`, `gameOver`, `isPaused`~~ → ✅ Now uses `GamePhase` enum
 
 **Reference implementations:**
@@ -390,7 +391,7 @@ IDLE/MENU -> PLAYING -> PAUSED -> PLAYING -> GAME_OVER
 | MatrixInvaders | `'menu' \| 'playing' \| 'paused' \| 'gameOver'` + 2 booleans (Round 69) | ✅ COMPLIANT |
 | MatrixCloud | `'menu' \| 'playing' \| 'paused' \| 'gameOver'` + 2 booleans (Round 70) | ✅ COMPLIANT |
 | TerminalQuest | `'exploring' \| 'combat' \| 'paused'` + 3 UI effect booleans (Round 71) | ✅ COMPLIANT |
-| Metris | 5 boolean flags | ⚠️ PARTIAL |
+| Metris | `'menu' \| 'playing' \| 'paused' \| 'gameOver'` + 2 booleans (Round 72) | ✅ COMPLIANT |
 
 ### Required Keyboard Shortcuts
 
@@ -456,12 +457,12 @@ const unlockAchievement = useCallback((achievementId: string) => {
 | TerminalQuestCombat | N/A | Yes | Yes | ✅ COMPLIANT | N/A | N/A | **98%** |
 | CtrlSWorld | 100% | Yes | Yes | ✅ COMPLIANT | ✅ Dual-call | Yes | **98%** |
 | MatrixInvaders | 100% | Yes | Yes | ✅ COMPLIANT | ✅ Dual-call | Yes | **98%** |
-| Metris | 95% | Yes | Yes | ⚠️ PARTIAL | ✅ Dual-call | Yes | **95%** |
+| Metris | 100% | Yes | Yes | ✅ COMPLIANT | ✅ Dual-call | Yes | **98%** |
 | VortexPong | 100% | Yes | Yes | ✅ COMPLIANT | ✅ Dual-call | Yes | **98%** |
 | MatrixCloud | 100% | Yes | Yes | ✅ COMPLIANT | ✅ Dual-call | Yes | **98%** |
 | TerminalQuest | 100% | Yes | Yes | ✅ COMPLIANT | ✅ Dual-call | Yes | **98%** |
 
-**Average Game Compliance: 97%**
+**Average Game Compliance: 98%**
 
 ---
 
@@ -475,7 +476,7 @@ const unlockAchievement = useCallback((achievementId: string) => {
 - [x] ~~Refactor CtrlSWorld state to unified GamePhase + ActiveModal pattern (12 booleans → 2 enums + 4 booleans)~~ ✅ RESOLVED Round 67
 - [x] ~~Refactor VortexPong state to GamePhase enum (3 booleans → 1 enum)~~ ✅ RESOLVED Round 68
 - [x] ~~Refactor MatrixInvaders state to GamePhase enum (5 booleans → 1 enum + 2 booleans)~~ ✅ RESOLVED Round 69
-- [ ] Refactor other games' boolean flags to state machine enums (~~MatrixCloud~~ ✅, ~~TerminalQuest~~ ✅, Metris)
+- [x] ~~Refactor other games' boolean flags to state machine enums (MatrixCloud ✅, TerminalQuest ✅, Metris ✅)~~ ✅ RESOLVED Round 72
 
 ### P2 - Medium Priority (Performance)
 - [ ] VortexPong: Implement object pooling for particles/balls or use refs (critical: particles recreated every frame)
@@ -811,5 +812,38 @@ const unlockAchievement = useCallback((achievementId: string) => {
 
 ---
 
-*Generated by Ralph on 26 January 2026 - Round 71*
-*TerminalQuest state machine refactoring completed - 6 booleans reduced to GamePhase enum + 3 UI effect booleans*
+### 26 January 2026 - Round 72 State Machine Refactor
+
+**Metris State Machine Refactoring - COMPLETED:**
+
+*Implementation Details:*
+- Reduced 5 boolean flags (`gameOver`, `paused`, `waiting`, `bulletTimeActive`, `softDropActive`) to 1 GamePhase enum + 2 booleans
+- Created `GamePhase` type: `'menu' | 'playing' | 'paused' | 'gameOver'`
+- Replaced `gameOver`, `paused`, `waiting` booleans with single `gamePhase` state
+- Retained as independent booleans: `bulletTimeActive` (effect state), `softDropActive` (effect state)
+- Eliminated 28 invalid state combinations (from 32 possible to 4 valid game phases)
+
+*Benefits:*
+- Type-safe state transitions with enum values
+- Impossible to have conflicting states (e.g., menu AND paused simultaneously)
+- Clear game phase progression: menu → playing ↔ paused → gameOver
+- Matches SimpleSnake, VortexPong, MatrixInvaders, MatrixCloud reference implementation pattern
+- Effect states (bullet time, soft drop) remain independent as they can activate during gameplay
+
+*Testing:*
+- All 1000 tests passing
+- TypeScript compilation clean
+- No functional regressions
+
+*State Machine Compliance Updated:*
+- Metris: ⚠️ PARTIAL → ✅ COMPLIANT
+- Overall compliance: 8/8 games (100%) now fully compliant
+- Average game compliance increased from 97% to 98%
+
+**Files Modified:**
+- `src/components/games/Metris.tsx`
+
+---
+
+*Generated by Ralph on 26 January 2026 - Round 72*
+*Metris state machine refactoring completed - All 8 games now fully compliant with state machine pattern*

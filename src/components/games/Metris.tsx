@@ -67,6 +67,10 @@ const TETROMINOES = {
 type TetrominoType = keyof typeof TETROMINOES;
 const TETROMINO_KEYS = Object.keys(TETROMINOES) as TetrominoType[];
 
+// Game phase enum - replaces 3 boolean flags (gameOver, paused, waiting)
+// This eliminates 5 invalid state combinations (8 possible → 4 valid states)
+type GamePhase = 'menu' | 'playing' | 'paused' | 'gameOver';
+
 // Particle interface
 interface Particle {
   x: number;
@@ -108,16 +112,14 @@ interface GameState {
   level: number;
   lines: number;
   combo: number;
-  gameOver: boolean;
-  paused: boolean;
+  gamePhase: GamePhase;  // Single enum replaces gameOver, paused, waiting booleans
   highScore: number;
   // particles removed from state - now in ref for 60fps updates
   bulletTimeMeter: number;
-  bulletTimeActive: boolean;
+  bulletTimeActive: boolean;  // Retained - effect state during gameplay
   bulletTimeTimer: number;
   tSpins: number;
-  waiting: boolean; // Waiting for spacebar to start
-  softDropActive: boolean; // Down arrow held for fast drop
+  softDropActive: boolean;  // Retained - input state for fast drop
 }
 
 interface AchievementManager {
@@ -230,14 +232,12 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       level: 1,
       lines: 0,
       combo: 0,
-      gameOver: false,
-      paused: false,
+      gamePhase: 'menu',  // Start in menu state (waiting for player to press Enter)
       highScore: 0, // Will be synced from useSaveSystem
       bulletTimeMeter: 0,
       bulletTimeActive: false,
       bulletTimeTimer: 0,
       tSpins: 0,
-      waiting: true, // Start in waiting state
       softDropActive: false
     };
   });
@@ -460,7 +460,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
   // Move piece
   const movePiece = useCallback((dx: number, dy: number) => {
     setState(prev => {
-      if (prev.gameOver || prev.paused || !prev.currentPiece) return prev;
+      if (prev.gamePhase !== 'playing' || !prev.currentPiece) return prev;
 
       const newPiece = { ...prev.currentPiece, x: prev.currentPiece.x + dx, y: prev.currentPiece.y + dy };
 
@@ -480,7 +480,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
   // Rotate piece
   const handleRotate = useCallback((direction: number) => {
     setState(prev => {
-      if (prev.gameOver || prev.paused || !prev.currentPiece) return prev;
+      if (prev.gamePhase !== 'playing' || !prev.currentPiece) return prev;
 
       const rotated = rotatePiece(prev.currentPiece, direction, prev.grid);
 
@@ -499,7 +499,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
   // Hold piece
   const holdPiece = useCallback(() => {
     setState(prev => {
-      if (prev.gameOver || prev.paused || !prev.currentPiece || !prev.canHold) return prev;
+      if (prev.gamePhase !== 'playing' || !prev.currentPiece || !prev.canHold) return prev;
 
       let newCurrentPiece: Piece;
       let newHoldPiece: Piece;
@@ -529,7 +529,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
   // Toggle bullet time - available for future keyboard binding
   const _toggleBulletTime = useCallback(() => {
     setState(prev => {
-      if (prev.gameOver || prev.paused || prev.bulletTimeActive) return prev;
+      if (prev.gamePhase !== 'playing' || prev.bulletTimeActive) return prev;
 
       if (prev.bulletTimeMeter >= 100) {
         if (!isMuted) {
@@ -570,7 +570,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
   // Hard drop - instantly drop piece and lock
   const hardDrop = useCallback(() => {
     setState(prev => {
-      if (prev.gameOver || prev.paused || prev.waiting || !prev.currentPiece) return prev;
+      if (prev.gamePhase !== 'playing' || !prev.currentPiece) return prev;
 
       let dropDistance = 0;
       const testPiece = { ...prev.currentPiece };
@@ -608,19 +608,19 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       }
 
       const nextPiece = prev.nextPiece || createPiece();
-      const gameOver = checkCollision(nextPiece, clearedGrid);
+      const isGameOver = checkCollision(nextPiece, clearedGrid);
 
       return {
         ...prev,
         grid: clearedGrid,
-        currentPiece: gameOver ? null : nextPiece,
+        currentPiece: isGameOver ? null : nextPiece,
         nextPiece: createPiece(),
         canHold: true,
         score: newScore,
         level: newLevel,
         lines: newLines,
         combo: newCombo,
-        gameOver
+        gamePhase: isGameOver ? 'gameOver' : prev.gamePhase
       };
     });
   }, [checkCollision, lockPiece, clearLines, calculateScore, createPiece, synthExplosion, synthPowerUp, playSFX, isMuted]);
@@ -628,7 +628,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
   // Drop piece - called by setInterval at drop speed
   const dropPiece = useCallback(() => {
     setState(currentState => {
-      if (currentState.gameOver || currentState.paused || currentState.waiting || !currentState.currentPiece) {
+      if (currentState.gamePhase !== 'playing' || !currentState.currentPiece) {
         return currentState;
       }
 
@@ -715,16 +715,16 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
         }
 
         const nextPiece = currentState.nextPiece || createPiece();
-        const gameOver = checkCollision(nextPiece, clearedGrid);
+        const isGameOver = checkCollision(nextPiece, clearedGrid);
 
-        if (gameOver && !isMuted) {
+        if (isGameOver && !isMuted) {
           synthExplosion(2, 0.3);
         }
 
         const newHighScore = Math.max(currentState.highScore, newScore);
 
         // Save game stats on game over
-        if (gameOver) {
+        if (isGameOver) {
           const sessionTime = Math.floor((Date.now() - sessionStartTimeRef.current) / 1000);
           const previousGamesPlayed = saveData.games.metris.stats.gamesPlayed || 0;
           const previousTotalScore = saveData.games.metris.stats.totalScore || 0;
@@ -767,14 +767,14 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
         return {
           ...currentState,
           grid: clearedGrid,
-          currentPiece: gameOver ? null : nextPiece,
+          currentPiece: isGameOver ? null : nextPiece,
           nextPiece: createPiece(),
           canHold: true,
           score: newScore,
           level: newLevel,
           lines: newLines,
           combo: newCombo,
-          gameOver,
+          gamePhase: isGameOver ? 'gameOver' : currentState.gamePhase,
           highScore: newHighScore,
           bulletTimeMeter: bulletTimeActivated ? 0 : newBulletTimeMeter,
           bulletTimeActive: bulletTimeActivated,
@@ -826,14 +826,12 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       level: 1,
       lines: 0,
       combo: 0,
-      gameOver: false,
-      paused: false,
+      gamePhase: 'menu',  // Return to menu state (waiting for player to press Enter)
       highScore,
       bulletTimeMeter: 0,
       bulletTimeActive: false,
       bulletTimeTimer: 0,
       tSpins: 0,
-      waiting: true,
       softDropActive: false
     });
 
@@ -863,7 +861,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
 
   // Start/stop drop interval based on game state
   useEffect(() => {
-    if (state.gameOver || state.paused || state.waiting) {
+    if (state.gamePhase !== 'playing') {
       // Clear interval when not playing
       if (dropIntervalIdRef.current) {
         clearInterval(dropIntervalIdRef.current);
@@ -896,44 +894,47 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
         saveTimeoutRef.current = null;
       }
     };
-  }, [state.gameOver, state.paused, state.waiting, state.level, state.softDropActive, state.bulletTimeActive, dropPiece]);
+  }, [state.gamePhase, state.level, state.softDropActive, state.bulletTimeActive, dropPiece]);
 
   // Keyboard controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Handle restart with R key when game is over
-      if (state.gameOver && (e.key === 'r' || e.key === 'R')) {
+      if (state.gamePhase === 'gameOver' && (e.key === 'r' || e.key === 'R')) {
         e.preventDefault();
         restart();
         return;
       }
 
-      if (state.gameOver) return;
+      if (state.gamePhase === 'gameOver') return;
 
       keysRef.current.add(e.key);
 
-      // Start game with Enter when waiting
-      if (state.waiting && e.key === 'Enter') {
+      // Start game with Enter when in menu (waiting)
+      if (state.gamePhase === 'menu' && e.key === 'Enter') {
         e.preventDefault();
-        setState(prev => ({ ...prev, waiting: false }));
+        setState(prev => ({ ...prev, gamePhase: 'playing' }));
         lastDropTimeRef.current = performance.now();
         sessionStartTimeRef.current = Date.now();
         if (!isMuted) synthPowerUp('activate');
         return;
       }
 
-      // Pause
+      // Pause - toggle between playing and paused
       if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
         e.preventDefault();
         // Reset timer when unpausing to prevent instant drop
-        if (state.paused) {
+        if (state.gamePhase === 'paused') {
           lastDropTimeRef.current = performance.now();
         }
-        setState(prev => ({ ...prev, paused: !prev.paused }));
+        setState(prev => ({
+          ...prev,
+          gamePhase: prev.gamePhase === 'playing' ? 'paused' : prev.gamePhase === 'paused' ? 'playing' : prev.gamePhase
+        }));
         return;
       }
 
-      if (state.paused || state.waiting) return;
+      if (state.gamePhase !== 'playing') return;
 
       // Prevent default for game keys
       if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'c', 'C', 'x', 'X', 'z', 'Z', 'Shift'].includes(e.key)) {
@@ -1015,7 +1016,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [state.gameOver, state.paused, state.waiting, movePiece, handleRotate, holdPiece, hardDrop, restart, synthPowerUp, isMuted]);
+  }, [state.gamePhase, movePiece, handleRotate, holdPiece, hardDrop, restart, synthPowerUp, isMuted]);
 
   // Render game
   useEffect(() => {
@@ -1334,8 +1335,8 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
             }}
           />
 
-          {/* Waiting to start overlay */}
-          {state.waiting && !state.gameOver && (
+          {/* Menu overlay (waiting to start) */}
+          {state.gamePhase === 'menu' && (
             <div className="absolute inset-0 bg-black/80 flex items-center justify-center backdrop-blur-sm">
               <div className="text-center">
                 <Play className="w-16 h-16 text-green-500 mx-auto mb-4 animate-pulse" />
@@ -1347,7 +1348,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
           )}
 
           {/* Paused overlay */}
-          {state.paused && !state.gameOver && !state.waiting && (
+          {state.gamePhase === 'paused' && (
             <div className="absolute inset-0 bg-black/80 flex items-center justify-center backdrop-blur-sm">
               <div className="text-center">
                 <Pause className="w-16 h-16 text-green-500 mx-auto mb-4" />
@@ -1358,7 +1359,7 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
           )}
 
           {/* Game over overlay */}
-          {state.gameOver && (
+          {state.gamePhase === 'gameOver' && (
             <div className="absolute inset-0 bg-black/90 flex items-center justify-center backdrop-blur-sm border-4 border-red-500 rounded-lg">
               <div className="text-center p-6">
                 <div className="text-3xl font-mono text-red-500 mb-4 animate-pulse">GAME OVER</div>
@@ -1409,15 +1410,18 @@ export default function Metris({ achievementManager, isMuted }: MetrisProps) {
           <button
             onClick={() => {
               // Reset timer when unpausing to prevent instant drop
-              if (state.paused) {
+              if (state.gamePhase === 'paused') {
                 lastDropTimeRef.current = performance.now();
               }
-              setState(prev => ({ ...prev, paused: !prev.paused }));
+              setState(prev => ({
+                ...prev,
+                gamePhase: prev.gamePhase === 'playing' ? 'paused' : prev.gamePhase === 'paused' ? 'playing' : prev.gamePhase
+              }));
             }}
             className="px-4 py-2 bg-green-600 hover:bg-green-500 text-black font-mono rounded-lg flex items-center gap-2 transition-colors"
           >
-            {state.paused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-            {state.paused ? 'RESUME' : 'PAUSE'}
+            {state.gamePhase === 'paused' ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+            {state.gamePhase === 'paused' ? 'RESUME' : 'PAUSE'}
           </button>
         </div>
       </div>
