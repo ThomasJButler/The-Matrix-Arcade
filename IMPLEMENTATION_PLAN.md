@@ -9,13 +9,13 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 ## Completion Status
 
 - **Status**: IN PROGRESS - Phase 2 Final Polish
-- **Last Assessment**: 26 January 2026 15:55 UTC (6 P0 bugs FIXED, 3 test failures FIXED, unit tests expanded, build passes)
-- **Outstanding Critical Work**: None - all P0/P1 critical bugs and test failures resolved
-- **Test Coverage**: Hooks 100%, Production Games 100%, New Games Unit 90%+ (152 tests now exist with state machine, achievement, and movement coverage), E2E Visual 55% (6/11 games)
+- **Last Assessment**: 26 January 2026 15:57 UTC (E2E visual tests now complete for all 11 games)
+- **Outstanding Critical Work**: None - all P0/P1 items resolved
+- **Test Coverage**: Hooks 100%, Production Games 100%, New Games Unit 90%+ (152 tests), E2E Visual 100% (11/11 games)
 - **Test Status**: ALL PASS (412 game tests total, SaveLoadManager 45 tests, SentientAIModal 29 tests)
 - **Build Status**: PASSES (warning: 664KB chunk exceeds 500KB limit)
 - **Spec Compliance**: 95%+ across all games (all critical mechanics now implemented)
-- **Notes**: All 11 games fully playable. All 6 P0 bugs FIXED. All 3 test failures FIXED. Unit tests expanded for 4 new games. Remaining work is P2 polish and E2E visual tests.
+- **Notes**: All 11 games fully playable. All P0/P1 items complete. E2E visual tests added for all 5 remaining games. Remaining work is P2 polish only.
 
 ---
 
@@ -136,23 +136,18 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ---
 
-#### 7. Add Visual E2E Tests for New Games
+#### 7. Add Visual E2E Tests for New Games ✓ COMPLETED (26 Jan 2026 15:57 UTC)
 
-**Status:** 6 games have E2E tests (cloud, ctrlsworld, invaders, metris, pong, snake). 5 games lack coverage.
+**Status:** All 11 games now have E2E visual tests.
 
-**Create Playwright visual tests:**
-- [ ] `e2e/visual/games/crossy-road.spec.ts`
-- [ ] `e2e/visual/games/matrix-ascension.spec.ts`
-- [ ] `e2e/visual/games/agent-escape.spec.ts`
-- [ ] `e2e/visual/games/jimmy-matrix.spec.ts`
-- [ ] `e2e/visual/games/terminal-quest.spec.ts`
+**Created Playwright visual tests:**
+- [x] `e2e/visual/games/crossy-road.spec.ts` - 8 tests (menu, gameplay, movement, obstacles, bullet time, pause, HUD, game over)
+- [x] `e2e/visual/games/matrix-ascension.spec.ts` - 9 tests (menu, gameplay, jumping, shooting, platforms, altitude, pause, matrix rain, game over)
+- [x] `e2e/visual/games/agent-escape.spec.ts` - 10 tests (menu, gameplay, movement, collecting, ghost chase, maze, HUD, pause, power pellet, game over)
+- [x] `e2e/visual/games/jimmy-matrix.spec.ts` - 10 tests (menu, track selection, track nav, gameplay, note hitting, lanes, combo, pause, health, game over)
+- [x] `e2e/visual/games/terminal-quest.spec.ts` - 10 tests (menu, intro, typing effect, choices, exploration, stats, pause, inventory, ASCII art, hub)
 
-**Each test should capture:**
-- Menu screen
-- Gameplay (simulated movement)
-- Pause screen
-- Game over screen
-- Track selection (JimmyMatrix only)
+**Updated:** `e2e/fixtures/arcade.fixture.ts` with game name patterns for navigation
 
 ---
 
@@ -356,10 +351,10 @@ const playSound = useCallback((sound: string) => {
 3. [x] MatrixAscension.tsx - **1 BUG FIXED**: deltaTime applied to all physics
 4. [x] JimmyMatrix.tsx - **1 BUG FIXED**: hold/double note types implemented
 
-### P1 - High Priority (Testing - All Critical Tests FIXED ✓)
+### P1 - High Priority (Testing - ALL COMPLETE ✓)
 5. [x] **Fix failing tests** - SaveLoadManager.test.tsx lines 244/265 + SentientAIModal.test.tsx line 297 ✓ FIXED
-6. [ ] Expand unit tests for 4 new games (deeper coverage)
-7. [ ] Add visual E2E tests for 5 games missing coverage
+6. [x] Expand unit tests for 4 new games (deeper coverage) ✓ COMPLETED
+7. [x] Add visual E2E tests for 5 games missing coverage ✓ COMPLETED (26 Jan 2026 15:57 UTC)
 
 ### P2 - Medium Priority (Polish)
 8. [ ] Sound integration consistency across all new games
@@ -381,14 +376,15 @@ const playSound = useCallback((sound: string) => {
 | Hooks | 100% | All 17 hooks have comprehensive tests |
 | Production Games | 100% | VortexPong, SimpleSnake, MatrixCloud, MatrixInvaders, Metris, CtrlSWorld, TerminalQuest |
 | New Games Unit | 90%+ | 152 tests (36 CrossyRoad, 38 MatrixAscension, 35 AgentEscape, 43 JimmyMatrix) |
-| E2E Visual | 55% | 6/11 games covered |
+| E2E Visual | 100% | 11/11 games covered (47 new visual tests added) |
 
 ---
 
-*Updated on 26 January 2026 15:55 UTC - ALL 6 P0 BUGS FIXED, ALL 3 TEST FAILURES FIXED, UNIT TESTS EXPANDED*
+*Updated on 26 January 2026 15:57 UTC - ALL P0/P1 ITEMS COMPLETE*
 *All 11 games playable and production ready*
 *Build: PASSES (warning: 664KB chunk exceeds 500KB limit)*
 *Tests: ALL PASS (412 game tests total)*
+*E2E Visual: 100% coverage (11/11 games with 47 new visual tests)*
 
 **6 BUGS FIXED ✓ (26 Jan 2026):**
 1. ✓ CrossyRoad magnet: Added attraction logic - red pills now gravitate toward player when magnet is active
