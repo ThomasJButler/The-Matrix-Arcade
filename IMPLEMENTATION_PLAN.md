@@ -10,8 +10,8 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 - **Status**: POLISHED - All P0/P1/P2 complete and COMMITTED
 - **Last Verified**: 27 January 2026 - Build passes (2.18MB bundle), TypeScript clean, 0 lint errors
-- **Version**: v1.9.7
-- **Commit**: ff44643 - Clean up stale checklist items in implementation plan
+- **Version**: v1.9.8
+- **Commit**: 53ab243 - Consolidate implementation plan to remove completed checklist items
 - **Test Coverage**: 1,588 unit tests PASS (49 test files), E2E visual tests for all 11 games
 
 ### E2E Screenshot Status
