@@ -92,6 +92,9 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
     },
   },
   scene: [AgentChaseBootScene, AgentChaseMenuScene, AgentChaseGameScene, AgentChaseGameOverScene],
+  input: {
+    keyboard: true,
+  },
   render: {
     pixelArt: true,
     antialias: false,

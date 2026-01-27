@@ -161,6 +161,11 @@ export default function VortexPong({ achievementManager, isMuted = false, autoSt
   const screenShakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Refs for stable keyboard handler references - prevents race conditions when
+  // gamePhase changes (listeners aren't re-registered, avoiding missed key events)
+  const gamePhaseRef = useRef(gamePhase);
+  const resetGameRef = useRef<() => void>();
+
   // Initialize particles using ref (avoids state updates every frame)
   useEffect(() => {
     if (particlesRef.current.length === 0) {
@@ -257,7 +262,17 @@ export default function VortexPong({ achievementManager, isMuted = false, autoSt
     }
   }, []);
 
-  // Keyboard control support
+  // Keep refs in sync with current values (refs update without re-registering listeners)
+  useEffect(() => {
+    gamePhaseRef.current = gamePhase;
+  }, [gamePhase]);
+
+  useEffect(() => {
+    resetGameRef.current = resetGame;
+  }, [resetGame]);
+
+  // Keyboard control support - uses refs to avoid re-registering listeners
+  // when gamePhase or resetGame change, preventing race conditions
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
@@ -269,19 +284,21 @@ export default function VortexPong({ achievementManager, isMuted = false, autoSt
       } else if (e.key === 'Enter') {
         e.preventDefault();
         // ENTER starts game from menu or restarts from game over
-        if (gamePhase === 'menu' || gamePhase === 'gameOver') {
-          resetGame();
+        const phase = gamePhaseRef.current;
+        if (phase === 'menu' || phase === 'gameOver') {
+          resetGameRef.current?.();
         }
       } else if (e.key === 'p' || e.key === 'P') {
         // P key to toggle pause (only during gameplay)
-        if (gamePhase === 'playing') {
+        const phase = gamePhaseRef.current;
+        if (phase === 'playing') {
           setGamePhase('paused');
-        } else if (gamePhase === 'paused') {
+        } else if (phase === 'paused') {
           setGamePhase('playing');
         }
       } else if (e.key === 'r' || e.key === 'R') {
         // R key to restart game at any time
-        resetGame();
+        resetGameRef.current?.();
       } else if (e.key === 'Escape') {
         // ESC to exit game (handled by parent component App.tsx)
       }
@@ -301,7 +318,7 @@ export default function VortexPong({ achievementManager, isMuted = false, autoSt
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [gamePhase, resetGame]);
+  }, []); // Empty deps - never re-registers listeners
 
   // Cleanup timeout refs on unmount to prevent memory leaks
   useEffect(() => {
