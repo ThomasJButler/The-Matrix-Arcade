@@ -247,16 +247,16 @@ const rightArrow = page.locator('[data-testid="carousel-next"]').first();
 const leftArrow = page.locator('[data-testid="carousel-prev"]').first();
 ```
 
-**Action Required**:
-1. [ ] Add `data-testid="carousel-prev"` to App.tsx line 739
-2. [ ] Add `data-testid="carousel-next"` to App.tsx line 813
-3. [ ] Update e2e/fixtures/arcade.fixture.ts lines 156-157 with data-testid selectors
-4. [ ] Commit all changes (including PhaserGame.tsx keyboard fix)
-5. [ ] Run E2E tests locally: `npx playwright test e2e/visual/games/`
+**All Applied** (27 Jan 2026):
+- [x] Add `data-testid="carousel-prev"` to App.tsx line 744 ✓
+- [x] Add `data-testid="carousel-next"` to App.tsx line 819 ✓
+- [x] Update e2e/fixtures/arcade.fixture.ts lines 156-157 with data-testid selectors ✓
+- [x] Commit all changes (including PhaserGame.tsx keyboard fix) ✓
+- [ ] Run E2E tests locally - **USER ACTION REQUIRED**: `npx playwright test e2e/visual/games/`
 
 ---
 
-## P0 - CRITICAL: Phaser Game Controls Fix ✓ CODE APPLIED (27 Jan 2026) - NEEDS COMMIT
+## P0 - CRITICAL: Phaser Game Controls Fix ✓ COMPLETE (27 Jan 2026)
 
 **Issue**: Phaser games (Matrix Frogger, Neo Jump, Agent Chase, Rhythm Hacker, Cloud Jumper) were not responding to keyboard input. Games would load and display correctly, but arrow keys and other controls had no effect.
 
@@ -864,7 +864,7 @@ const playSound = useCallback((sound: string) => {
    - Removed `includes()` fallback, now uses exact match only
    - Updated GAME_NAME_PATTERNS to use full exact titles
 
-5. [ ] **Run E2E tests locally** - PENDING (user must run to verify)
+5. [ ] **Run E2E tests locally** - USER ACTION REQUIRED (cannot run in sandbox environment)
    ```bash
    npx playwright test e2e/visual/games/matrix-frogger.spec.ts e2e/visual/games/neo-jump.spec.ts e2e/visual/games/agent-chase.spec.ts e2e/visual/games/rhythm-hacker.spec.ts e2e/visual/games/cloud-jumper.spec.ts
    ```
