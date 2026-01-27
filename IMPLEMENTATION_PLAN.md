@@ -6,7 +6,13 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ---
 
-99999. Important! Please see test-results and fix the code where the tests are failing. Ensure new games are properly covered by tests, if not, create new ones. Please ensure all games are highly performant and run smoothly. Not overly bloated or overengineered if possible. Examine the test-results and iterate to get these games perfect, thanks.Please examine .claude/skills folder, this introduces a new skill (phaser-gamedev) we can incorporate into our games, to make them truly stand out as real pieces of art. (We can keep the O.G games as well to show their developmenet).We also have a playwright testing skill in there too so we can use this as a secondary testing option, I will run this locally and we cannot run this on docker sandbox environment but we can try.
+99999. **HELP NEEDED - 27 Jan 2026**: Please help me, what is wrong with CrossyRoad, MatrixAscension, AgentEscape and JimmyMatrix games? They are really buggy and not working as well as the other games. It is frustrating. I have a Claude agent testing this visually. If we cannot fix these new games then I will just have to delete them.
+
+**DECISION**: Rebuild all 4 buggy games with Phaser framework using the assets in `/assets/` folder. Create games around what we have rather than force recreating another game. Also create a new Cloud Jumper game (side-scroller jumping onto clouds, like flappy bird/doodle jump, from airplane window POV).
+
+Legacy games (all others) stay untouched. Use `.claude/skills/phaser-gamedev` skill for the new Phaser-based games.
+
+Please examine .claude/skills folder - phaser-gamedev skill for game development, playwright-testing skill for visual testing (local only).
 
 I have also added a lot of game assets into the project for our reference but we can add them into it if needed, see (assets). Only use what we need, not all of them, I just added loads as we have a lot of different games.
 
@@ -16,7 +22,69 @@ Remember, we are safe on this branch, hell this branch is still even a test. So 
 
 ## Completion Status
 
-- **Status**: POLISHED - All P0/P1/P2 complete, only optional enhancements remain
+- **Status**: COMPLETE - Phaser game rebuilds finished
+- **Priority**: All 5 Phaser games implemented and integrated
+
+---
+
+## P0 - CRITICAL: Phaser Game Rebuilds ✓ COMPLETE (27 Jan 2026)
+
+All buggy games have been rebuilt with Phaser 3 framework.
+
+### Infrastructure ✓ COMPLETE
+
+- [x] Install Phaser 3: `npm install phaser` (DONE)
+- [x] Create React wrapper: `src/lib/phaser/PhaserGame.tsx`
+- [x] Set up scene templates in `src/lib/phaser/scenes/`
+- [x] Create types and config in `src/lib/phaser/types.ts`
+- [x] Configure PWA workbox for larger Phaser bundle (5 MiB limit)
+
+### Game Rebuilds ✓ COMPLETE
+
+| Priority | Old Game | New Name | Status | Location |
+|----------|----------|----------|--------|----------|
+| 1 | CrossyRoad | Matrix Frogger | ✓ Complete | `src/components/games/phaser/MatrixFrogger/` |
+| 2 | MatrixAscension | Neo Jump | ✓ Complete | `src/components/games/phaser/NeoJump/` |
+| 3 | AgentEscape | Agent Chase | ✓ Complete | `src/components/games/phaser/AgentChase/` |
+| 4 | JimmyMatrix | Rhythm Hacker | ✓ Complete | `src/components/games/phaser/RhythmHacker/` |
+| 5 | (NEW) | Cloud Jumper | ✓ Complete | `src/components/games/phaser/CloudJumper/` |
+
+### Phaser Infrastructure Created
+
+**Files Created:**
+- `src/lib/phaser/types.ts` - Registry keys, scene keys, Matrix colours, sound keys
+- `src/lib/phaser/PhaserGame.tsx` - React wrapper with achievement/sound/mute integration
+- `src/lib/phaser/scenes/BaseScene.ts` - Abstract base class with common functionality
+- `src/lib/phaser/scenes/BootScene.ts` - Asset loading with Matrix-themed progress bar
+- `src/lib/phaser/scenes/MenuScene.ts` - Matrix-themed menu with start button
+- `src/lib/phaser/scenes/GameOverScene.ts` - Score display and restart options
+- `src/lib/phaser/index.ts` - Barrel exports
+
+**Each Game Has:**
+- `config.ts` - Game constants and Phaser config
+- `scenes/BootScene.ts` - Asset generation (procedural textures)
+- `scenes/MenuScene.ts` - Game-specific menu
+- `scenes/GameScene.ts` - Core gameplay
+- `scenes/GameOverScene.ts` - Game over screen
+- `index.tsx` - React wrapper component
+
+### Integration Checklist (per game) ✓ ALL COMPLETE
+
+- [x] React wrapper component created
+- [x] Boot scene loads assets
+- [x] Game scene implements core mechanics
+- [x] Sound integration via registry events
+- [x] Achievement integration via achievementManager
+- [x] Save system integration for high scores (via registry)
+- [x] Keyboard shortcuts: ESC (exit), P (pause), M (mute via registry)
+- [x] Added to App.tsx carousel
+- [x] TypeScript type checking passes
+
+---
+
+## Previous Status (Legacy Games)
+
+- **Legacy Status**: POLISHED - All P0/P1/P2 complete, only optional enhancements remain
 - **Last Assessment**: 27 January 2026 18:30 UTC (re-verified in planning loop - build passes, lint passes with 0 errors/46 warnings, unit tests PASS, all 11 games implement autoStart prop correctly, games auto-start on launch, skills folder reviewed, Playwright browser requires local installation)
 - **Outstanding Critical Work**: None - all P0/P1/P2 complete
 - **Test Coverage**: Hooks 100%, Production Games 100%, New Games Unit 100% (412 game tests + hooks tests across 12 test files), E2E Visual 100% (11/11 games)
