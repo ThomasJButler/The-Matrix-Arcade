@@ -8,7 +8,7 @@
  * - Integrates with useSoundSystem for audio
  */
 
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import Phaser from 'phaser';
 import { useSoundSystem } from '../../hooks/useSoundSystem';
 import { useSaveSystem } from '../../hooks/useSaveSystem';
@@ -52,6 +52,7 @@ export function PhaserGame({
 }: PhaserGameWrapperProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
+  const [hasFocus, setHasFocus] = useState(false);
   const { playSFX } = useSoundSystem();
   const { updateGameSave, unlockAchievement: unlockSaveAchievement } = useSaveSystem();
 
@@ -186,9 +187,16 @@ export function PhaserGame({
       ref={containerRef}
       data-phaser-game="true"
       className={`w-full h-full ${className}`}
-      style={{ minHeight: '400px', outline: 'none' }}
+      style={{
+        minHeight: '400px',
+        outline: 'none',
+        boxShadow: hasFocus ? '0 0 0 2px #00ff00' : 'none',
+        transition: 'box-shadow 0.2s ease',
+      }}
       tabIndex={0}
       onClick={handleContainerClick}
+      onFocus={() => setHasFocus(true)}
+      onBlur={() => setHasFocus(false)}
     />
   );
 }
