@@ -101,6 +101,9 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
     },
   },
   scene: [CloudJumperBootScene, CloudJumperMenuScene, CloudJumperGameScene, CloudJumperGameOverScene],
+  input: {
+    keyboard: true,
+  },
   render: {
     pixelArt: true,
     antialias: false,

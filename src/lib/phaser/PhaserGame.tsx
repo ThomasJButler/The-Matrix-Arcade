@@ -138,6 +138,12 @@ export function PhaserGame({
     // Store autoStart in registry for scenes to check
     game.registry.set('autoStart', autoStart);
 
+    // Focus the container after Phaser is ready (fixes race condition where
+    // focus was called before Phaser's input system was initialised)
+    game.events.once('ready', () => {
+      containerRef.current?.focus();
+    });
+
     // Cleanup on unmount
     return () => {
       if (gameRef.current) {
@@ -169,12 +175,10 @@ export function PhaserGame({
     }
   }, [handleGameEvent]);
 
-  // Auto-focus the container on mount so keyboard input works immediately
-  useEffect(() => {
-    // Focus the container to capture keyboard events
-    if (containerRef.current) {
-      containerRef.current.focus();
-    }
+  // Click handler to restore focus when user clicks on the game container
+  // (focus can be lost when clicking outside, this allows recovery)
+  const handleContainerClick = useCallback(() => {
+    containerRef.current?.focus();
   }, []);
 
   return (
@@ -184,6 +188,7 @@ export function PhaserGame({
       className={`w-full h-full ${className}`}
       style={{ minHeight: '400px', outline: 'none' }}
       tabIndex={0}
+      onClick={handleContainerClick}
     />
   );
 }

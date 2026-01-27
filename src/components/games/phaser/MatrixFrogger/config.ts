@@ -115,6 +115,9 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
     },
   },
   scene: [FroggerBootScene, FroggerMenuScene, FroggerGameScene, FroggerGameOverScene],
+  input: {
+    keyboard: true,
+  },
   render: {
     pixelArt: true,
     antialias: false,

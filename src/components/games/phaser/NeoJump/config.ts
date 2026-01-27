@@ -102,6 +102,9 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
     },
   },
   scene: [NeoJumpBootScene, NeoJumpMenuScene, NeoJumpGameScene, NeoJumpGameOverScene],
+  input: {
+    keyboard: true,
+  },
   render: {
     pixelArt: true,
     antialias: false,

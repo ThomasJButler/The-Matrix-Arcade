@@ -104,6 +104,9 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
     },
   },
   scene: [RhythmHackerBootScene, RhythmHackerMenuScene, RhythmHackerGameScene, RhythmHackerGameOverScene],
+  input: {
+    keyboard: true,
+  },
   render: {
     pixelArt: false,
     antialias: true,
