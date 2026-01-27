@@ -449,10 +449,14 @@ function App() {
   useEffect(() => {
     const preventDefault = (e: Event) => {
       const target = e.target as HTMLElement;
+      // Don't block keyboard events for Phaser games or canvas elements
+      const isPhaserGame = target.closest('[data-phaser-game]');
       if (
         isPlaying &&
+        !isPhaserGame &&
         target.tagName !== 'INPUT' &&
-        target.tagName !== 'TEXTAREA'
+        target.tagName !== 'TEXTAREA' &&
+        target.tagName !== 'CANVAS'
       ) {
         e.preventDefault();
       }
@@ -737,6 +741,7 @@ function App() {
                 {/* Controls */}
                 <div className="game-controls-enhanced">
                   <button
+                    data-testid="carousel-prev"
                     onClick={handlePrevious}
                     className="p-1.5 lg:p-2 hover:bg-green-900 rounded-full transition-colors transform hover:scale-110"
                     title="Previous game"
@@ -811,6 +816,7 @@ function App() {
                   </div>
 
                   <button
+                    data-testid="carousel-next"
                     onClick={handleNext}
                     className="p-1.5 lg:p-2 hover:bg-green-900 rounded-full transition-colors transform hover:scale-110"
                     title="Next game"

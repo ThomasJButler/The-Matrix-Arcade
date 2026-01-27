@@ -169,11 +169,21 @@ export function PhaserGame({
     }
   }, [handleGameEvent]);
 
+  // Auto-focus the container on mount so keyboard input works immediately
+  useEffect(() => {
+    // Focus the container to capture keyboard events
+    if (containerRef.current) {
+      containerRef.current.focus();
+    }
+  }, []);
+
   return (
     <div
       ref={containerRef}
+      data-phaser-game="true"
       className={`w-full h-full ${className}`}
-      style={{ minHeight: '400px' }}
+      style={{ minHeight: '400px', outline: 'none' }}
+      tabIndex={0}
     />
   );
 }
