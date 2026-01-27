@@ -60,6 +60,7 @@ All buggy games have been rebuilt with Phaser 3 framework.
 - `src/lib/phaser/scenes/MenuScene.ts` - Matrix-themed menu with start button
 - `src/lib/phaser/scenes/GameOverScene.ts` - Score display and restart options
 - `src/lib/phaser/index.ts` - Barrel exports
+- Vitest test mock for Phaser in `src/test/setup.ts` - enables unit tests to run with Phaser game imports
 
 **Each Game Has:**
 - `config.ts` - Game constants and Phaser config
