@@ -29,6 +29,7 @@ import {
   ArrowUp,
   Circle,
   Music,
+  Cloud,
 } from 'lucide-react';
 import SimpleSnake from './components/games/SimpleSnake';
 import VortexPong from './components/games/VortexPong';
@@ -37,10 +38,18 @@ import MatrixCloud from './components/games/MatrixCloud';
 import MatrixInvaders from './components/games/MatrixInvaders';
 import Metris from './components/games/Metris';
 import TerminalQuest from './components/games/TerminalQuest';
-import CrossyRoad from './components/games/CrossyRoad';
-import MatrixAscension from './components/games/MatrixAscension';
-import AgentEscape from './components/games/AgentEscape';
-import JimmyMatrix from './components/games/JimmyMatrix';
+// Legacy buggy games replaced by Phaser versions below
+// import CrossyRoad from './components/games/CrossyRoad';
+// import MatrixAscension from './components/games/MatrixAscension';
+// import AgentEscape from './components/games/AgentEscape';
+// import JimmyMatrix from './components/games/JimmyMatrix';
+
+// New Phaser-based games (replacing buggy React/Canvas versions)
+import MatrixFrogger from './components/games/phaser/MatrixFrogger';
+import NeoJump from './components/games/phaser/NeoJump';
+import AgentChase from './components/games/phaser/AgentChase';
+import RhythmHacker from './components/games/phaser/RhythmHacker';
+import CloudJumper from './components/games/phaser/CloudJumper';
 import AudioSettings from './components/ui/AudioSettings';
 import SaveLoadManager from './components/ui/SaveLoadManager';
 import { AchievementQueue } from './components/ui/AchievementNotification';
@@ -314,36 +323,44 @@ function App() {
       component: TerminalQuest,
     },
     {
-      title: 'Crossy Road',
+      title: 'Matrix Frogger',
       icon: <Footprints className="w-8 h-8" />,
-      description: 'Escape the Matrix - dodge Agents and Sentinels',
+      description: 'Cross the lanes - dodge Agents and Sentinels',
       preview:
         'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
-      component: CrossyRoad,
+      component: MatrixFrogger,
     },
     {
-      title: 'Matrix Ascension',
+      title: 'Neo Jump',
       icon: <ArrowUp className="w-8 h-8" />,
       description: 'Jump through simulation layers to reach The Source',
       preview:
         'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
-      component: MatrixAscension,
+      component: NeoJump,
     },
     {
-      title: 'Agent Escape',
+      title: 'Agent Chase',
       icon: <Circle className="w-8 h-8" />,
-      description: 'Collect red pills while evading Agent Smith',
+      description: 'Collect data while evading Agent Smith',
       preview:
         'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
-      component: AgentEscape,
+      component: AgentChase,
     },
     {
-      title: 'Jimmy Matrix',
+      title: 'Rhythm Hacker',
       icon: <Music className="w-8 h-8" />,
       description: 'Epic rhythm game - catch code in beat',
       preview:
         'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
-      component: JimmyMatrix,
+      component: RhythmHacker,
+    },
+    {
+      title: 'Cloud Jumper',
+      icon: <Cloud className="w-8 h-8" />,
+      description: 'Jump between clouds in the digital sky',
+      preview:
+        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
+      component: CloudJumper,
     },
   ];
 

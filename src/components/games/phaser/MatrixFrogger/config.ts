@@ -1,0 +1,122 @@
+/**
+ * Matrix Frogger - Game Configuration
+ *
+ * Frogger-style lane crossing game with Matrix theme.
+ * Player navigates through lanes of Agents and Sentinels.
+ */
+
+import Phaser from 'phaser';
+import { MATRIX_COLORS } from '../../../../lib/phaser/types';
+import { FroggerBootScene } from './scenes/BootScene';
+import { FroggerMenuScene } from './scenes/MenuScene';
+import { FroggerGameScene } from './scenes/GameScene';
+import { FroggerGameOverScene } from './scenes/GameOverScene';
+
+/** Game constants */
+export const GAME_CONFIG = {
+  /** Game dimensions */
+  WIDTH: 800,
+  HEIGHT: 600,
+
+  /** Grid settings - 64x64 sprites */
+  CELL_SIZE: 64,
+  GRID_COLS: 12,
+  GRID_ROWS: 9,
+
+  /** Player settings */
+  PLAYER: {
+    START_COL: 6,
+    START_ROW: 8,
+    MOVE_SPEED: 150, // ms per hop
+  },
+
+  /** Lane types */
+  LANE_TYPES: {
+    SAFE: 'safe',
+    ROAD: 'road',
+    RIVER: 'river',
+  },
+
+  /** Enemy types */
+  ENEMIES: {
+    AGENT: {
+      SPEED_MIN: 80,
+      SPEED_MAX: 150,
+      FRAME: 0,
+    },
+    SENTINEL: {
+      SPEED_MIN: 200,
+      SPEED_MAX: 350,
+      FRAME: 1,
+    },
+  },
+
+  /** Power-up settings */
+  POWERUPS: {
+    BULLET_TIME: {
+      DURATION: 5000,
+      SLOW_FACTOR: 0.3,
+    },
+    GHOST: {
+      DURATION: 3000,
+    },
+    SHIELD: {
+      HITS: 1,
+    },
+    MAGNET: {
+      DURATION: 8000,
+      RANGE: 3, // cells
+    },
+  },
+
+  /** Scoring */
+  SCORING: {
+    STEP_FORWARD: 10,
+    RED_PILL: 50,
+    BLUE_PILL: 100,
+    DODGE_NEAR_MISS: 25,
+    COMBO_MULTIPLIER: [1, 2, 3, 4, 5], // at combo 0, 5, 10, 20, 30
+  },
+
+  /** Difficulty scaling */
+  DIFFICULTY: {
+    ENEMY_COUNT_BASE: 3,
+    ENEMY_COUNT_PER_100: 1,
+    ENEMY_COUNT_MAX: 10,
+    SPEED_INCREASE_PER_100: 10,
+  },
+} as const;
+
+/** Achievement IDs for Matrix Frogger */
+export const ACHIEVEMENTS = {
+  FIRST_CROSS: 'frogger_first_cross',
+  SCORE_1000: 'frogger_score_1000',
+  SCORE_5000: 'frogger_score_5000',
+  DODGE_MASTER: 'frogger_dodge_10', // 10 near misses
+  BULLET_TIME: 'frogger_bullet_time',
+  GHOST_MODE: 'frogger_ghost',
+  SHIELD_SAVE: 'frogger_shield_save',
+  MAGNET_COLLECTOR: 'frogger_magnet_5', // collect 5 pills with magnet
+  COMBO_10: 'frogger_combo_10',
+  DISTANCE_500: 'frogger_distance_500',
+} as const;
+
+/** Phaser game configuration */
+export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
+  type: Phaser.AUTO,
+  width: GAME_CONFIG.WIDTH,
+  height: GAME_CONFIG.HEIGHT,
+  backgroundColor: MATRIX_COLORS.BACKGROUND,
+  physics: {
+    default: 'arcade',
+    arcade: {
+      gravity: { x: 0, y: 0 },
+      debug: false,
+    },
+  },
+  scene: [FroggerBootScene, FroggerMenuScene, FroggerGameScene, FroggerGameOverScene],
+  render: {
+    pixelArt: true,
+    antialias: false,
+  },
+};

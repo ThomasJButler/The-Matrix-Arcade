@@ -1,0 +1,249 @@
+/**
+ * Cloud Jumper - Boot Scene
+ */
+
+import { BootScene } from '../../../../../lib/phaser/scenes/BootScene';
+import { SCENE_KEYS } from '../../../../../lib/phaser/types';
+import { GAME_CONFIG } from '../config';
+
+export class CloudJumperBootScene extends BootScene {
+  constructor() {
+    super({
+      key: SCENE_KEYS.BOOT,
+      nextScene: SCENE_KEYS.MENU,
+    });
+  }
+
+  preload(): void {
+    super.preload();
+
+    // Load cloud image from Treasure Hunters
+    this.load.image('cloud_base', '/assets/Treasure Hunters/Big Clouds.png');
+  }
+
+  create(): void {
+    this.createPlayerTexture();
+    this.createCloudTextures();
+    this.createCollectibleTextures();
+    this.createObstacleTextures();
+    this.createBackgroundLayers();
+
+    super.create();
+  }
+
+  /**
+   * Create player sprite texture
+   */
+  private createPlayerTexture(): void {
+    const g = this.add.graphics();
+    const size = GAME_CONFIG.PLAYER.WIDTH;
+
+    // Simple character - small figure
+    g.fillStyle(0x4444ff, 1);
+    // Body
+    g.fillRoundedRect(8, 12, 16, 16, 4);
+    // Head
+    g.fillStyle(0xffcc99, 1);
+    g.fillCircle(16, 8, 6);
+    // Legs
+    g.fillStyle(0x333333, 1);
+    g.fillRect(10, 26, 4, 6);
+    g.fillRect(18, 26, 4, 6);
+    // Arms (spread for flying pose)
+    g.fillStyle(0x4444ff, 1);
+    g.fillRect(2, 14, 8, 4);
+    g.fillRect(22, 14, 8, 4);
+
+    g.generateTexture('player', size, size);
+    g.destroy();
+
+    // Player falling texture
+    const fg = this.add.graphics();
+    fg.fillStyle(0x4444ff, 1);
+    fg.fillRoundedRect(8, 12, 16, 16, 4);
+    fg.fillStyle(0xffcc99, 1);
+    fg.fillCircle(16, 8, 6);
+    fg.fillStyle(0x333333, 1);
+    fg.fillRect(10, 26, 4, 6);
+    fg.fillRect(18, 26, 4, 6);
+    // Arms up
+    fg.fillStyle(0x4444ff, 1);
+    fg.fillRect(6, 4, 4, 10);
+    fg.fillRect(22, 4, 4, 10);
+    fg.generateTexture('player_fall', size, size);
+    fg.destroy();
+  }
+
+  /**
+   * Create cloud textures
+   */
+  private createCloudTextures(): void {
+    const types = ['normal', 'moving', 'disappearing', 'storm'];
+    const colors = [0xffffff, 0xaaddff, 0xffddaa, 0x666699];
+
+    types.forEach((type, index) => {
+      const g = this.add.graphics();
+      const width = 120;
+      const height = GAME_CONFIG.CLOUDS.HEIGHT;
+
+      // Cloud shape - fluffy
+      g.fillStyle(colors[index], 1);
+
+      // Main body
+      g.fillEllipse(width / 2, height / 2, width * 0.8, height * 0.8);
+
+      // Bumps
+      g.fillEllipse(width * 0.25, height * 0.4, width * 0.4, height * 0.6);
+      g.fillEllipse(width * 0.75, height * 0.4, width * 0.4, height * 0.6);
+      g.fillEllipse(width * 0.5, height * 0.3, width * 0.5, height * 0.5);
+
+      // Highlight
+      g.fillStyle(0xffffff, 0.5);
+      g.fillEllipse(width * 0.4, height * 0.35, width * 0.3, height * 0.25);
+
+      // Storm cloud has dark bottom
+      if (type === 'storm') {
+        g.fillStyle(0x444466, 0.5);
+        g.fillEllipse(width / 2, height * 0.7, width * 0.7, height * 0.4);
+      }
+
+      g.generateTexture(`cloud_${type}`, width, height);
+      g.destroy();
+    });
+  }
+
+  /**
+   * Create collectible textures
+   */
+  private createCollectibleTextures(): void {
+    // Star
+    const sg = this.add.graphics();
+    sg.fillStyle(0xffdd00, 1);
+    this.drawStar(sg, 12, 12, 5, 10, 5);
+    sg.generateTexture('star', 24, 24);
+    sg.destroy();
+
+    // Gem
+    const gg = this.add.graphics();
+    gg.fillStyle(0x00ffaa, 1);
+    gg.beginPath();
+    gg.moveTo(12, 2);
+    gg.lineTo(22, 10);
+    gg.lineTo(12, 22);
+    gg.lineTo(2, 10);
+    gg.closePath();
+    gg.fillPath();
+    gg.fillStyle(0xffffff, 0.5);
+    gg.fillTriangle(12, 4, 8, 10, 12, 10);
+    gg.generateTexture('gem', 24, 24);
+    gg.destroy();
+
+    // Coin
+    const cg = this.add.graphics();
+    cg.fillStyle(0xffd700, 1);
+    cg.fillCircle(12, 12, 10);
+    cg.fillStyle(0xffaa00, 1);
+    cg.fillCircle(12, 12, 7);
+    cg.fillStyle(0xffd700, 1);
+    cg.fillCircle(12, 12, 5);
+    cg.generateTexture('coin', 24, 24);
+    cg.destroy();
+  }
+
+  /**
+   * Draw star shape
+   */
+  private drawStar(g: Phaser.GameObjects.Graphics, cx: number, cy: number, points: number, outer: number, inner: number): void {
+    g.beginPath();
+    for (let i = 0; i < points * 2; i++) {
+      const radius = i % 2 === 0 ? outer : inner;
+      const angle = (i * Math.PI) / points - Math.PI / 2;
+      const x = cx + Math.cos(angle) * radius;
+      const y = cy + Math.sin(angle) * radius;
+      if (i === 0) {
+        g.moveTo(x, y);
+      } else {
+        g.lineTo(x, y);
+      }
+    }
+    g.closePath();
+    g.fillPath();
+  }
+
+  /**
+   * Create obstacle textures
+   */
+  private createObstacleTextures(): void {
+    // Bird
+    const bg = this.add.graphics();
+    bg.fillStyle(0x333333, 1);
+    // Body
+    bg.fillEllipse(20, 16, 24, 16);
+    // Wing
+    bg.fillTriangle(12, 8, 28, 8, 20, 0);
+    // Beak
+    bg.fillStyle(0xffaa00, 1);
+    bg.fillTriangle(32, 16, 40, 14, 32, 12);
+    // Eye
+    bg.fillStyle(0xffffff, 1);
+    bg.fillCircle(26, 14, 3);
+    bg.fillStyle(0x000000, 1);
+    bg.fillCircle(27, 14, 1.5);
+    bg.generateTexture('bird', 40, 32);
+    bg.destroy();
+
+    // Plane
+    const pg = this.add.graphics();
+    pg.fillStyle(0xcccccc, 1);
+    // Fuselage
+    pg.fillEllipse(30, 20, 50, 16);
+    // Wing
+    pg.fillRect(15, 12, 30, 6);
+    // Tail
+    pg.fillTriangle(5, 20, 15, 10, 15, 20);
+    // Windows
+    pg.fillStyle(0x66aaff, 1);
+    pg.fillCircle(35, 18, 3);
+    pg.fillCircle(42, 18, 3);
+    pg.fillCircle(49, 18, 3);
+    pg.generateTexture('plane', 60, 40);
+    pg.destroy();
+  }
+
+  /**
+   * Create parallax background layers
+   */
+  private createBackgroundLayers(): void {
+    // Far clouds
+    const fc = this.add.graphics();
+    fc.fillStyle(0xffffff, 0.3);
+    for (let i = 0; i < 5; i++) {
+      const x = i * 200 + 50;
+      fc.fillEllipse(x, 50, 100, 40);
+      fc.fillEllipse(x + 30, 60, 60, 30);
+    }
+    fc.generateTexture('bg_far', GAME_CONFIG.WIDTH * 2, 150);
+    fc.destroy();
+
+    // Mid clouds
+    const mc = this.add.graphics();
+    mc.fillStyle(0xffffff, 0.5);
+    for (let i = 0; i < 4; i++) {
+      const x = i * 250 + 100;
+      mc.fillEllipse(x, 40, 80, 35);
+      mc.fillEllipse(x + 25, 50, 50, 25);
+    }
+    mc.generateTexture('bg_mid', GAME_CONFIG.WIDTH * 2, 100);
+    mc.destroy();
+
+    // Near clouds
+    const nc = this.add.graphics();
+    nc.fillStyle(0xffffff, 0.7);
+    for (let i = 0; i < 3; i++) {
+      const x = i * 300 + 150;
+      nc.fillEllipse(x, 30, 60, 25);
+    }
+    nc.generateTexture('bg_near', GAME_CONFIG.WIDTH * 2, 60);
+    nc.destroy();
+  }
+}
