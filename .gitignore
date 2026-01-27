@@ -29,3 +29,4 @@ package.json
 /src/test
 package-lock.json
 /e2e
+/assets
