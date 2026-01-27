@@ -2,6 +2,199 @@ import '@testing-library/jest-dom';
 import { cleanup } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
 
+// Mock Phaser before any imports that might use it
+// Phaser doesn't work in jsdom environment - it requires WebGL
+vi.mock('phaser', () => {
+  const mockScene = vi.fn().mockImplementation(() => ({
+    add: {
+      image: vi.fn().mockReturnThis(),
+      sprite: vi.fn().mockReturnThis(),
+      text: vi.fn().mockReturnThis(),
+      rectangle: vi.fn().mockReturnThis(),
+      graphics: vi.fn().mockReturnValue({
+        fillStyle: vi.fn().mockReturnThis(),
+        fillRect: vi.fn().mockReturnThis(),
+        lineStyle: vi.fn().mockReturnThis(),
+        strokeRect: vi.fn().mockReturnThis(),
+        clear: vi.fn().mockReturnThis(),
+      }),
+      container: vi.fn().mockReturnThis(),
+      group: vi.fn().mockReturnThis(),
+    },
+    input: {
+      keyboard: {
+        addKey: vi.fn().mockReturnValue({ isDown: false }),
+        createCursorKeys: vi.fn().mockReturnValue({
+          up: { isDown: false },
+          down: { isDown: false },
+          left: { isDown: false },
+          right: { isDown: false },
+          space: { isDown: false },
+        }),
+        on: vi.fn(),
+      },
+      on: vi.fn(),
+    },
+    physics: {
+      add: {
+        sprite: vi.fn().mockReturnThis(),
+        staticGroup: vi.fn().mockReturnThis(),
+        group: vi.fn().mockReturnThis(),
+        collider: vi.fn(),
+        overlap: vi.fn(),
+      },
+    },
+    sound: {
+      add: vi.fn().mockReturnValue({ play: vi.fn(), stop: vi.fn() }),
+      play: vi.fn(),
+    },
+    time: {
+      addEvent: vi.fn(),
+      delayedCall: vi.fn(),
+    },
+    scene: {
+      start: vi.fn(),
+      restart: vi.fn(),
+      pause: vi.fn(),
+      resume: vi.fn(),
+    },
+    cameras: {
+      main: {
+        setBackgroundColor: vi.fn(),
+        setBounds: vi.fn(),
+        startFollow: vi.fn(),
+        shake: vi.fn(),
+        flash: vi.fn(),
+      },
+    },
+    registry: {
+      get: vi.fn(),
+      set: vi.fn(),
+      events: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+    },
+    game: {
+      destroy: vi.fn(),
+      events: { on: vi.fn(), off: vi.fn() },
+    },
+    scale: {
+      width: 800,
+      height: 600,
+    },
+    sys: {
+      game: {
+        events: { on: vi.fn(), off: vi.fn() },
+      },
+    },
+  }));
+
+  return {
+    default: {
+      Game: vi.fn().mockImplementation(() => ({
+        destroy: vi.fn(),
+        registry: {
+          get: vi.fn(),
+          set: vi.fn(),
+          events: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+        },
+        events: { on: vi.fn(), off: vi.fn() },
+        scene: {
+          start: vi.fn(),
+          add: vi.fn(),
+          keys: {},
+        },
+        sound: {
+          mute: false,
+        },
+      })),
+      Scene: mockScene,
+      AUTO: 0,
+      CANVAS: 1,
+      WEBGL: 2,
+      Scale: {
+        FIT: 'FIT',
+        CENTER_BOTH: 'CENTER_BOTH',
+        NO_ZOOM: 'NO_ZOOM',
+      },
+      Physics: {
+        Arcade: {
+          Sprite: vi.fn(),
+        },
+      },
+      Input: {
+        Keyboard: {
+          KeyCodes: {
+            UP: 38,
+            DOWN: 40,
+            LEFT: 37,
+            RIGHT: 39,
+            SPACE: 32,
+            ENTER: 13,
+            ESC: 27,
+            P: 80,
+            M: 77,
+            R: 82,
+            W: 87,
+            A: 65,
+            S: 83,
+            D: 68,
+          },
+        },
+      },
+    },
+    Game: vi.fn().mockImplementation(() => ({
+      destroy: vi.fn(),
+      registry: {
+        get: vi.fn(),
+        set: vi.fn(),
+        events: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+      },
+      events: { on: vi.fn(), off: vi.fn() },
+      scene: {
+        start: vi.fn(),
+        add: vi.fn(),
+        keys: {},
+      },
+      sound: {
+        mute: false,
+      },
+    })),
+    Scene: mockScene,
+    AUTO: 0,
+    CANVAS: 1,
+    WEBGL: 2,
+    Scale: {
+      FIT: 'FIT',
+      CENTER_BOTH: 'CENTER_BOTH',
+      NO_ZOOM: 'NO_ZOOM',
+    },
+    Physics: {
+      Arcade: {
+        Sprite: vi.fn(),
+      },
+    },
+    Input: {
+      Keyboard: {
+        KeyCodes: {
+          UP: 38,
+          DOWN: 40,
+          LEFT: 37,
+          RIGHT: 39,
+          SPACE: 32,
+          ENTER: 13,
+          ESC: 27,
+          P: 80,
+          M: 77,
+          R: 82,
+          W: 87,
+          A: 65,
+          S: 83,
+          D: 68,
+        },
+      },
+    },
+  };
+});
+
 // Cleanup after each test
 afterEach(() => {
   cleanup();
