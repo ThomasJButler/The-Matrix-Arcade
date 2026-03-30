@@ -70,7 +70,7 @@ function App() {
   const [showNav, setShowNav] = useState(false);
   const [showAudioSettings, setShowAudioSettings] = useState(false);
   const [showSaveManager, setShowSaveManager] = useState(false);
-  const [showLandingPage, setShowLandingPage] = useState(false);
+  const [showLandingPage, setShowLandingPage] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [transitionDirection, setTransitionDirection] = useState<
     'left' | 'right'
