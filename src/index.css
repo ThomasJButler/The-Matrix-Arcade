@@ -40,6 +40,23 @@
   .terminal-scroll::-webkit-scrollbar-thumb:hover {
     @apply bg-green-800;
   }
+
+  /* Enhanced scrollbar styling for story content */
+  .terminal-scrollable::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  .terminal-scrollable::-webkit-scrollbar-track {
+    @apply bg-black/50;
+  }
+
+  .terminal-scrollable::-webkit-scrollbar-thumb {
+    @apply bg-green-500 rounded;
+  }
+
+  .terminal-scrollable::-webkit-scrollbar-thumb:hover {
+    @apply bg-green-400;
+  }
 }
 
 @keyframes matrix-rain {
