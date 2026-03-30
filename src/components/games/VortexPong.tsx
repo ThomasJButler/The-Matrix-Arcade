@@ -132,7 +132,7 @@ export default function VortexPong({ achievementManager, isMuted = false, autoSt
   // Use custom hooks
   const { powerUps, setPowerUps, activePowerUps, spawnPowerUp, activatePowerUp } = usePowerUps();
   const { explode, createTrail, render: renderParticles } = useParticleSystem();
-  const { playSFX: playSoundEffect, stopMusic } = useSoundSystem();
+  const { playSFX: playSoundEffect } = useSoundSystem();
   const { saveData, updateGameSave, unlockAchievement: unlockSaveAchievement } = useSaveSystem();
 
   // Sound wrapper function - encapsulates isMuted check for consistency
@@ -592,7 +592,6 @@ export default function VortexPong({ achievementManager, isMuted = false, autoSt
     // Check win condition
     if (score.player >= 10 || score.ai >= 10) {
       setGamePhase('gameOver');
-      stopMusic();
       playSFX(score.player >= 10 ? 'levelUp' : 'gameOver');
       addScreenShake(30);
 
