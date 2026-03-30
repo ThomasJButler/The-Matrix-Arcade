@@ -389,20 +389,25 @@ const INFO_CONTENT = [
   "Welcome to 'Ctrl+S - The World Edition!'",
   "",
   "Game Controls:",
-  "- Enter/Space: Continue story",
+  "- Enter/Space: Skip typewriter effect or advance story",
+  "- Arrow Right: Advance story",
   "- P: Pause/Resume auto-advance",
   "- F: Toggle fullscreen",
   "- I: Toggle this info panel",
+  "- R: Restart the game",
+  "- Esc: Close dialogs or exit fullscreen",
   "",
   "About the Game:",
   "This text-based adventure follows the journey of Aver-Ag Engi Neer and a team of unlikely heroes as they attempt to save the world from a rogue AI. Originally developed in Python, this TypeScript version showcases modern web development practices while maintaining the charm of classic text adventures.",
   "",
   "Features:",
-  "- Rich narrative storytelling",
+  "- Rich narrative storytelling with puzzle challenges",
   "- ASCII art illustrations",
-  "- Auto-advancing text",
+  "- Auto-advancing text with typewriter effect",
+  "- Scrollable chat history",
   "- Fullscreen mode",
   "- Terminal-style interface",
+  "- Progress saving and statistics tracking",
   "",
   "Created by Thomas J Butler",
   "A portfolio piece demonstrating TypeScript, React, and creative storytelling."
@@ -706,7 +711,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
               setIsTyping(true);
             }
           }
-        }, 2000); // Give user time to read the page before clearing
+        }, 3000); // Give user time to read the page before clearing
         return;
       }
 
@@ -746,15 +751,24 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
             setCurrentCharIndex(0);
             setIsTyping(true);
           }
-        }, 1500); // Brief pause between paragraphs for readability
+        }, 2000); // Brief pause between paragraphs for readability
       }
     }
   }, [currentNode, currentTextIndex, currentCharIndex, scrollToBottom, isPaused, gameState.state.completedPuzzles, paragraphsDisplayedOnPage, PARAGRAPHS_PER_PAGE, playSFX, safeSetTimeout]);
 
   // Handle manual story advancement (Enter/Space/Arrow keys)
   const handleNext = useCallback(() => {
-    // Don't allow advancing while typing or if puzzle modal is showing
-    if (isTyping || activeModal === 'puzzle') {
+    // If text is still typing, skip to show full text instead of advancing
+    if (isTyping && currentCharIndex > 0 && currentCharIndex < STORY[currentNode]?.content[currentTextIndex]?.length) {
+      // Skip typewriter effect - instantly show the full current text
+      const fullText = STORY[currentNode].content[currentTextIndex];
+      setCurrentText(fullText);
+      setCurrentCharIndex(fullText.length);
+      return; // Don't advance, just show the text
+    }
+
+    // Don't allow advancing if puzzle modal is showing
+    if (activeModal === 'puzzle') {
       return;
     }
 
@@ -814,7 +828,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
           setIsTyping(true);
           setUserHasScrolled(false);
         }
-      }, 500);
+      }, 1000);
     } else {
       // Page not full yet, continue with next paragraph
       if (currentTextIndex < node.content.length - 1) {
@@ -925,7 +939,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
         setIsTyping(true);
         setUserHasScrolled(false);
       }
-    }, 500);
+    }, 800);
   }, [currentPuzzleId, currentNode, currentTextIndex, gameState, unlockAchievement, safeSetTimeout]);
 
   // Track chapter completion and save game stats
@@ -1440,7 +1454,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
           {/* Right Panel - Story Content (Scrollable) */}
           <div
             ref={terminalRef}
-            className="flex-1 md:w-[65%] overflow-y-auto overflow-x-hidden pb-20 scroll-smooth pr-2 md:pr-56"
+            className="flex-1 md:w-[65%] overflow-y-auto overflow-x-hidden pb-20 scroll-smooth pr-2 md:pr-56 terminal-scrollable"
             style={{
               scrollbarWidth: 'thin',
               scrollbarColor: '#00ff00 #1a1a1a'

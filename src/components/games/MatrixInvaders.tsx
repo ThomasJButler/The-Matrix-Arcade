@@ -152,6 +152,15 @@ export default function MatrixInvaders({ achievementManager, isMuted = false, au
   const waveSpawnTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveGameTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Stable refs for game loop callbacks — prevents useEffect re-registration every frame
+  const updateGameRef = useRef<(dt: number) => void>(() => {});
+  const updatePlayerRef = useRef<() => void>(() => {});
+  const renderRef = useRef<(timestamp: number) => void>(() => {});
+  const spawnWaveRef = useRef<(wave: number) => void>(() => {});
+  const gamePhaseRef = useRef<GamePhase>(autoStart ? 'playing' : 'menu');
+  const waveRef = useRef(1);
+  const enemyPoolRef = useRef(enemyPool);
+
   // Sync high score from useSaveSystem on mount
   useEffect(() => {
     const savedHighScore = saveData.games.matrixInvaders?.highScore || 0;
@@ -789,45 +798,21 @@ export default function MatrixInvaders({ achievementManager, isMuted = false, au
     });
   }, [state.gamePhase]);
 
-  // Game loop - uses RAF timestamp for all timing to ensure frame-rate independent behaviour
-  const gameLoop = useCallback(() => {
-    let animationId: number;
-
-    const loop = (timestamp: number) => {
-      const rawDelta = timestamp - (animationFrameRef.current || timestamp);
-      animationFrameRef.current = timestamp;
-      renderTimeRef.current = timestamp;
-
-      // Cap deltaTime to prevent huge jumps after pause/resume or tab switch
-      const deltaTime = Math.min(rawDelta, 33); // Cap at ~30fps equivalent
-
-      // Update player position in main loop (replaces setInterval)
-      updatePlayer();
-
-      updateGame(deltaTime * 0.06); // Normalize to ~60fps
-      render(timestamp); // Pass timestamp for frame-rate independent animations
-
-      if (state.gamePhase === 'playing') {
-        animationId = requestAnimationFrame(loop);
-      }
-    };
-
-    animationId = requestAnimationFrame(loop);
-
-    return () => {
-      if (animationId) {
-        cancelAnimationFrame(animationId);
-      }
-    };
-  }, [updateGame, updatePlayer, render, state.gamePhase]);
+  // Sync stable refs — these update every render so the game loop always calls the latest version
+  updateGameRef.current = updateGame;
+  updatePlayerRef.current = updatePlayer;
+  renderRef.current = render;
+  spawnWaveRef.current = spawnWave;
+  gamePhaseRef.current = state.gamePhase;
+  waveRef.current = state.wave;
+  enemyPoolRef.current = enemyPool;
 
   // Start game from menu
   const startGame = useCallback(() => {
-    animationFrameRef.current = undefined; // Reset timestamp to prevent huge deltaTime on first frame
     setState(prev => ({ ...prev, gamePhase: 'playing' }));
-    spawnWave(1);
+    spawnWaveRef.current(1);
     sessionStartTimeRef.current = Date.now();
-  }, [spawnWave]);
+  }, []);
 
   // Auto-start on mount if autoStart prop is true
   useEffect(() => {
@@ -873,8 +858,8 @@ export default function MatrixInvaders({ achievementManager, isMuted = false, au
     bossDefeatedRef.current = false;
     // Note: Don't reset achievement unlocked flags - they persist across sessions via save system
 
-    spawnWave(1);
-  }, [projectilePool, enemyPool, particlePool, spawnWave, saveData.games.matrixInvaders?.highScore]);
+    spawnWaveRef.current(1);
+  }, [projectilePool, enemyPool, particlePool, saveData.games.matrixInvaders?.highScore]);
 
   // Handle keyboard input
   useEffect(() => {
@@ -963,22 +948,45 @@ export default function MatrixInvaders({ achievementManager, isMuted = false, au
   }, [state, fireBullet, resetGame, startGame]);
   
   
-  // Start game and handle restart
+  // Start game loop — only re-runs when gamePhase changes (not every render)
+  // Uses refs for callbacks to avoid stale closures without causing useEffect churn
   useEffect(() => {
-    let cleanup: (() => void) | undefined;
+    if (state.gamePhase !== 'playing') return;
 
-    if (state.gamePhase === 'playing') {
-      // Initial spawn only if there are no active enemies
-      if (enemyPool.activeObjects.length === 0) {
-        spawnWave(state.wave);
-      }
-      cleanup = gameLoop();
+    // Initial spawn only if there are no active enemies
+    if (enemyPoolRef.current.activeObjects.length === 0) {
+      spawnWaveRef.current(waveRef.current);
     }
 
-    return () => {
-      if (cleanup) cleanup();
+    // Reset timestamp on loop start so first frame gets zero deltaTime (not a huge jump)
+    animationFrameRef.current = undefined;
+
+    let animationId: number;
+    const loop = (timestamp: number) => {
+      const rawDelta = timestamp - (animationFrameRef.current || timestamp);
+      animationFrameRef.current = timestamp;
+      renderTimeRef.current = timestamp;
+
+      // Cap deltaTime to prevent huge jumps after pause/resume or tab switch
+      const deltaTime = Math.min(rawDelta, 33); // Cap at ~30fps equivalent
+
+      updatePlayerRef.current();
+      updateGameRef.current(deltaTime * 0.06); // Normalize to ~60fps
+      renderRef.current(timestamp);
+
+      if (gamePhaseRef.current === 'playing') {
+        animationId = requestAnimationFrame(loop);
+      }
     };
-  }, [state.gamePhase, state.wave, enemyPool, spawnWave, gameLoop]);
+
+    animationId = requestAnimationFrame(loop);
+
+    return () => {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+    };
+  }, [state.gamePhase]);
   
   // Save game stats on game over
   useEffect(() => {

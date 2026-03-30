@@ -4,11 +4,11 @@ import { useSoundSystem } from '../../hooks/useSoundSystem';
 import { useSaveSystem } from '../../hooks/useSaveSystem';
 
 // Game constants - Adjusted for higher difficulty
-const GRAVITY = 0.25;           // Increased from 0.2
-const JUMP_FORCE = -6;          // Increased from -5.5
-const PIPE_SPEED = 3.2;         // Increased from 2.5
-const PIPE_SPACING = 250;       // Decreased from 280
-const PIPE_GAP = 150;          // Decreased from 170
+const GRAVITY = 0.6;            // Increased from 0.25 - much stronger gravity
+const JUMP_FORCE = -7.5;        // Increased from -6 - stronger jump to compete with gravity
+const PIPE_SPEED = 3.8;         // Increased from 3.2 - faster pipes
+const PIPE_SPACING = 220;       // Decreased from 250 - tighter spacing
+const PIPE_GAP = 100;           // Decreased from 150 - much narrower gaps
 const GROUND_HEIGHT = 50;
 const PARTICLE_COUNT = 30; // Optimized for better performance
 const INITIAL_LIVES = 3;
@@ -209,7 +209,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false, autoS
   const groundPatternRef = useRef<CanvasGradient | null>(null);
   
   // Sound system integration
-  const { playSFX: playSoundEffect, playMusic: playMusicEffect, stopMusic } = useSoundSystem();
+  const { playSFX: playSoundEffect, playMusic: playMusicEffect } = useSoundSystem();
 
   // Save system integration
   const { saveData, updateGameSave, unlockAchievement: unlockSaveAchievement } = useSaveSystem();
@@ -251,10 +251,8 @@ export default function MatrixCloud({ achievementManager, isMuted = false, autoS
   useEffect(() => {
     if (state.gamePhase === 'playing') {
       playMusic('gameplay');
-    } else {
-      stopMusic();
     }
-  }, [state.gamePhase, playMusic, stopMusic]);
+  }, [state.gamePhase, playMusic]);
 
   // Initialize particles into ref (avoids state updates every frame)
   const initializeParticles = useCallback(() => {
@@ -660,11 +658,12 @@ export default function MatrixCloud({ achievementManager, isMuted = false, autoS
         .filter(pipe => pipe.x > -60);
 
       // Collision detection with improved hitboxes
+      // Player hitbox is slightly smaller than visual to reduce frustration, but ensure collision works
       const playerBox = {
-        x: 50,
-        y: newY,
-        width: 35,
-        height: 35
+        x: 55,
+        y: newY + 2,
+        width: 25,
+        height: 32
       };
 
       let newState = { ...prev };
@@ -695,23 +694,41 @@ export default function MatrixCloud({ achievementManager, isMuted = false, autoS
 
       for (let i = 0; i < newPipes.length; i++) {
         const pipe = newPipes[i];
+        // Expanded hitbox slightly to catch players more reliably
         const topPipe = {
-          x: pipe.x,
+          x: pipe.x - 2,
           y: 0,
-          width: 50,
+          width: 54,
           height: pipe.height
         };
 
         const bottomPipe = {
-          x: pipe.x,
+          x: pipe.x - 2,
           y: pipe.height + PIPE_GAP,
-          width: 50,
+          width: 54,
           height: 400 - (pipe.height + PIPE_GAP)
         };
 
         if (checkCollision(playerBox, topPipe) || checkCollision(playerBox, bottomPipe)) {
           newState = handleCollision(newState);
           if (newState.gamePhase === 'gameOver') return newState;
+        }
+
+        // Additional failsafe: Check if player Y position falls within the gap but might have slipped through
+        // This catches edge cases where the hitbox check might miss due to fast movement
+        const playerCenterX = playerBox.x + playerBox.width / 2;
+        const playerCenterY = playerBox.y + playerBox.height / 2;
+
+        if (playerCenterX >= pipe.x - 5 && playerCenterX <= pipe.x + 54 + 5) {
+          // Player is aligned with pipe horizontally, check vertical position
+          if (playerCenterY < pipe.height || playerCenterY > pipe.height + PIPE_GAP) {
+            // Player center is in the pipe collision zone
+            if (!checkCollision(playerBox, topPipe) && !checkCollision(playerBox, bottomPipe)) {
+              // This shouldn't happen but catch it anyway
+              newState = handleCollision(newState);
+              if (newState.gamePhase === 'gameOver') return newState;
+            }
+          }
         }
 
         // Score points
@@ -769,8 +786,9 @@ export default function MatrixCloud({ achievementManager, isMuted = false, autoS
       }
 
       // Ground and ceiling collision
-      if (newY > 400 - GROUND_HEIGHT - 35) {
-        newY = 400 - GROUND_HEIGHT - 35;
+      // Ground collision with adjusted hitbox
+      if (newY + 32 > 400 - GROUND_HEIGHT) {
+        newY = 400 - GROUND_HEIGHT - 32;
         newVelocity = 0;
         if (!newState.invulnerable) {
           newState = handleCollision(newState);
