@@ -69,8 +69,7 @@ describe('useAchievementManager', () => {
           matrixCloud: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
           ctrlSWorld: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
           matrixInvaders: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
-          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
-          terminalQuest: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
+          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
         },
         globalStats: {
           totalPlayTime: 0,
@@ -708,22 +707,6 @@ describe('useAchievementManager', () => {
 
       await waitFor(() => {
         expect(result.current.isUnlocked('first_line')).toBe(true);
-      });
-    });
-
-    it('supports TerminalQuest achievements', async () => {
-      const { result } = renderHook(() => useAchievementManager());
-
-      await waitFor(() => {
-        expect(result.current.isUnlocked('quest_first_choice')).toBe(false);
-      });
-
-      act(() => {
-        result.current.unlockAchievement('terminalQuest', 'quest_first_choice');
-      });
-
-      await waitFor(() => {
-        expect(result.current.isUnlocked('quest_first_choice')).toBe(true);
       });
     });
   });

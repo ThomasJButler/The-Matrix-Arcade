@@ -124,7 +124,6 @@ export interface GlobalSaveData {
     ctrlSWorld: GameSaveData;
     matrixInvaders: GameSaveData;
     metris: GameSaveData;
-    terminalQuest: GameSaveData;
     crossyRoad: GameSaveData;
     matrixAscension: GameSaveData;
     agentEscape: GameSaveData;
@@ -185,7 +184,6 @@ const createDefaultGlobalSave = (): GlobalSaveData => ({
     ctrlSWorld: { ...createDefaultGameSave(), lifelineData: createDefaultLifelineData(), ctrlSGameState: createDefaultCtrlSGameState() },
     matrixInvaders: createDefaultGameSave(),
     metris: createDefaultGameSave(),
-    terminalQuest: createDefaultGameSave(),
     crossyRoad: createDefaultGameSave(),
     matrixAscension: createDefaultGameSave(),
     agentEscape: createDefaultGameSave(),
@@ -280,15 +278,6 @@ export const GAME_ACHIEVEMENTS: Record<string, Achievement[]> = {
     { id: 't_spin_master', name: 'T-Spin Master', description: 'Perform 5 T-spins', game: 'Metris' },
     { id: 'immortal', name: 'Immortal', description: 'Reach level 20', game: 'Metris' }
   ],
-  terminalQuest: [
-    { id: 'quest_first_choice', name: 'First Decision', description: 'Make your first choice in the Matrix', game: 'Terminal Quest' },
-    { id: 'quest_tool_collector', name: 'Tool Collector', description: 'Collect 5 different tools', game: 'Terminal Quest' },
-    { id: 'quest_survivor', name: 'Survivor', description: 'Complete 10 choices without taking damage', game: 'Terminal Quest' },
-    { id: 'quest_code_master', name: 'Code Master', description: 'Achieve security level 90+', game: 'Terminal Quest' },
-    { id: 'quest_team_leader', name: 'Team Leader', description: 'Maintain health above 80%', game: 'Terminal Quest' },
-    { id: 'quest_combat_victor', name: 'Combat Victor', description: 'Win 10 combat encounters', game: 'Terminal Quest' },
-    { id: 'quest_story_end', name: 'Story Complete', description: 'Reach one of the game endings', game: 'Terminal Quest' }
-  ],
   crossyRoad: [
     { id: 'crossy_first_hop', name: 'First Step', description: 'Make your first move', game: 'Crossy Road' },
     { id: 'crossy_100_distance', name: 'Escape Artist', description: 'Travel 100 units', game: 'Crossy Road' },
@@ -367,7 +356,7 @@ const migrations: Record<string, MigrationFunction> = {
     const defaultGameSave = createDefaultGameSave();
     const gameIds: Array<keyof GlobalSaveData['games']> = [
       'snakeClassic', 'vortexPong', 'matrixCloud',
-      'ctrlSWorld', 'matrixInvaders', 'metris', 'terminalQuest',
+      'ctrlSWorld', 'matrixInvaders', 'metris',
       'crossyRoad', 'matrixAscension', 'agentEscape', 'jimmyMatrix'
     ];
 
@@ -478,7 +467,7 @@ export function useSaveSystem() {
         if (parsed.version !== CURRENT_VERSION) {
           // Migration logging disabled in production. Enable by setting DEBUG_SAVE=true in development.
           if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_SAVE === 'true') {
-            // eslint-disable-next-line no-console
+             
             console.log('Migrating save data from version', parsed.version, 'to', CURRENT_VERSION);
           }
           parsed = migrateSaveData(parsed);
@@ -505,7 +494,7 @@ export function useSaveSystem() {
       setError(null);
     } catch (err) {
       if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
+         
         console.error('Failed to load save data:', err);
       }
       setError('Failed to load save data');
@@ -534,7 +523,7 @@ export function useSaveSystem() {
       return true;
     } catch (err) {
       if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
+         
         console.error('Failed to save data:', err);
       }
       setError('Failed to save data');
@@ -640,7 +629,7 @@ export function useSaveSystem() {
       return true;
     } catch (err) {
       if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
+         
         console.error('Failed to export save data:', err);
       }
       setError('Failed to export save data');
@@ -668,7 +657,7 @@ export function useSaveSystem() {
           resolve(true);
         } catch (err) {
           if (import.meta.env.DEV) {
-            // eslint-disable-next-line no-console
+             
             console.error('Failed to import save data:', err);
           }
           setError('Failed to import save data: Invalid file format');
@@ -696,7 +685,7 @@ export function useSaveSystem() {
       return true;
     } catch (err) {
       if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
+         
         console.error('Failed to clear save data:', err);
       }
       setError('Failed to clear save data');
@@ -720,7 +709,7 @@ export function useSaveSystem() {
       }
     } catch (err) {
       if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
+         
         console.error('Failed to restore from backup:', err);
       }
       setError('Failed to restore from backup');
