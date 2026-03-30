@@ -117,6 +117,7 @@ export default function VortexPong({ achievementManager, isMuted = false, autoSt
   const [gamePhase, setGamePhase] = useState<GamePhase>(autoStart ? 'playing' : 'menu');
   const autoStartRef = useRef(autoStart);
   const [screenShake, setScreenShake] = useState({ x: 0, y: 0 });
+  const [hasFocus, setHasFocus] = useState(false);
   // Use ref for impact effects to reduce GC pressure from frequent updates
   const impactEffectsRef = useRef<Array<{ x: number; y: number; intensity: number; life: number }>>([]);
   const [aiDifficulty, setAiDifficulty] = useState(2.5); // Adaptive AI speed - reduced for easier gameplay
@@ -905,6 +906,13 @@ export default function VortexPong({ achievementManager, isMuted = false, autoSt
       ref={containerRef}
       tabIndex={0}
       className="h-full w-full flex items-center justify-center bg-black relative outline-none"
+      style={{
+        boxShadow: hasFocus ? '0 0 0 2px #00ff00' : 'none',
+        transition: 'box-shadow 0.2s ease',
+      }}
+      onFocus={() => setHasFocus(true)}
+      onBlur={() => setHasFocus(false)}
+      onClick={() => containerRef.current?.focus()}
     >
       <div className="flex flex-col items-center gap-4 max-w-[800px] w-full">
         <motion.canvas
@@ -978,8 +986,10 @@ export default function VortexPong({ achievementManager, isMuted = false, autoSt
               <div className="text-green-400 text-lg font-mono mb-4">
                 High Score: {saveData.games.vortexPong?.highScore || 0}
               </div>
-              <div className="text-green-400/80 text-sm font-mono mb-6 space-y-1">
+              <div className="text-green-400/80 text-sm font-mono mb-6 space-y-1 border-t border-b border-green-500/40 py-3">
+                <div className="font-bold text-green-500 mb-2">HOW TO PLAY</div>
                 <div>↑↓ or W/S or Mouse to move paddle</div>
+                <div>Beat the AI in an epic rally</div>
                 <div>First to 10 points wins</div>
               </div>
               <button

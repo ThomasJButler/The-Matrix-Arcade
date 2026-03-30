@@ -203,7 +203,8 @@ export default function MatrixCloud({ achievementManager, isMuted = false, autoS
   const invulnerabilityTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showTutorial, setShowTutorial] = useState(true);
   const [screenShake, setScreenShake] = useState({ x: 0, y: 0 });
-  
+  const [hasFocus, setHasFocus] = useState(false);
+
   // Cache for performance
   const groundPatternRef = useRef<CanvasGradient | null>(null);
   
@@ -1235,7 +1236,17 @@ export default function MatrixCloud({ achievementManager, isMuted = false, autoS
   }, [state.gamePhase, render]);
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center bg-black">
+    <div
+      className="w-full h-full flex flex-col items-center justify-center bg-black outline-none"
+      tabIndex={0}
+      style={{
+        boxShadow: hasFocus ? '0 0 0 2px #00ff00' : 'none',
+        transition: 'box-shadow 0.2s ease'
+      }}
+      onFocus={() => setHasFocus(true)}
+      onBlur={() => setHasFocus(false)}
+      onClick={() => {}}
+    >
       <div className="relative w-full max-w-4xl mx-auto">
         <canvas
           ref={canvasRef}
@@ -1347,10 +1358,16 @@ export default function MatrixCloud({ achievementManager, isMuted = false, autoS
           <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 z-30">
             <div className="text-center font-mono text-green-400 max-w-lg p-8 border border-green-500 rounded-lg">
               <h2 className="text-3xl mb-6 font-bold">MATRIX PROTOCOL</h2>
+              <div className="text-sm mb-4 border-b border-green-500/40 pb-3">
+                <div className="font-bold text-green-500 mb-2">HOW TO PLAY</div>
+                <div className="text-green-500/90">Navigate through gaps in the digital storm</div>
+                <div className="text-green-500/90">Don't hit the walls or your game ends</div>
+                <div className="text-green-500/90">Collect power-ups to enhance your run</div>
+              </div>
               <div className="space-y-4 mb-8">
                 <div className="flex items-center justify-center gap-2">
                   <kbd className="px-2 py-1 bg-green-900 rounded">SPACE</kbd>
-                  <span>to navigate the system</span>
+                  <span>to flap/boost upward</span>
                 </div>
                 <div className="flex items-center justify-center gap-2">
                   <kbd className="px-2 py-1 bg-green-900 rounded">P</kbd>

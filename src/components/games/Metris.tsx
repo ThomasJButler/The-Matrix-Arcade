@@ -275,6 +275,7 @@ export default function Metris({ achievementManager, isMuted, autoStart = false 
       softDropActive: false
     };
   });
+  const [hasFocus, setHasFocus] = useState(false);
 
   // Sync high score from useSaveSystem on mount
   useEffect(() => {
@@ -1270,7 +1271,17 @@ export default function Metris({ achievementManager, isMuted, autoStart = false 
   };
 
   return (
-    <div className="w-full h-full flex items-center justify-center bg-black p-4">
+    <div
+      className="w-full h-full flex items-center justify-center bg-black p-4 outline-none"
+      tabIndex={0}
+      style={{
+        boxShadow: hasFocus ? '0 0 0 2px #00ff00' : 'none',
+        transition: 'box-shadow 0.2s ease'
+      }}
+      onFocus={() => setHasFocus(true)}
+      onBlur={() => setHasFocus(false)}
+      onClick={() => {}}
+    >
       {/* Matrix rain background */}
       <div className="absolute inset-0 opacity-10 pointer-events-none overflow-hidden">
         {[...Array(30)].map((_, i) => (
@@ -1382,8 +1393,14 @@ export default function Metris({ achievementManager, isMuted, autoStart = false 
               <div className="text-center">
                 <Play className="w-16 h-16 text-green-500 mx-auto mb-4 animate-pulse" />
                 <div className="text-2xl font-mono text-green-500 mb-4">METRIS</div>
+                <div className="text-sm text-green-400 mb-4 border-t border-b border-green-500/40 py-3 space-y-1">
+                  <div className="font-bold text-green-500 mb-2">HOW TO PLAY</div>
+                  <div>Move and rotate pieces to complete rows</div>
+                  <div>Clear lines to increase your score</div>
+                  <div>Use bullet time for strategic placement</div>
+                </div>
                 <div className="text-lg text-green-400 animate-pulse">Press ENTER to start</div>
-                <div className="text-sm text-green-500/70 mt-4">SPACE = Hard Drop | ↓ = Soft Drop | ← → = Move | ↑ = Rotate</div>
+                <div className="text-xs text-green-500/70 mt-4">← → = Move | ↑ = Rotate | ↓ = Soft Drop | SPACE = Hard Drop | B = Bullet Time</div>
               </div>
             </div>
           )}

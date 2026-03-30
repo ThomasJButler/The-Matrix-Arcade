@@ -435,7 +435,7 @@ export function useSoundSystem() {
       return audioContext;
     } catch (error) {
       if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
+         
         console.warn('Failed to initialize audio context:', error);
       }
       return null;
@@ -455,7 +455,7 @@ export function useSoundSystem() {
     
     if (!soundConfig) {
       if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
+         
         console.warn(`Sound effect '${soundType}' not found in library`);
       }
       return;
@@ -523,7 +523,7 @@ export function useSoundSystem() {
 
     } catch (error) {
       if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
+         
         console.warn('Error playing sound effect:', error);
       }
     }
@@ -595,7 +595,7 @@ export function useSoundSystem() {
       playSequence();
     } catch (error) {
       if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
+         
         console.warn('Error playing background music:', error);
       }
     }
@@ -615,17 +615,27 @@ export function useSoundSystem() {
     }
   }, []);
 
-  // Play MP3 background music
+  // Play MP3 background music — keeps playing if same track is already active
   const playBackgroundMP3 = useCallback((src: string) => {
     if (!config.music) return;
-
-    // Stop any existing music
-    stopMusic();
 
     // Create or reuse audio element
     if (!backgroundMusicRef.current) {
       backgroundMusicRef.current = new Audio();
       backgroundMusicRef.current.loop = true;
+    }
+
+    // If the same track is already playing, just ensure volume is correct and don't restart
+    if (backgroundMusicRef.current.src.endsWith(src) && !backgroundMusicRef.current.paused) {
+      backgroundMusicRef.current.volume = config.masterVolume * config.musicVolume;
+      return;
+    }
+
+    // Stop any existing procedural music (but not the background MP3)
+    currentMusicRef.current = null;
+    if (musicSourceRef.current) {
+      musicSourceRef.current.stop();
+      musicSourceRef.current = null;
     }
 
     backgroundMusicRef.current.src = src;
@@ -634,7 +644,6 @@ export function useSoundSystem() {
     // Play the music
     backgroundMusicRef.current.play().catch(error => {
       if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
         console.warn('Error playing background music:', error);
       }
     });
@@ -645,7 +654,7 @@ export function useSoundSystem() {
         backgroundMusicRef.current.volume = config.masterVolume * config.musicVolume;
       }
     };
-  }, [config.music, config.masterVolume, config.musicVolume, stopMusic]);
+  }, [config.music, config.masterVolume, config.musicVolume]);
 
   // Stop MP3 background music
   const stopBackgroundMP3 = useCallback(() => {
