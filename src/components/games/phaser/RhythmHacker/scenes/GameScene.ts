@@ -77,6 +77,11 @@ export class RhythmHackerGameScene extends BaseScene {
   // Track recent lanes to prevent 3+ consecutive same-lane notes
   private recentLanes: number[] = [];
 
+  // Countdown
+  private isCountdown = true;
+  private countdownTime = 0;
+  private countdownText!: Phaser.GameObjects.Text;
+
   constructor() {
     super(SCENE_KEYS.GAME);
   }
@@ -104,9 +109,11 @@ export class RhythmHackerGameScene extends BaseScene {
     this.goodCount = 0;
     this.totalNotes = 0;
     this.gameTime = 0;
-    this.nextNoteTime = 1000; // Start after 1 second
+    this.nextNoteTime = 11000; // Start after countdown (10 seconds) + 1 second
     this.activeNotes = [];
     this.keyHeld = [false, false, false, false];
+    this.isCountdown = true;
+    this.countdownTime = 0;
 
     // Calculate lane positions
     const { LANES, WIDTH } = GAME_CONFIG;
@@ -127,6 +134,9 @@ export class RhythmHackerGameScene extends BaseScene {
     // Create UI
     this.createUI();
 
+    // Create countdown
+    this.createCountdown();
+
     // Setup input
     this.setupInput();
     this.setupCommonInputs();
@@ -137,8 +147,15 @@ export class RhythmHackerGameScene extends BaseScene {
 
     this.gameTime += delta;
 
-    // Spawn notes
-    this.spawnNotes();
+    // Update countdown
+    if (this.isCountdown) {
+      this.updateCountdown();
+    }
+
+    // Spawn notes (only after countdown)
+    if (!this.isCountdown) {
+      this.spawnNotes();
+    }
 
     // Update notes
     this.updateNotes(delta);
@@ -150,6 +167,42 @@ export class RhythmHackerGameScene extends BaseScene {
 
     // Update UI
     this.updateUI();
+  }
+
+  /**
+   * Create countdown display
+   */
+  private createCountdown(): void {
+    const { WIDTH, HEIGHT } = GAME_CONFIG;
+
+    this.countdownText = this.add.text(WIDTH / 2, HEIGHT / 2 - 50, '10', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '120px',
+      color: MATRIX_COLORS.PRIMARY_HEX,
+    });
+    this.countdownText.setOrigin(0.5);
+    this.countdownText.setDepth(200);
+    this.countdownText.setShadow(0, 0, MATRIX_COLORS.PRIMARY_HEX, 2);
+  }
+
+  /**
+   * Update countdown
+   */
+  private updateCountdown(): void {
+    this.countdownTime += 1000 / 60; // Approximate milliseconds per frame
+
+    const countdownSeconds = Math.floor((10000 - this.countdownTime) / 1000);
+
+    if (countdownSeconds > 0) {
+      this.countdownText.setText(countdownSeconds.toString());
+    } else if (countdownSeconds === 0 && this.countdownTime < 10500) {
+      this.countdownText.setText('GO!');
+      this.countdownText.setColor(MATRIX_COLORS.YELLOW_HEX);
+    } else {
+      // Countdown finished
+      this.isCountdown = false;
+      this.countdownText.setVisible(false);
+    }
   }
 
   /**
@@ -805,6 +858,8 @@ export class RhythmHackerGameScene extends BaseScene {
    * Cleanup on scene shutdown
    */
   shutdown(): void {
+    this.time?.removeAllEvents();
+    this.tweens?.killAll();
     this.laneKeys.forEach(key => {
       key.removeAllListeners();
     });

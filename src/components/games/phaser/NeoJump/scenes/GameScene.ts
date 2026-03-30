@@ -74,6 +74,9 @@ export class NeoJumpGameScene extends BaseScene {
   private spaceKey!: Phaser.Input.Keyboard.Key;
   private wasdKeys!: { A: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key };
 
+  // Game over flag to prevent multiple death triggers
+  private isGameOver = false;
+
   constructor() {
     super(SCENE_KEYS.GAME);
   }
@@ -94,6 +97,7 @@ export class NeoJumpGameScene extends BaseScene {
     this.facingRight = true;
     this.highestY = GAME_CONFIG.HEIGHT - 100;
     this.cameraBaseY = 0;
+    this.isGameOver = false;
 
     // Create parallax matrix rain
     this.createParallaxRain();
@@ -865,10 +869,14 @@ export class NeoJumpGameScene extends BaseScene {
    * Check for game over
    */
   private checkGameOver(): void {
+    if (this.isGameOver) return;
+
     const cameraBottom = this.cameras.main.scrollY + GAME_CONFIG.HEIGHT;
 
-    // Player fell below camera
-    if (this.player.y > cameraBottom + 50) {
+    // Player fell below bottom of screen (game over zone)
+    // Trigger death if player falls significantly below the visible camera area
+    if (this.player.y > cameraBottom + GAME_CONFIG.HEIGHT * 0.3) {
+      this.isGameOver = true;
       this.playerDeath();
     }
   }

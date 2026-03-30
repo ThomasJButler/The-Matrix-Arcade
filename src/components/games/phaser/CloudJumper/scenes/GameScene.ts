@@ -197,6 +197,10 @@ export class CloudJumperGameScene extends BaseScene {
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     body.setSize(PLAYER.WIDTH - 4, PLAYER.HEIGHT - 4);
     body.setMaxVelocityY(PLAYER.MAX_FALL_SPEED);
+    body.setBounce(0, 0); // No bounce off surfaces
+    body.setDrag(0, 0); // No air resistance
+    body.setAccelerationY(0); // Let world gravity handle vertical acceleration
+    body.enable = true; // Ensure physics body is enabled
   }
 
   /**
@@ -335,8 +339,12 @@ export class CloudJumperGameScene extends BaseScene {
   private canLandOnCloud(player: Phaser.Physics.Arcade.Sprite, cloud: Cloud): boolean {
     const playerBody = player.body as Phaser.Physics.Arcade.Body;
 
-    // Only land when falling and above cloud
-    return playerBody.velocity.y > 0 && player.y + playerBody.height / 2 < cloud.y;
+    // Land when falling (velocity.y > 0) AND above cloud, or when not moving up and touching
+    const isFalling = playerBody.velocity.y > 0;
+    const isAboveCloud = player.y + playerBody.height / 2 < cloud.y;
+    const isTouchingDown = playerBody.touching.down || playerBody.blocked.down;
+
+    return (isFalling && isAboveCloud) || isTouchingDown;
   }
 
   /**
@@ -737,6 +745,8 @@ export class CloudJumperGameScene extends BaseScene {
    * Cleanup on scene shutdown
    */
   shutdown(): void {
+    this.time?.removeAllEvents();
+    this.tweens?.killAll();
     this.input.off('pointerdown');
     if (this.input.keyboard) {
       this.input.keyboard.removeAllKeys(true);

@@ -32,6 +32,9 @@ interface Agent extends Phaser.Physics.Arcade.Sprite {
   agentType: 'smith' | 'brown' | 'jones' | 'johnson';
   state: AgentState;
   direction: Direction;
+  gridX: number;
+  gridY: number;
+  moveProgress: number; // 0 to 1
   targetTile: { x: number; y: number };
   scatterTarget: { x: number; y: number };
   homePosition: { x: number; y: number };
@@ -45,6 +48,9 @@ export class AgentChaseGameScene extends BaseScene {
   private playerDirection: Direction = 'LEFT';
   private nextDirection: Direction = 'NONE';
   private mouthOpen = true;
+  private playerGridX = 0;
+  private playerGridY = 0;
+  private playerMoveProgress = 0; // 0 to 1, progress through current tile
 
   // Game state
   private score = 0;
@@ -219,16 +225,21 @@ export class AgentChaseGameScene extends BaseScene {
     const offsetX = (GAME_CONFIG.WIDTH - GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE) / 2;
     const offsetY = 40;
 
-    // Player starts at row 23, col 14 (below ghost house)
-    const x = offsetX + 13.5 * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
-    const y = offsetY + 23 * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+    // Player starts at row 23, col 13 (below ghost house)
+    this.playerGridX = 13;
+    this.playerGridY = 23;
+    this.playerMoveProgress = 0;
+
+    const x = offsetX + this.playerGridX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+    const y = offsetY + this.playerGridY * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
 
     this.player = this.physics.add.sprite(x, y, 'player_open');
     this.player.setDepth(10);
     this.player.setCollideWorldBounds(false);
+    this.player.setVelocity(0, 0);
 
     const body = this.player.body as Phaser.Physics.Arcade.Body;
-    body.setSize(GAME_CONFIG.PLAYER.SIZE - 2, GAME_CONFIG.PLAYER.SIZE - 2);
+    body.setSize(GAME_CONFIG.TILE_SIZE, GAME_CONFIG.TILE_SIZE);
   }
 
   /**
@@ -237,35 +248,40 @@ export class AgentChaseGameScene extends BaseScene {
   private createAgents(): void {
     const offsetX = (GAME_CONFIG.WIDTH - GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE) / 2;
     const offsetY = 40;
-    const houseX = offsetX + 14 * GAME_CONFIG.TILE_SIZE;
-    const houseY = offsetY + 14 * GAME_CONFIG.TILE_SIZE;
 
     const agentConfigs: Array<{
       type: 'smith' | 'brown' | 'jones' | 'johnson';
-      startX: number;
-      startY: number;
+      gridX: number;
+      gridY: number;
       scatterTarget: { x: number; y: number };
     }> = [
-      { type: 'smith', startX: houseX, startY: houseY - GAME_CONFIG.TILE_SIZE * 3, scatterTarget: { x: 25, y: 0 } },
-      { type: 'brown', startX: houseX, startY: houseY, scatterTarget: { x: 2, y: 0 } },
-      { type: 'jones', startX: houseX - GAME_CONFIG.TILE_SIZE, startY: houseY, scatterTarget: { x: 27, y: 30 } },
-      { type: 'johnson', startX: houseX + GAME_CONFIG.TILE_SIZE, startY: houseY, scatterTarget: { x: 0, y: 30 } },
+      { type: 'smith', gridX: 14, gridY: 11, scatterTarget: { x: 25, y: 0 } },
+      { type: 'brown', gridX: 14, gridY: 14, scatterTarget: { x: 2, y: 0 } },
+      { type: 'jones', gridX: 13, gridY: 14, scatterTarget: { x: 27, y: 30 } },
+      { type: 'johnson', gridX: 15, gridY: 14, scatterTarget: { x: 0, y: 30 } },
     ];
 
     agentConfigs.forEach((config, index) => {
-      const agent = this.agents.create(config.startX, config.startY, `agent_${config.type}`) as Agent;
+      const x = offsetX + config.gridX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+      const y = offsetY + config.gridY * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+
+      const agent = this.agents.create(x, y, `agent_${config.type}`) as Agent;
       agent.agentType = config.type;
       agent.state = 'scatter';
       agent.direction = 'LEFT';
+      agent.gridX = config.gridX;
+      agent.gridY = config.gridY;
+      agent.moveProgress = 0;
       agent.targetTile = { x: 14, y: 11 };
       agent.scatterTarget = config.scatterTarget;
-      agent.homePosition = { x: config.startX, y: config.startY };
+      agent.homePosition = { x, y };
       agent.isReleased = index === 0; // Only Smith starts released
       agent.frightenedEndTime = 0;
       agent.setDepth(9);
+      agent.setVelocity(0, 0);
 
       const body = agent.body as Phaser.Physics.Arcade.Body;
-      body.setSize(GAME_CONFIG.PLAYER.SIZE - 2, GAME_CONFIG.PLAYER.SIZE - 2);
+      body.setSize(GAME_CONFIG.TILE_SIZE, GAME_CONFIG.TILE_SIZE);
     });
   }
 
@@ -326,30 +342,62 @@ export class AgentChaseGameScene extends BaseScene {
   }
 
   /**
-   * Move player
+   * Move player (tile-based grid movement)
    */
   private movePlayer(delta: number): void {
-    const speed = GAME_CONFIG.PLAYER.SPEED * (delta / 1000);
-    const tile = this.getTilePosition(this.player.x, this.player.y);
+    const offsetX = (GAME_CONFIG.WIDTH - GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE) / 2;
+    const offsetY = 40;
+    const speed = GAME_CONFIG.PLAYER.SPEED;
 
-    // Check if we can turn
-    if (this.nextDirection !== 'NONE' && this.canMove(tile.x, tile.y, this.nextDirection)) {
+    // Try to turn if next direction is pressed
+    if (this.nextDirection !== 'NONE' && this.canMove(this.playerGridX, this.playerGridY, this.nextDirection)) {
       this.playerDirection = this.nextDirection;
       this.nextDirection = 'NONE';
-
-      // Update rotation
+      this.playerMoveProgress = 0;
       this.updatePlayerRotation();
     }
 
-    // Move in current direction
-    if (this.canMove(tile.x, tile.y, this.playerDirection)) {
+    // Move in current direction (tile-based)
+    if (this.playerMoveProgress >= 1.0) {
+      // Completed move to next tile, check if we can continue
+      this.playerMoveProgress = 0;
+
       const dir = DIRECTIONS[this.playerDirection];
-      this.player.x += dir.x * speed;
-      this.player.y += dir.y * speed;
+      const nextX = this.playerGridX + dir.x;
+      const nextY = this.playerGridY + dir.y;
+
+      // Handle tunnel wrap
+      if (nextY === 14 && (nextX < 0 || nextX >= GAME_CONFIG.MAZE_COLS)) {
+        this.playerGridX = nextX < 0 ? GAME_CONFIG.MAZE_COLS - 1 : 0;
+        this.playerGridY = nextY;
+      } else if (this.canMove(this.playerGridX, this.playerGridY, this.playerDirection)) {
+        this.playerGridX = nextX;
+        this.playerGridY = nextY;
+      }
     }
 
-    // Handle tunnel wrap
-    this.handleTunnelWrap();
+    // Progress through current tile movement
+    const deltaSeconds = delta / 1000;
+    const tilesPerSecond = speed / GAME_CONFIG.TILE_SIZE;
+    this.playerMoveProgress += tilesPerSecond * deltaSeconds;
+
+    // Clamp progress
+    if (this.playerMoveProgress > 1.0) {
+      this.playerMoveProgress = 1.0;
+    }
+
+    // Interpolate position between grid tiles
+    const offsetDir = DIRECTIONS[this.playerDirection];
+    const nextGridX = this.playerGridX + offsetDir.x;
+    const nextGridY = this.playerGridY + offsetDir.y;
+
+    const currentX = offsetX + this.playerGridX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+    const currentY = offsetY + this.playerGridY * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+    const nextX = offsetX + nextGridX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+    const nextY = offsetY + nextGridY * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+
+    this.player.x = Phaser.Math.Interpolation.Linear([currentX, nextX], this.playerMoveProgress);
+    this.player.y = Phaser.Math.Interpolation.Linear([currentY, nextY], this.playerMoveProgress);
   }
 
   /**
@@ -364,26 +412,11 @@ export class AgentChaseGameScene extends BaseScene {
     }
   }
 
-  /**
-   * Handle tunnel wrap around
-   */
-  private handleTunnelWrap(): void {
-    const offsetX = (GAME_CONFIG.WIDTH - GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE) / 2;
-
-    if (this.player.x < offsetX - GAME_CONFIG.TILE_SIZE) {
-      this.player.x = offsetX + GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE;
-    } else if (this.player.x > offsetX + GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE) {
-      this.player.x = offsetX;
-    }
-  }
 
   /**
    * Setup collisions
    */
   private setupCollisions(): void {
-    // Player vs walls
-    this.physics.add.collider(this.player, this.walls);
-
     // Player vs dots
     this.physics.add.overlap(
       this.player,
@@ -503,8 +536,11 @@ export class AgentChaseGameScene extends BaseScene {
     const offsetY = 40;
 
     // Reset player
-    this.player.x = offsetX + 13.5 * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
-    this.player.y = offsetY + 23 * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+    this.playerGridX = 13;
+    this.playerGridY = 23;
+    this.playerMoveProgress = 0;
+    this.player.x = offsetX + this.playerGridX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+    this.player.y = offsetY + this.playerGridY * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
     this.playerDirection = 'LEFT';
     this.nextDirection = 'NONE';
     this.player.setAngle(180);
@@ -512,8 +548,18 @@ export class AgentChaseGameScene extends BaseScene {
     // Reset agents
     this.agents.getChildren().forEach((obj, index) => {
       const agent = obj as Agent;
+      const offsetX = (GAME_CONFIG.WIDTH - GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE) / 2;
+      const offsetY = 40;
+
+      // Reset to home position
       agent.x = agent.homePosition.x;
       agent.y = agent.homePosition.y;
+
+      // Reset grid position based on home position
+      agent.gridX = Math.round((agent.homePosition.x - offsetX) / GAME_CONFIG.TILE_SIZE);
+      agent.gridY = Math.round((agent.homePosition.y - offsetY) / GAME_CONFIG.TILE_SIZE);
+      agent.moveProgress = 0;
+
       agent.state = 'scatter';
       agent.isReleased = index === 0;
       agent.setTexture(`agent_${agent.agentType}`);
@@ -759,28 +805,37 @@ export class AgentChaseGameScene extends BaseScene {
   }
 
   /**
-   * Move agent with AI
+   * Move agent with AI (tile-based grid movement)
+   * speedPixelsPerSecond: pixels per second movement speed
    */
-  private moveAgent(agent: Agent, speed: number): void {
-    const tile = this.getTilePosition(agent.x, agent.y);
-
-    // At tile center, decide next direction
+  private moveAgent(agent: Agent, speedPixelsPerSecond: number): void {
     const offsetX = (GAME_CONFIG.WIDTH - GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE) / 2;
     const offsetY = 40;
-    const tileCenterX = offsetX + tile.x * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
-    const tileCenterY = offsetY + tile.y * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
 
-    const atCenter = Math.abs(agent.x - tileCenterX) < 2 && Math.abs(agent.y - tileCenterY) < 2;
+    // Complete current tile move if enough progress
+    if (agent.moveProgress >= 1.0) {
+      agent.moveProgress = 0;
 
-    if (atCenter) {
-      // Snap to center
-      agent.x = tileCenterX;
-      agent.y = tileCenterY;
+      const dir = DIRECTIONS[agent.direction];
+      const nextX = agent.gridX + dir.x;
+      const nextY = agent.gridY + dir.y;
 
+      // Handle tunnel wrap
+      if (nextY === 14 && (nextX < 0 || nextX >= GAME_CONFIG.MAZE_COLS)) {
+        agent.gridX = nextX < 0 ? GAME_CONFIG.MAZE_COLS - 1 : 0;
+        agent.gridY = nextY;
+      } else if (this.canMove(agent.gridX, agent.gridY, agent.direction)) {
+        agent.gridX = nextX;
+        agent.gridY = nextY;
+      }
+    }
+
+    // Decide next direction at tile centers
+    if (agent.moveProgress === 0) {
       // Get target based on state
       const target = this.getAgentTarget(agent);
 
-      // Find best direction (can't reverse unless at intersection)
+      // Find best direction (can't reverse)
       const reverse = this.reverseDirection(agent.direction);
       const directions: Direction[] = ['UP', 'LEFT', 'DOWN', 'RIGHT'];
       let bestDir: Direction = agent.direction;
@@ -788,11 +843,11 @@ export class AgentChaseGameScene extends BaseScene {
 
       directions.forEach((dir) => {
         if (dir === reverse) return; // Can't reverse
-        if (!this.canMove(tile.x, tile.y, dir)) return;
+        if (!this.canMove(agent.gridX, agent.gridY, dir)) return;
 
         const nextTile = {
-          x: tile.x + DIRECTIONS[dir].x,
-          y: tile.y + DIRECTIONS[dir].y,
+          x: agent.gridX + DIRECTIONS[dir].x,
+          y: agent.gridY + DIRECTIONS[dir].y,
         };
 
         const dist = Phaser.Math.Distance.Between(nextTile.x, nextTile.y, target.x, target.y);
@@ -805,17 +860,27 @@ export class AgentChaseGameScene extends BaseScene {
       agent.direction = bestDir;
     }
 
-    // Move in current direction
-    const dir = DIRECTIONS[agent.direction];
-    agent.x += dir.x * speed;
-    agent.y += dir.y * speed;
+    // Progress through current tile movement
+    // Speed is in pixels/second; each tile is TILE_SIZE pixels
+    const tilesPerSecond = speedPixelsPerSecond / GAME_CONFIG.TILE_SIZE;
+    agent.moveProgress += tilesPerSecond; // Each frame, advance by fraction of tile
 
-    // Handle tunnel
-    if (agent.x < offsetX - GAME_CONFIG.TILE_SIZE) {
-      agent.x = offsetX + GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE;
-    } else if (agent.x > offsetX + GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE) {
-      agent.x = offsetX;
+    if (agent.moveProgress > 1.0) {
+      agent.moveProgress = 1.0;
     }
+
+    // Interpolate position between grid tiles
+    const offsetDir = DIRECTIONS[agent.direction];
+    const nextGridX = agent.gridX + offsetDir.x;
+    const nextGridY = agent.gridY + offsetDir.y;
+
+    const currentX = offsetX + agent.gridX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+    const currentY = offsetY + agent.gridY * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+    const nextX = offsetX + nextGridX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+    const nextY = offsetY + nextGridY * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+
+    agent.x = Phaser.Math.Interpolation.Linear([currentX, nextX], agent.moveProgress);
+    agent.y = Phaser.Math.Interpolation.Linear([currentY, nextY], agent.moveProgress);
   }
 
   /**
