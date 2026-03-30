@@ -732,4 +732,14 @@ export class CloudJumperGameScene extends BaseScene {
       this.player.setTexture('player_fall');
     }
   }
+
+  /**
+   * Cleanup on scene shutdown
+   */
+  shutdown(): void {
+    this.input.off('pointerdown');
+    if (this.input.keyboard) {
+      this.input.keyboard.removeAllKeys(true);
+    }
+  }
 }

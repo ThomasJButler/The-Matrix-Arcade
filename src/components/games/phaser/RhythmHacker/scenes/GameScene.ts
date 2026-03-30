@@ -74,6 +74,9 @@ export class RhythmHackerGameScene extends BaseScene {
   // Lane positions
   private laneX: number[] = [];
 
+  // Track recent lanes to prevent 3+ consecutive same-lane notes
+  private recentLanes: number[] = [];
+
   constructor() {
     super(SCENE_KEYS.GAME);
   }
@@ -291,8 +294,22 @@ export class RhythmHackerGameScene extends BaseScene {
     const note = this.findNearestNote(lane);
     if (note) {
       this.hitNote(note);
+
+      // If this is a double note, also mark its pair as hit
+      if (note.noteType === 'double' && note.pairedNote && !note.pairedNote.isHit) {
+        // Check if the paired lane key is also held
+        if (this.keyHeld[note.pairedNote.lane]) {
+          this.hitNote(note.pairedNote);
+        }
+      }
     } else {
-      // Empty hit - optional: could penalize
+      // Empty hit penalty - small health deduction to discourage key spam
+      this.health = Math.max(0, this.health - 2);
+      this.playSound('rhythmMiss');
+
+      if (this.health <= 0) {
+        this.gameOver();
+      }
     }
   }
 
@@ -321,12 +338,6 @@ export class RhythmHackerGameScene extends BaseScene {
 
     this.activeNotes.forEach((note) => {
       if (note.lane !== lane || note.isHit) return;
-
-      // For double notes, check if paired note's lane matches
-      if (note.noteType === 'double' && note.pairedNote) {
-        // Double notes handled together
-        return;
-      }
 
       const dist = Math.abs(note.y - NOTES.HIT_LINE_Y);
       if (dist < nearestDist && dist < TIMING.GOOD + 50) {
@@ -402,7 +413,7 @@ export class RhythmHackerGameScene extends BaseScene {
         break;
       case 'miss':
         this.missCount++;
-        this.health -= GAME_CONFIG.HEALTH.MISS_DAMAGE;
+        this.health = Math.max(0, this.health - GAME_CONFIG.HEALTH.MISS_DAMAGE);
         this.combo = 0;
         this.playSound('rhythmMiss');
         break;
@@ -556,8 +567,18 @@ export class RhythmHackerGameScene extends BaseScene {
       noteType = 'hold';
     }
 
-    // Pick lane
-    const lane = Phaser.Math.Between(0, LANES.COUNT - 1);
+    // Pick lane — avoid 3+ consecutive notes in the same lane
+    let lane = Phaser.Math.Between(0, LANES.COUNT - 1);
+    if (
+      this.recentLanes.length >= 2 &&
+      this.recentLanes[this.recentLanes.length - 1] === lane &&
+      this.recentLanes[this.recentLanes.length - 2] === lane
+    ) {
+      // Force a different lane
+      lane = (lane + Phaser.Math.Between(1, LANES.COUNT - 1)) % LANES.COUNT;
+    }
+    this.recentLanes.push(lane);
+    if (this.recentLanes.length > 4) this.recentLanes.shift();
     const x = this.laneX[lane];
 
     // Create note
@@ -672,6 +693,27 @@ export class RhythmHackerGameScene extends BaseScene {
     if (index !== -1) {
       this.activeNotes.splice(index, 1);
     }
+
+    // Clean up paired double note to prevent orphaned references.
+    // Both notes in a pair track each other via pairedNote. When one is removed,
+    // sever the back-reference so the surviving note won't try to clean up
+    // an already-destroyed object. If both are hit/missed, remove the pair too.
+    if (note.noteType === 'double' && note.pairedNote) {
+      const pair = note.pairedNote;
+      // Sever bidirectional link first to prevent recursive cleanup
+      note.pairedNote = undefined;
+      pair.pairedNote = undefined;
+
+      // If the pair has also been processed (hit or missed), clean it up now
+      if (pair.isHit) {
+        const pairedIndex = this.activeNotes.indexOf(pair);
+        if (pairedIndex !== -1) {
+          this.activeNotes.splice(pairedIndex, 1);
+          pair.destroy();
+        }
+      }
+    }
+
     note.destroy();
   }
 
@@ -757,5 +799,16 @@ export class RhythmHackerGameScene extends BaseScene {
     if (timeLeft <= 10 && timeLeft > 0) {
       this.timeText.setColor(Math.floor(this.gameTime / 200) % 2 === 0 ? '#ff0000' : '#ffff00');
     }
+  }
+
+  /**
+   * Cleanup on scene shutdown
+   */
+  shutdown(): void {
+    this.laneKeys.forEach(key => {
+      key.removeAllListeners();
+    });
+    this.laneKeys = [];
+    this.activeNotes = [];
   }
 }
