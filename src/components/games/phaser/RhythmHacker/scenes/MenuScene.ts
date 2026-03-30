@@ -33,8 +33,13 @@ export class RhythmHackerMenuScene extends BaseScene {
       this.trackButtons.push(button);
     });
 
+    // HOW TO PLAY section
+    this.createMatrixText(WIDTH / 2, HEIGHT - 180, 'HOW TO PLAY', 14, MATRIX_COLORS.CYAN_HEX);
+    this.createMatrixText(WIDTH / 2, HEIGHT - 160, 'D F J K: Hit notes in time | Hold keys for hold notes', 10);
+    this.createMatrixText(WIDTH / 2, HEIGHT - 145, 'Goal: Hit falling code fragments to the beat', 10);
+
     // Controls info
-    this.createMatrixText(WIDTH / 2, HEIGHT - 100, 'Use D F J K to hit notes', 12);
+    this.createMatrixText(WIDTH / 2, HEIGHT - 100, 'Select difficulty and press ENTER to start', 12);
     this.createMatrixText(WIDTH / 2, HEIGHT - 70, 'ESC: Exit  P: Pause  M: Mute', 10, MATRIX_COLORS.DARK_GREEN_HEX);
 
     // Keyboard input

@@ -24,7 +24,6 @@ import {
   X,
   VolumeX,
   Blocks,
-  Terminal,
   Footprints,
   ArrowUp,
   Circle,
@@ -37,7 +36,7 @@ import CtrlSWorld from './components/games/CtrlSWorld';
 import MatrixCloud from './components/games/MatrixCloud';
 import MatrixInvaders from './components/games/MatrixInvaders';
 import Metris from './components/games/Metris';
-import TerminalQuest from './components/games/TerminalQuest';
+// TerminalQuest removed from arcade
 // Legacy buggy games replaced by Phaser versions below
 // import CrossyRoad from './components/games/CrossyRoad';
 // import MatrixAscension from './components/games/MatrixAscension';
@@ -62,6 +61,7 @@ import { useAchievementManager } from './hooks/useAchievementManager';
 import { useMobileDetection } from './hooks/useMobileDetection';
 import { useSaveSystem } from './hooks/useSaveSystem';
 import { GameStateProvider } from './contexts/GameStateContext';
+import LandingPage from './components/LandingPage';
 import matrixInvadersPreview from './images/matrixinvaders.webp';
 import metrisPreview from './images/metris.webp';
 
@@ -71,6 +71,7 @@ function App() {
   const [showNav, setShowNav] = useState(false);
   const [showAudioSettings, setShowAudioSettings] = useState(false);
   const [showSaveManager, setShowSaveManager] = useState(false);
+  const [showLandingPage, setShowLandingPage] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [transitionDirection, setTransitionDirection] = useState<
     'left' | 'right'
@@ -80,7 +81,7 @@ function App() {
   const footerRef = useRef<HTMLDivElement>(null);
   
   // Initialize sound system and achievement manager
-  const { playSFX, stopMusic, playBackgroundMP3, toggleMute, isMuted } = useSoundSystem();
+  const { playSFX, playBackgroundMP3, toggleMute, isMuted } = useSoundSystem();
   const achievementManager = useAchievementManager();
   const { saveData, updateGlobalStats } = useSaveSystem();
 
@@ -315,14 +316,6 @@ function App() {
       component: Metris,
     },
     {
-      title: 'Terminal Quest',
-      icon: <Terminal className="w-8 h-8" />,
-      description: 'A text-based adventure through the digital realm',
-      preview:
-        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
-      component: TerminalQuest,
-    },
-    {
       title: 'Matrix Frogger',
       icon: <Footprints className="w-8 h-8" />,
       description: 'Cross the lanes - dodge Agents and Sentinels',
@@ -497,7 +490,7 @@ function App() {
   }, [selectedGame, selectGame]);
 
   /**
-   * @listens isPlaying, achievementManager, stopMusic, playSFX, showMobileWarning, playBackgroundMP3, handlePrevious, handleNext, toggleMute
+   * @listens isPlaying, achievementManager, playSFX, showMobileWarning, playBackgroundMP3, handlePrevious, handleNext, toggleMute
    * Global keyboard shortcuts: ESC (exit), Arrow keys (navigate), Enter (play), A (achievements), V (mute)
    */
   useEffect(() => {
@@ -511,11 +504,10 @@ function App() {
         achievementManager.toggleDisplay();
       }
       
-      // ESC key to exit games
+      // ESC key to exit games (music keeps playing)
       if (e.key === 'Escape' && isPlaying) {
         e.preventDefault();
         setIsPlaying(false);
-        stopMusic();
         playSFX('menu');
         trackPlayTime();
       }
@@ -567,7 +559,7 @@ function App() {
     
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isPlaying, achievementManager, stopMusic, playSFX, showMobileWarning, playBackgroundMP3, handlePrevious, handleNext, toggleMute, trackPlayTime, checkNightOwlAchievement, checkDedicatedAchievement, selectedGame]);
+  }, [isPlaying, achievementManager, playSFX, showMobileWarning, playBackgroundMP3, handlePrevious, handleNext, toggleMute, trackPlayTime, checkNightOwlAchievement, checkDedicatedAchievement, selectedGame]);
 
   const GameComponent = games[selectedGame].component;
 
@@ -613,6 +605,7 @@ function App() {
               onClick={() => setShowSaveManager(!showSaveManager)}
               className="p-2 bg-green-900/50 rounded hover:bg-green-800 transition-colors border border-green-500/30 backdrop-blur-sm"
               title="Save Data Manager"
+              aria-label="Save Data Manager"
             >
               <Save className="w-5 h-5" />
             </button>
@@ -625,8 +618,17 @@ function App() {
                   : 'bg-green-900/50 hover:bg-green-800 border-green-500/30'
               }`}
               title="Audio Settings (V to mute)"
+              aria-label="Audio Settings"
             >
               <Settings className={`w-5 h-5 ${isMuted ? 'text-red-400' : ''}`} />
+            </button>
+            <button
+              onClick={() => setShowLandingPage(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-green-900/50 rounded hover:bg-green-800 transition-colors border border-green-500/30 backdrop-blur-sm group"
+              title="View all games"
+            >
+              <Monitor className="w-4 h-4" />
+              <span className="hidden sm:inline">Arcade</span>
             </button>
             <button
               onClick={() => setShowNav(!showNav)}
@@ -640,9 +642,11 @@ function App() {
 
       {/* Side Nav */}
       {showNav && (
-        <div
+        <nav
           className="absolute left-0 top-0 h-full w-64 bg-black/90 border-r border-green-500/50 z-50 backdrop-blur-sm"
           style={{ paddingTop: '5rem' }} // offset from header
+          role="navigation"
+          aria-label="Game selection"
         >
           <div className="flex flex-col gap-2 p-4">
             {games.map((game, index) => (
@@ -656,7 +660,7 @@ function App() {
               </button>
             ))}
           </div>
-        </div>
+        </nav>
       )}
 
       {/* Main Content */}
@@ -678,12 +682,12 @@ function App() {
             <button
               onClick={() => {
                 setIsPlaying(false);
-                stopMusic();
                 playSFX('menu');
                 trackPlayTime();
               }}
               className="absolute top-4 right-4 z-50 p-3 bg-red-900/90 hover:bg-red-700 rounded-lg border-2 border-red-500/80 backdrop-blur-sm transition-all group shadow-lg hover:shadow-red-500/50 hover:scale-110"
               title="Exit Game (ESC)"
+              aria-label="Exit Game"
             >
               <X className="w-6 h-6 group-hover:rotate-90 transition-transform" />
               <span className="absolute -bottom-6 right-0 text-xs text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">ESC</span>
@@ -745,6 +749,7 @@ function App() {
                     onClick={handlePrevious}
                     className="p-1.5 lg:p-2 hover:bg-green-900 rounded-full transition-colors transform hover:scale-110"
                     title="Previous game"
+                    aria-label="Previous game"
                   >
                     <ChevronLeft className="w-6 h-6" />
                   </button>
@@ -766,7 +771,7 @@ function App() {
                         onClick={() => {
                           // Don't allow playing on mobile
                           if (showMobileWarning) return;
-                          
+
                           setIsPlaying(!isPlaying);
                           playSFX(isPlaying ? 'menu' : 'score');
                           if (!isPlaying) {
@@ -803,11 +808,11 @@ function App() {
                               }
                             }
                           } else {
-                            stopMusic();
                             trackPlayTime();
                           }
                         }}
                         className="px-4 py-2 lg:px-6 lg:py-2.5 bg-green-500 text-black font-mono rounded-full hover:bg-green-400 transition-colors flex items-center gap-2 mx-auto transform hover:scale-105 text-sm lg:text-base font-bold"
+                        aria-label={isPlaying ? 'Stop game' : 'Play game'}
                       >
                         <Play className="w-4 h-4" />
                         {isPlaying ? 'STOP' : 'PLAY'}
@@ -820,6 +825,7 @@ function App() {
                     onClick={handleNext}
                     className="p-1.5 lg:p-2 hover:bg-green-900 rounded-full transition-colors transform hover:scale-110"
                     title="Next game"
+                    aria-label="Next game"
                   >
                     <ChevronRight className="w-6 h-6" />
                   </button>
@@ -873,6 +879,19 @@ function App() {
           </div>
         </div>
       </footer>
+
+      {/* Landing Page */}
+      <AnimatePresence>
+        {showLandingPage && (
+          <LandingPage
+            onSelectGame={(index) => {
+              setSelectedGame(index);
+              setShowLandingPage(false);
+            }}
+            onClose={() => setShowLandingPage(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Audio Settings Modal */}
       <AudioSettings

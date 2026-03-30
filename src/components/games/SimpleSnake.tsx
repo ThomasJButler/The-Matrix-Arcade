@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { useSimpleSnakeGame } from '../../hooks/useSimpleSnakeGame';
 import { useSaveSystem } from '../../hooks/useSaveSystem';
 import { useSoundSystem } from '../../hooks/useSoundSystem';
@@ -300,6 +300,12 @@ const SnakeMenu: React.FC<SnakeMenuProps> = ({ gameState, score, highScore, onSt
         {gameState === 'menu' && (
           <>
             <h1 className="text-4xl font-bold text-green-400 mb-4">SNAKE</h1>
+            <div className="text-green-400 text-xs font-mono mb-6 space-y-2 border-t border-b border-green-500/40 py-3">
+              <div className="font-bold text-green-500 mb-2">HOW TO PLAY</div>
+              <div className="text-green-500/90">Arrow keys or WASD to move</div>
+              <div className="text-green-500/90">Eat data fragments to grow longer</div>
+              <div className="text-green-500/90">Avoid walls and yourself</div>
+            </div>
             <p className="text-green-500 mb-6">Press ENTER or SPACE to start</p>
             <button
               onClick={onStart}
@@ -370,6 +376,7 @@ export default function SimpleSnake({ achievementManager: _achievementManager, i
   const foodEatenRef = useRef(0);
   const powerUpsCollectedRef = useRef(0);
   const consecutiveFoodRef = useRef(0);
+  const [hasFocus, setHasFocus] = useState(false);
 
   // Reset achievement tracking refs when starting a new game
   useEffect(() => {
@@ -522,7 +529,17 @@ export default function SimpleSnake({ achievementManager: _achievementManager, i
   }, [gameState.gameState, playSFX]);
 
   return (
-    <div className="w-full h-full bg-black flex flex-col font-mono relative">
+    <div
+      className="w-full h-full bg-black flex flex-col font-mono relative outline-none"
+      tabIndex={0}
+      style={{
+        boxShadow: hasFocus ? '0 0 0 2px #00ff00' : 'none',
+        transition: 'box-shadow 0.2s ease'
+      }}
+      onFocus={() => setHasFocus(true)}
+      onBlur={() => setHasFocus(false)}
+      onClick={() => {}}
+    >
       {/* Header */}
       <div className="bg-black border-b border-green-500 p-2 sm:p-4 pr-16 sm:pr-24">
         <div className="flex items-center justify-between max-w-6xl mx-auto">

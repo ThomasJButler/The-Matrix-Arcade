@@ -103,6 +103,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false, au
     bulletTimeActive: false,
     timeScale: 1
   });
+  const [hasFocus, setHasFocus] = useState(false);
 
   // Hooks
   const { synthLaser: playSynthLaser, synthExplosion: playSynthExplosion, synthDrum: playSynthDrum } = useSoundSynthesis();
@@ -335,17 +336,21 @@ export default function MatrixInvaders({ achievementManager, isMuted = false, au
                 }
               }
 
-              // Split virus enemies
+              // Split virus enemies into two smaller code fragments
               if (enemy.type === 'virus' && ENEMY_TYPES.virus.splits) {
                 for (let i = 0; i < 2; i++) {
                   const newEnemy = enemyPool.acquire();
                   if (newEnemy) {
-                    newEnemy.x = enemy.x + (i === 0 ? -20 : 20);
+                    newEnemy.x = Math.max(0, Math.min(CANVAS_WIDTH - 40, enemy.x + (i === 0 ? -20 : 20)));
                     newEnemy.y = enemy.y;
+                    newEnemy.vx = enemy.vx;
+                    newEnemy.vy = 0;
                     newEnemy.type = 'code';
                     newEnemy.health = 1;
+                    newEnemy.maxHealth = 1;
                     newEnemy.value = 5;
-                    newEnemy.vx = enemy.vx;
+                    newEnemy.width = 40;
+                    newEnemy.height = 30;
                   }
                 }
               }
@@ -480,12 +485,18 @@ export default function MatrixInvaders({ achievementManager, isMuted = false, au
       }
     });
     
-    // Update enemies
+    // Update enemies — classic Space Invaders movement pattern
+    // Move all enemies, then check if ANY hit a wall, then reverse + descend as a group
     let shouldDescend = false;
     enemyPool.activeObjects.forEach(enemy => {
       enemy.x += enemy.vx * scaledDelta;
 
-      if (enemy.x <= 0 || enemy.x >= CANVAS_WIDTH - enemy.width) {
+      // Clamp to boundaries to prevent enemies escaping the play area
+      if (enemy.x <= 0) {
+        enemy.x = 0;
+        shouldDescend = true;
+      } else if (enemy.x >= CANVAS_WIDTH - enemy.width) {
+        enemy.x = CANVAS_WIDTH - enemy.width;
         shouldDescend = true;
       }
 
@@ -493,27 +504,24 @@ export default function MatrixInvaders({ achievementManager, isMuted = false, au
       if (enemy.type === 'boss') {
         // Boss fires more frequently and from multiple positions
         if (Math.random() < 0.002) {
-          // Fire from left side
           fireBullet(enemy.x + 20, enemy.y + enemy.height, true);
         }
         if (Math.random() < 0.002) {
-          // Fire from centre
           fireBullet(enemy.x + enemy.width / 2, enemy.y + enemy.height, true);
         }
         if (Math.random() < 0.002) {
-          // Fire from right side
           fireBullet(enemy.x + enemy.width - 20, enemy.y + enemy.height, true);
         }
-      } else if (Math.random() < 0.0003 * Math.min(state.wave, 10)) { // Cap at wave 10 to prevent overwhelming fire
+      } else if (Math.random() < 0.0003 * Math.min(state.wave, 10)) {
         fireBullet(enemy.x + enemy.width / 2, enemy.y + enemy.height, true);
       }
     });
-    
+
     if (shouldDescend) {
       enemyPool.activeObjects.forEach(enemy => {
         enemy.vx *= -1;
         enemy.y += ENEMY_DESCENT;
-        
+
         // Game over if enemies reach player
         if (enemy.y + enemy.height >= state.player.y) {
           setState(prev => ({ ...prev, gamePhase: 'gameOver' }));
@@ -737,8 +745,8 @@ export default function MatrixInvaders({ achievementManager, isMuted = false, au
     }
 
     // Wave complete message when health resets
-    // Use timestamp parameter for consistent timing instead of Date.now()
-    if (state.player.health === 100 && state.wave > 1 && timestamp - state.player.lastHitTime < 2000) {
+    // Use Date.now() for consistent timing with lastHitTime (both are milliseconds since epoch)
+    if (state.player.health === 100 && state.wave > 1 && Date.now() - state.player.lastHitTime < 2000) {
       ctx.fillStyle = '#00ff00';
       ctx.font = '24px monospace';
       ctx.fillText('WAVE COMPLETE - HEALTH RESTORED!', CANVAS_WIDTH / 2 - 200, CANVAS_HEIGHT / 2 - 100);
@@ -786,9 +794,12 @@ export default function MatrixInvaders({ achievementManager, isMuted = false, au
     let animationId: number;
 
     const loop = (timestamp: number) => {
-      const deltaTime = timestamp - (animationFrameRef.current || timestamp);
+      const rawDelta = timestamp - (animationFrameRef.current || timestamp);
       animationFrameRef.current = timestamp;
       renderTimeRef.current = timestamp;
+
+      // Cap deltaTime to prevent huge jumps after pause/resume or tab switch
+      const deltaTime = Math.min(rawDelta, 33); // Cap at ~30fps equivalent
 
       // Update player position in main loop (replaces setInterval)
       updatePlayer();
@@ -812,6 +823,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false, au
 
   // Start game from menu
   const startGame = useCallback(() => {
+    animationFrameRef.current = undefined; // Reset timestamp to prevent huge deltaTime on first frame
     setState(prev => ({ ...prev, gamePhase: 'playing' }));
     spawnWave(1);
     sessionStartTimeRef.current = Date.now();
@@ -829,6 +841,7 @@ export default function MatrixInvaders({ achievementManager, isMuted = false, au
     projectilePool.releaseAll();
     enemyPool.releaseAll();
     particlePool.releaseAll();
+    animationFrameRef.current = undefined; // Reset timestamp for clean restart
 
     setState({
       player: {
@@ -911,6 +924,10 @@ export default function MatrixInvaders({ achievementManager, isMuted = false, au
       }
       
       if (e.key === 'p' && (state.gamePhase === 'playing' || state.gamePhase === 'paused')) {
+        // Reset timestamp when unpausing to prevent huge deltaTime spike
+        if (state.gamePhase === 'paused') {
+          animationFrameRef.current = undefined;
+        }
         setState(prev => ({
           ...prev,
           gamePhase: prev.gamePhase === 'paused' ? 'playing' : 'paused'
@@ -1029,7 +1046,17 @@ export default function MatrixInvaders({ achievementManager, isMuted = false, au
   }, []);
 
   return (
-    <div className="relative w-full h-full flex items-center justify-center bg-black">
+    <div
+      className="relative w-full h-full flex items-center justify-center bg-black outline-none"
+      tabIndex={0}
+      style={{
+        boxShadow: hasFocus ? '0 0 0 2px #00ff00' : 'none',
+        transition: 'box-shadow 0.2s ease'
+      }}
+      onFocus={() => setHasFocus(true)}
+      onBlur={() => setHasFocus(false)}
+      onClick={() => {}}
+    >
       <div className="relative">
         <canvas
           ref={canvasRef}
@@ -1056,11 +1083,12 @@ export default function MatrixInvaders({ achievementManager, isMuted = false, au
                     High Score: {state.highScore}
                   </p>
                 )}
-                <div className="text-green-400 font-mono text-sm mb-6 space-y-1">
-                  <p>MOVE: ← → or A/D</p>
-                  <p>FIRE: SPACE</p>
-                  <p>BULLET TIME: B</p>
-                  <p>PAUSE: P</p>
+                <div className="text-green-400 font-mono text-sm mb-6 space-y-1 border-t border-b border-green-500/40 py-3">
+                  <div className="font-bold text-green-500 mb-2">HOW TO PLAY</div>
+                  <p>Move left/right, shoot to destroy invaders</p>
+                  <p>Use bullet time for tactical advantage</p>
+                  <p>Survive the waves before invaders reach you</p>
+                  <div className="text-green-500/70 text-xs mt-2">MOVE: ← → or A/D | FIRE: SPACE | BULLET TIME: B | PAUSE: P</div>
                 </div>
                 <p className="text-2xl font-mono text-green-500 animate-pulse">
                   Press ENTER to Start

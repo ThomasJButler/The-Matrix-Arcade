@@ -1386,6 +1386,12 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
         /* Command Prompt - Initial screen (state machine: gamePhase === 'command_prompt') */
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-20">
           <div className="flex flex-col items-start">
+            <div className="mb-6 pb-4 border-b border-green-500/40">
+              <p className="text-green-400 font-bold text-sm mb-2">HOW TO PLAY</p>
+              <p className="text-green-500 text-xs mb-1">Type commands or click choices to progress</p>
+              <p className="text-green-500 text-xs mb-1">Solve puzzles to advance through 5 chapters</p>
+              <p className="text-green-500 text-xs">Goal: Save the digital world and humanity</p>
+            </div>
             <p className="mb-2">Welcome to the terminal. To begin your journey, please enter:</p>
             <p className="mb-2 text-green-300">save-the-world</p>
             <form onSubmit={handleCommandSubmit} className="flex items-center gap-2 w-full">
