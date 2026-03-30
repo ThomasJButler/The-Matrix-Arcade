@@ -232,7 +232,7 @@ describe('useSaveSystem', () => {
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
       });
-
+    });
   });
 
   describe('unlockAchievement', () => {
@@ -887,8 +887,7 @@ describe('useSaveSystem', () => {
           matrixCloud: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
           ctrlSWorld: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
           matrixInvaders: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
-          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
-          terminalQuest: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
+          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
         },
         globalStats: { totalPlayTime: 0, favoriteGame: '', globalAchievements: [], firstPlayDate: Date.now() },
         settings: { autoSave: true }
@@ -909,8 +908,7 @@ describe('useSaveSystem', () => {
           matrixCloud: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
           ctrlSWorld: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
           matrixInvaders: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
-          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
-          terminalQuest: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
+          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
         },
         globalStats: { totalPlayTime: 0, favoriteGame: '', globalAchievements: [], firstPlayDate: Date.now() },
         settings: { autoSave: true }
@@ -934,8 +932,7 @@ describe('useSaveSystem', () => {
           matrixCloud: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
           ctrlSWorld: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
           matrixInvaders: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
-          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
-          terminalQuest: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
+          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
         },
         globalStats: { totalPlayTime: 0, favoriteGame: '', globalAchievements: [], firstPlayDate: Date.now() },
         settings: { autoSave: true }
@@ -956,8 +953,7 @@ describe('useSaveSystem', () => {
           matrixCloud: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
           ctrlSWorld: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
           matrixInvaders: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
-          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
-          terminalQuest: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
+          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
         },
         globalStats: { totalPlayTime: 0, favoriteGame: '', globalAchievements: [], firstPlayDate: Date.now() },
         settings: { autoSave: true }
@@ -978,8 +974,7 @@ describe('useSaveSystem', () => {
           matrixCloud: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
           ctrlSWorld: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
           matrixInvaders: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
-          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
-          terminalQuest: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
+          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
         },
         globalStats: { totalPlayTime: 5000, favoriteGame: 'snakeClassic', globalAchievements: ['global_first_game'], firstPlayDate: Date.now(), playDates: ['2026-01-26'] },
         settings: { autoSave: true }
@@ -1012,7 +1007,6 @@ describe('useSaveSystem', () => {
       expect(migrated.games.ctrlSWorld).toBeDefined();
       expect(migrated.games.matrixInvaders).toBeDefined();
       expect(migrated.games.metris).toBeDefined();
-      expect(migrated.games.terminalQuest).toBeDefined();
     });
 
     it('preserves achievements array during migration', () => {
@@ -1024,8 +1018,7 @@ describe('useSaveSystem', () => {
           matrixCloud: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
           ctrlSWorld: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
           matrixInvaders: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
-          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
-          terminalQuest: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
+          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
         },
         globalStats: { totalPlayTime: 3600, favoriteGame: 'snakeClassic', globalAchievements: ['global_first_game', 'global_10_achievements'], firstPlayDate: Date.now() },
         settings: { autoSave: true }
