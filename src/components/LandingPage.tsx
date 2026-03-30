@@ -5,7 +5,7 @@
  */
 
 import { motion } from 'framer-motion';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Monitor } from 'lucide-react';
 
 interface GameInfo {
   title: string;
@@ -178,7 +178,11 @@ export default function LandingPage({ onSelectGame, onClose }: LandingPageProps)
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.1 + index * 0.05 }}
               onClick={() => onSelectGame(index)}
-              className="group cursor-pointer border border-green-500/20 rounded-lg bg-green-500/5 hover:bg-green-500/10 hover:border-green-500/50 transition-all duration-300 overflow-hidden"
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectGame(index); } }}
+              role="button"
+              tabIndex={0}
+              aria-label={`Play ${game.title}`}
+              className="group cursor-pointer border border-green-500/20 rounded-lg bg-green-500/5 hover:bg-green-500/10 hover:border-green-500/50 focus:outline-none focus:ring-2 focus:ring-green-500/60 transition-all duration-300 overflow-hidden"
             >
               {/* Preview image */}
               {game.preview ? (

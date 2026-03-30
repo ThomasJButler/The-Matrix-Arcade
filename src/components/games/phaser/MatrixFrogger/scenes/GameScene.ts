@@ -814,4 +814,33 @@ export class FroggerGameScene extends BaseScene {
   private rowToY(row: number): number {
     return row * GAME_CONFIG.CELL_SIZE + GAME_CONFIG.CELL_SIZE / 2 + 16;
   }
+
+  shutdown(): void {
+    // Remove all time events (spawn timers)
+    this.time.removeAllEvents();
+
+    // Remove input listeners
+    this.input.off('pointerdown');
+    if (this.input.keyboard) {
+      this.input.keyboard.removeAllKeys(true);
+    }
+
+    // Clear tweens
+    this.tweens.killAll();
+
+    // Clear active power-ups array
+    this.activePowerUps = [];
+
+    // Destroy groups
+    this.enemies.clear(true, true);
+    this.pills.clear(true, true);
+    this.deathEffects.clear(true, true);
+    this.rainGroup.clear(true, true);
+
+    // Clear UI references
+    this.scoreText.destroy();
+    this.distanceText.destroy();
+    this.comboText.destroy();
+    this.powerUpDisplay.destroy();
+  }
 }

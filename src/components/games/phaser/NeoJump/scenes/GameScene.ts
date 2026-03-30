@@ -334,7 +334,7 @@ export class NeoJumpGameScene extends BaseScene {
       if (this.jetpackFuel > 0) {
         this.jetpackActive = true;
         body.setVelocityY(Math.max(body.velocity.y + GAME_CONFIG.PLAYER.JETPACK_THRUST * (delta / 1000), -400));
-        this.jetpackFuel -= GAME_CONFIG.JETPACK.FUEL_DRAIN * (delta / 1000);
+        this.jetpackFuel = Math.max(0, this.jetpackFuel - GAME_CONFIG.JETPACK.FUEL_DRAIN * (delta / 1000));
 
         if (!this.hasUsedJetpack) {
           this.hasUsedJetpack = true;
@@ -894,5 +894,32 @@ export class NeoJumpGameScene extends BaseScene {
 
     this.fuelBar.fillStyle(color, 1);
     this.fuelBar.fillRect(GAME_CONFIG.WIDTH - 108, 12, barWidth, 11);
+  }
+
+  shutdown(): void {
+    // Remove input listeners
+    this.input.off('pointerdown');
+    if (this.input.keyboard) {
+      this.input.keyboard.removeAllKeys(true);
+    }
+
+    // Clear tweens
+    this.tweens.killAll();
+
+    // Clear parallax rain layers and animations
+    this.rainLayers.forEach((layer) => {
+      layer.clear(true, true);
+    });
+    this.rainLayers = [];
+
+    // Destroy groups
+    this.platforms.clear(true, true);
+    this.enemies.clear(true, true);
+    this.projectiles.clear(true, true);
+
+    // Destroy UI elements
+    this.altitudeText.destroy();
+    this.fuelBar.destroy();
+    this.fuelBarBg.destroy();
   }
 }
