@@ -36,7 +36,6 @@ import CtrlSWorld from './components/games/CtrlSWorld';
 import MatrixCloud from './components/games/MatrixCloud';
 import MatrixInvaders from './components/games/MatrixInvaders';
 import Metris from './components/games/Metris';
-// TerminalQuest removed from arcade
 // Legacy buggy games replaced by Phaser versions below
 // import CrossyRoad from './components/games/CrossyRoad';
 // import MatrixAscension from './components/games/MatrixAscension';
