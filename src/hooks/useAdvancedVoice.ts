@@ -209,7 +209,7 @@ export function useAdvancedVoice() {
           analyserRef.current.fftSize = 256;
         } catch (error) {
           if (import.meta.env.DEV) {
-            // eslint-disable-next-line no-console
+             
             console.warn('Audio context initialization failed:', error);
           }
         }
@@ -350,7 +350,7 @@ export function useAdvancedVoice() {
 
     utterance.onerror = (event) => {
       if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
+         
         console.error('Speech synthesis error:', event);
       }
       setIsSpeaking(false);
