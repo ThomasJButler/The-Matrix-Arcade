@@ -41,40 +41,41 @@ export function useSoundSynthesis() {
 
   // Synthesize laser sound
   const synthLaser = useCallback(async (
-    startFreq: number = 2000,
-    endFreq: number = 100,
-    duration: number = 0.2
+    startFreq: number = 1800,
+    endFreq: number = 200,
+    duration: number = 0.15
   ) => {
     const context = await initializeContext();
     if (!context || !compressorRef.current) return;
 
     const now = context.currentTime;
-    
+
     // Create nodes
     const osc = context.createOscillator();
     const gain = context.createGain();
     const filter = context.createBiquadFilter();
-    
-    // Configure oscillator
-    osc.type = 'sawtooth';
+
+    // Configure oscillator - use triangle for softer laser
+    osc.type = 'triangle';
     osc.frequency.setValueAtTime(startFreq, now);
     osc.frequency.exponentialRampToValueAtTime(endFreq, now + duration);
-    
+
     // Configure filter
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(startFreq * 2, now);
+    filter.frequency.setValueAtTime(startFreq * 1.5, now);
     filter.frequency.exponentialRampToValueAtTime(endFreq * 2, now + duration);
-    filter.Q.setValueAtTime(5, now);
-    
-    // Configure envelope
-    gain.gain.setValueAtTime(0.3, now);
+    filter.Q.setValueAtTime(3, now);
+
+    // Configure envelope with smoother attack/release
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.12, now + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-    
+
     // Connect and play
     osc.connect(filter);
     filter.connect(gain);
     gain.connect(compressorRef.current);
-    
+
     osc.start(now);
     osc.stop(now + duration);
   }, [initializeContext]);
@@ -88,52 +89,59 @@ export function useSoundSynthesis() {
     if (!context || !compressorRef.current) return;
 
     const now = context.currentTime;
-    const duration = 0.5 * size;
-    
+    const duration = 0.35 * size;
+
     // White noise for explosion
     const bufferSize = context.sampleRate * duration;
     const buffer = context.createBuffer(1, bufferSize, context.sampleRate);
     const data = buffer.getChannelData(0);
-    
+
+    // Reduce noise intensity
     for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() - 0.5) * 2;
+      data[i] = (Math.random() - 0.5) * 1.2;
     }
-    
+
     const noise = context.createBufferSource();
     noise.buffer = buffer;
-    
+
     // Filters for shaping
     const lowpass = context.createBiquadFilter();
     lowpass.type = 'lowpass';
-    lowpass.frequency.setValueAtTime(200 + brightness * 3000, now);
-    lowpass.frequency.exponentialRampToValueAtTime(50, now + duration);
-    
+    lowpass.frequency.setValueAtTime(150 + brightness * 2000, now);
+    lowpass.frequency.exponentialRampToValueAtTime(60, now + duration);
+
     // Sub bass for impact
     const sub = context.createOscillator();
     sub.type = 'sine';
-    sub.frequency.setValueAtTime(40 * size, now);
-    sub.frequency.exponentialRampToValueAtTime(20, now + duration * 0.3);
-    
-    // Gains
+    sub.frequency.setValueAtTime(50 * size, now);
+    sub.frequency.exponentialRampToValueAtTime(25, now + duration * 0.3);
+
+    // Gains - reduced volumes
     const noiseGain = context.createGain();
     const subGain = context.createGain();
     const masterGain = context.createGain();
-    
-    noiseGain.gain.setValueAtTime(0.4, now);
-    subGain.gain.setValueAtTime(0.3 * size, now);
+
+    noiseGain.gain.setValueAtTime(0, now);
+    noiseGain.gain.linearRampToValueAtTime(0.15, now + 0.02);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+    subGain.gain.setValueAtTime(0, now);
+    subGain.gain.linearRampToValueAtTime(0.1 * size, now + 0.01);
+    subGain.gain.exponentialRampToValueAtTime(0.001, now + duration * 0.4);
+
     masterGain.gain.setValueAtTime(1, now);
     masterGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-    
+
     // Connect
     noise.connect(lowpass);
     lowpass.connect(noiseGain);
     noiseGain.connect(masterGain);
-    
+
     sub.connect(subGain);
     subGain.connect(masterGain);
-    
+
     masterGain.connect(compressorRef.current);
-    
+
     // Play
     noise.start(now);
     sub.start(now);
@@ -148,50 +156,50 @@ export function useSoundSynthesis() {
     if (!context || !compressorRef.current) return;
 
     const now = context.currentTime;
-    
+
     const configs = {
       collect: {
-        freqs: [523, 659, 784, 1047], // C5, E5, G5, C6
-        duration: 0.3,
+        freqs: [523, 659, 784, 987], // C5, E5, G5, B5 (pentatonic)
+        duration: 0.25,
         wave: 'triangle' as OscillatorType
       },
       activate: {
         freqs: [440, 554, 659, 880], // A4, C#5, E5, A5
-        duration: 0.5,
-        wave: 'square' as OscillatorType
+        duration: 0.4,
+        wave: 'triangle' as OscillatorType
       },
       expire: {
-        freqs: [880, 659, 554, 440], // Reverse
-        duration: 0.4,
-        wave: 'sawtooth' as OscillatorType
+        freqs: [880, 659, 554, 440], // Reverse descending
+        duration: 0.3,
+        wave: 'sine' as OscillatorType
       }
     };
-    
+
     const config = configs[type];
     const noteLength = config.duration / config.freqs.length;
-    
+
     config.freqs.forEach((freq, i) => {
       const startTime = now + i * noteLength;
-      
+
       const osc = context.createOscillator();
       const gain = context.createGain();
       const filter = context.createBiquadFilter();
-      
+
       osc.type = config.wave;
       osc.frequency.setValueAtTime(freq, startTime);
-      
+
       filter.type = 'bandpass';
       filter.frequency.setValueAtTime(freq, startTime);
-      filter.Q.setValueAtTime(5, startTime);
-      
+      filter.Q.setValueAtTime(4, startTime);
+
       gain.gain.setValueAtTime(0, startTime);
-      gain.gain.linearRampToValueAtTime(0.2, startTime + 0.01);
+      gain.gain.linearRampToValueAtTime(0.1, startTime + 0.008);
       gain.gain.exponentialRampToValueAtTime(0.001, startTime + noteLength);
-      
+
       osc.connect(filter);
       filter.connect(gain);
       gain.connect(compressorRef.current);
-      
+
       osc.start(startTime);
       osc.stop(startTime + noteLength);
     });
@@ -203,102 +211,109 @@ export function useSoundSynthesis() {
     if (!context || !compressorRef.current) return;
 
     const now = context.currentTime;
-    
+
     switch (drum.type) {
       case 'kick': {
         const osc = context.createOscillator();
         const gain = context.createGain();
-        
+
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(60 * (drum.pitch || 1), now);
-        osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
-        
-        gain.gain.setValueAtTime(0.7, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + (drum.decay || 0.5));
-        
+        osc.frequency.setValueAtTime(70 * (drum.pitch || 1), now);
+        osc.frequency.exponentialRampToValueAtTime(30, now + 0.08);
+
+        // Softer envelope
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.25, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + (drum.decay || 0.35));
+
         osc.connect(gain);
         gain.connect(compressorRef.current);
-        
+
         osc.start(now);
-        osc.stop(now + 0.5);
+        osc.stop(now + (drum.decay || 0.35));
         break;
       }
-      
+
       case 'snare': {
         // Tone
         const osc = context.createOscillator();
         const oscGain = context.createGain();
-        
+
         osc.type = 'triangle';
-        osc.frequency.setValueAtTime(200 * (drum.pitch || 1), now);
-        
+        osc.frequency.setValueAtTime(180 * (drum.pitch || 1), now);
+
         // Noise
         const noise = context.createBufferSource();
-        const noiseBuffer = context.createBuffer(1, context.sampleRate * 0.2, context.sampleRate);
+        const noiseBuffer = context.createBuffer(1, context.sampleRate * 0.15, context.sampleRate);
         const noiseData = noiseBuffer.getChannelData(0);
-        
+
+        // Reduce noise intensity
         for (let i = 0; i < noiseData.length; i++) {
-          noiseData[i] = Math.random() * 2 - 1;
+          noiseData[i] = (Math.random() - 0.5) * 1.2;
         }
-        
+
         noise.buffer = noiseBuffer;
-        
+
         const noiseFilter = context.createBiquadFilter();
         noiseFilter.type = 'highpass';
-        noiseFilter.frequency.setValueAtTime(1000 * (drum.tone || 1), now);
-        
+        noiseFilter.frequency.setValueAtTime(900 * (drum.tone || 1), now);
+
         const noiseGain = context.createGain();
         const masterGain = context.createGain();
-        
-        // Envelopes
-        oscGain.gain.setValueAtTime(0.3, now);
+
+        // Softer envelopes
+        oscGain.gain.setValueAtTime(0, now);
+        oscGain.gain.linearRampToValueAtTime(0.12, now + 0.01);
         oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-        
-        noiseGain.gain.setValueAtTime(0.3, now);
-        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + (drum.decay || 0.2));
-        
-        masterGain.gain.setValueAtTime(0.7, now);
-        
+
+        noiseGain.gain.setValueAtTime(0, now);
+        noiseGain.gain.linearRampToValueAtTime(0.15, now + 0.005);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + (drum.decay || 0.15));
+
+        masterGain.gain.setValueAtTime(1, now);
+
         // Connect
         osc.connect(oscGain);
         oscGain.connect(masterGain);
-        
+
         noise.connect(noiseFilter);
         noiseFilter.connect(noiseGain);
         noiseGain.connect(masterGain);
-        
+
         masterGain.connect(compressorRef.current);
-        
+
         // Play
         osc.start(now);
-        osc.stop(now + 0.2);
+        osc.stop(now + 0.15);
         noise.start(now);
         break;
       }
-      
+
       case 'hihat': {
         const noise = context.createBufferSource();
-        const noiseBuffer = context.createBuffer(1, context.sampleRate * 0.05, context.sampleRate);
+        const noiseBuffer = context.createBuffer(1, context.sampleRate * 0.04, context.sampleRate);
         const noiseData = noiseBuffer.getChannelData(0);
-        
+
+        // Reduce noise intensity
         for (let i = 0; i < noiseData.length; i++) {
-          noiseData[i] = Math.random() * 2 - 1;
+          noiseData[i] = (Math.random() - 0.5) * 0.8;
         }
-        
+
         noise.buffer = noiseBuffer;
-        
+
         const filter = context.createBiquadFilter();
         filter.type = 'highpass';
-        filter.frequency.setValueAtTime(8000 * (drum.pitch || 1), now);
-        
+        filter.frequency.setValueAtTime(7500 * (drum.pitch || 1), now);
+
         const gain = context.createGain();
-        gain.gain.setValueAtTime(0.3, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + (drum.decay || 0.05));
-        
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.12, now + 0.003);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + (drum.decay || 0.04));
+
         noise.connect(filter);
         filter.connect(gain);
         gain.connect(compressorRef.current);
-        
+
         noise.start(now);
         break;
       }
@@ -308,7 +323,7 @@ export function useSoundSynthesis() {
   // Create a polyphonic synthesizer voice
   const synthVoice = useCallback(async (
     frequency: number,
-    waveform: OscillatorType = 'sawtooth',
+    waveform: OscillatorType = 'triangle',
     voiceId: string = Math.random().toString()
   ) => {
     const context = await initializeContext();
@@ -317,26 +332,26 @@ export function useSoundSynthesis() {
     const osc = context.createOscillator();
     const gain = context.createGain();
     const filter = context.createBiquadFilter();
-    
+
     osc.type = waveform;
     osc.frequency.setValueAtTime(frequency, context.currentTime);
-    
+
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(frequency * 3, context.currentTime);
-    filter.Q.setValueAtTime(1, context.currentTime);
-    
+    filter.frequency.setValueAtTime(frequency * 2.5, context.currentTime);
+    filter.Q.setValueAtTime(0.8, context.currentTime);
+
     gain.gain.setValueAtTime(0, context.currentTime);
-    gain.gain.linearRampToValueAtTime(0.2, context.currentTime + 0.01);
-    
+    gain.gain.linearRampToValueAtTime(0.12, context.currentTime + 0.01);
+
     osc.connect(filter);
     filter.connect(gain);
     gain.connect(compressorRef.current);
-    
+
     osc.start();
-    
+
     const voice: SynthVoice = { oscillator: osc, gain, filter, id: voiceId };
     voicesRef.current.set(voiceId, voice);
-    
+
     return voiceId;
   }, [initializeContext]);
 
