@@ -76,7 +76,7 @@ const migrateLegacyData = (): LifelineData | null => {
     }
   } catch (error) {
     if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
+       
       console.warn('Failed to migrate legacy lifeline data:', error);
     }
   }

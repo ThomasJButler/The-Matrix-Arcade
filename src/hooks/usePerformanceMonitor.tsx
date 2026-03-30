@@ -175,7 +175,7 @@ export function usePerformanceMonitor(options: PerformanceOptions = {}) {
     fn();
     const end = performance.now();
     if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_PERFORMANCE === 'true') {
-      // eslint-disable-next-line no-console
+       
       console.log(`[Performance] ${name}: ${(end - start).toFixed(2)}ms`);
     }
     // Performance timing available for programmatic use if needed
