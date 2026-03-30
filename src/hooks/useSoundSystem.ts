@@ -617,7 +617,7 @@ export function useSoundSystem() {
 
   // Play MP3 background music — keeps playing if same track is already active
   const playBackgroundMP3 = useCallback((src: string) => {
-    if (!config.music) return;
+    if (!config.music || !src) return;
 
     // Create or reuse audio element
     if (!backgroundMusicRef.current) {

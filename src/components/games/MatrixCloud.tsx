@@ -1139,7 +1139,8 @@ export default function MatrixCloud({ achievementManager, isMuted = false, autoS
     
     ctx.save();
     ctx.translate(50, state.playerY);
-    
+    ctx.font = '10px monospace';
+
     PLAYER_STATES[playerState].forEach((line, i) => {
       ctx.fillText(line, 0, i * 10);
     });
@@ -1170,6 +1171,7 @@ export default function MatrixCloud({ achievementManager, isMuted = false, autoS
       ctx.textAlign = 'center';
       ctx.fillText('BOSS BATTLE', 400, 32);
       ctx.textAlign = 'left';
+      ctx.font = '20px monospace'; // Reset font after boss text
     }
 
     // Draw lives

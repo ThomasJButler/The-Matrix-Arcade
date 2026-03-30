@@ -861,9 +861,10 @@ export class AgentChaseGameScene extends BaseScene {
       case 'johnson': { // Flank - target opposite side of player from Smith
         const smithAgent = (this.agents.getChildren() as Agent[]).find((a) => a.agentType === 'smith');
         if (smithAgent) {
+          const smithTile = this.getTilePosition(smithAgent.x, smithAgent.y);
           return {
-            x: playerTile.x * 2 - this.getTilePosition(smithAgent.x, smithAgent.y).x,
-            y: playerTile.y * 2 - this.getTilePosition(smithAgent.x, smithAgent.y).y,
+            x: playerTile.x * 2 - smithTile.x,
+            y: playerTile.y * 2 - smithTile.y,
           };
         }
         return playerTile;
@@ -933,5 +934,36 @@ export class AgentChaseGameScene extends BaseScene {
     if (this.score >= 10000) {
       this.unlockAchievement(ACHIEVEMENTS.SCORE_10000);
     }
+  }
+
+  shutdown(): void {
+    // Remove input listeners
+    this.input.off('pointerdown');
+    if (this.input.keyboard) {
+      this.input.keyboard.removeAllKeys(true);
+    }
+
+    // Clear all tweens (including power pellet pulsing animations)
+    this.tweens.killAll();
+
+    // Clear all time events
+    this.time.removeAllEvents();
+
+    // Destroy groups
+    this.walls.clear(true, true);
+    this.dots.clear(true, true);
+    this.powerPellets.clear(true, true);
+    this.agents.clear(true, true);
+
+    // Destroy fruit if exists
+    if (this.fruit) {
+      this.fruit.destroy();
+      this.fruit = undefined;
+    }
+
+    // Destroy UI elements
+    this.scoreText.destroy();
+    this.livesText.destroy();
+    this.levelText.destroy();
   }
 }
