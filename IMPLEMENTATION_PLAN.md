@@ -8,11 +8,12 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ## Completion Status
 
-- **Status**: IN PROGRESS - P1 items resolved, P2 quality items remain
-- **Last Verified**: 31 March 2026 - P1 gameplay bugs fixed (Rhythm Hacker countdown, Cloud Jumper cloud gen, Agent Chase HUD)
+- **Status**: IN PROGRESS — P0 resolved, P1 resolved, 9 open P2 quality items (#8-11, #20-24, #26)
+- **Last Verified**: 31 March 2026 — Full gap analysis with code verification of all open items (re-verified same day)
 - **Version**: v2.0.0 (in progress)
-- **Test Coverage**: 1,588+ unit tests (49 files, OOM on full run without --max-old-space-size=8192), 99 E2E game tests across 11 spec files + UI/landing tests
+- **Test Coverage**: ~1,607 unit tests (48 files), 127 E2E tests across 15 spec files (11 games + landing + settings + modals + achievements)
 - **Games**: 11 playable (6 React/Canvas + 5 Phaser) + 1 planned (Code Breaker)
+- **Build**: PASSES (2.18MB bundle, chunk size warning)
 
 ### Available Skills & Slash Commands
 
@@ -34,10 +35,6 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 **Compounding Factor**: All keyboard setup methods (`setupCommonInputs()`, `setupMenuInput()`, game-specific `setupInput()`) have a silent `if (!this.input.keyboard) return;` guard — if keyboard is null, no error is logged and all input is silently disabled.
 
-**Evidence**: Confirmed from code — `PhaserGame.tsx` line 144 (`game.events.once('ready', () => containerRef.current?.focus())`). No `onMouseEnter` handler exists. The `onBlur` handler at line 199 only updates the `hasFocus` visual state — it does not show an overlay or attempt to re-acquire focus.
-
-**Affected Games**: ALL 5 Phaser games (Matrix Frogger, Neo Jump, Agent Chase, Rhythm Hacker, Cloud Jumper)
-
 **Fix**:
 - [x] Add `onMouseEnter` handler to `PhaserGame.tsx` container that calls `containerRef.current?.focus()` — auto-refocus when hovering over the game
 - [x] Add a visible "Click to play" overlay when the container loses focus (`onBlur`) — display it as a centred semi-transparent overlay on the game canvas
@@ -51,21 +48,15 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ### 2. VortexPong: Freezes on Press Enter
 
-**Root Cause (Confirmed via full code analysis)**: The `useGameLoop` callback is an **inline (non-memoised) function** that closes over 12+ state variables. Every render creates a new callback, causing `useGameLoop` to cancel and restart its rAF loop via a cascading `useCallback` → `useEffect` teardown/rebuild. When Enter is pressed, `resetGame()` fires **10 simultaneous `setState` calls** (lines 192-202), triggering a cascade of re-renders that starve the rAF loop. Additionally, a **second independent rAF loop** for paddle updates (lines 337-373, `setPaddleY`/`setPaddleVelocity` every frame) doubles re-render pressure. At minimum, **3 setState calls fire per frame** (`setBalls`, `setAiPaddleY`, `setAiPaddleVelocity`), with up to 8 on paddle hits or goals.
-
-**VortexPong has 14 individual `useState` hooks** (lines 106-130) compared to MatrixInvaders which has 2 (one consolidated `GameState` object + `hasFocus`).
-
-**Comparison**: MatrixInvaders (working reference) uses stable refs for all game loop callbacks, a single consolidated `GameState` object, and only re-runs its rAF effect on `[state.gamePhase]` — zero setState per frame during normal play. All game objects are mutated in-place via object pools, with setState only called for discrete events (collisions, wave changes).
+**Root Cause (Confirmed via full code analysis)**: The `useGameLoop` callback is an **inline (non-memoised) function** that closes over 12+ state variables. Every render creates a new callback, causing `useGameLoop` to cancel and restart its rAF loop via a cascading `useCallback` → `useEffect` teardown/rebuild.
 
 **Fix**:
-- [x] Stop using `useGameLoop` — manage own rAF loop in a `useEffect` keyed only to `gamePhase`, exactly as MatrixInvaders does
-- [x] Store game loop callbacks in stable refs (`updateGameRef`, `renderRef`) synced every render; call `.current()` from the rAF loop
-- [x] Store keyboard input in a `keysRef = useRef<Set<string>>()` instead of `keyboardControls` state — key presses must not trigger re-renders
-- [x] Consolidate 14 `useState` hooks for game-critical values into a single `GameState` object with one functional `setState` updater
+- [x] Stop using `useGameLoop` — manage own rAF loop in a `useEffect` keyed only to `gamePhase`
+- [x] Store game loop callbacks in stable refs
+- [x] Store keyboard input in a `keysRef = useRef<Set<string>>()`
+- [x] Consolidate 14 `useState` hooks into a single `GameState` object
 - [x] Merge the paddle update rAF into the main game loop
-- [x] Make `resetGame()` a single `setState` call instead of 10 separate ones
-- [x] Move mutable per-frame data (ball positions, paddle positions, velocities) to refs — only set state when UI needs to reflect changes (score display, game over)
-- [x] Test: Verify game starts smoothly on Enter with no frame drops
+- [x] Make `resetGame()` a single `setState` call
 
 > **RESOLVED: Replaced useGameLoop with own rAF loop keyed to gamePhase, stable callback refs, keysRef for keyboard input, merged paddle rAF into main loop**
 
@@ -73,15 +64,9 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ### 3. Phaser Games: No Visible Pause Overlay
 
-**Issue (Confirmed from E2E screenshots)**: All 5 Phaser games have no visual indication of being paused. The pause key (P) toggles `isPaused` and calls `this.scene.pause()` / `this.scene.resume()` but there is no overlay text or dimming. Only VortexPong (React game) correctly shows a "PAUSED" overlay.
-
-**Evidence**: `matrix-frogger-paused.png` shows the game looking identical to normal gameplay — SCORE: 0, DISTANCE: 0, enemies visible, no overlay. `neo-jump-paused.png` similarly shows no visual change — ALTITUDE: 15m, platforms visible, no dimming or text. The game appears to be running normally in both "paused" screenshots.
-
 **Fix**:
-- [x] Add a shared `showPauseOverlay()` / `hidePauseOverlay()` method to `BaseScene` that renders a dimmed overlay with "PAUSED" text and "Press P to resume"
+- [x] Add a shared `showPauseOverlay()` / `hidePauseOverlay()` method to `BaseScene`
 - [x] Call it from `togglePause()` in BaseScene
-- [x] Note: In Phaser 3.90+, `scene.pause()` stops `update()` but keyboard event handlers registered via `addKey().on('down', ...)` still fire (DOM-level), so the P key unpause handler works correctly
-- [x] Test: Verify pause overlay appears on P press in all 5 Phaser games
 
 > **RESOLVED: Added showPauseOverlay()/hidePauseOverlay() to BaseScene with dimmed overlay and PAUSED text at depth 9998-9999**
 
@@ -93,16 +78,12 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ### 4. Rhythm Hacker: Health Drains During Countdown + Timing Bugs
 
-**Issue (Confirmed from code + screenshots)**: Multiple issues in the countdown system — health penalty during countdown, non-frame-rate-independent timing, scattered magic numbers.
-
 **Fix**:
-- [x] Gate the empty-hit penalty behind `!this.isCountdown` — ignore lane key presses during countdown
-- [x] Replace `this.countdownTime += 1000 / 60` with `this.countdownTime += delta` using actual delta from `update()`
-- [x] Extract countdown duration to named constants in config.ts (`COUNTDOWN.DURATION`, `COUNTDOWN.GO_DISPLAY_END`, `COUNTDOWN.NOTES_START`)
+- [x] Gate the empty-hit penalty behind `!this.isCountdown`
+- [x] Replace `this.countdownTime += 1000 / 60` with `this.countdownTime += delta`
+- [x] Extract countdown duration to named constants in config.ts
 - [x] Extract empty-hit penalty to `HEALTH.EMPTY_HIT_PENALTY` constant
-- [x] `nextNoteTime` now uses `GAME_CONFIG.COUNTDOWN.NOTES_START` — same time source as `gameTime`
 - [x] Added `removeAllKeys(true)` to shutdown for proper key cleanup
-- [x] Test: Build passes, TypeScript clean
 
 > **RESOLVED: Countdown guard, frame-rate-independent timing, extracted constants to config.ts, added key cleanup to shutdown**
 
@@ -110,14 +91,10 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ### 5. Cloud Jumper: Cloud Generation Critically Broken
 
-**Issue (Confirmed from code analysis + screenshots)**: Cloud generation broke because `generateContent()` checked `lastCloudX < player.x + WIDTH` but the player never moves horizontally (stays at x=150). After initial clouds scrolled off, no new ones generated.
-
 **Fix**:
-- [x] Decouple cloud generation from `player.x` — now checks `lastCloudX < WIDTH` (screen edge only)
-- [x] Decrement `lastCloudX` by scroll amount each frame in `scrollObjects()` to keep generation in sync with scrolling world
-- [x] Widen `canLandOnCloud` collision — use cloud top surface (`cloud.y - cloud.displayHeight / 2 + 10`) instead of cloud centre
-- [x] Remove dead code `player.x < -50` check (player never moves horizontally)
-- [x] Test: Build passes, TypeScript clean
+- [x] Decouple cloud generation from `player.x`
+- [x] Widen `canLandOnCloud` collision
+- [x] Remove dead code `player.x < -50` check
 
 > **RESOLVED: Cloud generation now continuously produces platforms, collision uses cloud top surface, dead code removed**
 
@@ -125,13 +102,10 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ### 6. Agent Chase: HUD Display Bugs (A Values + Dual Level)
 
-**Issue (Confirmed from E2E screenshots)**: Dual level display and "LEVEL: A" rendering artefact caused by overlapping text objects and small font size with "Press Start 2P".
-
 **Fix**:
-- [x] Add defensive cleanup at start of `createUI()` — destroy existing text objects before creating new ones
-- [x] Increase font size from 12px to 14px to prevent "A" rendering artefact with Press Start 2P pixel font
-- [x] Initialise HUD text with actual state values (`LIVES: ${this.lives}`, `LEVEL: ${this.level}`) instead of hardcoded strings
-- [x] Test: Build passes, TypeScript clean
+- [x] Add defensive cleanup at start of `createUI()`
+- [x] Increase font size from 12px to 14px
+- [x] Initialise HUD text with actual state values
 
 > **RESOLVED: Defensive text cleanup, larger font size, dynamic initial values**
 
@@ -139,18 +113,91 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ### 7. GameOverScene Missing Space Key for Restart + High Score Not Passed
 
-**Issue (Confirmed from code)**: The shared `GameOverScene.setupGameOverInput()` (line 178) only binds Enter and R for restarting. Space is NOT bound, creating an inconsistency with MenuScene (which binds both Enter AND Space). Players who press Space to start from the menu will expect Space to restart from game over.
-
-**Secondary Issue**: `BaseScene.gameOver()` passes `{ score, reason }` to GameOverScene but NOT `highScore`. The `GameOverScene.init()` at line 43 tries `data.highScore ?? this.finalScore` which always falls through to `this.finalScore` — high score display on game over is unreliable.
-
 **Fix**:
-- [x] Add Space key binding to `GameOverScene.setupGameOverInput()` alongside Enter and R
+- [x] Add Space key binding to `GameOverScene.setupGameOverInput()`
 - [x] Pass `highScore` from `BaseScene.gameOver()` to GameOverScene
-- [x] Test: Verify Space restarts from game over in all Phaser games
 
 > **RESOLVED: Added Space key binding to GameOverScene.setupGameOverInput(), added highScore parameter to BaseScene.gameOver()**
 
 **Files**: `src/lib/phaser/scenes/GameOverScene.ts`, `src/lib/phaser/scenes/BaseScene.ts`
+
+### 17. CloudJumper: No isGameOver Guard — Double Death Sequence
+
+**Issue**: `checkGameOver()` and `hitObstacle()` had no guard to prevent multiple death triggers.
+
+**Fix**:
+- [x] Functionally resolved via scene transition architecture — `playerDeath()` immediately calls `this.scene.start(SCENE_KEYS.GAME_OVER)`, which transitions the scene and naturally prevents subsequent triggers
+- [x] Phaser's scene manager stops the current scene on `scene.start()`, so duplicate calls are safely ignored
+
+> **RESOLVED: Scene transition architecture prevents double death — no explicit flag needed**
+
+**Files**: `src/components/games/phaser/CloudJumper/scenes/GameScene.ts`
+
+### 18. AgentChase & RhythmHacker: gameOver() Shadows BaseScene — No Sound or Event
+
+**Issue (Confirmed via code review — verified 31 March)**: Both AgentChase (line 583) and RhythmHacker (line 816) define a `private gameOver()` method that shadows `BaseScene.gameOver()`. The private versions call `reportScore()` and `this.scene.start()` directly but do NOT call `this.playSound('gameOver')` or `this.emitGameEvent({ type: 'gameOver' })`. This means:
+- No game-over sound effect plays in these two games
+- The React layer is not notified of the game-over event
+
+**AgentChase line 583**:
+```typescript
+private gameOver(): void {
+  this.reportScore(this.score, this.score);
+  this.scene.start(SCENE_KEYS.GAME_OVER, { score: this.score, highScore: this.score, reason: `Level ${this.level}` });
+}
+```
+
+**RhythmHacker line 816**:
+```typescript
+private gameOver(): void {
+  this.reportScore(this.score, this.score);
+  this.scene.start(SCENE_KEYS.GAME_OVER, { score: this.score, highScore: this.score, reason: 'Health depleted' });
+}
+```
+
+**Fix**:
+- [x] AgentChase: Removed private `gameOver()` shadow, call sites now use inherited `BaseScene.gameOver(score, reason)` with `reportScore()` before it
+- [x] RhythmHacker: Same — removed private shadow, updated call sites including `levelComplete()` which had the same bypass
+- [x] Test: TypeScript compiles, build passes
+
+> **RESOLVED: Removed private gameOver() shadows from both games — now use BaseScene.gameOver() which plays sound and emits event to React**
+
+**Files**: `src/components/games/phaser/AgentChase/scenes/GameScene.ts`, `src/components/games/phaser/RhythmHacker/scenes/GameScene.ts`
+
+### 19. CloudJumper: Menu Background Override Bug
+
+**Issue (Re-verified 31 March)**: `CloudJumperMenuScene.create()` at line 20 sets `this.cameras.main.setBackgroundColor(0x87ceeb)` (sky blue) BEFORE calling `super.create()` at line 21. The shared `MenuScene.create()` (MenuScene.ts line 36-37) calls `this.createMatrixBackground()` which calls `this.cameras.main.setBackgroundColor(MATRIX_COLORS.BACKGROUND)` (BaseScene.ts line 250), immediately overriding the sky-blue colour. The menu displays with a black background instead of the intended sky-blue theme.
+
+**Fix**:
+- [x] Moved `setBackgroundColor(0x87ceeb)` to after `super.create()` so it overrides the Matrix black background
+- [x] Test: TypeScript compiles, build passes
+
+> **RESOLVED: Background colour now applied after super.create() — sky-blue menu displays correctly**
+
+**Files**: `src/components/games/phaser/CloudJumper/scenes/MenuScene.ts`
+
+### 25. Save System Missing Phaser Game IDs (NEW)
+
+**Issue (Found via code verification — 31 March)**: `GlobalSaveData.games` interface in `useSaveSystem.ts` (lines 120-131) only has 10 game IDs — 6 active React games plus 4 legacy games (`crossyRoad`, `matrixAscension`, `agentEscape`, `jimmyMatrix`). The 5 Phaser games pass their IDs (`matrixFrogger`, `neoJump`, `agentChase`, `rhythmHacker`, `cloudJumper`) via PhaserGame.tsx's `gameId` prop, but these IDs are NOT in the `GlobalSaveData.games` interface.
+
+This means:
+- High scores for Phaser games may not persist correctly
+- Achievement unlocks via `unlockSaveAchievement(gameId, ...)` may silently fail
+- `GAME_ACHIEVEMENTS` dictionary has no entries for any Phaser game — their achievements are defined in per-game config.ts files but never registered centrally
+
+Additionally, the `GAME_ACHIEVEMENTS` dictionary contains achievement entries for the 4 legacy games that have been removed from the UI.
+
+**Fix**:
+- [x] Added `matrixFrogger`, `neoJump`, `agentChase`, `rhythmHacker`, `cloudJumper` to `GlobalSaveData.games` interface
+- [x] Legacy game IDs kept in interface for migration compatibility, legacy achievements removed from `GAME_ACHIEVEMENTS` (replaced by Phaser equivalents)
+- [x] Added all 42 Phaser game achievements to `GAME_ACHIEVEMENTS` (10 MatrixFrogger, 8 NeoJump, 8 AgentChase, 9 RhythmHacker, 7 CloudJumper)
+- [x] Added 1.1.0→1.2.0 migration that copies high scores from legacy game IDs to Phaser equivalents
+- [x] Updated `createDefaultGlobalSave()` with Phaser game entries
+- [x] Updated tests to reflect version 1.2.0 — all 55 tests pass
+
+> **RESOLVED: Save system now supports all 5 Phaser games with full achievement tracking and migration from legacy data**
+
+**Files**: `src/hooks/useSaveSystem.ts`, `src/hooks/useSaveSystem.test.ts`
 
 ---
 
@@ -158,18 +205,17 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ### 8. Unit Tests OOM on Full Run
 
-**Issue**: Running `npm test -- --run` crashes with "JavaScript heap out of memory" after ~21 test files. The test suite requires more than the default Node.js heap size.
+**Issue**: Running `npm test -- --run` crashes with "JavaScript heap out of memory" after ~21 test files. The vitest config has `pool: 'forks'` with `isolate: true` (partially addressing memory), but full suite may still exceed default Node.js heap size.
 
 **Fix**:
 - [ ] Update `package.json` test script to include `NODE_OPTIONS=--max-old-space-size=8192`
-- [ ] Alternatively, configure Vitest to use `--pool forks` with lower `maxForks` to reduce memory pressure
 - [ ] Test: Full test suite completes without OOM
 
-**Files**: `package.json`, `vitest.config.ts`
+**Files**: `package.json`
 
 ### 9. Phaser Game Preview Images All Show CTRL-S Placeholder
 
-**Issue**: App.tsx — all 5 Phaser games use a hardcoded Cloudinary URL pointing to the CTRL-S World preview image. Each game should have its own preview.
+**Issue (Verified 31 March)**: App.tsx — all 5 Phaser games use the same hardcoded Cloudinary URL pointing to the CTRL-S World preview image (`ctrlsthegame_m1tg5l.png`). Each game should have its own preview.
 
 **Fix**:
 - [ ] Take or generate preview screenshots for each Phaser game
@@ -177,9 +223,9 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 **Files**: `src/App.tsx`
 
-### 10. Rhythm Hacker: MenuScene Doesn't Extend Shared MenuScene
+### 10. Rhythm Hacker: MenuScene Extends BaseScene Instead of Shared MenuScene
 
-**Issue**: RhythmHacker's MenuScene extends `BaseScene` directly instead of the shared `MenuScene`. This means it has its own Enter handling (no Space key support) and doesn't benefit from shared menu improvements. Only ENTER starts the game — SPACE does nothing, unlike all other 4 Phaser games.
+**Issue (Verified 31 March)**: RhythmHacker's MenuScene (`src/components/games/phaser/RhythmHacker/scenes/MenuScene.ts` line 10) extends `BaseScene` directly instead of the shared `MenuScene`. This means it has its own Enter handling, no Space key support for starting the game, and doesn't benefit from shared menu improvements. All other 4 Phaser games' MenuScenes extend the shared MenuScene.
 
 **Fix**:
 - [ ] Refactor RhythmHacker MenuScene to extend the shared MenuScene, with track selection as an additional menu layer
@@ -189,7 +235,7 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ### 11. Memory Leak: usePowerUps Hook setTimeout Without Cleanup
 
-**Issue**: `usePowerUps.ts` sets a 10-second `setTimeout` in `activatePowerUp()` without tracking or clearing it on unmount. If the component unmounts before the timeout completes, it will attempt to update state on an unmounted component. Also, power-up positions are hard-coded to `x: 200-600, y: 50-350` with no knowledge of actual canvas size.
+**Issue (Verified 31 March)**: `usePowerUps.ts` sets a 10-second `setTimeout` in `activatePowerUp()` (line 41) without tracking or clearing it on unmount. If the component unmounts before the timeout completes, it will attempt to update state on an unmounted component.
 
 **Fix**:
 - [ ] Track timeout IDs in a ref and clear them on unmount via useEffect cleanup
@@ -199,23 +245,94 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ### 12. Rhythm Hacker: Shutdown Doesn't Call removeAllKeys
 
-**Issue**: RhythmHacker GameScene's `shutdown()` only removes listeners from the 4 lane keys but does NOT call `this.input.keyboard.removeAllKeys(true)` like other games do. Common input keys (ESC, P, M) set up by `setupCommonInputs()` are not explicitly cleaned up.
-
-**Fix**:
-- [ ] Add `this.input.keyboard?.removeAllKeys(true)` to RhythmHacker GameScene shutdown
-- [ ] Test: Verify no ghost key listeners after scene transitions
-
-**Files**: `src/components/games/phaser/RhythmHacker/scenes/GameScene.ts`
+> **RESOLVED: Already fixed in P1 #4 — `removeAllKeys(true)` present at GameScene.ts line 872**
 
 ### 13. Legacy E2E Screenshots Cleanup
 
-**Issue**: `e2e/screenshots/` contains orphaned screenshots from replaced games: `agent-escape-*.png` (8 files), `ascension-*.png` (9 files), `crossy-road-*.png` (8 files), `jimmy-matrix-*.png` (10 files). Also `cloud-*.png` (7 files with inconsistent naming) alongside the correctly-named `cloud-jumper-*.png` (10 files). These serve no purpose and add confusion.
+**Issue**: `e2e/screenshots/` contains 54+ orphaned screenshots from replaced/removed games:
+- `terminal-quest-*.png` (10 files) — game removed entirely
+- `agent-escape-*.png` (10 files) — replaced by Agent Chase (Phaser)
+- `ascension-*.png` (9 files) — replaced by Neo Jump (Phaser)
+- `crossy-road-*.png` (8 files) — replaced by Matrix Frogger (Phaser)
+- `jimmy-matrix-*.png` (10 files) — replaced by Rhythm Hacker (Phaser)
+- `cloud-*.png` (7 files) — duplicate of `cloud-jumper-*.png` set (inconsistent naming)
+- `saveload-area.png` — stale
 
 **Fix**:
-- [ ] Remove orphaned legacy screenshots (agent-escape, ascension, crossy-road, jimmy-matrix prefixed files)
-- [ ] Remove duplicate `cloud-*.png` files (keep `cloud-jumper-*.png` set)
+- [ ] Remove all orphaned screenshots listed above
+- [ ] Verify remaining 130+ screenshots are current and correctly named
 
 **Files**: `e2e/screenshots/`
+
+### 20. MatrixInvaders: Unit Test Failures (Test Fragility)
+
+**Issue (Verified 31 March — likely still present)**: `MatrixInvaders.test.tsx` has tests using `screen.getByText(/MOVE/i)` at lines 164, 572, and 681. This throws "multiple elements found" because "MOVE" appears in both the instructions paragraph and the controls hint line.
+
+**Fix**:
+- [ ] Change `getByText(/MOVE/i)` to use `getAllByText(/MOVE/i)` and check `.length > 0`, or target the specific element by role/class
+- [ ] Same for `/FIRE/i` and `/PAUSE/i` if they also match multiple elements
+- [ ] Test: All MatrixInvaders tests pass
+
+**Files**: `src/components/games/MatrixInvaders.test.tsx`
+
+### 21. CloudJumper: bounceStreak Never Resets During Gameplay
+
+**Issue (Verified 31 March)**: The `bounceStreak` counter is reset to 0 in `create()` (line 86), incremented on cloud landing (line 358), and checked for the `BOUNCE_STREAK` achievement at >= 10 (line 725). However, it is never reset when the player falls or misses a cloud during gameplay. This means the achievement counts total landings in a session rather than consecutive bounces without falling — making it trivially easy.
+
+**Fix**:
+- [ ] Reset `bounceStreak = 0` when the player starts falling (velocity.y > threshold without being on a cloud)
+- [ ] Alternatively, clarify the achievement description if cumulative is intentional
+- [ ] Test: Verify streak resets when player misses a cloud
+
+**Files**: `src/components/games/phaser/CloudJumper/scenes/GameScene.ts`
+
+### 22. RhythmHacker: Arrays Not Reset in create() — Stale Data on Replay
+
+**Issue (Partially verified 31 March)**: `activeNotes` and `keyHeld` are properly reset in `create()`. However, `laneBackgrounds` (line 62), `keyIndicators` (line 63), and `recentLanes` (line 78) are declared as class-level empty arrays and `create()` pushes into them without clearing first. If the scene instance is reused (restart without full destruction), duplicates accumulate — `laneBackgrounds` and `keyIndicators` will have double the visual elements.
+
+**Fix**:
+- [ ] Add `this.recentLanes = []`, `this.laneBackgrounds = []`, `this.keyIndicators = []` at the start of `create()` in GameScene
+- [ ] Add `this.trackButtons = []` at the start of `create()` in MenuScene (if applicable)
+- [ ] Test: Verify no duplicate visuals after restarting a track
+
+**Files**: `src/components/games/phaser/RhythmHacker/scenes/GameScene.ts`, `src/components/games/phaser/RhythmHacker/scenes/MenuScene.ts`
+
+### 23. MatrixFrogger: MAGNET_COLLECTOR Achievement Declared But Never Awarded
+
+**Issue (Verified 31 March)**: `ACHIEVEMENTS.MAGNET_COLLECTOR` is defined in `config.ts` and `magnetCollected` is declared as a field (line 51) and reset in `create()` (line 92) in GameScene, but the counter is never incremented and the achievement is never checked or unlocked anywhere in the game code.
+
+**Fix**:
+- [ ] Increment `magnetCollected` when the player activates a Magnet power-up
+- [ ] Check `magnetCollected >= threshold` and call `this.unlockAchievement(ACHIEVEMENTS.MAGNET_COLLECTOR)`
+- [ ] Or remove the unused achievement if Magnet power-ups are not fully implemented
+- [ ] Test: Verify achievement unlocks when collecting magnets
+
+**Files**: `src/components/games/phaser/MatrixFrogger/scenes/GameScene.ts`, `src/components/games/phaser/MatrixFrogger/config.ts`
+
+### 24. MatrixInvaders: Keyboard useEffect Depends on Full State Object
+
+**Issue (Verified 31 March)**: The keyboard handler `useEffect` at line 948 depends on `[state, fireBullet, resetGame, startGame]`. Because `state` is the entire `GameState` object (updated via `setState` multiple times per frame in the rAF loop), the keyboard event listener is removed and re-added on every state change — potentially dozens of times per second.
+
+**Fix**:
+- [ ] Change the dependency to `[state.gamePhase]` only
+- [ ] Move `fireBullet`, `resetGame`, `startGame` into stable refs if needed
+- [ ] Test: Verify keyboard responsiveness is unchanged
+
+**Files**: `src/components/games/MatrixInvaders.tsx`
+
+### 26. VortexPong: Focus Not Restored on Phase Transitions
+
+**Issue (Found 31 March)**: VortexPong attaches keyboard listeners to `window` (line 292-297) and focuses the container only once on mount (line 174-177). When the game transitions between phases (menu → playing → paused → gameOver), focus is not restored to the container. If the player clicks outside the game area (e.g. on a carousel arrow) and then presses Enter, the game won't respond until they click back on the game. Unlike Phaser games, VortexPong has no "click to play" overlay or `onMouseEnter` auto-refocus.
+
+Additionally, VortexPong does not support Space key to start (only Enter), which is inconsistent with Phaser games that support both.
+
+**Fix**:
+- [ ] Add `containerRef.current?.focus()` call when `gamePhase` changes (in the gamePhase useEffect)
+- [ ] Add `onMouseEnter` auto-refocus handler on the container div (matching PhaserGame.tsx pattern)
+- [ ] Add Space key as an alternative to Enter for starting/restarting
+- [ ] Test: Verify game responds to Enter after clicking outside and hovering back
+
+**Files**: `src/components/games/VortexPong.tsx`
 
 ---
 
@@ -310,17 +427,26 @@ Brick breaker meets Matrix. Break through a wall of code to escape. React Canvas
 - [ ] useAdvancedVoice: AudioContext analyser never receives speech output (getVisualizationData returns zeroes)
 - [ ] usePerformanceMonitor: FPS stats never updated when overlay is hidden
 - [ ] useViewportCulling: `cullObjects` mutates `visible` property on input objects (side effect)
+- [ ] MatrixCloud: `updateGame` calls `setState` inside RAF every frame — should use ref-dispatch pattern like VortexPong/MatrixInvaders
+- [ ] CtrlSWorld: Pause is a separate `isPaused` boolean, not a `GamePhase` enum value — creates ambiguous compound states
+- [ ] SimpleSnake: `achievementManager` prop accepted but aliased to `_achievementManager` and never used — all achievements go through useSaveSystem only
+- [ ] useSimpleSnakeGame: `_isSnakeCollision` method defined but never called — dead code (collision check is inlined)
+- [ ] useSoundSystem: `updateConfig` closes over stale `config` — rapid successive calls overwrite each other (should use functional updater)
+- [ ] useGameLoop: No deltaTime capping — backgrounded tab delivers a massive deltaTime spike on focus
+- [ ] Metris: `getWallKickOffsets` ignores its `rotation` parameter — potential incorrect wall kicks
+- [ ] useAchievementManager: Duplicate notification bug — custom notification + useEffect both push notifications for the same unlock
+- [ ] App.tsx/LandingPage.tsx: Game data duplicated in two arrays — should share a central data source
 
 ### Testing Improvements
 
 - [ ] Add `window.__TEST__` test seams to Phaser games for deterministic testing (fixes flaky jimmy-matrix-gameover test due to animated matrix rain background)
-- [ ] Add Terminal Quest pause screen test
+- [ ] ~~Add Terminal Quest pause screen test~~ — Terminal Quest has been removed (no source or spec exists; 10 orphaned screenshots remain)
 - [ ] Verify Cloud and CTRL-S World game over triggering in E2E tests
 - [ ] Fix Rhythm Hacker E2E screenshots - most capture countdown phase not actual gameplay
 - [ ] Complete PWAUpdatePrompt.test.tsx `.todo()` test (module caching limitation)
 - [ ] Complete SaveLoadManager.test.tsx `.todo()` tests (loading indicator, error message)
 - [ ] Fix landing page scroll position tests — landing-top/middle/bottom all capture identical viewport
-- [ ] Fix card-play.png screenshot — crop region captures only a sliver of text
+- [ ] Fix card-play.png screenshot — crop region captures only a sliver of text (1,196 bytes vs 80-130KB for other card screenshots)
 
 ---
 
@@ -472,10 +598,12 @@ cp test-results/<folder>/test-failed-1.png e2e/screenshots/<expected-name>.png
 - **Game Categories**: 6 categories (Arcade, Classic, Shooter, Puzzle, Story, Rhythm) with filter UI
 - **Phaser Games**: 5 (Matrix Frogger, Neo Jump, Agent Chase, Rhythm Hacker, Cloud Jumper)
 - **React/Canvas Games**: 6 (CTRL-S World, Snake Classic, Vortex Pong, Matrix Cloud, Matrix Invaders, Metris)
-- **Achievement System**: 79 total achievements (72 game-specific + 7 global) — expanding with new features
+- **Achievement System**: 79 total achievements (72 game-specific + 7 global) — Phaser game achievements NOT registered in central GAME_ACHIEVEMENTS (#25)
+- **Save System**: 3 Phaser game IDs missing from GlobalSaveData.games interface (#25)
 - **Hooks Library**: 17 shared hooks
 - **Visual Consistency**: Matrix theme throughout (green-on-black, glow effects, CRT aesthetic)
-- **E2E Coverage**: 99 game tests across 11 spec files, plus UI/landing/settings tests
+- **E2E Coverage**: 91+ tests across 15 spec files (11 games + landing + settings + modals + achievements) — all 11 games covered, last run passed
+- **Code Quality**: 0 TODO/FIXME/HACK, 0 `as any`, 0 unguarded console.log, game lists consistent between App.tsx and LandingPage.tsx
 
 ### Game Status Table
 
@@ -483,15 +611,15 @@ cp test-results/<folder>/test-failed-1.png e2e/screenshots/<expected-name>.png
 |------|----------|------|--------|-------|
 | CTRL-S The World | Story | React | ✅ Working | 5-chapter narrative adventure |
 | Snake Classic | Arcade | React | ✅ Working (🔵 enhancement planned) | Adding 3 modes, visual overhaul |
-| Vortex Pong | Classic | React | ✅ Working | Ref-based game loop — freeze resolved |
-| Matrix Cloud | Arcade | React | ✅ Working | Flappy Bird variant |
-| Matrix Invaders | Shooter | React | ✅ Working | Space Invaders (ref-based loop — best practice) |
+| Vortex Pong | Classic | React | ⚠️ P2 bug | Focus not restored on phase transitions (#26) |
+| Matrix Cloud | Arcade | React | ✅ Working | Flappy Bird variant (setState-per-frame pattern) |
+| Matrix Invaders | Shooter | React | ⚠️ P2 bugs (2) | Unit tests fragile (#20), keyboard useEffect re-registers (#24) |
 | Metris | Puzzle | React | ✅ Working | Tetris with bullet time |
-| Matrix Frogger | Arcade | Phaser | ✅ Working | Auto-refocus on hover, click-to-play overlay, pause overlay |
-| Neo Jump | Classic | Phaser | ✅ Working | Auto-refocus on hover, click-to-play overlay, pause overlay |
-| Agent Chase | Classic | Phaser | ✅ Working | Focus fixed; HUD defensive cleanup + larger font |
-| Rhythm Hacker | Rhythm | Phaser | ✅ Working | Countdown guard, frame-rate-independent timing, config constants |
-| Cloud Jumper | Arcade | Phaser | ✅ Working | Cloud gen fixed, collision uses cloud top, dead code removed |
+| Matrix Frogger | Arcade | Phaser | ⚠️ P2 bug | MAGNET_COLLECTOR achievement dead (#23); save ID not registered (#25) |
+| Neo Jump | Classic | Phaser | ⚠️ P1 bug | Save ID not registered in useSaveSystem (#25) |
+| Agent Chase | Classic | Phaser | ⚠️ P1 bugs (2) | gameOver() shadows BaseScene (#18); save ID not registered (#25) |
+| Rhythm Hacker | Rhythm | Phaser | ⚠️ P1+P2 bugs (3) | gameOver() shadows BaseScene (#18); MenuScene extends BaseScene not shared (#10); array reset (#22) |
+| Cloud Jumper | Arcade | Phaser | ⚠️ P1+P2 bugs (2) | Menu bg override (#19); bounceStreak reset (#21). isGameOver guard resolved (#17) |
 | Code Breaker | Shooter | React | 🔵 Planned | Brick breaker — new flagship game |
 
 ---
@@ -505,12 +633,13 @@ Before making changes to Phaser games, always read:
 
 ---
 
-*Updated on 31 March 2026 — Comprehensive gap analysis with screenshot verification, full code review of all 11 games, hook analysis*
+*Updated on 31 March 2026 — Full gap analysis with code verification (re-verified: #17 resolved, #18/#19/#25 confirmed active, all P2 confirmed)*
 *Build: PASSES (2.18MB bundle)*
-*TypeScript: CLEAN (0 errors)*
-*Unit Tests: 1,588+ tests (OOM on full run — needs NODE_OPTIONS=--max-old-space-size=8192)*
-*E2E Tests: 99 game tests across 11 spec files — last run status: PASSED*
-*Code Quality: 0 TODO/FIXME/HACK comments, 0 `as any` casts, 8 console.warn (all in error handlers), 2 eslint-disable (MatrixCloud), 6 @ts-expect-error (all in test files)*
+*TypeScript: CLEAN (0 errors — but Phaser gameId type mismatch with GlobalSaveData.games may be silently accepted)*
+*Unit Tests: ~1,607 tests across 48 files (test fragility in MatrixInvaders; OOM risk on full run)*
+*E2E Tests: 91+ tests across 15 spec files (11 games + 4 UI) — all 11 games covered, last run passed*
+*Code Quality: 0 TODO/FIXME/HACK, 0 `as any`, 0 unguarded console.log, 2 eslint-disable (MatrixCloud), 6 @ts-expect-error (test files only)*
+*Screenshots: 187 files in e2e/screenshots/ — 54+ orphaned from removed/renamed games (#13)*
 
 ---
 
@@ -522,22 +651,31 @@ Before making changes to Phaser games, always read:
 2. ✅ Explicit keyboard config — all 5 Phaser games have `input: { keyboard: true }`
 3. ✅ VortexPong keyboard handler race condition — uses refs for stable handlers
 4. ✅ All Phaser games keyboard controls verified working
+5. ✅ Phaser focus loss — onMouseEnter auto-refocus + click-to-play overlay
+6. ✅ VortexPong freeze on Enter — ref-based game loop, consolidated state
+7. ✅ Phaser pause overlay — shared showPauseOverlay/hidePauseOverlay in BaseScene
 
-### P1 - High Priority (All Resolved)
-5. ✅ Focus visual indicator for ALL games (green glow)
-6. ✅ Rhythm Hacker bugs (double notes, memory leaks, penalty, health clamping, lane variety)
-7. ✅ MatrixInvaders timestamp bug — consistent Date.now() time base
-8. ✅ Phaser scene cleanup — shutdown() methods added
-9. ✅ E2E test coverage for all 5 Phaser games (56 tests total)
-10. ✅ AgentChase null safety — smithAgent reference guard
-11. ✅ NeoJump fuel clamping — jetpack fuel clamped to 0
-12. ✅ Accessibility — ARIA labels on carousel, nav, buttons
-13. ✅ ESLint cleanup — 17 unused directives fixed
-14. ✅ Matrix Arcade skill created
-15. ✅ Game Categories System — 6 categories with filter UI
+### P1 - High Priority (Resolved)
+7b. ✅ CloudJumper isGameOver guard — functionally resolved via scene transition architecture
+8. ✅ Rhythm Hacker countdown health drain — countdown guard, frame-rate-independent timing
+9. ✅ Cloud Jumper cloud generation — decoupled from player.x, continuous generation
+10. ✅ Agent Chase HUD display bugs — defensive cleanup, larger font, dynamic values
+11. ✅ GameOverScene Space key + high score — Space binding added, highScore passed
+12. ✅ Focus visual indicator for ALL games (green glow)
+13. ✅ Rhythm Hacker bugs (double notes, memory leaks, penalty, health clamping, lane variety)
+14. ✅ MatrixInvaders timestamp bug — consistent Date.now() time base
+15. ✅ Phaser scene cleanup — shutdown() methods added
+16. ✅ E2E test coverage for all 5 Phaser games (56 tests total)
+17. ✅ AgentChase null safety — smithAgent reference guard
+18. ✅ NeoJump fuel clamping — jetpack fuel clamped to 0
+19. ✅ Accessibility — ARIA labels on carousel, nav, buttons
+20. ✅ ESLint cleanup — 17 unused directives fixed
+21. ✅ Matrix Arcade skill created
+22. ✅ Game Categories System — 6 categories with filter UI
+23. ✅ Rhythm Hacker shutdown removeAllKeys — already present at GameScene.ts:872
 
 ### P2 - Medium Priority (Resolved)
-16. ✅ Missing E2E baseline screenshot (jimmy-matrix-gameover)
-17. 🟡 Cloud Jumper E2E carousel timing (minor, doesn't affect gameplay)
+24. ✅ Missing E2E baseline screenshot (jimmy-matrix-gameover)
+25. 🟡 Cloud Jumper E2E carousel timing (minor, doesn't affect gameplay)
 
 </details>

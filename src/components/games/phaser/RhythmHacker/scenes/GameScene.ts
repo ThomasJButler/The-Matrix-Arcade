@@ -365,7 +365,8 @@ export class RhythmHackerGameScene extends BaseScene {
       this.playSound('rhythmMiss');
 
       if (this.health <= 0) {
-        this.gameOver();
+        this.reportScore(this.score, this.score);
+        this.gameOver(this.score, 'Health depleted');
       }
     }
   }
@@ -503,7 +504,8 @@ export class RhythmHackerGameScene extends BaseScene {
 
     // Check health
     if (this.health <= 0) {
-      this.gameOver();
+      this.reportScore(this.score, this.score);
+      this.gameOver(this.score, 'Health depleted');
     }
   }
 
@@ -803,23 +805,7 @@ export class RhythmHackerGameScene extends BaseScene {
     }
 
     this.reportScore(this.score, this.score);
-    this.scene.start(SCENE_KEYS.GAME_OVER, {
-      score: this.score,
-      highScore: this.score,
-      reason: `Max Combo: ${this.maxCombo}`,
-    });
-  }
-
-  /**
-   * Game over
-   */
-  private gameOver(): void {
-    this.reportScore(this.score, this.score);
-    this.scene.start(SCENE_KEYS.GAME_OVER, {
-      score: this.score,
-      highScore: this.score,
-      reason: 'Health depleted',
-    });
+    this.gameOver(this.score, `Max Combo: ${this.maxCombo}`);
   }
 
   /**
