@@ -286,26 +286,31 @@ export class AgentChaseGameScene extends BaseScene {
   }
 
   /**
-   * Create UI
+   * Create UI — defensively destroys any prior text objects to prevent duplicates
+   * if the scene's create() is called without a full shutdown cycle
    */
   private createUI(): void {
+    this.scoreText?.destroy();
+    this.livesText?.destroy();
+    this.levelText?.destroy();
+
     this.scoreText = this.add.text(10, 10, 'SCORE: 0', {
       fontFamily: '"Press Start 2P", monospace',
-      fontSize: '12px',
+      fontSize: '14px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
     this.scoreText.setDepth(100);
 
-    this.livesText = this.add.text(200, 10, 'LIVES: 3', {
+    this.livesText = this.add.text(200, 10, `LIVES: ${this.lives}`, {
       fontFamily: '"Press Start 2P", monospace',
-      fontSize: '12px',
+      fontSize: '14px',
       color: MATRIX_COLORS.YELLOW_HEX,
     });
     this.livesText.setDepth(100);
 
-    this.levelText = this.add.text(400, 10, 'LEVEL: 1', {
+    this.levelText = this.add.text(400, 10, `LEVEL: ${this.level}`, {
       fontFamily: '"Press Start 2P", monospace',
-      fontSize: '12px',
+      fontSize: '14px',
       color: MATRIX_COLORS.CYAN_HEX,
     });
     this.levelText.setDepth(100);
