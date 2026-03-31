@@ -124,6 +124,13 @@ export interface GlobalSaveData {
     ctrlSWorld: GameSaveData;
     matrixInvaders: GameSaveData;
     metris: GameSaveData;
+    // Phaser games
+    matrixFrogger: GameSaveData;
+    neoJump: GameSaveData;
+    agentChase: GameSaveData;
+    rhythmHacker: GameSaveData;
+    cloudJumper: GameSaveData;
+    // Legacy game IDs (kept for migration compatibility)
     crossyRoad: GameSaveData;
     matrixAscension: GameSaveData;
     agentEscape: GameSaveData;
@@ -184,6 +191,11 @@ const createDefaultGlobalSave = (): GlobalSaveData => ({
     ctrlSWorld: { ...createDefaultGameSave(), lifelineData: createDefaultLifelineData(), ctrlSGameState: createDefaultCtrlSGameState() },
     matrixInvaders: createDefaultGameSave(),
     metris: createDefaultGameSave(),
+    matrixFrogger: createDefaultGameSave(),
+    neoJump: createDefaultGameSave(),
+    agentChase: createDefaultGameSave(),
+    rhythmHacker: createDefaultGameSave(),
+    cloudJumper: createDefaultGameSave(),
     crossyRoad: createDefaultGameSave(),
     matrixAscension: createDefaultGameSave(),
     agentEscape: createDefaultGameSave(),
@@ -278,45 +290,60 @@ export const GAME_ACHIEVEMENTS: Record<string, Achievement[]> = {
     { id: 't_spin_master', name: 'T-Spin Master', description: 'Perform 5 T-spins', game: 'Metris' },
     { id: 'immortal', name: 'Immortal', description: 'Reach level 20', game: 'Metris' }
   ],
-  crossyRoad: [
-    { id: 'crossy_first_hop', name: 'First Step', description: 'Make your first move', game: 'Crossy Road' },
-    { id: 'crossy_100_distance', name: 'Escape Artist', description: 'Travel 100 units', game: 'Crossy Road' },
-    { id: 'crossy_500_distance', name: 'Marathon Runner', description: 'Travel 500 units', game: 'Crossy Road' },
-    { id: 'crossy_dodge_10', name: 'Dodge Master', description: 'Dodge 10 Agents in one run', game: 'Crossy Road' },
-    { id: 'crossy_red_pills_10', name: 'Awakened', description: 'Collect 10 red pills', game: 'Crossy Road' },
-    { id: 'crossy_no_death_50', name: 'Untouchable', description: 'Travel 50 units without dying', game: 'Crossy Road' },
-    { id: 'crossy_bullet_time', name: 'Time Bender', description: 'Use bullet time 5 times', game: 'Crossy Road' }
+  matrixFrogger: [
+    { id: 'frogger_first_cross', name: 'First Crossing', description: 'Complete your first road crossing', game: 'Matrix Frogger' },
+    { id: 'frogger_score_1000', name: 'Score Hacker', description: 'Score 1,000 points', game: 'Matrix Frogger' },
+    { id: 'frogger_score_5000', name: 'Elite Hacker', description: 'Score 5,000 points', game: 'Matrix Frogger' },
+    { id: 'frogger_dodge_10', name: 'Dodge Master', description: 'Achieve 10 near misses', game: 'Matrix Frogger' },
+    { id: 'frogger_bullet_time', name: 'Bullet Time', description: 'Activate bullet time', game: 'Matrix Frogger' },
+    { id: 'frogger_ghost', name: 'Ghost in the Machine', description: 'Use ghost mode', game: 'Matrix Frogger' },
+    { id: 'frogger_shield_save', name: 'Shield Save', description: 'Survive a hit with a shield', game: 'Matrix Frogger' },
+    { id: 'frogger_magnet_5', name: 'Magnet Collector', description: 'Collect 5 pills with magnet', game: 'Matrix Frogger' },
+    { id: 'frogger_combo_10', name: 'Combo Master', description: 'Achieve a 10x combo', game: 'Matrix Frogger' },
+    { id: 'frogger_distance_500', name: 'Long Distance', description: 'Travel 500 units', game: 'Matrix Frogger' }
   ],
-  matrixAscension: [
-    { id: 'doodle_first_jump', name: 'Leap of Faith', description: 'Make your first jump', game: 'Matrix Ascension' },
-    { id: 'doodle_1000_altitude', name: 'Rising Star', description: 'Reach 1000 altitude', game: 'Matrix Ascension' },
-    { id: 'doodle_5000_altitude', name: 'Cloud Walker', description: 'Reach 5000 altitude', game: 'Matrix Ascension' },
-    { id: 'doodle_10000_altitude', name: 'The Source', description: 'Reach 10000 altitude', game: 'Matrix Ascension' },
-    { id: 'doodle_kill_agent', name: 'Agent Slayer', description: 'Defeat an Agent', game: 'Matrix Ascension' },
-    { id: 'doodle_combo_platforms', name: 'Bounce Master', description: 'Hit 10 platforms without falling', game: 'Matrix Ascension' },
-    { id: 'doodle_spring_10', name: 'Spring Loaded', description: 'Use 10 spring platforms', game: 'Matrix Ascension' },
-    { id: 'doodle_no_shoot', name: 'Pacifist', description: 'Reach 2000 altitude without shooting', game: 'Matrix Ascension' }
+  neoJump: [
+    { id: 'neojump_first_jump', name: 'First Jump', description: 'Make your first jump', game: 'Neo Jump' },
+    { id: 'neojump_altitude_1000', name: 'Rising Star', description: 'Reach 1,000 altitude', game: 'Neo Jump' },
+    { id: 'neojump_altitude_5000', name: 'Sky Walker', description: 'Reach 5,000 altitude', game: 'Neo Jump' },
+    { id: 'neojump_kill_enemy', name: 'Agent Slayer', description: 'Defeat an enemy', game: 'Neo Jump' },
+    { id: 'neojump_kill_5', name: 'Agent Hunter', description: 'Defeat 5 enemies', game: 'Neo Jump' },
+    { id: 'neojump_jetpack', name: 'Jetpack Rider', description: 'Use a jetpack', game: 'Neo Jump' },
+    { id: 'neojump_spring', name: 'Spring Loaded', description: 'Use a spring platform', game: 'Neo Jump' },
+    { id: 'neojump_combo_5', name: 'Bounce Combo', description: '5 bounces without touching ground', game: 'Neo Jump' }
   ],
-  agentEscape: [
-    { id: 'pacman_first_dot', name: 'First Taste', description: 'Collect your first red pill', game: 'Agent Escape' },
-    { id: 'pacman_eat_ghost', name: 'System Override', description: 'Eat your first Agent', game: 'Agent Escape' },
-    { id: 'pacman_all_ghosts', name: 'Agent Eliminator', description: 'Eat all 4 Agents in one power-up', game: 'Agent Escape' },
-    { id: 'pacman_level_1', name: 'Level Complete', description: 'Complete level 1', game: 'Agent Escape' },
-    { id: 'pacman_level_5', name: 'Veteran Escapee', description: 'Reach level 5', game: 'Agent Escape' },
-    { id: 'pacman_10000', name: 'High Scorer', description: 'Score 10,000 points', game: 'Agent Escape' },
-    { id: 'pacman_no_death', name: 'Flawless', description: 'Complete a level without dying', game: 'Agent Escape' },
-    { id: 'pacman_fruit_all', name: 'Collector', description: 'Collect all bonus items in a level', game: 'Agent Escape' }
+  agentChase: [
+    { id: 'agentchase_first_dot', name: 'First Pill', description: 'Collect your first red pill', game: 'Agent Chase' },
+    { id: 'agentchase_first_ghost', name: 'First Ghost', description: 'Eat your first Agent', game: 'Agent Chase' },
+    { id: 'agentchase_clear_level', name: 'Level Clear', description: 'Clear a level', game: 'Agent Chase' },
+    { id: 'agentchase_score_10000', name: 'High Scorer', description: 'Score 10,000 points', game: 'Agent Chase' },
+    { id: 'agentchase_eat_all', name: 'Agent Eliminator', description: 'Eat all 4 ghosts in one power pellet', game: 'Agent Chase' },
+    { id: 'agentchase_fruit', name: 'Fruit Collector', description: 'Collect a bonus fruit', game: 'Agent Chase' },
+    { id: 'agentchase_5_levels', name: 'Veteran', description: 'Survive 5 levels', game: 'Agent Chase' },
+    { id: 'agentchase_no_death', name: 'Flawless Level', description: 'Complete a level without dying', game: 'Agent Chase' }
   ],
-  jimmyMatrix: [
-    { id: 'rhythm_first_perfect', name: 'Perfect Timing', description: 'Hit your first perfect note', game: 'Jimmy Matrix' },
-    { id: 'rhythm_100_combo', name: 'Combo Starter', description: 'Achieve 100 combo', game: 'Jimmy Matrix' },
-    { id: 'rhythm_500_combo', name: 'Combo Master', description: 'Achieve 500 combo', game: 'Jimmy Matrix' },
-    { id: 'rhythm_full_combo', name: 'Full Combo', description: 'Complete a track with no misses', game: 'Jimmy Matrix' },
-    { id: 'rhythm_track_complete', name: 'Track Complete', description: 'Finish any track', game: 'Jimmy Matrix' },
-    { id: 'rhythm_all_tracks', name: 'Completionist', description: 'Complete all 5 tracks', game: 'Jimmy Matrix' },
-    { id: 'rhythm_score_100k', name: 'High Scorer', description: 'Score 100,000 points total', game: 'Jimmy Matrix' },
-    { id: 'rhythm_the_one', name: 'The One', description: 'Complete "The One" track', game: 'Jimmy Matrix' }
-  ]
+  rhythmHacker: [
+    { id: 'rhythm_first_perfect', name: 'Perfect Timing', description: 'Hit your first perfect note', game: 'Rhythm Hacker' },
+    { id: 'rhythm_combo_50', name: 'Combo Starter', description: 'Achieve 50 combo', game: 'Rhythm Hacker' },
+    { id: 'rhythm_combo_100', name: 'Combo Master', description: 'Achieve 100 combo', game: 'Rhythm Hacker' },
+    { id: 'rhythm_full_combo', name: 'Full Combo', description: 'Complete a track with no misses', game: 'Rhythm Hacker' },
+    { id: 'rhythm_complete_easy', name: 'Easy Clear', description: 'Complete an easy track', game: 'Rhythm Hacker' },
+    { id: 'rhythm_complete_normal', name: 'Normal Clear', description: 'Complete a normal track', game: 'Rhythm Hacker' },
+    { id: 'rhythm_complete_hard', name: 'Hard Clear', description: 'Complete a hard track', game: 'Rhythm Hacker' },
+    { id: 'rhythm_complete_insane', name: 'Insane Clear', description: 'Complete an insane track', game: 'Rhythm Hacker' },
+    { id: 'rhythm_no_miss', name: 'No Miss', description: 'Complete a track without missing', game: 'Rhythm Hacker' }
+  ],
+  cloudJumper: [
+    { id: 'cloud_first_jump', name: 'First Jump', description: 'Make your first cloud jump', game: 'Cloud Jumper' },
+    { id: 'cloud_distance_500', name: 'Cloud Hopper', description: 'Travel 500 distance', game: 'Cloud Jumper' },
+    { id: 'cloud_distance_2000', name: 'Sky Traveller', description: 'Travel 2,000 distance', game: 'Cloud Jumper' },
+    { id: 'cloud_collect_10', name: 'Data Collector', description: 'Collect 10 data packets', game: 'Cloud Jumper' },
+    { id: 'cloud_survive_storm', name: 'Storm Survivor', description: 'Survive a storm phase', game: 'Cloud Jumper' },
+    { id: 'cloud_bounce_10', name: 'Bounce Streak', description: '10 bounces without missing', game: 'Cloud Jumper' },
+    { id: 'cloud_close_call', name: 'Close Call', description: 'Near miss with an obstacle', game: 'Cloud Jumper' }
+  ],
+  // Legacy game achievements removed — crossyRoad, matrixAscension, agentEscape, jimmyMatrix
+  // have been replaced by their Phaser equivalents above (matrixFrogger, neoJump, agentChase, rhythmHacker)
 };
 
 // Global achievements (meta achievements)
@@ -332,7 +359,7 @@ export const GLOBAL_ACHIEVEMENTS: Achievement[] = [
 
 const STORAGE_KEY = 'matrix-arcade-save-data';
 const BACKUP_KEY = 'matrix-arcade-backup';
-const CURRENT_VERSION = '1.1.0';
+const CURRENT_VERSION = '1.2.0';
 
 /**
  * Migration functions for save data versions.
@@ -357,6 +384,7 @@ const migrations: Record<string, MigrationFunction> = {
     const gameIds: Array<keyof GlobalSaveData['games']> = [
       'snakeClassic', 'vortexPong', 'matrixCloud',
       'ctrlSWorld', 'matrixInvaders', 'metris',
+      'matrixFrogger', 'neoJump', 'agentChase', 'rhythmHacker', 'cloudJumper',
       'crossyRoad', 'matrixAscension', 'agentEscape', 'jimmyMatrix'
     ];
 
@@ -406,6 +434,44 @@ const migrations: Record<string, MigrationFunction> = {
 
     migratedData.version = '1.1.0';
     return migratedData;
+  },
+
+  /**
+   * Migrate from 1.1.0 to 1.2.0:
+   * - Adds Phaser game entries (matrixFrogger, neoJump, agentChase, rhythmHacker, cloudJumper)
+   * - Copies high scores from legacy game IDs to new Phaser equivalents where applicable
+   */
+  '1.1.0': (data: GlobalSaveData): GlobalSaveData => {
+    const migratedData = { ...data };
+    const defaultGameSave = createDefaultGameSave();
+
+    // Legacy → Phaser game ID mapping
+    const legacyMapping: Array<[keyof GlobalSaveData['games'], keyof GlobalSaveData['games']]> = [
+      ['crossyRoad', 'matrixFrogger'],
+      ['matrixAscension', 'neoJump'],
+      ['agentEscape', 'agentChase'],
+      ['jimmyMatrix', 'rhythmHacker'],
+    ];
+
+    for (const [legacyId, newId] of legacyMapping) {
+      if (!migratedData.games[newId]) {
+        const legacyData = migratedData.games[legacyId];
+        if (legacyData && legacyData.highScore > 0) {
+          // Carry over high score and stats from legacy game
+          migratedData.games[newId] = { ...defaultGameSave, highScore: legacyData.highScore, stats: { ...legacyData.stats } };
+        } else {
+          migratedData.games[newId] = { ...defaultGameSave };
+        }
+      }
+    }
+
+    // Cloud Jumper is new (no legacy equivalent)
+    if (!migratedData.games.cloudJumper) {
+      migratedData.games.cloudJumper = { ...defaultGameSave };
+    }
+
+    migratedData.version = '1.2.0';
+    return migratedData;
   }
 };
 
@@ -418,7 +484,7 @@ const migrations: Record<string, MigrationFunction> = {
  */
 export function migrateSaveData(data: GlobalSaveData): GlobalSaveData {
   let migratedData = { ...data };
-  const versionOrder = ['1.0.0', '1.1.0'];
+  const versionOrder = ['1.0.0', '1.1.0', '1.2.0'];
 
   // Handle legacy data without version (pre-1.0.0)
   if (!migratedData.version) {

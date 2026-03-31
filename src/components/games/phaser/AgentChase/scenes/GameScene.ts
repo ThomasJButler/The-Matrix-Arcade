@@ -526,7 +526,8 @@ export class AgentChaseGameScene extends BaseScene {
     this.playSound('hit');
 
     if (this.lives <= 0) {
-      this.gameOver();
+      this.reportScore(this.score, this.score);
+      this.gameOver(this.score, `Level ${this.level}`);
     } else {
       // Reset positions
       this.resetPositions();
@@ -577,17 +578,6 @@ export class AgentChaseGameScene extends BaseScene {
     this.modeTimer = 0;
   }
 
-  /**
-   * Game over
-   */
-  private gameOver(): void {
-    this.reportScore(this.score, this.score);
-    this.scene.start(SCENE_KEYS.GAME_OVER, {
-      score: this.score,
-      highScore: this.score,
-      reason: `Level ${this.level}`,
-    });
-  }
 
   /**
    * Check if level is complete
