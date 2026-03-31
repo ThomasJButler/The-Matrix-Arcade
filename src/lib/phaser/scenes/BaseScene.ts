@@ -23,6 +23,9 @@ export abstract class BaseScene extends Phaser.Scene {
   protected escKey?: Phaser.Input.Keyboard.Key;
   protected pauseKey?: Phaser.Input.Keyboard.Key;
   protected muteKey?: Phaser.Input.Keyboard.Key;
+  private pauseOverlayBg?: Phaser.GameObjects.Graphics;
+  private pauseOverlayText?: Phaser.GameObjects.Text;
+  private pauseOverlayHint?: Phaser.GameObjects.Text;
 
   constructor(config: string | Phaser.Types.Scenes.SettingsConfig) {
     super(config);
@@ -56,17 +59,65 @@ export abstract class BaseScene extends Phaser.Scene {
   }
 
   /**
-   * Toggle pause state
+   * Toggle pause state with visible overlay
    */
   protected togglePause(): void {
     this.isPaused = !this.isPaused;
     if (this.isPaused) {
+      this.showPauseOverlay();
       this.scene.pause();
       this.emitGameEvent({ type: 'pause' });
     } else {
+      this.hidePauseOverlay();
       this.scene.resume();
       this.emitGameEvent({ type: 'resume' });
     }
+  }
+
+  /**
+   * Show dimmed pause overlay with text — must be called BEFORE scene.pause()
+   * because scene.pause() stops the update loop (but rendering continues)
+   */
+  private showPauseOverlay(): void {
+    const width = Number(this.game.config.width);
+    const height = Number(this.game.config.height);
+
+    // Semi-transparent dark overlay
+    this.pauseOverlayBg = this.add.graphics();
+    this.pauseOverlayBg.fillStyle(0x000000, 0.6);
+    this.pauseOverlayBg.fillRect(0, 0, width, height);
+    this.pauseOverlayBg.setDepth(9998);
+
+    // PAUSED text
+    this.pauseOverlayText = this.add.text(width / 2, height / 2 - 20, 'PAUSED', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '32px',
+      color: MATRIX_COLORS.PRIMARY_HEX,
+    });
+    this.pauseOverlayText.setOrigin(0.5);
+    this.pauseOverlayText.setDepth(9999);
+
+    // Hint text
+    this.pauseOverlayHint = this.add.text(width / 2, height / 2 + 30, 'Press P to resume', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '12px',
+      color: MATRIX_COLORS.PRIMARY_HEX,
+    });
+    this.pauseOverlayHint.setOrigin(0.5);
+    this.pauseOverlayHint.setAlpha(0.7);
+    this.pauseOverlayHint.setDepth(9999);
+  }
+
+  /**
+   * Remove pause overlay — called BEFORE scene.resume()
+   */
+  private hidePauseOverlay(): void {
+    this.pauseOverlayBg?.destroy();
+    this.pauseOverlayText?.destroy();
+    this.pauseOverlayHint?.destroy();
+    this.pauseOverlayBg = undefined;
+    this.pauseOverlayText = undefined;
+    this.pauseOverlayHint = undefined;
   }
 
   /**
@@ -149,13 +200,13 @@ export abstract class BaseScene extends Phaser.Scene {
   /**
    * Transition to game over scene
    */
-  protected gameOver(score: number, reason?: string): void {
+  protected gameOver(score: number, reason?: string, highScore?: number): void {
     this.playSound('gameOver');
     this.emitGameEvent({
       type: 'gameOver',
       data: { score, reason },
     });
-    this.scene.start(SCENE_KEYS.GAME_OVER, { score, reason });
+    this.scene.start(SCENE_KEYS.GAME_OVER, { score, reason, highScore: highScore ?? score });
   }
 
   /**

@@ -182,6 +182,12 @@ export function PhaserGame({
     containerRef.current?.focus();
   }, []);
 
+  // Auto-refocus when hovering over the game — prevents keyboard input
+  // from silently failing after the user clicks outside the game area
+  const handleMouseEnter = useCallback(() => {
+    containerRef.current?.focus();
+  }, []);
+
   return (
     <div
       ref={containerRef}
@@ -192,12 +198,42 @@ export function PhaserGame({
         outline: 'none',
         boxShadow: hasFocus ? '0 0 0 2px #00ff00' : 'none',
         transition: 'box-shadow 0.2s ease',
+        position: 'relative',
       }}
       tabIndex={0}
       onClick={handleContainerClick}
+      onMouseEnter={handleMouseEnter}
       onFocus={() => setHasFocus(true)}
       onBlur={() => setHasFocus(false)}
-    />
+    >
+      {/* Click-to-play overlay shown when focus is lost */}
+      {!hasFocus && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 10,
+            cursor: 'pointer',
+            pointerEvents: 'none',
+          }}
+        >
+          <span
+            style={{
+              fontFamily: '"Press Start 2P", monospace',
+              fontSize: '16px',
+              color: '#00ff00',
+              textShadow: '0 0 10px #00ff00',
+            }}
+          >
+            Click to play
+          </span>
+        </div>
+      )}
+    </div>
   );
 }
 
