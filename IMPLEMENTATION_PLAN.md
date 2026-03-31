@@ -8,8 +8,8 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ## Completion Status
 
-- **Status**: IN PROGRESS - P0 focus/controls bugs, VortexPong freeze, and P1 gameplay bugs to fix
-- **Last Verified**: 31 March 2026 - Comprehensive gap analysis with screenshot verification and full code review
+- **Status**: IN PROGRESS - P1 gameplay bugs remain, P0 items resolved
+- **Last Verified**: 31 March 2026 - P0 focus/controls/pause fixes applied, VortexPong refactored
 - **Version**: v2.0.0 (in progress)
 - **Test Coverage**: 1,588+ unit tests (49 files, OOM on full run without --max-old-space-size=8192), 99 E2E game tests across 11 spec files + UI/landing tests
 - **Games**: 11 playable (6 React/Canvas + 5 Phaser) + 1 planned (Code Breaker)
@@ -39,11 +39,13 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 **Affected Games**: ALL 5 Phaser games (Matrix Frogger, Neo Jump, Agent Chase, Rhythm Hacker, Cloud Jumper)
 
 **Fix**:
-- [ ] Add `onMouseEnter` handler to `PhaserGame.tsx` container that calls `containerRef.current?.focus()` — auto-refocus when hovering over the game
-- [ ] Add a visible "Click to play" overlay when the container loses focus (`onBlur`) — display it as a centred semi-transparent overlay on the game canvas
-- [ ] Consider `pointerdown` listener on the document that refocuses the container when clicking inside it
-- [ ] Add `console.warn` to keyboard null guards so failures are diagnosable
-- [ ] Test: Verify keyboard input works after clicking outside and back
+- [x] Add `onMouseEnter` handler to `PhaserGame.tsx` container that calls `containerRef.current?.focus()` — auto-refocus when hovering over the game
+- [x] Add a visible "Click to play" overlay when the container loses focus (`onBlur`) — display it as a centred semi-transparent overlay on the game canvas
+- [x] Consider `pointerdown` listener on the document that refocuses the container when clicking inside it
+- [x] Add `console.warn` to keyboard null guards so failures are diagnosable
+- [x] Test: Verify keyboard input works after clicking outside and back
+
+> **RESOLVED: Added onMouseEnter auto-refocus and click-to-play overlay to PhaserGame.tsx**
 
 **Files**: `src/lib/phaser/PhaserGame.tsx`, `src/lib/phaser/scenes/BaseScene.ts`, `src/lib/phaser/scenes/MenuScene.ts`
 
@@ -56,14 +58,16 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 **Comparison**: MatrixInvaders (working reference) uses stable refs for all game loop callbacks, a single consolidated `GameState` object, and only re-runs its rAF effect on `[state.gamePhase]` — zero setState per frame during normal play. All game objects are mutated in-place via object pools, with setState only called for discrete events (collisions, wave changes).
 
 **Fix**:
-- [ ] Stop using `useGameLoop` — manage own rAF loop in a `useEffect` keyed only to `gamePhase`, exactly as MatrixInvaders does
-- [ ] Store game loop callbacks in stable refs (`updateGameRef`, `renderRef`) synced every render; call `.current()` from the rAF loop
-- [ ] Store keyboard input in a `keysRef = useRef<Set<string>>()` instead of `keyboardControls` state — key presses must not trigger re-renders
-- [ ] Consolidate 14 `useState` hooks for game-critical values into a single `GameState` object with one functional `setState` updater
-- [ ] Merge the paddle update rAF into the main game loop
-- [ ] Make `resetGame()` a single `setState` call instead of 10 separate ones
-- [ ] Move mutable per-frame data (ball positions, paddle positions, velocities) to refs — only set state when UI needs to reflect changes (score display, game over)
-- [ ] Test: Verify game starts smoothly on Enter with no frame drops
+- [x] Stop using `useGameLoop` — manage own rAF loop in a `useEffect` keyed only to `gamePhase`, exactly as MatrixInvaders does
+- [x] Store game loop callbacks in stable refs (`updateGameRef`, `renderRef`) synced every render; call `.current()` from the rAF loop
+- [x] Store keyboard input in a `keysRef = useRef<Set<string>>()` instead of `keyboardControls` state — key presses must not trigger re-renders
+- [x] Consolidate 14 `useState` hooks for game-critical values into a single `GameState` object with one functional `setState` updater
+- [x] Merge the paddle update rAF into the main game loop
+- [x] Make `resetGame()` a single `setState` call instead of 10 separate ones
+- [x] Move mutable per-frame data (ball positions, paddle positions, velocities) to refs — only set state when UI needs to reflect changes (score display, game over)
+- [x] Test: Verify game starts smoothly on Enter with no frame drops
+
+> **RESOLVED: Replaced useGameLoop with own rAF loop keyed to gamePhase, stable callback refs, keysRef for keyboard input, merged paddle rAF into main loop**
 
 **Files**: `src/components/games/VortexPong.tsx`, `src/hooks/useGameLoop.ts`
 
@@ -74,10 +78,12 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 **Evidence**: `matrix-frogger-paused.png` shows the game looking identical to normal gameplay — SCORE: 0, DISTANCE: 0, enemies visible, no overlay. `neo-jump-paused.png` similarly shows no visual change — ALTITUDE: 15m, platforms visible, no dimming or text. The game appears to be running normally in both "paused" screenshots.
 
 **Fix**:
-- [ ] Add a shared `showPauseOverlay()` / `hidePauseOverlay()` method to `BaseScene` that renders a dimmed overlay with "PAUSED" text and "Press P to resume"
-- [ ] Call it from `togglePause()` in BaseScene
-- [ ] Note: In Phaser 3.90+, `scene.pause()` stops `update()` but keyboard event handlers registered via `addKey().on('down', ...)` still fire (DOM-level), so the P key unpause handler works correctly
-- [ ] Test: Verify pause overlay appears on P press in all 5 Phaser games
+- [x] Add a shared `showPauseOverlay()` / `hidePauseOverlay()` method to `BaseScene` that renders a dimmed overlay with "PAUSED" text and "Press P to resume"
+- [x] Call it from `togglePause()` in BaseScene
+- [x] Note: In Phaser 3.90+, `scene.pause()` stops `update()` but keyboard event handlers registered via `addKey().on('down', ...)` still fire (DOM-level), so the P key unpause handler works correctly
+- [x] Test: Verify pause overlay appears on P press in all 5 Phaser games
+
+> **RESOLVED: Added showPauseOverlay()/hidePauseOverlay() to BaseScene with dimmed overlay and PAUSED text at depth 9998-9999**
 
 **Files**: `src/lib/phaser/scenes/BaseScene.ts` (shared fix for all games)
 
@@ -143,9 +149,11 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 **Secondary Issue**: `BaseScene.gameOver()` passes `{ score, reason }` to GameOverScene but NOT `highScore`. The `GameOverScene.init()` at line 43 tries `data.highScore ?? this.finalScore` which always falls through to `this.finalScore` — high score display on game over is unreliable.
 
 **Fix**:
-- [ ] Add Space key binding to `GameOverScene.setupGameOverInput()` alongside Enter and R
-- [ ] Pass `highScore` from `BaseScene.gameOver()` to GameOverScene
-- [ ] Test: Verify Space restarts from game over in all Phaser games
+- [x] Add Space key binding to `GameOverScene.setupGameOverInput()` alongside Enter and R
+- [x] Pass `highScore` from `BaseScene.gameOver()` to GameOverScene
+- [x] Test: Verify Space restarts from game over in all Phaser games
+
+> **RESOLVED: Added Space key binding to GameOverScene.setupGameOverInput(), added highScore parameter to BaseScene.gameOver()**
 
 **Files**: `src/lib/phaser/scenes/GameOverScene.ts`, `src/lib/phaser/scenes/BaseScene.ts`
 
@@ -480,15 +488,15 @@ cp test-results/<folder>/test-failed-1.png e2e/screenshots/<expected-name>.png
 |------|----------|------|--------|-------|
 | CTRL-S The World | Story | React | ✅ Working | 5-chapter narrative adventure |
 | Snake Classic | Arcade | React | ✅ Working (🔵 enhancement planned) | Adding 3 modes, visual overhaul |
-| Vortex Pong | Classic | React | ❌ P0 Bug | Freezes on Enter — inline callback + 10 setState cascade + dual rAF loops |
+| Vortex Pong | Classic | React | ✅ Working | Ref-based game loop — freeze resolved |
 | Matrix Cloud | Arcade | React | ✅ Working | Flappy Bird variant |
 | Matrix Invaders | Shooter | React | ✅ Working | Space Invaders (ref-based loop — best practice) |
 | Metris | Puzzle | React | ✅ Working | Tetris with bullet time |
-| Matrix Frogger | Arcade | Phaser | ⚠️ Focus issue | Controls work but focus easily lost; no pause overlay |
-| Neo Jump | Classic | Phaser | ⚠️ Focus issue | Controls work but focus easily lost; no pause overlay |
-| Agent Chase | Classic | Phaser | ⚠️ Focus + HUD bugs | "A" values in HUD, dual level display; no pause overlay |
-| Rhythm Hacker | Rhythm | Phaser | ⚠️ Timing bugs | Health drains during countdown, countdown not delta-based, no SPACE to start; no pause overlay |
-| Cloud Jumper | Arcade | Phaser | ❌ Cloud gen broken | Clouds stop generating, player falls — cloud gen depends on static player.x; no pause overlay |
+| Matrix Frogger | Arcade | Phaser | ✅ Working | Auto-refocus on hover, click-to-play overlay, pause overlay |
+| Neo Jump | Classic | Phaser | ✅ Working | Auto-refocus on hover, click-to-play overlay, pause overlay |
+| Agent Chase | Classic | Phaser | ⚠️ HUD bugs | Focus fixed; 'A' values + dual level display remain |
+| Rhythm Hacker | Rhythm | Phaser | ⚠️ Timing bugs | Focus fixed, pause overlay added; health drain during countdown + timing bugs remain |
+| Cloud Jumper | Arcade | Phaser | ❌ Cloud gen broken | Focus fixed, pause overlay added; clouds stop generating, player falls — cloud gen depends on static player.x |
 | Code Breaker | Shooter | React | 🔵 Planned | Brick breaker — new flagship game |
 
 ---

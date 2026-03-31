@@ -173,13 +173,16 @@ export class GameOverScene extends BaseScene {
   }
 
   /**
-   * Set up keyboard input
+   * Set up keyboard input — ENTER, SPACE, and R all restart
    */
   protected setupGameOverInput(): void {
     if (!this.input.keyboard) return;
 
     const enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
     enterKey.on('down', () => this.restartGame());
+
+    const spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    spaceKey.on('down', () => this.restartGame());
 
     const rKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
     rKey.on('down', () => this.restartGame());

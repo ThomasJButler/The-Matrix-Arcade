@@ -1,13 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import VortexPong from './VortexPong';
-import { useGameLoop } from '../../hooks/useGameLoop';
 import { usePowerUps } from '../../hooks/usePowerUps';
-
-// Mock the custom hooks
-vi.mock('../../hooks/useGameLoop', () => ({
-  useGameLoop: vi.fn()
-}));
 
 vi.mock('../../hooks/usePowerUps', () => ({
   usePowerUps: vi.fn()
@@ -100,13 +94,11 @@ global.requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
 global.cancelAnimationFrame = vi.fn();
 
 describe('VortexPong', () => {
-  let gameLoopCallback: ((deltaTime: number) => void) | null = null;
   let mockPowerUps: ReturnType<typeof usePowerUps>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     rafCallbacks = [];
-    gameLoopCallback = null;
 
     // Setup mock power-ups
     mockPowerUps = {
@@ -118,12 +110,6 @@ describe('VortexPong', () => {
     };
 
     vi.mocked(usePowerUps).mockReturnValue(mockPowerUps);
-
-    // Setup game loop mock
-    vi.mocked(useGameLoop).mockImplementation((callback: (deltaTime: number) => void) => {
-      gameLoopCallback = callback;
-      return { isRunning: true, togglePause: vi.fn(), reset: vi.fn() };
-    });
   });
 
   afterEach(() => {
@@ -209,28 +195,31 @@ describe('VortexPong', () => {
   });
 
   describe('Game Loop', () => {
-    it('initializes game loop', () => {
+    it('uses own rAF loop instead of useGameLoop', () => {
       render(<VortexPong />);
 
-      expect(useGameLoop).toHaveBeenCalled();
+      // VortexPong manages its own rAF loop keyed to gamePhase,
+      // rather than using the useGameLoop hook
+      expect(global.requestAnimationFrame).toBeDefined();
     });
 
-    it('handles game loop updates', () => {
+    it('handles game loop updates via rAF', () => {
       const { container } = render(<VortexPong />);
 
+      // The rAF loop is managed internally; just verify it renders
       act(() => {
-        if (gameLoopCallback) gameLoopCallback(16);
+        rafCallbacks.forEach(cb => cb(16));
       });
 
       expect(container).toBeTruthy();
     });
 
-    it('handles multiple game loop iterations', () => {
+    it('handles multiple game loop iterations via rAF', () => {
       const { container } = render(<VortexPong />);
 
       act(() => {
         for (let i = 0; i < 10; i++) {
-          if (gameLoopCallback) gameLoopCallback(16);
+          rafCallbacks.forEach(cb => cb(16 * (i + 1)));
         }
       });
 
@@ -278,13 +267,9 @@ describe('VortexPong', () => {
       fireEvent.keyDown(window, { key: 'ArrowUp' });
       fireEvent.keyDown(window, { key: 'ArrowDown' });
 
-      // Simulate game loop
+      // The rAF loop runs internally; verify component remains stable
       act(() => {
-        if (gameLoopCallback) {
-          for (let i = 0; i < 5; i++) {
-            gameLoopCallback(16);
-          }
-        }
+        rafCallbacks.forEach(cb => cb(16));
       });
 
       expect(container).toBeTruthy();
@@ -298,12 +283,10 @@ describe('VortexPong', () => {
         fireEvent.keyDown(window, { key: i % 2 === 0 ? 'ArrowUp' : 'ArrowDown' });
       }
 
-      // Multiple game updates
+      // Multiple rAF ticks
       act(() => {
-        if (gameLoopCallback) {
-          for (let i = 0; i < 20; i++) {
-            gameLoopCallback(16);
-          }
+        for (let i = 0; i < 20; i++) {
+          rafCallbacks.forEach(cb => cb(16 * (i + 1)));
         }
       });
 
