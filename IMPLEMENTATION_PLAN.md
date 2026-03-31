@@ -8,9 +8,9 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ## Completion Status
 
-- **Status**: IN PROGRESS — P0 resolved, P1 resolved, P2 resolved, only P2.5 features and P3 enhancements remain
+- **Status**: POLISHED — All P0/P1/P2 bugs resolved; only optional P2.5 features and P3 enhancements remain
 - **Last Verified**: 31 March 2026 — Full gap analysis with code verification of all open items (re-verified same day; all P2 items resolved)
-- **Version**: v2.0.0 (in progress)
+- **Version**: v2.0.0 (polished)
 - **Test Coverage**: ~1,607 unit tests (48 files), 127 E2E tests across 15 spec files (11 games + landing + settings + modals + achievements)
 - **Games**: 11 playable (6 React/Canvas + 5 Phaser) + 1 planned (Code Breaker)
 - **Build**: PASSES (2.18MB bundle, chunk size warning)
