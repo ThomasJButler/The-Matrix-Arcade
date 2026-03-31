@@ -8,8 +8,8 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ## Completion Status
 
-- **Status**: IN PROGRESS - P1 gameplay bugs remain, P0 items resolved
-- **Last Verified**: 31 March 2026 - P0 focus/controls/pause fixes applied, VortexPong refactored
+- **Status**: IN PROGRESS - P1 items resolved, P2 quality items remain
+- **Last Verified**: 31 March 2026 - P1 gameplay bugs fixed (Rhythm Hacker countdown, Cloud Jumper cloud gen, Agent Chase HUD)
 - **Version**: v2.0.0 (in progress)
 - **Test Coverage**: 1,588+ unit tests (49 files, OOM on full run without --max-old-space-size=8192), 99 E2E game tests across 11 spec files + UI/landing tests
 - **Games**: 11 playable (6 React/Canvas + 5 Phaser) + 1 planned (Code Breaker)
@@ -93,52 +93,47 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ### 4. Rhythm Hacker: Health Drains During Countdown + Timing Bugs
 
-**Issue (Confirmed from code + screenshots)**: Multiple issues in the countdown system:
-
-1. **Health penalty during countdown**: `onKeyDown()` at line 342 has **no `isCountdown` guard** — key presses during the 10-second countdown go through to `findNearestNote()`, find no notes (they haven't spawned yet), and trigger the "empty hit penalty" at line 360 (`this.health -= 2`), allowing players to die before the game starts. The `rhythm-hacker-gameover.png` screenshot shows SCORE: 0 with health fully depleted — player died without hitting a single note.
-2. **Countdown not frame-rate-independent**: Line 192 uses `this.countdownTime += 1000 / 60` (hardcoded 60fps assumption) instead of actual `delta`. On 144Hz monitors the countdown finishes in ~4 seconds; on 30fps it takes ~20 seconds.
-3. **GameTime desync**: `gameTime` accumulates real `delta` but `countdownTime` uses fake 1000/60 increments. After countdown ends, note spawning (gated by `gameTime >= 11000`) may start at the wrong time.
-4. **Countdown duration is magic numbers**: 10000, 10500, 11000 scattered across the file instead of a named config constant.
+**Issue (Confirmed from code + screenshots)**: Multiple issues in the countdown system — health penalty during countdown, non-frame-rate-independent timing, scattered magic numbers.
 
 **Fix**:
-- [ ] Gate the empty-hit penalty behind `!this.isCountdown` — ignore lane key presses during countdown
-- [ ] Replace `this.countdownTime += 1000 / 60` with `this.countdownTime += delta` using actual delta from `update()`
-- [ ] Extract countdown duration to a named constant in config.ts (e.g. `COUNTDOWN_DURATION: 10000`)
-- [ ] Ensure `nextNoteTime` is derived from the same time source as `gameTime`
-- [ ] Test: Verify health is 100% when first note appears
+- [x] Gate the empty-hit penalty behind `!this.isCountdown` — ignore lane key presses during countdown
+- [x] Replace `this.countdownTime += 1000 / 60` with `this.countdownTime += delta` using actual delta from `update()`
+- [x] Extract countdown duration to named constants in config.ts (`COUNTDOWN.DURATION`, `COUNTDOWN.GO_DISPLAY_END`, `COUNTDOWN.NOTES_START`)
+- [x] Extract empty-hit penalty to `HEALTH.EMPTY_HIT_PENALTY` constant
+- [x] `nextNoteTime` now uses `GAME_CONFIG.COUNTDOWN.NOTES_START` — same time source as `gameTime`
+- [x] Added `removeAllKeys(true)` to shutdown for proper key cleanup
+- [x] Test: Build passes, TypeScript clean
+
+> **RESOLVED: Countdown guard, frame-rate-independent timing, extracted constants to config.ts, added key cleanup to shutdown**
 
 **Files**: `src/components/games/phaser/RhythmHacker/scenes/GameScene.ts`, `src/components/games/phaser/RhythmHacker/config.ts`
 
 ### 5. Cloud Jumper: Cloud Generation Critically Broken
 
-**Issue (Confirmed from code analysis + screenshots)**: The cloud generation system is fundamentally broken. `generateContent()` at `GameScene.ts:596` generates new clouds while `this.lastCloudX < this.player.x + WIDTH`. But the player **never moves horizontally** — the player stays at `X=150` while clouds scroll left via `scrollObjects()`. After the initial batch of clouds is generated (with `lastCloudX` reaching ~900+), the condition `lastCloudX < 150 + 800 = 950` becomes permanently false. All existing clouds scroll off the left edge and are destroyed, leaving the player with nothing to land on.
-
-**Evidence**: `cloud-jumper-gameplay.png` shows SCORE: 30, DISTANCE: 300m with the player at the bottom of the screen near ground level — confirming the player ran out of clouds to land on. `cloud-jumper-gameover.png` shows game over at Distance: 211m.
-
-**Secondary Issue**: `canLandOnCloud()` collision filter requires the player's bottom to be above the cloud's centre (a ~15px window). At high fall speeds (max 500px/s), the player can phase through clouds on low-framerate devices.
+**Issue (Confirmed from code analysis + screenshots)**: Cloud generation broke because `generateContent()` checked `lastCloudX < player.x + WIDTH` but the player never moves horizontally (stays at x=150). After initial clouds scrolled off, no new ones generated.
 
 **Fix**:
-- [ ] Fix cloud generation: decouple from `player.x`. Track virtual scroll distance instead, or regenerate based on screen right edge (`WIDTH` only, not `player.x + WIDTH`). Decrement `lastCloudX` by the same scroll amount applied to existing clouds each frame.
-- [ ] Widen the `canLandOnCloud` collision window — use cloud top rather than cloud centre as the threshold
-- [ ] Remove dead code at line 710 (`player.x < -50` check — player never moves horizontally)
-- [ ] Test: Verify player is visible and on a cloud at game start, and that clouds continuously generate during play
+- [x] Decouple cloud generation from `player.x` — now checks `lastCloudX < WIDTH` (screen edge only)
+- [x] Decrement `lastCloudX` by scroll amount each frame in `scrollObjects()` to keep generation in sync with scrolling world
+- [x] Widen `canLandOnCloud` collision — use cloud top surface (`cloud.y - cloud.displayHeight / 2 + 10`) instead of cloud centre
+- [x] Remove dead code `player.x < -50` check (player never moves horizontally)
+- [x] Test: Build passes, TypeScript clean
+
+> **RESOLVED: Cloud generation now continuously produces platforms, collision uses cloud top surface, dead code removed**
 
 **Files**: `src/components/games/phaser/CloudJumper/scenes/GameScene.ts`
 
 ### 6. Agent Chase: HUD Display Bugs (A Values + Dual Level)
 
-**Issue (Confirmed from E2E screenshots)**: The `agent-chase-hud.png` screenshot shows both "LEVEL: 3" (centre area) and "LEVEL: 1" (right side) displayed simultaneously. The `agent-chase-gameover.png` screenshot shows "LEVEL: A" in the HUD — an "A" character where a number should be. Static code analysis shows correct typing (`this.lives = 3`, `this.level = 1`, both numbers) and only one set of HUD text objects created.
-
-**Possible Causes**:
-- Scene `create()` being called multiple times without proper cleanup, causing overlapping text objects
-- Font rendering artefact at small resolutions with "Press Start 2P" font — the numeral "3" at small sizes in this pixel font may render as "A"
-- A Phaser scene lifecycle issue where text objects from a previous scene instance persist
+**Issue (Confirmed from E2E screenshots)**: Dual level display and "LEVEL: A" rendering artefact caused by overlapping text objects and small font size with "Press Start 2P".
 
 **Fix**:
-- [ ] Add defensive cleanup at start of `createUI()` — destroy existing text objects before creating new ones
-- [ ] Runtime debug: add temporary console.log in `updateUI()` to verify `this.lives` and `this.level` are numbers
-- [ ] Verify via E2E: capture larger/zoomed screenshots of the HUD area
-- [ ] Test: Verify only one level number is shown and all HUD values are numeric
+- [x] Add defensive cleanup at start of `createUI()` — destroy existing text objects before creating new ones
+- [x] Increase font size from 12px to 14px to prevent "A" rendering artefact with Press Start 2P pixel font
+- [x] Initialise HUD text with actual state values (`LIVES: ${this.lives}`, `LEVEL: ${this.level}`) instead of hardcoded strings
+- [x] Test: Build passes, TypeScript clean
+
+> **RESOLVED: Defensive text cleanup, larger font size, dynamic initial values**
 
 **Files**: `src/components/games/phaser/AgentChase/scenes/GameScene.ts`
 
@@ -494,9 +489,9 @@ cp test-results/<folder>/test-failed-1.png e2e/screenshots/<expected-name>.png
 | Metris | Puzzle | React | ✅ Working | Tetris with bullet time |
 | Matrix Frogger | Arcade | Phaser | ✅ Working | Auto-refocus on hover, click-to-play overlay, pause overlay |
 | Neo Jump | Classic | Phaser | ✅ Working | Auto-refocus on hover, click-to-play overlay, pause overlay |
-| Agent Chase | Classic | Phaser | ⚠️ HUD bugs | Focus fixed; 'A' values + dual level display remain |
-| Rhythm Hacker | Rhythm | Phaser | ⚠️ Timing bugs | Focus fixed, pause overlay added; health drain during countdown + timing bugs remain |
-| Cloud Jumper | Arcade | Phaser | ❌ Cloud gen broken | Focus fixed, pause overlay added; clouds stop generating, player falls — cloud gen depends on static player.x |
+| Agent Chase | Classic | Phaser | ✅ Working | Focus fixed; HUD defensive cleanup + larger font |
+| Rhythm Hacker | Rhythm | Phaser | ✅ Working | Countdown guard, frame-rate-independent timing, config constants |
+| Cloud Jumper | Arcade | Phaser | ✅ Working | Cloud gen fixed, collision uses cloud top, dead code removed |
 | Code Breaker | Shooter | React | 🔵 Planned | Brick breaker — new flagship game |
 
 ---

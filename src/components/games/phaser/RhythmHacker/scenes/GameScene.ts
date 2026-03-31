@@ -109,7 +109,7 @@ export class RhythmHackerGameScene extends BaseScene {
     this.goodCount = 0;
     this.totalNotes = 0;
     this.gameTime = 0;
-    this.nextNoteTime = 11000; // Start after countdown (10 seconds) + 1 second
+    this.nextNoteTime = GAME_CONFIG.COUNTDOWN.NOTES_START;
     this.activeNotes = [];
     this.keyHeld = [false, false, false, false];
     this.isCountdown = true;
@@ -149,7 +149,7 @@ export class RhythmHackerGameScene extends BaseScene {
 
     // Update countdown
     if (this.isCountdown) {
-      this.updateCountdown();
+      this.updateCountdown(delta);
     }
 
     // Spawn notes (only after countdown)
@@ -186,16 +186,17 @@ export class RhythmHackerGameScene extends BaseScene {
   }
 
   /**
-   * Update countdown
+   * Update countdown using real frame delta for frame-rate independence
    */
-  private updateCountdown(): void {
-    this.countdownTime += 1000 / 60; // Approximate milliseconds per frame
+  private updateCountdown(delta: number): void {
+    this.countdownTime += delta;
 
-    const countdownSeconds = Math.floor((10000 - this.countdownTime) / 1000);
+    const { DURATION, GO_DISPLAY_END } = GAME_CONFIG.COUNTDOWN;
+    const countdownSeconds = Math.floor((DURATION - this.countdownTime) / 1000);
 
     if (countdownSeconds > 0) {
       this.countdownText.setText(countdownSeconds.toString());
-    } else if (countdownSeconds === 0 && this.countdownTime < 10500) {
+    } else if (countdownSeconds <= 0 && this.countdownTime < GO_DISPLAY_END) {
       this.countdownText.setText('GO!');
       this.countdownText.setColor(MATRIX_COLORS.YELLOW_HEX);
     } else {
@@ -337,11 +338,14 @@ export class RhythmHackerGameScene extends BaseScene {
   }
 
   /**
-   * Handle key press
+   * Handle key press — ignored during countdown to prevent health drain before notes spawn
    */
   private onKeyDown(lane: number): void {
     this.keyHeld[lane] = true;
     this.keyIndicators[lane].setTexture(`key_pressed_${lane}`);
+
+    // Ignore note-matching during countdown — no notes exist yet
+    if (this.isCountdown) return;
 
     // Find nearest note in this lane
     const note = this.findNearestNote(lane);
@@ -357,7 +361,7 @@ export class RhythmHackerGameScene extends BaseScene {
       }
     } else {
       // Empty hit penalty - small health deduction to discourage key spam
-      this.health = Math.max(0, this.health - 2);
+      this.health = Math.max(0, this.health - GAME_CONFIG.HEALTH.EMPTY_HIT_PENALTY);
       this.playSound('rhythmMiss');
 
       if (this.health <= 0) {
@@ -865,5 +869,6 @@ export class RhythmHackerGameScene extends BaseScene {
     });
     this.laneKeys = [];
     this.activeNotes = [];
+    this.input.keyboard?.removeAllKeys(true);
   }
 }

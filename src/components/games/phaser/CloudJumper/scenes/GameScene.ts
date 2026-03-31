@@ -334,14 +334,15 @@ export class CloudJumperGameScene extends BaseScene {
   }
 
   /**
-   * Check if player can land on cloud
+   * Check if player can land on cloud — uses cloud top surface for reliable collision
    */
   private canLandOnCloud(player: Phaser.Physics.Arcade.Sprite, cloud: Cloud): boolean {
     const playerBody = player.body as Phaser.Physics.Arcade.Body;
 
-    // Land when falling (velocity.y > 0) AND above cloud, or when not moving up and touching
+    // Land when falling (velocity.y > 0) AND player's feet are above the cloud's top surface
     const isFalling = playerBody.velocity.y > 0;
-    const isAboveCloud = player.y + playerBody.height / 2 < cloud.y;
+    const cloudTop = cloud.y - cloud.displayHeight / 2;
+    const isAboveCloud = player.y + playerBody.height / 2 < cloudTop + 10;
     const isTouchingDown = playerBody.touching.down || playerBody.blocked.down;
 
     return (isFalling && isAboveCloud) || isTouchingDown;
@@ -472,10 +473,14 @@ export class CloudJumperGameScene extends BaseScene {
   }
 
   /**
-   * Scroll game objects
+   * Scroll game objects — also tracks lastCloudX so new clouds generate continuously
    */
   private scrollObjects(delta: number): void {
     const scrollAmount = this.scrollSpeed * (delta / 1000);
+
+    // Keep lastCloudX in sync with the scrolling world so generateContent()
+    // keeps producing new clouds as old ones scroll off the left edge
+    this.lastCloudX -= scrollAmount;
 
     // Scroll clouds
     this.clouds.getChildren().forEach((obj) => {
@@ -587,13 +592,13 @@ export class CloudJumperGameScene extends BaseScene {
   }
 
   /**
-   * Generate new content
+   * Generate new content — uses screen width only since the player never moves horizontally
    */
   private generateContent(): void {
     const { WIDTH, HEIGHT, CLOUDS } = GAME_CONFIG;
 
-    // Generate clouds
-    while (this.lastCloudX < this.player.x + WIDTH) {
+    // Generate clouds ahead of the right screen edge
+    while (this.lastCloudX < WIDTH) {
       const x = this.lastCloudX + Phaser.Math.Between(CLOUDS.SPACING_MIN, CLOUDS.SPACING_MAX);
       const y = HEIGHT / 2 + Phaser.Math.Between(-CLOUDS.VERTICAL_RANGE, CLOUDS.VERTICAL_RANGE);
 
@@ -703,11 +708,6 @@ export class CloudJumperGameScene extends BaseScene {
   private checkGameOver(): void {
     // Fell off bottom
     if (this.player.y > GAME_CONFIG.HEIGHT + 50) {
-      this.playerDeath();
-    }
-
-    // Left behind (too far left)
-    if (this.player.x < -50) {
       this.playerDeath();
     }
   }

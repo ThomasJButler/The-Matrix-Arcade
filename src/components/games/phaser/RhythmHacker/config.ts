@@ -55,9 +55,17 @@ export const GAME_CONFIG = {
   HEALTH: {
     MAX: 100,
     MISS_DAMAGE: 10,
+    EMPTY_HIT_PENALTY: 2,
     GOOD_HEAL: 1,
     GREAT_HEAL: 2,
     PERFECT_HEAL: 5,
+  },
+
+  /** Countdown timing (ms) */
+  COUNTDOWN: {
+    DURATION: 10000,
+    GO_DISPLAY_END: 10500,
+    NOTES_START: 11000,
   },
 
   /** Track settings */
