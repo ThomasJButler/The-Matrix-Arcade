@@ -354,8 +354,12 @@ export class CloudJumperGameScene extends BaseScene {
   private handleCloudCollision(cloud: Cloud): void {
     const body = this.player.body as Phaser.Physics.Arcade.Body;
 
-    // Increment bounce streak
-    this.bounceStreak++;
+    // Increment bounce streak (storm clouds break the streak)
+    if (cloud.cloudType === 'storm') {
+      this.bounceStreak = 0;
+    } else {
+      this.bounceStreak++;
+    }
 
     // Handle based on cloud type
     switch (cloud.cloudType) {

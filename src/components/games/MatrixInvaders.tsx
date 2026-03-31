@@ -160,6 +160,10 @@ export default function MatrixInvaders({ achievementManager, isMuted = false, au
   const gamePhaseRef = useRef<GamePhase>(autoStart ? 'playing' : 'menu');
   const waveRef = useRef(1);
   const enemyPoolRef = useRef(enemyPool);
+  const stateRef = useRef(state);
+  const fireBulletRef = useRef<(x: number, y: number) => void>(() => {});
+  const resetGameRef = useRef<() => void>(() => {});
+  const startGameRef = useRef<() => void>(() => {});
 
   // Sync high score from useSaveSystem on mount
   useEffect(() => {
@@ -806,6 +810,8 @@ export default function MatrixInvaders({ achievementManager, isMuted = false, au
   gamePhaseRef.current = state.gamePhase;
   waveRef.current = state.wave;
   enemyPoolRef.current = enemyPool;
+  stateRef.current = state;
+  fireBulletRef.current = fireBullet;
 
   // Start game from menu
   const startGame = useCallback(() => {
@@ -861,22 +867,28 @@ export default function MatrixInvaders({ achievementManager, isMuted = false, au
     spawnWaveRef.current(1);
   }, [projectilePool, enemyPool, particlePool, saveData.games.matrixInvaders?.highScore]);
 
-  // Handle keyboard input
+  // Sync callback refs after definition — read by keyboard handler via refs
+  resetGameRef.current = resetGame;
+  startGameRef.current = startGame;
+
+  // Handle keyboard input — uses refs to avoid re-registering listeners every frame
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       keysRef.current.add(e.key);
-      
-      if (e.key === ' ' && state.gamePhase === 'playing') {
+      const currentState = stateRef.current;
+      const phase = gamePhaseRef.current;
+
+      if (e.key === ' ' && phase === 'playing') {
         const now = Date.now();
-        const fireRate = state.player.powerUps?.rapidFire ? 100 : 250;
-        
+        const fireRate = currentState.player.powerUps?.rapidFire ? 100 : 250;
+
         if (now - lastFireRef.current > fireRate) {
-          fireBullet(state.player.x + PLAYER_WIDTH / 2, state.player.y);
+          fireBulletRef.current(currentState.player.x + PLAYER_WIDTH / 2, currentState.player.y);
           lastFireRef.current = now;
         }
       }
-      
-      if (e.key === 'b' && state.gamePhase === 'playing' && !state.bulletTimeActive) {
+
+      if (e.key === 'b' && phase === 'playing' && !currentState.bulletTimeActive) {
         // Track bullet time usage for achievement
         bulletTimeUsedRef.current += 1;
 
@@ -907,10 +919,10 @@ export default function MatrixInvaders({ achievementManager, isMuted = false, au
           bulletTimeTimeoutRef.current = null;
         }, BULLET_TIME_DURATION);
       }
-      
-      if (e.key === 'p' && (state.gamePhase === 'playing' || state.gamePhase === 'paused')) {
+
+      if (e.key === 'p' && (phase === 'playing' || phase === 'paused')) {
         // Reset timestamp when unpausing to prevent huge deltaTime spike
-        if (state.gamePhase === 'paused') {
+        if (phase === 'paused') {
           animationFrameRef.current = undefined;
         }
         setState(prev => ({
@@ -920,32 +932,32 @@ export default function MatrixInvaders({ achievementManager, isMuted = false, au
       }
 
       // R key to restart when game over
-      if ((e.key === 'r' || e.key === 'R') && state.gamePhase === 'gameOver') {
-        resetGame();
+      if ((e.key === 'r' || e.key === 'R') && phase === 'gameOver') {
+        resetGameRef.current();
       }
 
       // ENTER key to start from menu or restart from game over
       if (e.key === 'Enter') {
-        if (state.gamePhase === 'menu') {
-          startGame();
-        } else if (state.gamePhase === 'gameOver') {
-          resetGame();
+        if (phase === 'menu') {
+          startGameRef.current();
+        } else if (phase === 'gameOver') {
+          resetGameRef.current();
         }
       }
     };
-    
+
     const handleKeyUp = (e: KeyboardEvent) => {
       keysRef.current.delete(e.key);
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
-    
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [state, fireBullet, resetGame, startGame]);
+  }, []); // Empty deps — never re-registers listeners; reads latest state via refs
   
   
   // Start game loop — only re-runs when gamePhase changes (not every render)

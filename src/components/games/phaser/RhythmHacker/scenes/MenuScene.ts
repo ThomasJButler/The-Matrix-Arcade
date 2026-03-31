@@ -18,6 +18,7 @@ export class RhythmHackerMenuScene extends BaseScene {
 
   create(): void {
     this.createMatrixBackground();
+    this.trackButtons = [];
     this.rainGroup = this.addMatrixRain(20);
 
     const { WIDTH, HEIGHT } = GAME_CONFIG;
@@ -107,6 +108,7 @@ export class RhythmHackerMenuScene extends BaseScene {
     const upKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
     const downKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
     const enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
+    const spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
     upKey.on('down', () => {
       this.selectedTrack = Math.max(0, this.selectedTrack - 1);
@@ -119,6 +121,7 @@ export class RhythmHackerMenuScene extends BaseScene {
     });
 
     enterKey.on('down', () => this.selectTrack(this.selectedTrack));
+    spaceKey.on('down', () => this.selectTrack(this.selectedTrack));
   }
 
   /**

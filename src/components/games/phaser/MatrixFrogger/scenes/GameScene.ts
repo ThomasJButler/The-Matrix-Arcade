@@ -406,6 +406,14 @@ export class FroggerGameScene extends BaseScene {
       // Score pill
       this.addScore(GAME_CONFIG.SCORING.RED_PILL);
       this.playSound('score');
+
+      // Track pills collected while magnet is active
+      if (this.hasPowerUp('magnet')) {
+        this.magnetCollected++;
+        if (this.magnetCollected >= 5) {
+          this.unlockAchievement(ACHIEVEMENTS.MAGNET_COLLECTOR);
+        }
+      }
     } else {
       // Power-up pill
       this.grantRandomPowerUp();

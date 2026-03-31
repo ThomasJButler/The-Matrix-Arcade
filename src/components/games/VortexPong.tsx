@@ -171,10 +171,10 @@ export default function VortexPong({ achievementManager, isMuted = false, autoSt
     }
   }, []);
 
-  // Auto-focus container on mount so ENTER key works immediately
+  // Auto-focus container on mount and when gamePhase changes
   useEffect(() => {
     containerRef.current?.focus();
-  }, []);
+  }, [gamePhase]);
 
   // Screen shake — updates ref only, rendered via canvas ctx.translate
   const addScreenShake = useCallback((intensity: number) => {
@@ -267,7 +267,7 @@ export default function VortexPong({ achievementManager, isMuted = false, autoSt
       }
       keysRef.current.add(e.key);
 
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         const phase = gamePhaseRef.current;
         if (phase === 'menu' || phase === 'gameOver') {
@@ -903,6 +903,7 @@ export default function VortexPong({ achievementManager, isMuted = false, autoSt
       onFocus={() => setHasFocus(true)}
       onBlur={() => setHasFocus(false)}
       onClick={() => containerRef.current?.focus()}
+      onMouseEnter={() => containerRef.current?.focus()}
     >
       <div className="flex flex-col items-center gap-4 max-w-[800px] w-full">
         <motion.canvas
