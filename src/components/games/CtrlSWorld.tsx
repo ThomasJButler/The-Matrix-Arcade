@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Terminal as TerminalIcon, Info, Play, Pause, Maximize, Minimize, Type, Gauge, Settings, Save } from 'lucide-react';
+import { Terminal as TerminalIcon, Info, Play, Pause, Maximize, Minimize, Type, Gauge, Settings, Save, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PuzzleModal } from '../ui/PuzzleModal';
 import { getPuzzleById } from '../../data/puzzles';
 import { useGameState } from '../../contexts/GameStateContext';
@@ -439,7 +439,10 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
   const [paragraphsDisplayedOnPage, setParagraphsDisplayedOnPage] = useState(0);
   const PARAGRAPHS_PER_PAGE = 5;
 
-  // Navigation history state
+  // Page history for back navigation
+  const [pageHistory, setPageHistory] = useState<string[][]>([]);
+  const [viewingHistoryIndex, setViewingHistoryIndex] = useState<number | null>(null);
+
   // Settings state
   const [textSpeed, setTextSpeed] = useState<5 | 15 | 30>(15); // ms per character
   const [fontSize, setFontSize] = useState<'sm' | 'base' | 'lg'>('base');
@@ -477,7 +480,8 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
   const puzzlesSolvedThisSession = useRef(new Set<string>());
 
   // Sound system integration
-  const { playSFX: playSoundEffect } = useSoundSystem();
+  const soundSystem = useSoundSystem();
+  const { playSFX: playSoundEffect } = soundSystem;
 
   // Gated sound function that respects isMuted prop
   const playSFX = useCallback((sound: string) => {
@@ -493,6 +497,22 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
     }
     unlockSaveAchievement('ctrlSWorld', achievementId);
   }, [achievementManager, unlockSaveAchievement]);
+
+  // Save current displayed texts to page history before clearing
+  const savePageToHistory = useCallback(() => {
+    setDisplayedTexts(prev => {
+      if (prev.length > 0) {
+        setPageHistory(history => [...history, prev]);
+      }
+      return prev;
+    });
+  }, []);
+
+  // Clear page history (used on restart/chapter select)
+  const clearPageHistory = useCallback(() => {
+    setPageHistory([]);
+    setViewingHistoryIndex(null);
+  }, []);
 
   // Restart game function - resets all story progress
   const restartGame = useCallback(() => {
@@ -515,6 +535,9 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
     // Reset puzzle state
     setCurrentPuzzleId(null);
 
+    // Clear page history on restart
+    clearPageHistory();
+
     // Reset session tracking
     sessionStartTimeRef.current = Date.now();
     chaptersCompletedThisSession.current.clear();
@@ -522,7 +545,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
 
     // Play restart sound
     playSFX('menu');
-  }, [playSFX]);
+  }, [playSFX, clearPageHistory]);
 
   // Start game from a specific chapter (for chapter selection hub)
   const startFromChapter = useCallback((chapterIndex: number) => {
@@ -544,6 +567,9 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
     setActiveModal('none');
     setCurrentPuzzleId(null);
 
+    // Clear page history for new chapter start
+    clearPageHistory();
+
     // Start game (transition from chapter_hub to playing)
     setGamePhase('playing');
 
@@ -554,7 +580,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
 
     // Play start sound
     playSFX('menu');
-  }, [playSFX]);
+  }, [playSFX, clearPageHistory]);
 
   // Get the highest chapter the player can access (based on completed chapters)
   const getMaxAccessibleChapter = useCallback(() => {
@@ -679,6 +705,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
       if (willPageBeFull) {
         // PAGE COMPLETE - clear screen and continue after brief delay
         safeSetTimeout(() => {
+          savePageToHistory();
           setDisplayedTexts([]); // Clear screen
           setDisplayedTextIndices([]); // Clear indices too
           setParagraphsDisplayedOnPage(0);
@@ -743,6 +770,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
             playSFX('gameOver');
           } else {
             // Move to next chapter (clear screen for new chapter)
+            savePageToHistory();
             setDisplayedTexts([]);
             setDisplayedTextIndices([]);
             setParagraphsDisplayedOnPage(0);
@@ -754,7 +782,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
         }, 2000); // Brief pause between paragraphs for readability
       }
     }
-  }, [currentNode, currentTextIndex, currentCharIndex, scrollToBottom, isPaused, gameState.state.completedPuzzles, paragraphsDisplayedOnPage, PARAGRAPHS_PER_PAGE, playSFX, safeSetTimeout]);
+  }, [currentNode, currentTextIndex, currentCharIndex, scrollToBottom, isPaused, gameState.state.completedPuzzles, paragraphsDisplayedOnPage, PARAGRAPHS_PER_PAGE, playSFX, safeSetTimeout, savePageToHistory]);
 
   // Handle manual story advancement (Enter/Space/Arrow keys)
   const handleNext = useCallback(() => {
@@ -802,6 +830,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
     if (paragraphsDisplayedOnPage >= PARAGRAPHS_PER_PAGE - 1) {
       // Clear screen and reset page counter
       safeSetTimeout(() => {
+        savePageToHistory();
         setDisplayedTexts([]);
         setDisplayedTextIndices([]);
         setParagraphsDisplayedOnPage(0);
@@ -845,6 +874,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
         playSFX('gameOver');
       } else {
         // Move to next chapter (clear screen for new chapter)
+        savePageToHistory();
         setDisplayedTexts([]);
         setDisplayedTextIndices([]);
         setParagraphsDisplayedOnPage(0);
@@ -857,7 +887,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
       }
       scrollToBottom(true);
     }
-  }, [isTyping, isPaused, activeModal, currentNode, currentTextIndex, currentText, paragraphsDisplayedOnPage, PARAGRAPHS_PER_PAGE, gameState.state.completedPuzzles, scrollToBottom, playSFX, safeSetTimeout]);
+  }, [isTyping, isPaused, activeModal, currentNode, currentTextIndex, currentText, paragraphsDisplayedOnPage, PARAGRAPHS_PER_PAGE, gameState.state.completedPuzzles, scrollToBottom, playSFX, safeSetTimeout, savePageToHistory]);
 
   // Handle puzzle completion
   const handlePuzzleComplete = useCallback((success: boolean, hintsUsed: number, lifelinesUsed: number) => {
@@ -930,6 +960,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
         setUserHasScrolled(false);
       } else if (currentNode < STORY.length - 1) {
         // Current chapter complete, move to next chapter
+        savePageToHistory();
         setDisplayedTexts([]);
         setDisplayedTextIndices([]);
         setParagraphsDisplayedOnPage(0); // Reset page counter for new chapter
@@ -940,7 +971,7 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
         setUserHasScrolled(false);
       }
     }, 800);
-  }, [currentPuzzleId, currentNode, currentTextIndex, gameState, unlockAchievement, safeSetTimeout]);
+  }, [currentPuzzleId, currentNode, currentTextIndex, gameState, unlockAchievement, safeSetTimeout, savePageToHistory]);
 
   // Track chapter completion and save game stats
   useEffect(() => {
@@ -1492,11 +1523,30 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
 
             {/* Story content area */}
             <div data-testid="story-content" tabIndex={-1} className="space-y-4 pb-40 mb-8">
-              {/* Previously displayed texts */}
-              {displayedTexts.map((text, index) => {
+              {/* History viewing indicator */}
+              {viewingHistoryIndex !== null && (
+                <div className="text-center py-3 mb-4 bg-green-900/20 border border-green-500/30 rounded-lg">
+                  <p className="text-green-400 text-sm font-mono">
+                    Viewing page {viewingHistoryIndex + 1} of {pageHistory.length}
+                  </p>
+                  <button
+                    onClick={() => {
+                      setViewingHistoryIndex(null);
+                      setIsPaused(false);
+                    }}
+                    className="mt-2 px-3 py-1 bg-green-600 hover:bg-green-500 text-black text-xs font-mono font-bold rounded transition-colors"
+                  >
+                    Resume Reading
+                  </button>
+                </div>
+              )}
+
+              {/* Show history page or live text */}
+              {(viewingHistoryIndex !== null ? pageHistory[viewingHistoryIndex] : displayedTexts).map((text, index) => {
                 // Check if this is a chapter separator
                 const isChapterSeparator = text.includes('═══ CHAPTER COMPLETE ═══');
                 const fontSizeClass = fontSize === 'sm' ? 'text-sm' : fontSize === 'lg' ? 'text-lg' : 'text-base';
+                const textsArray = viewingHistoryIndex !== null ? pageHistory[viewingHistoryIndex] : displayedTexts;
 
                 return (
                   <React.Fragment key={index}>
@@ -1504,14 +1554,14 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
                       className={`leading-relaxed ${fontSizeClass} ${
                         isChapterSeparator
                           ? 'text-center text-yellow-400 font-bold my-6 py-4 border-y border-yellow-500/50'
-                          : 'text-green-400 mb-3'
+                          : viewingHistoryIndex !== null ? 'text-green-500/70 mb-3' : 'text-green-400 mb-3'
                       }`}
                     >
                       {text}
                     </p>
 
                     {/* Add divider between paragraphs, but not after the last one */}
-                    {!isChapterSeparator && index < displayedTexts.length - 1 && (
+                    {!isChapterSeparator && index < textsArray.length - 1 && (
                       <div className="text-green-500/20 text-xs my-2 font-mono select-none">
                         {'// ' + '─'.repeat(60)}
                       </div>
@@ -1520,8 +1570,8 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
                 );
               })}
 
-              {/* Currently typing text - only show while actively typing */}
-              {isTyping && currentText && (
+              {/* Currently typing text - only show while actively typing (not in history view) */}
+              {viewingHistoryIndex === null && isTyping && currentText && (
                 <p className={`text-green-500 leading-relaxed ${fontSize === 'sm' ? 'text-sm' : fontSize === 'lg' ? 'text-lg' : 'text-base'}`}>
                   {currentText}
                   <span className="animate-pulse ml-1">█</span>
@@ -1602,6 +1652,49 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
               <Maximize className="w-4 h-4" />
               <span className="hidden sm:inline">Full</span>
             </button>
+
+            {/* Page History Navigation */}
+            {pageHistory.length > 0 && (
+              <div className="flex items-center gap-1 border-l border-green-500/30 pl-3">
+                <button
+                  onClick={() => {
+                    if (viewingHistoryIndex === null) {
+                      setViewingHistoryIndex(pageHistory.length - 1);
+                      setIsPaused(true);
+                    } else if (viewingHistoryIndex > 0) {
+                      setViewingHistoryIndex(prev => prev !== null ? prev - 1 : 0);
+                    }
+                  }}
+                  disabled={viewingHistoryIndex === 0}
+                  className="p-1 bg-green-900/50 hover:bg-green-800 border border-green-500/50 rounded text-xs font-mono text-green-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Previous Page"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                {viewingHistoryIndex !== null && (
+                  <span className="text-green-500/60 text-xs font-mono px-1">
+                    {viewingHistoryIndex + 1}/{pageHistory.length}
+                  </span>
+                )}
+                <button
+                  onClick={() => {
+                    if (viewingHistoryIndex !== null) {
+                      if (viewingHistoryIndex < pageHistory.length - 1) {
+                        setViewingHistoryIndex(prev => prev !== null ? prev + 1 : 0);
+                      } else {
+                        setViewingHistoryIndex(null);
+                        setIsPaused(false);
+                      }
+                    }
+                  }}
+                  disabled={viewingHistoryIndex === null}
+                  className="p-1 bg-green-900/50 hover:bg-green-800 border border-green-500/50 rounded text-xs font-mono text-green-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  title={viewingHistoryIndex !== null && viewingHistoryIndex >= pageHistory.length - 1 ? 'Resume' : 'Next Page'}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
 
             {/* Chapter Select Button (state machine: transition to chapter_hub) */}
             <button
@@ -1716,6 +1809,11 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
       <AudioSettings
         isOpen={activeModal === 'audio_settings'}
         onClose={() => setActiveModal('none')}
+        soundConfig={soundSystem.config}
+        onUpdateConfig={soundSystem.updateConfig}
+        onPlaySFX={soundSystem.playSFX}
+        onPlayBackgroundMP3={soundSystem.playBackgroundMP3}
+        onStopBackgroundMP3={soundSystem.stopBackgroundMP3}
       />
 
       {/* Save Manager Modal (state machine: activeModal === 'save_manager') */}

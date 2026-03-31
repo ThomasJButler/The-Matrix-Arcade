@@ -80,7 +80,7 @@ function App() {
   const footerRef = useRef<HTMLDivElement>(null);
   
   // Initialize sound system and achievement manager
-  const { playSFX, playBackgroundMP3, toggleMute, isMuted } = useSoundSystem();
+  const { config: soundConfig, updateConfig: updateSoundConfig, playSFX, playBackgroundMP3, stopBackgroundMP3, toggleMute, isMuted } = useSoundSystem();
   const achievementManager = useAchievementManager();
   const { saveData, updateGlobalStats } = useSaveSystem();
 
@@ -275,6 +275,7 @@ function App() {
       preview:
         'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
       component: CtrlSWorld,
+      category: 'Story' as const,
     },
     {
       title: 'Snake Classic',
@@ -283,6 +284,7 @@ function App() {
       preview:
         'https://res.cloudinary.com/depqttzlt/image/upload/v1737071599/matrixsnake2_jw29w1.png',
       component: SimpleSnake,
+      category: 'Arcade' as const,
     },
     {
       title: 'Vortex Pong',
@@ -291,6 +293,7 @@ function App() {
       preview:
         'https://res.cloudinary.com/depqttzlt/image/upload/v1737071596/vortexpong2_hkjn4k.png',
       component: VortexPong,
+      category: 'Classic' as const,
     },
     {
       title: 'Matrix Cloud',
@@ -299,6 +302,7 @@ function App() {
       preview:
         'https://res.cloudinary.com/depqttzlt/image/upload/v1737071594/matrixcloud_rw8hsa.png',
       component: MatrixCloud,
+      category: 'Arcade' as const,
     },
     {
       title: 'Matrix Invaders',
@@ -306,6 +310,7 @@ function App() {
       description: 'Defend against the code invasion',
       preview: matrixInvadersPreview,
       component: MatrixInvaders,
+      category: 'Shooter' as const,
     },
     {
       title: 'Metris',
@@ -313,6 +318,7 @@ function App() {
       description: 'Stack the code blocks and break the Matrix',
       preview: metrisPreview,
       component: Metris,
+      category: 'Puzzle' as const,
     },
     {
       title: 'Matrix Frogger',
@@ -321,6 +327,7 @@ function App() {
       preview:
         'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
       component: MatrixFrogger,
+      category: 'Arcade' as const,
     },
     {
       title: 'Neo Jump',
@@ -329,6 +336,7 @@ function App() {
       preview:
         'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
       component: NeoJump,
+      category: 'Classic' as const,
     },
     {
       title: 'Agent Chase',
@@ -337,6 +345,7 @@ function App() {
       preview:
         'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
       component: AgentChase,
+      category: 'Classic' as const,
     },
     {
       title: 'Rhythm Hacker',
@@ -345,6 +354,7 @@ function App() {
       preview:
         'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
       component: RhythmHacker,
+      category: 'Rhythm' as const,
     },
     {
       title: 'Cloud Jumper',
@@ -353,6 +363,7 @@ function App() {
       preview:
         'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
       component: CloudJumper,
+      category: 'Arcade' as const,
     },
   ];
 
@@ -567,7 +578,7 @@ function App() {
       {/* Mobile Warning */}
       {showMobileWarning && <MobileWarning />}
       
-      <div className="h-screen flex flex-col bg-black text-green-500 overflow-hidden">
+      <div className="h-screen flex flex-col bg-black text-green-500 overflow-hidden crt-effect">
       {/* Header */}
       <header
         ref={headerRef}
@@ -590,7 +601,7 @@ function App() {
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-sm hover:text-green-400 transition-colors group"
             >
-              <h1 className="text-xl lg:text-2xl font-mono font-bold tracking-wider group-hover:text-green-400 transition-colors">
+              <h1 className="text-xl lg:text-2xl font-mono font-bold tracking-wider group-hover:text-green-400 transition-colors phosphor-glow">
                 THE MATRIX ARCADE
               </h1>
               <p className="text-xs text-green-400 tracking-widest hidden sm:block">
@@ -642,22 +653,34 @@ function App() {
       {/* Side Nav */}
       {showNav && (
         <nav
-          className="absolute left-0 top-0 h-full w-64 bg-black/90 border-r border-green-500/50 z-50 backdrop-blur-sm"
+          className="absolute left-0 top-0 h-full w-64 bg-black/90 border-r border-green-500/50 z-50 backdrop-blur-sm overflow-y-auto"
           style={{ paddingTop: '5rem' }} // offset from header
           role="navigation"
           aria-label="Game selection"
         >
-          <div className="flex flex-col gap-2 p-4">
-            {games.map((game, index) => (
-              <button
-                key={index}
-                onClick={() => selectGame(index)}
-                className="w-full flex items-center gap-2 p-3 hover:bg-green-900/50 transition-colors text-left"
-              >
-                {game.icon}
-                <span>{game.title}</span>
-              </button>
-            ))}
+          <div className="flex flex-col gap-1 p-4">
+            {(() => {
+              const categories = [...new Set(games.map(g => g.category || 'Arcade'))];
+              return categories.map(cat => (
+                <div key={cat}>
+                  <div className="text-green-500/50 text-xs font-mono uppercase tracking-wider px-3 pt-3 pb-1">
+                    {cat}
+                  </div>
+                  {games.map((game, index) => (
+                    (game.category || 'Arcade') === cat && (
+                      <button
+                        key={index}
+                        onClick={() => selectGame(index)}
+                        className="w-full flex items-center gap-2 p-2 pl-3 hover:bg-green-900/50 transition-colors text-left text-sm"
+                      >
+                        {game.icon}
+                        <span>{game.title}</span>
+                      </button>
+                    )
+                  ))}
+                </div>
+              ));
+            })()}
           </div>
         </nav>
       )}
@@ -746,7 +769,7 @@ function App() {
                   <button
                     data-testid="carousel-prev"
                     onClick={handlePrevious}
-                    className="p-1.5 lg:p-2 hover:bg-green-900 rounded-full transition-colors transform hover:scale-110"
+                    className="p-1.5 lg:p-2 border border-green-500/30 bg-green-500/5 hover:bg-green-900 hover:border-green-500/60 rounded-full transition-colors transform hover:scale-110"
                     title="Previous game"
                     aria-label="Previous game"
                   >
@@ -762,6 +785,11 @@ function App() {
                         {games[selectedGame].title}
                       </h2>
                     </div>
+                    {games[selectedGame].category && (
+                      <span className="inline-block text-green-500/60 font-mono text-xs border border-green-500/30 px-2 py-0.5 rounded-full mb-2">
+                        {games[selectedGame].category}
+                      </span>
+                    )}
                     <p className="text-green-400 font-mono text-xs lg:text-sm mb-3 lg:mb-4">
                       {games[selectedGame].description}
                     </p>
@@ -822,7 +850,7 @@ function App() {
                   <button
                     data-testid="carousel-next"
                     onClick={handleNext}
-                    className="p-1.5 lg:p-2 hover:bg-green-900 rounded-full transition-colors transform hover:scale-110"
+                    className="p-1.5 lg:p-2 border border-green-500/30 bg-green-500/5 hover:bg-green-900 hover:border-green-500/60 rounded-full transition-colors transform hover:scale-110"
                     title="Next game"
                     aria-label="Next game"
                   >
@@ -898,6 +926,11 @@ function App() {
         onClose={() => setShowAudioSettings(false)}
         isMuted={isMuted}
         toggleMute={toggleMute}
+        soundConfig={soundConfig}
+        onUpdateConfig={updateSoundConfig}
+        onPlaySFX={playSFX}
+        onPlayBackgroundMP3={playBackgroundMP3}
+        onStopBackgroundMP3={stopBackgroundMP3}
       />
       
       {/* Save/Load Manager Modal */}

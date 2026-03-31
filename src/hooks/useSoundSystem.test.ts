@@ -88,7 +88,7 @@ describe('useSoundSystem', () => {
       sfx: true,
       masterVolume: 0.7,
       musicVolume: 0.4,
-      sfxVolume: 0.6,
+      sfxVolume: 0.25,
     });
   });
 
@@ -143,7 +143,7 @@ describe('useSoundSystem', () => {
 
     expect(mockOscillator.type).toBe('triangle');
     expect(mockOscillator.frequency.setValueAtTime).toHaveBeenCalledWith(659, 0);
-    expect(mockOscillator.frequency.exponentialRampToValueAtTime).toHaveBeenCalledWith(1046, 0.4);
+    expect(mockOscillator.frequency.exponentialRampToValueAtTime).toHaveBeenCalledWith(900, 0.3);
   });
 
   it('plays background music when enabled', async () => {

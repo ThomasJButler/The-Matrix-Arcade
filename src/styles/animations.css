@@ -83,3 +83,51 @@
   content: '';
   /* Add particle styles and animations here */
 }
+
+/* ===== CRT Scanline + Vignette Effect ===== */
+.crt-effect {
+  position: relative;
+}
+
+.crt-effect::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.06) 0px,
+      rgba(0, 0, 0, 0.06) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
+    radial-gradient(
+      ellipse at center,
+      transparent 60%,
+      rgba(0, 0, 0, 0.4) 100%
+    );
+}
+
+/* ===== Phosphor Text Glow ===== */
+@keyframes phosphor-glow {
+  0%, 100% {
+    text-shadow:
+      0 0 4px rgba(0, 255, 0, 0.4),
+      0 0 8px rgba(0, 255, 0, 0.2);
+  }
+  50% {
+    text-shadow:
+      0 0 6px rgba(0, 255, 0, 0.6),
+      0 0 12px rgba(0, 255, 0, 0.3),
+      0 0 20px rgba(0, 255, 0, 0.1);
+  }
+}
+
+.phosphor-glow {
+  animation: phosphor-glow 4s ease-in-out infinite;
+}

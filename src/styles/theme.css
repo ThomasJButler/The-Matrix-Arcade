@@ -46,7 +46,7 @@
   background: rgba(0, 0, 0, 0.85);
   z-index: -1;
   overflow: hidden;
-  animation: matrix-rain 10s linear infinite;
+  animation: matrix-rain-bg 10s linear infinite;
 }
 
 .matrix-game-container {
@@ -196,14 +196,9 @@
   margin-bottom: 20px;
 }
 
-@keyframes matrix-rain {
+@keyframes matrix-rain-bg {
   0% { transform: translateY(0); }
   100% { transform: translateY(100vh); }
-}
-
-@keyframes fadeIn {
-  0% { opacity: 0; }
-  100% { opacity: 1; }
 }
 
 /* Glow effect */
@@ -218,11 +213,6 @@
   animation: pulse 1s infinite;
 }
 
-@keyframes pulse {
-  0% { box-shadow: var(--matrix-glow-sm); }
-  50% { box-shadow: var(--matrix-glow-md); }
-  100% { box-shadow: var(--matrix-glow-sm); }
-}
 
 .fullscreen {
   width: 100vw;
