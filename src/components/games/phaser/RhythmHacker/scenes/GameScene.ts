@@ -114,6 +114,9 @@ export class RhythmHackerGameScene extends BaseScene {
     this.keyHeld = [false, false, false, false];
     this.isCountdown = true;
     this.countdownTime = 0;
+    this.laneBackgrounds = [];
+    this.keyIndicators = [];
+    this.recentLanes = [];
 
     // Calculate lane positions
     const { LANES, WIDTH } = GAME_CONFIG;

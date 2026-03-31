@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 export type PowerUpType = 'bigger_paddle' | 'slower_ball' | 'score_multiplier' | 'multi_ball';
 
@@ -18,6 +18,14 @@ export const usePowerUps = () => {
     score_multiplier: false,
     multi_ball: false,
   });
+  const timeoutIdsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+
+  useEffect(() => {
+    return () => {
+      timeoutIdsRef.current.forEach(id => clearTimeout(id));
+      timeoutIdsRef.current.clear();
+    };
+  }, []);
 
   const spawnPowerUp = useCallback(() => {
     setPowerUps(prev => {
@@ -36,12 +44,12 @@ export const usePowerUps = () => {
 
   const activatePowerUp = useCallback((type: PowerUpType) => {
     setActivePowerUps(prev => ({ ...prev, [type]: true }));
-    // Sound effects should be handled by the game component using useSoundSystem
-    
-    setTimeout(() => {
+
+    const timeoutId = setTimeout(() => {
       setActivePowerUps(prev => ({ ...prev, [type]: false }));
-      // Sound effects should be handled by the game component
+      timeoutIdsRef.current.delete(timeoutId);
     }, 10000);
+    timeoutIdsRef.current.add(timeoutId);
   }, []);
 
   return { powerUps, setPowerUps, activePowerUps, spawnPowerUp, activatePowerUp };

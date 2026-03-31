@@ -161,9 +161,9 @@ describe('MatrixInvaders', () => {
 
     it('renders control instructions', () => {
       render(<MatrixInvaders />);
-      expect(screen.getByText(/MOVE/i)).toBeTruthy();
-      expect(screen.getByText(/FIRE/i)).toBeTruthy();
-      expect(screen.getByText(/PAUSE/i)).toBeTruthy();
+      expect(screen.getAllByText(/MOVE/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/FIRE/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/PAUSE/i).length).toBeGreaterThan(0);
     });
 
     it('uses Matrix green colour scheme', () => {
@@ -569,8 +569,8 @@ describe('MatrixInvaders', () => {
       const { container } = render(<MatrixInvaders achievementManager={mockAchievementManager} />);
 
       // Check all major components are present
-      expect(screen.getByText(/MOVE/i)).toBeTruthy();
-      expect(screen.getByText(/FIRE/i)).toBeTruthy();
+      expect(screen.getAllByText(/MOVE/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/FIRE/i).length).toBeGreaterThan(0);
 
       const canvas = container.querySelector('canvas');
       expect(canvas).toBeTruthy();
@@ -678,9 +678,9 @@ describe('MatrixInvaders', () => {
       render(<MatrixInvaders />);
 
       // Control instructions should be visible
-      expect(screen.getByText(/MOVE/i)).toBeTruthy();
-      expect(screen.getByText(/FIRE/i)).toBeTruthy();
-      expect(screen.getByText(/PAUSE/i)).toBeTruthy();
+      expect(screen.getAllByText(/MOVE/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/FIRE/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/PAUSE/i).length).toBeGreaterThan(0);
     });
   });
 
