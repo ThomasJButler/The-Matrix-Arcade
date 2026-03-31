@@ -369,6 +369,7 @@ export function useSoundSystem() {
   const currentMusicRef = useRef<string | null>(null);
   const backgroundMusicRef = useRef<HTMLAudioElement | null>(null);
   const reverbRef = useRef<ConvolverNode | null>(null);
+  const preMuteConfigRef = useRef<{ music: boolean; sfx: boolean } | null>(null);
 
   // Create reverb impulse response
   const createReverbBuffer = useCallback((
@@ -671,14 +672,15 @@ export function useSoundSystem() {
     localStorage.setItem('matrix-arcade-audio-config', JSON.stringify(updated));
 
     // Update gain nodes if they exist
+    const currentTime = audioContextRef.current?.currentTime || 0;
     if (masterGainRef.current && updated.masterVolume !== config.masterVolume) {
-      masterGainRef.current.gain.setValueAtTime(updated.masterVolume, 0);
+      masterGainRef.current.gain.setValueAtTime(updated.masterVolume, currentTime);
     }
     if (musicGainRef.current && updated.musicVolume !== config.musicVolume) {
-      musicGainRef.current.gain.setValueAtTime(updated.musicVolume, 0);
+      musicGainRef.current.gain.setValueAtTime(updated.musicVolume, currentTime);
     }
     if (sfxGainRef.current && updated.sfxVolume !== config.sfxVolume) {
-      sfxGainRef.current.gain.setValueAtTime(updated.sfxVolume, 0);
+      sfxGainRef.current.gain.setValueAtTime(updated.sfxVolume, currentTime);
     }
 
     // Immediately update MP3 background music volume if it exists
@@ -687,22 +689,23 @@ export function useSoundSystem() {
     }
   }, [config]);
 
-  // Toggle mute for all sounds
-  const toggleMute = useCallback(() => {
-    const newConfig = {
-      music: !config.music && !config.sfx ? true : false,
-      sfx: !config.music && !config.sfx ? true : false
-    };
-    updateConfig(newConfig);
-    
-    // Stop music if muting
-    if (config.music && !newConfig.music) {
-      stopMusic();
-    }
-  }, [config.music, config.sfx, updateConfig, stopMusic]);
-
-  // Check if muted
+  // Check if muted (must be defined before toggleMute)
   const isMuted = !config.music && !config.sfx;
+
+  // Toggle mute for all sounds (preserves individual music/sfx settings)
+  const toggleMute = useCallback(() => {
+    if (!isMuted) {
+      // Save current settings before muting
+      preMuteConfigRef.current = { music: config.music, sfx: config.sfx };
+      updateConfig({ music: false, sfx: false });
+      stopMusic();
+    } else {
+      // Restore pre-mute settings, or default to both on
+      const restored = preMuteConfigRef.current || { music: true, sfx: true };
+      updateConfig(restored);
+      preMuteConfigRef.current = null;
+    }
+  }, [config.music, config.sfx, isMuted, updateConfig, stopMusic]);
 
   // Cleanup on unmount
   useEffect(() => {

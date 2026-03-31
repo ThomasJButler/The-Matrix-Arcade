@@ -72,67 +72,34 @@ export async function takeScreenshot(
  * Note: Game titles are case-insensitive matched.
  */
 const GAME_NAME_PATTERNS: Record<string, string[]> = {
-  // Legacy React/Canvas games (still in carousel)
   'snake': ['snake classic'],
   'pong': ['vortex pong'],
   'cloud': ['matrix cloud'],
   'metris': ['metris'],
   'invaders': ['matrix invaders'],
-  'ctrl-s': ['ctrl-s | the world'],  // Full title with pipe to match App.tsx exactly
-  'terminal-quest': ['terminal quest'],
-  // Phaser games - exact titles from App.tsx
+  'ctrl-s': ['ctrl-s | the world'],
   'matrix-frogger': ['matrix frogger'],
   'neo-jump': ['neo jump'],
   'agent-chase': ['agent chase'],
   'rhythm-hacker': ['rhythm hacker'],
   'cloud-jumper': ['cloud jumper'],
-  // Legacy game name aliases - redirect to Phaser games
-  'crossy-road': ['matrix frogger'],
-  'matrix-ascension': ['neo jump'],
-  'agent-escape': ['agent chase'],
-  'jimmy-matrix': ['rhythm hacker'],
 };
 
 /**
- * Helper to check if the current carousel card matches the target game.
- * Looks for the game title in prominent heading elements.
+ * Helper to check if the target game is the currently selected game in the portal view.
+ * Looks for the game title in the portal's h2 heading (single visible game).
  */
-async function isTargetGameVisible(page: Page, gameName: string): Promise<boolean> {
+async function isGameSelectedInPortal(page: Page, gameName: string): Promise<boolean> {
   const patterns = GAME_NAME_PATTERNS[gameName.toLowerCase()] || [gameName.toLowerCase()];
 
-  // Primary strategy: look for h2 headings which contain game titles
-  // The carousel shows game titles in h2 elements
-  const headings = page.locator('h2');
-  const headingCount = await headings.count();
-
-  for (let i = 0; i < headingCount; i++) {
-    const text = await headings.nth(i).textContent().catch(() => '');
-    if (text) {
-      const normalizedText = text.toLowerCase().trim();
-      for (const pattern of patterns) {
-        // EXACT MATCH ONLY - no partial matching to prevent false positives
-        if (normalizedText === pattern.toLowerCase()) {
-          // Verify this heading is visible (part of current carousel view)
-          const isVisible = await headings.nth(i).isVisible().catch(() => false);
-          if (isVisible) {
-            return true;
-          }
-        }
-      }
-    }
-  }
-
-  // Fallback: check main content area for prominent text
-  const mainContent = await page.locator('main').textContent().catch(() => '');
-  if (mainContent) {
-    const normalizedContent = mainContent.toLowerCase();
+  // In the portal view, only one h2 is prominent — the selected game's title
+  const portalHeading = page.locator('.game-controls-enhanced h2, .flex-1.text-center h2').first();
+  const text = await portalHeading.textContent().catch(() => '');
+  if (text) {
+    const normalizedText = text.toLowerCase().trim();
     for (const pattern of patterns) {
-      if (normalizedContent.includes(pattern.toLowerCase())) {
-        // Check if there's a visible PLAY button indicating this is the active card
-        const playButton = page.locator('button:has-text("PLAY")').first();
-        if (await playButton.isVisible().catch(() => false)) {
-          return true;
-        }
+      if (normalizedText === pattern.toLowerCase()) {
+        return true;
       }
     }
   }
@@ -141,60 +108,74 @@ async function isTargetGameVisible(page: Page, gameName: string): Promise<boolea
 }
 
 /**
- * Helper to navigate to a specific game using the carousel.
+ * Helper to navigate to a specific game.
+ *
+ * Strategy:
+ * 1. If the landing page grid is visible, click the matching game card directly
+ * 2. If already in the portal view, use carousel arrows to find the game
  */
 export async function navigateToGame(page: Page, gameName: string): Promise<void> {
-  const maxAttempts = 10; // Maximum carousel clicks to find the game
+  const patterns = GAME_NAME_PATTERNS[gameName.toLowerCase()] || [gameName.toLowerCase()];
 
-  // First check if the target game is already visible
-  if (await isTargetGameVisible(page, gameName)) {
-    console.log(`Game "${gameName}" is already visible`);
+  // Strategy 1: Landing page grid — click the game card directly
+  // Game cards have role="button" and aria-label="Play {title}"
+  for (const pattern of patterns) {
+    const cardByAria = page.locator(`[role="button"][aria-label*="${pattern}" i]`).first();
+    if (await cardByAria.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await cardByAria.click();
+      await page.waitForTimeout(800); // Wait for landing page to close & portal to appear
+      console.log(`Clicked game card "${pattern}" on landing page grid`);
+      return;
+    }
+  }
+
+  // Strategy 2: Try clicking a card by matching h3/h2 text within the grid
+  const allCards = page.locator('[role="button"]');
+  const cardCount = await allCards.count();
+  for (let i = 0; i < cardCount; i++) {
+    const card = allCards.nth(i);
+    const cardText = await card.textContent().catch(() => '');
+    if (cardText) {
+      const normalizedText = cardText.toLowerCase();
+      for (const pattern of patterns) {
+        if (normalizedText.includes(pattern.toLowerCase())) {
+          if (await card.isVisible().catch(() => false)) {
+            await card.scrollIntoViewIfNeeded().catch(() => {});
+            await card.click();
+            await page.waitForTimeout(800);
+            console.log(`Clicked game card containing "${pattern}" text`);
+            return;
+          }
+        }
+      }
+    }
+  }
+
+  // Strategy 3: Already in portal view — use carousel arrows
+  if (await isGameSelectedInPortal(page, gameName)) {
+    console.log(`Game "${gameName}" is already selected in portal`);
     return;
   }
 
-  // Find the carousel navigation arrows using data-testid attributes
   const rightArrow = page.locator('[data-testid="carousel-next"]').first();
   const leftArrow = page.locator('[data-testid="carousel-prev"]').first();
+  const maxAttempts = 12;
 
-  // Try clicking right arrow to find the game
   for (let i = 0; i < maxAttempts; i++) {
-    // Check if we found the game
-    if (await isTargetGameVisible(page, gameName)) {
-      console.log(`Found game "${gameName}" after ${i} clicks`);
+    if (await isGameSelectedInPortal(page, gameName)) {
+      console.log(`Found game "${gameName}" after ${i} carousel clicks`);
       return;
     }
 
-    // Try to click the right arrow
     if (await rightArrow.isVisible().catch(() => false)) {
       await rightArrow.click();
-      await page.waitForTimeout(400); // Wait for carousel animation
-    } else if (await leftArrow.isVisible().catch(() => false)) {
-      await leftArrow.click();
       await page.waitForTimeout(400);
     } else {
-      // No arrows found, try keyboard navigation
       await page.keyboard.press('ArrowRight');
       await page.waitForTimeout(400);
     }
   }
 
-  // If we still haven't found it, try the other direction
-  for (let i = 0; i < maxAttempts; i++) {
-    if (await isTargetGameVisible(page, gameName)) {
-      console.log(`Found game "${gameName}" going left after ${i} clicks`);
-      return;
-    }
-
-    if (await leftArrow.isVisible().catch(() => false)) {
-      await leftArrow.click();
-      await page.waitForTimeout(400);
-    } else {
-      await page.keyboard.press('ArrowLeft');
-      await page.waitForTimeout(400);
-    }
-  }
-
-  // Last resort: just capture whatever is on screen
   console.warn(`Could not navigate to game "${gameName}", capturing current state`);
 }
 

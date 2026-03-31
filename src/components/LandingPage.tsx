@@ -4,8 +4,10 @@
  *              descriptions and the classic arcade games that inspired them.
  */
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronRight, Monitor } from 'lucide-react';
+import type { GameCategory } from '../types/game';
 
 interface GameInfo {
   title: string;
@@ -14,6 +16,7 @@ interface GameInfo {
   inspirationNote: string;
   preview: string;
   controls: string;
+  category: GameCategory;
 }
 
 /**
@@ -124,6 +127,7 @@ const GAME_DATA: GameInfo[] = [
     inspirationNote: 'Classic interactive fiction meets Matrix lore — type commands, make choices, save reality.',
     preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
     controls: 'Type commands, use arrow keys to navigate, ENTER to confirm choices',
+    category: 'Story',
   },
   {
     title: 'Snake Classic',
@@ -132,6 +136,7 @@ const GAME_DATA: GameInfo[] = [
     inspirationNote: 'The game that defined a generation of mobile gaming — now dripping in Matrix green.',
     preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1737071599/matrixsnake2_jw29w1.png',
     controls: 'Arrow keys to move, SPACE to toggle direction mode',
+    category: 'Arcade',
   },
   {
     title: 'Vortex Pong',
@@ -140,6 +145,7 @@ const GAME_DATA: GameInfo[] = [
     inspirationNote: 'The original video game, reimagined with vortex physics and Matrix aesthetics.',
     preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1737071596/vortexpong2_hkjn4k.png',
     controls: 'Mouse to move paddle, SPACE to hit ball',
+    category: 'Classic',
   },
   {
     title: 'Matrix Cloud',
@@ -148,6 +154,7 @@ const GAME_DATA: GameInfo[] = [
     inspirationNote: 'The brutally addictive one-tap classic, wrapped in cascading code rain.',
     preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1737071594/matrixcloud_rw8hsa.png',
     controls: 'SPACE or Click to flap, avoid obstacles',
+    category: 'Arcade',
   },
   {
     title: 'Matrix Invaders',
@@ -156,6 +163,7 @@ const GAME_DATA: GameInfo[] = [
     inspirationNote: 'Taito\'s genre-defining shooter — now with virus splitting, boss waves, and power-ups.',
     preview: '',
     controls: 'Arrow keys to move, SPACE to fire, B to activate bullet time',
+    category: 'Shooter',
   },
   {
     title: 'Metris',
@@ -164,6 +172,7 @@ const GAME_DATA: GameInfo[] = [
     inspirationNote: 'Alexey Pajitnov\'s masterpiece gets a Matrix makeover with slow-motion mechanics.',
     preview: '',
     controls: 'Arrow keys to move, Z/X to rotate, SPACE to drop, B for bullet time',
+    category: 'Puzzle',
   },
   {
     title: 'Matrix Frogger',
@@ -172,6 +181,7 @@ const GAME_DATA: GameInfo[] = [
     inspirationNote: 'Konami\'s road-crossing classic, but the traffic is Agent Smith and his clones.',
     preview: '',
     controls: 'Arrow keys to move between lanes',
+    category: 'Arcade',
   },
   {
     title: 'Neo Jump',
@@ -180,6 +190,7 @@ const GAME_DATA: GameInfo[] = [
     inspirationNote: 'The endless vertical platformer — with jetpacks, springs, and Matrix platforms.',
     preview: '',
     controls: 'Arrow keys to move left/right, SPACE to jump',
+    category: 'Classic',
   },
   {
     title: 'Agent Chase',
@@ -188,6 +199,7 @@ const GAME_DATA: GameInfo[] = [
     inspirationNote: 'Namco\'s dot-munching legend — you\'re Neo, the ghosts are Agents, the dots are data.',
     preview: '',
     controls: 'Arrow keys to move, SPACE to use power-up',
+    category: 'Classic',
   },
   {
     title: 'Rhythm Hacker',
@@ -196,6 +208,7 @@ const GAME_DATA: GameInfo[] = [
     inspirationNote: 'The rhythm game genre, reimagined as a Matrix hacking sequence with 4 lanes.',
     preview: '',
     controls: 'Press keys (1, 2, 3, 4) or Arrow keys to hit notes',
+    category: 'Rhythm',
   },
   {
     title: 'Cloud Jumper',
@@ -204,6 +217,7 @@ const GAME_DATA: GameInfo[] = [
     inspirationNote: 'Side-scrolling cloud hopping through the Matrix skyline.',
     preview: '',
     controls: 'Arrow keys to move, SPACE to jump',
+    category: 'Arcade',
   },
 ];
 
@@ -212,7 +226,21 @@ interface LandingPageProps {
   onClose: () => void;
 }
 
+const ALL_CATEGORIES: GameCategory[] = ['Arcade', 'Classic', 'Shooter', 'Puzzle', 'Story', 'Rhythm'];
+
 export default function LandingPage({ onSelectGame, onClose }: LandingPageProps) {
+  const [activeCategory, setActiveCategory] = useState<GameCategory | 'All'>('All');
+
+  const filteredGames = activeCategory === 'All'
+    ? GAME_DATA
+    : GAME_DATA.filter(g => g.category === activeCategory);
+
+  // Map filtered games back to their original index for onSelectGame
+  const getOriginalIndex = (filteredIndex: number) => {
+    const game = filteredGames[filteredIndex];
+    return GAME_DATA.indexOf(game);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -245,7 +273,7 @@ export default function LandingPage({ onSelectGame, onClose }: LandingPageProps)
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Monitor className="w-6 h-6 text-green-400" />
-            <h1 className="text-green-400 font-mono text-lg tracking-wider">
+            <h1 className="text-green-400 font-mono text-lg tracking-wider phosphor-glow">
               THE MATRIX ARCADE
             </h1>
           </div>
@@ -264,7 +292,7 @@ export default function LandingPage({ onSelectGame, onClose }: LandingPageProps)
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="text-green-400 font-mono text-3xl md:text-4xl mb-4 tracking-wide"
+          className="text-green-400 font-mono text-3xl md:text-4xl mb-4 tracking-wide phosphor-glow"
         >
           Welcome to the Arcade
         </motion.h2>
@@ -312,21 +340,54 @@ export default function LandingPage({ onSelectGame, onClose }: LandingPageProps)
         </motion.div>
       </section>
 
+      {/* Category filter */}
+      <section className="max-w-6xl mx-auto px-4 mb-6">
+        <div className="flex flex-wrap gap-2 items-center">
+          <button
+            onClick={() => setActiveCategory('All')}
+            className={`px-3 py-1 rounded-full font-mono text-xs transition-colors ${
+              activeCategory === 'All'
+                ? 'bg-green-500 text-black font-bold'
+                : 'border border-green-500/30 text-green-500/60 hover:border-green-500/60 hover:text-green-400'
+            }`}
+          >
+            All ({GAME_DATA.length})
+          </button>
+          {ALL_CATEGORIES.map(cat => {
+            const count = GAME_DATA.filter(g => g.category === cat).length;
+            if (count === 0) return null;
+            return (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`px-3 py-1 rounded-full font-mono text-xs transition-colors ${
+                  activeCategory === cat
+                    ? 'bg-green-500 text-black font-bold'
+                    : 'border border-green-500/30 text-green-500/60 hover:border-green-500/60 hover:text-green-400'
+                }`}
+              >
+                {cat} ({count})
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
       {/* Games grid */}
       <section className="max-w-6xl mx-auto px-4 pb-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {GAME_DATA.map((game, index) => (
+          {filteredGames.map((game, index) => (
             <motion.div
               key={game.title}
               initial={{ y: 30, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.1 + index * 0.05 }}
-              onClick={() => onSelectGame(index)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectGame(index); } }}
+              onClick={() => onSelectGame(getOriginalIndex(index))}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectGame(getOriginalIndex(index)); } }}
               role="button"
               tabIndex={0}
               aria-label={`Play ${game.title}`}
-              className="group cursor-pointer border border-green-500/20 rounded-lg bg-green-500/5 hover:bg-green-500/10 hover:border-green-500/50 focus:outline-none focus:ring-2 focus:ring-green-500/60 transition-all duration-300 overflow-hidden"
+              className="group cursor-pointer border border-green-500/35 rounded-lg bg-green-500/5 hover:bg-green-500/10 hover:border-green-500/50 focus:outline-none focus:ring-2 focus:ring-green-500/60 transition-all duration-300 overflow-hidden"
             >
               {/* Preview image */}
               {game.preview ? (
@@ -334,7 +395,7 @@ export default function LandingPage({ onSelectGame, onClose }: LandingPageProps)
                   <img
                     src={game.preview}
                     alt={game.title}
-                    className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity"
+                    className="w-full h-full object-cover opacity-75 group-hover:opacity-90 transition-opacity"
                   />
                 </div>
               ) : (
@@ -344,7 +405,12 @@ export default function LandingPage({ onSelectGame, onClose }: LandingPageProps)
                 />
               )}
 
-              <div className="p-4">
+              <div className="p-4 relative">
+                {/* Category badge */}
+                <span className="absolute top-4 right-4 bg-green-500/15 text-green-400/70 text-[9px] font-mono px-2 py-0.5 rounded border border-green-500/20">
+                  {game.category}
+                </span>
+
                 {/* Title */}
                 <h3 className="text-green-400 font-mono text-sm mb-2 group-hover:text-green-300 transition-colors flex items-center gap-2">
                   {game.title}

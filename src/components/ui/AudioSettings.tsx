@@ -19,6 +19,12 @@ interface AudioSettingsProps {
   compact?: boolean;
   isMuted?: boolean;
   toggleMute?: () => void;
+  // Optional: pass parent's sound system to keep config in sync
+  soundConfig?: SoundConfig;
+  onUpdateConfig?: (config: Partial<SoundConfig>) => void;
+  onPlaySFX?: (soundType: string) => void;
+  onPlayBackgroundMP3?: (src: string) => void;
+  onStopBackgroundMP3?: () => void;
 }
 
 export const AudioSettings: React.FC<AudioSettingsProps> = ({
@@ -26,9 +32,20 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
   onClose,
   compact = false,
   isMuted = false,
-  toggleMute
+  toggleMute,
+  soundConfig,
+  onUpdateConfig,
+  onPlaySFX,
+  onPlayBackgroundMP3,
+  onStopBackgroundMP3,
 }) => {
-  const { config, updateConfig, playSFX, playBackgroundMP3, stopBackgroundMP3 } = useSoundSystem();
+  const fallback = useSoundSystem();
+  // Use parent's sound system if provided, otherwise fall back to own instance
+  const config = soundConfig ?? fallback.config;
+  const updateConfig = onUpdateConfig ?? fallback.updateConfig;
+  const playSFX = onPlaySFX ?? fallback.playSFX;
+  const playBackgroundMP3 = onPlayBackgroundMP3 ?? fallback.playBackgroundMP3;
+  const stopBackgroundMP3 = onStopBackgroundMP3 ?? fallback.stopBackgroundMP3;
   const [testingSound, setTestingSound] = useState<string | null>(null);
   const [showSaved, setShowSaved] = useState(false);
 
@@ -104,7 +121,7 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.8, opacity: 0 }}
-            className="bg-gray-900 border-2 border-green-500 rounded-lg p-6 max-w-md w-full font-mono"
+            className="bg-black border-2 border-green-500 rounded-lg p-6 max-w-md w-full font-mono"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
