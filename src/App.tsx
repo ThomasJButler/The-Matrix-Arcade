@@ -63,6 +63,13 @@ import { GameStateProvider } from './contexts/GameStateContext';
 import LandingPage from './components/LandingPage';
 import matrixInvadersPreview from './images/matrixinvaders.webp';
 import metrisPreview from './images/metris.webp';
+import {
+  matrixFroggerPreview,
+  neoJumpPreview,
+  agentChasePreview,
+  rhythmHackerPreview,
+  cloudJumperPreview,
+} from './lib/gamePreviewImages';
 
 function App() {
   const [selectedGame, setSelectedGame] = useState<number>(0);
@@ -324,8 +331,7 @@ function App() {
       title: 'Matrix Frogger',
       icon: <Footprints className="w-8 h-8" />,
       description: 'Cross the lanes - dodge Agents and Sentinels',
-      preview:
-        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
+      preview: matrixFroggerPreview,
       component: MatrixFrogger,
       category: 'Arcade' as const,
     },
@@ -333,8 +339,7 @@ function App() {
       title: 'Neo Jump',
       icon: <ArrowUp className="w-8 h-8" />,
       description: 'Jump through simulation layers to reach The Source',
-      preview:
-        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
+      preview: neoJumpPreview,
       component: NeoJump,
       category: 'Classic' as const,
     },
@@ -342,8 +347,7 @@ function App() {
       title: 'Agent Chase',
       icon: <Circle className="w-8 h-8" />,
       description: 'Collect data while evading Agent Smith',
-      preview:
-        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
+      preview: agentChasePreview,
       component: AgentChase,
       category: 'Classic' as const,
     },
@@ -351,8 +355,7 @@ function App() {
       title: 'Rhythm Hacker',
       icon: <Music className="w-8 h-8" />,
       description: 'Epic rhythm game - catch code in beat',
-      preview:
-        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
+      preview: rhythmHackerPreview,
       component: RhythmHacker,
       category: 'Rhythm' as const,
     },
@@ -360,8 +363,7 @@ function App() {
       title: 'Cloud Jumper',
       icon: <Cloud className="w-8 h-8" />,
       description: 'Jump between clouds in the digital sky',
-      preview:
-        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
+      preview: cloudJumperPreview,
       component: CloudJumper,
       category: 'Arcade' as const,
     },
