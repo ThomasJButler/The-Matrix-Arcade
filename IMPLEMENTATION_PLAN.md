@@ -279,6 +279,67 @@ Brick breaker meets Matrix. Break through a wall of code to escape. React Canvas
 
 **Files (new)**: `src/hooks/useCodeBreakerGame.ts`, `src/components/games/CodeBreaker.tsx`
 
+### 17. Gameplay E2E Test Suite (PLANNED)
+
+Upgrade Playwright tests from visual-regression-only to actual gameplay testing that catches bugs and edge cases. Current tests press random keys and take screenshots — new tests send deliberate inputs, observe game state, and assert correct behavior.
+
+**Phase 1 — Test Seams (~25 lines, gated behind `window.__TEST__`)**
+
+Add `exposeTestState()` to `BaseScene.ts` — writes game state (score, lives, health, combo, etc.) to `window.__PHASER_GAME_STATE__` each frame when `__TEST__` flag is set. Each Phaser GameScene calls it at end of `update()`. React games get `data-game-phase` and `data-score` attributes on root divs. `PhaserGame.tsx` exposes game instance on `window.__PHASER_GAME__` in test mode.
+
+Source changes:
+- [ ] `src/lib/phaser/scenes/BaseScene.ts` — add `exposeTestState()` method
+- [ ] `src/lib/phaser/PhaserGame.tsx` — expose game instance in test mode
+- [ ] `src/components/games/phaser/AgentChase/scenes/GameScene.ts` — expose `score, lives, level, dotsCollected`
+- [ ] `src/components/games/phaser/MatrixFrogger/scenes/GameScene.ts` — expose `score, maxDistance, combo, lives`
+- [ ] `src/components/games/phaser/NeoJump/scenes/GameScene.ts` — expose `altitude, score, isGameOver, jetpackFuel`
+- [ ] `src/components/games/phaser/RhythmHacker/scenes/GameScene.ts` — expose `score, combo, health, missCount`
+- [ ] `src/components/games/phaser/CloudJumper/scenes/GameScene.ts` — expose `score, distance, bounceStreak`
+- [ ] `src/components/games/SimpleSnake.tsx` — add `data-game-phase`, `data-score`
+- [ ] `src/components/games/VortexPong.tsx` — add `data-game-phase`, `data-score`
+- [ ] `src/components/games/Metris.tsx` — add `data-game-phase`, `data-score`
+- [ ] `src/components/games/MatrixCloud.tsx` — add `data-game-phase`, `data-score`
+- [ ] `src/components/games/MatrixInvaders.tsx` — add `data-game-phase`, `data-score`
+- [ ] `src/components/games/CtrlSWorld.tsx` — add `data-game-phase`
+
+**Phase 2 — Test Infrastructure**
+
+- [ ] `e2e/fixtures/test-utils.ts` (new) — `enableTestMode()`, `getPhaserState()`, `getReactGamePhase()`, `getReactScore()`, `waitForPhaserState()`, `waitForScore()`, `waitForGameOver()`, `waitForPhaserScene()`, `ensurePhaserFocus()`, `loseFocus()`, `recoverFocus()`
+- [ ] `e2e/fixtures/game-helpers.ts` (new) — per-game action functions: `startPhaserGame()`, `moveSnake()`, `triggerSnakeDeath()`, `dropPiece()`, `shootInvader()`, `flap()`, `movePaddle()`, `hopForward()`, `moveInMaze()`, `selectTrack()`, `hitNotes()`, `jump()`, etc.
+- [ ] `e2e/fixtures/arcade.fixture.ts` — add `gameplayPage` fixture with auto-enabled test mode
+- [ ] `package.json` — add `"test:gameplay": "npx playwright test e2e/gameplay/"` script
+
+**Phase 3 — Gameplay Test Specs (76 tests across 12 files)**
+
+Priority 1 — High Bug Surface Area (33 tests):
+- [ ] `e2e/gameplay/snake.gameplay.spec.ts` (8 tests) — score on food, wall death, self-collision death, pause/resume, direction changes, restart, full lifecycle, focus loss/recovery
+- [ ] `e2e/gameplay/agent-chase.gameplay.spec.ts` (10 tests) — dot collection scoring, lives decrease on collision, game over on all lives lost, power pellet frightens agents, pause/resume, ESC exit, focus loss overlay, focus recovery, full lifecycle
+- [ ] `e2e/gameplay/rhythm-hacker.gameplay.spec.ts` (8 tests) — health depletes on misses, health zero game over (60s timeout), note hit scoring, combo building, combo reset on miss, pause during countdown, track selection nav, empty hit penalty
+- [ ] `e2e/gameplay/metris.gameplay.spec.ts` (7 tests) — piece placement, board-fill game over, hard drop, rotation, pause/resume, full lifecycle, rapid input stability
+
+Priority 2 — Moderate Complexity (27 tests):
+- [ ] `e2e/gameplay/matrix-frogger.gameplay.spec.ts` (7 tests) — forward movement scoring, enemy collision death, pill collection, power-ups, backward movement, pause/resume, full lifecycle
+- [ ] `e2e/gameplay/neo-jump.gameplay.spec.ts` (6 tests) — altitude increases, horizontal movement, fall game over, jetpack fuel depletion, pause/resume, full lifecycle
+- [ ] `e2e/gameplay/matrix-cloud.gameplay.spec.ts` (5 tests) — flap altitude, gravity pull, obstacle scoring, collision game over, pause/resume
+- [ ] `e2e/gameplay/matrix-invaders.gameplay.spec.ts` (5 tests) — shooting scoring, player movement, wave progression, health depletion game over, pause/resume
+- [ ] `e2e/gameplay/vortex-pong.gameplay.spec.ts` (4 tests) — paddle movement, score tracking, game over, pause/resume
+
+Priority 3 — Edge Cases (16 tests):
+- [ ] `e2e/gameplay/cloud-jumper.gameplay.spec.ts` (5 tests) — jump mechanics, distance tracking, cloud bounce scoring, storm cloud damage, pause/resume
+- [ ] `e2e/gameplay/edge-cases.gameplay.spec.ts` (11 tests) — focus loss during Phaser play, focus recovery, double ESC, pause on game-over screen, rapid pause toggle, game over event propagation, high score preservation, mute toggle, window resize, portal navigation from game over, autoStart skips menu
+
+**Reliability Strategy**
+
+| Problem | Solution |
+|---------|----------|
+| Phaser canvas can't be DOM-queried | `window.__PHASER_GAME_STATE__` test seam |
+| Random spawning | Test behaviors ("score increased") not positions |
+| Timing sensitivity | `page.waitForFunction()` polling, not fixed timeouts |
+| Focus management | `ensurePhaserFocus()` before every Phaser keyboard test |
+| Long games (Rhythm Hacker) | `test.setTimeout(60000)` for health-drain tests |
+
+**Expected Result**: 76 new gameplay tests across 12 spec files, covering all 11 games + cross-game edge cases. Total E2E coverage grows from ~116 to ~192 tests.
+
 ---
 
 ## P3 - Low Priority (Future Enhancements)
@@ -337,10 +398,9 @@ Brick breaker meets Matrix. Break through a wall of code to escape. React Canvas
 
 ### Testing Improvements
 
-- [ ] Add `window.__TEST__` test seams to Phaser games for deterministic testing (fixes flaky jimmy-matrix-gameover test due to animated matrix rain background)
-- [ ] ~~Add Terminal Quest pause screen test~~ — Terminal Quest has been removed (no source or spec exists; 10 orphaned screenshots remain)
-- [ ] Verify Cloud and CTRL-S World game over triggering in E2E tests
-- [ ] Fix Rhythm Hacker E2E screenshots - most capture countdown phase not actual gameplay
+- [ ] ~~Add `window.__TEST__` test seams to Phaser games~~ — Moved to P2.5 #17 (Gameplay E2E Test Suite)
+- [ ] ~~Verify Cloud and CTRL-S World game over triggering in E2E tests~~ — Covered by P2.5 #17
+- [ ] ~~Fix Rhythm Hacker E2E screenshots - most capture countdown phase not actual gameplay~~ — Covered by P2.5 #17
 - [ ] Complete PWAUpdatePrompt.test.tsx `.todo()` test (module caching limitation)
 - [ ] Complete SaveLoadManager.test.tsx `.todo()` tests (loading indicator, error message)
 - [ ] Fix landing page scroll position tests — landing-top/middle/bottom all capture identical viewport
