@@ -160,13 +160,11 @@ export function usePerformanceMonitor(options: PerformanceOptions = {}) {
     );
   }, [showOverlay, stats, targetFPS, warnThreshold, criticalThreshold, getOptimizationSuggestions]);
 
-  // Auto-update FPS
+  // Auto-update FPS — always runs so stats are accurate when overlay is toggled on
   useEffect(() => {
-    if (!showOverlay) return;
-
     const interval = setInterval(updateFPS, 1000);
     return () => clearInterval(interval);
-  }, [showOverlay, updateFPS]);
+  }, [updateFPS]);
 
   // Performance profiling
   // Note: Logging disabled in production. Enable by setting DEBUG_PERFORMANCE=true in development.

@@ -54,21 +54,17 @@ export function useViewportCulling<T extends CullableObject>(
     );
   }, []);
 
-  // Cull array of objects
+  // Cull array of objects — returns new array without mutating inputs
   const cullObjects = useCallback((objects: T[]): T[] => {
     frameCountRef.current++;
-    
+
     // Only update visibility every N frames
     if (frameCountRef.current % updateFrequency !== 0) {
       return objects.filter(obj => obj.visible !== false);
     }
-    
-    // Update visibility flags
-    objects.forEach(obj => {
-      obj.visible = isInViewport(obj);
-    });
-    
-    return objects.filter(obj => obj.visible);
+
+    // Return only objects in viewport (no mutation of input objects)
+    return objects.filter(obj => isInViewport(obj));
   }, [isInViewport, updateFrequency]);
 
   // Spatial partitioning for large object counts

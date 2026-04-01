@@ -148,11 +148,6 @@ export function useSimpleSnakeGame(options: UseSimpleSnakeGameOptions = {}) {
     return pos.x < 0 || pos.x >= GRID_SIZE || pos.y < 0 || pos.y >= GRID_SIZE;
   };
 
-  // Check if position collides with snake - used in collision detection
-  const _isSnakeCollision = (pos: Position, snake: Position[]): boolean => {
-    return snake.some(s => s.x === pos.x && s.y === pos.y);
-  };
-
   // Move snake
   const moveSnake = useCallback(() => {
     setGameState(prev => {

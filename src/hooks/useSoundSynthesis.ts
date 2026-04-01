@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 interface SynthVoice {
   oscillator: OscillatorNode;
@@ -317,6 +317,34 @@ export function useSoundSynthesis() {
         noise.start(now);
         break;
       }
+
+      case 'crash': {
+        const noise = context.createBufferSource();
+        const noiseBuffer = context.createBuffer(1, context.sampleRate * 0.8, context.sampleRate);
+        const noiseData = noiseBuffer.getChannelData(0);
+
+        for (let i = 0; i < noiseData.length; i++) {
+          noiseData[i] = (Math.random() - 0.5) * 0.6;
+        }
+
+        noise.buffer = noiseBuffer;
+
+        const filter = context.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.setValueAtTime(3000 * (drum.pitch || 1), now);
+
+        const gain = context.createGain();
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.15, now + 0.005);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + (drum.decay || 0.8));
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(compressorRef.current);
+
+        noise.start(now);
+        break;
+      }
     }
   }, [initializeContext]);
 
@@ -369,6 +397,16 @@ export function useSoundSynthesis() {
     setTimeout(() => {
       voicesRef.current.delete(voiceId);
     }, fadeTime * 1000);
+  }, []);
+
+  // Close AudioContext on unmount to prevent leaks
+  useEffect(() => {
+    return () => {
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+    };
   }, []);
 
   return {
