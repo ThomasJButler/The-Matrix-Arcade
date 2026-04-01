@@ -1219,8 +1219,9 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
 
   // Classic Mode (only mode now)
   return (
-    <div 
+    <div
       ref={containerRef}
+      data-game-phase={gamePhase}
       className={`w-full h-full bg-black text-green-500 font-mono flex flex-col ${
         isFullscreen ? 'fixed inset-0 z-50' : ''
       }`}

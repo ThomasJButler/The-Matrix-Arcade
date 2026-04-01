@@ -333,13 +333,27 @@ export default function Metris({ achievementManager, isMuted, autoStart = false 
     return false;
   }, []);
 
-  // Wall kick data for SRS
+  // Wall kick data for SRS (rotation-aware)
   const getWallKickOffsets = (rotation: number, direction: number): [number, number][] => {
-    // Simplified wall kicks
+    // SRS wall kick offsets depend on starting rotation state
+    // rotation: 0=spawn, 1=CW, 2=180, 3=CCW
+    const from = ((rotation % 4) + 4) % 4;
     if (direction > 0) { // Clockwise
-      return [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]];
+      switch (from) {
+        case 0: return [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]];
+        case 1: return [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]];
+        case 2: return [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]];
+        case 3: return [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]];
+        default: return [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]];
+      }
     } else { // Counter-clockwise
-      return [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]];
+      switch (from) {
+        case 0: return [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]];
+        case 1: return [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]];
+        case 2: return [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]];
+        case 3: return [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]];
+        default: return [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]];
+      }
     }
   };
 
@@ -1274,6 +1288,8 @@ export default function Metris({ achievementManager, isMuted, autoStart = false 
     <div
       className="w-full h-full flex items-center justify-center bg-black p-4 outline-none"
       tabIndex={0}
+      data-game-phase={state.gamePhase}
+      data-score={state.score}
       style={{
         boxShadow: hasFocus ? '0 0 0 2px #00ff00' : 'none',
         transition: 'box-shadow 0.2s ease'

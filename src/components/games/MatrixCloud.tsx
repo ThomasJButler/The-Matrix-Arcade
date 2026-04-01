@@ -23,11 +23,8 @@ const MAX_COMBO = 5.0;
 const GLOW_COLORS = ['#00ff00', '#00cc00', '#009900'];
 const MATRIX_CHARS = '01アイウエオカキクケコサシスセソタチツテトナニヌネノ';
 const POWER_UP_TYPES = ['shield', 'timeSlow', 'extraLife', 'doublePoints'] as const;
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const BOSS_TYPES = ['agent_smith', 'sentinel', 'architect'] as const;
-
 type PowerUpType = typeof POWER_UP_TYPES[number];
-type BossType = typeof BOSS_TYPES[number];
+type BossType = 'agent_smith' | 'sentinel' | 'architect';
 type GamePhase = 'menu' | 'playing' | 'paused' | 'gameOver';
 
 // Boss battle constants
@@ -430,13 +427,13 @@ export default function MatrixCloud({ achievementManager, isMuted = false, autoS
       }
       
       // Set new timer
-      newEffectTimers[type] = window.setTimeout(() => {
+      newEffectTimers[type] = Number(setTimeout(() => {
         setState(p => ({
           ...p,
           activeEffects: { ...p.activeEffects, [type]: false },
           effectTimers: { ...p.effectTimers, [type]: null }
         }));
-      }, POWER_UP_DURATION) as unknown as number;
+      }, POWER_UP_DURATION));
       
       newActiveEffects[type] = true;
       
@@ -1259,6 +1256,8 @@ export default function MatrixCloud({ achievementManager, isMuted = false, autoS
     <div
       className="w-full h-full flex flex-col items-center justify-center bg-black outline-none"
       tabIndex={0}
+      data-game-phase={state.gamePhase}
+      data-score={state.score}
       style={{
         boxShadow: hasFocus ? '0 0 0 2px #00ff00' : 'none',
         transition: 'box-shadow 0.2s ease'

@@ -198,6 +198,23 @@ export abstract class BaseScene extends Phaser.Scene {
   }
 
   /**
+   * Expose game state for E2E testing.
+   * Writes state to window.__PHASER_GAME_STATE__ each frame when window.__TEST__ is set.
+   * Call at the end of update() in each GameScene.
+   */
+  protected exposeTestState(state: Record<string, unknown>): void {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (typeof window !== 'undefined' && (window as any).__TEST__) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__PHASER_GAME_STATE__ = {
+        scene: this.scene.key,
+        isPaused: this.isPaused,
+        ...state,
+      };
+    }
+  }
+
+  /**
    * Transition to game over scene
    */
   protected gameOver(score: number, reason?: string, highScore?: number): void {

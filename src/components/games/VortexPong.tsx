@@ -895,6 +895,8 @@ export default function VortexPong({ achievementManager, isMuted = false, autoSt
     <div
       ref={containerRef}
       tabIndex={0}
+      data-game-phase={gamePhase}
+      data-score={score.player}
       className="h-full w-full flex items-center justify-center bg-black relative outline-none"
       style={{
         boxShadow: hasFocus ? '0 0 0 2px #00ff00' : 'none',

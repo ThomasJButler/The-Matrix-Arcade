@@ -344,7 +344,7 @@ const SnakeMenu: React.FC<SnakeMenuProps> = ({ gameState, score, highScore, onSt
   );
 };
 
-export default function SimpleSnake({ achievementManager: _achievementManager, isMuted, autoStart = false }: SimpleSnakeProps) {
+export default function SimpleSnake({ isMuted, autoStart = false }: SimpleSnakeProps) {
   const { saveData, updateGameSave, unlockAchievement } = useSaveSystem();
   const { playSFX: playSoundEffect } = useSoundSystem();
 
@@ -532,6 +532,8 @@ export default function SimpleSnake({ achievementManager: _achievementManager, i
     <div
       className="w-full h-full bg-black flex flex-col font-mono relative outline-none"
       tabIndex={0}
+      data-game-phase={gameState.gameState}
+      data-score={gameState.score}
       style={{
         boxShadow: hasFocus ? '0 0 0 2px #00ff00' : 'none',
         transition: 'box-shadow 0.2s ease'

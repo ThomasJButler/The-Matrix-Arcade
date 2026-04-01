@@ -15,7 +15,7 @@ export class CloudJumperGameOverScene extends GameOverScene {
   }
 
   create(): void {
-    this.cameras.main.setBackgroundColor(0x87ceeb);
+    this.cameras.main.setBackgroundColor(0x0a1a0a);
     super.create();
   }
 }

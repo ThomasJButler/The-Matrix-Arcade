@@ -78,7 +78,7 @@ export class CloudJumperGameScene extends BaseScene {
 
   create(): void {
     // Sky background
-    this.cameras.main.setBackgroundColor(0x87ceeb);
+    this.cameras.main.setBackgroundColor(0x0a1a0a); // Dark Matrix-green sky
 
     // Reset state
     this.distance = 0;
@@ -162,6 +162,13 @@ export class CloudJumperGameScene extends BaseScene {
 
     // Update UI
     this.updateUI();
+
+    // Expose state for E2E tests
+    this.exposeTestState({
+      score: this.score,
+      distance: this.distance,
+      bounceStreak: this.bounceStreak,
+    });
   }
 
   /**
@@ -236,23 +243,21 @@ export class CloudJumperGameScene extends BaseScene {
   private setupInput(): void {
     if (!this.input.keyboard) return;
 
+    // All jump inputs use event callbacks for consistency
     this.jumpKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    this.jumpKey.on('down', () => this.jump());
+    this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP).on('down', () => this.jump());
+    this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W).on('down', () => this.jump());
 
     // Also allow click/tap to jump
     this.input.on('pointerdown', () => this.jump());
-
-    // Up arrow
-    this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP).on('down', () => this.jump());
-    this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W).on('down', () => this.jump());
   }
 
   /**
-   * Handle input
+   * Handle input — jump is event-driven, this is reserved for future per-frame input
    */
   private handleInput(): void {
-    if (Phaser.Input.Keyboard.JustDown(this.jumpKey)) {
-      this.jump();
-    }
+    // Jump input consolidated to event callbacks in setupInput()
   }
 
   /**
