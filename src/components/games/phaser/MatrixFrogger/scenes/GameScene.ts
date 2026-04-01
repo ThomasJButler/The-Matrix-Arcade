@@ -49,6 +49,7 @@ export class FroggerGameScene extends BaseScene {
   private combo = 0;
   private lastComboTime = 0;
   private magnetCollected = 0;
+  private isGameOver = false;
 
   // Power-ups
   private activePowerUps: ActivePowerUp[] = [];
@@ -92,6 +93,7 @@ export class FroggerGameScene extends BaseScene {
     this.magnetCollected = 0;
     this.activePowerUps = [];
     this.shieldHits = 0;
+    this.isGameOver = false;
     this.playerCol = GAME_CONFIG.PLAYER.START_COL;
     this.playerRow = GAME_CONFIG.PLAYER.START_ROW;
     this.isMoving = false;
@@ -368,6 +370,9 @@ export class FroggerGameScene extends BaseScene {
    * Player death sequence
    */
   private playerDeath(enemy?: Enemy): void {
+    if (this.isGameOver) return;
+    this.isGameOver = true;
+
     this.player.setTint(0xff0000);
     this.playSound('hit');
 
@@ -379,15 +384,9 @@ export class FroggerGameScene extends BaseScene {
       angle: 360,
       duration: 500,
       onComplete: () => {
-        // Report final score
         this.reportScore(this.score, this.score);
-
-        // Transition to game over
-        this.scene.start(SCENE_KEYS.GAME_OVER, {
-          score: this.score,
-          highScore: this.score,
-          reason: enemy ? `Hit by ${enemy.enemyType.toUpperCase()}` : 'Game Over',
-        });
+        const reason = enemy ? `Hit by ${enemy.enemyType.toUpperCase()}` : 'Game Over';
+        this.gameOver(this.score, reason);
       },
     });
 

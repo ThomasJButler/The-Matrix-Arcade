@@ -26,7 +26,7 @@ export class NeoJumpMenuScene extends MenuScene {
 
     // HOW TO PLAY section
     this.createMatrixText(centerX, height * 0.52, 'HOW TO PLAY', 14, MATRIX_COLORS.CYAN_HEX);
-    this.createMatrixText(centerX, height * 0.58, 'Arrow left/right: Move | SPACE: Jetpack', 10);
+    this.createMatrixText(centerX, height * 0.58, 'Arrows: Move | UP: Jetpack | SPACE: Shoot', 10);
     this.createMatrixText(centerX, height * 0.63, 'Goal: Jump through layers to reach The Source', 10);
   }
 }

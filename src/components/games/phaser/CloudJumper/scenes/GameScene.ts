@@ -49,6 +49,7 @@ export class CloudJumperGameScene extends BaseScene {
   private scrollSpeed = GAME_CONFIG.SCROLL.SPEED_BASE;
   private stormCloudsSurvived = 0;
   private hadCloseCall = false;
+  private isGameOver = false;
 
   // Object groups
   private clouds!: Phaser.Physics.Arcade.Group;
@@ -87,6 +88,7 @@ export class CloudJumperGameScene extends BaseScene {
     this.scrollSpeed = GAME_CONFIG.SCROLL.SPEED_BASE;
     this.stormCloudsSurvived = 0;
     this.hadCloseCall = false;
+    this.isGameOver = false;
     this.hasJumped = false;
     this.lastCloudX = 0;
     this.jumpPressed = false;
@@ -436,6 +438,9 @@ export class CloudJumperGameScene extends BaseScene {
    * Player death
    */
   private playerDeath(): void {
+    if (this.isGameOver) return;
+    this.isGameOver = true;
+
     this.player.setTint(0xff0000);
 
     this.tweens.add({
@@ -446,11 +451,7 @@ export class CloudJumperGameScene extends BaseScene {
       duration: 500,
       onComplete: () => {
         this.reportScore(this.score, this.score);
-        this.scene.start(SCENE_KEYS.GAME_OVER, {
-          score: this.score,
-          highScore: this.score,
-          reason: `Distance: ${Math.floor(this.distance)}m`,
-        });
+        this.gameOver(this.score, `Distance: ${Math.floor(this.distance)}m`);
       },
     });
   }

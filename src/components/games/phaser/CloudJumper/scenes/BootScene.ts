@@ -18,7 +18,7 @@ export class CloudJumperBootScene extends BootScene {
     super.preload();
 
     // Load cloud image from Treasure Hunters
-    this.load.image('cloud_base', '/assets/Treasure Hunters/Big Clouds.png');
+    this.load.image('cloud_base', '/assets/Treasure Hunters/Palm Tree Island/Sprites/Background/Big Clouds.png');
   }
 
   create(): void {
