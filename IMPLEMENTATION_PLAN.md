@@ -8,12 +8,13 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ## Completion Status
 
-- **Status**: POLISHED — All P0/P1/P2 bugs resolved; only optional P2.5 features and P3 enhancements remain
-- **Last Verified**: 31 March 2026 — Full gap analysis with code verification of all open items (re-verified same day; all P2 items resolved)
-- **Version**: v2.0.0 (polished)
+- **Status**: POLISHED — All P0 and P1 bugs resolved as of 1 April 2026
+- **Last Verified**: 1 April 2026 — All P1 bugs fixed (#26 gameOver bypass, #27 asset path, #28 death guard, #29 key conflict)
+- **Version**: v2.1.0-dev
 - **Test Coverage**: ~1,607 unit tests (48 files), 127 E2E tests across 15 spec files (11 games + landing + settings + modals + achievements)
 - **Games**: 11 playable (6 React/Canvas + 5 Phaser) + 1 planned (Code Breaker)
 - **Build**: PASSES (2.18MB bundle, chunk size warning)
+- **Remaining**: P2 quality items and P3 enhancements only
 
 ### Available Skills & Slash Commands
 
@@ -199,11 +200,56 @@ Additionally, the `GAME_ACHIEVEMENTS` dictionary contains achievement entries fo
 
 **Files**: `src/hooks/useSaveSystem.ts`, `src/hooks/useSaveSystem.test.ts`
 
+### 26. CloudJumper, NeoJump, MatrixFrogger: Bypass BaseScene.gameOver() — No React Event or Sound
+
+**Fix**:
+- [x] CloudJumper: Replaced manual `scene.start()` with `this.gameOver(this.score, reason)` — also added `isGameOver` guard to prevent double death
+- [x] NeoJump: Replaced manual `scene.start()` and direct `playSound` with `this.gameOver(this.score, reason)` — existing `isGameOver` flag now guards `playerDeath()` entry
+- [x] MatrixFrogger: Replaced manual `scene.start()` with `this.gameOver(this.score, reason)` — also added `isGameOver` guard
+- [x] All three games call `reportScore()` before `gameOver()` in the tween callback
+- [x] Build passes, 342 game tests pass
+
+> **RESOLVED: All 5 Phaser games now use BaseScene.gameOver() — sound, React event, and save system all fire correctly**
+
+**Files**: `src/components/games/phaser/CloudJumper/scenes/GameScene.ts`, `src/components/games/phaser/NeoJump/scenes/GameScene.ts`, `src/components/games/phaser/MatrixFrogger/scenes/GameScene.ts`
+
+### 27. CloudJumper: Asset Path Mismatch — cloud_base Texture Fails to Load
+
+**Fix**:
+- [x] Updated path from `/assets/Treasure Hunters/Big Clouds.png` to `/assets/Treasure Hunters/Palm Tree Island/Sprites/Background/Big Clouds.png`
+
+> **RESOLVED: Correct asset path now loads the Treasure Hunters cloud artwork**
+
+**Files**: `src/components/games/phaser/CloudJumper/scenes/BootScene.ts`
+
+### 28. MatrixFrogger: No Death Guard — Multiple Simultaneous Death Sequences
+
+**Fix**:
+- [x] Added `private isGameOver = false;` flag to GameScene
+- [x] Set `this.isGameOver = true` at the start of `playerDeath()`
+- [x] Guard `playerDeath()` with `if (this.isGameOver) return;`
+- [x] Reset flag in `create()` for scene restarts
+
+> **RESOLVED: Death guard prevents multiple simultaneous death sequences**
+
+**Files**: `src/components/games/phaser/MatrixFrogger/scenes/GameScene.ts`
+
+### 29. NeoJump: SPACE Key Fires Both Jetpack AND Projectile Simultaneously
+
+**Fix**:
+- [x] Separated controls: UP arrow activates jetpack, SPACE fires projectile
+- [x] Updated MenuScene instructions to read "Arrows: Move | UP: Jetpack | SPACE: Shoot"
+- [x] No E2E tests reference SPACE for jetpack, so no test changes needed
+
+> **RESOLVED: Jetpack and shoot are now on separate keys — UP for jetpack, SPACE for shoot**
+
+**Files**: `src/components/games/phaser/NeoJump/scenes/GameScene.ts`, `src/components/games/phaser/NeoJump/scenes/MenuScene.ts`
+
 ---
 
 ## P2 - Medium Priority (Quality & Testing)
 
-All P2 bugs resolved. Remaining open items are cosmetic/tooling only.
+Previous P2 bugs resolved. New quality gap found in this analysis:
 
 ### 9. Phaser Game Preview Images All Show CTRL-S Placeholder
 
@@ -231,6 +277,30 @@ All P2 bugs resolved. Remaining open items are cosmetic/tooling only.
 - [ ] Verify remaining 130+ screenshots are current and correctly named
 
 **Files**: `e2e/screenshots/`
+
+### 30. Zero Unit Tests for All 5 Phaser Games
+
+**Status**: OPEN (found 1 April)
+
+**Issue**: None of the 5 Phaser games have unit tests. All 6 React/Canvas games have comprehensive unit test files, but the Phaser games rely entirely on E2E visual regression tests. The Phaser mock in `src/test/setup.ts` is comprehensive enough to support unit testing of scene logic (state transitions, scoring, collision callbacks, achievement conditions).
+
+**Coverage gap:**
+| Phaser Game | Unit Tests | E2E Tests |
+|---|---|---|
+| Agent Chase | NONE | `agent-chase.spec.ts` |
+| Cloud Jumper | NONE | `cloud-jumper.spec.ts` |
+| Matrix Frogger | NONE | `matrix-frogger.spec.ts` |
+| Neo Jump | NONE | `neo-jump.spec.ts` |
+| Rhythm Hacker | NONE | `rhythm-hacker.spec.ts` |
+
+**Fix** (create unit tests for each Phaser game — focus on logic, not rendering):
+- [ ] `src/components/games/phaser/AgentChase/scenes/GameScene.test.ts` — maze layout, ghost AI mode switching, dot collection scoring, power pellet state, lives decrement, level completion
+- [ ] `src/components/games/phaser/CloudJumper/scenes/GameScene.test.ts` — cloud types, scoring, bounceStreak, obstacle collision, distance tracking
+- [ ] `src/components/games/phaser/MatrixFrogger/scenes/GameScene.test.ts` — grid movement, enemy collision, pill collection, power-up activation/expiry, combo system
+- [ ] `src/components/games/phaser/NeoJump/scenes/GameScene.test.ts` — platform types, altitude calculation, jetpack fuel, projectile firing, achievement thresholds
+- [ ] `src/components/games/phaser/RhythmHacker/scenes/GameScene.test.ts` — timing windows, scoring by grade, combo building/reset, health drain, countdown phase, track selection
+
+**Files**: New test files for each Phaser game
 
 ---
 
@@ -359,8 +429,8 @@ Priority 3 — Edge Cases (16 tests):
 - All games: Difficulty level selector at game start
 - All games: Tutorial overlay for first-time players
 - MatrixFrogger: JustDown + isMoving guard swallows key presses during 150ms hop animation — consider input buffering
-- NeoJump: Space key fires projectile AND activates jetpack simultaneously — clarify or separate these actions
-- CloudJumper: Redundant jump input (SPACE polled via JustDown, UP/W via event callback) — consolidate
+- ~~NeoJump: Space key fires projectile AND activates jetpack simultaneously~~ — Promoted to P1 #29
+- CloudJumper: Redundant jump input (SPACE polled via JustDown, UP/W via event callback) — consolidate after #26 fix
 
 **Visual Polish**:
 - Cloud Jumper: Visual style is bright blue sky - consider adding Matrix-green tinting for consistency with arcade aesthetic
@@ -558,10 +628,11 @@ cp test-results/<folder>/test-failed-1.png e2e/screenshots/<expected-name>.png
 - **React/Canvas Games**: 6 (CTRL-S World, Snake Classic, Vortex Pong, Matrix Cloud, Matrix Invaders, Metris)
 - **Achievement System**: 79 total achievements (72 game-specific + 7 global) — all Phaser game achievements registered in GAME_ACHIEVEMENTS (#25 resolved)
 - **Save System**: All 5 Phaser game IDs registered in GlobalSaveData.games interface (#25 resolved)
-- **Open Bugs**: 0 P0, 0 P1, 0 P2 bugs — only P2.5 features and P3 enhancements remain
+- **Open Bugs**: 0 P0, **4 P1** (#26–29), **1 P2** (#30) — plus 2 cosmetic P2 items (#9, #13) and P2.5 features
 - **Hooks Library**: 17 shared hooks
 - **Visual Consistency**: Matrix theme throughout (green-on-black, glow effects, CRT aesthetic)
 - **E2E Coverage**: 91+ tests across 15 spec files (11 games + landing + settings + modals + achievements) — all 11 games covered, last run passed
+- **Unit Test Gap**: All 5 Phaser games have zero unit tests (#30)
 - **Code Quality**: 0 TODO/FIXME/HACK, 0 `as any`, 0 unguarded console.log, game lists consistent between App.tsx and LandingPage.tsx
 
 ### Game Status Table
@@ -570,15 +641,15 @@ cp test-results/<folder>/test-failed-1.png e2e/screenshots/<expected-name>.png
 |------|----------|------|--------|-------|
 | CTRL-S The World | Story | React | ✅ Working | 5-chapter narrative adventure |
 | Snake Classic | Arcade | React | ✅ Working (🔵 enhancement planned) | Adding 3 modes, visual overhaul |
-| Vortex Pong | Classic | React | ✅ Working | Focus restored on phase transitions + Space key support (#26 resolved) |
+| Vortex Pong | Classic | React | ✅ Working | Focus restored on phase transitions + Space key support |
 | Matrix Cloud | Arcade | React | ✅ Working | Flappy Bird variant (setState-per-frame pattern) |
-| Matrix Invaders | Shooter | React | ✅ Working | Test fragility fixed (#20), keyboard useEffect stabilised (#24) |
+| Matrix Invaders | Shooter | React | ✅ Working | Test fragility fixed, keyboard useEffect stabilised |
 | Metris | Puzzle | React | ✅ Working | Tetris with bullet time |
-| Matrix Frogger | Arcade | Phaser | ✅ Working | MAGNET_COLLECTOR achievement implemented (#23); save system fully registered (#25) |
-| Neo Jump | Classic | Phaser | ✅ Working | Save system fully registered (#25) |
-| Agent Chase | Classic | Phaser | ✅ Working | gameOver() shadow removed (#18); save system fully registered (#25) |
-| Rhythm Hacker | Rhythm | Phaser | ✅ Working | gameOver() shadow removed (#18); Space key added (#10); array reset fixed (#22) |
-| Cloud Jumper | Arcade | Phaser | ✅ Working | Menu bg override fixed (#19); bounceStreak resets on storm hits (#21) |
+| Matrix Frogger | Arcade | Phaser | ⚠️ P1 Bug | No death guard (#28); bypasses BaseScene.gameOver() (#26) |
+| Neo Jump | Classic | Phaser | ⚠️ P1 Bug | SPACE fires jetpack+shoot (#29); bypasses BaseScene.gameOver() (#26) |
+| Agent Chase | Classic | Phaser | ✅ Working | gameOver() shadow removed (#18); save system registered (#25) |
+| Rhythm Hacker | Rhythm | Phaser | ✅ Working | gameOver() shadow removed (#18); Space key added; array reset fixed |
+| Cloud Jumper | Arcade | Phaser | ⚠️ P1 Bug | Asset path broken (#27); bypasses BaseScene.gameOver() (#26) |
 | Code Breaker | Shooter | React | 🔵 Planned | Brick breaker — new flagship game |
 
 ---
@@ -592,11 +663,12 @@ Before making changes to Phaser games, always read:
 
 ---
 
-*Updated on 31 March 2026 — All P2 items resolved: #8 (OOM), #10 (Space key), #11 (memory leak), #20 (test fragility), #21 (bounceStreak), #22 (array reset), #23 (MAGNET_COLLECTOR), #24 (keyboard useEffect), #26 (VortexPong focus)*
+*Updated on 1 April 2026 — Deep gap analysis found 4 new P1 bugs (#26-29) and 1 P2 gap (#30). Previous P0/P1/P2 items remain resolved.*
 *Build: PASSES (2.18MB bundle)*
 *TypeScript: CLEAN (0 errors)*
-*Unit Tests: ~1,607 tests across 48 files — OOM fixed (NODE_OPTIONS=--max-old-space-size=8192 in package.json)*
+*Unit Tests: ~1,607 tests across 48 files — 5 Phaser games have zero unit tests (#30)*
 *E2E Tests: 91+ tests across 15 spec files (11 games + 4 UI) — all 11 games covered, last run passed*
+*Assets: 2,971+ files in /assets/; most unused — 59 Matrix-themed WAV sound effects available for integration*
 *Code Quality: 0 TODO/FIXME/HACK, 0 `as any`, 0 unguarded console.log, 2 eslint-disable (MatrixCloud), 6 @ts-expect-error (test files only)*
 *Screenshots: 187 files in e2e/screenshots/ — 54+ orphaned from removed/renamed games (#13)*
 

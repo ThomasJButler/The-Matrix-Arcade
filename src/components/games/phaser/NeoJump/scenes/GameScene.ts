@@ -333,8 +333,8 @@ export class NeoJumpGameScene extends BaseScene {
       this.player.x = -GAME_CONFIG.PLAYER.WIDTH / 2;
     }
 
-    // Jetpack / Shoot
-    if (this.spaceKey.isDown || this.cursors.up.isDown) {
+    // Jetpack (UP arrow or W key)
+    if (this.cursors.up.isDown) {
       if (this.jetpackFuel > 0) {
         this.jetpackActive = true;
         body.setVelocityY(Math.max(body.velocity.y + GAME_CONFIG.PLAYER.JETPACK_THRUST * (delta / 1000), -400));
@@ -349,7 +349,7 @@ export class NeoJumpGameScene extends BaseScene {
       this.jetpackActive = false;
     }
 
-    // Shooting (tap space when not holding)
+    // Shooting (SPACE key only)
     if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
       this.shoot();
     }
@@ -611,7 +611,9 @@ export class NeoJumpGameScene extends BaseScene {
    * Player death
    */
   private playerDeath(): void {
-    this.playSound('gameOver');
+    if (this.isGameOver) return;
+    this.isGameOver = true;
+
     this.player.setTint(0xff0000);
 
     this.tweens.add({
@@ -622,11 +624,7 @@ export class NeoJumpGameScene extends BaseScene {
       duration: 500,
       onComplete: () => {
         this.reportScore(this.score, this.score);
-        this.scene.start(SCENE_KEYS.GAME_OVER, {
-          score: this.score,
-          highScore: this.score,
-          reason: `Altitude: ${this.maxAltitude}m`,
-        });
+        this.gameOver(this.score, `Altitude: ${this.maxAltitude}m`);
       },
     });
   }
