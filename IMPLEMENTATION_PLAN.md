@@ -8,13 +8,13 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 
 ## Completion Status
 
-- **Status**: POLISHED — All P0 and P1 bugs resolved as of 1 April 2026
-- **Last Verified**: 1 April 2026 — All P1 bugs fixed (#26 gameOver bypass, #27 asset path, #28 death guard, #29 key conflict)
-- **Version**: v2.1.0-dev
+- **Status**: POLISHED — All P0, P1, and P2 bugs resolved as of 1 April 2026
+- **Last Verified**: 1 April 2026 — P2 #9 (preview images) and #13 (orphaned screenshots) resolved; 27 stale test assertions fixed
+- **Version**: v1.9.29
 - **Test Coverage**: ~1,901 unit tests (53 files), 127 E2E tests across 15 spec files (11 games + landing + settings + modals + achievements)
 - **Games**: 11 playable (6 React/Canvas + 5 Phaser) + 1 planned (Code Breaker)
 - **Build**: PASSES (2.18MB bundle, chunk size warning)
-- **Remaining**: P2 quality items and P3 enhancements only
+- **Remaining**: P2.5 feature work and P3 enhancements only
 
 ### Available Skills & Slash Commands
 
