@@ -1,6 +1,7 @@
 import { test as base, expect, Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { enableTestMode } from './test-utils';
 
 // Screenshot output directory
 const SCREENSHOT_DIR = path.join(process.cwd(), 'e2e', 'screenshots');
@@ -15,6 +16,7 @@ if (!fs.existsSync(SCREENSHOT_DIR)) {
  */
 export const test = base.extend<{
   arcadePage: Page;
+  gameplayPage: Page;
   screenshotDir: string;
 }>({
   // Arcade page with common setup
@@ -30,6 +32,20 @@ export const test = base.extend<{
     });
 
     // Wait for any initial animations to settle
+    await page.waitForTimeout(1000);
+
+    await use(page);
+  },
+
+  // Gameplay page with test mode enabled for state inspection
+  gameplayPage: async ({ page }, use) => {
+    await enableTestMode(page);
+    await page.goto('/');
+
+    await page.waitForSelector('[data-testid="matrix-rain"], .matrix-rain, canvas', {
+      timeout: 10000,
+    }).catch(() => {});
+
     await page.waitForTimeout(1000);
 
     await use(page);
