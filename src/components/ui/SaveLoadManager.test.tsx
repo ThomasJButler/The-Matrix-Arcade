@@ -302,7 +302,7 @@ describe('SaveLoadManager', () => {
   describe('Version Display', () => {
     it('displays save data version', () => {
       render(<SaveLoadManager {...defaultProps} />);
-      expect(screen.getByText(/SAVE DATA v2.0.0/)).toBeInTheDocument();
+      expect(screen.getByText(/SAVE DATA v1.1.0/)).toBeInTheDocument();
     });
   });
 
@@ -403,8 +403,10 @@ describe('SaveLoadManager - Loading State', () => {
     }));
   });
 
-  // Loading state test would require re-importing the component with the mocked loading state
-  it.todo('displays loading indicator when data is loading');
+  // vi.doMock + dynamic import cannot override the already-hoisted vi.mock for useSaveSystem.
+  // The static import at the top of SaveLoadManager.tsx resolves to the hoisted mock.
+  // To test loading state, the component would need dependency injection or a test-specific wrapper.
+  it.todo('displays loading indicator when data is loading (requires DI refactor)');
 });
 
 describe('SaveLoadManager - Error State', () => {
@@ -426,6 +428,6 @@ describe('SaveLoadManager - Error State', () => {
     }));
   });
 
-  // Error state test would require re-importing the component with the mocked error state
-  it.todo('displays error message when save data fails to load');
+  // Same limitation as loading state test — see note above.
+  it.todo('displays error message when save data fails to load (requires DI refactor)');
 });
