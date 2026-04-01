@@ -5,7 +5,7 @@
  *              navigation, sound system, achievements, and PWA features.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './styles/theme.css';
 import './styles/animations.css';
@@ -30,24 +30,18 @@ import {
   Music,
   Cloud,
 } from 'lucide-react';
-import SimpleSnake from './components/games/SimpleSnake';
-import VortexPong from './components/games/VortexPong';
-import CtrlSWorld from './components/games/CtrlSWorld';
-import MatrixCloud from './components/games/MatrixCloud';
-import MatrixInvaders from './components/games/MatrixInvaders';
-import Metris from './components/games/Metris';
-// Legacy buggy games replaced by Phaser versions below
-// import CrossyRoad from './components/games/CrossyRoad';
-// import MatrixAscension from './components/games/MatrixAscension';
-// import AgentEscape from './components/games/AgentEscape';
-// import JimmyMatrix from './components/games/JimmyMatrix';
-
-// New Phaser-based games (replacing buggy React/Canvas versions)
-import MatrixFrogger from './components/games/phaser/MatrixFrogger';
-import NeoJump from './components/games/phaser/NeoJump';
-import AgentChase from './components/games/phaser/AgentChase';
-import RhythmHacker from './components/games/phaser/RhythmHacker';
-import CloudJumper from './components/games/phaser/CloudJumper';
+// Lazy-loaded game components for code-splitting
+const SimpleSnake = React.lazy(() => import('./components/games/SimpleSnake'));
+const VortexPong = React.lazy(() => import('./components/games/VortexPong'));
+const CtrlSWorld = React.lazy(() => import('./components/games/CtrlSWorld'));
+const MatrixCloud = React.lazy(() => import('./components/games/MatrixCloud'));
+const MatrixInvaders = React.lazy(() => import('./components/games/MatrixInvaders'));
+const Metris = React.lazy(() => import('./components/games/Metris'));
+const MatrixFrogger = React.lazy(() => import('./components/games/phaser/MatrixFrogger'));
+const NeoJump = React.lazy(() => import('./components/games/phaser/NeoJump'));
+const AgentChase = React.lazy(() => import('./components/games/phaser/AgentChase'));
+const RhythmHacker = React.lazy(() => import('./components/games/phaser/RhythmHacker'));
+const CloudJumper = React.lazy(() => import('./components/games/phaser/CloudJumper'));
 import AudioSettings from './components/ui/AudioSettings';
 import SaveLoadManager from './components/ui/SaveLoadManager';
 import { AchievementQueue } from './components/ui/AchievementNotification';
@@ -55,21 +49,14 @@ import { AchievementDisplay } from './components/ui/AchievementDisplay';
 import { PWAInstallPrompt } from './components/ui/PWAInstallPrompt';
 import { PWAUpdatePrompt } from './components/ui/PWAUpdatePrompt';
 import { MobileWarning } from './components/ui/MobileWarning';
+import { GameErrorBoundary } from './components/ui/GameErrorBoundary';
 import { useSoundSystem } from './hooks/useSoundSystem';
 import { useAchievementManager } from './hooks/useAchievementManager';
 import { useMobileDetection } from './hooks/useMobileDetection';
 import { useSaveSystem } from './hooks/useSaveSystem';
 import { GameStateProvider } from './contexts/GameStateContext';
 import LandingPage from './components/LandingPage';
-import matrixInvadersPreview from './images/matrixinvaders.webp';
-import metrisPreview from './images/metris.webp';
-import {
-  matrixFroggerPreview,
-  neoJumpPreview,
-  agentChasePreview,
-  rhythmHackerPreview,
-  cloudJumperPreview,
-} from './lib/gamePreviewImages';
+import { GAME_REGISTRY } from './data/gameRegistry';
 
 function App() {
   const [selectedGame, setSelectedGame] = useState<number>(0);
@@ -274,100 +261,26 @@ function App() {
     }
   }, [saveData, achievementManager]);
 
-  const games = [
-    {
-      title: 'CTRL-S | The World',
-      icon: <Keyboard className="w-8 h-8" />,
-      description: 'A hilarious text adventure about saving the digital world',
-      preview:
-        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
-      component: CtrlSWorld,
-      category: 'Story' as const,
-    },
-    {
-      title: 'Snake Classic',
-      icon: <Gamepad2 className="w-8 h-8" />,
-      description: 'Navigate through the matrix collecting data fragments',
-      preview:
-        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071599/matrixsnake2_jw29w1.png',
-      component: SimpleSnake,
-      category: 'Arcade' as const,
-    },
-    {
-      title: 'Vortex Pong',
-      icon: <Disc3 className="w-8 h-8" />,
-      description: 'Battle the AI in a hypnotic 3D arena',
-      preview:
-        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071596/vortexpong2_hkjn4k.png',
-      component: VortexPong,
-      category: 'Classic' as const,
-    },
-    {
-      title: 'Matrix Cloud',
-      icon: <Gamepad2 className="w-8 h-8" />,
-      description: 'Navigate through the digital storm',
-      preview:
-        'https://res.cloudinary.com/depqttzlt/image/upload/v1737071594/matrixcloud_rw8hsa.png',
-      component: MatrixCloud,
-      category: 'Arcade' as const,
-    },
-    {
-      title: 'Matrix Invaders',
-      icon: <Crosshair className="w-8 h-8" />,
-      description: 'Defend against the code invasion',
-      preview: matrixInvadersPreview,
-      component: MatrixInvaders,
-      category: 'Shooter' as const,
-    },
-    {
-      title: 'Metris',
-      icon: <Blocks className="w-8 h-8" />,
-      description: 'Stack the code blocks and break the Matrix',
-      preview: metrisPreview,
-      component: Metris,
-      category: 'Puzzle' as const,
-    },
-    {
-      title: 'Matrix Frogger',
-      icon: <Footprints className="w-8 h-8" />,
-      description: 'Cross the lanes - dodge Agents and Sentinels',
-      preview: matrixFroggerPreview,
-      component: MatrixFrogger,
-      category: 'Arcade' as const,
-    },
-    {
-      title: 'Neo Jump',
-      icon: <ArrowUp className="w-8 h-8" />,
-      description: 'Jump through simulation layers to reach The Source',
-      preview: neoJumpPreview,
-      component: NeoJump,
-      category: 'Classic' as const,
-    },
-    {
-      title: 'Agent Chase',
-      icon: <Circle className="w-8 h-8" />,
-      description: 'Collect data while evading Agent Smith',
-      preview: agentChasePreview,
-      component: AgentChase,
-      category: 'Classic' as const,
-    },
-    {
-      title: 'Rhythm Hacker',
-      icon: <Music className="w-8 h-8" />,
-      description: 'Epic rhythm game - catch code in beat',
-      preview: rhythmHackerPreview,
-      component: RhythmHacker,
-      category: 'Rhythm' as const,
-    },
-    {
-      title: 'Cloud Jumper',
-      icon: <Cloud className="w-8 h-8" />,
-      description: 'Jump between clouds in the digital sky',
-      preview: cloudJumperPreview,
-      component: CloudJumper,
-      category: 'Arcade' as const,
-    },
+  // Runtime bindings (icons and components) merged with shared registry data
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const GAME_COMPONENTS: React.ComponentType<any>[] = [
+    CtrlSWorld, SimpleSnake, VortexPong, MatrixCloud, MatrixInvaders,
+    Metris, MatrixFrogger, NeoJump, AgentChase, RhythmHacker, CloudJumper,
   ];
+  const GAME_ICONS: React.ReactNode[] = [
+    <Keyboard className="w-8 h-8" />, <Gamepad2 className="w-8 h-8" />,
+    <Disc3 className="w-8 h-8" />, <Gamepad2 className="w-8 h-8" />,
+    <Crosshair className="w-8 h-8" />, <Blocks className="w-8 h-8" />,
+    <Footprints className="w-8 h-8" />, <ArrowUp className="w-8 h-8" />,
+    <Circle className="w-8 h-8" />, <Music className="w-8 h-8" />,
+    <Cloud className="w-8 h-8" />,
+  ];
+
+  const games = GAME_REGISTRY.map((entry, i) => ({
+    ...entry,
+    icon: GAME_ICONS[i],
+    component: GAME_COMPONENTS[i],
+  }));
 
   /**
    * @constructs - Initialises Matrix rain effect using RequestAnimationFrame
@@ -692,7 +605,11 @@ function App() {
         {/* Fullscreen Game View */}
         {isPlaying && GameComponent ? (
           <div className="relative w-full h-full">
-            <GameComponent achievementManager={achievementManager} isMuted={isMuted} autoStart={true} />
+            <GameErrorBoundary gameName={games[selectedGame].title} onReset={() => setIsPlaying(false)}>
+              <Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-black text-green-500 font-mono">Loading...</div>}>
+                <GameComponent achievementManager={achievementManager} isMuted={isMuted} autoStart={true} />
+              </Suspense>
+            </GameErrorBoundary>
 
             {/* Floating Mute Indicator - More Visible */}
             {isMuted && (
@@ -754,7 +671,11 @@ function App() {
                       className="w-full h-full transition-enhanced"
                     >
                       {isPlaying && GameComponent ? (
-                        <GameComponent achievementManager={achievementManager} isMuted={isMuted} autoStart={true} />
+                        <GameErrorBoundary gameName={games[selectedGame].title} onReset={() => setIsPlaying(false)}>
+                          <Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-black text-green-500 font-mono">Loading...</div>}>
+                            <GameComponent achievementManager={achievementManager} isMuted={isMuted} autoStart={true} />
+                          </Suspense>
+                        </GameErrorBoundary>
                       ) : (
                         <img
                           src={games[selectedGame].preview}
