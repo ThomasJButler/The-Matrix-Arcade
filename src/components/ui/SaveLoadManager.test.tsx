@@ -302,7 +302,7 @@ describe('SaveLoadManager', () => {
   describe('Version Display', () => {
     it('displays save data version', () => {
       render(<SaveLoadManager {...defaultProps} />);
-      expect(screen.getByText(/SAVE DATA v1.1.0/)).toBeInTheDocument();
+      expect(screen.getByText(/SAVE DATA v2.0.0/)).toBeInTheDocument();
     });
   });
 
