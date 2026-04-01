@@ -154,7 +154,7 @@ describe('App Component', () => {
 
   it('displays correct version number', () => {
     render(<App />);
-    const versionText = screen.getByText(/SYSTEM v1.1/);
+    const versionText = screen.getByText(/SYSTEM v2.0/);
     expect(versionText).toBeInTheDocument();
   });
 
@@ -248,7 +248,7 @@ describe('App Component', () => {
   it('renders footer with correct version', () => {
     render(<App />);
     
-    expect(screen.getByText('THE MATRIX ARCADE v1.1')).toBeInTheDocument();
+    expect(screen.getByText('THE MATRIX ARCADE v2.0')).toBeInTheDocument();
     expect(screen.getByText('TAKE THE RED PILL!')).toBeInTheDocument();
   });
 
