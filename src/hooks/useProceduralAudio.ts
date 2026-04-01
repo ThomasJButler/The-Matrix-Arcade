@@ -38,12 +38,20 @@ export function useProceduralAudio() {
       if (!audioContextRef.current) {
         const AudioContext = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
         audioContextRef.current = new AudioContext();
-        
+
         // Create noise buffer for texture sounds
         noiseBufferRef.current = createNoiseBuffer(audioContextRef.current);
       }
     };
     initContext();
+
+    // Close AudioContext on unmount to prevent leaks
+    return () => {
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+    };
   }, []);
 
   // Create white noise buffer

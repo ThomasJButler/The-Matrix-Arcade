@@ -201,9 +201,8 @@ export function useParticleSystem() {
       lastTime = currentTime;
 
       setParticles(prev => {
-        // Early exit if no particles
+        // Skip RAF loop when no particles to animate
         if (prev.length === 0) {
-          animationId = requestAnimationFrame(updateParticles);
           return prev;
         }
 

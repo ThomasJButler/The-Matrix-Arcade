@@ -22,6 +22,7 @@ export function useObjectPool<T extends PoolableObject>({
 }: ObjectPoolOptions<T>) {
   const poolRef = useRef<T[]>([]);
   const activeRef = useRef<T[]>([]);
+  const freeListRef = useRef<T[]>([]);
   const sizeRef = useRef(0);
 
   // Initialize pool
@@ -31,6 +32,7 @@ export function useObjectPool<T extends PoolableObject>({
         const obj = create();
         obj.active = false;
         poolRef.current.push(obj);
+        freeListRef.current.push(obj);
       }
       sizeRef.current = initialSize;
     }
@@ -42,29 +44,30 @@ export function useObjectPool<T extends PoolableObject>({
     if (currentSize >= maxSize) return;
 
     const expandBy = Math.min(expandSize, maxSize - currentSize);
-    
+
     for (let i = 0; i < expandBy; i++) {
       const obj = create();
       obj.active = false;
       poolRef.current.push(obj);
+      freeListRef.current.push(obj);
     }
     
     sizeRef.current += expandBy;
   }, [create, expandSize, maxSize]);
 
-  // Get object from pool
+  // Get object from pool — O(1) via free list
   const acquire = useCallback((): T | null => {
     initializePool();
 
-    // Find inactive object
-    let obj = poolRef.current.find(o => !o.active);
-    
-    // If no inactive objects, try to expand pool
+    // Pop from free list (O(1))
+    let obj = freeListRef.current.pop();
+
+    // If no free objects, try to expand pool
     if (!obj) {
       expandPool();
-      obj = poolRef.current.find(o => !o.active);
+      obj = freeListRef.current.pop();
     }
-    
+
     // If still no object available, return null
     if (!obj) return null;
     
@@ -85,15 +88,18 @@ export function useObjectPool<T extends PoolableObject>({
   // Return object to pool
   const release = useCallback((obj: T) => {
     if (!obj || !obj.active) return;
-    
+
     obj.active = false;
-    
+
     // Remove from active list
     const index = activeRef.current.indexOf(obj);
     if (index > -1) {
       activeRef.current.splice(index, 1);
     }
-    
+
+    // Return to free list for O(1) re-acquire
+    freeListRef.current.push(obj);
+
     // Reset object state
     if (reset) {
       reset(obj);
@@ -106,6 +112,7 @@ export function useObjectPool<T extends PoolableObject>({
   const releaseAll = useCallback(() => {
     activeRef.current.forEach(obj => {
       obj.active = false;
+      freeListRef.current.push(obj);
       if (reset) {
         reset(obj);
       } else if (obj.reset) {

@@ -119,7 +119,7 @@ describe('useGameLoop', () => {
       expect(callback).toHaveBeenNthCalledWith(3, 16); // 66 - 50
     });
 
-    it('handles very long frames (tab inactive)', () => {
+    it('handles very long frames (tab inactive) by capping deltaTime', () => {
       const callback = vi.fn();
       renderHook(() => useGameLoop(callback));
 
@@ -127,7 +127,8 @@ describe('useGameLoop', () => {
       simulateRAFTick(16);
       simulateRAFTick(5016); // 5 second pause (tab inactive)
 
-      expect(callback).toHaveBeenNthCalledWith(2, 5000);
+      // deltaTime should be capped at 66.67ms to prevent huge spikes
+      expect(callback).toHaveBeenNthCalledWith(2, 66.67);
     });
   });
 

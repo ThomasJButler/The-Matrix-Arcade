@@ -665,29 +665,32 @@ export function useSoundSystem() {
     }
   }, []);
 
-  // Update config
+  // Update config using functional updater to avoid stale closure
   const updateConfig = useCallback((newConfig: Partial<SoundConfig>) => {
-    const updated = { ...config, ...newConfig };
-    setConfig(updated);
-    localStorage.setItem('matrix-arcade-audio-config', JSON.stringify(updated));
+    setConfig(prev => {
+      const updated = { ...prev, ...newConfig };
+      localStorage.setItem('matrix-arcade-audio-config', JSON.stringify(updated));
 
-    // Update gain nodes if they exist
-    const currentTime = audioContextRef.current?.currentTime || 0;
-    if (masterGainRef.current && updated.masterVolume !== config.masterVolume) {
-      masterGainRef.current.gain.setValueAtTime(updated.masterVolume, currentTime);
-    }
-    if (musicGainRef.current && updated.musicVolume !== config.musicVolume) {
-      musicGainRef.current.gain.setValueAtTime(updated.musicVolume, currentTime);
-    }
-    if (sfxGainRef.current && updated.sfxVolume !== config.sfxVolume) {
-      sfxGainRef.current.gain.setValueAtTime(updated.sfxVolume, currentTime);
-    }
+      // Update gain nodes if they exist
+      const currentTime = audioContextRef.current?.currentTime || 0;
+      if (masterGainRef.current && updated.masterVolume !== prev.masterVolume) {
+        masterGainRef.current.gain.setValueAtTime(updated.masterVolume, currentTime);
+      }
+      if (musicGainRef.current && updated.musicVolume !== prev.musicVolume) {
+        musicGainRef.current.gain.setValueAtTime(updated.musicVolume, currentTime);
+      }
+      if (sfxGainRef.current && updated.sfxVolume !== prev.sfxVolume) {
+        sfxGainRef.current.gain.setValueAtTime(updated.sfxVolume, currentTime);
+      }
 
-    // Immediately update MP3 background music volume if it exists
-    if (backgroundMusicRef.current && (updated.masterVolume !== config.masterVolume || updated.musicVolume !== config.musicVolume)) {
-      backgroundMusicRef.current.volume = updated.masterVolume * updated.musicVolume;
-    }
-  }, [config]);
+      // Immediately update MP3 background music volume if it exists
+      if (backgroundMusicRef.current && (updated.masterVolume !== prev.masterVolume || updated.musicVolume !== prev.musicVolume)) {
+        backgroundMusicRef.current.volume = updated.masterVolume * updated.musicVolume;
+      }
+
+      return updated;
+    });
+  }, []);
 
   // Check if muted (must be defined before toggleMute)
   const isMuted = !config.music && !config.sfx;

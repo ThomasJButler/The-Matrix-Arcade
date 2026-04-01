@@ -99,31 +99,14 @@ export const useAchievementManager = () => {
     };
   }, [saveSystem.achievements]);
 
-  // Enhanced unlock achievement method with custom notification
+  // Unlock achievement — delegates to save system.
+  // Notifications are handled by the useEffect above that watches saveSystem.achievements.
   const unlockAchievement = useCallback((
     gameId: keyof typeof saveSystem.saveData.games,
-    achievementId: string, 
-    customNotification?: Partial<AchievementNotification>
+    achievementId: string,
+    _customNotification?: Partial<AchievementNotification>
   ) => {
-    const success = saveSystem.unlockAchievement(gameId, achievementId);
-    
-    if (success && customNotification) {
-      // If custom notification provided, use it instead of auto-detection
-      const achievement = saveSystem.achievements.find(a => a.id === achievementId);
-      if (achievement) {
-        const notification: AchievementNotification = {
-          id: achievement.id,
-          name: customNotification.name || achievement.name,
-          description: customNotification.description || achievement.description,
-          icon: customNotification.icon || achievement.icon,
-          game: customNotification.game || achievement.game,
-          timestamp: Date.now()
-        };
-        setNotificationQueue(prev => [...prev, notification]);
-      }
-    }
-    
-    return success;
+    saveSystem.unlockAchievement(gameId, achievementId);
   }, [saveSystem]);
 
   // Check if achievement is unlocked
@@ -166,8 +149,6 @@ export const useAchievementManager = () => {
     isUnlocked,
     
     // Save system methods (pass through)
-    saveGame: saveSystem.saveGame,
-    loadGame: saveSystem.loadGame,
     getSaveData: () => saveSystem.saveData,
     clearSaveData: saveSystem.clearSaveData,
     exportSaveData: saveSystem.exportSaveData,
