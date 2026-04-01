@@ -145,7 +145,7 @@ describe('useSoundSynthesis', () => {
   });
 
   describe('synthLaser', () => {
-    it('creates oscillator with sawtooth waveform', async () => {
+    it('creates oscillator with triangle waveform', async () => {
       const { result } = renderHook(() => useSoundSynthesis());
 
       await act(async () => {
@@ -153,10 +153,10 @@ describe('useSoundSynthesis', () => {
       });
 
       const osc = mockAudioContext.createOscillator.mock.results[0].value;
-      expect(osc.type).toBe('sawtooth');
+      expect(osc.type).toBe('triangle');
     });
 
-    it('uses default frequency sweep from 2000 to 100 Hz', async () => {
+    it('uses default frequency sweep from 1800 to 200 Hz', async () => {
       const { result } = renderHook(() => useSoundSynthesis());
 
       await act(async () => {
@@ -164,8 +164,8 @@ describe('useSoundSynthesis', () => {
       });
 
       const osc = mockAudioContext.createOscillator.mock.results[0].value;
-      expect(osc.frequency.setValueAtTime).toHaveBeenCalledWith(2000, 0);
-      expect(osc.frequency.exponentialRampToValueAtTime).toHaveBeenCalledWith(100, 0.2);
+      expect(osc.frequency.setValueAtTime).toHaveBeenCalledWith(1800, 0);
+      expect(osc.frequency.exponentialRampToValueAtTime).toHaveBeenCalledWith(200, 0.15);
     });
 
     it('accepts custom start and end frequencies', async () => {
@@ -180,7 +180,7 @@ describe('useSoundSynthesis', () => {
       expect(osc.frequency.exponentialRampToValueAtTime).toHaveBeenCalledWith(200, 0.3);
     });
 
-    it('creates lowpass filter with Q factor of 5', async () => {
+    it('creates lowpass filter with Q factor of 3', async () => {
       const { result } = renderHook(() => useSoundSynthesis());
 
       await act(async () => {
@@ -189,10 +189,10 @@ describe('useSoundSynthesis', () => {
 
       const filter = mockAudioContext.createBiquadFilter.mock.results[0].value;
       expect(filter.type).toBe('lowpass');
-      expect(filter.Q.setValueAtTime).toHaveBeenCalledWith(5, 0);
+      expect(filter.Q.setValueAtTime).toHaveBeenCalledWith(3, 0);
     });
 
-    it('sets up gain envelope with attack and release', async () => {
+    it('sets up gain envelope with smooth attack and release', async () => {
       const { result } = renderHook(() => useSoundSynthesis());
 
       await act(async () => {
@@ -200,8 +200,9 @@ describe('useSoundSynthesis', () => {
       });
 
       const gain = mockAudioContext.createGain.mock.results[0].value;
-      expect(gain.gain.setValueAtTime).toHaveBeenCalledWith(0.3, 0);
-      expect(gain.gain.exponentialRampToValueAtTime).toHaveBeenCalledWith(0.001, 0.2);
+      expect(gain.gain.setValueAtTime).toHaveBeenCalledWith(0, 0);
+      expect(gain.gain.linearRampToValueAtTime).toHaveBeenCalledWith(0.12, 0.01);
+      expect(gain.gain.exponentialRampToValueAtTime).toHaveBeenCalledWith(0.001, 0.15);
     });
 
     it('connects nodes through compressor', async () => {
@@ -253,8 +254,8 @@ describe('useSoundSynthesis', () => {
       });
 
       // Default size=1, brightness=0.5
-      // Duration = 0.5 * size = 0.5 seconds
-      const expectedBufferLength = Math.floor(mockAudioContext.sampleRate * 0.5);
+      // Duration = 0.35 * size = 0.35 seconds
+      const expectedBufferLength = mockAudioContext.sampleRate * 0.35;
       expect(mockAudioContext.createBuffer).toHaveBeenCalledWith(
         1,
         expectedBufferLength,
@@ -269,8 +270,8 @@ describe('useSoundSynthesis', () => {
         await result.current.synthExplosion(2, 0.5);
       });
 
-      // size=2, duration = 0.5 * 2 = 1 second
-      const expectedBufferLength = Math.floor(mockAudioContext.sampleRate * 1.0);
+      // size=2, duration = 0.35 * 2 = 0.7 seconds
+      const expectedBufferLength = mockAudioContext.sampleRate * 0.7;
       expect(mockAudioContext.createBuffer).toHaveBeenCalledWith(
         1,
         expectedBufferLength,
@@ -287,8 +288,8 @@ describe('useSoundSynthesis', () => {
 
       const filter = mockAudioContext.createBiquadFilter.mock.results[0].value;
       expect(filter.type).toBe('lowpass');
-      // brightness=0.5, so frequency = 200 + 0.5 * 3000 = 1700
-      expect(filter.frequency.setValueAtTime).toHaveBeenCalledWith(1700, 0);
+      // brightness=0.5, so frequency = 150 + 0.5 * 2000 = 1150
+      expect(filter.frequency.setValueAtTime).toHaveBeenCalledWith(1150, 0);
     });
 
     it('creates sub-bass oscillator for impact', async () => {
@@ -300,8 +301,8 @@ describe('useSoundSynthesis', () => {
 
       const osc = mockAudioContext.createOscillator.mock.results[0].value;
       expect(osc.type).toBe('sine');
-      // size=1, frequency = 40 * 1 = 40
-      expect(osc.frequency.setValueAtTime).toHaveBeenCalledWith(40, 0);
+      // size=1, frequency = 50 * 1 = 50
+      expect(osc.frequency.setValueAtTime).toHaveBeenCalledWith(50, 0);
     });
 
     it('applies master gain envelope', async () => {
@@ -346,22 +347,22 @@ describe('useSoundSynthesis', () => {
       expect(firstOsc.type).toBe('triangle');
     });
 
-    it('plays collect notes in correct sequence (C5, E5, G5, C6)', async () => {
+    it('plays collect notes in correct sequence (C5, E5, G5, B5)', async () => {
       const { result } = renderHook(() => useSoundSynthesis());
 
       await act(async () => {
         await result.current.synthPowerUp('collect');
       });
 
-      // Check frequencies - C5=523, E5=659, G5=784, C6=1047
+      // Check frequencies - C5=523, E5=659, G5=784, B5=987
       const oscs = mockAudioContext.createOscillator.mock.results;
       expect(oscs[0].value.frequency.setValueAtTime).toHaveBeenCalledWith(523, expect.any(Number));
       expect(oscs[1].value.frequency.setValueAtTime).toHaveBeenCalledWith(659, expect.any(Number));
       expect(oscs[2].value.frequency.setValueAtTime).toHaveBeenCalledWith(784, expect.any(Number));
-      expect(oscs[3].value.frequency.setValueAtTime).toHaveBeenCalledWith(1047, expect.any(Number));
+      expect(oscs[3].value.frequency.setValueAtTime).toHaveBeenCalledWith(987, expect.any(Number));
     });
 
-    it('plays activate type with square wave', async () => {
+    it('plays activate type with triangle wave', async () => {
       const { result } = renderHook(() => useSoundSynthesis());
 
       await act(async () => {
@@ -369,10 +370,10 @@ describe('useSoundSynthesis', () => {
       });
 
       const firstOsc = mockAudioContext.createOscillator.mock.results[0].value;
-      expect(firstOsc.type).toBe('square');
+      expect(firstOsc.type).toBe('triangle');
     });
 
-    it('plays expire type with sawtooth wave in reverse order', async () => {
+    it('plays expire type with sine wave in reverse order', async () => {
       const { result } = renderHook(() => useSoundSynthesis());
 
       await act(async () => {
@@ -380,7 +381,7 @@ describe('useSoundSynthesis', () => {
       });
 
       const firstOsc = mockAudioContext.createOscillator.mock.results[0].value;
-      expect(firstOsc.type).toBe('sawtooth');
+      expect(firstOsc.type).toBe('sine');
       // Expire is reversed: A5, E5, C#5, A4
       expect(firstOsc.frequency.setValueAtTime).toHaveBeenCalledWith(880, expect.any(Number));
     });
@@ -410,9 +411,9 @@ describe('useSoundSynthesis', () => {
       expect(mockAudioContext.createGain).toHaveBeenCalledTimes(4);
 
       const gain = mockAudioContext.createGain.mock.results[0].value;
-      // Should start at 0, ramp to 0.2, then decay
+      // Should start at 0, ramp to 0.1, then decay
       expect(gain.gain.setValueAtTime).toHaveBeenCalledWith(0, expect.any(Number));
-      expect(gain.gain.linearRampToValueAtTime).toHaveBeenCalledWith(0.2, expect.any(Number));
+      expect(gain.gain.linearRampToValueAtTime).toHaveBeenCalledWith(0.1, expect.any(Number));
     });
 
     it('schedules notes with correct timing', async () => {
@@ -423,13 +424,12 @@ describe('useSoundSynthesis', () => {
       });
 
       const oscs = mockAudioContext.createOscillator.mock.results;
-      // Duration = 0.3, 4 notes, so each note is 0.075 seconds
-      // Notes start at 0, 0.075, 0.15, 0.225 (with floating point tolerance)
+      // Duration = 0.25, 4 notes, so each note is 0.0625 seconds
+      // Notes start at 0, 0.0625, 0.125, 0.1875
       expect(oscs[0].value.start).toHaveBeenCalledWith(0);
-      expect(oscs[1].value.start).toHaveBeenCalledWith(0.075);
-      expect(oscs[2].value.start).toHaveBeenCalledWith(0.15);
-      // Use closeTo for floating-point precision
-      expect(oscs[3].value.start).toHaveBeenCalledWith(expect.closeTo(0.225, 5));
+      expect(oscs[1].value.start).toHaveBeenCalledWith(0.0625);
+      expect(oscs[2].value.start).toHaveBeenCalledWith(0.125);
+      expect(oscs[3].value.start).toHaveBeenCalledWith(expect.closeTo(0.1875, 5));
     });
   });
 
@@ -446,7 +446,7 @@ describe('useSoundSynthesis', () => {
         expect(osc.type).toBe('sine');
       });
 
-      it('sweeps frequency from 60Hz to 40Hz', async () => {
+      it('sweeps frequency from 70Hz to 30Hz', async () => {
         const { result } = renderHook(() => useSoundSynthesis());
 
         await act(async () => {
@@ -454,8 +454,8 @@ describe('useSoundSynthesis', () => {
         });
 
         const osc = mockAudioContext.createOscillator.mock.results[0].value;
-        expect(osc.frequency.setValueAtTime).toHaveBeenCalledWith(60, 0);
-        expect(osc.frequency.exponentialRampToValueAtTime).toHaveBeenCalledWith(40, 0.1);
+        expect(osc.frequency.setValueAtTime).toHaveBeenCalledWith(70, 0);
+        expect(osc.frequency.exponentialRampToValueAtTime).toHaveBeenCalledWith(30, 0.08);
       });
 
       it('applies pitch modifier', async () => {
@@ -466,10 +466,10 @@ describe('useSoundSynthesis', () => {
         });
 
         const osc = mockAudioContext.createOscillator.mock.results[0].value;
-        expect(osc.frequency.setValueAtTime).toHaveBeenCalledWith(90, 0); // 60 * 1.5
+        expect(osc.frequency.setValueAtTime).toHaveBeenCalledWith(105, 0); // 70 * 1.5
       });
 
-      it('uses default decay of 0.5 seconds', async () => {
+      it('uses default decay of 0.35 seconds', async () => {
         const { result } = renderHook(() => useSoundSynthesis());
 
         await act(async () => {
@@ -477,7 +477,7 @@ describe('useSoundSynthesis', () => {
         });
 
         const gain = mockAudioContext.createGain.mock.results[0].value;
-        expect(gain.gain.exponentialRampToValueAtTime).toHaveBeenCalledWith(0.001, 0.5);
+        expect(gain.gain.exponentialRampToValueAtTime).toHaveBeenCalledWith(0.001, 0.35);
       });
 
       it('accepts custom decay parameter', async () => {
@@ -515,7 +515,7 @@ describe('useSoundSynthesis', () => {
         expect(osc.type).toBe('triangle');
       });
 
-      it('creates highpass filter for noise at 1000Hz', async () => {
+      it('creates highpass filter for noise at 900Hz', async () => {
         const { result } = renderHook(() => useSoundSynthesis());
 
         await act(async () => {
@@ -524,7 +524,7 @@ describe('useSoundSynthesis', () => {
 
         const filter = mockAudioContext.createBiquadFilter.mock.results[0].value;
         expect(filter.type).toBe('highpass');
-        expect(filter.frequency.setValueAtTime).toHaveBeenCalledWith(1000, 0);
+        expect(filter.frequency.setValueAtTime).toHaveBeenCalledWith(900, 0);
       });
 
       it('applies tone modifier to filter frequency', async () => {
@@ -535,10 +535,10 @@ describe('useSoundSynthesis', () => {
         });
 
         const filter = mockAudioContext.createBiquadFilter.mock.results[0].value;
-        expect(filter.frequency.setValueAtTime).toHaveBeenCalledWith(1500, 0); // 1000 * 1.5
+        expect(filter.frequency.setValueAtTime).toHaveBeenCalledWith(1350, 0); // 900 * 1.5
       });
 
-      it('uses default decay of 0.2 seconds for noise', async () => {
+      it('uses default decay of 0.15 seconds for noise', async () => {
         const { result } = renderHook(() => useSoundSynthesis());
 
         await act(async () => {
@@ -547,7 +547,7 @@ describe('useSoundSynthesis', () => {
 
         // noiseGain is the 2nd gain node
         const noiseGain = mockAudioContext.createGain.mock.results[1].value;
-        expect(noiseGain.gain.exponentialRampToValueAtTime).toHaveBeenCalledWith(0.001, 0.2);
+        expect(noiseGain.gain.exponentialRampToValueAtTime).toHaveBeenCalledWith(0.001, 0.15);
       });
     });
 
@@ -564,14 +564,14 @@ describe('useSoundSynthesis', () => {
         expect(mockAudioContext.createOscillator).not.toHaveBeenCalled();
       });
 
-      it('creates short noise buffer (0.05 seconds)', async () => {
+      it('creates short noise buffer (0.04 seconds)', async () => {
         const { result } = renderHook(() => useSoundSynthesis());
 
         await act(async () => {
           await result.current.synthDrum({ type: 'hihat' });
         });
 
-        const expectedLength = mockAudioContext.sampleRate * 0.05;
+        const expectedLength = mockAudioContext.sampleRate * 0.04;
         expect(mockAudioContext.createBuffer).toHaveBeenCalledWith(
           1,
           expectedLength,
@@ -579,7 +579,7 @@ describe('useSoundSynthesis', () => {
         );
       });
 
-      it('uses highpass filter at 8000Hz', async () => {
+      it('uses highpass filter at 7500Hz', async () => {
         const { result } = renderHook(() => useSoundSynthesis());
 
         await act(async () => {
@@ -588,7 +588,7 @@ describe('useSoundSynthesis', () => {
 
         const filter = mockAudioContext.createBiquadFilter.mock.results[0].value;
         expect(filter.type).toBe('highpass');
-        expect(filter.frequency.setValueAtTime).toHaveBeenCalledWith(8000, 0);
+        expect(filter.frequency.setValueAtTime).toHaveBeenCalledWith(7500, 0);
       });
 
       it('applies pitch modifier to filter frequency', async () => {
@@ -599,10 +599,10 @@ describe('useSoundSynthesis', () => {
         });
 
         const filter = mockAudioContext.createBiquadFilter.mock.results[0].value;
-        expect(filter.frequency.setValueAtTime).toHaveBeenCalledWith(4000, 0); // 8000 * 0.5
+        expect(filter.frequency.setValueAtTime).toHaveBeenCalledWith(3750, 0); // 7500 * 0.5
       });
 
-      it('uses very short decay (0.05 seconds default)', async () => {
+      it('uses very short decay (0.04 seconds default)', async () => {
         const { result } = renderHook(() => useSoundSynthesis());
 
         await act(async () => {
@@ -610,7 +610,7 @@ describe('useSoundSynthesis', () => {
         });
 
         const gain = mockAudioContext.createGain.mock.results[0].value;
-        expect(gain.gain.exponentialRampToValueAtTime).toHaveBeenCalledWith(0.001, 0.05);
+        expect(gain.gain.exponentialRampToValueAtTime).toHaveBeenCalledWith(0.001, 0.04);
       });
 
       it('accepts custom decay for open hi-hat', async () => {
@@ -638,7 +638,7 @@ describe('useSoundSynthesis', () => {
       expect(osc.frequency.setValueAtTime).toHaveBeenCalledWith(440, 0);
     });
 
-    it('uses sawtooth waveform by default', async () => {
+    it('uses triangle waveform by default', async () => {
       const { result } = renderHook(() => useSoundSynthesis());
 
       await act(async () => {
@@ -646,7 +646,7 @@ describe('useSoundSynthesis', () => {
       });
 
       const osc = mockAudioContext.createOscillator.mock.results[0].value;
-      expect(osc.type).toBe('sawtooth');
+      expect(osc.type).toBe('triangle');
     });
 
     it('accepts custom waveform', async () => {
@@ -692,8 +692,8 @@ describe('useSoundSynthesis', () => {
 
       const filter = mockAudioContext.createBiquadFilter.mock.results[0].value;
       expect(filter.type).toBe('lowpass');
-      // Filter frequency = 440 * 3 = 1320
-      expect(filter.frequency.setValueAtTime).toHaveBeenCalledWith(1320, 0);
+      // Filter frequency = 440 * 2.5 = 1100
+      expect(filter.frequency.setValueAtTime).toHaveBeenCalledWith(1100, 0);
     });
 
     it('applies attack envelope', async () => {
@@ -705,7 +705,7 @@ describe('useSoundSynthesis', () => {
 
       const gain = mockAudioContext.createGain.mock.results[0].value;
       expect(gain.gain.setValueAtTime).toHaveBeenCalledWith(0, 0);
-      expect(gain.gain.linearRampToValueAtTime).toHaveBeenCalledWith(0.2, 0.01);
+      expect(gain.gain.linearRampToValueAtTime).toHaveBeenCalledWith(0.12, 0.01);
     });
 
     it('starts oscillator immediately', async () => {
