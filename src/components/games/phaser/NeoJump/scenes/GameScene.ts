@@ -39,9 +39,7 @@ export class NeoJumpGameScene extends BaseScene {
   private player!: Phaser.Physics.Arcade.Sprite;
   private facingRight = true;
 
-  // Game state
-  private altitude = 0;
-  private maxAltitude = 0;
+  // Game state — altitude is derived from highestY, no separate tracking needed
   private score = 0;
   private enemiesKilled = 0;
   private bounceCombo = 0;
@@ -62,9 +60,10 @@ export class NeoJumpGameScene extends BaseScene {
   private fuelBar!: Phaser.GameObjects.Graphics;
   private fuelBarBg!: Phaser.GameObjects.Graphics;
 
-  // Camera tracking
+  // Camera tracking — highestY is the single source of truth for altitude
   private highestY = 0;
   private cameraBaseY = 0;
+  private lastMaxAltitude = 0;
 
   // Matrix rain layers (parallax)
   private rainLayers: Phaser.GameObjects.Group[] = [];
@@ -85,9 +84,8 @@ export class NeoJumpGameScene extends BaseScene {
     this.createMatrixBackground();
 
     // Initialize state
-    this.altitude = 0;
-    this.maxAltitude = 0;
     this.score = 0;
+    this.lastMaxAltitude = 0;
     this.enemiesKilled = 0;
     this.bounceCombo = 0;
     this.hasJumped = false;
@@ -164,6 +162,14 @@ export class NeoJumpGameScene extends BaseScene {
 
     // Update UI
     this.updateUI();
+
+    // Expose state for E2E tests
+    this.exposeTestState({
+      altitude: this.lastMaxAltitude,
+      score: this.score,
+      isGameOver: this.isGameOver,
+      jetpackFuel: this.jetpackFuel,
+    });
   }
 
   /**
@@ -372,24 +378,24 @@ export class NeoJumpGameScene extends BaseScene {
       }
     }
 
-    // Calculate altitude
-    this.altitude = Math.max(0, Math.floor((GAME_CONFIG.HEIGHT - 100 - this.player.y) / 10));
-    if (this.altitude > this.maxAltitude) {
-      this.maxAltitude = this.altitude;
-      this.score = Math.floor(this.maxAltitude / GAME_CONFIG.SCORING.ALTITUDE_DIVISOR) * 10;
-
-      // Achievement checks
-      if (this.maxAltitude >= 100) {
-        this.unlockAchievement(ACHIEVEMENTS.ALTITUDE_1000);
-      }
-      if (this.maxAltitude >= 500) {
-        this.unlockAchievement(ACHIEVEMENTS.ALTITUDE_5000);
-      }
-    }
-
-    // Track highest position for camera
+    // Track highest position — single source of truth for altitude
     if (this.player.y < this.highestY) {
       this.highestY = this.player.y;
+    }
+
+    // Derive altitude from highestY
+    const maxAltitude = Math.max(0, Math.floor((GAME_CONFIG.HEIGHT - 100 - this.highestY) / 10));
+    if (maxAltitude > this.lastMaxAltitude) {
+      this.lastMaxAltitude = maxAltitude;
+      this.score = Math.floor(maxAltitude / GAME_CONFIG.SCORING.ALTITUDE_DIVISOR) * 10;
+
+      // Achievement checks
+      if (maxAltitude >= 100) {
+        this.unlockAchievement(ACHIEVEMENTS.ALTITUDE_1000);
+      }
+      if (maxAltitude >= 500) {
+        this.unlockAchievement(ACHIEVEMENTS.ALTITUDE_5000);
+      }
     }
   }
 
@@ -624,7 +630,7 @@ export class NeoJumpGameScene extends BaseScene {
       duration: 500,
       onComplete: () => {
         this.reportScore(this.score, this.score);
-        this.gameOver(this.score, `Altitude: ${this.maxAltitude}m`);
+        this.gameOver(this.score, `Altitude: ${this.lastMaxAltitude}m`);
       },
     });
   }
@@ -883,7 +889,7 @@ export class NeoJumpGameScene extends BaseScene {
    * Update UI
    */
   private updateUI(): void {
-    this.altitudeText.setText(`ALTITUDE: ${this.maxAltitude}m`);
+    this.altitudeText.setText(`ALTITUDE: ${this.lastMaxAltitude}m`);
 
     // Update fuel bar
     this.fuelBar.clear();

@@ -170,6 +170,14 @@ export class RhythmHackerGameScene extends BaseScene {
 
     // Update UI
     this.updateUI();
+
+    // Expose state for E2E tests
+    this.exposeTestState({
+      score: this.score,
+      combo: this.combo,
+      health: this.health,
+      missCount: this.missCount,
+    });
   }
 
   /**

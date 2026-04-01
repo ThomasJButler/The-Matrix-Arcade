@@ -41,6 +41,7 @@ export class FroggerGameScene extends BaseScene {
   private playerCol = GAME_CONFIG.PLAYER.START_COL;
   private playerRow = GAME_CONFIG.PLAYER.START_ROW;
   private isMoving = false;
+  private bufferedInput: { col: number; row: number } | null = null;
 
   // Game state
   private score = 0;
@@ -169,6 +170,13 @@ export class FroggerGameScene extends BaseScene {
 
     // Check if player reached top
     this.checkProgress();
+
+    // Expose state for E2E tests
+    this.exposeTestState({
+      score: this.score,
+      maxDistance: this.maxDistance,
+      combo: this.combo,
+    });
   }
 
   /**
@@ -257,8 +265,6 @@ export class FroggerGameScene extends BaseScene {
    * Process movement input
    */
   private handleInput(): void {
-    if (this.isMoving) return;
-
     let newCol = this.playerCol;
     let newRow = this.playerRow;
 
@@ -273,7 +279,12 @@ export class FroggerGameScene extends BaseScene {
     }
 
     if (newCol !== this.playerCol || newRow !== this.playerRow) {
-      this.movePlayer(newCol, newRow);
+      if (this.isMoving) {
+        // Buffer the input so it executes when the current hop completes
+        this.bufferedInput = { col: newCol, row: newRow };
+      } else {
+        this.movePlayer(newCol, newRow);
+      }
     }
   }
 
@@ -316,6 +327,13 @@ export class FroggerGameScene extends BaseScene {
 
         // Check near-miss immediately after landing
         this.checkNearMiss();
+
+        // Execute buffered input from key presses during hop animation
+        if (this.bufferedInput) {
+          const { col: buffCol, row: buffRow } = this.bufferedInput;
+          this.bufferedInput = null;
+          this.movePlayer(buffCol, buffRow);
+        }
       },
     });
   }

@@ -17,8 +17,8 @@ export class CloudJumperMenuScene extends MenuScene {
 
   create(): void {
     super.create();
-    // Override background to sky blue (must be after super.create which sets Matrix black)
-    this.cameras.main.setBackgroundColor(0x87ceeb);
+    // Override background to dark Matrix-green (must be after super.create which sets Matrix black)
+    this.cameras.main.setBackgroundColor(0x0a1a0a);
 
     const width = Number(this.game.config.width);
     const height = Number(this.game.config.height);

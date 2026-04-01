@@ -139,6 +139,13 @@ export function PhaserGame({
     // Store autoStart in registry for scenes to check
     game.registry.set('autoStart', autoStart);
 
+    // Expose game instance for E2E testing
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (typeof window !== 'undefined' && (window as any).__TEST__) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__PHASER_GAME__ = game;
+    }
+
     // Focus the container after Phaser is ready (fixes race condition where
     // focus was called before Phaser's input system was initialised)
     game.events.once('ready', () => {
@@ -150,6 +157,11 @@ export function PhaserGame({
       if (gameRef.current) {
         gameRef.current.destroy(true);
         gameRef.current = null;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (typeof window !== 'undefined' && (window as any).__PHASER_GAME__) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          delete (window as any).__PHASER_GAME__;
+        }
       }
     };
   }, [config, gameId]); // Only recreate game if config or gameId changes

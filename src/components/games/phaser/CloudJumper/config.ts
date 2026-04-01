@@ -92,7 +92,7 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   width: GAME_CONFIG.WIDTH,
   height: GAME_CONFIG.HEIGHT,
-  backgroundColor: 0x87ceeb, // Sky blue
+  backgroundColor: 0x0a1a0a, // Dark Matrix-green sky
   physics: {
     default: 'arcade',
     arcade: {

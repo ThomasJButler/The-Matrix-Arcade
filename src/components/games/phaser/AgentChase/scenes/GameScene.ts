@@ -176,6 +176,14 @@ export class AgentChaseGameScene extends BaseScene {
 
     // Update UI
     this.updateUI();
+
+    // Expose state for E2E tests
+    this.exposeTestState({
+      score: this.score,
+      lives: this.lives,
+      level: this.level,
+      dotsCollected: this.dotsCollected,
+    });
   }
 
   /**

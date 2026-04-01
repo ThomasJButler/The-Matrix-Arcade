@@ -1069,6 +1069,8 @@ export default function MatrixInvaders({ achievementManager, isMuted = false, au
     <div
       className="relative w-full h-full flex items-center justify-center bg-black outline-none"
       tabIndex={0}
+      data-game-phase={state.gamePhase}
+      data-score={state.score}
       style={{
         boxShadow: hasFocus ? '0 0 0 2px #00ff00' : 'none',
         transition: 'box-shadow 0.2s ease'

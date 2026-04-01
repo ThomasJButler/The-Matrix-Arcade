@@ -39,6 +39,10 @@ function createTestScene() {
   scene.reportScore = vi.fn();
   scene.gameOver = vi.fn();
 
+  // Initialize state that create() would set
+  scene.highestY = 500; // GAME_CONFIG.HEIGHT - 100
+  scene.lastMaxAltitude = 0;
+
   // UI elements the scene writes to during updates
   scene.altitudeText = { setText: vi.fn() };
   scene.fuelBar = { clear: vi.fn(), fillStyle: vi.fn(), fillRect: vi.fn() };
@@ -136,7 +140,7 @@ describe('NeoJumpGameScene', () => {
   /* -------------------------------------------------------------- */
   describe('Initial State', () => {
     it('altitude starts at 0', () => {
-      expect(scene.altitude).toBe(0);
+      expect(scene.lastMaxAltitude).toBe(0);
     });
 
     it('score starts at 0', () => {
@@ -320,16 +324,16 @@ describe('NeoJumpGameScene', () => {
   /* -------------------------------------------------------------- */
   describe('Scoring', () => {
     it('calculates altitude from player y-position', () => {
-      // altitude = Math.max(0, Math.floor((HEIGHT - 100 - player.y) / 10))
-      // player.y = 400 => (600 - 100 - 400) / 10 = 10
+      // altitude derived from highestY: Math.max(0, Math.floor((HEIGHT - 100 - highestY) / 10))
+      // player.y = 400 => highestY = 400 => (600 - 100 - 400) / 10 = 10
       scene.player.y = 400;
       scene.updatePlayer(16);
 
-      expect(scene.altitude).toBe(10);
+      expect(scene.lastMaxAltitude).toBe(10);
     });
 
-    it('score is based on maxAltitude rounded by ALTITUDE_DIVISOR', () => {
-      // maxAltitude = 10, score = Math.floor(10 / 10) * 10 = 10
+    it('score is based on lastMaxAltitude rounded by ALTITUDE_DIVISOR', () => {
+      // lastMaxAltitude = 10, score = Math.floor(10 / 10) * 10 = 10
       scene.player.y = 400;
       scene.updatePlayer(16);
 
@@ -343,7 +347,7 @@ describe('NeoJumpGameScene', () => {
       expect(scene.score).toBe(100);
     });
 
-    it('score only increases — maxAltitude never decreases', () => {
+    it('score only increases — lastMaxAltitude never decreases', () => {
       scene.player.y = 200; // altitude = (600-100-200)/10 = 30
       scene.updatePlayer(16);
       const firstScore = scene.score;
@@ -353,7 +357,7 @@ describe('NeoJumpGameScene', () => {
       scene.updatePlayer(16);
 
       expect(scene.score).toBe(firstScore);
-      expect(scene.maxAltitude).toBe(30);
+      expect(scene.lastMaxAltitude).toBe(30);
     });
 
     it('combined altitude and kill score is additive', () => {
@@ -623,7 +627,7 @@ describe('NeoJumpGameScene', () => {
 
     it('calls reportScore and gameOver inside the tween onComplete', () => {
       scene.score = 250;
-      scene.maxAltitude = 42;
+      scene.lastMaxAltitude = 42;
       scene.playerDeath();
 
       // Extract the onComplete callback from the tween config
