@@ -8,23 +8,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronRight, Monitor } from 'lucide-react';
 import type { GameCategory } from '../types/game';
-import {
-  matrixFroggerPreview,
-  neoJumpPreview,
-  agentChasePreview,
-  rhythmHackerPreview,
-  cloudJumperPreview,
-} from '../lib/gamePreviewImages';
-
-interface GameInfo {
-  title: string;
-  description: string;
-  inspiration: string;
-  inspirationNote: string;
-  preview: string;
-  controls: string;
-  category: GameCategory;
-}
+import { GAME_REGISTRY, type GameEntry } from '../data/gameRegistry';
 
 /**
  * Generate a unique procedural SVG placeholder based on game title
@@ -126,107 +110,8 @@ function generateGamePlaceholder(gameTitle: string): string {
   return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">${svgContent}</svg>`;
 }
 
-const GAME_DATA: GameInfo[] = [
-  {
-    title: 'CTRL-S | The World',
-    description: 'A hilarious text adventure about saving the digital world across 5 chapters.',
-    inspiration: 'Zork / Text Adventures',
-    inspirationNote: 'Classic interactive fiction meets Matrix lore — type commands, make choices, save reality.',
-    preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
-    controls: 'Type commands, use arrow keys to navigate, ENTER to confirm choices',
-    category: 'Story',
-  },
-  {
-    title: 'Snake Classic',
-    description: 'Navigate through the matrix collecting data fragments to grow longer.',
-    inspiration: 'Nokia Snake (1998)',
-    inspirationNote: 'The game that defined a generation of mobile gaming — now dripping in Matrix green.',
-    preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1737071599/matrixsnake2_jw29w1.png',
-    controls: 'Arrow keys to move, SPACE to toggle direction mode',
-    category: 'Arcade',
-  },
-  {
-    title: 'Vortex Pong',
-    description: 'Battle a ruthless AI opponent in a hypnotic arena with power-ups.',
-    inspiration: 'Pong (1972)',
-    inspirationNote: 'The original video game, reimagined with vortex physics and Matrix aesthetics.',
-    preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1737071596/vortexpong2_hkjn4k.png',
-    controls: 'Mouse to move paddle, SPACE to hit ball',
-    category: 'Classic',
-  },
-  {
-    title: 'Matrix Cloud',
-    description: 'Navigate through gaps in the digital storm — one wrong move and you crash.',
-    inspiration: 'Flappy Bird (2013)',
-    inspirationNote: 'The brutally addictive one-tap classic, wrapped in cascading code rain.',
-    preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1737071594/matrixcloud_rw8hsa.png',
-    controls: 'SPACE or Click to flap, avoid obstacles',
-    category: 'Arcade',
-  },
-  {
-    title: 'Matrix Invaders',
-    description: 'Defend against waves of code invaders with bullet time and combo chains.',
-    inspiration: 'Space Invaders (1978)',
-    inspirationNote: 'Taito\'s genre-defining shooter — now with virus splitting, boss waves, and power-ups.',
-    preview: '',
-    controls: 'Arrow keys to move, SPACE to fire, B to activate bullet time',
-    category: 'Shooter',
-  },
-  {
-    title: 'Metris',
-    description: 'Stack falling code blocks, clear lines, and activate bullet time mode.',
-    inspiration: 'Tetris (1985)',
-    inspirationNote: 'Alexey Pajitnov\'s masterpiece gets a Matrix makeover with slow-motion mechanics.',
-    preview: '',
-    controls: 'Arrow keys to move, Z/X to rotate, SPACE to drop, B for bullet time',
-    category: 'Puzzle',
-  },
-  {
-    title: 'Matrix Frogger',
-    description: 'Cross dangerous lanes packed with Agents and Sentinels to reach safety.',
-    inspiration: 'Frogger (1981)',
-    inspirationNote: 'Konami\'s road-crossing classic, but the traffic is Agent Smith and his clones.',
-    preview: matrixFroggerPreview,
-    controls: 'Arrow keys to move between lanes',
-    category: 'Arcade',
-  },
-  {
-    title: 'Neo Jump',
-    description: 'Jump through simulation layers, collect power-ups, and reach The Source.',
-    inspiration: 'Doodle Jump (2009)',
-    inspirationNote: 'The endless vertical platformer — with jetpacks, springs, and Matrix platforms.',
-    preview: neoJumpPreview,
-    controls: 'Arrow keys to move left/right, SPACE to jump',
-    category: 'Classic',
-  },
-  {
-    title: 'Agent Chase',
-    description: 'Navigate a maze collecting data pills while evading the relentless Agent Smith.',
-    inspiration: 'Pac-Man (1980)',
-    inspirationNote: 'Namco\'s dot-munching legend — you\'re Neo, the ghosts are Agents, the dots are data.',
-    preview: agentChasePreview,
-    controls: 'Arrow keys to move, SPACE to use power-up',
-    category: 'Classic',
-  },
-  {
-    title: 'Rhythm Hacker',
-    description: 'Hack through streams of falling code by hitting keys in time with the beat.',
-    inspiration: 'Guitar Hero / Dance Dance Revolution',
-    inspirationNote: 'The rhythm game genre, reimagined as a Matrix hacking sequence with 4 lanes.',
-    preview: rhythmHackerPreview,
-    controls: 'Press keys (1, 2, 3, 4) or Arrow keys to hit notes',
-    category: 'Rhythm',
-  },
-  {
-    title: 'Cloud Jumper',
-    description: 'Leap between clouds in the digital sky, collecting fragments and avoiding the void.',
-    inspiration: 'Doodle Jump / Platformers',
-    inspirationNote: 'Side-scrolling cloud hopping through the Matrix skyline.',
-    preview: cloudJumperPreview,
-    controls: 'Arrow keys to move, SPACE to jump',
-    category: 'Arcade',
-  },
-];
+// Use shared game registry as single source of truth
+const GAME_DATA: GameEntry[] = GAME_REGISTRY;
 
 interface LandingPageProps {
   onSelectGame: (index: number) => void;
