@@ -11,7 +11,7 @@ Run `./loop.sh plan` or `./loop-full.sh` to analyse the codebase and generate ta
 - **Status**: POLISHED — All P0 and P1 bugs resolved as of 1 April 2026
 - **Last Verified**: 1 April 2026 — All P1 bugs fixed (#26 gameOver bypass, #27 asset path, #28 death guard, #29 key conflict)
 - **Version**: v2.1.0-dev
-- **Test Coverage**: ~1,607 unit tests (48 files), 127 E2E tests across 15 spec files (11 games + landing + settings + modals + achievements)
+- **Test Coverage**: ~1,901 unit tests (53 files), 127 E2E tests across 15 spec files (11 games + landing + settings + modals + achievements)
 - **Games**: 11 playable (6 React/Canvas + 5 Phaser) + 1 planned (Code Breaker)
 - **Build**: PASSES (2.18MB bundle, chunk size warning)
 - **Remaining**: P2 quality items and P3 enhancements only
@@ -278,27 +278,31 @@ Previous P2 bugs resolved. New quality gap found in this analysis:
 
 **Files**: `e2e/screenshots/`
 
-### 30. Zero Unit Tests for All 5 Phaser Games
+### 30. Unit Tests for All 5 Phaser Games
 
-**Status**: OPEN (found 1 April)
+**Status**: RESOLVED (1 April 2026)
 
-**Issue**: None of the 5 Phaser games have unit tests. All 6 React/Canvas games have comprehensive unit test files, but the Phaser games rely entirely on E2E visual regression tests. The Phaser mock in `src/test/setup.ts` is comprehensive enough to support unit testing of scene logic (state transitions, scoring, collision callbacks, achievement conditions).
+**Issue**: None of the 5 Phaser games had unit tests. All 6 React/Canvas games have comprehensive unit test files, but the Phaser games relied entirely on E2E visual regression tests.
 
-**Coverage gap:**
+**Fix** — Created 294 unit tests across 5 test files, covering game logic (scoring, achievements, combos, power-ups, state transitions, game over):
+
 | Phaser Game | Unit Tests | E2E Tests |
 |---|---|---|
-| Agent Chase | NONE | `agent-chase.spec.ts` |
-| Cloud Jumper | NONE | `cloud-jumper.spec.ts` |
-| Matrix Frogger | NONE | `matrix-frogger.spec.ts` |
-| Neo Jump | NONE | `neo-jump.spec.ts` |
-| Rhythm Hacker | NONE | `rhythm-hacker.spec.ts` |
+| Agent Chase | 76 tests (`GameScene.test.ts`) | `agent-chase.spec.ts` |
+| Cloud Jumper | 57 tests (`GameScene.test.ts`) | `cloud-jumper.spec.ts` |
+| Matrix Frogger | 52 tests (`GameScene.test.ts`) | `matrix-frogger.spec.ts` |
+| Neo Jump | 59 tests (`GameScene.test.ts`) | `neo-jump.spec.ts` |
+| Rhythm Hacker | 50 tests (`GameScene.test.ts`) | `rhythm-hacker.spec.ts` |
 
-**Fix** (create unit tests for each Phaser game — focus on logic, not rendering):
-- [ ] `src/components/games/phaser/AgentChase/scenes/GameScene.test.ts` — maze layout, ghost AI mode switching, dot collection scoring, power pellet state, lives decrement, level completion
-- [ ] `src/components/games/phaser/CloudJumper/scenes/GameScene.test.ts` — cloud types, scoring, bounceStreak, obstacle collision, distance tracking
-- [ ] `src/components/games/phaser/MatrixFrogger/scenes/GameScene.test.ts` — grid movement, enemy collision, pill collection, power-up activation/expiry, combo system
-- [ ] `src/components/games/phaser/NeoJump/scenes/GameScene.test.ts` — platform types, altitude calculation, jetpack fuel, projectile firing, achievement thresholds
-- [ ] `src/components/games/phaser/RhythmHacker/scenes/GameScene.test.ts` — timing windows, scoring by grade, combo building/reset, health drain, countdown phase, track selection
+Tests use a prototype-binding technique to work around the Phaser mock's `Scene` constructor returning a plain object (which breaks the ES class prototype chain). BaseScene methods are mocked to verify sound, event, and achievement calls.
+
+- [x] `src/components/games/phaser/AgentChase/scenes/GameScene.test.ts` — dot/pellet collection, ghost eating (exponential scoring), lives, level completion, fruit spawning, achievements
+- [x] `src/components/games/phaser/CloudJumper/scenes/GameScene.test.ts` — cloud types, bounce streak, collectibles, scroll speed, game over, achievements
+- [x] `src/components/games/phaser/MatrixFrogger/scenes/GameScene.test.ts` — pill collection, power-ups, combo multipliers, enemy collision, near-miss, achievements
+- [x] `src/components/games/phaser/NeoJump/scenes/GameScene.test.ts` — platform types, altitude scoring, jetpack fuel, enemy kills, shooting, achievements
+- [x] `src/components/games/phaser/RhythmHacker/scenes/GameScene.test.ts` — timing windows, scoring by grade, combo/multiplier, health system, track init, achievements
+
+> **RESOLVED: 294 unit tests across all 5 Phaser games — all passing**
 
 **Files**: New test files for each Phaser game
 
