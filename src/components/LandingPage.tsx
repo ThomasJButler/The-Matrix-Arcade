@@ -8,6 +8,13 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronRight, Monitor } from 'lucide-react';
 import type { GameCategory } from '../types/game';
+import {
+  matrixFroggerPreview,
+  neoJumpPreview,
+  agentChasePreview,
+  rhythmHackerPreview,
+  cloudJumperPreview,
+} from '../lib/gamePreviewImages';
 
 interface GameInfo {
   title: string;
@@ -179,7 +186,7 @@ const GAME_DATA: GameInfo[] = [
     description: 'Cross dangerous lanes packed with Agents and Sentinels to reach safety.',
     inspiration: 'Frogger (1981)',
     inspirationNote: 'Konami\'s road-crossing classic, but the traffic is Agent Smith and his clones.',
-    preview: '',
+    preview: matrixFroggerPreview,
     controls: 'Arrow keys to move between lanes',
     category: 'Arcade',
   },
@@ -188,7 +195,7 @@ const GAME_DATA: GameInfo[] = [
     description: 'Jump through simulation layers, collect power-ups, and reach The Source.',
     inspiration: 'Doodle Jump (2009)',
     inspirationNote: 'The endless vertical platformer — with jetpacks, springs, and Matrix platforms.',
-    preview: '',
+    preview: neoJumpPreview,
     controls: 'Arrow keys to move left/right, SPACE to jump',
     category: 'Classic',
   },
@@ -197,7 +204,7 @@ const GAME_DATA: GameInfo[] = [
     description: 'Navigate a maze collecting data pills while evading the relentless Agent Smith.',
     inspiration: 'Pac-Man (1980)',
     inspirationNote: 'Namco\'s dot-munching legend — you\'re Neo, the ghosts are Agents, the dots are data.',
-    preview: '',
+    preview: agentChasePreview,
     controls: 'Arrow keys to move, SPACE to use power-up',
     category: 'Classic',
   },
@@ -206,7 +213,7 @@ const GAME_DATA: GameInfo[] = [
     description: 'Hack through streams of falling code by hitting keys in time with the beat.',
     inspiration: 'Guitar Hero / Dance Dance Revolution',
     inspirationNote: 'The rhythm game genre, reimagined as a Matrix hacking sequence with 4 lanes.',
-    preview: '',
+    preview: rhythmHackerPreview,
     controls: 'Press keys (1, 2, 3, 4) or Arrow keys to hit notes',
     category: 'Rhythm',
   },
@@ -215,7 +222,7 @@ const GAME_DATA: GameInfo[] = [
     description: 'Leap between clouds in the digital sky, collecting fragments and avoiding the void.',
     inspiration: 'Doodle Jump / Platformers',
     inspirationNote: 'Side-scrolling cloud hopping through the Matrix skyline.',
-    preview: '',
+    preview: cloudJumperPreview,
     controls: 'Arrow keys to move, SPACE to jump',
     category: 'Arcade',
   },

@@ -253,13 +253,16 @@ Previous P2 bugs resolved. New quality gap found in this analysis:
 
 ### 9. Phaser Game Preview Images All Show CTRL-S Placeholder
 
-**Issue (Verified 31 March)**: App.tsx — all 5 Phaser games use the same hardcoded Cloudinary URL pointing to the CTRL-S World preview image (`ctrlsthegame_m1tg5l.png`). Each game should have its own preview.
+**Issue (Verified 31 March)**: App.tsx — all 5 Phaser games used the same hardcoded Cloudinary URL pointing to the CTRL-S World preview image.
 
 **Fix**:
-- [ ] Take or generate preview screenshots for each Phaser game
-- [ ] Update the `preview` field for Matrix Frogger, Neo Jump, Agent Chase, Rhythm Hacker, Cloud Jumper in App.tsx
+- [x] Created `src/lib/gamePreviewImages.ts` — generates unique SVG data URI previews per Phaser game with distinct accent colours and icons
+- [x] Updated `preview` field for all 5 Phaser games in both App.tsx and LandingPage.tsx
+- [x] Shared module eliminates duplication between the two game data arrays
 
-**Files**: `src/App.tsx`
+> **RESOLVED: Each Phaser game now has a unique themed preview image (SVG data URI) with per-game colour accents**
+
+**Files**: `src/lib/gamePreviewImages.ts` (new), `src/App.tsx`, `src/components/LandingPage.tsx`
 
 ### 13. Legacy E2E Screenshots Cleanup
 
@@ -627,7 +630,7 @@ cp test-results/<folder>/test-failed-1.png e2e/screenshots/<expected-name>.png
 - **React/Canvas Games**: 6 (CTRL-S World, Snake Classic, Vortex Pong, Matrix Cloud, Matrix Invaders, Metris)
 - **Achievement System**: 79 total achievements (72 game-specific + 7 global) — all Phaser game achievements registered in GAME_ACHIEVEMENTS (#25 resolved)
 - **Save System**: All 5 Phaser game IDs registered in GlobalSaveData.games interface (#25 resolved)
-- **Open Bugs**: 0 P0, 0 P1, 1 P2 (#9 preview images) — plus P2.5 features and P3 enhancements
+- **Open Bugs**: 0 P0, 0 P1, 0 P2 — all resolved. P2.5 features and P3 enhancements remain
 - **Hooks Library**: 17 shared hooks
 - **Visual Consistency**: Matrix theme throughout (green-on-black, glow effects, CRT aesthetic)
 - **E2E Coverage**: 127+ tests across 15 spec files (11 games + landing + settings + modals + achievements)
