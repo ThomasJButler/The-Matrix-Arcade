@@ -1,4 +1,5 @@
-# The Matrix Arcade
+# MAGIC DOC: [README.md - The Matrix Arcade]
+
 
 Collection of Matrix-themed arcade games built with React and TypeScript.
 
