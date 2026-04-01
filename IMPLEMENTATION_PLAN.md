@@ -263,18 +263,13 @@ Previous P2 bugs resolved. New quality gap found in this analysis:
 
 ### 13. Legacy E2E Screenshots Cleanup
 
-**Issue**: `e2e/screenshots/` contains 54+ orphaned screenshots from replaced/removed games:
-- `terminal-quest-*.png` (10 files) — game removed entirely
-- `agent-escape-*.png` (10 files) — replaced by Agent Chase (Phaser)
-- `ascension-*.png` (9 files) — replaced by Neo Jump (Phaser)
-- `crossy-road-*.png` (8 files) — replaced by Matrix Frogger (Phaser)
-- `jimmy-matrix-*.png` (10 files) — replaced by Rhythm Hacker (Phaser)
-- `cloud-*.png` (7 files) — duplicate of `cloud-jumper-*.png` set (inconsistent naming)
-- `saveload-area.png` — stale
+**Issue**: `e2e/screenshots/` contained 54 orphaned screenshots from replaced/removed games.
 
 **Fix**:
-- [ ] Remove all orphaned screenshots listed above
-- [ ] Verify remaining 130+ screenshots are current and correctly named
+- [x] Removed 54 orphaned screenshots (terminal-quest, agent-escape, ascension, crossy-road, jimmy-matrix, stale cloud-* duplicates, saveload-area)
+- [x] Verified 132 remaining screenshots are current and correctly named
+
+> **RESOLVED: 54 orphaned screenshots removed — 132 current screenshots remain (gitignored, local only)**
 
 **Files**: `e2e/screenshots/`
 
@@ -632,11 +627,11 @@ cp test-results/<folder>/test-failed-1.png e2e/screenshots/<expected-name>.png
 - **React/Canvas Games**: 6 (CTRL-S World, Snake Classic, Vortex Pong, Matrix Cloud, Matrix Invaders, Metris)
 - **Achievement System**: 79 total achievements (72 game-specific + 7 global) — all Phaser game achievements registered in GAME_ACHIEVEMENTS (#25 resolved)
 - **Save System**: All 5 Phaser game IDs registered in GlobalSaveData.games interface (#25 resolved)
-- **Open Bugs**: 0 P0, **4 P1** (#26–29), **1 P2** (#30) — plus 2 cosmetic P2 items (#9, #13) and P2.5 features
+- **Open Bugs**: 0 P0, 0 P1, 1 P2 (#9 preview images) — plus P2.5 features and P3 enhancements
 - **Hooks Library**: 17 shared hooks
 - **Visual Consistency**: Matrix theme throughout (green-on-black, glow effects, CRT aesthetic)
-- **E2E Coverage**: 91+ tests across 15 spec files (11 games + landing + settings + modals + achievements) — all 11 games covered, last run passed
-- **Unit Test Gap**: All 5 Phaser games have zero unit tests (#30)
+- **E2E Coverage**: 127+ tests across 15 spec files (11 games + landing + settings + modals + achievements)
+- **Unit Tests**: ~1,901 tests across 53 files — all 11 games covered including 294 Phaser game tests
 - **Code Quality**: 0 TODO/FIXME/HACK, 0 `as any`, 0 unguarded console.log, game lists consistent between App.tsx and LandingPage.tsx
 
 ### Game Status Table
@@ -644,16 +639,16 @@ cp test-results/<folder>/test-failed-1.png e2e/screenshots/<expected-name>.png
 | Game | Category | Type | Status | Notes |
 |------|----------|------|--------|-------|
 | CTRL-S The World | Story | React | ✅ Working | 5-chapter narrative adventure |
-| Snake Classic | Arcade | React | ✅ Working (🔵 enhancement planned) | Adding 3 modes, visual overhaul |
-| Vortex Pong | Classic | React | ✅ Working | Focus restored on phase transitions + Space key support |
-| Matrix Cloud | Arcade | React | ✅ Working | Flappy Bird variant (setState-per-frame pattern) |
-| Matrix Invaders | Shooter | React | ✅ Working | Test fragility fixed, keyboard useEffect stabilised |
+| Snake Classic | Arcade | React | ✅ Working | Enhancement planned (3 modes) |
+| Vortex Pong | Classic | React | ✅ Working | Focus restored, Space key support |
+| Matrix Cloud | Arcade | React | ✅ Working | Flappy Bird variant |
+| Matrix Invaders | Shooter | React | ✅ Working | Keyboard useEffect stabilised |
 | Metris | Puzzle | React | ✅ Working | Tetris with bullet time |
-| Matrix Frogger | Arcade | Phaser | ⚠️ P1 Bug | No death guard (#28); bypasses BaseScene.gameOver() (#26) |
-| Neo Jump | Classic | Phaser | ⚠️ P1 Bug | SPACE fires jetpack+shoot (#29); bypasses BaseScene.gameOver() (#26) |
+| Matrix Frogger | Arcade | Phaser | ✅ Working | Death guard added (#28), uses BaseScene.gameOver() (#26) |
+| Neo Jump | Classic | Phaser | ✅ Working | Separate jetpack/shoot keys (#29), uses BaseScene.gameOver() (#26) |
 | Agent Chase | Classic | Phaser | ✅ Working | gameOver() shadow removed (#18); save system registered (#25) |
 | Rhythm Hacker | Rhythm | Phaser | ✅ Working | gameOver() shadow removed (#18); Space key added; array reset fixed |
-| Cloud Jumper | Arcade | Phaser | ⚠️ P1 Bug | Asset path broken (#27); bypasses BaseScene.gameOver() (#26) |
+| Cloud Jumper | Arcade | Phaser | ✅ Working | Correct asset path (#27), uses BaseScene.gameOver() (#26) |
 | Code Breaker | Shooter | React | 🔵 Planned | Brick breaker — new flagship game |
 
 ---
@@ -667,14 +662,14 @@ Before making changes to Phaser games, always read:
 
 ---
 
-*Updated on 1 April 2026 — Deep gap analysis found 4 new P1 bugs (#26-29) and 1 P2 gap (#30). Previous P0/P1/P2 items remain resolved.*
+*Updated on 1 April 2026 — All P0/P1 bugs resolved. 27 stale test assertions fixed. 54 orphaned screenshots cleaned.*
 *Build: PASSES (2.18MB bundle)*
 *TypeScript: CLEAN (0 errors)*
-*Unit Tests: ~1,607 tests across 48 files — 5 Phaser games have zero unit tests (#30)*
-*E2E Tests: 91+ tests across 15 spec files (11 games + 4 UI) — all 11 games covered, last run passed*
+*Unit Tests: ~1,901 tests across 53 files — all 11 games covered (294 Phaser game tests)*
+*E2E Tests: 127+ tests across 15 spec files (11 games + 4 UI) — all passing*
 *Assets: 2,971+ files in /assets/; most unused — 59 Matrix-themed WAV sound effects available for integration*
 *Code Quality: 0 TODO/FIXME/HACK, 0 `as any`, 0 unguarded console.log, 2 eslint-disable (MatrixCloud), 6 @ts-expect-error (test files only)*
-*Screenshots: 187 files in e2e/screenshots/ — 54+ orphaned from removed/renamed games (#13)*
+*Screenshots: 132 files in e2e/screenshots/ — all current (orphaned files cleaned, #13 resolved)*
 
 ---
 
