@@ -1,4 +1,4 @@
-# Matrix Arcade - Implementation Plan
+# MAGIC DOC: [Implementation Plan.md - The Matrix Arcade]
 
 This file is auto-generated and updated by Ralph during planning and building loops.
 

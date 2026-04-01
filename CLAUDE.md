@@ -1,4 +1,4 @@
-# The Matrix Arcade
+# MAGIC DOC: [Claude.md - The Matrix Arcade]
 
 React 18 + Phaser 3 browser arcade with Matrix-themed games, procedural audio, achievements, and PWA support.
 
