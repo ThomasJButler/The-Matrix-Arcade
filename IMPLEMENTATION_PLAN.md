@@ -198,15 +198,15 @@ These games work but have documented bugs from `rebuildingoldgames/bugs.md`.
 ### 2.1 Rhythm Hacker Improvements
 
 **File**: `src/components/games/phaser/RhythmHacker/scenes/GameScene.ts`
-- [ ] Change keys from D/F/J/K to Q/W/O/P (better hand positioning)
-- [ ] Reduce countdown from 10s to 5s (current 10s + 0.5s GO + 1s delay = 11.5s before gameplay -- far too long)
+- [x] Change keys from D/F/J/K to Q/W/O/P (better hand positioning)
+- [x] Reduce countdown from 10s to 5s (current 10s + 0.5s GO + 1s delay = 11.5s before gameplay -- far too long)
 - [ ] Sync gameplay to backing music track (currently procedurally generated notes). 5+ WAV tracks available in asset dump.
 - [ ] Improve visuals and animations (currently 100% procedural -- 28 textures auto-generated)
 - [ ] Fix play area layout — game content is crammed into centre-bottom of the canvas, leaving huge empty black regions. Notes/lanes should fill more of the vertical space.
-- [ ] Replace magenta/pink "EASY MODE" label and red "HEALTH" label with Matrix-green palette colours
-- [ ] Replace multi-colour lane buttons (red/green/indigo/olive) with Matrix-themed colour variants (green/cyan/dark green/white) to maintain aesthetic consistency
+- [x] Replace magenta/pink "EASY MODE" label and red "HEALTH" label with Matrix-green palette colours
+- [x] Replace multi-colour lane buttons (red/green/indigo/olive) with Matrix-themed colour variants (green/cyan/dark green/white) to maintain aesthetic consistency
 - [ ] Redesign note sprites — current angular arrow shape is unrecognisable as a musical note
-- [ ] Initial countdown text is hardcoded to `'10'` at line 189 but actual duration comes from config — fix initialisation to use `GAME_CONFIG.COUNTDOWN.DURATION`
+- [x] Initial countdown text is hardcoded to `'10'` at line 189 but actual duration comes from config — fix initialisation to use `GAME_CONFIG.COUNTDOWN.DURATION` (already fixed, this was done in R4)
 
 ### 2.2 Matrix Frogger Enhancements
 
@@ -242,16 +242,16 @@ From the screenshot review (12 Apr 2026, 156 screenshots across all 11 games + U
 
 **Files**: `src/components/games/phaser/CloudJumper/scenes/GameScene.ts`, `config.ts`
 - [ ] Fix canvas width gap — ~15-20% of right-side is empty black border. Game content doesn't fill the full canvas. Check PHASER_CONFIG width vs actual game world width.
-- [ ] Fix death sprite — player character becomes an unrecognisable dark oval blob on death. Either add a proper death animation or keep the player sprite visible during the death sequence.
+- [x] Fix death sprite — player character becomes an unrecognisable dark oval blob on death. Either add a proper death animation or keep the player sprite visible during the death sequence.
 - [ ] Change sky-blue background to Matrix green-on-black theme (0x0a1a0a or darker)
-- [ ] Generate a unique menu thumbnail image (currently shares the same image as Neo Jump and Agent Chase)
+- [x] Generate a unique menu thumbnail image (currently shares the same image as Neo Jump and Agent Chase)
 
 ### 2.5 Matrix Frogger Visual Issues (NEW)
 
 **Files**: `src/components/games/phaser/MatrixFrogger/scenes/GameScene.ts`
-- [ ] Investigate score stuck at 0 — screenshot shows active gameplay but SCORE and DISTANCE are both 0. Score may not increment until a specific event, or the HUD update may be broken.
+- [x] Investigate score stuck at 0 — fixed, score now awards on every forward step
 - [ ] Fix unrendered floating UI box — semi-transparent dark rectangle near top-centre of play area with no visible content (likely an empty text/tooltip overlay)
-- [ ] Improve player sprite visibility — player is very small and hard to distinguish from enemies at a glance. Consider adding a glow effect or slightly larger sprite.
+- [x] Improve player sprite visibility — scale increased from 0.8 to 1.0
 
 ### 2.6 Codebase Cleanup
 
