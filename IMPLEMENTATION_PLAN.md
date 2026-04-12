@@ -7,17 +7,31 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ## Current Status
 
 - **Status**: REBUILDING -- Phaser migration of all React/Canvas games + new features
-- **Last Updated**: 12 April 2026 (R8 -- Matrix Frogger major gameplay overhaul)
+- **Last Updated**: 12 April 2026 (R9 -- Vortex Pong Phaser rebuild)
 - **Version**: v2.0.0 (next target)
-- **Games**: 11 playable (6 React/Canvas to rebuild into Phaser, 5 already Phaser) + 1 planned (Code Breaker)
+- **Games**: 12 playable (5 React/Canvas to rebuild into Phaser, 6 already Phaser) + 1 planned (Code Breaker)
 - **Build**: PASSES (code-split, main bundle 370KB, Phaser vendor chunk 1,479KB) -- zero warnings
-- **Unit Tests**: 1,917 passing across 53 files, 0 failures, 0 OOM crashes
+- **Unit Tests**: 1,980 passing across 54 files, 0 failures
 - **E2E Tests**: 78 gameplay + 110 visual = 188 tests across 27 spec files -- last run PASSED (0 failures, confirmed via `test-results/.last-run.json`)
 - **Asset Pipeline**: 0% complete -- `public/assets/` does not exist, all games use procedural textures
 
 ### What Was Completed (v1.x to v2.0 prep)
 
 All P0/P1/P2 bugs resolved from v1.x. Test seams added to all games. E2E gameplay specs written (78 tests). Code quality fixes across 20+ hooks and components. Code-splitting reduced main bundle from 2.18MB to 370KB. Shared game registry created. Error boundaries added. Collision utility extracted. 5 Phaser games scaffolded (MatrixFrogger, NeoJump, AgentChase, RhythmHacker, CloudJumper) with full scene architecture. 12 rebuild research docs created in `rebuildingoldgames/plans/`. Asset inventory catalogued in `desiredassets/`. Full details in git history.
+
+### What Was Completed (R9 -- 12 April 2026)
+
+Vortex Pong Phaser rebuild — first React-to-Phaser migration, proving the pipeline:
+
+**Full Phaser 3 port**: Created `src/components/games/phaser/VortexPong/` with 6 files: config.ts (all game constants converted from per-frame to per-second units), BootScene.ts (procedural paddle/ball/power-up textures), MenuScene.ts (extends base MenuScene with how-to-play instructions), GameOverScene.ts (extends base), GameScene.ts (complete gameplay implementation), and index.tsx (React wrapper).
+
+**All mechanics faithfully ported**: Two-paddle pong with angle-based ball bouncing (hit position on paddle determines bounce angle), adaptive AI opponent (difficulty ramps from 2.5 to 5 as player hits ball, with damping, error margin, and 20% deliberate mistake chance), speed ramp over time (capped at 2.14x), 4-type power-up system (bigger paddle, slower ball, score multiplier, multi-ball), combo/rally tracking, screen shake via camera effects, and expanding ring impact effects.
+
+**7 achievements**: first_point, combo_king (5 rallies), rally_master (20 rallies), power_master (5 power-ups), beat_ai (win), perfect_game (10-0 shutout), multi_ball (3+ balls at game end). Multi-ball achievement correctly checks ball count before removal.
+
+**App.tsx updated**: Lazy import changed from `./components/games/VortexPong` to `./components/games/phaser/VortexPong`. Game registry controls text updated. Old React VortexPong.tsx preserved (tests still pass).
+
+63 new unit tests covering: initial state, speed multiplier ramp/cap/slow, ball movement/bouncing, paddle collision detection/angle bounce/combo/rally/difficulty, player/AI scoring with multiplier/combo bonus, win conditions with all achievements, power-up activation/deactivation/collection/spawning, impact effect lifecycle, AI target tracking, and power-up collision detection. All 1,980 tests passing, build clean, zero lint errors.
 
 ### What Was Completed (R8 -- 12 April 2026)
 
@@ -388,7 +402,7 @@ Each document goes in `rebuildingoldgames/plans/` and covers: current state anal
 
 - [x] **CTRL-S | The World** (`rebuildingoldgames/plans/ctrl-s-rebuild.md`) -- Created. Citizen Sleeper UI patterns for narrative engine.
 - [x] **Snake Classic** (`rebuildingoldgames/plans/snake-rebuild.md`) -- Created. 3-mode architecture (Classic/Matrix/Hacker).
-- [x] **Vortex Pong** (`rebuildingoldgames/plans/vortex-pong-rebuild.md`) -- Created. Direct port, no design changes.
+- [x] **Vortex Pong** (`rebuildingoldgames/plans/vortex-pong-rebuild.md`) -- Created. Direct port, no design changes. ✅ Rebuilt in R9.
 - [x] **Matrix Cloud** (`rebuildingoldgames/plans/matrix-cloud-rebuild.md`) -- Created. Full redesign with proper Flappy Bird physics.
 - [x] **Matrix Invaders** (`rebuildingoldgames/plans/matrix-invaders-rebuild.md`) -- Created. Phaser Groups replace manual pooling.
 - [x] **Metris** (`rebuildingoldgames/plans/metris-rebuild.md`) -- Created. SRS rotation, T-spin, bullet time fix.
@@ -428,7 +442,7 @@ Each rebuild follows standard Phaser structure: `index.tsx`, `config.ts`, `scene
 
 ### Priority Order
 
-1. **Vortex Pong** -- Simplest rebuild (keep design, just port). Proves the pipeline.
+1. **Vortex Pong** ✅ -- Rebuilt as Phaser game (R9). Pipeline proven.
 2. **Snake Classic** -- Medium complexity, 3-mode system adds depth.
 3. **Matrix Cloud** -- Full redesign with proper Flappy Bird physics.
 4. **Matrix Invaders** -- Complex (waves, pooling, bullet time) but huge Phaser gains.

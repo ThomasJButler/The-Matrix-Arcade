@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 // Lazy-loaded game components for code-splitting
 const SimpleSnake = React.lazy(() => import('./components/games/SimpleSnake'));
-const VortexPong = React.lazy(() => import('./components/games/VortexPong'));
+const VortexPong = React.lazy(() => import('./components/games/phaser/VortexPong'));
 const CtrlSWorld = React.lazy(() => import('./components/games/CtrlSWorld'));
 const MatrixCloud = React.lazy(() => import('./components/games/MatrixCloud'));
 const MatrixInvaders = React.lazy(() => import('./components/games/MatrixInvaders'));
