@@ -19,3 +19,4 @@ export const neoJumpPreview = makePhaserPreview('NEO JUMP', '&#x2B06;', '#00ccff
 export const agentChasePreview = makePhaserPreview('AGENT CHASE', '&#x25CF;', '#ffcc00');
 export const rhythmHackerPreview = makePhaserPreview('RHYTHM HACKER', '&#x266A;', '#00ffcc');
 export const cloudJumperPreview = makePhaserPreview('CLOUD JUMPER', '&#x2601;', '#00ff41');
+export const codeBreakerPreview = makePhaserPreview('CODE BREAKER', '&#x1F512;', '#ff4400');

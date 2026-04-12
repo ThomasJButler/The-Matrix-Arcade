@@ -29,6 +29,7 @@ import {
   Circle,
   Music,
   Cloud,
+  Zap,
 } from 'lucide-react';
 // Lazy-loaded game components for code-splitting
 const SimpleSnake = React.lazy(() => import('./components/games/phaser/SnakeClassic'));
@@ -42,6 +43,7 @@ const NeoJump = React.lazy(() => import('./components/games/phaser/NeoJump'));
 const AgentChase = React.lazy(() => import('./components/games/phaser/AgentChase'));
 const RhythmHacker = React.lazy(() => import('./components/games/phaser/RhythmHacker'));
 const CloudJumper = React.lazy(() => import('./components/games/phaser/CloudJumper'));
+const CodeBreaker = React.lazy(() => import('./components/games/phaser/CodeBreaker'));
 import AudioSettings from './components/ui/AudioSettings';
 import SaveLoadManager from './components/ui/SaveLoadManager';
 import { AchievementQueue } from './components/ui/AchievementNotification';
@@ -275,6 +277,7 @@ function App() {
     'agent-chase':     { component: AgentChase,     icon: <Circle className="w-8 h-8" /> },
     'rhythm-hacker':   { component: RhythmHacker,   icon: <Music className="w-8 h-8" /> },
     'cloud-jumper':    { component: CloudJumper,    icon: <Cloud className="w-8 h-8" /> },
+    'code-breaker':   { component: CodeBreaker,   icon: <Zap className="w-8 h-8" /> },
   };
 
   const games = GAME_REGISTRY.map(entry => ({

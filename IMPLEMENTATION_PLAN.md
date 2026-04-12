@@ -7,17 +7,39 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ## Current Status
 
 - **Status**: REBUILDING -- Phaser migration of all React/Canvas games + new features
-- **Last Updated**: 12 April 2026 (R13 -- Metris Phaser rebuild)
+- **Last Updated**: 12 April 2026 (R14 -- Code Breaker new Phaser game)
 - **Version**: v2.0.0 (next target)
-- **Games**: 12 playable (1 React/Canvas to rebuild into Phaser, 10 already Phaser) + 1 planned (Code Breaker)
-- **Build**: PASSES (code-split, main bundle 370KB, Phaser vendor chunk 1,479KB) -- zero warnings
-- **Unit Tests**: 2,394 passing across 58 files, 0 failures
+- **Games**: 13 playable (1 React/Canvas to rebuild into Phaser, 11 already Phaser, 1 DOM)
+- **Build**: PASSES (code-split, main bundle ~372KB, Phaser vendor chunk 1,479KB) -- zero warnings
+- **Unit Tests**: 2,521 passing across 59 files, 0 failures
 - **E2E Tests**: 78 gameplay + 110 visual = 188 tests across 27 spec files -- last run PASSED (0 failures, confirmed via `test-results/.last-run.json`)
 - **Asset Pipeline**: 0% complete -- `public/assets/` does not exist, all games use procedural textures
 
 ### What Was Completed (v1.x to v2.0 prep)
 
 All P0/P1/P2 bugs resolved from v1.x. Test seams added to all games. E2E gameplay specs written (78 tests). Code quality fixes across 20+ hooks and components. Code-splitting reduced main bundle from 2.18MB to 370KB. Shared game registry created. Error boundaries added. Collision utility extracted. 5 Phaser games scaffolded (MatrixFrogger, NeoJump, AgentChase, RhythmHacker, CloudJumper) with full scene architecture. 12 rebuild research docs created in `rebuildingoldgames/plans/`. Asset inventory catalogued in `desiredassets/`. Full details in git history.
+
+### What Was Completed (R14 -- 12 April 2026)
+
+Code Breaker — brand new Phaser 3 game (Phase 5), Breakout/Arkanoid inspired:
+
+**Full Phaser 3 game**: Created `src/components/games/phaser/CodeBreaker/` with 6 files: config.ts (all game constants, 10 level layouts as number[][][] arrays, brick/power-up/boss definitions, achievement IDs, Phaser config), BootScene.ts (13+ procedural textures — paddle with wide/laser variants, ball, 4 brick types with crack overlay, Agent Smith, boss, 6 power-up types, laser beam, firewall, portal), MenuScene.ts (extends base with controls instructions), GameOverScene.ts (extends base), GameScene.ts (~700 lines, complete Breakout gameplay), and index.tsx (React wrapper).
+
+**Complete Breakout mechanics**: Paddle movement via arrow keys, WASD, and mouse. Ball launches from paddle with SPACE. Angle-based bouncing off paddle (hit position determines angle). 4 brick types: code (1HP/10pts/green), agent (2HP/30pts/amber), sentinel (3HP/50pts/red), unbreakable (999HP/0pts/grey). Bricks flash on hit and show crack overlay when damaged. Combo scoring with multiplier (resets on ball loss). Delta-time movement throughout.
+
+**10-level system**: Each level defined as a grid layout in config.ts. Portal spawns when all breakable bricks are cleared — ball must touch portal to advance. Boss battles on levels 3, 6, and 9.
+
+**6-type power-up system**: Multi-Ball (spawns 2 extra balls), Wide Paddle (1.5x width for 10s), Laser (fires upward beams for 8s), Bullet Time (0.4x time scale for 5s via B key or power-up), Firewall (one-use safety net at bottom), EMP (radius-based brick destruction). Power-ups drop with 20% chance on brick destroy. Each type has distinct procedural texture with colour-coded ring and core.
+
+**Boss battle system**: Bosses spawn on levels 3/6/9 with HP scaling by level (5 + level × 2). Boss moves horizontally, fires aimed bullets at paddle every 2 seconds. Boss health bar displayed above sprite. Defeating boss awards 500 × (1 + level × 0.5) points.
+
+**Agent Smith enemies**: Sentinels have 30% chance to spawn an Agent Smith on destruction. Agents drift downward and cause life loss on paddle contact.
+
+**10 achievements**: breaker_first_break (First Crack — destroy first brick), breaker_level_5 (Firewall Piercer — reach level 5), breaker_level_10 (System Liberator — complete level 10), breaker_smith_slayer (Agent Eliminator — destroy 10 agents), breaker_combo_15 (Chain Breaker — 15 combo), breaker_multi_ball (Multi-Thread — have 3+ balls active), breaker_bullet_time (Time Hacker — use bullet time 5 times), breaker_no_miss (Perfect Firewall — complete a level without losing a ball), breaker_boss_defeat (Boss Cracker — defeat a boss), breaker_high_score (Elite Breaker — score 10,000+). All use tryUnlockAchievement() with Set<string> deduplication.
+
+**Registration**: Added to gameRegistry.ts (id: 'code-breaker', category: 'Arcade', inspiration: 'Breakout / Arkanoid (1986)'). Added lazy import and GAME_BINDINGS entry in App.tsx. Added codeBreaker save data, migration entry, and 10 achievement definitions in useSaveSystem.ts. Preview image via SVG data URI in gamePreviewImages.ts. Updated "Play all 12 games" count.
+
+**127 new unit tests** across 22 test suites: initial state (9), paddle movement — keys/WASD/boundaries/bullet time (7), ball-paddle collision — bounce angle/sound/stuck (6), ball-wall collision — sides/top/off-screen (6), ball-brick collision — hit/multi-hit/destroy/unbreakable/miss (7), scoring — points/combo/multiplier/combo reset (5), power-up activation — multiBall/widePaddle/laser/firewall/EMP/sound (10), boss — spawn/health/movement/reversal/fire/hit/defeat/achievement/sound/clear bullets (10), Agent Smith — spawn/movement/off-screen/collision (4), laser — fire/movement/off-screen/destroy/sound (5), firewall — catches ball (1), level completion — portal spawn/boss guard/portal collision/no miss/ball lost/final level/level 5 (7), achievements — first break/combo 15/high score/bullet time/multi ball/no double/smith slayer (7), game over — trigger/flag/no double/level reason (4), particles — spawn/decay/removal (3), power-up spawning — position/fall/off-screen (3), boss bullet collision — life loss/removal (2), level loading — bricks/clear/boss/no boss (4), ball spawn — attached/free (2), HUD updates — score/level/lives/combo show/combo hide (5), test state exposure (2), cleanup — balls/bricks/boss/keyboard/agents/particles/firewall/portal (8). All 2,521 tests passing across 59 files, build clean.
 
 ### What Was Completed (R13 -- 12 April 2026)
 
@@ -569,13 +591,13 @@ Apply fixes from `rebuildingoldgames/bugs.md` (beyond what's already covered in 
 
 ---
 
-## Phase 5: New Game -- Code Breaker
+## Phase 5: New Game -- Code Breaker ✅ COMPLETE
 
-- [ ] Design doc and architecture (from Phase 1.4 research -- done)
-- [ ] Implement as Phaser game
-- [ ] 6 power-ups, boss bricks, Agent Smith enemies, portal win
-- [ ] 10 achievements
-- [ ] Full test coverage
+- [x] Design doc and architecture (from Phase 1.4 research -- done)
+- [x] Implement as Phaser game (R14 -- 6 files, ~700-line GameScene)
+- [x] 6 power-ups, boss bricks, Agent Smith enemies, portal win
+- [x] 10 achievements (all with Set-based deduplication)
+- [x] Full test coverage (127 unit tests, all passing)
 
 ---
 

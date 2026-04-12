@@ -130,6 +130,7 @@ export interface GlobalSaveData {
     agentChase: GameSaveData;
     rhythmHacker: GameSaveData;
     cloudJumper: GameSaveData;
+    codeBreaker: GameSaveData;
     // Legacy game IDs (kept for migration compatibility)
     crossyRoad: GameSaveData;
     matrixAscension: GameSaveData;
@@ -196,6 +197,7 @@ const createDefaultGlobalSave = (): GlobalSaveData => ({
     agentChase: createDefaultGameSave(),
     rhythmHacker: createDefaultGameSave(),
     cloudJumper: createDefaultGameSave(),
+    codeBreaker: createDefaultGameSave(),
     crossyRoad: createDefaultGameSave(),
     matrixAscension: createDefaultGameSave(),
     agentEscape: createDefaultGameSave(),
@@ -343,6 +345,18 @@ export const GAME_ACHIEVEMENTS: Record<string, Achievement[]> = {
     { id: 'cloud_bounce_10', name: 'Bounce Streak', description: '10 bounces without missing', game: 'Cloud Jumper' },
     { id: 'cloud_close_call', name: 'Close Call', description: 'Near miss with an obstacle', game: 'Cloud Jumper' }
   ],
+  codeBreaker: [
+    { id: 'breaker_first_break', name: 'First Crack', description: 'Break your first brick', game: 'Code Breaker' },
+    { id: 'breaker_level_5', name: 'Firewall Piercer', description: 'Reach level 5', game: 'Code Breaker' },
+    { id: 'breaker_level_10', name: 'System Liberator', description: 'Complete all 10 levels', game: 'Code Breaker' },
+    { id: 'breaker_smith_slayer', name: 'Agent Eliminator', description: 'Destroy 10 Agent Smiths', game: 'Code Breaker' },
+    { id: 'breaker_combo_15', name: 'Chain Breaker', description: 'Achieve a 15-brick combo', game: 'Code Breaker' },
+    { id: 'breaker_multi_ball', name: 'Multi-Thread', description: 'Have 3 or more balls active', game: 'Code Breaker' },
+    { id: 'breaker_bullet_time', name: 'Time Hacker', description: 'Use bullet time 5 times', game: 'Code Breaker' },
+    { id: 'breaker_no_miss', name: 'Perfect Firewall', description: 'Complete a level without losing a ball', game: 'Code Breaker' },
+    { id: 'breaker_boss_defeat', name: 'Boss Cracker', description: 'Defeat a boss brick', game: 'Code Breaker' },
+    { id: 'breaker_high_score', name: 'Elite Breaker', description: 'Score over 10,000 points', game: 'Code Breaker' },
+  ],
   // Legacy game achievements removed — crossyRoad, matrixAscension, agentEscape, jimmyMatrix
   // have been replaced by their Phaser equivalents above (matrixFrogger, neoJump, agentChase, rhythmHacker)
 };
@@ -350,7 +364,7 @@ export const GAME_ACHIEVEMENTS: Record<string, Achievement[]> = {
 // Global achievements (meta achievements)
 export const GLOBAL_ACHIEVEMENTS: Achievement[] = [
   { id: 'global_first_game', name: 'Welcome to the Matrix', description: 'Play your first game' },
-  { id: 'global_all_games', name: 'Matrix Master', description: 'Play all 11 games' },
+  { id: 'global_all_games', name: 'Matrix Master', description: 'Play all 12 games' },
   { id: 'global_10_achievements', name: 'Achievement Hunter', description: 'Unlock 10 achievements' },
   { id: 'global_25_achievements', name: 'Achievement Expert', description: 'Unlock 25 achievements' },
   { id: 'global_50_achievements', name: 'Achievement Legend', description: 'Unlock 50 achievements' },
@@ -386,6 +400,7 @@ const migrations: Record<string, MigrationFunction> = {
       'snakeClassic', 'vortexPong', 'matrixCloud',
       'ctrlSWorld', 'matrixInvaders', 'metris',
       'matrixFrogger', 'neoJump', 'agentChase', 'rhythmHacker', 'cloudJumper',
+      'codeBreaker',
       'crossyRoad', 'matrixAscension', 'agentEscape', 'jimmyMatrix'
     ];
 
