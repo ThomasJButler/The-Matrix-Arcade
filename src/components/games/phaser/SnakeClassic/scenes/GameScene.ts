@@ -601,10 +601,12 @@ export class SnakeGameScene extends BaseScene {
         this.setHeadRotation(sprite, this.direction);
       } else if (i === this.snake.length - 1 && this.snake.length > 2) {
         sprite.setTexture(this.spriteMode ? 'snake_sprite_tail' : 'snake_tail');
-        sprite.setAngle(0);
+        const prev = this.snake[i - 1];
+        this.setSegmentAngle(sprite, prev, pos);
       } else {
         sprite.setTexture(bodyKey);
-        sprite.setAngle(0);
+        const prev = this.snake[i - 1];
+        this.setSegmentAngle(sprite, prev, pos);
       }
     }
   }
@@ -625,6 +627,16 @@ export class SnakeGameScene extends BaseScene {
       case 'left': sprite.setAngle(180); break;
       case 'up': sprite.setAngle(270); break;
     }
+  }
+
+  private setSegmentAngle(sprite: Phaser.GameObjects.Image, from: Position, to: Position): void {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    if (dx > 0) sprite.setAngle(0);
+    else if (dx < 0) sprite.setAngle(180);
+    else if (dy > 0) sprite.setAngle(90);
+    else if (dy < 0) sprite.setAngle(270);
+    else sprite.setAngle(0);
   }
 
   // ─── Effects ───────────────────────────────────────────
@@ -656,6 +668,16 @@ export class SnakeGameScene extends BaseScene {
 
     this.playSound('hit');
     this.cameras.main.shake(200, 0.01);
+
+    if (this.snakeSprites.length > 0) {
+      const headSprite = this.snakeSprites[0];
+      const deadKey = this.spriteMode ? 'snake_sprite_dead' : 'snake_head';
+      headSprite.setTexture(deadKey);
+      if (this.spriteMode) {
+        headSprite.setDisplaySize(GAME_CONFIG.CELL_SIZE, GAME_CONFIG.CELL_SIZE);
+      }
+      headSprite.setTint(0xff0000);
+    }
 
     this.time.delayedCall(600, () => {
       const reason = `Length: ${this.snake.length} | Food: ${this.foodEaten}`;

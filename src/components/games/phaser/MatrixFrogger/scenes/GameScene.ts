@@ -90,6 +90,10 @@ export class FroggerGameScene extends BaseScene {
 
   // Lane visuals
   private laneGraphics!: Phaser.GameObjects.Graphics;
+  private safeZoneFlowers: Phaser.GameObjects.Image[] = [];
+
+  // Finish line fly decoration
+  private flySprite: Phaser.GameObjects.Image | null = null;
 
   // Matrix rain
   private rainGroup!: Phaser.GameObjects.Group;
@@ -111,12 +115,17 @@ export class FroggerGameScene extends BaseScene {
     super(SCENE_KEYS.GAME);
   }
 
+  private get frogSpriteMode(): boolean {
+    return this.game.registry.get('frogSpriteMode') === true;
+  }
+
   create(): void {
     this.createMatrixBackground();
 
-    // Draw lane visuals before rain so they sit beneath everything
     this.setupLanes();
     this.drawLaneBackgrounds();
+    this.addSafeZoneFlowers();
+    this.addFinishLineFly();
 
     this.rainGroup = this.addMatrixRain(25);
 
@@ -380,6 +389,55 @@ export class FroggerGameScene extends BaseScene {
     }
   }
 
+  private addSafeZoneFlowers(): void {
+    if (!this.textures.exists('flower_ground_1') || !this.textures.exists('flower_ground_2')) return;
+
+    this.safeZoneFlowers = [];
+    const cellSize = GAME_CONFIG.CELL_SIZE;
+    const offsetY = 16;
+    const tileSize = 16;
+    const scale = cellSize / tileSize;
+
+    for (let row = 0; row < this.lanes.length; row++) {
+      if (this.lanes[row].type !== 'safe') continue;
+      if (row === 0) continue;
+
+      const y = row * cellSize + offsetY;
+      for (let tx = 0; tx < GAME_CONFIG.WIDTH; tx += cellSize) {
+        const key = Math.random() < 0.5 ? 'flower_ground_1' : 'flower_ground_2';
+        const flower = this.add.image(tx + cellSize / 2, y + cellSize / 2, key);
+        flower.setScale(scale);
+        flower.setTint(MATRIX_COLORS.PRIMARY);
+        flower.setAlpha(0.25);
+        flower.setDepth(1);
+        this.safeZoneFlowers.push(flower);
+      }
+    }
+  }
+
+  private addFinishLineFly(): void {
+    if (!this.textures.exists('fly_sprite')) return;
+
+    const offsetY = 16;
+    const cellSize = GAME_CONFIG.CELL_SIZE;
+    const x = GAME_CONFIG.WIDTH / 2;
+    const y = 0 * cellSize + offsetY + cellSize / 2;
+
+    this.flySprite = this.add.image(x, y, 'fly_sprite');
+    this.flySprite.setDisplaySize(cellSize * 0.6, cellSize * 0.6);
+    this.flySprite.setDepth(5);
+    this.flySprite.setAlpha(0.8);
+
+    this.tweens.add({
+      targets: this.flySprite,
+      x: { from: x - 40, to: x + 40 },
+      yoyo: true,
+      repeat: -1,
+      duration: 2000,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Player
   // ---------------------------------------------------------------------------
@@ -388,13 +446,23 @@ export class FroggerGameScene extends BaseScene {
     const x = this.colToX(this.playerCol);
     const y = this.rowToY(this.playerRow);
 
-    this.player = this.physics.add.sprite(x, y, 'player', 0);
-    this.player.setScale(1.0);
+    if (this.frogSpriteMode) {
+      this.player = this.physics.add.sprite(x, y, 'frog_idle');
+      this.player.setDisplaySize(GAME_CONFIG.CELL_SIZE, GAME_CONFIG.CELL_SIZE);
+    } else {
+      this.player = this.physics.add.sprite(x, y, 'player', 0);
+      this.player.setScale(1.0);
+      this.player.play('player_idle');
+    }
     this.player.setDepth(10);
-    this.player.play('player_idle');
-
-    // Add glow effect
     this.player.setTint(MATRIX_COLORS.PRIMARY);
+  }
+
+  private setFrogDirection(dx: number, dy: number): void {
+    if (dy < 0) this.player.setAngle(0);
+    else if (dy > 0) this.player.setAngle(180);
+    else if (dx < 0) this.player.setAngle(270);
+    else if (dx > 0) this.player.setAngle(90);
   }
 
   // ---------------------------------------------------------------------------
@@ -531,6 +599,8 @@ export class FroggerGameScene extends BaseScene {
   private movePlayer(col: number, row: number): void {
     this.isMoving = true;
     const wasForward = row < this.playerRow;
+    const prevCol = this.playerCol;
+    const prevRow = this.playerRow;
 
     this.playerCol = col;
     this.playerRow = row;
@@ -538,11 +608,15 @@ export class FroggerGameScene extends BaseScene {
     const targetX = this.colToX(col);
     const targetY = this.rowToY(row);
 
-    // Play hop animation
-    this.player.play('player_hop');
+    if (this.frogSpriteMode) {
+      this.player.setTexture('frog_hop');
+      this.player.setDisplaySize(GAME_CONFIG.CELL_SIZE, GAME_CONFIG.CELL_SIZE);
+      this.setFrogDirection(col - prevCol, row - prevRow);
+    } else {
+      this.player.play('player_hop');
+    }
     this.playSound('jump');
 
-    // Tween to target position
     this.tweens.add({
       targets: this.player,
       x: targetX,
@@ -551,7 +625,12 @@ export class FroggerGameScene extends BaseScene {
       ease: 'Quad.easeOut',
       onComplete: () => {
         this.isMoving = false;
-        this.player.play('player_idle');
+        if (this.frogSpriteMode) {
+          this.player.setTexture('frog_idle');
+          this.player.setDisplaySize(GAME_CONFIG.CELL_SIZE, GAME_CONFIG.CELL_SIZE);
+        } else {
+          this.player.play('player_idle');
+        }
 
         // Score for forward movement — always reward forward steps
         if (wasForward) {
@@ -1259,5 +1338,12 @@ export class FroggerGameScene extends BaseScene {
     this.levelText.destroy();
     this.powerUpDisplay.destroy();
     this.laneGraphics.destroy();
+
+    this.safeZoneFlowers.forEach(f => f.destroy());
+    this.safeZoneFlowers = [];
+    if (this.flySprite) {
+      this.flySprite.destroy();
+      this.flySprite = null;
+    }
   }
 }
