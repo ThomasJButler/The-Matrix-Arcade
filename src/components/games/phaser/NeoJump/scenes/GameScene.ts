@@ -34,6 +34,14 @@ interface Enemy extends Phaser.Physics.Arcade.Sprite {
   isDying: boolean;
 }
 
+/** Collectible types */
+type CollectibleType = 'fuel' | 'score' | 'shield';
+
+/** Collectible sprite */
+interface Collectible extends Phaser.Physics.Arcade.Sprite {
+  collectibleType: CollectibleType;
+}
+
 export class NeoJumpGameScene extends BaseScene {
   // Player
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -51,6 +59,15 @@ export class NeoJumpGameScene extends BaseScene {
   private jetpackActive = false;
   private hasUsedJetpack = false;
 
+  // Shield
+  private shieldActive = false;
+  private shieldTimer = 0;
+  private shieldGlow: Phaser.GameObjects.Graphics | null = null;
+
+  // Collectibles
+  private collectiblesCollected = 0;
+  private collectibleSpriteMode = false;
+
   // Sprite modes
   private platformSpriteMode = false;
   private enemySpriteMode = false;
@@ -59,12 +76,18 @@ export class NeoJumpGameScene extends BaseScene {
   private platforms!: Phaser.Physics.Arcade.Group;
   private enemies!: Phaser.Physics.Arcade.Group;
   private projectiles!: Phaser.Physics.Arcade.Group;
+  private collectibles!: Phaser.Physics.Arcade.Group;
+
+  // Jetpack flame visual
+  private jetpackFlame: Phaser.GameObjects.Image | null = null;
 
   // UI
   private altitudeText!: Phaser.GameObjects.Text;
+  private scoreText!: Phaser.GameObjects.Text;
   private fuelBar!: Phaser.GameObjects.Graphics;
   private fuelBarBg!: Phaser.GameObjects.Graphics;
   private fuelLabel!: Phaser.GameObjects.Text;
+  private shieldText: Phaser.GameObjects.Text | null = null;
 
   // Camera tracking — highestY is the single source of truth for altitude
   private highestY = 0;
@@ -94,6 +117,7 @@ export class NeoJumpGameScene extends BaseScene {
     this.playerSpriteMode = this.game.registry.get('playerSpriteMode') === true;
     this.platformSpriteMode = this.game.registry.get('platformSpriteMode') === true;
     this.enemySpriteMode = this.game.registry.get('enemySpriteMode') === true;
+    this.collectibleSpriteMode = this.game.registry.get('collectibleSpriteMode') === true;
 
     // Initialize state
     this.score = 0;
@@ -108,6 +132,12 @@ export class NeoJumpGameScene extends BaseScene {
     this.highestY = GAME_CONFIG.HEIGHT - 100;
     this.cameraBaseY = 0;
     this.isGameOver = false;
+    this.shieldActive = false;
+    this.shieldTimer = 0;
+    this.shieldGlow = null;
+    this.collectiblesCollected = 0;
+    this.jetpackFlame = null;
+    this.shieldText = null;
 
     // Create parallax matrix rain
     this.createParallaxRain();
@@ -125,8 +155,15 @@ export class NeoJumpGameScene extends BaseScene {
       allowGravity: false,
     });
 
+    this.collectibles = this.physics.add.group({
+      allowGravity: false,
+    });
+
     // Create player
     this.createPlayer();
+
+    // Create jetpack flame visual
+    this.createJetpackFlame();
 
     // Create initial platforms
     this.generateInitialPlatforms();
@@ -166,6 +203,15 @@ export class NeoJumpGameScene extends BaseScene {
     // Update projectiles
     this.updateProjectiles();
 
+    // Update collectibles
+    this.updateCollectibles();
+
+    // Update shield
+    this.updateShield(delta);
+
+    // Update jetpack flame visual
+    this.updateJetpackFlame();
+
     // Generate new platforms/enemies as player climbs
     this.generateContent();
 
@@ -181,6 +227,8 @@ export class NeoJumpGameScene extends BaseScene {
       score: this.score,
       isGameOver: this.isGameOver,
       jetpackFuel: this.jetpackFuel,
+      shieldActive: this.shieldActive,
+      collectiblesCollected: this.collectiblesCollected,
     });
   }
 
@@ -302,6 +350,15 @@ export class NeoJumpGameScene extends BaseScene {
     });
     this.altitudeText.setScrollFactor(0);
     this.altitudeText.setDepth(100);
+
+    // Score display
+    this.scoreText = this.add.text(10, 28, 'SCORE: 0', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '10px',
+      color: MATRIX_COLORS.CYAN_HEX,
+    });
+    this.scoreText.setScrollFactor(0);
+    this.scoreText.setDepth(100);
 
     // Fuel bar background
     this.fuelBarBg = this.add.graphics();
@@ -504,6 +561,15 @@ export class NeoJumpGameScene extends BaseScene {
       undefined,
       this
     );
+
+    // Player vs collectibles
+    this.physics.add.overlap(
+      this.player,
+      this.collectibles,
+      (_player, collectible) => this.handleCollectiblePickup(collectible as Collectible),
+      undefined,
+      this
+    );
   }
 
   /**
@@ -623,6 +689,11 @@ export class NeoJumpGameScene extends BaseScene {
       // Stomp kill
       this.killEnemy(enemy);
       playerBody.setVelocityY(GAME_CONFIG.PLAYER.JUMP_VELOCITY);
+    } else if (this.shieldActive) {
+      // Shield absorbs the hit and destroys the enemy
+      this.killEnemy(enemy);
+      this.shieldActive = false;
+      this.shieldTimer = 0;
     } else {
       // Player dies
       this.playerDeath();
@@ -809,7 +880,16 @@ export class NeoJumpGameScene extends BaseScene {
         GAME_CONFIG.WIDTH - GAME_CONFIG.PLATFORMS.HORIZONTAL_PADDING
       );
       const altitude = GAME_CONFIG.HEIGHT - highestPlatformY;
-      this.createPlatform(x, highestPlatformY - Phaser.Math.Between(50, 100), this.getRandomPlatformType(altitude));
+      const platY = highestPlatformY - Phaser.Math.Between(50, 100);
+      const platform = this.createPlatform(x, platY, this.getRandomPlatformType(altitude));
+
+      // Maybe spawn a collectible above this platform
+      if (altitude > GAME_CONFIG.COLLECTIBLES.SPAWN_ALTITUDE &&
+          platform.platformType !== 'breakable' &&
+          Math.random() < GAME_CONFIG.COLLECTIBLES.SPAWN_CHANCE) {
+        this.spawnCollectible(x, platY - 30);
+      }
+
       highestPlatformY -= Phaser.Math.Between(
         GAME_CONFIG.PLATFORMS.SPACING_MIN,
         GAME_CONFIG.PLATFORMS.SPACING_MAX
@@ -959,10 +1039,165 @@ export class NeoJumpGameScene extends BaseScene {
   }
 
   /**
+   * Spawn a collectible at the given position
+   */
+  spawnCollectible(x: number, y: number): void {
+    const types: CollectibleType[] = ['fuel', 'score', 'shield'];
+    const type = types[Phaser.Math.Between(0, types.length - 1)];
+
+    const textureKey = this.collectibleSpriteMode
+      ? `collectible_sprite_${type}`
+      : `collectible_${type}`;
+
+    const collectible = this.collectibles.create(x, y, textureKey) as Collectible;
+    collectible.collectibleType = type;
+    collectible.setDepth(7);
+    collectible.setDisplaySize(GAME_CONFIG.COLLECTIBLES.SIZE, GAME_CONFIG.COLLECTIBLES.SIZE);
+
+    // Gentle floating animation
+    this.tweens.add({
+      targets: collectible,
+      y: y - 6,
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
+  /**
+   * Handle collecting a pickup
+   */
+  handleCollectiblePickup(collectible: Collectible): void {
+    const type = collectible.collectibleType;
+    collectible.destroy();
+    this.collectiblesCollected++;
+
+    this.playSound('powerup');
+
+    switch (type) {
+      case 'fuel':
+        this.jetpackFuel = Math.min(
+          GAME_CONFIG.JETPACK.FUEL_MAX,
+          this.jetpackFuel + GAME_CONFIG.COLLECTIBLES.FUEL_RESTORE
+        );
+        break;
+      case 'score':
+        this.score += GAME_CONFIG.COLLECTIBLES.SCORE_BONUS;
+        break;
+      case 'shield':
+        this.shieldActive = true;
+        this.shieldTimer = GAME_CONFIG.COLLECTIBLES.SHIELD_DURATION;
+        this.unlockAchievement(ACHIEVEMENTS.COLLECT_SHIELD);
+        break;
+    }
+
+    if (this.collectiblesCollected >= 10) {
+      this.unlockAchievement(ACHIEVEMENTS.COLLECT_10);
+    }
+  }
+
+  /**
+   * Update collectibles — remove those below camera
+   */
+  private updateCollectibles(): void {
+    const cameraBottom = this.cameras.main.scrollY + GAME_CONFIG.HEIGHT + 100;
+
+    this.collectibles.getChildren().forEach((obj) => {
+      const c = obj as Collectible;
+      if (c.y > cameraBottom) {
+        c.destroy();
+      }
+    });
+  }
+
+  /**
+   * Update shield timer and visual
+   */
+  updateShield(delta: number): void {
+    if (!this.shieldActive) {
+      if (this.shieldGlow) {
+        this.shieldGlow.destroy();
+        this.shieldGlow = null;
+      }
+      if (this.shieldText) {
+        this.shieldText.destroy();
+        this.shieldText = null;
+      }
+      return;
+    }
+
+    this.shieldTimer = Math.max(0, this.shieldTimer - delta);
+    if (this.shieldTimer <= 0) {
+      this.shieldActive = false;
+      return;
+    }
+
+    // Draw shield glow around player
+    if (!this.shieldGlow) {
+      this.shieldGlow = this.add.graphics();
+      this.shieldGlow.setDepth(11);
+    }
+    this.shieldGlow.clear();
+    const flashAlpha = this.shieldTimer < 1500 ? 0.2 + 0.3 * Math.sin(this.shieldTimer * 0.01) : 0.4;
+    this.shieldGlow.lineStyle(2, MATRIX_COLORS.MAGENTA, flashAlpha);
+    this.shieldGlow.strokeCircle(this.player.x, this.player.y, 24);
+
+    // Shield HUD indicator
+    if (!this.shieldText) {
+      this.shieldText = this.add.text(10, 44, '', {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: '8px',
+        color: '#ff00ff',
+      });
+      this.shieldText.setScrollFactor(0);
+      this.shieldText.setDepth(100);
+    }
+    const remaining = Math.ceil(this.shieldTimer / 1000);
+    this.shieldText.setText(`SHIELD: ${remaining}s`);
+  }
+
+  /**
+   * Create jetpack flame visual
+   */
+  private createJetpackFlame(): void {
+    const textureKey = this.textures.exists('jetpack_flame_sprite')
+      ? 'jetpack_flame_sprite'
+      : 'jetpack_flame';
+    this.jetpackFlame = this.add.image(0, 0, textureKey);
+    this.jetpackFlame.setDisplaySize(12, 16);
+    this.jetpackFlame.setDepth(9);
+    this.jetpackFlame.setVisible(false);
+    this.jetpackFlame.setTint(0xff6600);
+  }
+
+  /**
+   * Update jetpack flame position and visibility
+   */
+  private updateJetpackFlame(): void {
+    if (!this.jetpackFlame) return;
+
+    if (this.jetpackActive && this.jetpackFuel > 0) {
+      this.jetpackFlame.setVisible(true);
+      this.jetpackFlame.setPosition(
+        this.player.x,
+        this.player.y + GAME_CONFIG.PLAYER.HEIGHT / 2 + 6
+      );
+      // Flicker effect
+      const flicker = 0.6 + Math.random() * 0.4;
+      this.jetpackFlame.setAlpha(flicker);
+      this.jetpackFlame.setDisplaySize(10 + Math.random() * 4, 14 + Math.random() * 6);
+    } else {
+      this.jetpackFlame.setVisible(false);
+    }
+  }
+
+  /**
    * Update UI
    */
   private updateUI(): void {
     this.altitudeText.setText(`ALTITUDE: ${this.lastMaxAltitude}m`);
+    this.scoreText.setText(`SCORE: ${this.score}`);
 
     // Update fuel bar
     this.fuelBar.clear();
@@ -1001,11 +1236,29 @@ export class NeoJumpGameScene extends BaseScene {
     this.platforms.clear(true, true);
     this.enemies.clear(true, true);
     this.projectiles.clear(true, true);
+    this.collectibles.clear(true, true);
+
+    // Destroy jetpack flame
+    if (this.jetpackFlame) {
+      this.jetpackFlame.destroy();
+      this.jetpackFlame = null;
+    }
+
+    // Destroy shield glow
+    if (this.shieldGlow) {
+      this.shieldGlow.destroy();
+      this.shieldGlow = null;
+    }
 
     // Destroy UI elements
     this.altitudeText.destroy();
+    this.scoreText.destroy();
     this.fuelBar.destroy();
     this.fuelBarBg.destroy();
     this.fuelLabel.destroy();
+    if (this.shieldText) {
+      this.shieldText.destroy();
+      this.shieldText = null;
+    }
   }
 }
