@@ -6,8 +6,8 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ## Current Status
 
-- **Status**: REBUILDING -- Phaser migration complete, asset pipeline bootstrapped, per-game sprite integration in progress, Rhythm Hacker music integrated, game portal UX improved
-- **Last Updated**: 13 April 2026 (R32 -- Game portal Instructions and High Scores buttons)
+- **Status**: REBUILDING -- Phaser migration complete, asset pipeline bootstrapped, per-game sprite integration in progress, Rhythm Hacker music integrated, game portal UX improved, landing page redesigned
+- **Last Updated**: 13 April 2026 (R33 -- Landing page UX redesign)
 - **Version**: v2.0.0 (next target)
 - **Games**: 12 playable (11 Phaser, 1 DOM)
 - **Build**: PASSES (code-split, main bundle ~384KB, Phaser vendor chunk 1,479KB) -- zero warnings
@@ -42,6 +42,8 @@ All P0/P1/P2 bugs resolved across R1-R14 (12 April 2026). Key milestones:
 - **R31 Neo Jump collectibles, jetpack flame, shield mechanic, and score display**: Added collectible pickup system with 3 types: fuel canister (restores 50 jetpack fuel), score bonus (+500 points), and shield (5-second invincibility absorbing one enemy hit). Deployed 4 new sprites from Doodle RPG pack to `public/assets/neo-jump/`: collectible-fuel.png (Loot_0, 49×50), collectible-score.png (Loot_1, 49×50), collectible-shield.png (Heart, 49×50), and jetpack-flame.png (Particle1_0, 50×53). Collectibles spawn above platforms with 25% chance above altitude 200, never on breakable platforms. Added jetpack flame visual (flickering image that follows player when jetpack active). Added live score display to HUD alongside altitude. Added shield glow effect (magenta circle around player, flashes when expiring). Shield absorbs enemy contact and destroys the enemy. Added 2 new achievements: COLLECT_SHIELD and COLLECT_10. BootScene loads sprites with `textures.exists()` guards and procedural fallback textures. 18 new unit tests (73 total for Neo Jump). All 2,069 tests pass.
 
 - **R32 Game portal Instructions and High Scores buttons**: Added two new UI modal components (`GameInstructions`, `GameHighScores`) to the game portal carousel, matching the `gamecardlayout.png` reference design. Instructions modal displays game description, controls (game-specific + universal keys grid), and inspiration info. High Scores modal shows high score with trophy display, play statistics grid (games played, total score, best combo, longest survival, bosses defeated, last played), per-game achievement progress bar, and individual achievement unlock/lock status. Added keyboard shortcuts I (instructions) and H (high scores) alongside existing A/V shortcuts. Updated keyboard hints bar to show all shortcuts. Modals auto-close on game navigation or play start. ESC closes open modals. All 2,067 tests pass.
+
+- **R33 Landing page UX redesign**: Overhauled landing page grid layout for better visual hierarchy. Enlarged preview images (h-36→h-44) so gameplay screenshots are the focal point. Added play icon overlay with hover scale-up animation. Moved category badge onto image with backdrop blur. Removed per-card controls section (duplicated global controls) and collapsed inspiration to a single subtle line — cards are now scannable at a glance. Replaced full-width global controls panel with a collapsible strip behind a keyboard icon in the header. Merged hero section and category filter into a single compact row. Added xl:grid-cols-4 breakpoint for wider screens. Widened content from max-w-6xl to max-w-7xl. Removed dead `generateGamePlaceholder` SVG function (all games have real previews since R30). Net: 120 insertions, 241 deletions. All 2,067 tests pass.
 
 Full details in git history (`git log --oneline`).
 
@@ -181,10 +183,9 @@ For each game, the pipeline is:
 - [ ] Create `src/lib/assets/AssetManager.ts` -- centralised font, spritesheet, and audio loading
 - [ ] Create global spritesheet atlas system for shared sprites across games
 - [x] Add Instructions/High Scores buttons to game card portal (done R32)
-- [ ] Redesign game card portal (larger cards, ASCII art titles)
-- [ ] Redesign GLOBAL CONTROLS (compact bar, keyboard icon toggle)
+- [x] Redesign landing page grid (larger previews, cleaner cards, play overlay, collapsible controls, xl:grid-cols-4) -- done R33
+- [ ] Redesign game card portal carousel (ASCII art titles, larger card)
 - [ ] Add ASCII art generator/renderer for game titles
-- [ ] Update landing page UX (larger cards, less empty space, better visual hierarchy)
 
 ---
 
