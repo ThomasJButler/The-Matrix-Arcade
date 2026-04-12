@@ -36,7 +36,10 @@ export abstract class BaseScene extends Phaser.Scene {
    * Sets up keyboard shortcuts and common bindings
    */
   protected setupCommonInputs(): void {
-    if (!this.input.keyboard) return;
+    if (!this.input.keyboard) {
+      this.time.delayedCall(100, () => this.setupCommonInputs());
+      return;
+    }
 
     // ESC - Exit game
     this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
@@ -218,7 +221,8 @@ export abstract class BaseScene extends Phaser.Scene {
    * Transition to game over scene
    */
   protected gameOver(score: number, reason?: string, highScore?: number): void {
-    this.playSound('gameOver');
+    // Sound is played by PhaserGame.tsx when it receives the gameOver event —
+    // do NOT also play here, or the sound fires twice.
     this.emitGameEvent({
       type: 'gameOver',
       data: { score, reason },

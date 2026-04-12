@@ -146,10 +146,19 @@ export function PhaserGame({
       (window as any).__PHASER_GAME__ = game;
     }
 
-    // Focus the container after Phaser is ready (fixes race condition where
-    // focus was called before Phaser's input system was initialised)
+    // Focus the container as early as possible — use multiple strategies
+    // to handle browser/timing variance. Without focus, Phaser's keyboard
+    // plugin receives no DOM events and all input silently fails.
+    const focusContainer = () => containerRef.current?.focus();
+
+    // Strategy 1: Focus immediately after game creation
+    focusContainer();
+
+    // Strategy 2: Focus after Phaser's 'ready' event (input system initialised)
     game.events.once('ready', () => {
-      containerRef.current?.focus();
+      focusContainer();
+      // Strategy 3: One more rAF after ready to ensure DOM is fully settled
+      requestAnimationFrame(focusContainer);
     });
 
     // Cleanup on unmount
@@ -218,9 +227,13 @@ export function PhaserGame({
       onFocus={() => setHasFocus(true)}
       onBlur={() => setHasFocus(false)}
     >
-      {/* Click-to-play overlay shown when focus is lost */}
+      {/* Click-to-play overlay shown when focus is lost — clickable so
+          keyboard-only users can recover focus via assistive tech or Tab */}
       {!hasFocus && (
         <div
+          onClick={handleContainerClick}
+          role="button"
+          tabIndex={-1}
           style={{
             position: 'absolute',
             inset: 0,
@@ -230,7 +243,6 @@ export function PhaserGame({
             backgroundColor: 'rgba(0, 0, 0, 0.5)',
             zIndex: 10,
             cursor: 'pointer',
-            pointerEvents: 'none',
           }}
         >
           <span

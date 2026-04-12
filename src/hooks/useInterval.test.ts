@@ -198,17 +198,14 @@ describe('useInterval', () => {
   });
 
   describe('Edge Cases', () => {
-    it('handles zero delay (immediate execution each tick)', () => {
+    it('handles minimal delay (1ms)', () => {
       const callback = vi.fn();
-      renderHook(() => useInterval(callback, 0));
+      renderHook(() => useInterval(callback, 1));
 
-      // With delay of 0, callback fires on every interval tick
-      // Advance time - the exact behavior depends on the timer implementation
+      // With delay of 1ms, callback fires rapidly
       vi.advanceTimersByTime(10);
 
-      // Zero delay should result in some calls
-      // Note: setInterval(fn, 0) in Node.js/browsers has minimum delay (usually 4ms)
-      expect(callback.mock.calls.length).toBeGreaterThanOrEqual(0);
+      expect(callback).toHaveBeenCalledTimes(10);
     });
 
     it('handles very small delays', () => {

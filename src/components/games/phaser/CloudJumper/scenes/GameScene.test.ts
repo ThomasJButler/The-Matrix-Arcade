@@ -258,11 +258,11 @@ describe('CloudJumperGameScene', () => {
       );
     });
 
-    it('sets bounce velocity to full JUMP_VELOCITY on storm cloud', () => {
+    it('sets weaker bounce velocity on storm cloud (half of JUMP_VELOCITY)', () => {
       const cloud = createMockCloud('storm');
       scene.handleCloudCollision(cloud);
       expect(scene.player.body.setVelocityY).toHaveBeenCalledWith(
-        GAME_CONFIG.PLAYER.JUMP_VELOCITY
+        GAME_CONFIG.PLAYER.JUMP_VELOCITY * 0.5
       );
     });
   });

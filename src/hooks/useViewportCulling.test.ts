@@ -247,7 +247,7 @@ describe('useViewportCulling', () => {
       expect(visible[1].x).toBe(400);
     });
 
-    it('sets visible flag on objects', () => {
+    it('returns in-viewport objects without mutating inputs', () => {
       const { result } = renderHook(() =>
         useViewportCulling(800, 600, { padding: 0 })
       );
@@ -257,10 +257,13 @@ describe('useViewportCulling', () => {
         { x: -200, y: 100, width: 50, height: 50 },
       ];
 
-      result.current.cullObjects(objects);
+      const visible = result.current.cullObjects(objects);
 
-      expect(objects[0].visible).toBe(true);
-      expect(objects[1].visible).toBe(false);
+      expect(visible).toHaveLength(1);
+      expect(visible[0]).toBe(objects[0]);
+      // Input objects should not be mutated
+      expect(objects[0].visible).toBeUndefined();
+      expect(objects[1].visible).toBeUndefined();
     });
 
     it('respects updateFrequency option', () => {
@@ -274,21 +277,20 @@ describe('useViewportCulling', () => {
       ];
 
       // First call (frame 1) - frameCount % updateFrequency = 1 % 3 = 1 !== 0
-      // So it won't update visibility, just filter by existing visible flags (undefined)
-      const visible = result.current.cullObjects(objects);
-      // Objects without visible flag are filtered out (visible !== false check)
-      // Actually, it filters by obj.visible !== false, so undefined passes
-      expect(visible.length).toBeLessThanOrEqual(2);
+      // So it won't recalculate, just filter by existing visible flags (undefined)
+      // obj.visible !== false check means undefined passes, so both returned
+      const firstResult = result.current.cullObjects(objects);
+      expect(firstResult).toHaveLength(2);
 
-      // After several calls, visibility should stabilize
-      // The key behavior is that visibility is only recalculated every N frames
-      for (let i = 0; i < 5; i++) {
-        result.current.cullObjects(objects);
-      }
+      // Second call (frame 2) - 2 % 3 = 2 !== 0, same behaviour
+      const secondResult = result.current.cullObjects(objects);
+      expect(secondResult).toHaveLength(2);
 
-      // After enough calls, object outside viewport should be marked not visible
-      expect(objects[0].visible).toBe(true);
-      expect(objects[1].visible).toBe(false);
+      // Third call (frame 3) - 3 % 3 = 0, recalculates via isInViewport
+      // Only the in-viewport object should be returned
+      const thirdResult = result.current.cullObjects(objects);
+      expect(thirdResult).toHaveLength(1);
+      expect(thirdResult[0]).toBe(objects[0]);
     });
 
     it('handles empty array', () => {

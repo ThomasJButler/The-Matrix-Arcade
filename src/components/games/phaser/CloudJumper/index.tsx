@@ -31,7 +31,7 @@ export default function CloudJumper({
   onExit,
 }: CloudJumperProps) {
   return (
-    <div className="relative w-full h-full bg-sky-400">
+    <div className="relative w-full h-full bg-black">
       <PhaserGame
         gameId="cloudJumper"
         config={PHASER_CONFIG}

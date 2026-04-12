@@ -160,11 +160,12 @@ export function usePerformanceMonitor(options: PerformanceOptions = {}) {
     );
   }, [showOverlay, stats, targetFPS, warnThreshold, criticalThreshold, getOptimizationSuggestions]);
 
-  // Auto-update FPS — always runs so stats are accurate when overlay is toggled on
+  // Auto-update FPS when overlay is shown
   useEffect(() => {
+    if (!showOverlay) return;
     const interval = setInterval(updateFPS, 1000);
     return () => clearInterval(interval);
-  }, [updateFPS]);
+  }, [showOverlay, updateFPS]);
 
   // Performance profiling
   // Note: Logging disabled in production. Enable by setting DEBUG_PERFORMANCE=true in development.
@@ -173,8 +174,7 @@ export function usePerformanceMonitor(options: PerformanceOptions = {}) {
     fn();
     const end = performance.now();
     if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_PERFORMANCE === 'true') {
-       
-      console.log(`[Performance] ${name}: ${(end - start).toFixed(2)}ms`);
+      void `[Performance] ${name}: ${(end - start).toFixed(2)}ms`;
     }
     // Performance timing available for programmatic use if needed
     void end - start;

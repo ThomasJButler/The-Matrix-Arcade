@@ -130,7 +130,10 @@ export class MenuScene extends BaseScene {
    * Set up keyboard input for menu
    */
   protected setupMenuInput(): void {
-    if (!this.input.keyboard) return;
+    if (!this.input.keyboard) {
+      this.time.delayedCall(100, () => this.setupMenuInput());
+      return;
+    }
 
     const enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
     enterKey.on('down', () => this.startGame());
