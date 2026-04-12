@@ -254,7 +254,7 @@ describe('App Component', () => {
     render(<App />);
     
     expect(screen.getByText('← → Navigate Games • Enter to Play • ESC to Exit')).toBeInTheDocument();
-    expect(screen.getByText('A for Achievements • V to Toggle Mute')).toBeInTheDocument();
+    expect(screen.getByText('I Instructions • H High Scores • A Achievements • V Mute')).toBeInTheDocument();
   });
 
   it('renders footer with correct version', () => {

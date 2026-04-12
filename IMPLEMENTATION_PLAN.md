@@ -6,12 +6,12 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ## Current Status
 
-- **Status**: REBUILDING -- Phaser migration complete, asset pipeline bootstrapped, per-game sprite integration in progress, Rhythm Hacker music integrated
-- **Last Updated**: 13 April 2026 (R31 -- Neo Jump collectibles, jetpack flame visual, shield mechanic, and score display)
+- **Status**: REBUILDING -- Phaser migration complete, asset pipeline bootstrapped, per-game sprite integration in progress, Rhythm Hacker music integrated, game portal UX improved
+- **Last Updated**: 13 April 2026 (R32 -- Game portal Instructions and High Scores buttons)
 - **Version**: v2.0.0 (next target)
 - **Games**: 12 playable (11 Phaser, 1 DOM)
-- **Build**: PASSES (code-split, main bundle ~372KB, Phaser vendor chunk 1,479KB) -- zero warnings
-- **Unit Tests**: 2,069 passing across 46 files, 0 failures
+- **Build**: PASSES (code-split, main bundle ~384KB, Phaser vendor chunk 1,479KB) -- zero warnings
+- **Unit Tests**: 2,067 passing across 46 files, 0 failures
 - **E2E Tests**: 88 gameplay + 110 visual = 198 tests across 28 spec files -- last run PASSED (new screeenshots in TheMatrixArcade-/e2e, user manually ran the playwright test. 
 - **Asset Pipeline**: Phase 0a COMPLETE -- `public/assets/` deployed with fonts, audio, UI chrome, particles, icons (117 files, ~40MB)
 
@@ -40,6 +40,8 @@ All P0/P1/P2 bugs resolved across R1-R14 (12 April 2026). Key milestones:
 - **R29 Neo Jump player, platform, and enemy sprite integration**: Deployed 11 sprites to `public/assets/neo-jump/`: 5 CyberPunk character sprites (idle, jump, fall, shoot, death, 24×24 pixel art — same pack as Cloud Jumper) and 5 Doodle RPG platform sprites (Log1 for normal 200×100, PushBlock for moving 100×100, Pedestal for spring 100×100, Barrel for disappearing 100×100, Crate for breakable 100×100) plus Bomba enemy sprite (71×79). Rewrote BootScene: removed broken Legacy Fantasy spritesheet loading (paths never existed), replaced with `loadCommonAssets()` override loading 11 individual images with `textures.exists()` guards and registry flags (`playerSpriteMode`, `platformSpriteMode`, `enemySpriteMode`). Updated GameScene: added `updatePlayerTexture()` method for sprite-mode texture swapping (idle/jump/fall/shoot/death) vs animation-mode fallback; platforms use `setDisplaySize(80, 16)` with per-type tinting in sprite mode; enemies use `setDisplaySize(40, 40)` with red tint; shoot action briefly shows shoot texture before reverting. All 2,053 tests pass.
 - **R30 Replace SVG placeholder thumbnails with real gameplay screenshots**: Captured gameplay screenshots for all 6 Phaser games that previously used identical SVG data URI placeholders (Matrix Frogger, Neo Jump, Agent Chase, Rhythm Hacker, Cloud Jumper, Code Breaker). Used Playwright to navigate into each game, start gameplay, and screenshot the viewport with 2× device scale. Saved as PNG to `src/images/`. Updated `gameRegistry.ts` to import the PNG screenshots directly instead of calling `makePhaserPreview()` SVG generator. Removed `src/lib/gamePreviewImages.ts` (no longer imported). Landing page grid now shows distinct, recognisable gameplay imagery for every game. All 2,053 tests pass.
 - **R31 Neo Jump collectibles, jetpack flame, shield mechanic, and score display**: Added collectible pickup system with 3 types: fuel canister (restores 50 jetpack fuel), score bonus (+500 points), and shield (5-second invincibility absorbing one enemy hit). Deployed 4 new sprites from Doodle RPG pack to `public/assets/neo-jump/`: collectible-fuel.png (Loot_0, 49×50), collectible-score.png (Loot_1, 49×50), collectible-shield.png (Heart, 49×50), and jetpack-flame.png (Particle1_0, 50×53). Collectibles spawn above platforms with 25% chance above altitude 200, never on breakable platforms. Added jetpack flame visual (flickering image that follows player when jetpack active). Added live score display to HUD alongside altitude. Added shield glow effect (magenta circle around player, flashes when expiring). Shield absorbs enemy contact and destroys the enemy. Added 2 new achievements: COLLECT_SHIELD and COLLECT_10. BootScene loads sprites with `textures.exists()` guards and procedural fallback textures. 18 new unit tests (73 total for Neo Jump). All 2,069 tests pass.
+
+- **R32 Game portal Instructions and High Scores buttons**: Added two new UI modal components (`GameInstructions`, `GameHighScores`) to the game portal carousel, matching the `gamecardlayout.png` reference design. Instructions modal displays game description, controls (game-specific + universal keys grid), and inspiration info. High Scores modal shows high score with trophy display, play statistics grid (games played, total score, best combo, longest survival, bosses defeated, last played), per-game achievement progress bar, and individual achievement unlock/lock status. Added keyboard shortcuts I (instructions) and H (high scores) alongside existing A/V shortcuts. Updated keyboard hints bar to show all shortcuts. Modals auto-close on game navigation or play start. ESC closes open modals. All 2,067 tests pass.
 
 Full details in git history (`git log --oneline`).
 
@@ -178,7 +180,8 @@ For each game, the pipeline is:
 - [ ] Implement Three.js matrix rain background (replaces CSS animation)
 - [ ] Create `src/lib/assets/AssetManager.ts` -- centralised font, spritesheet, and audio loading
 - [ ] Create global spritesheet atlas system for shared sprites across games
-- [ ] Redesign game card portal (larger cards, ASCII art titles, Instructions/High Scores buttons)
+- [x] Add Instructions/High Scores buttons to game card portal (done R32)
+- [ ] Redesign game card portal (larger cards, ASCII art titles)
 - [ ] Redesign GLOBAL CONTROLS (compact bar, keyboard icon toggle)
 - [ ] Add ASCII art generator/renderer for game titles
 - [ ] Update landing page UX (larger cards, less empty space, better visual hierarchy)
