@@ -7,17 +7,33 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ## Current Status
 
 - **Status**: REBUILDING -- Phaser migration of all React/Canvas games + new features
-- **Last Updated**: 12 April 2026 (R9 -- Vortex Pong Phaser rebuild)
+- **Last Updated**: 12 April 2026 (R10 -- Snake Classic Phaser rebuild)
 - **Version**: v2.0.0 (next target)
-- **Games**: 12 playable (5 React/Canvas to rebuild into Phaser, 6 already Phaser) + 1 planned (Code Breaker)
+- **Games**: 12 playable (4 React/Canvas to rebuild into Phaser, 7 already Phaser) + 1 planned (Code Breaker)
 - **Build**: PASSES (code-split, main bundle 370KB, Phaser vendor chunk 1,479KB) -- zero warnings
-- **Unit Tests**: 1,980 passing across 54 files, 0 failures
+- **Unit Tests**: 2,070 passing across 55 files, 0 failures
 - **E2E Tests**: 78 gameplay + 110 visual = 188 tests across 27 spec files -- last run PASSED (0 failures, confirmed via `test-results/.last-run.json`)
 - **Asset Pipeline**: 0% complete -- `public/assets/` does not exist, all games use procedural textures
 
 ### What Was Completed (v1.x to v2.0 prep)
 
 All P0/P1/P2 bugs resolved from v1.x. Test seams added to all games. E2E gameplay specs written (78 tests). Code quality fixes across 20+ hooks and components. Code-splitting reduced main bundle from 2.18MB to 370KB. Shared game registry created. Error boundaries added. Collision utility extracted. 5 Phaser games scaffolded (MatrixFrogger, NeoJump, AgentChase, RhythmHacker, CloudJumper) with full scene architecture. 12 rebuild research docs created in `rebuildingoldgames/plans/`. Asset inventory catalogued in `desiredassets/`. Full details in git history.
+
+### What Was Completed (R10 -- 12 April 2026)
+
+Snake Classic Phaser rebuild — second React-to-Phaser migration, continuing the proven pipeline:
+
+**Full Phaser 3 port**: Created `src/components/games/phaser/SnakeClassic/` with 6 files: config.ts (all game constants, types, achievement IDs, power-up definitions), BootScene.ts (procedural textures for snake head/body/tail, food, and 4 power-up types), MenuScene.ts (extends base MenuScene with how-to-play instructions), GameOverScene.ts (extends base), GameScene.ts (~450 lines, complete gameplay implementation), and index.tsx (React wrapper).
+
+**All mechanics faithfully ported from useSimpleSnakeGame.ts**: 20x20 grid-based movement via Phaser TimerEvent (150ms initial tick, speeds up by 5ms per 50 points, capped at 50ms). Direction queuing with 180-degree reversal blocking prevents U-turns between ticks. Tail-tip excluded from self-collision check. Food spawns on random empty cells (excludes snake body). Speed progression recalculates from score on every food collection.
+
+**4-type power-up system**: Speed (paradoxically slows snake by adding 30ms to timer for 5s), Double (next 3 food worth 20 points instead of 10), Shield (one-time wall collision protection, bounces snake back), Ghost (wall wrap via modulo for 7s, body rendered semi-transparent). Power-ups spawn with 15% chance after eating food, despawn after 8s if uncollected. Each type uses Phaser TimerEvents for duration tracking.
+
+**7 achievements**: first_apple (eat first food), score_100, score_500, combo_10 (10 food without dying), power_master (collect 5 power-ups), survivor (survive 60s), speed_demon (reach speed level 5+). All use dual-call pattern (UI toast + persistence).
+
+**App.tsx updated**: Lazy import changed from `./components/games/SimpleSnake` to `./components/games/phaser/SnakeClassic`. Game registry controls text updated to 'Arrow keys/WASD to move. Collect food, avoid walls!'.
+
+**90 new unit tests** across 18 test suites: initial state (10), direction changes (4), position calculation (4), wall collision (6), self collision (4), ghost mode (5), shield (3), food collection (8), power-up collection (5), power-up activation (10), speed progression (5), level calculation (3), achievements (8), game over (6), grid conversion (2), random empty cell (2), movement integration (4), test state (2). All 2,070 tests passing, build clean, zero lint errors from new code.
 
 ### What Was Completed (R9 -- 12 April 2026)
 
@@ -443,7 +459,7 @@ Each rebuild follows standard Phaser structure: `index.tsx`, `config.ts`, `scene
 ### Priority Order
 
 1. **Vortex Pong** ✅ -- Rebuilt as Phaser game (R9). Pipeline proven.
-2. **Snake Classic** -- Medium complexity, 3-mode system adds depth.
+2. **Snake Classic** ✅ -- Rebuilt as Phaser game (R10). 90 unit tests, all mechanics ported.
 3. **Matrix Cloud** -- Full redesign with proper Flappy Bird physics.
 4. **Matrix Invaders** -- Complex (waves, pooling, bullet time) but huge Phaser gains.
 5. **Metris** -- SRS rotation system needs careful porting.

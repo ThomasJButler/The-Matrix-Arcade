@@ -43,7 +43,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     category: 'Arcade',
     inspiration: 'Nokia Snake (1998)',
     inspirationNote: 'The game that defined a generation of mobile gaming — now dripping in Matrix green.',
-    controls: 'Arrow keys to move, SPACE to toggle direction mode',
+    controls: 'Arrow keys/WASD to move. Collect food, avoid walls!',
   },
   {
     id: 'vortex-pong',
