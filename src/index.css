@@ -2,6 +2,79 @@
 @tailwind components;
 @tailwind utilities;
 
+/* MatrixType — authentic Matrix film font family */
+@font-face {
+  font-family: 'MatrixType';
+  src: url('/assets/fonts/MatrixType-Regular.woff2') format('woff2'),
+       url('/assets/fonts/MatrixType-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'MatrixType';
+  src: url('/assets/fonts/MatrixType-Bold.woff2') format('woff2'),
+       url('/assets/fonts/MatrixType-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'MatrixType Display';
+  src: url('/assets/fonts/MatrixTypeDisplay-Regular.woff2') format('woff2'),
+       url('/assets/fonts/MatrixTypeDisplay-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'MatrixType Display';
+  src: url('/assets/fonts/MatrixTypeDisplay-Bold.woff2') format('woff2'),
+       url('/assets/fonts/MatrixTypeDisplay-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-display: swap;
+}
+
+/* AlphaProta — cyberpunk-styled accent font */
+@font-face {
+  font-family: 'AlphaProta';
+  src: url('/assets/fonts/AlphaProta-Regular.woff2') format('woff2'),
+       url('/assets/fonts/AlphaProta-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'AlphaProta';
+  src: url('/assets/fonts/AlphaProta-Italic.woff2') format('woff2'),
+       url('/assets/fonts/AlphaProta-Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* NotJam pixel fonts — for in-game HUD and scores */
+@font-face {
+  font-family: 'NotJam Sci Mono';
+  src: url('/assets/fonts/NotJamSciMono10.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'NotJam UI';
+  src: url('/assets/fonts/NotJamUI12.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'NotJam Mono Clean';
+  src: url('/assets/fonts/NotJamMonoClean8.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
 @layer base {
   body {
     @apply bg-black;

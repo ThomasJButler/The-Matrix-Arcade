@@ -6,14 +6,14 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ## Current Status
 
-- **Status**: REBUILDING -- Phaser migration complete, now cleanup + polish + assets
-- **Last Updated**: 12 April 2026 (R17 -- Fix focus overlay, add CTRL-S World gameplay E2E)
+- **Status**: REBUILDING -- Phaser migration complete, asset pipeline bootstrapped, polish + game assets in progress
+- **Last Updated**: 12 April 2026 (R18 -- Global asset extraction + font integration)
 - **Version**: v2.0.0 (next target)
 - **Games**: 12 playable (11 Phaser, 1 DOM)
 - **Build**: PASSES (code-split, main bundle ~372KB, Phaser vendor chunk 1,479KB) -- zero warnings
 - **Unit Tests**: 2,039 passing across 46 files, 0 failures
 - **E2E Tests**: 88 gameplay + 110 visual = 198 tests across 28 spec files -- last run PASSED
-- **Asset Pipeline**: 0% complete -- `public/assets/` does not exist, all games use procedural textures
+- **Asset Pipeline**: Phase 0a COMPLETE -- `public/assets/` deployed with fonts, audio, UI chrome, particles, icons (117 files, ~40MB)
 
 ### Completed Work Summary
 
@@ -26,6 +26,7 @@ All P0/P1/P2 bugs resolved across R1-R14 (12 April 2026). Key milestones:
 - **R15 cleanup**: Removed 9 orphaned legacy React game files, 4 unused hooks, 1 dead Zustand store, and 13 associated test files (11,386 lines of dead production code + ~5,000 lines of dead tests). Updated sound system comments from legacy game names. Test count: 2,521 → 2,019 (502 tests were testing only dead code).
 - **R16 Agent Chase map layouts**: Three distinct maze layouts (Classic, Arena, Labyrinth) cycle each level. Shared ghost house section (rows 9-19) keeps agent AI consistent. Difficulty scaling: agent speed increases 5% per level, frightened duration decreases 500ms per level (min 3s). New ALL_MAZES achievement for playing all three layouts. 20 new unit tests (96 total for Agent Chase).
 - **R17 Focus overlay fix + CTRL-S World E2E**: Fixed "floating dark rectangle" bug caused by PhaserGame.tsx click-to-play overlay rendering before auto-focus resolved — overlay now deferred until container has had focus at least once. Added 10 gameplay E2E tests for CTRL-S World covering command prompt entry, chapter navigation, story advancement, pause/resume, keyboard shortcuts, and full lifecycle.
+- **R18 Global asset extraction + font integration**: Bootstrapped `public/assets/` from zero. Extracted 3 font families from ZIP archives (MatrixType 4 variants WOFF2+TTF, AlphaProta 2 variants WOFF2+TTF, 5 NotJam pixel fonts). Deployed 4 music tracks (MP3), 20 Matrix Trilogy SFX (WAV), hologram UI chrome (4 buttons, 5 card panels, 15 icons), 25 Matrix node icons (green+purple, PNG+WEBP+GIF), 21 firework particle frames (3 colours × 7 frames). Added `@font-face` declarations for all custom fonts with WOFF2→TTF fallback chain. Created 5 new CSS variables (`--matrix-font-title`, `--matrix-font-matrix`, `--matrix-font-cyber`, `--matrix-font-pixel`, `--matrix-font-hud`). Applied MatrixType Display to arcade title in App.tsx and LandingPage.tsx. Updated global ASSETS_NEEDED.md with deployment status. Total: 117 files, ~40MB. Blocker: WAV music tracks (7 files, ~280MB total) need ffmpeg for OGG/MP3 conversion.
 
 Full details in git history (`git log --oneline`).
 
@@ -105,15 +106,17 @@ The `desiredassets/` folder contains a complete asset inventory with source mapp
 **Critical blockers**: Rhythm Hacker note charts (5 JSON files). Agent Chase player sprite (no source). Matrix Cloud bosses (3 need creating from scratch).
 **Strongest foundations**: Code Breaker (14 [x], 41 [~]), Matrix Invaders (14 [x], 18 [~]), Matrix Frogger (9 [x] + complete WAV audio set).
 
-### 0a. Global Asset Extraction (do first -- shared across all games)
+### 0a. Global Asset Extraction ✅ COMPLETE (R18)
 
-- [ ] Unzip `MatrixArcadeFontAssets/` (3 ZIPs) -- extract TTF/WOFF2 fonts to `public/assets/fonts/`
-- [ ] Unzip `WeirdoOnTheBus - The Matrix Trilogy (Sound Effects Kit).zip` -- catalogue SFX, rename to convention, place in `public/assets/audio/sfx/`
-- [ ] Process `MatrixArcadeTracksSoundEffectsVisualEffects/LongTracks/` -- convert WAV to OGG, trim jingles to `public/assets/audio/music/`
-- [ ] Extract `1. Free Hologram Interface Wenrexa/` -- sort buttons/panels/icons, apply Matrix green tint to `public/assets/ui/`
-- [ ] Pick 3-4 best font families from `NotJamFontPack/` -- copy TTF + JSON to `public/assets/fonts/`
-- [ ] Process `firework/` particles -- recolour green/cyan, create explosion + sparkle sprite sheets to `public/assets/shared/`
-- [ ] Unzip `Matrix-Icons.zip` (85MB) -- cherry-pick 30-50 relevant icons to `public/assets/ui/icons/`
+- [x] Unzip `MatrixArcadeFontAssets/` (3 ZIPs) -- MatrixType (4 WOFF2 + 4 TTF), AlphaProta (2 WOFF2 + 2 TTF), PixelFont (bitmap PNGs only, no TTF)
+- [x] Unzip `WeirdoOnTheBus - The Matrix Trilogy (Sound Effects Kit).zip` -- 20 game-relevant SFX selected, renamed to `sfx_*.wav` convention
+- [x] Copy MP3 music tracks: menu-theme, stage-theme, boss-theme, brothers-and-sisters
+- [x] Extract `1. Free Hologram Interface Wenrexa/` -- 4 button states, 5 card/panel variants, 15 icons
+- [x] Pick 4 best font families from `NotJamFontPack/` -- Sci Mono, Mono Clean, UI, Pixel 5, Chunky Sans
+- [x] Copy `firework/` particles -- 3 colours × 7 frames = 21 PNGs
+- [x] Copy `Matrix-Icons/` (already extracted) -- 5 green + 5 purple node icons in PNG/WEBP/GIF
+- [ ] ⚠️ **BLOCKED**: WAV music tracks (7 files, ~280MB) need ffmpeg for OGG/MP3 conversion -- not available on system
+- [ ] ⚠️ **REMAINING**: Background textures, sci-fi UI panels, additional icon packs (still in ZIPs)
 
 ### 0b. Per-Game Asset Extraction (parallel with game fixes)
 
@@ -299,18 +302,20 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 - No orphaned legacy code (cleaned up in R15)
 
 ### Gaps
-- Zero external assets deployed (`public/assets/` doesn't exist) -- all procedural textures
+- Games still use 100% procedural textures -- `public/assets/` now deployed with global shared assets (fonts, audio, UI chrome, particles) but no per-game sprites integrated yet
+- WAV music tracks need ffmpeg conversion before deployment (7 tracks, ~280MB)
 - `useAdvancedVoice` AudioContext for visualisation never connected to speech output (always returns zeros)
 
 ---
 
 ## Ralph Loop Strategy
 
-1. **P2 remaining**: Matrix Frogger floating UI box, Rhythm Hacker music sync, CTRL-S World gameplay E2E
-2. **Phase 0**: Asset extraction pipeline (biggest remaining effort, largely manual)
-3. **Phase 2**: Global infrastructure (Three.js rain, asset system, game card redesign)
+1. **Phase 0b**: Per-game asset extraction (sprites, audio per game) -- biggest remaining effort
+2. **Phase 2**: Global infrastructure (Three.js rain, AssetManager, game card redesign) -- now unblocked by font deployment
+3. **P2 remaining**: Rhythm Hacker music sync (needs MP3 music tracks), visual improvements
 4. **Phase 3.6**: CTRL-S World narrative engine rebuild
 5. **Phase 4**: Game enhancements (Neo Jump UX -- Agent Chase maps done R16)
 6. **Phase 6**: Final polish and testing pass
 7. Use `/matrix-arcade-gamedev` for game code, `/phaser-gamedev` for Phaser scenes, `/playwright-testing` for E2E
 8. Run `game-tester` agent after every code change
+9. **Blocker**: Install ffmpeg to convert WAV tracks → OGG/MP3 for web deployment

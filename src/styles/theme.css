@@ -30,6 +30,11 @@
   /* Typography */
   --matrix-font-mono: 'JetBrains Mono', monospace;
   --matrix-font-display: 'Press Start 2P', monospace;
+  --matrix-font-title: 'MatrixType Display', 'Press Start 2P', monospace;
+  --matrix-font-matrix: 'MatrixType', 'JetBrains Mono', monospace;
+  --matrix-font-cyber: 'AlphaProta', 'JetBrains Mono', monospace;
+  --matrix-font-pixel: 'NotJam Sci Mono', 'Press Start 2P', monospace;
+  --matrix-font-hud: 'NotJam UI', 'Press Start 2P', monospace;
 
   /* New Animations */
   --glitch-timing: 0.3s;
