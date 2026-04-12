@@ -32,7 +32,7 @@
 - [x] Player jump — `public/assets/neo-jump/player-jump.png` (24×24, run frame2 = ascending pose)
 - [x] Player fall — `public/assets/neo-jump/player-fall.png` (24×24, slide frame3 = falling pose)
 - [x] Player death — `public/assets/neo-jump/player-death.png` (24×24, attack frame5)
-- [~] Player jetpack — flames below, ascending, 2-3 frames — SOURCE: INSPO/doodlejump/Doodle RPG/Particles
+- [x] Player jetpack flame — `public/assets/neo-jump/jetpack-flame.png` (Particle1_0, 50×53, Doodle RPG, tinted orange, flicker effect)
 - [x] Player shoot — `public/assets/neo-jump/player-shoot.png` (24×24, shoot frame4)
 
 ### Platforms (Doodle RPG tiles, scaled to 80×16 via setDisplaySize with per-type tinting)
@@ -48,9 +48,9 @@
 - [~] Shooting enemy — armed, fires downward, 32×32 — SOURCE: DUMP/MatrixArcadeCyberPunkAssets/shoot.zip
 
 ### Collectibles
-- [~] Jetpack pickup — 24×24, glowing — SOURCE: INSPO/doodlejump/Doodle RPG/Pickups
-- [~] Score bonus — 16×16 — SOURCE: INSPO/doodlejump/Doodle RPG/Pickups
-- [~] Shield pickup — 24×24 — SOURCE: INSPO/doodlejump/Doodle RPG/Pickups
+- [x] Jetpack fuel pickup — `public/assets/neo-jump/collectible-fuel.png` (Loot_0, 49×50, Doodle RPG, scaled to 24×24 via setDisplaySize)
+- [x] Score bonus pickup — `public/assets/neo-jump/collectible-score.png` (Loot_1, 49×50, Doodle RPG, scaled to 24×24 via setDisplaySize)
+- [x] Shield pickup — `public/assets/neo-jump/collectible-shield.png` (Heart, 49×50, Doodle RPG, scaled to 24×24 via setDisplaySize)
 
 ### Environment
 - [~] Background — deep Matrix green void, parallax layers, 400×600 tileable vertically — SOURCE: DUMP/MatrixArcadeIconsBackroundsShaders

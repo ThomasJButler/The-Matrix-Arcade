@@ -45,8 +45,20 @@ function createTestScene() {
 
   // UI elements the scene writes to during updates
   scene.altitudeText = { setText: vi.fn() };
+  scene.scoreText = { setText: vi.fn() };
   scene.fuelBar = { clear: vi.fn(), fillStyle: vi.fn(), fillRect: vi.fn() };
   scene.fuelBarBg = { clear: vi.fn(), fillStyle: vi.fn(), fillRect: vi.fn() };
+
+  // Shield state
+  scene.shieldActive = false;
+  scene.shieldTimer = 0;
+  scene.shieldGlow = null;
+  scene.shieldText = null;
+  scene.collectiblesCollected = 0;
+  scene.collectibleSpriteMode = false;
+
+  // Jetpack flame — null unless createJetpackFlame() is called
+  scene.jetpackFlame = null;
 
   // Tweens — used by disappearing/breakable/spring/death logic
   scene.tweens = { add: vi.fn() };
@@ -683,6 +695,154 @@ describe('NeoJumpGameScene', () => {
       expect(GAME_CONFIG.JETPACK.FUEL_REGEN).toBe(5);
       expect(GAME_CONFIG.SCORING.ENEMY_KILL).toBe(100);
       expect(GAME_CONFIG.SCORING.ALTITUDE_DIVISOR).toBe(10);
+    });
+
+    it('collectible config has expected defaults', () => {
+      expect(GAME_CONFIG.COLLECTIBLES.SPAWN_CHANCE).toBe(0.25);
+      expect(GAME_CONFIG.COLLECTIBLES.SPAWN_ALTITUDE).toBe(200);
+      expect(GAME_CONFIG.COLLECTIBLES.FUEL_RESTORE).toBe(50);
+      expect(GAME_CONFIG.COLLECTIBLES.SCORE_BONUS).toBe(500);
+      expect(GAME_CONFIG.COLLECTIBLES.SHIELD_DURATION).toBe(5000);
+    });
+  });
+
+  /* -------------------------------------------------------------- */
+  /*  Collectible System                                            */
+  /* -------------------------------------------------------------- */
+  describe('Collectible System', () => {
+    it('fuel collectible restores 50 fuel', () => {
+      scene.jetpackFuel = 30;
+      const collectible = { collectibleType: 'fuel', destroy: vi.fn() };
+      scene.handleCollectiblePickup(collectible);
+
+      expect(scene.jetpackFuel).toBe(80);
+    });
+
+    it('fuel collectible caps at FUEL_MAX', () => {
+      scene.jetpackFuel = 80;
+      const collectible = { collectibleType: 'fuel', destroy: vi.fn() };
+      scene.handleCollectiblePickup(collectible);
+
+      expect(scene.jetpackFuel).toBe(GAME_CONFIG.JETPACK.FUEL_MAX);
+    });
+
+    it('score collectible adds SCORE_BONUS (500) points', () => {
+      scene.score = 100;
+      const collectible = { collectibleType: 'score', destroy: vi.fn() };
+      scene.handleCollectiblePickup(collectible);
+
+      expect(scene.score).toBe(600);
+    });
+
+    it('shield collectible activates shield', () => {
+      const collectible = { collectibleType: 'shield', destroy: vi.fn() };
+      scene.handleCollectiblePickup(collectible);
+
+      expect(scene.shieldActive).toBe(true);
+      expect(scene.shieldTimer).toBe(GAME_CONFIG.COLLECTIBLES.SHIELD_DURATION);
+    });
+
+    it('plays powerup sound on any collectible pickup', () => {
+      const collectible = { collectibleType: 'fuel', destroy: vi.fn() };
+      scene.handleCollectiblePickup(collectible);
+
+      expect(scene.playSound).toHaveBeenCalledWith('powerup');
+    });
+
+    it('destroys the collectible on pickup', () => {
+      const collectible = { collectibleType: 'fuel', destroy: vi.fn() };
+      scene.handleCollectiblePickup(collectible);
+
+      expect(collectible.destroy).toHaveBeenCalled();
+    });
+
+    it('increments collectiblesCollected', () => {
+      const collectible = { collectibleType: 'fuel', destroy: vi.fn() };
+      scene.handleCollectiblePickup(collectible);
+      scene.handleCollectiblePickup({ collectibleType: 'score', destroy: vi.fn() });
+
+      expect(scene.collectiblesCollected).toBe(2);
+    });
+
+    it('unlocks COLLECT_SHIELD on shield pickup', () => {
+      const collectible = { collectibleType: 'shield', destroy: vi.fn() };
+      scene.handleCollectiblePickup(collectible);
+
+      expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.COLLECT_SHIELD);
+    });
+
+    it('unlocks COLLECT_10 at 10 total collectibles', () => {
+      for (let i = 0; i < 9; i++) {
+        scene.handleCollectiblePickup({ collectibleType: 'fuel', destroy: vi.fn() });
+      }
+      expect(scene.unlockAchievement).not.toHaveBeenCalledWith(ACHIEVEMENTS.COLLECT_10);
+
+      scene.handleCollectiblePickup({ collectibleType: 'fuel', destroy: vi.fn() });
+      expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.COLLECT_10);
+    });
+  });
+
+  /* -------------------------------------------------------------- */
+  /*  Shield Mechanic                                               */
+  /* -------------------------------------------------------------- */
+  describe('Shield Mechanic', () => {
+    it('shield timer decreases over time', () => {
+      scene.shieldActive = true;
+      scene.shieldTimer = 5000;
+
+      // Stub add.graphics for shield glow creation
+      scene.add = { graphics: vi.fn().mockReturnValue({ clear: vi.fn(), lineStyle: vi.fn(), strokeCircle: vi.fn(), destroy: vi.fn(), setDepth: vi.fn() }),
+        text: vi.fn().mockReturnValue({ setText: vi.fn(), setScrollFactor: vi.fn(), setDepth: vi.fn(), destroy: vi.fn() }) };
+
+      scene.updateShield(1000);
+
+      expect(scene.shieldTimer).toBe(4000);
+    });
+
+    it('shield deactivates when timer reaches 0', () => {
+      scene.shieldActive = true;
+      scene.shieldTimer = 500;
+
+      scene.updateShield(600);
+
+      expect(scene.shieldActive).toBe(false);
+      expect(scene.shieldTimer).toBe(0);
+    });
+
+    it('shield protects from enemy collision and destroys enemy', () => {
+      scene.shieldActive = true;
+      scene.shieldTimer = 3000;
+
+      const enemy = createMockEnemy();
+      // Player position where it's NOT a stomp (player beside enemy)
+      scene.player.y = enemy.y;
+      scene.player.body.velocity.y = 0;
+
+      scene.handleEnemyCollision(enemy);
+
+      // Enemy should be killed (isDying set by killEnemy)
+      expect(enemy.isDying).toBe(true);
+      // Shield should be consumed
+      expect(scene.shieldActive).toBe(false);
+      expect(scene.shieldTimer).toBe(0);
+      // Player should NOT die
+      expect(scene.isGameOver).toBe(false);
+    });
+
+    it('shield does not interfere with stomp kills', () => {
+      scene.shieldActive = true;
+      scene.shieldTimer = 3000;
+
+      const enemy = createMockEnemy();
+      scene.player.y = enemy.y - 20;
+      scene.player.body.velocity.y = 100;
+
+      scene.handleEnemyCollision(enemy);
+
+      // Enemy killed via stomp
+      expect(enemy.isDying).toBe(true);
+      // Shield should still be active (stomp took priority)
+      expect(scene.shieldActive).toBe(true);
     });
   });
 });

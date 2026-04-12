@@ -69,6 +69,16 @@ export const GAME_CONFIG = {
     GRAVITY: 800,
   },
 
+  /** Collectibles */
+  COLLECTIBLES: {
+    SPAWN_CHANCE: 0.25,
+    SPAWN_ALTITUDE: 200,
+    SIZE: 24,
+    FUEL_RESTORE: 50,
+    SCORE_BONUS: 500,
+    SHIELD_DURATION: 5000,
+  },
+
   /** Scoring */
   SCORING: {
     ALTITUDE_DIVISOR: 10, // score = altitude / 10
@@ -86,6 +96,8 @@ export const ACHIEVEMENTS = {
   USE_JETPACK: 'neojump_jetpack',
   SPRING_BOUNCE: 'neojump_spring',
   COMBO_BOUNCE: 'neojump_combo_5', // 5 bounces without touching ground
+  COLLECT_SHIELD: 'neojump_shield',
+  COLLECT_10: 'neojump_collect_10',
 } as const;
 
 /** Phaser game configuration */

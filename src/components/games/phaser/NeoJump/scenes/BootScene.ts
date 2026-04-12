@@ -20,6 +20,14 @@ const PLATFORM_SPRITES = [
 
 const ENEMY_SPRITE = { key: 'enemy_sprite', path: 'assets/neo-jump/enemy.png' };
 
+const COLLECTIBLE_SPRITES = [
+  { key: 'collectible_sprite_fuel', path: 'assets/neo-jump/collectible-fuel.png' },
+  { key: 'collectible_sprite_score', path: 'assets/neo-jump/collectible-score.png' },
+  { key: 'collectible_sprite_shield', path: 'assets/neo-jump/collectible-shield.png' },
+];
+
+const JETPACK_FLAME_SPRITE = { key: 'jetpack_flame_sprite', path: 'assets/neo-jump/jetpack-flame.png' };
+
 export class NeoJumpBootScene extends BootScene {
   constructor() {
     super({
@@ -36,6 +44,10 @@ export class NeoJumpBootScene extends BootScene {
       this.load.image(key, path);
     }
     this.load.image(ENEMY_SPRITE.key, ENEMY_SPRITE.path);
+    for (const { key, path } of COLLECTIBLE_SPRITES) {
+      this.load.image(key, path);
+    }
+    this.load.image(JETPACK_FLAME_SPRITE.key, JETPACK_FLAME_SPRITE.path);
   }
 
   create(): void {
@@ -48,10 +60,15 @@ export class NeoJumpBootScene extends BootScene {
     const enemySpriteLoaded = this.textures.exists('enemy_sprite');
     this.game.registry.set('enemySpriteMode', enemySpriteLoaded);
 
+    const collectibleSpritesLoaded = this.textures.exists('collectible_sprite_fuel');
+    this.game.registry.set('collectibleSpriteMode', collectibleSpritesLoaded);
+
     this.createPlatformTextures();
     this.createPlayerTexture();
     this.createProjectileTexture();
     this.createEnemyTexture();
+    this.createCollectibleTextures();
+    this.createJetpackFlameTexture();
 
     super.create();
   }
@@ -131,6 +148,53 @@ export class NeoJumpBootScene extends BootScene {
     g.fillStyle(0xffffff, 1);
     g.fillCircle(4, 3, 2);
     g.generateTexture('projectile', 8, 8);
+    g.destroy();
+  }
+
+  private createCollectibleTextures(): void {
+    const size = 24;
+
+    if (!this.textures.exists('collectible_sprite_fuel')) {
+      const g = this.add.graphics();
+      g.fillStyle(MATRIX_COLORS.CYAN, 1);
+      g.fillRoundedRect(2, 2, size - 4, size - 4, 4);
+      g.fillStyle(0xffffff, 1);
+      g.fillRect(8, 6, 8, 4);
+      g.fillRect(10, 4, 4, 8);
+      g.generateTexture('collectible_fuel', size, size);
+      g.destroy();
+    }
+
+    if (!this.textures.exists('collectible_sprite_score')) {
+      const g = this.add.graphics();
+      g.fillStyle(MATRIX_COLORS.YELLOW, 1);
+      g.fillCircle(size / 2, size / 2, size / 2 - 2);
+      g.fillStyle(0x000000, 1);
+      g.fillRect(9, 7, 6, 10);
+      g.generateTexture('collectible_score', size, size);
+      g.destroy();
+    }
+
+    if (!this.textures.exists('collectible_sprite_shield')) {
+      const g = this.add.graphics();
+      g.fillStyle(MATRIX_COLORS.MAGENTA, 1);
+      g.fillTriangle(size / 2, 2, 2, size - 2, size - 2, size - 2);
+      g.fillStyle(0xffffff, 0.5);
+      g.fillTriangle(size / 2, 6, 6, size - 4, size - 6, size - 4);
+      g.generateTexture('collectible_shield', size, size);
+      g.destroy();
+    }
+  }
+
+  private createJetpackFlameTexture(): void {
+    if (this.textures.exists('jetpack_flame_sprite')) return;
+
+    const g = this.add.graphics();
+    g.fillStyle(0xff6600, 1);
+    g.fillTriangle(8, 0, 0, 16, 16, 16);
+    g.fillStyle(MATRIX_COLORS.YELLOW, 1);
+    g.fillTriangle(8, 4, 3, 14, 13, 14);
+    g.generateTexture('jetpack_flame', 16, 16);
     g.destroy();
   }
 
