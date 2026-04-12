@@ -21,33 +21,29 @@
   - Particles, tiles, debris, pickups/items, fonts
 - [x] 4 Doodle Jump reference images (original game look)
 
-## Decision Needed: Sprite Style
+## Decision: Sprite Style ✅ RESOLVED (R29)
 
-**Option A**: Use the Doodle RPG knight pack (fantasy medieval → rethemed Matrix green)
-**Option B**: Create custom Neo character sprites (Matrix coat, sunglasses, martial arts)
-**Option C**: Procedural sprites with higher fidelity than current placeholder
-
-Place chosen sprites in this folder.
+**Chosen**: CyberPunk character sprites (24×24 pixel art, same pack as Cloud Jumper) for player. Doodle RPG tiles for platforms. Doodle RPG Bomba for enemy. All scaled via `setDisplaySize()` with Matrix-palette tinting.
 
 ## Still Needed
 
-### Player (whichever style chosen)
-- [~] Player idle — standing on platform, 32×32 or 32×40 — SOURCE: INSPO/doodlejump/Doodle RPG or DUMP/MatrixArcadeCyberPunkAssets/idle.zip
-- [~] Player jump — legs tucked, going up, 32×40 — SOURCE: INSPO/doodlejump/Doodle RPG or DUMP/MatrixArcadeCyberPunkAssets
-- [~] Player fall — arms/legs spread, falling down, 32×40 — SOURCE: INSPO/doodlejump/Doodle RPG or DUMP/MatrixArcadeCyberPunkAssets
-- [~] Player death — tumble animation, 4-6 frames — SOURCE: INSPO/doodlejump/Doodle RPG
+### Player (CyberPunk 24×24 pixel art — same pack as Cloud Jumper)
+- [x] Player idle — `public/assets/neo-jump/player-idle.png` (24×24, scaled to 32×40 via setDisplaySize)
+- [x] Player jump — `public/assets/neo-jump/player-jump.png` (24×24, run frame2 = ascending pose)
+- [x] Player fall — `public/assets/neo-jump/player-fall.png` (24×24, slide frame3 = falling pose)
+- [x] Player death — `public/assets/neo-jump/player-death.png` (24×24, attack frame5)
 - [~] Player jetpack — flames below, ascending, 2-3 frames — SOURCE: INSPO/doodlejump/Doodle RPG/Particles
-- [~] Player shoot — projectile launch pose, 1-2 frames — SOURCE: DUMP/MatrixArcadeCyberPunkAssets/shoot.zip
+- [x] Player shoot — `public/assets/neo-jump/player-shoot.png` (24×24, shoot frame4)
 
-### Platforms
-- [~] Normal platform — green, solid, 80×16 — SOURCE: DUMP/Legacy-Fantasy - High Forest 2.3 or DUMP/Treasure Hunters
-- [~] Moving platform — cyan, arrows/indicators, 80×16 — SOURCE: DUMP/Legacy-Fantasy - High Forest 2.3 or DUMP/Treasure Hunters
-- [~] Spring platform — yellow, with spring coil, 80×16 (+ spring compress animation 2f) — SOURCE: DUMP/Treasure Hunters or INSPO/doodlejump/Doodle RPG
-- [~] Disappearing platform — gray, cracking/fading, 80×16 (+ break animation 3-4f) — SOURCE: DUMP/Treasure Hunters or DUMP/Legacy-Fantasy - High Forest 2.3
-- [~] Breakable platform — orange, crumbling, 80×16 (+ break animation 4f) — SOURCE: DUMP/Treasure Hunters
+### Platforms (Doodle RPG tiles, scaled to 80×16 via setDisplaySize with per-type tinting)
+- [x] Normal platform — `public/assets/neo-jump/platform-normal.png` (Log1_0, 200×100, tinted green)
+- [x] Moving platform — `public/assets/neo-jump/platform-moving.png` (PushBlock1, 100×100, tinted cyan)
+- [x] Spring platform — `public/assets/neo-jump/platform-spring.png` (Pedestal_0, 100×100, tinted yellow)
+- [x] Disappearing platform — `public/assets/neo-jump/platform-disappearing.png` (Barrel_0, 100×100, tinted grey)
+- [x] Breakable platform — `public/assets/neo-jump/platform-breakable.png` (Crate, 100×100, tinted orange)
 
 ### Enemies
-- [~] Basic enemy — distinct from player, menacing, 32×32, 2-frame idle — SOURCE: DUMP/Tiny Swords (Free Pack)/Units or INSPO/doodlejump/Doodle RPG
+- [x] Basic enemy — `public/assets/neo-jump/enemy.png` (Bomba, 71×79, scaled to 40×40 via setDisplaySize, tinted red)
 - [~] Flying enemy — winged/hovering, 40×32, 2-frame flap — SOURCE: DUMP/Tiny Swords (Free Pack)/Units or INSPO/doodlejump/Doodle RPG/Particles
 - [~] Shooting enemy — armed, fires downward, 32×32 — SOURCE: DUMP/MatrixArcadeCyberPunkAssets/shoot.zip
 

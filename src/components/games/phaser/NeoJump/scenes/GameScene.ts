@@ -38,6 +38,7 @@ export class NeoJumpGameScene extends BaseScene {
   // Player
   private player!: Phaser.Physics.Arcade.Sprite;
   private facingRight = true;
+  private playerSpriteMode = false;
 
   // Game state — altitude is derived from highestY, no separate tracking needed
   private score = 0;
@@ -49,6 +50,10 @@ export class NeoJumpGameScene extends BaseScene {
   private jetpackFuel = GAME_CONFIG.JETPACK.FUEL_MAX;
   private jetpackActive = false;
   private hasUsedJetpack = false;
+
+  // Sprite modes
+  private platformSpriteMode = false;
+  private enemySpriteMode = false;
 
   // Object groups
   private platforms!: Phaser.Physics.Arcade.Group;
@@ -84,6 +89,11 @@ export class NeoJumpGameScene extends BaseScene {
 
   create(): void {
     this.createMatrixBackground();
+
+    // Read sprite mode flags from registry
+    this.playerSpriteMode = this.game.registry.get('playerSpriteMode') === true;
+    this.platformSpriteMode = this.game.registry.get('platformSpriteMode') === true;
+    this.enemySpriteMode = this.game.registry.get('enemySpriteMode') === true;
 
     // Initialize state
     this.score = 0;
@@ -240,26 +250,44 @@ export class NeoJumpGameScene extends BaseScene {
    * Create player
    */
   private createPlayer(): void {
+    const textureKey = this.playerSpriteMode ? 'player_sprite_idle' : 'player_idle';
     this.player = this.physics.add.sprite(
       GAME_CONFIG.WIDTH / 2,
       GAME_CONFIG.HEIGHT - 100,
-      'player_idle',
-      0
+      textureKey
     );
 
     this.player.setCollideWorldBounds(false);
     this.player.setBounce(0);
     this.player.setDepth(10);
-    this.player.setScale(0.6);
 
-    // Set up body
+    if (this.playerSpriteMode) {
+      this.player.setDisplaySize(GAME_CONFIG.PLAYER.WIDTH, GAME_CONFIG.PLAYER.HEIGHT);
+    } else {
+      this.player.setScale(0.6);
+    }
+
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     body.setSize(GAME_CONFIG.PLAYER.WIDTH, GAME_CONFIG.PLAYER.HEIGHT);
     body.setMaxVelocityY(GAME_CONFIG.PLAYER.MAX_VELOCITY_Y);
 
-    // Initial jump
     body.setVelocityY(GAME_CONFIG.PLAYER.JUMP_VELOCITY);
-    this.player.play('player_jump');
+    this.updatePlayerTexture('jump');
+  }
+
+  private updatePlayerTexture(state: 'idle' | 'jump' | 'fall' | 'shoot' | 'death'): void {
+    if (this.playerSpriteMode) {
+      this.player.setTexture(`player_sprite_${state}`);
+      this.player.setDisplaySize(GAME_CONFIG.PLAYER.WIDTH, GAME_CONFIG.PLAYER.HEIGHT);
+    } else {
+      if (state === 'jump') {
+        this.player.play('player_jump');
+      } else if (state === 'fall') {
+        this.player.play('player_fall');
+      } else if (state === 'death') {
+        this.player.play('player_death');
+      }
+    }
   }
 
   /**
@@ -374,14 +402,22 @@ export class NeoJumpGameScene extends BaseScene {
   private updatePlayer(_delta: number): void {
     const body = this.player.body as Phaser.Physics.Arcade.Body;
 
-    // Update animation based on velocity
+    // Update texture based on velocity
     if (body.velocity.y < 0) {
-      if (this.player.anims.currentAnim?.key !== 'player_jump') {
-        this.player.play('player_jump');
+      if (this.playerSpriteMode) {
+        if (this.player.texture.key !== 'player_sprite_jump') {
+          this.updatePlayerTexture('jump');
+        }
+      } else if (this.player.anims.currentAnim?.key !== 'player_jump') {
+        this.updatePlayerTexture('jump');
       }
     } else if (body.velocity.y > 0) {
-      if (this.player.anims.currentAnim?.key !== 'player_fall') {
-        this.player.play('player_fall');
+      if (this.playerSpriteMode) {
+        if (this.player.texture.key !== 'player_sprite_fall') {
+          this.updatePlayerTexture('fall');
+        }
+      } else if (this.player.anims.currentAnim?.key !== 'player_fall') {
+        this.updatePlayerTexture('fall');
       }
     }
 
@@ -410,6 +446,16 @@ export class NeoJumpGameScene extends BaseScene {
    * Shoot projectile
    */
   private shoot(): void {
+    if (this.playerSpriteMode) {
+      this.updatePlayerTexture('shoot');
+      this.time.delayedCall(200, () => {
+        if (!this.isGameOver) {
+          const body = this.player.body as Phaser.Physics.Arcade.Body;
+          this.updatePlayerTexture(body.velocity.y < 0 ? 'jump' : 'fall');
+        }
+      });
+    }
+
     const projectile = this.projectiles.get(
       this.player.x,
       this.player.y - 20,
@@ -627,6 +673,9 @@ export class NeoJumpGameScene extends BaseScene {
     if (this.isGameOver) return;
     this.isGameOver = true;
 
+    if (this.playerSpriteMode) {
+      this.updatePlayerTexture('death');
+    }
     this.player.setTint(0xff0000);
 
     this.tweens.add({
@@ -677,14 +726,27 @@ export class NeoJumpGameScene extends BaseScene {
    * Create a platform
    */
   private createPlatform(x: number, y: number, type: PlatformType): Platform {
-    const textureKey = `platform_${type}`;
+    const textureKey = this.platformSpriteMode
+      ? `platform_sprite_${type}`
+      : `platform_${type}`;
     const platform = this.platforms.create(x, y, textureKey) as Platform;
 
     platform.platformType = type;
     platform.setImmovable(true);
     platform.setDepth(5);
 
-    // Moving platform setup
+    if (this.platformSpriteMode) {
+      platform.setDisplaySize(GAME_CONFIG.PLATFORMS.WIDTH, GAME_CONFIG.PLATFORMS.HEIGHT);
+      const tintMap: Record<PlatformType, number> = {
+        normal: MATRIX_COLORS.PRIMARY,
+        moving: MATRIX_COLORS.CYAN,
+        spring: MATRIX_COLORS.YELLOW,
+        disappearing: 0x888888,
+        breakable: 0xff6600,
+      };
+      platform.setTint(tintMap[type]);
+    }
+
     if (type === 'moving') {
       platform.moveDirection = Math.random() > 0.5 ? 1 : -1;
       platform.moveSpeed = Phaser.Math.Between(50, 100);
@@ -795,11 +857,11 @@ export class NeoJumpGameScene extends BaseScene {
 
     if (hasNearbyEnemy) return;
 
-    // Spawn enemy
     const x = Phaser.Math.Between(50, GAME_CONFIG.WIDTH - 50);
     const y = cameraTop - 50;
 
-    const enemy = this.enemies.create(x, y, 'enemy') as Enemy;
+    const enemyTexture = this.enemySpriteMode ? 'enemy_sprite' : 'enemy';
+    const enemy = this.enemies.create(x, y, enemyTexture) as Enemy;
     enemy.direction = Math.random() > 0.5 ? 1 : -1;
     enemy.speed = Phaser.Math.Between(
       GAME_CONFIG.ENEMIES.SPEED_MIN,
@@ -807,6 +869,11 @@ export class NeoJumpGameScene extends BaseScene {
     );
     enemy.isDying = false;
     enemy.setDepth(8);
+
+    if (this.enemySpriteMode) {
+      enemy.setDisplaySize(40, 40);
+      enemy.setTint(0xff0000);
+    }
   }
 
   /**
