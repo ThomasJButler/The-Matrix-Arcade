@@ -7,17 +7,37 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ## Current Status
 
 - **Status**: REBUILDING -- Phaser migration of all React/Canvas games + new features
-- **Last Updated**: 12 April 2026 (R10 -- Snake Classic Phaser rebuild)
+- **Last Updated**: 12 April 2026 (R11 -- Matrix Cloud Phaser rebuild)
 - **Version**: v2.0.0 (next target)
-- **Games**: 12 playable (4 React/Canvas to rebuild into Phaser, 7 already Phaser) + 1 planned (Code Breaker)
+- **Games**: 12 playable (3 React/Canvas to rebuild into Phaser, 8 already Phaser) + 1 planned (Code Breaker)
 - **Build**: PASSES (code-split, main bundle 370KB, Phaser vendor chunk 1,479KB) -- zero warnings
-- **Unit Tests**: 2,070 passing across 55 files, 0 failures
+- **Unit Tests**: 2,151 passing across 56 files, 0 failures
 - **E2E Tests**: 78 gameplay + 110 visual = 188 tests across 27 spec files -- last run PASSED (0 failures, confirmed via `test-results/.last-run.json`)
 - **Asset Pipeline**: 0% complete -- `public/assets/` does not exist, all games use procedural textures
 
 ### What Was Completed (v1.x to v2.0 prep)
 
 All P0/P1/P2 bugs resolved from v1.x. Test seams added to all games. E2E gameplay specs written (78 tests). Code quality fixes across 20+ hooks and components. Code-splitting reduced main bundle from 2.18MB to 370KB. Shared game registry created. Error boundaries added. Collision utility extracted. 5 Phaser games scaffolded (MatrixFrogger, NeoJump, AgentChase, RhythmHacker, CloudJumper) with full scene architecture. 12 rebuild research docs created in `rebuildingoldgames/plans/`. Asset inventory catalogued in `desiredassets/`. Full details in git history.
+
+### What Was Completed (R11 -- 12 April 2026)
+
+Matrix Cloud Phaser rebuild — third React-to-Phaser migration, continuing the proven pipeline:
+
+**Full Phaser 3 port**: Created `src/components/games/phaser/MatrixCloud/` with 6 files: config.ts (all game constants, types, boss definitions, power-up definitions, achievement IDs), BootScene.ts (procedural textures for player with 3 states — normal/shield/damaged — 4 power-up types, 3 boss types with distinct visual designs, and 3 attack projectile types), MenuScene.ts (extends base MenuScene with how-to-play instructions), GameOverScene.ts (extends base), GameScene.ts (~530 lines, complete gameplay implementation), and index.tsx (React wrapper).
+
+**All mechanics faithfully ported from MatrixCloud.tsx**: Flappy Bird-style gameplay with manual physics (gravity 1400 px/s², jump velocity -420 px/s, terminal velocity 600 px/s). Pipes scroll left at 200 px/s with 120px gap, spawned at 240px intervals. Player at fixed x=80, rotates based on velocity. AABB collision detection for pipe pairs. Combo scoring (increments by 0.15 per clean pipe pass, capped at 5.0x). Level progression every 500 points.
+
+**4-type power-up system**: Shield (absorbs one hit, shows magenta break effect), Time Slow (all speeds × 0.6 for 8s), Extra Life (instant, caps at 5), Double Points (2x scoring for 8s). Power-ups spawn with 12% chance alongside pipes, scroll with pipe speed. Each type has a distinct procedural texture with its own colour and geometric shape.
+
+**3-boss system**: Agent Smith (level 5, 150hp, sinusoidal movement, laser/code_bomb attacks), Sentinel (level 10, 200hp, circular orbit, matrix_rain/laser attacks), Architect (level 15, 300hp, slow vertical wave, all 3 attack types). Bosses clear all pipes/power-ups on spawn. 30-second battle timer. Player damages boss by 10hp per body contact (also takes damage). Boss health bar drawn above sprite. Score reward = maxHealth × 2 on defeat.
+
+**8 achievements**: cloud_first_flight (first jump), cloud_level_5 (reach level 5), cloud_boss_slayer (defeat Agent Smith), cloud_sentinel_defeat (defeat Sentinel), cloud_architect_defeat (defeat Architect), cloud_all_bosses (defeat all 3 boss types), cloud_power_collector (collect 20 power-ups), cloud_high_flyer (score 1000). All use dual-call pattern via BaseScene.unlockAchievement().
+
+**Bug fix**: Added missing `cloud_sentinel_defeat` achievement to useSaveSystem.ts achievement definitions — was previously called in game code but never registered, silently failing.
+
+**App.tsx updated**: Lazy import changed from `./components/games/MatrixCloud` to `./components/games/phaser/MatrixCloud`. Game registry controls text updated. Old React MatrixCloud.tsx preserved (tests still pass).
+
+**81 new unit tests** across 14 test suites: initial state (10), player physics — gravity/terminal velocity/ceiling clamp/ground (4), jump — velocity/sound/achievement (4), pipe collision — top/bottom/gap/distance (4), pipe scoring — base/combo/cap/multiplier/doublePoints/reportScore/sound (7), level progression — threshold/sound/shake/calculation (4), power-up collection (2), power-up activation — shield/timeSlow/extraLife/cap/doublePoints (5), shield mechanics — absorb/invulnerability/sound (3), collision and damage — life loss/combo reset/sound/invulnerability/camera shake (6), game over — 0 lives/gameOver call/highScore update (4), boss battle — start/health/clear pipes/clear power-ups/score bonus/achievements/all bosses/end/cleanup/attack invulnerability (12), achievements — thresholds/below thresholds/idempotent (5), power-up collision detection (2), speed multiplier (2), test state exposure (1), spawn pipe — creation/properties/gap range (3), cleanup — pipes/boss/keyboard (3). All 2,151 tests passing, build clean, zero lint errors from new code.
 
 ### What Was Completed (R10 -- 12 April 2026)
 
@@ -460,7 +480,7 @@ Each rebuild follows standard Phaser structure: `index.tsx`, `config.ts`, `scene
 
 1. **Vortex Pong** ✅ -- Rebuilt as Phaser game (R9). Pipeline proven.
 2. **Snake Classic** ✅ -- Rebuilt as Phaser game (R10). 90 unit tests, all mechanics ported.
-3. **Matrix Cloud** -- Full redesign with proper Flappy Bird physics.
+3. **Matrix Cloud** ✅ -- Rebuilt as Phaser game (R11). 81 unit tests, full boss system + power-ups.
 4. **Matrix Invaders** -- Complex (waves, pooling, bullet time) but huge Phaser gains.
 5. **Metris** -- SRS rotation system needs careful porting.
 6. **CTRL-S | The World** -- Largest, most ambitious. Citizen Sleeper-inspired narrative engine.

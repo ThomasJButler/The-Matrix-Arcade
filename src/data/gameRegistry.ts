@@ -63,7 +63,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     category: 'Arcade',
     inspiration: 'Flappy Bird (2013)',
     inspirationNote: 'The brutally addictive one-tap classic, wrapped in cascading code rain.',
-    controls: 'SPACE or Click to flap, avoid obstacles',
+    controls: 'SPACE/Click to flap. Fly through gaps, collect power-ups, defeat bosses!',
   },
   {
     id: 'matrix-invaders',
