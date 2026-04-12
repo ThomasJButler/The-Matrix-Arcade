@@ -132,7 +132,6 @@ export class CodeBreakerGameScene extends BaseScene {
   // -- Ball --
 
   private spawnBall(attached: boolean): void {
-    const size = C.BALL_RADIUS * 2 + 2;
     const sprite = this.add.circle(
       attached ? this.paddle.x : C.WIDTH / 2,
       attached ? this.paddle.y - C.PADDLE_HEIGHT / 2 - C.BALL_RADIUS - 1 : C.HEIGHT * 0.6,
@@ -181,7 +180,6 @@ export class CodeBreakerGameScene extends BaseScene {
         const x = C.BRICK_OFFSET_X + col * (C.BRICK_WIDTH + C.BRICK_PADDING) + C.BRICK_WIDTH / 2;
         const y = C.BRICK_OFFSET_Y + row * (C.BRICK_HEIGHT + C.BRICK_PADDING) + C.BRICK_HEIGHT / 2;
 
-        const textureKey = `brick_${brickType}`;
         const sprite = this.add.rectangle(x, y, C.BRICK_WIDTH, C.BRICK_HEIGHT, def.color);
         sprite.setDepth(3);
 
@@ -775,8 +773,6 @@ export class CodeBreakerGameScene extends BaseScene {
   }
 
   private checkPowerUpCollisions(): void {
-    const pickupDist = (this.paddleWidth + C.POWERUP_SIZE) / 2;
-
     for (let i = this.fieldPowerUps.length - 1; i >= 0; i--) {
       const pu = this.fieldPowerUps[i];
 

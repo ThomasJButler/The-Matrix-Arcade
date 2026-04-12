@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import { SCENE_KEYS } from '@/lib/phaser/types';
 import { CodeBreakerBootScene } from './scenes/BootScene';
 import { CodeBreakerMenuScene } from './scenes/MenuScene';
 import { CodeBreakerGameScene } from './scenes/GameScene';

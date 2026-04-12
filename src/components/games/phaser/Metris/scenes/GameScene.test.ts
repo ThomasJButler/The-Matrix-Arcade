@@ -10,7 +10,6 @@ import {
   type TetrominoType,
   type CellData,
   type PieceState,
-  type ParticleData,
 } from '../config';
 
 // --- Helpers ---

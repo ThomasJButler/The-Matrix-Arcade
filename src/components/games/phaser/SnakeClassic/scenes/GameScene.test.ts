@@ -206,7 +206,7 @@ describe('SnakeGameScene', () => {
     it('should block 180-degree reversal (right to left)', () => {
       (scene as any).direction = 'right';
       (scene as any).nextDirection = 'left';
-      const dirBefore = s('direction');
+      const _dirBefore = s('direction');
       call('tick');
       // nextDirection was 'left' but it's opposite, so... actually
       // tick() always consumes nextDirection. The blocking happens in handleInput.
