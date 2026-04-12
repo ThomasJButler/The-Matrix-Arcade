@@ -7,17 +7,39 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ## Current Status
 
 - **Status**: REBUILDING -- Phaser migration of all React/Canvas games + new features
-- **Last Updated**: 12 April 2026 (R11 -- Matrix Cloud Phaser rebuild)
+- **Last Updated**: 12 April 2026 (R12 -- Matrix Invaders Phaser rebuild)
 - **Version**: v2.0.0 (next target)
-- **Games**: 12 playable (3 React/Canvas to rebuild into Phaser, 8 already Phaser) + 1 planned (Code Breaker)
+- **Games**: 12 playable (2 React/Canvas to rebuild into Phaser, 9 already Phaser) + 1 planned (Code Breaker)
 - **Build**: PASSES (code-split, main bundle 370KB, Phaser vendor chunk 1,479KB) -- zero warnings
-- **Unit Tests**: 2,151 passing across 56 files, 0 failures
+- **Unit Tests**: 2,285 passing across 57 files, 0 failures
 - **E2E Tests**: 78 gameplay + 110 visual = 188 tests across 27 spec files -- last run PASSED (0 failures, confirmed via `test-results/.last-run.json`)
 - **Asset Pipeline**: 0% complete -- `public/assets/` does not exist, all games use procedural textures
 
 ### What Was Completed (v1.x to v2.0 prep)
 
 All P0/P1/P2 bugs resolved from v1.x. Test seams added to all games. E2E gameplay specs written (78 tests). Code quality fixes across 20+ hooks and components. Code-splitting reduced main bundle from 2.18MB to 370KB. Shared game registry created. Error boundaries added. Collision utility extracted. 5 Phaser games scaffolded (MatrixFrogger, NeoJump, AgentChase, RhythmHacker, CloudJumper) with full scene architecture. 12 rebuild research docs created in `rebuildingoldgames/plans/`. Asset inventory catalogued in `desiredassets/`. Full details in git history.
+
+### What Was Completed (R12 -- 12 April 2026)
+
+Matrix Invaders Phaser rebuild — fourth React-to-Phaser migration, continuing the proven pipeline:
+
+**Full Phaser 3 port**: Created `src/components/games/phaser/MatrixInvaders/` with 6 files: config.ts (all game constants with per-second units, enemy/power-up definitions, achievement IDs, Phaser config), BootScene.ts (13 procedural textures — player with shield variant, 4 enemy types, boss, 2 bullet types, 4 power-up types), MenuScene.ts (extends base with controls instructions), GameOverScene.ts (extends base), GameScene.ts (~600 lines, complete gameplay), and index.tsx (React wrapper).
+
+**All mechanics faithfully ported from MatrixInvaders.tsx (1,191 lines)**: Space invader gameplay with 8x5 enemy grid formation. Enemies bounce horizontally and descend on wall hit. Enemy speed increases as enemies die (+30% at last enemy) and per wave (+5%/wave). Enemies fire randomly with configurable probability. AABB collision detection for all interactions. Combo scoring (increments per kill, resets on player hit). Wave completion restores 1 health. Delta-time-based movement throughout.
+
+**Bullet time system**: B key activates slow motion (0.3x time scale) for 3 seconds. Affects all enemy and bullet movement. Player fire rate intentionally unscaled (uses real time for cooldown). Usage counter tracked for achievements.
+
+**4-type power-up system (properly implemented — were only scaffolded in React version)**: Rapid Fire (halves fire cooldown for 8s), Shield (absorbs one hit, shows player_shield texture), Score Multiplier (2x points for 8s), Bomb (instant — destroys all enemies, damages boss by 20hp). Power-ups drop with 15% chance on enemy kill. Field power-ups fall at 120 px/s with AABB collection detection.
+
+**Boss battle system**: Boss spawns every 5th wave with 1500ms warning delay (bossSpawning guard prevents premature wave completion). Boss has 20hp, fires every 2 seconds with aimed projectiles toward player. Boss health bar displayed above sprite. Defeating boss awards 500 points × multiplier.
+
+**4-type enemy system**: Code (green, 1hp, 10pts), Agent (amber, 2hp, 30pts), Sentinel (red, 3hp, 50pts), Virus (magenta, 1hp, 20pts, splits into 2 children on death). Enemy type selection varies by wave — virus from wave 2+, agent from wave 3+, sentinel in top row from wave 10+.
+
+**10 achievements**: invaders_first_kill (destroy first enemy), invaders_wave_5 (reach wave 5), invaders_wave_10 (reach wave 10), invaders_boss_defeat (defeat a boss), invaders_perfect_wave (complete wave without damage, wave 2+), invaders_100_enemies (destroy 100 enemies), invaders_combo_10 (10 kill combo), invaders_bullet_time (use bullet time), invaders_no_bullet_time (reach wave 5 without bullet time), invaders_power_collector (collect 10 power-ups). All use dual-call pattern via BaseScene.unlockAchievement().
+
+**App.tsx updated**: Lazy import changed from `./components/games/MatrixInvaders` to `./components/games/phaser/MatrixInvaders`. Old React MatrixInvaders.tsx preserved (tests still pass).
+
+**134 new unit tests** across 18 test suites: initial state (12), player movement — arrows/WASD/boundaries (7), player shooting — creation/sound/cooldown/velocity (6), bullet time — activation/usage/sound/deactivation/duration/fire rate (6), bullet updates — movement/offscreen removal (4), enemy movement — direction/bounce/descent/speed increase (6), enemy shooting — creation/velocity/timing (4), collision detection — hit/miss/boundary (5), hit enemy — damage/HP/sound/combo/score (6), kill enemy — removal/sound/achievements/combo bonus (6), virus split — children/properties (4), hit player — damage/invulnerability/shield/sound/game over (7), wave system — spawn count/types/boss trigger (5), wave complete — detection/transition/health restore/speed increase (5), boss battle — spawn/warning/health/defeat/aimed shots (8), power-ups — drop/collection/rapidFire/shield/scoreMultiplier/bomb (10), game over — trigger/score report/achievement (4), achievements — thresholds/idempotent/wave5/perfect wave (4), particle effects — spawn/velocity/decay/removal (4), enemy type selection (2), test state exposure (2), cleanup — enemies/bullets/boss/keyboard/particles/power-ups (6). All 2,285 tests passing, build clean.
 
 ### What Was Completed (R11 -- 12 April 2026)
 
@@ -481,7 +503,7 @@ Each rebuild follows standard Phaser structure: `index.tsx`, `config.ts`, `scene
 1. **Vortex Pong** ✅ -- Rebuilt as Phaser game (R9). Pipeline proven.
 2. **Snake Classic** ✅ -- Rebuilt as Phaser game (R10). 90 unit tests, all mechanics ported.
 3. **Matrix Cloud** ✅ -- Rebuilt as Phaser game (R11). 81 unit tests, full boss system + power-ups.
-4. **Matrix Invaders** -- Complex (waves, pooling, bullet time) but huge Phaser gains.
+4. **Matrix Invaders** ✅ -- Rebuilt as Phaser game (R12). 134 unit tests, full boss/power-up/bullet time system.
 5. **Metris** -- SRS rotation system needs careful porting.
 6. **CTRL-S | The World** -- Largest, most ambitious. Citizen Sleeper-inspired narrative engine.
 
@@ -496,7 +518,7 @@ These are documented issues in the current React games that should be resolved a
 | MatrixAscension | `_altitude` state unused (vestigial), spring velocity double-applies deltaTime | Minor |
 | JimmyMatrix | Game rAF loop restarts on every score change due to excessive useEffect deps; `endTrack(false)` called inside React state updater (unsafe) | Performance |
 | MatrixCloud | Boss defeat achievement never fires; double collision (can lose 2 lives in 1 frame) | Gameplay |
-| MatrixInvaders | 1-frame lag between player movement and collision; non-integer scores displayed | Minor |
+| MatrixInvaders | ~~1-frame lag between player movement and collision; non-integer scores displayed~~ Fixed in R12 Phaser rebuild | ✅ Resolved |
 
 ### Per-Game Build Checklist (repeat for each)
 
