@@ -521,18 +521,34 @@ export class CloudJumperGameScene extends BaseScene {
   /**
    * Create a cloud
    */
+  private static readonly CLOUD_TINTS: Record<CloudType, number> = {
+    normal: 0xffffff,
+    moving: 0x66ffff,
+    disappearing: 0xaaaaaa,
+    storm: 0xff6666,
+  };
+
   private createCloud(x: number, y: number, type: CloudType): Cloud {
-    const cloud = this.clouds.create(x, y, `cloud_${type}`) as Cloud;
+    const spriteMode = this.game.registry.get('spriteMode') === true;
+    const textureKey = spriteMode ? `cloud_sprite_${type}` : `cloud_${type}`;
+    const cloud = this.clouds.create(x, y, textureKey) as Cloud;
     cloud.cloudType = type;
     cloud.setImmovable(true);
     cloud.setDepth(5);
 
-    // Scale visual and sync physics body to match
     const width = Phaser.Math.Between(GAME_CONFIG.CLOUDS.WIDTH_MIN, GAME_CONFIG.CLOUDS.WIDTH_MAX);
-    cloud.setScale(width / 120, 1);
+
     const cloudBody = cloud.body as Phaser.Physics.Arcade.Body;
-    cloudBody.setSize(width, GAME_CONFIG.CLOUDS.HEIGHT);
-    cloudBody.setOffset((120 - width) / 2, 0);
+    if (spriteMode) {
+      cloud.setDisplaySize(width, GAME_CONFIG.CLOUDS.HEIGHT);
+      const tint = CloudJumperGameScene.CLOUD_TINTS[type];
+      if (tint !== 0xffffff) cloud.setTint(tint);
+      cloudBody.setSize(cloud.width, cloud.height);
+    } else {
+      cloud.setScale(width / 120, 1);
+      cloudBody.setSize(width, GAME_CONFIG.CLOUDS.HEIGHT);
+      cloudBody.setOffset((120 - width) / 2, 0);
+    }
 
     // Moving cloud setup
     if (type === 'moving') {

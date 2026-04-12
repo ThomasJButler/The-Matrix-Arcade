@@ -484,6 +484,26 @@ describe('CloudJumperGameScene', () => {
   });
 
   // -----------------------------------------------------------------------
+  // Sprite Mode
+  // -----------------------------------------------------------------------
+  describe('Sprite Mode', () => {
+    it('CLOUD_TINTS has entries for all four cloud types', () => {
+      const tints = (CloudJumperGameScene as any).CLOUD_TINTS;
+      expect(tints).toEqual({
+        normal: 0xffffff,
+        moving: 0x66ffff,
+        disappearing: 0xaaaaaa,
+        storm: 0xff6666,
+      });
+    });
+
+    it('normal cloud tint is white (no tint)', () => {
+      const tints = (CloudJumperGameScene as any).CLOUD_TINTS;
+      expect(tints.normal).toBe(0xffffff);
+    });
+  });
+
+  // -----------------------------------------------------------------------
   // Scoring
   // -----------------------------------------------------------------------
   describe('Scoring', () => {

@@ -6,6 +6,13 @@ import { BootScene } from '../../../../../lib/phaser/scenes/BootScene';
 import { SCENE_KEYS } from '../../../../../lib/phaser/types';
 import { GAME_CONFIG } from '../config';
 
+const CLOUD_SPRITES = [
+  { key: 'cloud_sprite_normal', path: 'assets/cloud-jumper/cloud-wide.png' },
+  { key: 'cloud_sprite_moving', path: 'assets/cloud-jumper/cloud-compact.png' },
+  { key: 'cloud_sprite_disappearing', path: 'assets/cloud-jumper/cloud-small.png' },
+  { key: 'cloud_sprite_storm', path: 'assets/cloud-jumper/cloud-peak.png' },
+];
+
 export class CloudJumperBootScene extends BootScene {
   constructor() {
     super({
@@ -14,16 +21,21 @@ export class CloudJumperBootScene extends BootScene {
     });
   }
 
-  preload(): void {
-    super.preload();
-
-    // Load cloud image from Treasure Hunters
+  protected loadCommonAssets(): void {
     this.load.image('cloud_base', '/assets/Treasure Hunters/Palm Tree Island/Sprites/Background/Big Clouds.png');
+    for (const { key, path } of CLOUD_SPRITES) {
+      this.load.image(key, path);
+    }
   }
 
   create(): void {
+    const spritesLoaded = this.textures.exists('cloud_sprite_normal');
+    this.game.registry.set('spriteMode', spritesLoaded);
+
     this.createPlayerTexture();
-    this.createCloudTextures();
+    if (!spritesLoaded) {
+      this.createCloudTextures();
+    }
     this.createCollectibleTextures();
     this.createObstacleTextures();
     this.createBackgroundLayers();

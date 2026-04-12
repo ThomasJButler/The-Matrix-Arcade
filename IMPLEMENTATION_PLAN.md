@@ -138,7 +138,7 @@ Each game's `desiredassets/[game]/ASSETS_NEEDED.md` has a Source Mapping section
 - [x] **Matrix Frogger**: Vehicle sprites integrated (5 types: car1, car2, car3, truck, tractor). Remaining: frog death animation, environment tiles, power-up icons, WAV audio integration.
 - [ ] **Neo Jump**: Process Doodle RPG pack from INSPO (406 sprites).
 - [x] **Agent Chase**: Player (rogue), 4 agent monsters, frightened slime, wall brick sprites integrated from 32rogues pack. Remaining: agent death animation, fruit icons, audio SFX.
-- [ ] **Cloud Jumper**: Process Cloudy Pack (190+ cloud sprites, 10 themes), pick Matrix-compatible theme.
+- [x] **Cloud Jumper**: 4 cloud sprites (wide, compact, small, peak) deployed with per-type tinting and display-size physics bodies. Remaining: player sprite, collectible sprites, obstacle sprites, background layers.
 - [x] **Code Breaker**: Brick sprites integrated (4 types: code, agent, sentinel, unbreakable). Remaining: laser sprites, paddle sprites, agent enemies, power-up icons, portal.
 
 ### 0c. Asset Integration Pattern
