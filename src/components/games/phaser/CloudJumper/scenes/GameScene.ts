@@ -433,14 +433,14 @@ export class CloudJumperGameScene extends BaseScene {
     if (this.isGameOver) return;
     this.isGameOver = true;
 
-    this.player.setTint(0xff0000);
+    this.player.setTexture('player_dead');
+    this.player.clearTint();
 
     this.tweens.add({
       targets: this.player,
       alpha: 0,
       y: this.player.y + 100,
-      angle: 180,
-      duration: 500,
+      duration: 600,
       onComplete: () => {
         this.reportScore(this.score, this.score);
         this.gameOver(this.score, `Distance: ${Math.floor(this.distance)}m`);

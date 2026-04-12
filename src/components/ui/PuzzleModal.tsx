@@ -59,7 +59,6 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
 
   // Lifeline system
   const lifelineManager = useLifelineManager();
-  const [_showFiftyFifty, setShowFiftyFifty] = useState(false);
   const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
   const [showSentientAI, setShowSentientAI] = useState(false);
   const [showCharacters, setShowCharacters] = useState(false);
@@ -79,7 +78,6 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
       setShowAnswer(false);
 
       // Reset lifeline UI states (not the manager - that persists)
-      setShowFiftyFifty(false);
       setEliminatedOptions([]);
       setShowSentientAI(false);
       setShowCharacters(false);
@@ -147,7 +145,6 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
     const eliminated = toEliminate.map(i => options[i]);
 
     setEliminatedOptions(eliminated);
-    setShowFiftyFifty(true);
     setLifelinesUsed(prev => prev + 1);
     lifelineManager.useFiftyFifty(puzzle.id);
     playSFX?.('powerup');

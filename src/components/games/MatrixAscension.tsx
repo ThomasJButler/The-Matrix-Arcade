@@ -123,7 +123,6 @@ export default function MatrixAscension({ achievementManager, isMuted = false, a
   // Game state - start in 'menu' unless autoStart is true
   const [gamePhase, setGamePhase] = useState<GamePhase>(autoStart ? 'playing' : 'menu');
   const autoStartRef = useRef(autoStart);
-  const [_altitude, setAltitude] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [maxAltitude, setMaxAltitude] = useState(0);
 
@@ -290,7 +289,6 @@ export default function MatrixAscension({ achievementManager, isMuted = false, a
     platformsRef.current.push(...generatePlatforms(CANVAS_HEIGHT - 120, 15, 0));
 
     // Reset state
-    setAltitude(0);
     setMaxAltitude(0);
     setDisplayAltitude(0);
     setHasShield(false);
@@ -505,7 +503,6 @@ export default function MatrixAscension({ achievementManager, isMuted = false, a
 
     // Calculate altitude
     const currentAltitude = Math.floor(targetCameraY);
-    setAltitude(currentAltitude);
     setDisplayAltitude(currentAltitude);
 
     // Track max altitude

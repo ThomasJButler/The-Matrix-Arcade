@@ -17,5 +17,5 @@ const makePhaserPreview = (title: string, icon: string, accent: string = '#00ff0
 export const matrixFroggerPreview = makePhaserPreview('MATRIX FROGGER', '&#x1F438;');
 export const neoJumpPreview = makePhaserPreview('NEO JUMP', '&#x2B06;', '#00ccff');
 export const agentChasePreview = makePhaserPreview('AGENT CHASE', '&#x25CF;', '#ffcc00');
-export const rhythmHackerPreview = makePhaserPreview('RHYTHM HACKER', '&#x266A;', '#ff00ff');
-export const cloudJumperPreview = makePhaserPreview('CLOUD JUMPER', '&#x2601;', '#87ceeb');
+export const rhythmHackerPreview = makePhaserPreview('RHYTHM HACKER', '&#x266A;', '#00ffcc');
+export const cloudJumperPreview = makePhaserPreview('CLOUD JUMPER', '&#x2601;', '#00ff41');

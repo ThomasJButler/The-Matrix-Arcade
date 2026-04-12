@@ -60,9 +60,9 @@ export class RhythmHackerBootScene extends BootScene {
       tg.destroy();
     });
 
-    // Double note indicator (gold border)
+    // Double note indicator (cyan border)
     const dg = this.add.graphics();
-    dg.lineStyle(4, 0xffd700, 1);
+    dg.lineStyle(4, MATRIX_COLORS.CYAN, 1);
     dg.strokeRoundedRect(2, 2, LANES.WIDTH - 14, NOTES.HEIGHT - 4, 6);
     dg.generateTexture('double_indicator', LANES.WIDTH - 10, NOTES.HEIGHT);
     dg.destroy();
@@ -113,9 +113,9 @@ export class RhythmHackerBootScene extends BootScene {
    * Create effect textures
    */
   private createEffectTextures(): void {
-    // Hit effect particles
+    // Hit effect particles — Matrix green palette
     const colors = ['perfect', 'great', 'good', 'miss'];
-    const effectColors = [0xffd700, 0x00ff00, 0x00aaff, 0xff0000];
+    const effectColors = [0x00ffff, 0x00ff00, 0x00aa00, 0x660000];
 
     colors.forEach((name, index) => {
       const g = this.add.graphics();

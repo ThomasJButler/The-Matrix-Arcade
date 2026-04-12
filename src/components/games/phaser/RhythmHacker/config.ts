@@ -20,10 +20,10 @@ export const GAME_CONFIG = {
   /** Lane configuration */
   LANES: {
     COUNT: 4,
-    KEYS: ['D', 'F', 'J', 'K'],
-    COLORS: [0xff0000, 0x00ff00, 0x0088ff, 0xffff00], // Red, Green, Blue, Yellow
-    WIDTH: 80,
-    SPACING: 10,
+    KEYS: ['Q', 'W', 'O', 'P'],
+    COLORS: [0x00ff00, 0x00ffff, 0x00cc00, 0xccffcc], // Green, Cyan, Dark Green, Light Green
+    WIDTH: 100,
+    SPACING: 15,
   },
 
   /** Note settings */
@@ -63,9 +63,9 @@ export const GAME_CONFIG = {
 
   /** Countdown timing (ms) */
   COUNTDOWN: {
-    DURATION: 10000,
-    GO_DISPLAY_END: 10500,
-    NOTES_START: 11000,
+    DURATION: 5000,
+    GO_DISPLAY_END: 5500,
+    NOTES_START: 6000,
   },
 
   /** Track settings */

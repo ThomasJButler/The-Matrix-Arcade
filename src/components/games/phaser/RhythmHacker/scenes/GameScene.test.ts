@@ -77,7 +77,7 @@ function createTestScene(trackIndex = 0) {
     }),
   };
 
-  // Input stubs (four lanes: D, F, J, K)
+  // Input stubs (four lanes: Q, W, O, P)
   scene.laneKeys = [
     { isDown: false },
     { isDown: false },
@@ -454,8 +454,8 @@ describe('RhythmHackerGameScene', () => {
       expect(scene.isCountdown).toBe(true);
     });
 
-    it('countdown duration is 10000ms', () => {
-      expect(GAME_CONFIG.COUNTDOWN.DURATION).toBe(10000);
+    it('countdown duration is 5000ms', () => {
+      expect(GAME_CONFIG.COUNTDOWN.DURATION).toBe(5000);
     });
   });
 });
