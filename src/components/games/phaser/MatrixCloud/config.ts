@@ -9,9 +9,11 @@ export type PowerUpType = 'shield' | 'timeSlow' | 'extraLife' | 'doublePoints';
 export type BossType = 'agent_smith' | 'sentinel' | 'architect';
 export type AttackType = 'laser' | 'matrix_rain' | 'code_bomb';
 
+export type PipeVisual = Phaser.GameObjects.Rectangle | Phaser.GameObjects.TileSprite;
+
 export interface PipePair {
-  topRect: Phaser.GameObjects.Rectangle;
-  bottomRect: Phaser.GameObjects.Rectangle;
+  topRect: PipeVisual;
+  bottomRect: PipeVisual;
   x: number;
   gapY: number;
   passed: boolean;
