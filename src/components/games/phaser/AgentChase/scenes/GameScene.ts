@@ -408,11 +408,16 @@ export class AgentChaseGameScene extends BaseScene {
   }
 
   private updatePlayerRotation(): void {
-    switch (this.playerDirection) {
-      case 'UP': this.player.setAngle(-90); break;
-      case 'DOWN': this.player.setAngle(90); break;
-      case 'LEFT': this.player.setAngle(180); break;
-      case 'RIGHT': this.player.setAngle(0); break;
+    if (this.game?.registry?.get('spriteMode')) {
+      this.player.setAngle(0);
+      this.player.setFlipX(this.playerDirection === 'LEFT');
+    } else {
+      switch (this.playerDirection) {
+        case 'UP': this.player.setAngle(-90); break;
+        case 'DOWN': this.player.setAngle(90); break;
+        case 'LEFT': this.player.setAngle(180); break;
+        case 'RIGHT': this.player.setAngle(0); break;
+      }
     }
   }
 
