@@ -7,17 +7,37 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ## Current Status
 
 - **Status**: REBUILDING -- Phaser migration of all React/Canvas games + new features
-- **Last Updated**: 12 April 2026 (R7 -- Cloud Jumper 16:9 fix, Rhythm Hacker layout overhaul + note redesign)
+- **Last Updated**: 12 April 2026 (R8 -- Matrix Frogger major gameplay overhaul)
 - **Version**: v2.0.0 (next target)
 - **Games**: 11 playable (6 React/Canvas to rebuild into Phaser, 5 already Phaser) + 1 planned (Code Breaker)
 - **Build**: PASSES (code-split, main bundle 370KB, Phaser vendor chunk 1,479KB) -- zero warnings
-- **Unit Tests**: 1,899 passing across 53 files, 0 failures, 0 OOM crashes
+- **Unit Tests**: 1,917 passing across 53 files, 0 failures, 0 OOM crashes
 - **E2E Tests**: 78 gameplay + 110 visual = 188 tests across 27 spec files -- last run PASSED (0 failures, confirmed via `test-results/.last-run.json`)
 - **Asset Pipeline**: 0% complete -- `public/assets/` does not exist, all games use procedural textures
 
 ### What Was Completed (v1.x to v2.0 prep)
 
 All P0/P1/P2 bugs resolved from v1.x. Test seams added to all games. E2E gameplay specs written (78 tests). Code quality fixes across 20+ hooks and components. Code-splitting reduced main bundle from 2.18MB to 370KB. Shared game registry created. Error boundaries added. Collision utility extracted. 5 Phaser games scaffolded (MatrixFrogger, NeoJump, AgentChase, RhythmHacker, CloudJumper) with full scene architecture. 12 rebuild research docs created in `rebuildingoldgames/plans/`. Asset inventory catalogued in `desiredassets/`. Full details in git history.
+
+### What Was Completed (R8 -- 12 April 2026)
+
+Matrix Frogger major gameplay overhaul with 7 enhancements:
+
+**Lane visuals**: Road lanes now have dark surface backgrounds with dashed green road markings. Safe zones (rows 0, 4, 8) have distinct green-tinted backgrounds. Finish line at row 0 has a bright green dashed pattern. Labels added for FINISH, SAFE ZONE, and START areas. All drawn as a Phaser Graphics layer beneath the gameplay.
+
+**5-second countdown**: Game now starts with a 5-4-3-2-1-GO! countdown sequence. During countdown, enemies are frozen and input is disabled. Each tick plays a beep sound with scale animation. "GO!" displays in cyan before fading out.
+
+**Level progression system**: Reaching the finish line (row 0) now increments the level counter (previously just reset position). Level displayed in top-right HUD. Each level increases enemy speed by +15 px/s (stacks with distance-based difficulty). "LEVEL N" announcement appears with upward float animation on crossing. New LEVEL_5 achievement.
+
+**Kung Fu ability**: Press K to destroy the nearest enemy within 1.5 cell range. 3 charges per game, 500ms cooldown between uses. HUD displays charge icons in bottom-left corner (filled yellow circles when available, dimmed when spent). Visual: expanding yellow shockwave ring + cyan particle burst on the destroyed enemy. New KUNG_FU_MASTER achievement for using all 3 charges.
+
+**NEO invincibility mode**: New power-up type (10% drop rate from level 2+, separate cyan orb pickup). 8-second duration. Player rapidly flashes between green/cyan/white/yellow. Destroys enemies on contact (+100 score per destroy). New NEO_UNSTOPPABLE achievement for destroying 3+ enemies in one activation. Player tint restored to Matrix green when NEO mode expires.
+
+**Varied enemy speeds**: Enemy speed now scales with both distance AND level. Chasing agents introduced from level 3 onwards (20% spawn chance) — these enemies move horizontally like normal but also drift vertically toward the player's row. Chasing agents tinted red for visual distinction.
+
+**New textures**: BootScene generates Kung Fu charge icons (filled + empty), NEO pickup orb (cyan glow), and NEO mode power-up indicator. Config adds LANE_COLORS for safe zones, road surfaces, road markings, and finish line.
+
+70 unit tests (18 new) all passing, build clean, zero warnings. New tests cover: NEO pill collection, NEO mode activation/expiry/enemy destruction, Kung Fu charge system/cooldown/achievement, level progression/bonus/achievement, initial state for new fields.
 
 ### What Was Completed (R7 -- 12 April 2026)
 
@@ -222,16 +242,16 @@ These games work but have documented bugs from `rebuildingoldgames/bugs.md`.
 - [x] Redesign note sprites — circular glowing data-node design with ring, core, and highlight
 - [x] Initial countdown text is hardcoded to `'10'` at line 189 but actual duration comes from config — fix initialisation to use `GAME_CONFIG.COUNTDOWN.DURATION` (already fixed, this was done in R4)
 
-### 2.2 Matrix Frogger Enhancements
+### 2.2 Matrix Frogger Enhancements ✅
 
 **File**: `src/components/games/phaser/MatrixFrogger/scenes/GameScene.ts`
-- [ ] Add safe start line (bottom row)
-- [ ] Add 5-second countdown timer at start
-- [ ] Add finish line/pavement at top (no loop)
-- [ ] Add Kung Fu ability (max 3 per game)
-- [ ] Add road markings for visual clarity
-- [ ] Add varied agent speeds and chasing behaviour
-- [ ] Add NEO invincibility mode (Mario star style)
+- [x] Add safe start line (bottom row) — green-tinted background + START label
+- [x] Add 5-second countdown timer at start — 5-4-3-2-1-GO! sequence with animation
+- [x] Add finish line/pavement at top (no loop) — bright green dashed finish line + FINISH label + level system
+- [x] Add Kung Fu ability (max 3 per game) — K key, expanding shockwave, 3 charge icons in HUD
+- [x] Add road markings for visual clarity — dashed green lines on road lane borders
+- [x] Add varied agent speeds and chasing behaviour — level-based speed scaling + chasing agents from level 3
+- [x] Add NEO invincibility mode (Mario star style) — 8s duration, player flashes, destroys enemies on contact
 
 ### 2.3 Visual & UX Observations from Screenshots
 
@@ -264,7 +284,7 @@ From the screenshot review (12 Apr 2026, 156 screenshots across all 11 games + U
 
 **Files**: `src/components/games/phaser/MatrixFrogger/scenes/GameScene.ts`
 - [x] Investigate score stuck at 0 — fixed, score now awards on every forward step
-- [ ] Fix unrendered floating UI box — semi-transparent dark rectangle near top-centre of play area with no visible content (likely an empty text/tooltip overlay)
+- [ ] Fix unrendered floating UI box — semi-transparent dark rectangle near top-centre. Investigated in R8: not caused by powerUpDisplay (top-right), scoreText (top-left), or BaseScene overlay (only shows when paused). May be a screenshot artifact or Phaser debug frame. Needs visual verification with dev server.
 - [x] Improve player sprite visibility — scale increased from 0.8 to 1.0
 
 ### 2.6 Codebase Cleanup

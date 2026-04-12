@@ -10,6 +10,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { FroggerGameScene } from './GameScene';
 import { GAME_CONFIG, ACHIEVEMENTS } from '../config';
+import { MATRIX_COLORS } from '../../../../../lib/phaser/types';
 import Phaser from 'phaser';
 
 // ---------------------------------------------------------------------------
@@ -52,6 +53,16 @@ function createTestScene(): any {
     isGameOver: false,
     activePowerUps: [],
     shieldHits: 0,
+    // New state fields
+    level: 1,
+    neoDestroyCount: 0,
+    neoFlashTimer: 0,
+    kungFuCharges: GAME_CONFIG.KUNG_FU.MAX_CHARGES,
+    kungFuTotalUsed: 0,
+    lastKungFuTime: 0,
+    kungFuIcons: [],
+    isCountdown: true,
+    countdownValue: GAME_CONFIG.COUNTDOWN.DURATION,
   };
 
   // Copy every prototype method onto the object
@@ -64,13 +75,14 @@ function createTestScene(): any {
   scene.reportScore = vi.fn();
   scene.gameOver = vi.fn();
 
-  // Phaser time (used by activatePowerUp / incrementCombo)
+  // Phaser time (used by activatePowerUp / incrementCombo / kungFu)
   scene.time = { now: 0 };
 
   // UI text objects
   scene.scoreText = { setText: vi.fn() };
   scene.distanceText = { setText: vi.fn() };
   scene.comboText = { setText: vi.fn(), setVisible: vi.fn(), setAlpha: vi.fn() };
+  scene.levelText = { setText: vi.fn() };
 
   // Power-up display container
   scene.powerUpDisplay = {
@@ -98,11 +110,14 @@ function createTestScene(): any {
   // Scene manager (used by gameOver -> scene.start)
   scene.scene = { start: vi.fn() };
 
-  // Add helpers (used by createShieldBreakEffect / addPowerUpToDisplay)
+  // Add helpers (used by createShieldBreakEffect / addPowerUpToDisplay / effects)
   scene.add = {
     graphics: vi.fn().mockReturnValue({
       fillStyle: vi.fn().mockReturnThis(),
       fillCircle: vi.fn().mockReturnThis(),
+      lineStyle: vi.fn().mockReturnThis(),
+      strokeCircle: vi.fn().mockReturnThis(),
+      setDepth: vi.fn().mockReturnThis(),
       x: 0,
       y: 0,
       destroy: vi.fn(),
@@ -111,9 +126,18 @@ function createTestScene(): any {
       setName: vi.fn().mockReturnThis(),
       x: 0,
     }),
+    text: vi.fn().mockReturnValue({
+      setOrigin: vi.fn().mockReturnThis(),
+      setDepth: vi.fn().mockReturnThis(),
+      setAlpha: vi.fn().mockReturnThis(),
+      setText: vi.fn().mockReturnThis(),
+      setColor: vi.fn().mockReturnThis(),
+      setScale: vi.fn().mockReturnThis(),
+      destroy: vi.fn(),
+    }),
   };
 
-  // Enemies group (used by checkNearMiss)
+  // Enemies group (used by checkNearMiss / useKungFu)
   scene.enemies = {
     getChildren: vi.fn().mockReturnValue([]),
   };
@@ -121,7 +145,7 @@ function createTestScene(): any {
   return scene;
 }
 
-function createMockPill(type: 'red' | 'blue') {
+function createMockPill(type: 'red' | 'blue' | 'neo') {
   return { pillType: type, destroy: vi.fn(), x: 100, y: 100 };
 }
 
@@ -134,6 +158,10 @@ function createMockEnemy() {
     direction: 1 as const,
     lane: 2,
     destroy: vi.fn(),
+    setActive: vi.fn(),
+    setVisible: vi.fn(),
+    verticalSpeed: 0,
+    active: true,
   };
 }
 
@@ -183,6 +211,18 @@ describe('FroggerGameScene', () => {
     it('should not be moving', () => {
       expect(scene.isMoving).toBe(false);
     });
+
+    it('should start at level 1', () => {
+      expect(scene.level).toBe(1);
+    });
+
+    it('should start with full Kung Fu charges', () => {
+      expect(scene.kungFuCharges).toBe(GAME_CONFIG.KUNG_FU.MAX_CHARGES);
+    });
+
+    it('should start in countdown mode', () => {
+      expect(scene.isCountdown).toBe(true);
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -202,7 +242,6 @@ describe('FroggerGameScene', () => {
     });
 
     it('should play the "powerup" sound for a blue pill', () => {
-      // Stub out grantRandomPowerUp so the test focuses on collectPill
       scene.grantRandomPowerUp = vi.fn();
       const pill = createMockPill('blue');
       scene.collectPill(pill);
@@ -228,6 +267,19 @@ describe('FroggerGameScene', () => {
       scene.collectPill(pill);
       expect(scene.grantRandomPowerUp).toHaveBeenCalled();
     });
+
+    it('should activate NEO mode for a neo pill', () => {
+      const pill = createMockPill('neo');
+      scene.collectPill(pill);
+      expect(scene.hasPowerUp('neo_mode')).toBe(true);
+    });
+
+    it('should reset neoDestroyCount when collecting neo pill', () => {
+      scene.neoDestroyCount = 5;
+      const pill = createMockPill('neo');
+      scene.collectPill(pill);
+      expect(scene.neoDestroyCount).toBe(0);
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -243,7 +295,6 @@ describe('FroggerGameScene', () => {
     });
 
     it('should set shieldHits to SHIELD.HITS value', () => {
-      // Directly verify the config value and field assignment
       scene.shieldHits = GAME_CONFIG.POWERUPS.SHIELD.HITS;
       expect(scene.shieldHits).toBe(1);
     });
@@ -269,7 +320,6 @@ describe('FroggerGameScene', () => {
       scene.activatePowerUp('ghost', 3000);
       expect(scene.activePowerUps).toHaveLength(1);
 
-      // Advance past expiry
       scene.updatePowerUps(3001);
       expect(scene.activePowerUps).toHaveLength(0);
     });
@@ -286,10 +336,22 @@ describe('FroggerGameScene', () => {
       scene.activatePowerUp('ghost', 3000);
       scene.time.now = 1000;
       scene.activatePowerUp('ghost', 3000);
-      // Should still only have one ghost entry, with updated endTime
       const ghosts = scene.activePowerUps.filter((p: any) => p.type === 'ghost');
       expect(ghosts).toHaveLength(1);
       expect(ghosts[0].endTime).toBe(4000);
+    });
+
+    it('should activate NEO mode power-up', () => {
+      scene.time.now = 0;
+      scene.activatePowerUp('neo_mode', GAME_CONFIG.POWERUPS.NEO_MODE.DURATION);
+      expect(scene.hasPowerUp('neo_mode')).toBe(true);
+    });
+
+    it('should restore player tint when NEO mode expires', () => {
+      scene.time.now = 0;
+      scene.activatePowerUp('neo_mode', 3000);
+      scene.updatePowerUps(3001);
+      expect(scene.player.setTint).toHaveBeenCalledWith(MATRIX_COLORS.PRIMARY);
     });
   });
 
@@ -312,14 +374,14 @@ describe('FroggerGameScene', () => {
     it('should decay combo to 0 after 3 seconds of inactivity', () => {
       scene.combo = 5;
       scene.lastComboTime = 1000;
-      scene.updateCombo(4001); // 3001 ms elapsed
+      scene.updateCombo(4001);
       expect(scene.combo).toBe(0);
     });
 
     it('should keep combo alive within the 3-second window', () => {
       scene.combo = 5;
       scene.lastComboTime = 1000;
-      scene.updateCombo(3999); // 2999 ms elapsed
+      scene.updateCombo(3999);
       expect(scene.combo).toBe(5);
     });
 
@@ -419,6 +481,33 @@ describe('FroggerGameScene', () => {
       scene.handleEnemyCollision(enemy);
       expect(scene.isGameOver).toBe(true);
     });
+
+    it('should destroy enemy when NEO mode is active', () => {
+      scene.time.now = 0;
+      scene.activatePowerUp('neo_mode', 8000);
+      const enemy = createMockEnemy();
+      scene.handleEnemyCollision(enemy);
+      expect(scene.isGameOver).toBe(false);
+      expect(enemy.setActive).toHaveBeenCalledWith(false);
+      expect(enemy.setVisible).toHaveBeenCalledWith(false);
+    });
+
+    it('should award NEO_DESTROY score when destroying enemy in NEO mode', () => {
+      scene.time.now = 0;
+      scene.activatePowerUp('neo_mode', 8000);
+      const enemy = createMockEnemy();
+      scene.handleEnemyCollision(enemy);
+      expect(scene.score).toBe(GAME_CONFIG.SCORING.NEO_DESTROY);
+    });
+
+    it('should unlock NEO_UNSTOPPABLE after 3 kills in NEO mode', () => {
+      scene.time.now = 0;
+      scene.activatePowerUp('neo_mode', 8000);
+      for (let i = 0; i < 3; i++) {
+        scene.handleEnemyCollision(createMockEnemy());
+      }
+      expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.NEO_UNSTOPPABLE);
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -444,7 +533,6 @@ describe('FroggerGameScene', () => {
       scene.playerDeath(createMockEnemy());
       scene.player.setTint.mockClear();
       scene.playerDeath(createMockEnemy());
-      // setTint should not have been called again
       expect(scene.player.setTint).not.toHaveBeenCalled();
     });
 
@@ -455,42 +543,151 @@ describe('FroggerGameScene', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Achievement Thresholds
+  // Kung Fu Ability
   // -----------------------------------------------------------------------
-  describe('Achievement Thresholds', () => {
-    it('should unlock FIRST_CROSS when playerRow reaches 0', () => {
-      scene.playerRow = 0;
-      scene.checkProgress();
-      expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.FIRST_CROSS);
+  describe('Kung Fu Ability', () => {
+    it('should start with MAX_CHARGES', () => {
+      expect(scene.kungFuCharges).toBe(GAME_CONFIG.KUNG_FU.MAX_CHARGES);
     });
 
-    it('should award 500 bonus points on reaching the top row', () => {
+    it('should not fire when no enemies in range', () => {
+      scene.enemies.getChildren.mockReturnValue([]);
+      scene.time.now = 1000;
+      scene.useKungFu();
+      expect(scene.kungFuCharges).toBe(GAME_CONFIG.KUNG_FU.MAX_CHARGES);
+    });
+
+    it('should decrement charges when destroying an enemy', () => {
+      const enemy = createMockEnemy();
+      enemy.x = scene.player.x + 30;
+      enemy.y = scene.player.y;
+      scene.enemies.getChildren.mockReturnValue([enemy]);
+
+      const phaserMod = Phaser as any;
+      if (!phaserMod.Math) phaserMod.Math = {};
+      if (!phaserMod.Math.Distance) phaserMod.Math.Distance = {};
+      phaserMod.Math.Distance.Between = vi.fn().mockReturnValue(30);
+
+      scene.time.now = 1000;
+      scene.updateKungFuDisplay = vi.fn();
+      scene.useKungFu();
+      expect(scene.kungFuCharges).toBe(GAME_CONFIG.KUNG_FU.MAX_CHARGES - 1);
+    });
+
+    it('should not fire when no charges remain', () => {
+      scene.kungFuCharges = 0;
+      scene.time.now = 1000;
+      scene.useKungFu();
+      expect(scene.playSound).not.toHaveBeenCalled();
+    });
+
+    it('should respect cooldown', () => {
+      const enemy = createMockEnemy();
+      enemy.x = scene.player.x + 30;
+      enemy.y = scene.player.y;
+      scene.enemies.getChildren.mockReturnValue([enemy]);
+
+      const phaserMod = Phaser as any;
+      if (!phaserMod.Math) phaserMod.Math = {};
+      if (!phaserMod.Math.Distance) phaserMod.Math.Distance = {};
+      phaserMod.Math.Distance.Between = vi.fn().mockReturnValue(30);
+
+      scene.time.now = 1000;
+      scene.updateKungFuDisplay = vi.fn();
+      scene.useKungFu();
+      expect(scene.kungFuCharges).toBe(GAME_CONFIG.KUNG_FU.MAX_CHARGES - 1);
+
+      // Try again within cooldown
+      scene.time.now = 1100;
+      scene.useKungFu();
+      expect(scene.kungFuCharges).toBe(GAME_CONFIG.KUNG_FU.MAX_CHARGES - 1);
+    });
+
+    it('should unlock KUNG_FU_MASTER when all charges used', () => {
+      const enemy = createMockEnemy();
+      enemy.x = scene.player.x + 30;
+      enemy.y = scene.player.y;
+      scene.enemies.getChildren.mockReturnValue([enemy]);
+
+      const phaserMod = Phaser as any;
+      if (!phaserMod.Math) phaserMod.Math = {};
+      if (!phaserMod.Math.Distance) phaserMod.Math.Distance = {};
+      phaserMod.Math.Distance.Between = vi.fn().mockReturnValue(30);
+
+      scene.updateKungFuDisplay = vi.fn();
+
+      for (let i = 0; i < GAME_CONFIG.KUNG_FU.MAX_CHARGES; i++) {
+        scene.time.now = 1000 + i * (GAME_CONFIG.KUNG_FU.COOLDOWN + 100);
+        scene.useKungFu();
+      }
+
+      expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.KUNG_FU_MASTER);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Level Progression
+  // -----------------------------------------------------------------------
+  describe('Level Progression', () => {
+    it('should increment level when reaching row 0', () => {
       scene.playerRow = 0;
+      scene.showLevelUpText = vi.fn();
       scene.checkProgress();
-      expect(scene.score).toBe(500);
+      expect(scene.level).toBe(2);
+    });
+
+    it('should award CROSS_BONUS when reaching the top row', () => {
+      scene.playerRow = 0;
+      scene.showLevelUpText = vi.fn();
+      scene.checkProgress();
+      expect(scene.score).toBe(GAME_CONFIG.SCORING.CROSS_BONUS);
     });
 
     it('should reset player to start position after crossing', () => {
       scene.playerRow = 0;
+      scene.showLevelUpText = vi.fn();
       scene.checkProgress();
       expect(scene.playerRow).toBe(GAME_CONFIG.PLAYER.START_ROW);
       expect(scene.playerCol).toBe(GAME_CONFIG.PLAYER.START_COL);
     });
 
+    it('should unlock LEVEL_5 when level reaches 5', () => {
+      scene.level = 4;
+      scene.playerRow = 0;
+      scene.showLevelUpText = vi.fn();
+      scene.checkProgress();
+      expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.LEVEL_5);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Achievement Thresholds
+  // -----------------------------------------------------------------------
+  describe('Achievement Thresholds', () => {
+    it('should unlock FIRST_CROSS when playerRow reaches 0', () => {
+      scene.playerRow = 0;
+      scene.showLevelUpText = vi.fn();
+      scene.checkProgress();
+      expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.FIRST_CROSS);
+    });
+
     it('should unlock SCORE_1000 when score reaches 1000', () => {
       scene.score = 1000;
+      scene.showLevelUpText = vi.fn();
       scene.checkProgress();
       expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.SCORE_1000);
     });
 
     it('should unlock SCORE_5000 when score reaches 5000', () => {
       scene.score = 5000;
+      scene.showLevelUpText = vi.fn();
       scene.checkProgress();
       expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.SCORE_5000);
     });
 
     it('should unlock DISTANCE_500 when maxDistance reaches 5', () => {
       scene.maxDistance = 5;
+      scene.showLevelUpText = vi.fn();
       scene.checkProgress();
       expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.DISTANCE_500);
     });
@@ -503,7 +700,6 @@ describe('FroggerGameScene', () => {
     });
 
     it('should unlock DODGE_MASTER after 10 near misses', () => {
-      // Place an active enemy within the near-miss distance band
       const enemy = {
         active: true,
         x: scene.player.x + GAME_CONFIG.CELL_SIZE * 0.5,
@@ -511,8 +707,6 @@ describe('FroggerGameScene', () => {
       };
       scene.enemies.getChildren.mockReturnValue([enemy]);
 
-      // Mock the Phaser distance helper to return a value inside the band:
-      // nearMissDistance = CELL_SIZE * 0.8, minimum = CELL_SIZE * 0.4
       const phaserMod = Phaser as any;
       if (!phaserMod.Math) phaserMod.Math = {};
       if (!phaserMod.Math.Distance) phaserMod.Math.Distance = {};

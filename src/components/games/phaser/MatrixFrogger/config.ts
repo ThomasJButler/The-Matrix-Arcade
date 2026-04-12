@@ -67,6 +67,22 @@ export const GAME_CONFIG = {
       DURATION: 8000,
       RANGE: 3, // cells
     },
+    NEO_MODE: {
+      DURATION: 8000,
+      SCORE_PER_DESTROY: 100,
+    },
+  },
+
+  /** Countdown before gameplay */
+  COUNTDOWN: {
+    DURATION: 5,
+  },
+
+  /** Kung Fu ability */
+  KUNG_FU: {
+    MAX_CHARGES: 3,
+    RANGE: 1.5, // cells
+    COOLDOWN: 500, // ms
   },
 
   /** Scoring */
@@ -76,6 +92,8 @@ export const GAME_CONFIG = {
     BLUE_PILL: 100,
     DODGE_NEAR_MISS: 25,
     COMBO_MULTIPLIER: [1, 2, 3, 4, 5], // at combo 0, 5, 10, 20, 30
+    CROSS_BONUS: 500,
+    NEO_DESTROY: 100,
   },
 
   /** Difficulty scaling */
@@ -84,6 +102,17 @@ export const GAME_CONFIG = {
     ENEMY_COUNT_PER_100: 1,
     ENEMY_COUNT_MAX: 10,
     SPEED_INCREASE_PER_100: 10,
+    CHASING_AGENT_MIN_LEVEL: 3,
+    CHASING_AGENT_VERTICAL_SPEED: 30,
+  },
+
+  /** Lane visual colours */
+  LANE_COLORS: {
+    SAFE_ZONE: 0x001a00,
+    ROAD_SURFACE: 0x0a0a0a,
+    ROAD_MARKING: 0x003300,
+    FINISH_LINE: 0x00ff00,
+    START_ZONE: 0x001100,
   },
 } as const;
 
@@ -99,6 +128,9 @@ export const ACHIEVEMENTS = {
   MAGNET_COLLECTOR: 'frogger_magnet_5', // collect 5 pills with magnet
   COMBO_10: 'frogger_combo_10',
   DISTANCE_500: 'frogger_distance_500',
+  KUNG_FU_MASTER: 'frogger_kung_fu_master', // use all 3 kung fu charges
+  NEO_UNSTOPPABLE: 'frogger_neo_unstoppable', // destroy 3+ enemies in one NEO activation
+  LEVEL_5: 'frogger_level_5', // reach level 5
 } as const;
 
 /** Phaser game configuration */
