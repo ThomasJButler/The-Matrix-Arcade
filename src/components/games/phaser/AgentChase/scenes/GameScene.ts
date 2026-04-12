@@ -1,17 +1,7 @@
-/**
- * Agent Chase - Game Scene
- *
- * Pacman-style maze game:
- * - Navigate maze collecting dots
- * - Avoid agents (ghosts) with unique AI behaviours
- * - Power pellets make agents vulnerable
- * - Collect fruit for bonus points
- */
-
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
 import { SCENE_KEYS, MATRIX_COLORS } from '../../../../../lib/phaser/types';
-import { GAME_CONFIG, ACHIEVEMENTS, MAZE_LAYOUT } from '../config';
+import { GAME_CONFIG, ACHIEVEMENTS, MAP_LAYOUTS, getLayoutForLevel, MapLayout } from '../config';
 
 /** Direction vectors */
 const DIRECTIONS = {
@@ -50,7 +40,7 @@ export class AgentChaseGameScene extends BaseScene {
   private mouthOpen = true;
   private playerGridX = 0;
   private playerGridY = 0;
-  private playerMoveProgress = 0; // 0 to 1, progress through current tile
+  private playerMoveProgress = 0;
 
   // Game state
   private score = 0;
@@ -60,6 +50,10 @@ export class AgentChaseGameScene extends BaseScene {
   private totalDots = 0;
   private ghostsEatenThisPellet = 0;
   private diedThisLevel = false;
+
+  // Layout tracking
+  private currentLayout!: MapLayout;
+  private mazesPlayed: Set<string> = new Set();
 
   // Maze
   private walls!: Phaser.Physics.Arcade.StaticGroup;
@@ -79,6 +73,7 @@ export class AgentChaseGameScene extends BaseScene {
   private scoreText!: Phaser.GameObjects.Text;
   private livesText!: Phaser.GameObjects.Text;
   private levelText!: Phaser.GameObjects.Text;
+  private mapText!: Phaser.GameObjects.Text;
 
   // Mode timing
   private scatterMode = true;
@@ -118,6 +113,11 @@ export class AgentChaseGameScene extends BaseScene {
     this.nextDirection = 'NONE';
     this.mouthOpen = true;
     this.animTimer = 0;
+    this.mazesPlayed = new Set();
+
+    // Set initial layout
+    this.currentLayout = getLayoutForLevel(1);
+    this.mazesPlayed.add(this.currentLayout.name);
 
     // Create groups
     this.walls = this.physics.add.staticGroup();
@@ -183,19 +183,20 @@ export class AgentChaseGameScene extends BaseScene {
       lives: this.lives,
       level: this.level,
       dotsCollected: this.dotsCollected,
+      mapName: this.currentLayout.name,
+      mazesPlayed: this.mazesPlayed.size,
     });
   }
 
-  /**
-   * Build maze from layout
-   */
   private buildMaze(): void {
+    this.walls.clear(true, true);
+
     const offsetX = (GAME_CONFIG.WIDTH - GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE) / 2;
     const offsetY = 40;
 
-    for (let row = 0; row < MAZE_LAYOUT.length; row++) {
-      for (let col = 0; col < MAZE_LAYOUT[row].length; col++) {
-        const tile = MAZE_LAYOUT[row][col];
+    for (let row = 0; row < this.currentLayout.grid.length; row++) {
+      for (let col = 0; col < this.currentLayout.grid[row].length; col++) {
+        const tile = this.currentLayout.grid[row][col];
         const x = offsetX + col * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
         const y = offsetY + row * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
 
@@ -209,7 +210,6 @@ export class AgentChaseGameScene extends BaseScene {
             break;
           case '3': { // Power pellet
             const pellet = this.powerPellets.create(x, y, 'power_pellet');
-            // Add pulsing animation
             this.tweens.add({
               targets: pellet,
               alpha: 0.3,
@@ -226,16 +226,12 @@ export class AgentChaseGameScene extends BaseScene {
     }
   }
 
-  /**
-   * Create player
-   */
   private createPlayer(): void {
     const offsetX = (GAME_CONFIG.WIDTH - GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE) / 2;
     const offsetY = 40;
 
-    // Player starts at row 23, col 13 (below ghost house)
-    this.playerGridX = 13;
-    this.playerGridY = 23;
+    this.playerGridX = this.currentLayout.playerStart.x;
+    this.playerGridY = this.currentLayout.playerStart.y;
     this.playerMoveProgress = 0;
 
     const x = offsetX + this.playerGridX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
@@ -250,9 +246,6 @@ export class AgentChaseGameScene extends BaseScene {
     body.setSize(GAME_CONFIG.TILE_SIZE, GAME_CONFIG.TILE_SIZE);
   }
 
-  /**
-   * Create all agents
-   */
   private createAgents(): void {
     const offsetX = (GAME_CONFIG.WIDTH - GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE) / 2;
     const offsetY = 40;
@@ -262,12 +255,12 @@ export class AgentChaseGameScene extends BaseScene {
       gridX: number;
       gridY: number;
       scatterTarget: { x: number; y: number };
-    }> = [
-      { type: 'smith', gridX: 14, gridY: 11, scatterTarget: { x: 25, y: 0 } },
-      { type: 'brown', gridX: 14, gridY: 14, scatterTarget: { x: 2, y: 0 } },
-      { type: 'jones', gridX: 13, gridY: 14, scatterTarget: { x: 27, y: 30 } },
-      { type: 'johnson', gridX: 15, gridY: 14, scatterTarget: { x: 0, y: 30 } },
-    ];
+    }> = this.currentLayout.agentHomes.map(home => ({
+      type: home.type,
+      gridX: home.gridX,
+      gridY: home.gridY,
+      scatterTarget: home.scatterTarget,
+    }));
 
     agentConfigs.forEach((config, index) => {
       const x = offsetX + config.gridX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
@@ -283,7 +276,7 @@ export class AgentChaseGameScene extends BaseScene {
       agent.targetTile = { x: 14, y: 11 };
       agent.scatterTarget = config.scatterTarget;
       agent.homePosition = { x, y };
-      agent.isReleased = index === 0; // Only Smith starts released
+      agent.isReleased = index === 0;
       agent.frightenedEndTime = 0;
       agent.setDepth(9);
       agent.setVelocity(0, 0);
@@ -294,13 +287,14 @@ export class AgentChaseGameScene extends BaseScene {
   }
 
   /**
-   * Create UI — defensively destroys any prior text objects to prevent duplicates
-   * if the scene's create() is called without a full shutdown cycle
+   * Defensively destroys any prior text objects to prevent duplicates
+   * if the scene's create() is called without a full shutdown cycle.
    */
   private createUI(): void {
     this.scoreText?.destroy();
     this.livesText?.destroy();
     this.levelText?.destroy();
+    this.mapText?.destroy();
 
     this.scoreText = this.add.text(10, 10, 'SCORE: 0', {
       fontFamily: '"Press Start 2P", monospace',
@@ -322,11 +316,15 @@ export class AgentChaseGameScene extends BaseScene {
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
     this.levelText.setDepth(100);
+
+    this.mapText = this.add.text(10, GAME_CONFIG.HEIGHT - 20, `MAP: ${this.currentLayout.name}`, {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '10px',
+      color: MATRIX_COLORS.PRIMARY_HEX,
+    });
+    this.mapText.setDepth(100);
   }
 
-  /**
-   * Setup input
-   */
   private setupInput(): void {
     if (!this.input.keyboard) {
       this.time.delayedCall(100, () => this.setupInput());
@@ -342,9 +340,6 @@ export class AgentChaseGameScene extends BaseScene {
     };
   }
 
-  /**
-   * Handle input
-   */
   private handleInput(): void {
     if (this.cursors.up.isDown || this.wasdKeys.W.isDown) {
       this.nextDirection = 'UP';
@@ -357,9 +352,6 @@ export class AgentChaseGameScene extends BaseScene {
     }
   }
 
-  /**
-   * Move player (tile-based grid movement)
-   */
   private movePlayer(delta: number): void {
     const offsetX = (GAME_CONFIG.WIDTH - GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE) / 2;
     const offsetY = 40;
@@ -375,7 +367,6 @@ export class AgentChaseGameScene extends BaseScene {
 
     // Move in current direction (tile-based)
     if (this.playerMoveProgress >= 1.0) {
-      // Completed move to next tile, check if we can continue
       this.playerMoveProgress = 0;
 
       const dir = DIRECTIONS[this.playerDirection];
@@ -383,7 +374,7 @@ export class AgentChaseGameScene extends BaseScene {
       const nextY = this.playerGridY + dir.y;
 
       // Handle tunnel wrap
-      if (nextY === 14 && (nextX < 0 || nextX >= GAME_CONFIG.MAZE_COLS)) {
+      if (nextY === this.currentLayout.tunnelRow && (nextX < 0 || nextX >= GAME_CONFIG.MAZE_COLS)) {
         this.playerGridX = nextX < 0 ? GAME_CONFIG.MAZE_COLS - 1 : 0;
         this.playerGridY = nextY;
       } else if (this.canMove(this.playerGridX, this.playerGridY, this.playerDirection)) {
@@ -416,9 +407,6 @@ export class AgentChaseGameScene extends BaseScene {
     this.player.y = Phaser.Math.Interpolation.Linear([currentY, nextY], this.playerMoveProgress);
   }
 
-  /**
-   * Update player rotation based on direction
-   */
   private updatePlayerRotation(): void {
     switch (this.playerDirection) {
       case 'UP': this.player.setAngle(-90); break;
@@ -429,9 +417,6 @@ export class AgentChaseGameScene extends BaseScene {
   }
 
 
-  /**
-   * Setup collisions
-   */
   private setupCollisions(): void {
     // Player vs dots
     this.physics.add.overlap(
@@ -461,9 +446,6 @@ export class AgentChaseGameScene extends BaseScene {
     );
   }
 
-  /**
-   * Collect dot
-   */
   private collectDot(dot: Phaser.Physics.Arcade.Sprite): void {
     dot.destroy();
     this.score += GAME_CONFIG.SCORING.DOT;
@@ -477,9 +459,6 @@ export class AgentChaseGameScene extends BaseScene {
     this.checkFruitSpawn();
   }
 
-  /**
-   * Collect power pellet
-   */
   private collectPowerPellet(pellet: Phaser.Physics.Arcade.Sprite): void {
     pellet.destroy();
     this.score += GAME_CONFIG.SCORING.POWER_PELLET;
@@ -487,8 +466,11 @@ export class AgentChaseGameScene extends BaseScene {
     this.ghostsEatenThisPellet = 0;
     this.playSound('powerup');
 
-    // Frighten all agents
-    const frightenedEndTime = this.time.now + GAME_CONFIG.AGENTS.FRIGHTENED_DURATION;
+    const frightenedDuration = Math.max(
+      GAME_CONFIG.AGENTS.FRIGHTENED_MIN,
+      GAME_CONFIG.AGENTS.FRIGHTENED_DURATION - (this.level - 1) * 500
+    );
+    const frightenedEndTime = this.time.now + frightenedDuration;
 
     this.agents.getChildren().forEach((obj) => {
       const agent = obj as Agent;
@@ -502,9 +484,6 @@ export class AgentChaseGameScene extends BaseScene {
     });
   }
 
-  /**
-   * Handle collision with agent
-   */
   private handleAgentCollision(agent: Agent): void {
     if (agent.state === 'frightened') {
       // Eat the ghost
@@ -528,9 +507,6 @@ export class AgentChaseGameScene extends BaseScene {
     }
   }
 
-  /**
-   * Player death
-   */
   private playerDeath(): void {
     this.lives--;
     this.diedThisLevel = true;
@@ -545,16 +521,13 @@ export class AgentChaseGameScene extends BaseScene {
     }
   }
 
-  /**
-   * Reset player and agent positions
-   */
   private resetPositions(): void {
     const offsetX = (GAME_CONFIG.WIDTH - GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE) / 2;
     const offsetY = 40;
 
     // Reset player
-    this.playerGridX = 13;
-    this.playerGridY = 23;
+    this.playerGridX = this.currentLayout.playerStart.x;
+    this.playerGridY = this.currentLayout.playerStart.y;
     this.playerMoveProgress = 0;
     this.player.x = offsetX + this.playerGridX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
     this.player.y = offsetY + this.playerGridY * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
@@ -588,12 +561,8 @@ export class AgentChaseGameScene extends BaseScene {
   }
 
 
-  /**
-   * Check if level is complete
-   */
   private checkLevelComplete(): void {
     if (this.dotsCollected >= this.totalDots) {
-      // Level complete
       this.level++;
       this.playSound('levelUp');
 
@@ -610,16 +579,44 @@ export class AgentChaseGameScene extends BaseScene {
       // Bonus points
       this.score += GAME_CONFIG.SCORING.LEVEL_BONUS;
 
+      // Check if the layout changes for the next level
+      const newLayout = getLayoutForLevel(this.level);
+      const layoutChanged = newLayout.name !== this.currentLayout.name;
+
+      if (layoutChanged) {
+        // Show map announcement
+        const announcement = this.add.text(
+          GAME_CONFIG.WIDTH / 2,
+          GAME_CONFIG.HEIGHT / 2,
+          `MAP: ${newLayout.name}`,
+          {
+            fontFamily: '"Press Start 2P", monospace',
+            fontSize: '18px',
+            color: MATRIX_COLORS.PRIMARY_HEX,
+          }
+        );
+        announcement.setOrigin(0.5);
+        announcement.setDepth(200);
+        this.tweens.add({
+          targets: announcement,
+          alpha: 0,
+          duration: 2000,
+          onComplete: () => announcement.destroy(),
+        });
+      }
+
+      this.mazesPlayed.add(newLayout.name);
+      if (this.mazesPlayed.size >= MAP_LAYOUTS.length) {
+        this.unlockAchievement(ACHIEVEMENTS.ALL_MAZES);
+      }
+
       // Restart level
-      this.restartLevel();
+      this.restartLevel(newLayout, layoutChanged);
     }
   }
 
-  /**
-   * Restart level with harder settings
-   */
-  private restartLevel(): void {
-    // Clear existing
+  private restartLevel(newLayout: MapLayout, layoutChanged: boolean): void {
+    // Clear existing dots and pellets
     this.dots.clear(true, true);
     this.powerPellets.clear(true, true);
     if (this.fruit) {
@@ -627,34 +624,40 @@ export class AgentChaseGameScene extends BaseScene {
       this.fruit = undefined;
     }
 
-    // Rebuild maze dots
     this.dotsCollected = 0;
     this.totalDots = 0;
     this.fruitSpawned = [false, false];
     this.diedThisLevel = false;
 
-    const offsetX = (GAME_CONFIG.WIDTH - GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE) / 2;
-    const offsetY = 40;
+    if (layoutChanged) {
+      this.currentLayout = newLayout;
+      // Rebuild walls and dots for the new layout
+      this.buildMaze();
+    } else {
+      // Only rebuild dots — walls haven't changed
+      const offsetX = (GAME_CONFIG.WIDTH - GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE) / 2;
+      const offsetY = 40;
 
-    for (let row = 0; row < MAZE_LAYOUT.length; row++) {
-      for (let col = 0; col < MAZE_LAYOUT[row].length; col++) {
-        const tile = MAZE_LAYOUT[row][col];
-        const x = offsetX + col * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
-        const y = offsetY + row * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+      for (let row = 0; row < this.currentLayout.grid.length; row++) {
+        for (let col = 0; col < this.currentLayout.grid[row].length; col++) {
+          const tile = this.currentLayout.grid[row][col];
+          const x = offsetX + col * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+          const y = offsetY + row * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
 
-        if (tile === '2') {
-          this.dots.create(x, y, 'dot');
-          this.totalDots++;
-        } else if (tile === '3') {
-          const pellet = this.powerPellets.create(x, y, 'power_pellet');
-          this.tweens.add({
-            targets: pellet,
-            alpha: 0.3,
-            duration: 300,
-            yoyo: true,
-            repeat: -1,
-          });
-          this.totalDots++;
+          if (tile === '2') {
+            this.dots.create(x, y, 'dot');
+            this.totalDots++;
+          } else if (tile === '3') {
+            const pellet = this.powerPellets.create(x, y, 'power_pellet');
+            this.tweens.add({
+              targets: pellet,
+              alpha: 0.3,
+              duration: 300,
+              yoyo: true,
+              repeat: -1,
+            });
+            this.totalDots++;
+          }
         }
       }
     }
@@ -662,9 +665,6 @@ export class AgentChaseGameScene extends BaseScene {
     this.resetPositions();
   }
 
-  /**
-   * Check if fruit should spawn
-   */
   private checkFruitSpawn(): void {
     if (this.dotsCollected === GAME_CONFIG.FRUIT.FIRST_SPAWN && !this.fruitSpawned[0]) {
       this.spawnFruit();
@@ -675,16 +675,13 @@ export class AgentChaseGameScene extends BaseScene {
     }
   }
 
-  /**
-   * Spawn fruit
-   */
   private spawnFruit(): void {
     if (this.fruit) return;
 
     const offsetX = (GAME_CONFIG.WIDTH - GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE) / 2;
     const offsetY = 40;
-    const x = offsetX + 14 * GAME_CONFIG.TILE_SIZE;
-    const y = offsetY + 17 * GAME_CONFIG.TILE_SIZE;
+    const x = offsetX + this.currentLayout.fruitPosition.x * GAME_CONFIG.TILE_SIZE;
+    const y = offsetY + this.currentLayout.fruitPosition.y * GAME_CONFIG.TILE_SIZE;
 
     const fruitIndex = Math.min(this.level - 1, 5);
     const fruits = ['cherry', 'strawberry', 'orange', 'apple', 'grape', 'banana'];
@@ -710,9 +707,6 @@ export class AgentChaseGameScene extends BaseScene {
     });
   }
 
-  /**
-   * Collect fruit
-   */
   private collectFruit(): void {
     if (!this.fruit) return;
 
@@ -725,9 +719,6 @@ export class AgentChaseGameScene extends BaseScene {
     this.fruit = undefined;
   }
 
-  /**
-   * Update scatter/chase mode timing
-   */
   private updateModes(delta: number): void {
     this.modeTimer += delta;
 
@@ -747,9 +738,6 @@ export class AgentChaseGameScene extends BaseScene {
     }
   }
 
-  /**
-   * Release agents from house
-   */
   private releaseAgents(time: number): void {
     if (this.agentReleaseIndex >= 4) return;
 
@@ -763,9 +751,6 @@ export class AgentChaseGameScene extends BaseScene {
     }
   }
 
-  /**
-   * Update all agents
-   */
   private updateAgents(delta: number): void {
     this.agents.getChildren().forEach((obj) => {
       const agent = obj as Agent;
@@ -797,8 +782,9 @@ export class AgentChaseGameScene extends BaseScene {
         }
       }
 
-      // Get speed
-      let speed = GAME_CONFIG.AGENTS.SPEED_NORMAL;
+      // Get speed with difficulty scaling
+      const levelMultiplier = 1 + (this.level - 1) * GAME_CONFIG.AGENTS.SPEED_INCREASE_PER_LEVEL;
+      let speed = GAME_CONFIG.AGENTS.SPEED_NORMAL * levelMultiplier;
       if (agent.state === 'frightened') {
         speed = GAME_CONFIG.AGENTS.SPEED_FRIGHTENED;
       } else if (agent.state === 'returning') {
@@ -810,10 +796,6 @@ export class AgentChaseGameScene extends BaseScene {
     });
   }
 
-  /**
-   * Move agent with AI (tile-based grid movement)
-   * speedPixelsPerSecond: pixels per second movement speed
-   */
   private moveAgent(agent: Agent, speedPixelsPerSecond: number): void {
     const offsetX = (GAME_CONFIG.WIDTH - GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE) / 2;
     const offsetY = 40;
@@ -827,7 +809,7 @@ export class AgentChaseGameScene extends BaseScene {
       const nextY = agent.gridY + dir.y;
 
       // Handle tunnel wrap
-      if (nextY === 14 && (nextX < 0 || nextX >= GAME_CONFIG.MAZE_COLS)) {
+      if (nextY === this.currentLayout.tunnelRow && (nextX < 0 || nextX >= GAME_CONFIG.MAZE_COLS)) {
         agent.gridX = nextX < 0 ? GAME_CONFIG.MAZE_COLS - 1 : 0;
         agent.gridY = nextY;
       } else if (this.canMove(agent.gridX, agent.gridY, agent.direction, true)) {
@@ -836,7 +818,7 @@ export class AgentChaseGameScene extends BaseScene {
       }
     }
 
-    // Decide next direction at tile centers
+    // Decide next direction at tile centres
     if (agent.moveProgress === 0) {
       // Get target based on state
       const target = this.getAgentTarget(agent);
@@ -848,7 +830,7 @@ export class AgentChaseGameScene extends BaseScene {
       let bestDist = Infinity;
 
       directions.forEach((dir) => {
-        if (dir === reverse) return; // Prefer not to reverse
+        if (dir === reverse) return;
         if (!this.canMove(agent.gridX, agent.gridY, dir, true)) return;
 
         const nextTile = {
@@ -872,9 +854,8 @@ export class AgentChaseGameScene extends BaseScene {
     }
 
     // Progress through current tile movement
-    // Speed is in pixels/second; each tile is TILE_SIZE pixels
     const tilesPerSecond = speedPixelsPerSecond / GAME_CONFIG.TILE_SIZE;
-    agent.moveProgress += tilesPerSecond; // Each frame, advance by fraction of tile
+    agent.moveProgress += tilesPerSecond;
 
     if (agent.moveProgress > 1.0) {
       agent.moveProgress = 1.0;
@@ -894,16 +875,12 @@ export class AgentChaseGameScene extends BaseScene {
     agent.y = Phaser.Math.Interpolation.Linear([currentY, nextY], agent.moveProgress);
   }
 
-  /**
-   * Get target tile for agent based on state and type
-   */
   private getAgentTarget(agent: Agent): { x: number; y: number } {
     if (agent.state === 'scatter') {
       return agent.scatterTarget;
     }
 
     if (agent.state === 'returning') {
-      // Target actual home tile so agent walks back inside the ghost house
       const offsetX = (GAME_CONFIG.WIDTH - GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE) / 2;
       const offsetY = 40;
       return {
@@ -913,14 +890,13 @@ export class AgentChaseGameScene extends BaseScene {
     }
 
     if (agent.state === 'frightened') {
-      // Random direction
       return {
-        x: Phaser.Math.Between(0, 27),
-        y: Phaser.Math.Between(0, 30),
+        x: Phaser.Math.Between(0, GAME_CONFIG.MAZE_COLS - 1),
+        y: Phaser.Math.Between(0, this.currentLayout.grid.length - 1),
       };
     }
 
-    // Chase mode - depends on agent type
+    // Chase mode — depends on agent type
     const playerTile = this.getTilePosition(this.player.x, this.player.y);
     const playerDir = DIRECTIONS[this.playerDirection];
 
@@ -928,19 +904,19 @@ export class AgentChaseGameScene extends BaseScene {
       case 'smith': // Direct chase
         return playerTile;
 
-      case 'brown': // Ambush - target 4 tiles ahead
+      case 'brown': // Ambush — target 4 tiles ahead
         return {
           x: playerTile.x + playerDir.x * 4,
           y: playerTile.y + playerDir.y * 4,
         };
 
-      case 'jones': // Patrol - switches between player and scatter
+      case 'jones': // Patrol — switches between player and scatter
         if (Phaser.Math.Distance.Between(agent.x, agent.y, this.player.x, this.player.y) > 8 * GAME_CONFIG.TILE_SIZE) {
           return playerTile;
         }
         return agent.scatterTarget;
 
-      case 'johnson': { // Flank - target opposite side of player from Smith
+      case 'johnson': { // Flank — target opposite side of player from Smith
         const smithAgent = (this.agents.getChildren() as Agent[]).find((a) => a.agentType === 'smith');
         if (smithAgent) {
           const smithTile = this.getTilePosition(smithAgent.x, smithAgent.y);
@@ -957,9 +933,6 @@ export class AgentChaseGameScene extends BaseScene {
     }
   }
 
-  /**
-   * Get tile position from world coordinates
-   */
   private getTilePosition(x: number, y: number): { x: number; y: number } {
     const offsetX = (GAME_CONFIG.WIDTH - GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE) / 2;
     const offsetY = 40;
@@ -971,7 +944,6 @@ export class AgentChaseGameScene extends BaseScene {
   }
 
   /**
-   * Check if movement in direction is valid.
    * Agents can pass through ghost house tiles ('4'); the player cannot.
    */
   private canMove(tileX: number, tileY: number, direction: Direction, isAgent = false): boolean {
@@ -980,24 +952,21 @@ export class AgentChaseGameScene extends BaseScene {
     const nextY = tileY + dir.y;
 
     // Bounds check
-    if (nextX < 0 || nextX >= GAME_CONFIG.MAZE_COLS || nextY < 0 || nextY >= MAZE_LAYOUT.length) {
+    if (nextX < 0 || nextX >= GAME_CONFIG.MAZE_COLS || nextY < 0 || nextY >= this.currentLayout.grid.length) {
       // Allow tunnel
-      if (nextY === 14 && (nextX < 0 || nextX >= GAME_CONFIG.MAZE_COLS)) {
+      if (nextY === this.currentLayout.tunnelRow && (nextX < 0 || nextX >= GAME_CONFIG.MAZE_COLS)) {
         return true;
       }
       return false;
     }
 
-    // Wall check — agents can traverse ghost house ('4'), player cannot
-    const tile = MAZE_LAYOUT[nextY]?.[nextX];
+    // Wall check
+    const tile = this.currentLayout.grid[nextY]?.[nextX];
     if (tile === '1') return false;
     if (tile === '4' && !isAgent) return false;
     return true;
   }
 
-  /**
-   * Get reverse direction
-   */
   private reverseDirection(dir: Direction): Direction {
     switch (dir) {
       case 'UP': return 'DOWN';
@@ -1008,13 +977,11 @@ export class AgentChaseGameScene extends BaseScene {
     }
   }
 
-  /**
-   * Update UI
-   */
   private updateUI(): void {
     this.scoreText.setText(`SCORE: ${this.score}`);
     this.livesText.setText(`LIVES: ${this.lives}`);
     this.levelText.setText(`LEVEL: ${this.level}`);
+    this.mapText.setText(`MAP: ${this.currentLayout.name}`);
 
     if (this.score >= 10000) {
       this.unlockAchievement(ACHIEVEMENTS.SCORE_10000);
@@ -1050,5 +1017,6 @@ export class AgentChaseGameScene extends BaseScene {
     this.scoreText.destroy();
     this.livesText.destroy();
     this.levelText.destroy();
+    this.mapText.destroy();
   }
 }

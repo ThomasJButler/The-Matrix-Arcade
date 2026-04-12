@@ -7,11 +7,11 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ## Current Status
 
 - **Status**: REBUILDING -- Phaser migration complete, now cleanup + polish + assets
-- **Last Updated**: 12 April 2026 (R15 -- Legacy code cleanup)
+- **Last Updated**: 12 April 2026 (R16 -- Agent Chase map layouts + difficulty scaling)
 - **Version**: v2.0.0 (next target)
 - **Games**: 12 playable (11 Phaser, 1 DOM)
 - **Build**: PASSES (code-split, main bundle ~372KB, Phaser vendor chunk 1,479KB) -- zero warnings
-- **Unit Tests**: 2,019 passing across 46 files, 0 failures
+- **Unit Tests**: 2,039 passing across 46 files, 0 failures
 - **E2E Tests**: 78 gameplay + 110 visual = 188 tests across 27 spec files -- last run PASSED
 - **Asset Pipeline**: 0% complete -- `public/assets/` does not exist, all games use procedural textures
 
@@ -24,6 +24,7 @@ All P0/P1/P2 bugs resolved across R1-R14 (12 April 2026). Key milestones:
 - **Existing Phaser fixes** (R3-R8): All 5 original Phaser games fixed -- controls, physics, AI, visuals. Matrix Frogger received 7 gameplay enhancements (countdown, levels, Kung Fu, NEO mode, road markings, chasing agents, lane visuals). Rhythm Hacker overhauled (new key bindings, layout, note sprites, Matrix palette). Cloud Jumper palette and dimensions fixed.
 - **Infrastructure** (R1-R5): Code-splitting (2.18MB → 370KB), Phaser vendor chunk, shared game registry, error boundaries, E2E framework (188 tests).
 - **R15 cleanup**: Removed 9 orphaned legacy React game files, 4 unused hooks, 1 dead Zustand store, and 13 associated test files (11,386 lines of dead production code + ~5,000 lines of dead tests). Updated sound system comments from legacy game names. Test count: 2,521 → 2,019 (502 tests were testing only dead code).
+- **R16 Agent Chase map layouts**: Three distinct maze layouts (Classic, Arena, Labyrinth) cycle each level. Shared ghost house section (rows 9-19) keeps agent AI consistent. Difficulty scaling: agent speed increases 5% per level, frightened duration decreases 500ms per level (min 3s). New ALL_MAZES achievement for playing all three layouts. 20 new unit tests (96 total for Agent Chase).
 
 Full details in git history (`git log --oneline`).
 
@@ -179,7 +180,7 @@ Vortex Pong (R9), Snake Classic (R10), Matrix Cloud (R11), Matrix Invaders (R12)
 
 ## Phase 4: Game Enhancements
 
-- [ ] Agent Chase: Multiple map layouts (Square/Circle/Diamond for Easy/Medium/Hard)
+- [x] Agent Chase: Multiple map layouts (Classic/Arena/Labyrinth cycling per level, difficulty scaling) -- done R16
 - [ ] Neo Jump: Custom sprites, Doodle Jump UX polish
 - [ ] Rhythm Hacker: Music sync + visual improvements (see P2 2.1)
 
@@ -310,7 +311,7 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 2. **Phase 0**: Asset extraction pipeline (biggest remaining effort, largely manual)
 3. **Phase 2**: Global infrastructure (Three.js rain, asset system, game card redesign)
 4. **Phase 3.6**: CTRL-S World narrative engine rebuild
-5. **Phase 4**: Game enhancements (Agent Chase maps, Neo Jump UX)
+5. **Phase 4**: Game enhancements (Neo Jump UX -- Agent Chase maps done R16)
 6. **Phase 6**: Final polish and testing pass
 7. Use `/matrix-arcade-gamedev` for game code, `/phaser-gamedev` for Phaser scenes, `/playwright-testing` for E2E
 8. Run `game-tester` agent after every code change

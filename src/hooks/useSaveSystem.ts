@@ -323,7 +323,8 @@ export const GAME_ACHIEVEMENTS: Record<string, Achievement[]> = {
     { id: 'agentchase_eat_all', name: 'Agent Eliminator', description: 'Eat all 4 ghosts in one power pellet', game: 'Agent Chase' },
     { id: 'agentchase_fruit', name: 'Fruit Collector', description: 'Collect a bonus fruit', game: 'Agent Chase' },
     { id: 'agentchase_5_levels', name: 'Veteran', description: 'Survive 5 levels', game: 'Agent Chase' },
-    { id: 'agentchase_no_death', name: 'Flawless Level', description: 'Complete a level without dying', game: 'Agent Chase' }
+    { id: 'agentchase_no_death', name: 'Flawless Level', description: 'Complete a level without dying', game: 'Agent Chase' },
+    { id: 'agentchase_all_mazes', name: 'Maze Runner', description: 'Play on all three map layouts', game: 'Agent Chase' }
   ],
   rhythmHacker: [
     { id: 'rhythm_first_perfect', name: 'Perfect Timing', description: 'Hit your first perfect note', game: 'Rhythm Hacker' },
