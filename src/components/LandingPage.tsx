@@ -165,7 +165,7 @@ export default function LandingPage({ onSelectGame, onClose }: LandingPageProps)
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Monitor className="w-6 h-6 text-green-400" />
-            <h1 className="text-green-400 font-mono text-lg tracking-wider phosphor-glow">
+            <h1 className="text-green-400 text-lg tracking-wider phosphor-glow" style={{ fontFamily: 'var(--matrix-font-title)' }}>
               THE MATRIX ARCADE
             </h1>
           </div>
@@ -184,7 +184,8 @@ export default function LandingPage({ onSelectGame, onClose }: LandingPageProps)
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="text-green-400 font-mono text-3xl md:text-4xl mb-4 tracking-wide phosphor-glow"
+          className="text-green-400 text-3xl md:text-4xl mb-4 tracking-wide phosphor-glow"
+          style={{ fontFamily: 'var(--matrix-font-title)' }}
         >
           Welcome to the Arcade
         </motion.h2>

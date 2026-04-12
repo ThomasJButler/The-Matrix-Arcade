@@ -520,7 +520,7 @@ function App() {
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-sm hover:text-green-400 transition-colors group"
             >
-              <h1 className="text-xl lg:text-2xl font-mono font-bold tracking-wider group-hover:text-green-400 transition-colors phosphor-glow">
+              <h1 className="text-xl lg:text-2xl font-bold tracking-wider group-hover:text-green-400 transition-colors phosphor-glow" style={{ fontFamily: 'var(--matrix-font-title)' }}>
                 THE MATRIX ARCADE
               </h1>
               <p className="text-xs text-green-400 tracking-widest hidden sm:block">

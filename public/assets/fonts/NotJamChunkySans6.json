@@ -1,0 +1,48 @@
+{
+	"$baseURI": "https://yal.cc/r/20/pixelfont/",
+	"$version": "1.0",
+	"in-glyphs": [
+		" !\\\"#$%&'()*+,-/",
+		"0123456789:;<=>?",
+		".ABCDEFGHIJKLMNO",
+		"PQRSTUVWXYZ[]^_@",
+		"`abcdefghijklmno",
+		"pqrstuvwxyz{|}~∎",
+		"¡¢£¤¥¦§¨ª«¬¯°±²³",
+		"´µ¶·¸¹º»¼½¾¿€Łł"
+	],
+	"glyph-color": "auto",
+	"in-kerning": [
+		""
+	],
+	"glyph-width": 14,
+	"glyph-height": 6,
+	"glyph-ofs-x": 1,
+	"glyph-ofs-y": 12,
+	"glyph-sep-x": 1,
+	"glyph-sep-y": 14,
+	"glyph-base-x": 0,
+	"glyph-baseline": 5,
+	"glyph-spacing": 1,
+	"font-is-mono": false,
+	"font-em-square": 1024,
+	"font-line-gap": 0,
+	"font-ascend": 853.333,
+	"font-descend": -171.667,
+	"font-px-size": 170.667,
+	"contour-type": "pixel",
+	"font-type": "ttf",
+	"font-name": "Not Jam Chunky Sans 6",
+	"font-author": "Not Jam",
+	"font-copy": "CC0",
+	"font-version": "2.0.0",
+	"font-desc": "A chunky little pixel font",
+	"font-license": "CC0",
+	"font-license-url": "",
+	"font-sample-text": "The quick brown fox jumps over a lazy dog.",
+	"font-preview-text": [
+		"THE QUICK BROWN FOX JUMPS OVER A LAZY DOG.",
+		"the quick brown fox jumps over a lazy dog.",
+		"0123456789"
+	]
+}
