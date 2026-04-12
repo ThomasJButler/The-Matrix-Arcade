@@ -130,7 +130,7 @@ Each game's `desiredassets/[game]/ASSETS_NEEDED.md` has a Source Mapping section
 
 - [x] **Rhythm Hacker** music tracks: 5 WAV→MP3 conversions deployed, audio playback integrated into GameScene. Remaining: hand-crafted note charts for per-beat sync (currently BPM-based procedural), visual sprite upgrades.
 - [ ] **CTRL-S | The World**: Extract character bases from Mana Seed + Kings and Pigs, create portraits, backgrounds from CyberPunk/scifi packs. ~50 `[~]` items.
-- [ ] **Snake Classic**: Extract snake sprites from INSPO + CyberPunk character anims, recolour.
+- [x] **Snake Classic**: Head, body, apple, and dead sprites (32px) deployed with display-size scaling. Remaining: tail sprite, bomb sprite, wall sprites, power-up icons.
 - [ ] **Vortex Pong**: Extract pong assets from INSPO + firework particles for trails.
 - [x] **Matrix Cloud** bird sprite: Green bird (4 frames) from Flappy Bird Assets pack deployed with animation. Remaining: pipe sprites, background, 3 boss sprites (scratch), power-up icons.
 - [ ] **Matrix Invaders**: Extract robot enemies from TopView_Robot_Asset_Pack + laser sprites.

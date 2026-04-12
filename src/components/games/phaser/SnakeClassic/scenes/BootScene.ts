@@ -2,14 +2,32 @@ import { BootScene } from '@/lib/phaser/scenes/BootScene';
 import { SCENE_KEYS, MATRIX_COLORS } from '@/lib/phaser/types';
 import { GAME_CONFIG, POWERUP_DEFS, type PowerUpType } from '../config';
 
+const SPRITE_ASSETS = [
+  { key: 'snake_sprite_head', path: 'assets/snake/head.png' },
+  { key: 'snake_sprite_body', path: 'assets/snake/body.png' },
+  { key: 'snake_sprite_dead', path: 'assets/snake/dead.png' },
+  { key: 'food_sprite', path: 'assets/snake/apple.png' },
+];
+
 export class SnakeBootScene extends BootScene {
   constructor() {
     super({ key: SCENE_KEYS.BOOT, nextScene: SCENE_KEYS.MENU });
   }
 
+  protected loadCommonAssets(): void {
+    for (const { key, path } of SPRITE_ASSETS) {
+      this.load.image(key, path);
+    }
+  }
+
   create(): void {
-    this.createSnakeTextures();
-    this.createFoodTexture();
+    const spritesLoaded = this.textures.exists('snake_sprite_head');
+    this.game.registry.set('spriteMode', spritesLoaded);
+
+    if (!spritesLoaded) {
+      this.createSnakeTextures();
+      this.createFoodTexture();
+    }
     this.createPowerUpTextures();
     super.create();
   }

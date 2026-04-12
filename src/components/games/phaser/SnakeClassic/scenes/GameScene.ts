@@ -371,7 +371,11 @@ export class SnakeGameScene extends BaseScene {
 
   private createFoodSprite(): void {
     const { x, y } = this.gridToPixel(this.food.x, this.food.y);
-    this.foodSprite = this.add.image(x, y, 'food');
+    const key = this.spriteMode ? 'food_sprite' : 'food';
+    this.foodSprite = this.add.image(x, y, key);
+    if (this.spriteMode) {
+      this.foodSprite.setDisplaySize(GAME_CONFIG.CELL_SIZE, GAME_CONFIG.CELL_SIZE);
+    }
     this.tweens.add({
       targets: this.foodSprite,
       scale: { from: 0.9, to: 1.1 },
@@ -552,22 +556,38 @@ export class SnakeGameScene extends BaseScene {
 
   // ─── Snake Visuals ─────────────────────────────────────
 
+  private get spriteMode(): boolean {
+    return this.game.registry.get('spriteMode') === true;
+  }
+
+  private createSnakeImage(x: number, y: number, textureKey: string): Phaser.GameObjects.Image {
+    const sprite = this.add.image(x, y, textureKey);
+    if (this.spriteMode) {
+      sprite.setDisplaySize(GAME_CONFIG.CELL_SIZE, GAME_CONFIG.CELL_SIZE);
+    }
+    return sprite;
+  }
+
   private createInitialSnake(): void {
     const head = this.snake[0];
     const { x, y } = this.gridToPixel(head.x, head.y);
-    const sprite = this.add.image(x, y, 'snake_head');
+    const key = this.spriteMode ? 'snake_sprite_head' : 'snake_head';
+    const sprite = this.createSnakeImage(x, y, key);
     this.setHeadRotation(sprite, this.direction);
     this.snakeSprites = [sprite];
   }
 
   private updateSnakeSprites(): void {
+    const bodyKey = this.spriteMode ? 'snake_sprite_body' : 'snake_body';
+    const headKey = this.spriteMode ? 'snake_sprite_head' : 'snake_head';
+
     while (this.snakeSprites.length > this.snake.length) {
       const s = this.snakeSprites.pop();
       s?.destroy();
     }
 
     while (this.snakeSprites.length < this.snake.length) {
-      this.snakeSprites.push(this.add.image(0, 0, 'snake_body'));
+      this.snakeSprites.push(this.createSnakeImage(0, 0, bodyKey));
     }
 
     for (let i = 0; i < this.snake.length; i++) {
@@ -577,13 +597,13 @@ export class SnakeGameScene extends BaseScene {
       sprite.setPosition(x, y);
 
       if (i === 0) {
-        sprite.setTexture('snake_head');
+        sprite.setTexture(headKey);
         this.setHeadRotation(sprite, this.direction);
-      } else if (i === this.snake.length - 1 && this.snake.length > 2) {
+      } else if (i === this.snake.length - 1 && this.snake.length > 2 && !this.spriteMode) {
         sprite.setTexture('snake_tail');
         sprite.setAngle(0);
       } else {
-        sprite.setTexture('snake_body');
+        sprite.setTexture(bodyKey);
         sprite.setAngle(0);
       }
     }

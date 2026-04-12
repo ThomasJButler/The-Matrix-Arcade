@@ -30,6 +30,7 @@ function createMockImage() {
   img.setTint = vi.fn(self);
   img.setAlpha = vi.fn(self);
   img.clearTint = vi.fn(self);
+  img.setDisplaySize = vi.fn(self);
   img.destroy = vi.fn();
   img.x = 0;
   img.y = 0;
@@ -54,7 +55,9 @@ function collectPrototypeMethods(cls: any): string[] {
   let proto = cls.prototype;
   while (proto && proto !== Object.prototype) {
     for (const key of Object.getOwnPropertyNames(proto)) {
-      if (key !== 'constructor' && typeof proto[key] === 'function') {
+      if (key === 'constructor') continue;
+      const desc = Object.getOwnPropertyDescriptor(proto, key);
+      if (desc && typeof desc.value === 'function') {
         methods.add(key);
       }
     }
@@ -114,7 +117,7 @@ function createTestScene(): SnakeGameScene {
   };
   scene.make = { graphics: vi.fn(() => createMockGraphics()) };
   scene.scale = { width: GAME_CONFIG.WIDTH, height: GAME_CONFIG.HEIGHT };
-  scene.game = { config: { width: GAME_CONFIG.WIDTH, height: GAME_CONFIG.HEIGHT } };
+  scene.game = { config: { width: GAME_CONFIG.WIDTH, height: GAME_CONFIG.HEIGHT }, registry: { get: vi.fn().mockReturnValue(false) } };
   scene.scene = { start: vi.fn(), restart: vi.fn() };
   scene.events = { on: vi.fn(), off: vi.fn(), emit: vi.fn() };
   scene.isPaused = false;
