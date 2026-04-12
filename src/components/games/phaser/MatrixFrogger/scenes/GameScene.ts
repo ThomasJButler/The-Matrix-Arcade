@@ -95,7 +95,12 @@ export class FroggerGameScene extends BaseScene {
   private rainGroup!: Phaser.GameObjects.Group;
 
   // Lane configuration (bottom to top)
-  private lanes: Array<{ type: string; enemyType?: 'agent' | 'sentinel'; direction: 1 | -1 }> = [];
+  private lanes: Array<{
+    type: string;
+    enemyType?: 'agent' | 'sentinel';
+    direction?: 1 | -1;
+    vehicleTextures?: string[];
+  }> = [];
 
   // Input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -295,9 +300,9 @@ export class FroggerGameScene extends BaseScene {
       { type: 'road', enemyType: 'agent', direction: -1 }, // Row 2
       { type: 'road', enemyType: 'sentinel', direction: -1 }, // Row 3
       { type: 'safe' }, // Row 4 - Middle safe zone
-      { type: 'road', enemyType: 'agent', direction: 1 }, // Row 5
-      { type: 'road', enemyType: 'agent', direction: -1 }, // Row 6
-      { type: 'road', enemyType: 'sentinel', direction: 1 }, // Row 7
+      { type: 'road', enemyType: 'agent', direction: 1, vehicleTextures: ['vehicle_car1', 'vehicle_car2', 'vehicle_car3'] }, // Row 5
+      { type: 'road', enemyType: 'agent', direction: -1, vehicleTextures: ['vehicle_car2', 'vehicle_car3', 'vehicle_tractor'] }, // Row 6
+      { type: 'road', enemyType: 'sentinel', direction: 1, vehicleTextures: ['vehicle_truck'] }, // Row 7
       { type: 'safe' }, // Row 8 - Start
     ];
   }
@@ -900,7 +905,7 @@ export class FroggerGameScene extends BaseScene {
     if (roadLanes.length === 0) return;
 
     const lane = Phaser.Utils.Array.GetRandom(roadLanes);
-    const direction = lane.direction;
+    const direction = lane.direction ?? 1;
     const enemyType = lane.enemyType || 'agent';
 
     // Determine if this should be a chasing agent
@@ -909,16 +914,32 @@ export class FroggerGameScene extends BaseScene {
     const startX = direction === 1 ? -GAME_CONFIG.CELL_SIZE : GAME_CONFIG.WIDTH + GAME_CONFIG.CELL_SIZE;
     const y = this.rowToY(lane.row);
 
-    const textureKey = enemyType === 'agent' ? 'enemy_agent' : 'enemy_sentinel';
+    // Use vehicle sprites for traffic lanes, agent sprites for Matrix lanes
+    const useVehicle = !isChaser && lane.vehicleTextures && lane.vehicleTextures.length > 0;
+    const textureKey = useVehicle
+      ? Phaser.Utils.Array.GetRandom(lane.vehicleTextures!)
+      : (enemyType === 'agent' ? 'enemy_agent' : 'enemy_sentinel');
+
     const enemy = this.enemies.get(startX, y, textureKey) as Enemy;
     if (!enemy) return;
 
     enemy.setActive(true);
     enemy.setVisible(true);
-    enemy.setScale(0.8);
+    enemy.setTexture(textureKey);
     enemy.enemyType = isChaser ? 'chaser' : enemyType;
     enemy.direction = direction;
     enemy.lane = lane.row;
+
+    if (useVehicle) {
+      // Vehicle sprites are 16x16 (truck 32x16) — scale to fill grid cell
+      const scale = textureKey === 'vehicle_truck' ? 2.5 : 3.0;
+      enemy.setScale(scale);
+      enemy.setFlipX(direction === -1);
+      enemy.clearTint();
+    } else {
+      enemy.setScale(0.8);
+      enemy.setFlipX(false);
+    }
 
     const config = GAME_CONFIG.ENEMIES[enemyType.toUpperCase() as 'AGENT' | 'SENTINEL'];
     const difficultyBonus = Math.floor(this.maxDistance / 100) * GAME_CONFIG.DIFFICULTY.SPEED_INCREASE_PER_100;
@@ -928,9 +949,11 @@ export class FroggerGameScene extends BaseScene {
     if (isChaser) {
       enemy.verticalSpeed = GAME_CONFIG.DIFFICULTY.CHASING_AGENT_VERTICAL_SPEED;
       enemy.setTint(0xff3333);
-    } else {
+    } else if (!useVehicle) {
       enemy.verticalSpeed = 0;
       enemy.setTint(enemyType === 'agent' ? 0x00ff00 : 0xff6600);
+    } else {
+      enemy.verticalSpeed = 0;
     }
   }
 
