@@ -19,6 +19,12 @@ const SPRITE_ASSETS: Array<{ key: string; path: string }> = [
   { key: 'agent_johnson', path: 'assets/agent-chase/agent_johnson_sprite.png' },
   { key: 'agent_frightened', path: 'assets/agent-chase/agent_frightened_sprite.png' },
   { key: 'wall', path: 'assets/agent-chase/wall_brick.png' },
+  { key: 'fruit_cherry', path: 'assets/agent-chase/fruit_cherry.png' },
+  { key: 'fruit_strawberry', path: 'assets/agent-chase/fruit_strawberry.png' },
+  { key: 'fruit_orange', path: 'assets/agent-chase/fruit_orange.png' },
+  { key: 'fruit_apple', path: 'assets/agent-chase/fruit_apple.png' },
+  { key: 'fruit_grape', path: 'assets/agent-chase/fruit_grape.png' },
+  { key: 'fruit_banana', path: 'assets/agent-chase/fruit_banana.png' },
 ];
 
 export class AgentChaseBootScene extends BootScene {
@@ -56,6 +62,7 @@ export class AgentChaseBootScene extends BootScene {
     const ps = GAME_CONFIG.PLAYER.SIZE;
     const ts = GAME_CONFIG.TILE_SIZE;
 
+    const fs = 20;
     const targets: Array<{ key: string; w: number; h: number }> = [
       { key: 'player_open', w: ps, h: ps },
       { key: 'player_closed', w: ps, h: ps },
@@ -65,6 +72,12 @@ export class AgentChaseBootScene extends BootScene {
       { key: 'agent_johnson', w: ps, h: ps },
       { key: 'agent_frightened', w: ps, h: ps },
       { key: 'wall', w: ts, h: ts },
+      { key: 'fruit_cherry', w: fs, h: fs },
+      { key: 'fruit_strawberry', w: fs, h: fs },
+      { key: 'fruit_orange', w: fs, h: fs },
+      { key: 'fruit_apple', w: fs, h: fs },
+      { key: 'fruit_grape', w: fs, h: fs },
+      { key: 'fruit_banana', w: fs, h: fs },
     ];
 
     for (const { key, w, h } of targets) {
@@ -186,12 +199,14 @@ export class AgentChaseBootScene extends BootScene {
     const colors = [0xff0000, 0xff0066, 0xff8800, 0x00ff00, 0x9900ff, 0xffff00];
 
     fruits.forEach((fruit, index) => {
+      const key = `fruit_${fruit}`;
+      if (this.textures.exists(key)) return;
       const g = this.add.graphics();
       g.fillStyle(colors[index], 1);
       g.fillCircle(10, 10, 8);
       g.fillStyle(0x00ff00, 1);
       g.fillRect(8, 2, 4, 4);
-      g.generateTexture(`fruit_${fruit}`, 20, 20);
+      g.generateTexture(key, 20, 20);
       g.destroy();
     });
   }

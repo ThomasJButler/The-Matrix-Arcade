@@ -21,9 +21,9 @@
 - [x] 3 map layout variations (Map_1, Map_2, Map_3)
 - [x] Map with background (Map_Back&Maze.png)
 
-## Currently Procedural (in BootScene — 100% generated)
+## Currently Procedural (in BootScene — fallback generated)
 
-All 18 textures are procedurally generated (player open/closed mouth, 4 agent ghosts, frightened states, eyes, dots, power pellets, 6 fruit types, wall tile). No external files loaded.
+8 sprites loaded from files (player, 4 agents, frightened, wall, 6 fruit). Remaining procedural: player open/closed mouth variants, frightened warning, agent eyes, dots, power pellets. Procedural fallbacks exist for all textures.
 
 ## Still Needed
 
@@ -45,7 +45,7 @@ All 18 textures are procedurally generated (player open/closed mouth, 4 agent gh
 ### Dots & Collectibles
 - [~] Data dot — small, 8×8, pulsing glow — SOURCE: INSPO/pacman/PacManAssets/Items
 - [~] Power pellet — large, 16×16, bright glow — SOURCE: INSPO/pacman/PacManAssets/Items
-- [~] Fruit/bonus items — 6 types, 20×20 each (cherry, strawberry, orange, apple, grape, banana — or Matrix-themed equivalents like red pill, blue pill, phone, key, sunglasses, code fragment) — SOURCE: DUMP/1. Free Hologram Interface Wenrexa/Icons/
+- [x] Fruit/bonus items — 6 types, 20×20 each (cherry, strawberry, orange, apple, grape, banana) — extracted from PacManAssets-Items.png spritesheet with PIL bbox cropping, deployed to public/assets/agent-chase/
 
 ### Maps (3 layouts for difficulty modes)
 - [x] Map tileset available — may need Matrix-green recolour
