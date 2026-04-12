@@ -72,11 +72,14 @@ export class MatrixInvadersGameScene extends BaseScene {
 
   private matrixRainGroup!: Phaser.GameObjects.Group;
 
+  private _spriteMode = false;
+
   constructor() {
     super(SCENE_KEYS.GAME);
   }
 
   create(): void {
+    this._spriteMode = this.game.registry.get('spriteMode') === true;
     this.createMatrixBackground();
     this.matrixRainGroup = this.addMatrixRain(10);
     this.resetState();
@@ -119,11 +122,11 @@ export class MatrixInvadersGameScene extends BaseScene {
   }
 
   private createPlayer(): void {
-    this.player = this.add.sprite(
-      C.WIDTH / 2,
-      C.HEIGHT - C.PLAYER_Y_OFFSET,
-      'player'
-    );
+    const key = this._spriteMode ? 'sprite_player' : 'player';
+    this.player = this.add.sprite(C.WIDTH / 2, C.HEIGHT - C.PLAYER_Y_OFFSET, key);
+    if (this._spriteMode) {
+      this.player.setDisplaySize(C.PLAYER_WIDTH, C.PLAYER_HEIGHT);
+    }
   }
 
   private createHUD(): void {
@@ -580,7 +583,11 @@ export class MatrixInvadersGameScene extends BaseScene {
       this.isInvulnerable = true;
       this.playSound(SOUND_KEYS.HIT);
       this.cameras.main.shake(200, 0.005);
-      this.player.setTexture('player');
+      if (this._spriteMode) {
+        this.player.clearTint();
+      } else {
+        this.player.setTexture('player');
+      }
       this.time.delayedCall(C.INVULNERABLE_DURATION, () => {
         this.isInvulnerable = false;
       });
@@ -636,8 +643,10 @@ export class MatrixInvadersGameScene extends BaseScene {
         const x = C.GRID_START_X + col * C.GRID_COL_SPACING;
         const y = C.GRID_START_Y + row * C.GRID_ROW_SPACING;
 
-        const sprite = this.add.sprite(x, y, `enemy_${type}`);
+        const texKey = this._spriteMode ? `sprite_enemy_${type}` : `enemy_${type}`;
+        const sprite = this.add.sprite(x, y, texKey);
         sprite.setDepth(3);
+        if (this._spriteMode) sprite.setDisplaySize(C.ENEMY_WIDTH, C.ENEMY_HEIGHT);
 
         this.enemies.push({
           sprite,
@@ -816,7 +825,11 @@ export class MatrixInvadersGameScene extends BaseScene {
 
       case 'shield':
         this.shieldActive = true;
-        this.player.setTexture('player_shield');
+        if (this._spriteMode) {
+          this.player.setTint(MATRIX_COLORS.MAGENTA);
+        } else {
+          this.player.setTexture('player_shield');
+        }
         break;
 
       case 'scoreMultiplier':
@@ -877,9 +890,11 @@ export class MatrixInvadersGameScene extends BaseScene {
   }
 
   private spawnVirusChildren(x: number, y: number): void {
+    const texKey = this._spriteMode ? 'sprite_enemy_code' : 'enemy_code';
     for (const offsetX of [-20, 20]) {
-      const sprite = this.add.sprite(x + offsetX, y, 'enemy_code');
+      const sprite = this.add.sprite(x + offsetX, y, texKey);
       sprite.setDepth(3);
+      if (this._spriteMode) sprite.setDisplaySize(C.ENEMY_WIDTH, C.ENEMY_HEIGHT);
       this.enemies.push({
         sprite,
         type: 'code',
@@ -903,10 +918,14 @@ export class MatrixInvadersGameScene extends BaseScene {
 
     this.drawHealthBar(time);
 
-    if (this.shieldActive) {
-      this.player.setTexture('player_shield');
+    if (this._spriteMode) {
+      if (this.shieldActive) {
+        this.player.setTint(MATRIX_COLORS.MAGENTA);
+      } else {
+        this.player.clearTint();
+      }
     } else {
-      this.player.setTexture('player');
+      this.player.setTexture(this.shieldActive ? 'player_shield' : 'player');
     }
   }
 
