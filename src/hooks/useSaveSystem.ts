@@ -253,7 +253,8 @@ export const GAME_ACHIEVEMENTS: Record<string, Achievement[]> = {
     { id: 'cloud_power_collector', name: 'Power Seeker', description: 'Collect 20 power-ups', game: 'Matrix Cloud' },
     { id: 'cloud_architect_defeat', name: 'Architect\'s Bane', description: 'Defeat the Architect', game: 'Matrix Cloud' },
     { id: 'cloud_all_bosses', name: 'Boss Master', description: 'Defeat all three bosses', game: 'Matrix Cloud' },
-    { id: 'cloud_high_flyer', name: 'High Flyer', description: 'Reach altitude 1000', game: 'Matrix Cloud' }
+    { id: 'cloud_high_flyer', name: 'High Flyer', description: 'Reach altitude 1000', game: 'Matrix Cloud' },
+    { id: 'cloud_sentinel_defeat', name: 'Sentinel Slayer', description: 'Defeat the Sentinel', game: 'Matrix Cloud' }
   ],
   matrixInvaders: [
     { id: 'invaders_first_kill', name: 'Code Breaker', description: 'Destroy your first invader', game: 'Matrix Invaders' },
