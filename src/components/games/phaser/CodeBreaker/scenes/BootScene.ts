@@ -2,27 +2,39 @@ import { BootScene } from '@/lib/phaser/scenes/BootScene';
 import { SCENE_KEYS, MATRIX_COLORS } from '@/lib/phaser/types';
 import { POWERUP_DEFS, GAME_CONFIG, type PowerUpType } from '../config';
 
-const C = GAME_CONFIG;
+const BRICK_ASSETS: Array<{ key: string; path: string }> = [
+  { key: 'brick_code', path: 'assets/code-breaker/brick_code.png' },
+  { key: 'brick_agent', path: 'assets/code-breaker/brick_agent.png' },
+  { key: 'brick_sentinel', path: 'assets/code-breaker/brick_sentinel.png' },
+  { key: 'brick_unbreakable', path: 'assets/code-breaker/brick_unbreakable.png' },
+];
 
 export class CodeBreakerBootScene extends BootScene {
   constructor() {
     super(SCENE_KEYS.BOOT, SCENE_KEYS.MENU);
   }
 
+  protected loadCommonAssets(): void {
+    for (const { key, path } of BRICK_ASSETS) {
+      this.load.image(key, path);
+    }
+  }
+
   create(): void {
-    this.createPaddleTexture();
-    this.createBallTexture();
-    this.createBrickTextures();
-    this.createAgentTexture();
-    this.createBossTexture();
-    this.createPowerUpTextures();
-    this.createLaserTexture();
-    this.createFirewallTexture();
+    const C = GAME_CONFIG;
+    this.createPaddleTexture(C);
+    this.createBallTexture(C);
+    this.createBrickTextures(C);
+    this.createAgentTexture(C);
+    this.createBossTexture(C);
+    this.createPowerUpTextures(C);
+    this.createLaserTexture(C);
+    this.createFirewallTexture(C);
     this.createPortalTexture();
     super.create();
   }
 
-  private createPaddleTexture(): void {
+  private createPaddleTexture(C: typeof GAME_CONFIG): void {
     const g = this.make.graphics({ x: 0, y: 0 });
     g.fillStyle(MATRIX_COLORS.PRIMARY, 1);
     g.fillRoundedRect(0, 0, C.PADDLE_WIDTH, C.PADDLE_HEIGHT, 4);
@@ -54,7 +66,7 @@ export class CodeBreakerBootScene extends BootScene {
     gl.destroy();
   }
 
-  private createBallTexture(): void {
+  private createBallTexture(C: typeof GAME_CONFIG): void {
     const r = C.BALL_RADIUS;
     const size = r * 2 + 2;
     const cx = size / 2;
@@ -69,7 +81,7 @@ export class CodeBreakerBootScene extends BootScene {
     g.destroy();
   }
 
-  private createBrickTextures(): void {
+  private createBrickTextures(C: typeof GAME_CONFIG): void {
     const brickTypes: Array<{ key: string; color: number }> = [
       { key: 'brick_code', color: 0x00ff00 },
       { key: 'brick_agent', color: 0xccaa00 },
@@ -78,6 +90,8 @@ export class CodeBreakerBootScene extends BootScene {
     ];
 
     for (const { key, color } of brickTypes) {
+      if (this.textures.exists(key)) continue;
+
       const g = this.make.graphics({ x: 0, y: 0 });
       g.fillStyle(color, 1);
       g.fillRoundedRect(0, 0, C.BRICK_WIDTH, C.BRICK_HEIGHT, 2);
@@ -97,16 +111,9 @@ export class CodeBreakerBootScene extends BootScene {
       g.generateTexture(key, C.BRICK_WIDTH, C.BRICK_HEIGHT);
       g.destroy();
     }
-
-    const gc = this.make.graphics({ x: 0, y: 0 });
-    gc.lineStyle(2, 0xffffff, 0.5);
-    gc.lineBetween(4, 4, C.BRICK_WIDTH - 4, C.BRICK_HEIGHT - 4);
-    gc.lineBetween(C.BRICK_WIDTH - 4, 4, 4, C.BRICK_HEIGHT - 4);
-    gc.generateTexture('brick_crack', C.BRICK_WIDTH, C.BRICK_HEIGHT);
-    gc.destroy();
   }
 
-  private createAgentTexture(): void {
+  private createAgentTexture(C: typeof GAME_CONFIG): void {
     const w = C.AGENT_WIDTH;
     const h = C.AGENT_HEIGHT;
     const g = this.make.graphics({ x: 0, y: 0 });
@@ -125,7 +132,7 @@ export class CodeBreakerBootScene extends BootScene {
     g.destroy();
   }
 
-  private createBossTexture(): void {
+  private createBossTexture(C: typeof GAME_CONFIG): void {
     const w = C.BOSS_WIDTH;
     const h = C.BOSS_HEIGHT;
     const g = this.make.graphics({ x: 0, y: 0 });
@@ -146,7 +153,7 @@ export class CodeBreakerBootScene extends BootScene {
     g.destroy();
   }
 
-  private createPowerUpTextures(): void {
+  private createPowerUpTextures(C: typeof GAME_CONFIG): void {
     const types = Object.entries(POWERUP_DEFS) as Array<[PowerUpType, typeof POWERUP_DEFS[PowerUpType]]>;
     const size = C.POWERUP_SIZE;
     const r = size / 2;
@@ -164,7 +171,7 @@ export class CodeBreakerBootScene extends BootScene {
     }
   }
 
-  private createLaserTexture(): void {
+  private createLaserTexture(C: typeof GAME_CONFIG): void {
     const g = this.make.graphics({ x: 0, y: 0 });
     g.fillStyle(MATRIX_COLORS.MAGENTA, 1);
     g.fillRect(0, 0, C.LASER_WIDTH, C.LASER_HEIGHT);
@@ -174,7 +181,7 @@ export class CodeBreakerBootScene extends BootScene {
     g.destroy();
   }
 
-  private createFirewallTexture(): void {
+  private createFirewallTexture(C: typeof GAME_CONFIG): void {
     const g = this.make.graphics({ x: 0, y: 0 });
     g.fillStyle(MATRIX_COLORS.CYAN, 0.6);
     g.fillRect(0, 0, C.WIDTH, C.FIREWALL_HEIGHT);

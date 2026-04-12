@@ -42,10 +42,10 @@
 
 ### Bricks
 - [x] 9 colour variants available — map to HP system:
-  - 1HP = green bricks
-  - 2HP = yellow bricks
-  - 3HP = red bricks
-- [x] Unbreakable brick — available
+  - 1HP = green bricks — INTEGRATED as brick_code.png (from BBreaker/Brick2_4.png)
+  - 2HP = yellow bricks — INTEGRATED as brick_agent.png (from BBreaker/Brick1_4.png)
+  - 3HP = red bricks — INTEGRATED as brick_sentinel.png (from BBreaker/Brick7_4.png)
+- [x] Unbreakable brick — INTEGRATED as brick_unbreakable.png (from BBreaker/Brick_unbreakable2.png)
 - [~] Brick crack overlay (for 2HP/3HP showing damage) — 32×16 or brick-sized — SOURCE: INSPO/blockbreakerbrickbreaker/ or DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/firework/
 - [~] Brick destruction animation — 4-6 frames (shatter / code dissolve) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/firework/
 - [~] Boss brick — 64×32 or 96×32, with Matrix face/pattern — SOURCE: DUMP/TopView_Robot_Asset_Pack/ or DUMP/MatrixArcadeCyberPunkAssets/

@@ -65,6 +65,7 @@ function createMockSprite(x = 0, y = 0) {
     setAlpha: vi.fn().mockReturnThis(),
     setDepth: vi.fn().mockReturnThis(),
     setTexture: vi.fn().mockReturnThis(),
+    setDisplaySize: vi.fn().mockReturnThis(),
     setVisible: vi.fn(function (this: Record<string, unknown>, v: boolean) { this.visible = v; return this; }),
     setScale: vi.fn().mockReturnThis(),
     setTint: vi.fn().mockReturnThis(),
@@ -157,7 +158,7 @@ function createTestScene(): any {
     sprite: vi.fn().mockImplementation((x: number, y: number) => createMockSprite(x, y)),
     text: vi.fn().mockImplementation(() => createMockText()),
     circle: vi.fn().mockImplementation((x: number, y: number, r: number) => createMockCircle(x, y, r)),
-    image: vi.fn().mockImplementation(() => ({ destroy: vi.fn() })),
+    image: vi.fn().mockImplementation((x: number, y: number) => createMockSprite(x, y)),
   };
   scene.make = {
     graphics: vi.fn().mockImplementation(() => createMockGraphics()),

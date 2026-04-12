@@ -7,12 +7,12 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ## Current Status
 
 - **Status**: REBUILDING -- Phaser migration complete, asset pipeline bootstrapped, polish + game assets in progress
-- **Last Updated**: 12 April 2026 (R18 -- Global asset extraction + font integration)
+- **Last Updated**: 12 April 2026 (R19 -- Code Breaker brick sprite integration)
 - **Version**: v2.0.0 (next target)
 - **Games**: 12 playable (11 Phaser, 1 DOM)
 - **Build**: PASSES (code-split, main bundle ~372KB, Phaser vendor chunk 1,479KB) -- zero warnings
 - **Unit Tests**: 2,039 passing across 46 files, 0 failures
-- **E2E Tests**: 88 gameplay + 110 visual = 198 tests across 28 spec files -- last run PASSED
+- **E2E Tests**: 88 gameplay + 110 visual = 198 tests across 28 spec files -- last run PASSED (new screeenshots in TheMatrixArcade-/e2e, user manually ran the playwright test. Some games are not starting. I think this is due to not adding in assets. Also new playwright report 12th April @ 6:45pm GMT - This was not fully completed so user is running npm run test:e2e again at 6:49pm, this will be complete at 7:30pm)
 - **Asset Pipeline**: Phase 0a COMPLETE -- `public/assets/` deployed with fonts, audio, UI chrome, particles, icons (117 files, ~40MB)
 
 ### Completed Work Summary
@@ -26,6 +26,7 @@ All P0/P1/P2 bugs resolved across R1-R14 (12 April 2026). Key milestones:
 - **R15 cleanup**: Removed 9 orphaned legacy React game files, 4 unused hooks, 1 dead Zustand store, and 13 associated test files (11,386 lines of dead production code + ~5,000 lines of dead tests). Updated sound system comments from legacy game names. Test count: 2,521 → 2,019 (502 tests were testing only dead code).
 - **R16 Agent Chase map layouts**: Three distinct maze layouts (Classic, Arena, Labyrinth) cycle each level. Shared ghost house section (rows 9-19) keeps agent AI consistent. Difficulty scaling: agent speed increases 5% per level, frightened duration decreases 500ms per level (min 3s). New ALL_MAZES achievement for playing all three layouts. 20 new unit tests (96 total for Agent Chase).
 - **R17 Focus overlay fix + CTRL-S World E2E**: Fixed "floating dark rectangle" bug caused by PhaserGame.tsx click-to-play overlay rendering before auto-focus resolved — overlay now deferred until container has had focus at least once. Added 10 gameplay E2E tests for CTRL-S World covering command prompt entry, chapter navigation, story advancement, pause/resume, keyboard shortcuts, and full lifecycle.
+- **R19 Code Breaker brick sprite integration**: First per-game asset integration. Copied 4 brick sprites (code, agent, sentinel, unbreakable) from BBreaker asset pack to `public/assets/code-breaker/`. Updated BootScene to load sprites in preload with procedural texture fallbacks. Changed GameScene brick rendering from `Phaser.GameObjects.Rectangle` to `Phaser.GameObjects.Image` with `setDisplaySize()`. Fixed circular dependency TDZ crash in both BootScene and GameScene by removing module-level `const C = GAME_CONFIG` aliases (deferred to runtime access). All 127 unit tests pass.
 - **R18 Global asset extraction + font integration**: Bootstrapped `public/assets/` from zero. Extracted 3 font families from ZIP archives (MatrixType 4 variants WOFF2+TTF, AlphaProta 2 variants WOFF2+TTF, 5 NotJam pixel fonts). Deployed 4 music tracks (MP3), 20 Matrix Trilogy SFX (WAV), hologram UI chrome (4 buttons, 5 card panels, 15 icons), 25 Matrix node icons (green+purple, PNG+WEBP+GIF), 21 firework particle frames (3 colours × 7 frames). Added `@font-face` declarations for all custom fonts with WOFF2→TTF fallback chain. Created 5 new CSS variables (`--matrix-font-title`, `--matrix-font-matrix`, `--matrix-font-cyber`, `--matrix-font-pixel`, `--matrix-font-hud`). Applied MatrixType Display to arcade title in App.tsx and LandingPage.tsx. Updated global ASSETS_NEEDED.md with deployment status. Total: 117 files, ~40MB. Blocker: WAV music tracks (7 files, ~280MB total) need ffmpeg for OGG/MP3 conversion.
 
 Full details in git history (`git log --oneline`).
@@ -133,7 +134,7 @@ Each game's `desiredassets/[game]/ASSETS_NEEDED.md` has a Source Mapping section
 - [ ] **Neo Jump**: Process Doodle RPG pack from INSPO (406 sprites).
 - [ ] **Agent Chase**: Extract Pac-Man assets from INSPO + roguelike tiles for maze walls.
 - [ ] **Cloud Jumper**: Process Cloudy Pack (190+ cloud sprites, 10 themes), pick Matrix-compatible theme.
-- [ ] **Code Breaker**: Extract Breakout sprites from INSPO + laser sprites + robot enemies.
+- [x] **Code Breaker**: Brick sprites integrated (4 types: code, agent, sentinel, unbreakable). Remaining: laser sprites, paddle sprites, agent enemies, power-up icons, portal.
 
 ### 0c. Asset Integration Pattern
 

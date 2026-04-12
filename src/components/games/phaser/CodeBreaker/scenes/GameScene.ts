@@ -18,11 +18,9 @@ import {
   type PowerUpType,
 } from '../config';
 
-const C = GAME_CONFIG;
-
 export class CodeBreakerGameScene extends BaseScene {
   private paddle!: Phaser.GameObjects.Sprite;
-  private paddleWidth = C.PADDLE_WIDTH;
+  private paddleWidth = GAME_CONFIG.PADDLE_WIDTH;
 
   private balls: BallState[] = [];
   private bricks: BrickState[] = [];
@@ -39,7 +37,7 @@ export class CodeBreakerGameScene extends BaseScene {
 
   private score = 0;
   private highScore = 0;
-  private lives = C.LIVES;
+  private lives = GAME_CONFIG.LIVES;
   private level = 1;
   private combo = 0;
   private agentsKilled = 0;
@@ -93,7 +91,7 @@ export class CodeBreakerGameScene extends BaseScene {
 
   private resetState(): void {
     this.score = 0;
-    this.lives = C.LIVES;
+    this.lives = GAME_CONFIG.LIVES;
     this.level = 1;
     this.combo = 0;
     this.agentsKilled = 0;
@@ -109,7 +107,7 @@ export class CodeBreakerGameScene extends BaseScene {
     this.laserTimer = 0;
     this.highScore = 0;
     this.achievementsUnlocked = new Set();
-    this.paddleWidth = C.PADDLE_WIDTH;
+    this.paddleWidth = GAME_CONFIG.PADDLE_WIDTH;
     this.balls = [];
     this.bricks = [];
     this.agents = [];
@@ -125,7 +123,7 @@ export class CodeBreakerGameScene extends BaseScene {
   // -- Paddle --
 
   private createPaddle(): void {
-    this.paddle = this.add.sprite(C.WIDTH / 2, C.PADDLE_Y, 'paddle');
+    this.paddle = this.add.sprite(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.PADDLE_Y, 'paddle');
     this.paddle.setDepth(5);
   }
 
@@ -133,9 +131,9 @@ export class CodeBreakerGameScene extends BaseScene {
 
   private spawnBall(attached: boolean): void {
     const sprite = this.add.circle(
-      attached ? this.paddle.x : C.WIDTH / 2,
-      attached ? this.paddle.y - C.PADDLE_HEIGHT / 2 - C.BALL_RADIUS - 1 : C.HEIGHT * 0.6,
-      C.BALL_RADIUS,
+      attached ? this.paddle.x : GAME_CONFIG.WIDTH / 2,
+      attached ? this.paddle.y - GAME_CONFIG.PADDLE_HEIGHT / 2 - GAME_CONFIG.BALL_RADIUS - 1 : GAME_CONFIG.HEIGHT * 0.6,
+      GAME_CONFIG.BALL_RADIUS,
       MATRIX_COLORS.PRIMARY
     );
     sprite.setDepth(6);
@@ -143,8 +141,8 @@ export class CodeBreakerGameScene extends BaseScene {
     const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.6;
     const ball: BallState = {
       sprite,
-      vx: attached ? 0 : Math.cos(angle) * C.BALL_SPEED,
-      vy: attached ? 0 : Math.sin(angle) * C.BALL_SPEED,
+      vx: attached ? 0 : Math.cos(angle) * GAME_CONFIG.BALL_SPEED,
+      vy: attached ? 0 : Math.sin(angle) * GAME_CONFIG.BALL_SPEED,
     };
     this.balls.push(ball);
   }
@@ -155,8 +153,8 @@ export class CodeBreakerGameScene extends BaseScene {
 
     const ball = this.balls[0];
     const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.5;
-    ball.vx = Math.cos(angle) * C.BALL_SPEED;
-    ball.vy = Math.sin(angle) * C.BALL_SPEED;
+    ball.vx = Math.cos(angle) * GAME_CONFIG.BALL_SPEED;
+    ball.vy = Math.sin(angle) * GAME_CONFIG.BALL_SPEED;
 
     if (this.attachHintText) this.attachHintText.setVisible(false);
   }
@@ -177,10 +175,12 @@ export class CodeBreakerGameScene extends BaseScene {
         if (!brickType) continue;
 
         const def = BRICK_DEFS[brickType];
-        const x = C.BRICK_OFFSET_X + col * (C.BRICK_WIDTH + C.BRICK_PADDING) + C.BRICK_WIDTH / 2;
-        const y = C.BRICK_OFFSET_Y + row * (C.BRICK_HEIGHT + C.BRICK_PADDING) + C.BRICK_HEIGHT / 2;
+        const x = GAME_CONFIG.BRICK_OFFSET_X + col * (GAME_CONFIG.BRICK_WIDTH + GAME_CONFIG.BRICK_PADDING) + GAME_CONFIG.BRICK_WIDTH / 2;
+        const y = GAME_CONFIG.BRICK_OFFSET_Y + row * (GAME_CONFIG.BRICK_HEIGHT + GAME_CONFIG.BRICK_PADDING) + GAME_CONFIG.BRICK_HEIGHT / 2;
 
-        const sprite = this.add.rectangle(x, y, C.BRICK_WIDTH, C.BRICK_HEIGHT, def.color);
+        const textureKey = `brick_${brickType}`;
+        const sprite = this.add.image(x, y, textureKey);
+        sprite.setDisplaySize(GAME_CONFIG.BRICK_WIDTH, GAME_CONFIG.BRICK_HEIGHT);
         sprite.setDepth(3);
 
         this.bricks.push({
@@ -191,13 +191,13 @@ export class CodeBreakerGameScene extends BaseScene {
           value: def.value,
           row,
           col,
-          width: C.BRICK_WIDTH,
-          height: C.BRICK_HEIGHT,
+          width: GAME_CONFIG.BRICK_WIDTH,
+          height: GAME_CONFIG.BRICK_HEIGHT,
         });
       }
     }
 
-    if ((C.BOSS_LEVELS as readonly number[]).includes(level)) {
+    if ((GAME_CONFIG.BOSS_LEVELS as readonly number[]).includes(level)) {
       this.spawnBoss();
     }
   }
@@ -236,17 +236,17 @@ export class CodeBreakerGameScene extends BaseScene {
     this.laserActive = false;
     this.bulletTimeActive = false;
     this.laserTimer = 0;
-    this.paddleWidth = C.PADDLE_WIDTH;
+    this.paddleWidth = GAME_CONFIG.PADDLE_WIDTH;
     this.updatePaddleTexture();
   }
 
   // -- Boss --
 
   private spawnBoss(): void {
-    const health = C.BOSS_BASE_HEALTH + (this.level - 1) * C.BOSS_HEALTH_PER_LEVEL;
+    const health = GAME_CONFIG.BOSS_BASE_HEALTH + (this.level - 1) * GAME_CONFIG.BOSS_HEALTH_PER_LEVEL;
     const sprite = this.add.rectangle(
-      C.WIDTH / 2, 30,
-      C.BOSS_WIDTH, C.BOSS_HEIGHT,
+      GAME_CONFIG.WIDTH / 2, 30,
+      GAME_CONFIG.BOSS_WIDTH, GAME_CONFIG.BOSS_HEIGHT,
       0x880000
     );
     sprite.setDepth(4);
@@ -263,11 +263,11 @@ export class CodeBreakerGameScene extends BaseScene {
       healthBg,
       health,
       maxHealth: health,
-      value: C.BOSS_VALUE,
-      width: C.BOSS_WIDTH,
-      height: C.BOSS_HEIGHT,
+      value: GAME_CONFIG.BOSS_VALUE,
+      width: GAME_CONFIG.BOSS_WIDTH,
+      height: GAME_CONFIG.BOSS_HEIGHT,
       direction: 1,
-      speed: C.BOSS_SPEED,
+      speed: GAME_CONFIG.BOSS_SPEED,
       fireTimer: 0,
     };
   }
@@ -284,26 +284,26 @@ export class CodeBreakerGameScene extends BaseScene {
     this.comboText = this.createMatrixText(10, 40, '', 8, MATRIX_COLORS.CYAN_HEX);
     this.comboText.setOrigin(0, 0);
 
-    this.highScoreText = this.createMatrixText(C.WIDTH - 10, 8, 'HI: 0', 9);
+    this.highScoreText = this.createMatrixText(GAME_CONFIG.WIDTH - 10, 8, 'HI: 0', 9);
     this.highScoreText.setOrigin(1, 0);
 
-    this.livesText = this.createMatrixText(C.WIDTH - 10, 24, `LIVES: ${this.lives}`, 9);
+    this.livesText = this.createMatrixText(GAME_CONFIG.WIDTH - 10, 24, `LIVES: ${this.lives}`, 9);
     this.livesText.setOrigin(1, 0);
 
     this.bulletTimeText = this.createMatrixText(
-      C.WIDTH / 2, C.HEIGHT * 0.45, 'BULLET TIME', 12, MATRIX_COLORS.MAGENTA_HEX
+      GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT * 0.45, 'BULLET TIME', 12, MATRIX_COLORS.MAGENTA_HEX
     );
     this.bulletTimeText.setVisible(false);
     this.bulletTimeText.setDepth(100);
 
     this.levelCompleteText = this.createMatrixText(
-      C.WIDTH / 2, C.HEIGHT * 0.4, '', 14
+      GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT * 0.4, '', 14
     );
     this.levelCompleteText.setVisible(false);
     this.levelCompleteText.setDepth(100);
 
     this.attachHintText = this.createMatrixText(
-      C.WIDTH / 2, C.PADDLE_Y - 30, 'PRESS SPACE TO LAUNCH', 8, MATRIX_COLORS.CYAN_HEX
+      GAME_CONFIG.WIDTH / 2, GAME_CONFIG.PADDLE_Y - 30, 'PRESS SPACE TO LAUNCH', 8, MATRIX_COLORS.CYAN_HEX
     );
     this.attachHintText.setDepth(100);
   }
@@ -330,7 +330,7 @@ export class CodeBreakerGameScene extends BaseScene {
     this.updateMatrixRain(this.matrixRainGroup, delta);
 
     const dt = delta / 1000;
-    const timeScale = this.bulletTimeActive ? C.BULLET_TIME_SCALE : 1.0;
+    const timeScale = this.bulletTimeActive ? GAME_CONFIG.BULLET_TIME_SCALE : 1.0;
     const scaledDt = dt * timeScale;
 
     this.handlePaddleMovement(dt);
@@ -365,7 +365,7 @@ export class CodeBreakerGameScene extends BaseScene {
   // -- Paddle movement --
 
   private handlePaddleMovement(dt: number): void {
-    const speed = C.PADDLE_SPEED * dt;
+    const speed = GAME_CONFIG.PADDLE_SPEED * dt;
     let dx = 0;
 
     if (this.cursors?.left.isDown || this.wasdA?.isDown) dx -= speed;
@@ -376,7 +376,7 @@ export class CodeBreakerGameScene extends BaseScene {
       const targetX = Phaser.Math.Clamp(
         pointer.x,
         this.paddleWidth / 2,
-        C.WIDTH - this.paddleWidth / 2
+        GAME_CONFIG.WIDTH - this.paddleWidth / 2
       );
       const diff = targetX - this.paddle.x;
       if (Math.abs(diff) > 2) {
@@ -387,12 +387,12 @@ export class CodeBreakerGameScene extends BaseScene {
     this.paddle.x = Phaser.Math.Clamp(
       this.paddle.x + dx,
       this.paddleWidth / 2,
-      C.WIDTH - this.paddleWidth / 2
+      GAME_CONFIG.WIDTH - this.paddleWidth / 2
     );
 
     if (this.isBallAttached && this.balls.length > 0) {
       this.balls[0].sprite.x = this.paddle.x;
-      this.balls[0].sprite.y = this.paddle.y - C.PADDLE_HEIGHT / 2 - C.BALL_RADIUS - 1;
+      this.balls[0].sprite.y = this.paddle.y - GAME_CONFIG.PADDLE_HEIGHT / 2 - GAME_CONFIG.BALL_RADIUS - 1;
     }
   }
 
@@ -420,8 +420,8 @@ export class CodeBreakerGameScene extends BaseScene {
     if (!this.laserActive) return;
 
     this.laserTimer += dt;
-    if (this.laserTimer >= C.LASER_FIRE_INTERVAL) {
-      this.laserTimer -= C.LASER_FIRE_INTERVAL;
+    if (this.laserTimer >= GAME_CONFIG.LASER_FIRE_INTERVAL) {
+      this.laserTimer -= GAME_CONFIG.LASER_FIRE_INTERVAL;
       this.fireLaser();
     }
   }
@@ -429,13 +429,13 @@ export class CodeBreakerGameScene extends BaseScene {
   private fireLaser(): void {
     const sprite = this.add.rectangle(
       this.paddle.x,
-      this.paddle.y - C.PADDLE_HEIGHT / 2 - C.LASER_HEIGHT / 2,
-      C.LASER_WIDTH,
-      C.LASER_HEIGHT,
+      this.paddle.y - GAME_CONFIG.PADDLE_HEIGHT / 2 - GAME_CONFIG.LASER_HEIGHT / 2,
+      GAME_CONFIG.LASER_WIDTH,
+      GAME_CONFIG.LASER_HEIGHT,
       MATRIX_COLORS.MAGENTA
     );
     sprite.setDepth(5);
-    this.lasers.push({ sprite, vy: -C.LASER_SPEED });
+    this.lasers.push({ sprite, vy: -GAME_CONFIG.LASER_SPEED });
     this.playSound(SOUND_KEYS.SHOOT);
   }
 
@@ -456,7 +456,7 @@ export class CodeBreakerGameScene extends BaseScene {
       const agent = this.agents[i];
       agent.sprite.y += agent.vy * dt;
 
-      if (agent.sprite.y > C.HEIGHT + 20) {
+      if (agent.sprite.y > GAME_CONFIG.HEIGHT + 20) {
         agent.sprite.destroy();
         this.agents.splice(i, 1);
       }
@@ -484,7 +484,7 @@ export class CodeBreakerGameScene extends BaseScene {
       const pu = this.fieldPowerUps[i];
       pu.sprite.y += pu.vy * dt;
 
-      if (pu.sprite.y > C.HEIGHT + 10) {
+      if (pu.sprite.y > GAME_CONFIG.HEIGHT + 10) {
         pu.sprite.destroy();
         this.fieldPowerUps.splice(i, 1);
       }
@@ -498,7 +498,7 @@ export class CodeBreakerGameScene extends BaseScene {
       const p = this.particles[i];
       p.rect.x += p.vx * dt;
       p.rect.y += p.vy * dt;
-      p.life -= C.PARTICLE_DECAY * dt;
+      p.life -= GAME_CONFIG.PARTICLE_DECAY * dt;
       p.rect.setAlpha(Math.max(0, p.life));
 
       if (p.life <= 0) {
@@ -518,14 +518,14 @@ export class CodeBreakerGameScene extends BaseScene {
     if (this.boss.sprite.x - this.boss.width / 2 <= 0) {
       this.boss.direction = 1;
       this.boss.sprite.x = this.boss.width / 2;
-    } else if (this.boss.sprite.x + this.boss.width / 2 >= C.WIDTH) {
+    } else if (this.boss.sprite.x + this.boss.width / 2 >= GAME_CONFIG.WIDTH) {
       this.boss.direction = -1;
-      this.boss.sprite.x = C.WIDTH - this.boss.width / 2;
+      this.boss.sprite.x = GAME_CONFIG.WIDTH - this.boss.width / 2;
     }
 
     this.boss.fireTimer += dt;
-    if (this.boss.fireTimer >= C.BOSS_FIRE_INTERVAL) {
-      this.boss.fireTimer -= C.BOSS_FIRE_INTERVAL;
+    if (this.boss.fireTimer >= GAME_CONFIG.BOSS_FIRE_INTERVAL) {
+      this.boss.fireTimer -= GAME_CONFIG.BOSS_FIRE_INTERVAL;
       this.fireBossBullet();
     }
 
@@ -550,8 +550,8 @@ export class CodeBreakerGameScene extends BaseScene {
 
     this.bossBullets.push({
       sprite,
-      vx: nx * C.BOSS_BULLET_SPEED,
-      vy: ny * C.BOSS_BULLET_SPEED,
+      vx: nx * GAME_CONFIG.BOSS_BULLET_SPEED,
+      vy: ny * GAME_CONFIG.BOSS_BULLET_SPEED,
     });
   }
 
@@ -561,7 +561,7 @@ export class CodeBreakerGameScene extends BaseScene {
       b.sprite.x += b.vx * dt;
       b.sprite.y += b.vy * dt;
 
-      if (b.sprite.y > C.HEIGHT + 10 || b.sprite.x < -10 || b.sprite.x > C.WIDTH + 10) {
+      if (b.sprite.y > GAME_CONFIG.HEIGHT + 10 || b.sprite.x < -10 || b.sprite.x > GAME_CONFIG.WIDTH + 10) {
         b.sprite.destroy();
         this.bossBullets.splice(i, 1);
       }
@@ -600,7 +600,7 @@ export class CodeBreakerGameScene extends BaseScene {
   }
 
   private checkBallBrickCollisions(): void {
-    const ballR = C.BALL_RADIUS;
+    const ballR = GAME_CONFIG.BALL_RADIUS;
     const ballD = ballR * 2;
 
     for (const ball of this.balls) {
@@ -640,7 +640,7 @@ export class CodeBreakerGameScene extends BaseScene {
   }
 
   private checkBallPaddleCollisions(): void {
-    const ballR = C.BALL_RADIUS;
+    const ballR = GAME_CONFIG.BALL_RADIUS;
 
     for (const ball of this.balls) {
       if (this.isBallAttached && ball === this.balls[0]) continue;
@@ -648,16 +648,16 @@ export class CodeBreakerGameScene extends BaseScene {
 
       if (this.aabbOverlap(
         ball.sprite.x, ball.sprite.y, ballR * 2, ballR * 2,
-        this.paddle.x, this.paddle.y, this.paddleWidth, C.PADDLE_HEIGHT
+        this.paddle.x, this.paddle.y, this.paddleWidth, GAME_CONFIG.PADDLE_HEIGHT
       )) {
         const hitPos = (ball.sprite.x - this.paddle.x) / (this.paddleWidth / 2);
         const angle = Phaser.Math.Clamp(hitPos, -0.9, 0.9) * (Math.PI / 3);
         const speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
-        const newSpeed = Math.min(speed + C.BALL_SPEED_INCREMENT, C.BALL_MAX_SPEED);
+        const newSpeed = Math.min(speed + GAME_CONFIG.BALL_SPEED_INCREMENT, GAME_CONFIG.BALL_MAX_SPEED);
 
         ball.vx = Math.sin(angle) * newSpeed;
         ball.vy = -Math.cos(angle) * newSpeed;
-        ball.sprite.y = this.paddle.y - C.PADDLE_HEIGHT / 2 - ballR - 1;
+        ball.sprite.y = this.paddle.y - GAME_CONFIG.PADDLE_HEIGHT / 2 - ballR - 1;
 
         this.playSound(SOUND_KEYS.HIT);
       }
@@ -665,7 +665,7 @@ export class CodeBreakerGameScene extends BaseScene {
   }
 
   private checkBallWallCollisions(): void {
-    const ballR = C.BALL_RADIUS;
+    const ballR = GAME_CONFIG.BALL_RADIUS;
 
     for (const ball of this.balls) {
       if (this.isBallAttached && ball === this.balls[0]) continue;
@@ -673,8 +673,8 @@ export class CodeBreakerGameScene extends BaseScene {
       if (ball.sprite.x - ballR <= 0) {
         ball.sprite.x = ballR;
         ball.vx = Math.abs(ball.vx);
-      } else if (ball.sprite.x + ballR >= C.WIDTH) {
-        ball.sprite.x = C.WIDTH - ballR;
+      } else if (ball.sprite.x + ballR >= GAME_CONFIG.WIDTH) {
+        ball.sprite.x = GAME_CONFIG.WIDTH - ballR;
         ball.vx = -Math.abs(ball.vx);
       }
 
@@ -690,10 +690,10 @@ export class CodeBreakerGameScene extends BaseScene {
       const ball = this.balls[i];
       if (this.isBallAttached && ball === this.balls[0]) continue;
 
-      if (ball.sprite.y + C.BALL_RADIUS >= C.FIREWALL_Y) {
+      if (ball.sprite.y + GAME_CONFIG.BALL_RADIUS >= GAME_CONFIG.FIREWALL_Y) {
         if (this.firewallActive && this.firewall) {
           ball.vy = -Math.abs(ball.vy);
-          ball.sprite.y = C.FIREWALL_Y - C.BALL_RADIUS - 1;
+          ball.sprite.y = GAME_CONFIG.FIREWALL_Y - GAME_CONFIG.BALL_RADIUS - 1;
           this.firewall.destroy();
           this.firewall = null;
           this.firewallActive = false;
@@ -719,7 +719,7 @@ export class CodeBreakerGameScene extends BaseScene {
         const brick = this.bricks[bi];
 
         if (this.aabbOverlap(
-          laser.sprite.x, laser.sprite.y, C.LASER_WIDTH, C.LASER_HEIGHT,
+          laser.sprite.x, laser.sprite.y, GAME_CONFIG.LASER_WIDTH, GAME_CONFIG.LASER_HEIGHT,
           brick.sprite.x, brick.sprite.y, brick.width, brick.height
         )) {
           this.hitBrick(bi);
@@ -730,7 +730,7 @@ export class CodeBreakerGameScene extends BaseScene {
       }
 
       if (this.boss && li < this.lasers.length && this.aabbOverlap(
-        laser.sprite.x, laser.sprite.y, C.LASER_WIDTH, C.LASER_HEIGHT,
+        laser.sprite.x, laser.sprite.y, GAME_CONFIG.LASER_WIDTH, GAME_CONFIG.LASER_HEIGHT,
         this.boss.sprite.x, this.boss.sprite.y, this.boss.width, this.boss.height
       )) {
         this.hitBoss(1);
@@ -746,7 +746,7 @@ export class CodeBreakerGameScene extends BaseScene {
 
       if (this.aabbOverlap(
         agent.sprite.x, agent.sprite.y, agent.width, agent.height,
-        this.paddle.x, this.paddle.y, this.paddleWidth, C.PADDLE_HEIGHT
+        this.paddle.x, this.paddle.y, this.paddleWidth, GAME_CONFIG.PADDLE_HEIGHT
       )) {
         this.spawnExplosion(agent.sprite.x, agent.sprite.y, MATRIX_COLORS.RED, 6);
         agent.sprite.destroy();
@@ -762,7 +762,7 @@ export class CodeBreakerGameScene extends BaseScene {
 
       if (this.aabbOverlap(
         bullet.sprite.x, bullet.sprite.y, 6, 6,
-        this.paddle.x, this.paddle.y, this.paddleWidth, C.PADDLE_HEIGHT
+        this.paddle.x, this.paddle.y, this.paddleWidth, GAME_CONFIG.PADDLE_HEIGHT
       )) {
         this.spawnExplosion(bullet.sprite.x, bullet.sprite.y, MATRIX_COLORS.RED, 4);
         bullet.sprite.destroy();
@@ -777,8 +777,8 @@ export class CodeBreakerGameScene extends BaseScene {
       const pu = this.fieldPowerUps[i];
 
       if (this.aabbOverlap(
-        pu.sprite.x, pu.sprite.y, C.POWERUP_SIZE, C.POWERUP_SIZE,
-        this.paddle.x, this.paddle.y, this.paddleWidth, C.PADDLE_HEIGHT + 10
+        pu.sprite.x, pu.sprite.y, GAME_CONFIG.POWERUP_SIZE, GAME_CONFIG.POWERUP_SIZE,
+        this.paddle.x, this.paddle.y, this.paddleWidth, GAME_CONFIG.PADDLE_HEIGHT + 10
       )) {
         this.activatePowerUp(pu.type);
         pu.sprite.destroy();
@@ -835,7 +835,7 @@ export class CodeBreakerGameScene extends BaseScene {
     const y = brick.sprite.y;
 
     this.combo++;
-    const scoreBonus = Math.floor(brick.value * (1 + this.combo * C.COMBO_MULTIPLIER));
+    const scoreBonus = Math.floor(brick.value * (1 + this.combo * GAME_CONFIG.COMBO_MULTIPLIER));
     this.score += scoreBonus;
 
     if (this.score > this.highScore) this.highScore = this.score;
@@ -848,11 +848,11 @@ export class CodeBreakerGameScene extends BaseScene {
 
     this.tryUnlockAchievement(ACHIEVEMENTS.FIRST_BREAK);
 
-    if (Math.random() < C.POWERUP_DROP_CHANCE) {
+    if (Math.random() < GAME_CONFIG.POWERUP_DROP_CHANCE) {
       this.spawnPowerUp(x, y);
     }
 
-    if (brick.type === 'sentinel' && Math.random() < C.AGENT_SPAWN_CHANCE) {
+    if (brick.type === 'sentinel' && Math.random() < GAME_CONFIG.AGENT_SPAWN_CHANCE) {
       this.spawnAgent(x, y);
     }
   }
@@ -931,8 +931,8 @@ export class CodeBreakerGameScene extends BaseScene {
     if (this.boss) return;
 
     if (!this.portal) {
-      const cx = C.WIDTH / 2;
-      const cy = C.HEIGHT * 0.35;
+      const cx = GAME_CONFIG.WIDTH / 2;
+      const cy = GAME_CONFIG.HEIGHT * 0.35;
       this.portal = this.add.sprite(cx, cy, 'portal');
       this.portal.setDepth(4);
       this.tweens.add({
@@ -964,12 +964,12 @@ export class CodeBreakerGameScene extends BaseScene {
 
     if (this.level >= 5) this.tryUnlockAchievement(ACHIEVEMENTS.LEVEL_5);
 
-    if (this.level >= C.TOTAL_LEVELS) {
+    if (this.level >= GAME_CONFIG.TOTAL_LEVELS) {
       this.tryUnlockAchievement(ACHIEVEMENTS.LEVEL_10);
       this.levelCompleteText.setText('SIMULATION ESCAPED!\nYOU ARE FREE');
       this.levelCompleteText.setVisible(true);
 
-      this.time.delayedCall(C.LEVEL_TRANSITION_DELAY, () => {
+      this.time.delayedCall(GAME_CONFIG.LEVEL_TRANSITION_DELAY, () => {
         this.handleGameOver('escaped');
       });
       return;
@@ -979,7 +979,7 @@ export class CodeBreakerGameScene extends BaseScene {
     this.levelCompleteText.setVisible(true);
     this.playSound(SOUND_KEYS.LEVEL_UP);
 
-    this.time.delayedCall(C.LEVEL_TRANSITION_DELAY, () => {
+    this.time.delayedCall(GAME_CONFIG.LEVEL_TRANSITION_DELAY, () => {
       this.levelCompleteText.setVisible(false);
       this.level++;
       this.isLevelComplete = false;
@@ -1019,9 +1019,9 @@ export class CodeBreakerGameScene extends BaseScene {
 
     this.agents.push({
       sprite,
-      vy: C.AGENT_SPEED,
-      width: C.AGENT_WIDTH,
-      height: C.AGENT_HEIGHT,
+      vy: GAME_CONFIG.AGENT_SPEED,
+      width: GAME_CONFIG.AGENT_WIDTH,
+      height: GAME_CONFIG.AGENT_HEIGHT,
     });
   }
 
@@ -1042,13 +1042,13 @@ export class CodeBreakerGameScene extends BaseScene {
       repeat: -1,
     });
 
-    this.fieldPowerUps.push({ sprite, type, vy: C.POWERUP_FALL_SPEED });
+    this.fieldPowerUps.push({ sprite, type, vy: GAME_CONFIG.POWERUP_FALL_SPEED });
   }
 
-  private spawnExplosion(x: number, y: number, color: number, count: number = C.PARTICLE_COUNT): void {
+  private spawnExplosion(x: number, y: number, color: number, count: number = GAME_CONFIG.PARTICLE_COUNT): void {
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2;
-      const speed = C.PARTICLE_SPEED_MIN + Math.random() * (C.PARTICLE_SPEED_MAX - C.PARTICLE_SPEED_MIN);
+      const speed = GAME_CONFIG.PARTICLE_SPEED_MIN + Math.random() * (GAME_CONFIG.PARTICLE_SPEED_MAX - GAME_CONFIG.PARTICLE_SPEED_MIN);
       const size = 2 + Math.random() * 3;
 
       const rect = this.add.rectangle(x, y, size, size, color);
@@ -1103,12 +1103,12 @@ export class CodeBreakerGameScene extends BaseScene {
 
   private activateWidePaddle(): void {
     this.widePaddleActive = true;
-    this.paddleWidth = C.PADDLE_WIDE_WIDTH;
+    this.paddleWidth = GAME_CONFIG.PADDLE_WIDE_WIDTH;
     this.updatePaddleTexture();
 
     this.time.delayedCall(POWERUP_DEFS.widePaddle.duration, () => {
       this.widePaddleActive = false;
-      this.paddleWidth = C.PADDLE_WIDTH;
+      this.paddleWidth = GAME_CONFIG.PADDLE_WIDTH;
       this.updatePaddleTexture();
     });
   }
@@ -1141,13 +1141,13 @@ export class CodeBreakerGameScene extends BaseScene {
     if (this.firewallActive) return;
 
     this.firewallActive = true;
-    this.firewall = this.add.sprite(C.WIDTH / 2, C.FIREWALL_Y, 'firewall');
+    this.firewall = this.add.sprite(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.FIREWALL_Y, 'firewall');
     this.firewall.setDepth(2);
   }
 
   private activateEMP(): void {
     const centerX = this.paddle.x;
-    const centerY = C.HEIGHT * 0.4;
+    const centerY = GAME_CONFIG.HEIGHT * 0.4;
 
     for (let bi = this.bricks.length - 1; bi >= 0; bi--) {
       const brick = this.bricks[bi];
@@ -1155,7 +1155,7 @@ export class CodeBreakerGameScene extends BaseScene {
 
       const dx = brick.sprite.x - centerX;
       const dy = brick.sprite.y - centerY;
-      if (Math.sqrt(dx * dx + dy * dy) <= C.EMP_RADIUS) {
+      if (Math.sqrt(dx * dx + dy * dy) <= GAME_CONFIG.EMP_RADIUS) {
         this.destroyBrick(bi);
       }
     }

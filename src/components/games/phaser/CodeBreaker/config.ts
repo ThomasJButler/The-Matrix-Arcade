@@ -38,7 +38,7 @@ export const POWERUP_DEFS: Record<PowerUpType, PowerUpDef> = {
 
 // -- State interfaces --
 export interface BrickState {
-  sprite: Phaser.GameObjects.Rectangle;
+  sprite: Phaser.GameObjects.Image;
   type: BrickType;
   health: number;
   maxHealth: number;
