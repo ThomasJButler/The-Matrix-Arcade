@@ -38,12 +38,12 @@ export const GAME_CONFIG = {
     VERTICAL_RANGE: 150, // Max vertical distance from center
   },
 
-  /** Cloud types */
+  /** Cloud types — Matrix green palette */
   CLOUD_TYPES: {
-    NORMAL: { weight: 0.6, color: 0xffffff },
-    MOVING: { weight: 0.2, color: 0xaaddff },
-    DISAPPEARING: { weight: 0.1, color: 0xffddaa },
-    STORM: { weight: 0.1, color: 0x666699 },
+    NORMAL: { weight: 0.6, color: 0x00cc00 },
+    MOVING: { weight: 0.2, color: 0x00dddd },
+    DISAPPEARING: { weight: 0.1, color: 0x338833 },
+    STORM: { weight: 0.1, color: 0x663333 },
   },
 
   /** Auto-scroll speed (increases over time) */

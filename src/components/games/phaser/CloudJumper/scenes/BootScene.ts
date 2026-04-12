@@ -103,7 +103,9 @@ export class CloudJumperBootScene extends BootScene {
    */
   private createCloudTextures(): void {
     const types = ['normal', 'moving', 'disappearing', 'storm'];
-    const colors = [0xffffff, 0xaaddff, 0xffddaa, 0x666699];
+    // Matrix palette: green, cyan, dim green (fragile), dark red (danger)
+    const colors = [0x00cc00, 0x00dddd, 0x338833, 0x663333];
+    const highlights = [0x00ff00, 0x00ffff, 0x66aa66, 0x442222];
 
     types.forEach((type, index) => {
       const g = this.add.graphics();
@@ -122,12 +124,12 @@ export class CloudJumperBootScene extends BootScene {
       g.fillEllipse(width * 0.5, height * 0.3, width * 0.5, height * 0.5);
 
       // Highlight
-      g.fillStyle(0xffffff, 0.5);
+      g.fillStyle(highlights[index], 0.4);
       g.fillEllipse(width * 0.4, height * 0.35, width * 0.3, height * 0.25);
 
       // Storm cloud has dark bottom
       if (type === 'storm') {
-        g.fillStyle(0x444466, 0.5);
+        g.fillStyle(0x440000, 0.5);
         g.fillEllipse(width / 2, height * 0.7, width * 0.7, height * 0.4);
       }
 
@@ -140,16 +142,16 @@ export class CloudJumperBootScene extends BootScene {
    * Create collectible textures
    */
   private createCollectibleTextures(): void {
-    // Star
+    // Star — cyan glow
     const sg = this.add.graphics();
-    sg.fillStyle(0xffdd00, 1);
+    sg.fillStyle(0x00ffff, 1);
     this.drawStar(sg, 12, 12, 5, 10, 5);
     sg.generateTexture('star', 24, 24);
     sg.destroy();
 
-    // Gem
+    // Gem — green crystal
     const gg = this.add.graphics();
-    gg.fillStyle(0x00ffaa, 1);
+    gg.fillStyle(0x00ff66, 1);
     gg.beginPath();
     gg.moveTo(12, 2);
     gg.lineTo(22, 10);
@@ -157,18 +159,18 @@ export class CloudJumperBootScene extends BootScene {
     gg.lineTo(2, 10);
     gg.closePath();
     gg.fillPath();
-    gg.fillStyle(0xffffff, 0.5);
+    gg.fillStyle(0x00ff00, 0.5);
     gg.fillTriangle(12, 4, 8, 10, 12, 10);
     gg.generateTexture('gem', 24, 24);
     gg.destroy();
 
-    // Coin
+    // Coin — green data token
     const cg = this.add.graphics();
-    cg.fillStyle(0xffd700, 1);
+    cg.fillStyle(0x00cc00, 1);
     cg.fillCircle(12, 12, 10);
-    cg.fillStyle(0xffaa00, 1);
+    cg.fillStyle(0x009900, 1);
     cg.fillCircle(12, 12, 7);
-    cg.fillStyle(0xffd700, 1);
+    cg.fillStyle(0x00ff00, 1);
     cg.fillCircle(12, 12, 5);
     cg.generateTexture('coin', 24, 24);
     cg.destroy();
@@ -195,38 +197,38 @@ export class CloudJumperBootScene extends BootScene {
   }
 
   /**
-   * Create obstacle textures
+   * Create obstacle textures — Matrix-coded dangers
    */
   private createObstacleTextures(): void {
-    // Bird
+    // Bird — dark sentinel
     const bg = this.add.graphics();
-    bg.fillStyle(0x333333, 1);
+    bg.fillStyle(0x660000, 1);
     // Body
     bg.fillEllipse(20, 16, 24, 16);
     // Wing
     bg.fillTriangle(12, 8, 28, 8, 20, 0);
     // Beak
-    bg.fillStyle(0xffaa00, 1);
+    bg.fillStyle(0xff0000, 1);
     bg.fillTriangle(32, 16, 40, 14, 32, 12);
     // Eye
-    bg.fillStyle(0xffffff, 1);
+    bg.fillStyle(0xff0000, 1);
     bg.fillCircle(26, 14, 3);
     bg.fillStyle(0x000000, 1);
     bg.fillCircle(27, 14, 1.5);
     bg.generateTexture('bird', 40, 32);
     bg.destroy();
 
-    // Plane
+    // Plane — dark machine
     const pg = this.add.graphics();
-    pg.fillStyle(0xcccccc, 1);
+    pg.fillStyle(0x444444, 1);
     // Fuselage
     pg.fillEllipse(30, 20, 50, 16);
     // Wing
     pg.fillRect(15, 12, 30, 6);
     // Tail
     pg.fillTriangle(5, 20, 15, 10, 15, 20);
-    // Windows
-    pg.fillStyle(0x66aaff, 1);
+    // Windows — red glow
+    pg.fillStyle(0xff0000, 1);
     pg.fillCircle(35, 18, 3);
     pg.fillCircle(42, 18, 3);
     pg.fillCircle(49, 18, 3);
@@ -238,9 +240,9 @@ export class CloudJumperBootScene extends BootScene {
    * Create parallax background layers
    */
   private createBackgroundLayers(): void {
-    // Far clouds
+    // Far clouds — faint green haze
     const fc = this.add.graphics();
-    fc.fillStyle(0xffffff, 0.3);
+    fc.fillStyle(0x003300, 0.4);
     for (let i = 0; i < 5; i++) {
       const x = i * 200 + 50;
       fc.fillEllipse(x, 50, 100, 40);
@@ -249,9 +251,9 @@ export class CloudJumperBootScene extends BootScene {
     fc.generateTexture('bg_far', GAME_CONFIG.WIDTH * 2, 150);
     fc.destroy();
 
-    // Mid clouds
+    // Mid clouds — subtle green wisps
     const mc = this.add.graphics();
-    mc.fillStyle(0xffffff, 0.5);
+    mc.fillStyle(0x004400, 0.5);
     for (let i = 0; i < 4; i++) {
       const x = i * 250 + 100;
       mc.fillEllipse(x, 40, 80, 35);
@@ -260,9 +262,9 @@ export class CloudJumperBootScene extends BootScene {
     mc.generateTexture('bg_mid', GAME_CONFIG.WIDTH * 2, 100);
     mc.destroy();
 
-    // Near clouds
+    // Near clouds — visible green shapes
     const nc = this.add.graphics();
-    nc.fillStyle(0xffffff, 0.7);
+    nc.fillStyle(0x005500, 0.6);
     for (let i = 0; i < 3; i++) {
       const x = i * 300 + 150;
       nc.fillEllipse(x, 30, 60, 25);

@@ -59,6 +59,7 @@ export class NeoJumpGameScene extends BaseScene {
   private altitudeText!: Phaser.GameObjects.Text;
   private fuelBar!: Phaser.GameObjects.Graphics;
   private fuelBarBg!: Phaser.GameObjects.Graphics;
+  private fuelLabel!: Phaser.GameObjects.Text;
 
   // Camera tracking — highestY is the single source of truth for altitude
   private highestY = 0;
@@ -287,13 +288,13 @@ export class NeoJumpGameScene extends BaseScene {
     this.fuelBar.setDepth(100);
 
     // Fuel label
-    const fuelLabel = this.add.text(GAME_CONFIG.WIDTH - 110, 28, 'JETPACK', {
+    this.fuelLabel = this.add.text(GAME_CONFIG.WIDTH - 110, 28, 'JETPACK', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '8px',
-      color: MATRIX_COLORS.YELLOW_HEX,
+      color: MATRIX_COLORS.PRIMARY_HEX,
     });
-    fuelLabel.setScrollFactor(0);
-    fuelLabel.setDepth(100);
+    this.fuelLabel.setScrollFactor(0);
+    this.fuelLabel.setDepth(100);
   }
 
   /**
@@ -938,5 +939,6 @@ export class NeoJumpGameScene extends BaseScene {
     this.altitudeText.destroy();
     this.fuelBar.destroy();
     this.fuelBarBg.destroy();
+    this.fuelLabel.destroy();
   }
 }
