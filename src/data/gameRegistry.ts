@@ -1,14 +1,12 @@
 import { GameCategory } from '../types/game';
-import {
-  matrixFroggerPreview,
-  neoJumpPreview,
-  agentChasePreview,
-  rhythmHackerPreview,
-  cloudJumperPreview,
-  codeBreakerPreview,
-} from '../lib/gamePreviewImages';
 import matrixInvadersPreview from '../images/matrixinvaders.webp';
 import metrisPreview from '../images/metris.webp';
+import matrixFroggerPreview from '../images/matrix-frogger.png';
+import neoJumpPreview from '../images/neo-jump.png';
+import agentChasePreview from '../images/agent-chase.png';
+import rhythmHackerPreview from '../images/rhythm-hacker.png';
+import cloudJumperPreview from '../images/cloud-jumper.png';
+import codeBreakerPreview from '../images/code-breaker.png';
 
 export interface GameEntry {
   id: string;
