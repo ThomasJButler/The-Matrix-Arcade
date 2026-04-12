@@ -2,12 +2,39 @@ import { BootScene } from '@/lib/phaser/scenes/BootScene';
 import { SCENE_KEYS, MATRIX_COLORS } from '@/lib/phaser/types';
 import { GAME_CONFIG, POWERUP_DEFS, BOSS_DEFS, type PowerUpType, type BossType } from '../config';
 
+const SPRITE_ASSETS = [
+  { key: 'bird_sprite', path: 'assets/matrix-cloud/bird.png', type: 'spritesheet' as const, frameWidth: 16, frameHeight: 16 },
+];
+
 export class MatrixCloudBootScene extends BootScene {
   constructor() {
     super({ key: SCENE_KEYS.BOOT, nextScene: SCENE_KEYS.MENU });
   }
 
+  protected loadCommonAssets(): void {
+    for (const asset of SPRITE_ASSETS) {
+      if (asset.type === 'spritesheet') {
+        this.load.spritesheet(asset.key, asset.path, {
+          frameWidth: asset.frameWidth,
+          frameHeight: asset.frameHeight,
+        });
+      }
+    }
+  }
+
   create(): void {
+    const spritesLoaded = this.textures.exists('bird_sprite');
+    this.game.registry.set('spriteMode', spritesLoaded);
+
+    if (spritesLoaded) {
+      this.anims.create({
+        key: 'bird_flap',
+        frames: this.anims.generateFrameNumbers('bird_sprite', { start: 0, end: 3 }),
+        frameRate: 10,
+        repeat: -1,
+      });
+    }
+
     this.createPlayerTextures();
     this.createPowerUpTextures();
     this.createBossTextures();

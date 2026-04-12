@@ -7,11 +7,11 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ## Current Status
 
 - **Status**: REBUILDING -- Phaser migration complete, asset pipeline bootstrapped, per-game sprite integration in progress, Rhythm Hacker music integrated
-- **Last Updated**: 12 April 2026 (R22 -- Rhythm Hacker music integration)
+- **Last Updated**: 12 April 2026 (R23 -- Matrix Cloud bird sprite integration)
 - **Version**: v2.0.0 (next target)
 - **Games**: 12 playable (11 Phaser, 1 DOM)
 - **Build**: PASSES (code-split, main bundle ~372KB, Phaser vendor chunk 1,479KB) -- zero warnings
-- **Unit Tests**: 2,047 passing across 46 files, 0 failures
+- **Unit Tests**: 2,051 passing across 46 files, 0 failures
 - **E2E Tests**: 88 gameplay + 110 visual = 198 tests across 28 spec files -- last run PASSED (new screeenshots in TheMatrixArcade-/e2e, user manually ran the playwright test. 
 - **Asset Pipeline**: Phase 0a COMPLETE -- `public/assets/` deployed with fonts, audio, UI chrome, particles, icons (117 files, ~40MB)
 
@@ -31,6 +31,7 @@ All P0/P1/P2 bugs resolved across R1-R14 (12 April 2026). Key milestones:
 - **R21 Agent Chase roguelike sprite integration**: Third per-game asset integration. Extracted 7 sprites from 32rogues pixel art pack (rogues.png, monsters.png, tiles.png) using sips: player (rogue), 4 agents (death knight, reaper, lich, zombie), frightened state (small slime), wall tile (stone brick). Deployed to `public/assets/agent-chase/`. Updated BootScene with `loadCommonAssets()` override, `resizeLoadedSprite()` canvas-based downscaling to match game dimensions (32→18/20px), and `textures.exists()` fallback checks. Updated GameScene `updatePlayerRotation()` to use flipX in sprite mode vs angle rotation for procedural Pac-Man. All 96 unit tests pass, 2,039 total.
 - **R22 Rhythm Hacker music integration**: Installed ffmpeg via Homebrew (unblocking WAV→MP3 conversion). Converted 5 music tracks from WAV to MP3 at 192kbps with loudnorm normalisation: In The Moonlight (easy, 120s), Cyberpunkin' (normal, 150s), Cyberpsychotic (hard, 150s), Enhancements (insane, 200s), Resonance (insane, 180s). Deployed to `public/assets/rhythm-hacker/tracks/`. Also converted 3 additional global music tracks (cruise-control, a-last-embrace, ostcrunch2-epic) to `public/assets/audio/music/`. Updated config.ts with real track names, BPMs, durations, and audioUrl paths. Integrated HTML5 Audio playback into GameScene: music starts after countdown, pauses/resumes with game, stops on game over/track complete, respects mute state. Added togglePause override for audio sync. 8 new unit tests (58 total for Rhythm Hacker). All 2,047 tests pass. Build clean.
 - **R18 Global asset extraction + font integration**: Bootstrapped `public/assets/` from zero. Extracted 3 font families from ZIP archives (MatrixType 4 variants WOFF2+TTF, AlphaProta 2 variants WOFF2+TTF, 5 NotJam pixel fonts). Deployed 4 music tracks (MP3), 20 Matrix Trilogy SFX (WAV), hologram UI chrome (4 buttons, 5 card panels, 15 icons), 25 Matrix node icons (green+purple, PNG+WEBP+GIF), 21 firework particle frames (3 colours × 7 frames). Added `@font-face` declarations for all custom fonts with WOFF2→TTF fallback chain. Created 5 new CSS variables (`--matrix-font-title`, `--matrix-font-matrix`, `--matrix-font-cyber`, `--matrix-font-pixel`, `--matrix-font-hud`). Applied MatrixType Display to arcade title in App.tsx and LandingPage.tsx. Updated global ASSETS_NEEDED.md with deployment status. Total: 117 files, ~40MB. Blocker: WAV music tracks (7 files, ~280MB total) need ffmpeg for OGG/MP3 conversion.
+- **R23 Matrix Cloud bird sprite integration**: Extracted green bird sprite (4 frames, 16×16 pixel art) from Flappy Bird Assets pack, plus green pipe and pipe-cap sprites. Deployed to `public/assets/matrix-cloud/`. Updated BootScene with `loadCommonAssets()` override to load bird spritesheet, creates `bird_flap` animation (4 frames at 10fps), sets `spriteMode` registry flag. GameScene `createPlayer()` uses animated bird sprite with `setDisplaySize()` scaling when available, procedural fallback when not. `updatePlayerTexture()` uses tint-based state changes (red=damaged, magenta=shield) in sprite mode vs texture-swap in fallback mode. 4 new unit tests (85 total for Matrix Cloud). All 2,051 tests pass.
 
 Full details in git history (`git log --oneline`).
 
@@ -131,7 +132,7 @@ Each game's `desiredassets/[game]/ASSETS_NEEDED.md` has a Source Mapping section
 - [ ] **CTRL-S | The World**: Extract character bases from Mana Seed + Kings and Pigs, create portraits, backgrounds from CyberPunk/scifi packs. ~50 `[~]` items.
 - [ ] **Snake Classic**: Extract snake sprites from INSPO + CyberPunk character anims, recolour.
 - [ ] **Vortex Pong**: Extract pong assets from INSPO + firework particles for trails.
-- [ ] **Matrix Cloud**: Extract Flappy Bird sprites from INSPO (52 sprites ready), recolour pipes. 3 boss sprites need scratch.
+- [x] **Matrix Cloud** bird sprite: Green bird (4 frames) from Flappy Bird Assets pack deployed with animation. Remaining: pipe sprites, background, 3 boss sprites (scratch), power-up icons.
 - [ ] **Matrix Invaders**: Extract robot enemies from TopView_Robot_Asset_Pack + laser sprites.
 - [ ] **Metris**: Extract tetris tiles from INSPO (4 variants available) + UI panels.
 - [x] **Matrix Frogger**: Vehicle sprites integrated (5 types: car1, car2, car3, truck, tractor). Remaining: frog death animation, environment tiles, power-up icons, WAV audio integration.
@@ -307,7 +308,7 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 - No orphaned legacy code (cleaned up in R15)
 
 ### Gaps
-- Most games still use procedural textures -- Code Breaker has brick sprites, Matrix Frogger has vehicle sprites, Agent Chase has roguelike sprites, Rhythm Hacker has music tracks, but remaining 8 games are fully procedural
+- Most games still use procedural textures -- Code Breaker has brick sprites, Matrix Frogger has vehicle sprites, Agent Chase has roguelike sprites, Matrix Cloud has bird sprite, Rhythm Hacker has music tracks, but remaining 7 games are fully procedural
 - Rhythm Hacker BPM values are estimates — may need tuning per track after playtesting
 - `useAdvancedVoice` AudioContext for visualisation never connected to speech output (always returns zeros)
 

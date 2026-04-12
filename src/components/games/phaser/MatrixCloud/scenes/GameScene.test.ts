@@ -70,6 +70,9 @@ function createMockSprite(x = 0, y = 0) {
     setVisible: vi.fn().mockReturnThis(),
     setScale: vi.fn().mockReturnThis(),
     setTint: vi.fn().mockReturnThis(),
+    clearTint: vi.fn().mockReturnThis(),
+    setDisplaySize: vi.fn().mockReturnThis(),
+    play: vi.fn().mockReturnThis(),
     visible: true,
     destroy: vi.fn(),
   };
@@ -137,7 +140,7 @@ function createTestScene(): any {
   scene.make = {
     graphics: vi.fn().mockReturnValue(createMockGraphics()),
   };
-  scene.game = { config: { width: C.WIDTH, height: C.HEIGHT }, renderer: { type: 1 } };
+  scene.game = { config: { width: C.WIDTH, height: C.HEIGHT }, renderer: { type: 1 }, registry: { get: vi.fn().mockReturnValue(false) } };
   scene.scene = { restart: vi.fn(), start: vi.fn(), stop: vi.fn() };
   scene.scale = { width: C.WIDTH, height: C.HEIGHT };
   scene.events = { on: vi.fn(), off: vi.fn(), emit: vi.fn() };
@@ -719,6 +722,41 @@ describe('MatrixCloudGameScene', () => {
         expect(pipe.gapY).toBeGreaterThanOrEqual(C.PIPE_MIN_HEIGHT);
         expect(pipe.gapY + C.PIPE_GAP).toBeLessThanOrEqual(C.HEIGHT - C.GROUND_HEIGHT);
       }
+    });
+  });
+
+  describe('Sprite Mode', () => {
+    it('uses procedural player texture when spriteMode is false', () => {
+      scene.game.registry.get = vi.fn().mockReturnValue(false);
+      scene.player = createMockSprite(C.PLAYER_X, C.HEIGHT * 0.4);
+      call(scene, 'updatePlayerTexture');
+      expect(scene.player.setTexture).toHaveBeenCalledWith('player');
+    });
+
+    it('uses tinting instead of texture swap in sprite mode', () => {
+      scene.game.registry.get = vi.fn().mockReturnValue(true);
+      scene.player = createMockSprite(C.PLAYER_X, C.HEIGHT * 0.4);
+      scene.isInvulnerable = false;
+      scene.shieldActive = false;
+      call(scene, 'updatePlayerTexture');
+      expect(scene.player.clearTint).toHaveBeenCalled();
+    });
+
+    it('tints red when damaged in sprite mode', () => {
+      scene.game.registry.get = vi.fn().mockReturnValue(true);
+      scene.player = createMockSprite(C.PLAYER_X, C.HEIGHT * 0.4);
+      scene.isInvulnerable = true;
+      call(scene, 'updatePlayerTexture');
+      expect(scene.player.setTint).toHaveBeenCalledWith(0xff4444);
+    });
+
+    it('tints magenta when shielded in sprite mode', () => {
+      scene.game.registry.get = vi.fn().mockReturnValue(true);
+      scene.player = createMockSprite(C.PLAYER_X, C.HEIGHT * 0.4);
+      scene.isInvulnerable = false;
+      scene.shieldActive = true;
+      call(scene, 'updatePlayerTexture');
+      expect(scene.player.setTint).toHaveBeenCalledWith(0xff00ff);
     });
   });
 

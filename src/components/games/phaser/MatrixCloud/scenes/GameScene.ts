@@ -152,7 +152,14 @@ export class MatrixCloudGameScene extends BaseScene {
   }
 
   private createPlayer(): void {
-    this.player = this.add.sprite(C.PLAYER_X, this.playerY, 'player');
+    const spriteMode = this.game.registry.get('spriteMode') === true;
+    if (spriteMode) {
+      this.player = this.add.sprite(C.PLAYER_X, this.playerY, 'bird_sprite');
+      this.player.setDisplaySize(C.PLAYER_WIDTH, C.PLAYER_HEIGHT);
+      this.player.play('bird_flap');
+    } else {
+      this.player = this.add.sprite(C.PLAYER_X, this.playerY, 'player');
+    }
     this.player.setDepth(10);
   }
 
@@ -281,12 +288,23 @@ export class MatrixCloudGameScene extends BaseScene {
   }
 
   private updatePlayerTexture(): void {
-    if (this.isInvulnerable) {
-      this.player.setTexture('player_damaged');
-    } else if (this.shieldActive) {
-      this.player.setTexture('player_shield');
+    const spriteMode = this.game.registry.get('spriteMode') === true;
+    if (spriteMode) {
+      if (this.isInvulnerable) {
+        this.player.setTint(0xff4444);
+      } else if (this.shieldActive) {
+        this.player.setTint(0xff00ff);
+      } else {
+        this.player.clearTint();
+      }
     } else {
-      this.player.setTexture('player');
+      if (this.isInvulnerable) {
+        this.player.setTexture('player_damaged');
+      } else if (this.shieldActive) {
+        this.player.setTexture('player_shield');
+      } else {
+        this.player.setTexture('player');
+      }
     }
   }
 
