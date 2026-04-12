@@ -36,7 +36,7 @@ const VortexPong = React.lazy(() => import('./components/games/phaser/VortexPong
 const CtrlSWorld = React.lazy(() => import('./components/games/CtrlSWorld'));
 const MatrixCloud = React.lazy(() => import('./components/games/phaser/MatrixCloud'));
 const MatrixInvaders = React.lazy(() => import('./components/games/phaser/MatrixInvaders'));
-const Metris = React.lazy(() => import('./components/games/Metris'));
+const Metris = React.lazy(() => import('./components/games/phaser/Metris'));
 const MatrixFrogger = React.lazy(() => import('./components/games/phaser/MatrixFrogger'));
 const NeoJump = React.lazy(() => import('./components/games/phaser/NeoJump'));
 const AgentChase = React.lazy(() => import('./components/games/phaser/AgentChase'));

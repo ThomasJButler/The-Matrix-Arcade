@@ -7,17 +7,37 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ## Current Status
 
 - **Status**: REBUILDING -- Phaser migration of all React/Canvas games + new features
-- **Last Updated**: 12 April 2026 (R12 -- Matrix Invaders Phaser rebuild)
+- **Last Updated**: 12 April 2026 (R13 -- Metris Phaser rebuild)
 - **Version**: v2.0.0 (next target)
-- **Games**: 12 playable (2 React/Canvas to rebuild into Phaser, 9 already Phaser) + 1 planned (Code Breaker)
+- **Games**: 12 playable (1 React/Canvas to rebuild into Phaser, 10 already Phaser) + 1 planned (Code Breaker)
 - **Build**: PASSES (code-split, main bundle 370KB, Phaser vendor chunk 1,479KB) -- zero warnings
-- **Unit Tests**: 2,285 passing across 57 files, 0 failures
+- **Unit Tests**: 2,394 passing across 58 files, 0 failures
 - **E2E Tests**: 78 gameplay + 110 visual = 188 tests across 27 spec files -- last run PASSED (0 failures, confirmed via `test-results/.last-run.json`)
 - **Asset Pipeline**: 0% complete -- `public/assets/` does not exist, all games use procedural textures
 
 ### What Was Completed (v1.x to v2.0 prep)
 
 All P0/P1/P2 bugs resolved from v1.x. Test seams added to all games. E2E gameplay specs written (78 tests). Code quality fixes across 20+ hooks and components. Code-splitting reduced main bundle from 2.18MB to 370KB. Shared game registry created. Error boundaries added. Collision utility extracted. 5 Phaser games scaffolded (MatrixFrogger, NeoJump, AgentChase, RhythmHacker, CloudJumper) with full scene architecture. 12 rebuild research docs created in `rebuildingoldgames/plans/`. Asset inventory catalogued in `desiredassets/`. Full details in git history.
+
+### What Was Completed (R13 -- 12 April 2026)
+
+Metris Phaser rebuild — fifth React-to-Phaser migration, continuing the proven pipeline:
+
+**Full Phaser 3 port**: Created `src/components/games/phaser/Metris/` with 6 files: config.ts (all game constants, SRS wall kick tables, tetromino definitions, achievement IDs, Phaser config), BootScene.ts (extends shared BootScene), MenuScene.ts (extends shared MenuScene with controls instructions), GameOverScene.ts (extends shared GameOverScene), GameScene.ts (~560 lines, complete Tetris implementation), and index.tsx (React wrapper).
+
+**All mechanics faithfully ported from Metris.tsx (1,504 lines)**: Full SRS (Super Rotation System) with wall kick tables for clockwise and counter-clockwise rotation. 7-bag randomizer for fair piece distribution. 10x20 grid with ghost piece preview. Hold piece system with one-hold-per-drop restriction. DAS (Delayed Auto Shift) input handling (170ms delay, 50ms repeat). Timer-based gravity with level-based speed progression. Soft drop (arrow down) and hard drop (space bar). T-spin detection via 3-corner rule with last-rotation tracking. Combo scoring system with level multiplier. Line clear scoring: 100/300/500/800 for 1/2/3/4 lines. Graphics-based rendering (no textures — full grid redrawn each frame via Phaser.GameObjects.Graphics).
+
+**Bullet time system**: Auto-activates when meter fills from line clears (4 lines per activation). Manual activation via B key. 8-second duration with 0.4x slowdown factor affecting drop speed. Usage counter tracked across sessions via save system for neos_apprentice achievement (10 uses). Visual meter bar and countdown timer in HUD.
+
+**Glow and particle effects**: Newly placed pieces glow bright for 200ms then fade. Line clear triggers particle burst (8 particles per cleared cell with random velocity, gravity, and decay). Matrix rain overlay via matrixRainGroup.
+
+**12 achievements**: metris_first_line (clear first line), metris_tetris (clear 4 lines at once), metris_level_10 (reach level 10), metris_high_roller (score 10,000+), metris_line_clearer (clear 100 lines), metris_combo_king (5+ combo), metris_t_spin_master (5 T-spins), metris_architect (fill 18+ rows), metris_neos_apprentice (use bullet time 10 times), metris_marathon_runner (play 10+ minutes), metris_perfect_start (reach level 5 without game over), metris_immortal (reach level 20). All use tryUnlockAchievement() guard with Set<string> deduplication.
+
+**Save system integration**: High score and bullet time usage count persist across sessions via registry SAVE_SYSTEM.
+
+**App.tsx updated**: Lazy import changed from `./components/games/Metris` to `./components/games/phaser/Metris`. Old React Metris.tsx preserved (tests still pass).
+
+**109 new unit tests** across 16 test suites: initial state (14), piece spawning (5), collision detection (6), movement (5), rotation (6), matrix rotation (3), ghost piece (2), drop tick (4), line clearing (5), scoring (7), level progression (5), hold piece (5), hard drop (3), bullet time (8), T-spin detection (2), achievements (12), game over (5), drop speed (3), particle effects (3), test state exposure (2), cleanup (4). All 2,394 tests passing across 58 files, build clean.
 
 ### What Was Completed (R12 -- 12 April 2026)
 
@@ -504,7 +524,7 @@ Each rebuild follows standard Phaser structure: `index.tsx`, `config.ts`, `scene
 2. **Snake Classic** ✅ -- Rebuilt as Phaser game (R10). 90 unit tests, all mechanics ported.
 3. **Matrix Cloud** ✅ -- Rebuilt as Phaser game (R11). 81 unit tests, full boss system + power-ups.
 4. **Matrix Invaders** ✅ -- Rebuilt as Phaser game (R12). 134 unit tests, full boss/power-up/bullet time system.
-5. **Metris** -- SRS rotation system needs careful porting.
+5. **Metris** ✅ -- Rebuilt as Phaser game (R13). 109 unit tests, SRS rotation + wall kicks + T-spin + bullet time.
 6. **CTRL-S | The World** -- Largest, most ambitious. Citizen Sleeper-inspired narrative engine.
 
 ### Known React Game Bugs to Fix During Rebuild
