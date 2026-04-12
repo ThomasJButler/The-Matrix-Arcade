@@ -26,7 +26,9 @@ function collectPrototypeMethods(cls: any): string[] {
   let proto = cls.prototype;
   while (proto && proto !== Object.prototype) {
     for (const key of Object.getOwnPropertyNames(proto)) {
-      if (key !== 'constructor' && typeof proto[key] === 'function') {
+      if (key === 'constructor') continue;
+      const desc = Object.getOwnPropertyDescriptor(proto, key);
+      if (desc && typeof desc.value === 'function') {
         methods.add(key);
       }
     }
@@ -47,6 +49,14 @@ function createTestScene() {
       scene[name] = (fn as any).bind(scene);
     }
   }
+
+  // Game registry mock (needed by playerSpriteMode getter)
+  scene.game = {
+    registry: {
+      get: vi.fn().mockReturnValue(false),
+      set: vi.fn(),
+    },
+  };
 
   // BaseScene helpers — override after binding so our mocks win
   scene.playSound = vi.fn();

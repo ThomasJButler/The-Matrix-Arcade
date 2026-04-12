@@ -41,6 +41,10 @@ export class CloudJumperGameScene extends BaseScene {
   private player!: Phaser.Physics.Arcade.Sprite;
   private hasJumped = false;
 
+  private get playerSpriteMode(): boolean {
+    return this.game.registry.get('playerSpriteMode') === true;
+  }
+
   // Game state
   private distance = 0;
   private score = 0;
@@ -195,18 +199,22 @@ export class CloudJumperGameScene extends BaseScene {
    */
   private createPlayer(): void {
     const { PLAYER } = GAME_CONFIG;
+    const textureKey = this.playerSpriteMode ? 'player_sprite_idle' : 'player';
 
-    this.player = this.physics.add.sprite(PLAYER.START_X, PLAYER.START_Y, 'player');
+    this.player = this.physics.add.sprite(PLAYER.START_X, PLAYER.START_Y, textureKey);
+    if (this.playerSpriteMode) {
+      this.player.setDisplaySize(PLAYER.WIDTH, PLAYER.HEIGHT);
+    }
     this.player.setDepth(10);
     this.player.setCollideWorldBounds(false);
 
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     body.setSize(PLAYER.WIDTH - 4, PLAYER.HEIGHT - 4);
     body.setMaxVelocityY(PLAYER.MAX_FALL_SPEED);
-    body.setBounce(0, 0); // No bounce off surfaces
-    body.setDrag(0, 0); // No air resistance
-    body.setAccelerationY(0); // Let world gravity handle vertical acceleration
-    body.enable = true; // Ensure physics body is enabled
+    body.setBounce(0, 0);
+    body.setDrag(0, 0);
+    body.setAccelerationY(0);
+    body.enable = true;
   }
 
   /**
@@ -262,7 +270,7 @@ export class CloudJumperGameScene extends BaseScene {
     // Can only jump if on a cloud or near one
     if (body.touching.down || body.blocked.down || this.isNearCloud()) {
       body.setVelocityY(GAME_CONFIG.PLAYER.JUMP_VELOCITY);
-      this.player.setTexture('player');
+      this.player.setTexture(this.playerSpriteMode ? 'player_sprite_jump' : 'player');
       this.playSound('jump');
 
       if (!this.hasJumped) {
@@ -392,7 +400,7 @@ export class CloudJumperGameScene extends BaseScene {
         break;
     }
 
-    this.player.setTexture('player');
+    this.player.setTexture(this.playerSpriteMode ? 'player_sprite_idle' : 'player');
   }
 
   /**
@@ -753,7 +761,7 @@ export class CloudJumperGameScene extends BaseScene {
     // Update player texture based on velocity
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     if (body.velocity.y > 100) {
-      this.player.setTexture('player_fall');
+      this.player.setTexture(this.playerSpriteMode ? 'player_sprite_fall' : 'player_fall');
     }
   }
 

@@ -599,8 +599,8 @@ export class SnakeGameScene extends BaseScene {
       if (i === 0) {
         sprite.setTexture(headKey);
         this.setHeadRotation(sprite, this.direction);
-      } else if (i === this.snake.length - 1 && this.snake.length > 2 && !this.spriteMode) {
-        sprite.setTexture('snake_tail');
+      } else if (i === this.snake.length - 1 && this.snake.length > 2) {
+        sprite.setTexture(this.spriteMode ? 'snake_sprite_tail' : 'snake_tail');
         sprite.setAngle(0);
       } else {
         sprite.setTexture(bodyKey);
