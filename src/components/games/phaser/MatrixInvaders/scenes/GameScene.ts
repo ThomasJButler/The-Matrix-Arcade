@@ -240,19 +240,24 @@ export class MatrixInvadersGameScene extends BaseScene {
 
     this.playSound(SOUND_KEYS.SHOOT);
 
+    const texKey = this._spriteMode ? 'sprite_bullet_player' : 'bullet_player';
+    const img = this.add.image(
+      this.player.x,
+      this.player.y - C.PLAYER_HEIGHT / 2,
+      texKey
+    );
+    img.setDisplaySize(
+      this._spriteMode ? 8 : C.PLAYER_BULLET_WIDTH,
+      this._spriteMode ? 20 : C.PLAYER_BULLET_HEIGHT
+    );
+    img.setDepth(5);
+
     const bullet: BulletState = {
-      sprite: this.add.rectangle(
-        this.player.x,
-        this.player.y - C.PLAYER_HEIGHT / 2,
-        C.PLAYER_BULLET_WIDTH,
-        C.PLAYER_BULLET_HEIGHT,
-        MATRIX_COLORS.PRIMARY
-      ),
+      sprite: img,
       vy: -C.PLAYER_BULLET_SPEED,
       damage: 1,
       isPlayer: true,
     };
-    bullet.sprite.setDepth(5);
     this.playerBullets.push(bullet);
   }
 
@@ -276,19 +281,24 @@ export class MatrixInvadersGameScene extends BaseScene {
 
     for (const enemy of this.enemies) {
       if (Math.random() < fireChance * dt) {
+        const texKey = this._spriteMode ? 'sprite_bullet_enemy' : 'bullet_enemy';
+        const img = this.add.image(
+          enemy.sprite.x,
+          enemy.sprite.y + enemy.height / 2,
+          texKey
+        );
+        img.setDisplaySize(
+          this._spriteMode ? 6 : C.ENEMY_BULLET_WIDTH,
+          this._spriteMode ? 14 : C.ENEMY_BULLET_HEIGHT
+        );
+        img.setDepth(5);
+
         const bullet: BulletState = {
-          sprite: this.add.rectangle(
-            enemy.sprite.x,
-            enemy.sprite.y + enemy.height / 2,
-            C.ENEMY_BULLET_WIDTH,
-            C.ENEMY_BULLET_HEIGHT,
-            MATRIX_COLORS.RED
-          ),
+          sprite: img,
           vy: C.ENEMY_BULLET_SPEED,
           damage: C.PLAYER_HIT_DAMAGE,
           isPlayer: false,
         };
-        bullet.sprite.setDepth(5);
         this.enemyBullets.push(bullet);
       }
     }
@@ -361,19 +371,24 @@ export class MatrixInvadersGameScene extends BaseScene {
     const fireChance = C.BOSS_FIRE_CHANCE * 60;
     for (const offset of this.boss.barrelOffsets) {
       if (Math.random() < fireChance * dt) {
+        const texKey = this._spriteMode ? 'sprite_bullet_enemy' : 'bullet_enemy';
+        const img = this.add.image(
+          this.boss.sprite.x + offset,
+          this.boss.sprite.y + this.boss.height / 2,
+          texKey
+        );
+        img.setDisplaySize(
+          this._spriteMode ? 8 : C.ENEMY_BULLET_WIDTH + 2,
+          this._spriteMode ? 18 : C.ENEMY_BULLET_HEIGHT + 2
+        );
+        img.setDepth(5);
+
         const bullet: BulletState = {
-          sprite: this.add.rectangle(
-            this.boss.sprite.x + offset,
-            this.boss.sprite.y + this.boss.height / 2,
-            C.ENEMY_BULLET_WIDTH + 2,
-            C.ENEMY_BULLET_HEIGHT + 2,
-            MATRIX_COLORS.MAGENTA
-          ),
+          sprite: img,
           vy: C.ENEMY_BULLET_SPEED,
           damage: C.PLAYER_HIT_DAMAGE,
           isPlayer: false,
         };
-        bullet.sprite.setDepth(5);
         this.enemyBullets.push(bullet);
       }
     }
@@ -456,7 +471,7 @@ export class MatrixInvadersGameScene extends BaseScene {
       const bullet = this.enemyBullets[i];
       if (this.aabbOverlap(
         bullet.sprite.x, bullet.sprite.y,
-        bullet.sprite.width, bullet.sprite.height,
+        C.ENEMY_BULLET_WIDTH + 2, C.ENEMY_BULLET_HEIGHT + 2,
         this.player.x, this.player.y,
         C.PLAYER_WIDTH, C.PLAYER_HEIGHT
       )) {

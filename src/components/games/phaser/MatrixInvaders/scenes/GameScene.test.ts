@@ -148,7 +148,24 @@ function createTestScene(): any {
     sprite: vi.fn().mockImplementation((x: number, y: number) => createMockSprite(x, y)),
     text: vi.fn().mockImplementation(() => createMockText()),
     circle: vi.fn().mockImplementation(() => ({ destroy: vi.fn() })),
-    image: vi.fn().mockImplementation(() => ({ destroy: vi.fn() })),
+    image: vi.fn().mockImplementation((x: number, y: number) => {
+      const img: Record<string, unknown> = {
+        x: x ?? 0,
+        y: y ?? 0,
+        displayWidth: 10,
+        displayHeight: 10,
+        setDisplaySize: vi.fn(function (this: Record<string, unknown>, w: number, h: number) {
+          this.displayWidth = w;
+          this.displayHeight = h;
+          return this;
+        }),
+        setDepth: vi.fn().mockReturnThis(),
+        setAlpha: vi.fn().mockReturnThis(),
+        setAngle: vi.fn().mockReturnThis(),
+        destroy: vi.fn(),
+      };
+      return img;
+    }),
   };
   scene.make = {
     graphics: vi.fn().mockImplementation(() => createMockGraphics()),

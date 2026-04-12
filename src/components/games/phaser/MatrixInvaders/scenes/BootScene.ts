@@ -8,6 +8,8 @@ const SPRITE_ASSETS = [
   { key: 'sprite_enemy_agent', path: 'assets/matrix-invaders/enemy_agent.png' },
   { key: 'sprite_enemy_sentinel', path: 'assets/matrix-invaders/enemy_sentinel.png' },
   { key: 'sprite_enemy_virus', path: 'assets/matrix-invaders/enemy_virus.png' },
+  { key: 'sprite_bullet_player', path: 'assets/matrix-invaders/bullet_player.png' },
+  { key: 'sprite_bullet_enemy', path: 'assets/matrix-invaders/bullet_enemy.png' },
 ];
 
 export class MatrixInvadersBootScene extends BootScene {
@@ -30,7 +32,9 @@ export class MatrixInvadersBootScene extends BootScene {
       this.createEnemyTextures();
     }
     this.createBossTexture();
-    this.createBulletTextures();
+    if (!this.textures.exists('sprite_bullet_player')) {
+      this.createBulletTextures();
+    }
     this.createPowerUpTextures();
     super.create();
   }
