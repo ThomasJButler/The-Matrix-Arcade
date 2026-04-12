@@ -5,6 +5,7 @@ import {
   agentChasePreview,
   rhythmHackerPreview,
   cloudJumperPreview,
+  codeBreakerPreview,
 } from '../lib/gamePreviewImages';
 import matrixInvadersPreview from '../images/matrixinvaders.webp';
 import metrisPreview from '../images/metris.webp';
@@ -134,5 +135,15 @@ export const GAME_REGISTRY: GameEntry[] = [
     inspiration: 'Doodle Jump / Platformers',
     inspirationNote: 'Side-scrolling cloud hopping through the Matrix skyline.',
     controls: 'Arrow keys to move, SPACE to jump',
+  },
+  {
+    id: 'code-breaker',
+    title: 'Code Breaker',
+    description: 'Smash through firewalls of encrypted code to escape the simulation.',
+    preview: codeBreakerPreview,
+    category: 'Arcade',
+    inspiration: 'Breakout / Arkanoid (1986)',
+    inspirationNote: "Atari's brick-smashing classic, reimagined as a hacker breaking through layers of Matrix firewall code.",
+    controls: 'Arrow keys / Mouse: Move paddle | SPACE: Launch ball | B: Bullet time',
   },
 ];
