@@ -43,8 +43,11 @@ export class FroggerBootScene extends BootScene {
       }
     );
 
-    // Create pill textures programmatically (will be done in create)
-    // These are simple colored circles
+    // Load vehicle sprites for road lane variety (16x16 pixel art)
+    const vehicleKeys = ['vehicle_car1', 'vehicle_car2', 'vehicle_car3', 'vehicle_truck', 'vehicle_tractor'];
+    for (const key of vehicleKeys) {
+      this.load.image(key, `/assets/matrix-frogger/${key}.png`);
+    }
   }
 
   create(): void {
@@ -53,6 +56,9 @@ export class FroggerBootScene extends BootScene {
 
     // Create ability textures
     this.createAbilityTextures();
+
+    // Create vehicle fallback textures (skipped if sprites loaded)
+    this.createVehicleTextures();
 
     // Create player animations
     this.createAnimations();
@@ -100,6 +106,31 @@ export class FroggerBootScene extends BootScene {
       g.generateTexture(`powerup_${name}`, 32, 32);
       g.destroy();
     });
+  }
+
+  /**
+   * Create procedural fallbacks for vehicle sprites if image loading failed.
+   */
+  private createVehicleTextures(): void {
+    const vehicles: Array<{ key: string; w: number; h: number; color: number }> = [
+      { key: 'vehicle_car1', w: 16, h: 16, color: 0xcc3333 },
+      { key: 'vehicle_car2', w: 16, h: 16, color: 0x3366cc },
+      { key: 'vehicle_car3', w: 16, h: 16, color: 0x33cc33 },
+      { key: 'vehicle_truck', w: 32, h: 16, color: 0x66aa66 },
+      { key: 'vehicle_tractor', w: 16, h: 16, color: 0x999999 },
+    ];
+
+    for (const { key, w, h, color } of vehicles) {
+      if (this.textures.exists(key)) continue;
+      const g = this.add.graphics();
+      g.fillStyle(color, 1);
+      g.fillRect(1, 2, w - 2, h - 4);
+      g.fillStyle(0x222222, 1);
+      g.fillCircle(4, h - 2, 2);
+      g.fillCircle(w - 4, h - 2, 2);
+      g.generateTexture(key, w, h);
+      g.destroy();
+    }
   }
 
   /**

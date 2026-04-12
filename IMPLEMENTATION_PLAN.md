@@ -6,13 +6,13 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ## Current Status
 
-- **Status**: REBUILDING -- Phaser migration complete, asset pipeline bootstrapped, polish + game assets in progress
-- **Last Updated**: 12 April 2026 (R19 -- Code Breaker brick sprite integration)
+- **Status**: REBUILDING -- Phaser migration complete, asset pipeline bootstrapped, per-game sprite integration in progress
+- **Last Updated**: 12 April 2026 (R20 -- Matrix Frogger vehicle sprite integration)
 - **Version**: v2.0.0 (next target)
 - **Games**: 12 playable (11 Phaser, 1 DOM)
 - **Build**: PASSES (code-split, main bundle ~372KB, Phaser vendor chunk 1,479KB) -- zero warnings
 - **Unit Tests**: 2,039 passing across 46 files, 0 failures
-- **E2E Tests**: 88 gameplay + 110 visual = 198 tests across 28 spec files -- last run PASSED (new screeenshots in TheMatrixArcade-/e2e, user manually ran the playwright test. Some games are not starting. I think this is due to not adding in assets. Also new playwright report 12th April @ 6:45pm GMT - This was not fully completed so user is running npm run test:e2e again at 6:49pm, this will be complete at 7:30pm)
+- **E2E Tests**: 88 gameplay + 110 visual = 198 tests across 28 spec files -- last run PASSED (new screeenshots in TheMatrixArcade-/e2e, user manually ran the playwright test. 
 - **Asset Pipeline**: Phase 0a COMPLETE -- `public/assets/` deployed with fonts, audio, UI chrome, particles, icons (117 files, ~40MB)
 
 ### Completed Work Summary
@@ -27,6 +27,7 @@ All P0/P1/P2 bugs resolved across R1-R14 (12 April 2026). Key milestones:
 - **R16 Agent Chase map layouts**: Three distinct maze layouts (Classic, Arena, Labyrinth) cycle each level. Shared ghost house section (rows 9-19) keeps agent AI consistent. Difficulty scaling: agent speed increases 5% per level, frightened duration decreases 500ms per level (min 3s). New ALL_MAZES achievement for playing all three layouts. 20 new unit tests (96 total for Agent Chase).
 - **R17 Focus overlay fix + CTRL-S World E2E**: Fixed "floating dark rectangle" bug caused by PhaserGame.tsx click-to-play overlay rendering before auto-focus resolved — overlay now deferred until container has had focus at least once. Added 10 gameplay E2E tests for CTRL-S World covering command prompt entry, chapter navigation, story advancement, pause/resume, keyboard shortcuts, and full lifecycle.
 - **R19 Code Breaker brick sprite integration**: First per-game asset integration. Copied 4 brick sprites (code, agent, sentinel, unbreakable) from BBreaker asset pack to `public/assets/code-breaker/`. Updated BootScene to load sprites in preload with procedural texture fallbacks. Changed GameScene brick rendering from `Phaser.GameObjects.Rectangle` to `Phaser.GameObjects.Image` with `setDisplaySize()`. Fixed circular dependency TDZ crash in both BootScene and GameScene by removing module-level `const C = GAME_CONFIG` aliases (deferred to runtime access). All 127 unit tests pass.
+- **R20 Matrix Frogger vehicle sprite integration**: Second per-game asset integration. Copied 5 vehicle sprites (car1, car2, car3, truck, tractor) plus 2 flower ground tiles and frog sprites from frogger INSPO pack to `public/assets/matrix-frogger/`. Updated BootScene to load vehicle sprites with procedural rectangle fallbacks. Changed GameScene road lane rendering: bottom lanes (rows 5-7) now spawn pixel art vehicle sprites instead of Matrix agent textures, creating a gameplay progression from traffic to Matrix agents. Vehicles are 16x16 pixel art scaled 3x with pixelArt mode. Upper lanes (rows 1-3) retain agent/sentinel sprites. All 70 unit tests pass, 2,039 total.
 - **R18 Global asset extraction + font integration**: Bootstrapped `public/assets/` from zero. Extracted 3 font families from ZIP archives (MatrixType 4 variants WOFF2+TTF, AlphaProta 2 variants WOFF2+TTF, 5 NotJam pixel fonts). Deployed 4 music tracks (MP3), 20 Matrix Trilogy SFX (WAV), hologram UI chrome (4 buttons, 5 card panels, 15 icons), 25 Matrix node icons (green+purple, PNG+WEBP+GIF), 21 firework particle frames (3 colours × 7 frames). Added `@font-face` declarations for all custom fonts with WOFF2→TTF fallback chain. Created 5 new CSS variables (`--matrix-font-title`, `--matrix-font-matrix`, `--matrix-font-cyber`, `--matrix-font-pixel`, `--matrix-font-hud`). Applied MatrixType Display to arcade title in App.tsx and LandingPage.tsx. Updated global ASSETS_NEEDED.md with deployment status. Total: 117 files, ~40MB. Blocker: WAV music tracks (7 files, ~280MB total) need ffmpeg for OGG/MP3 conversion.
 
 Full details in git history (`git log --oneline`).
@@ -130,7 +131,7 @@ Each game's `desiredassets/[game]/ASSETS_NEEDED.md` has a Source Mapping section
 - [ ] **Matrix Cloud**: Extract Flappy Bird sprites from INSPO (52 sprites ready), recolour pipes. 3 boss sprites need scratch.
 - [ ] **Matrix Invaders**: Extract robot enemies from TopView_Robot_Asset_Pack + laser sprites.
 - [ ] **Metris**: Extract tetris tiles from INSPO (4 variants available) + UI panels.
-- [ ] **Matrix Frogger**: Extract frog sprites from INSPO (83 sprites + Krita sources + WAV audio).
+- [x] **Matrix Frogger**: Vehicle sprites integrated (5 types: car1, car2, car3, truck, tractor). Remaining: frog death animation, environment tiles, power-up icons, WAV audio integration.
 - [ ] **Neo Jump**: Process Doodle RPG pack from INSPO (406 sprites).
 - [ ] **Agent Chase**: Extract Pac-Man assets from INSPO + roguelike tiles for maze walls.
 - [ ] **Cloud Jumper**: Process Cloudy Pack (190+ cloud sprites, 10 themes), pick Matrix-compatible theme.
@@ -303,7 +304,7 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 - No orphaned legacy code (cleaned up in R15)
 
 ### Gaps
-- Games still use 100% procedural textures -- `public/assets/` now deployed with global shared assets (fonts, audio, UI chrome, particles) but no per-game sprites integrated yet
+- Most games still use procedural textures -- Code Breaker has brick sprites, Matrix Frogger has vehicle sprites, but remaining 10 games are fully procedural
 - WAV music tracks need ffmpeg conversion before deployment (7 tracks, ~280MB)
 - `useAdvancedVoice` AudioContext for visualisation never connected to speech output (always returns zeros)
 
