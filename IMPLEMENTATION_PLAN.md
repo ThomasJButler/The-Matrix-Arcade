@@ -133,7 +133,7 @@ Each game's `desiredassets/[game]/ASSETS_NEEDED.md` has a Source Mapping section
 - [x] **Snake Classic**: Head, body, apple, and dead sprites (32px) deployed with display-size scaling. Remaining: tail sprite, bomb sprite, wall sprites, power-up icons.
 - [ ] **Vortex Pong**: Extract pong assets from INSPO + firework particles for trails.
 - [x] **Matrix Cloud** bird sprite: Green bird (4 frames) from Flappy Bird Assets pack deployed with animation. Remaining: pipe sprites, background, 3 boss sprites (scratch), power-up icons.
-- [ ] **Matrix Invaders**: Extract robot enemies from TopView_Robot_Asset_Pack + laser sprites.
+- [x] **Matrix Invaders**: Player and 4 enemy sprites (classic pixel art, recoloured to Matrix palette) deployed with display-size scaling and tint-based shield feedback. Remaining: boss sprite, bullet sprites, power-up icons.
 - [ ] **Metris**: Extract tetris tiles from INSPO (4 variants available) + UI panels.
 - [x] **Matrix Frogger**: Vehicle sprites integrated (5 types: car1, car2, car3, truck, tractor). Remaining: frog death animation, environment tiles, power-up icons, WAV audio integration.
 - [ ] **Neo Jump**: Process Doodle RPG pack from INSPO (406 sprites).

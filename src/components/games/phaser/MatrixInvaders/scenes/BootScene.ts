@@ -2,14 +2,33 @@ import { BootScene } from '@/lib/phaser/scenes/BootScene';
 import { SCENE_KEYS, MATRIX_COLORS } from '@/lib/phaser/types';
 import { GAME_CONFIG, ENEMY_DEFS, POWERUP_DEFS, type EnemyType, type PowerUpType } from '../config';
 
+const SPRITE_ASSETS = [
+  { key: 'sprite_player', path: 'assets/matrix-invaders/player.png' },
+  { key: 'sprite_enemy_code', path: 'assets/matrix-invaders/enemy_code.png' },
+  { key: 'sprite_enemy_agent', path: 'assets/matrix-invaders/enemy_agent.png' },
+  { key: 'sprite_enemy_sentinel', path: 'assets/matrix-invaders/enemy_sentinel.png' },
+  { key: 'sprite_enemy_virus', path: 'assets/matrix-invaders/enemy_virus.png' },
+];
+
 export class MatrixInvadersBootScene extends BootScene {
   constructor() {
     super({ key: SCENE_KEYS.BOOT, nextScene: SCENE_KEYS.MENU });
   }
 
+  protected loadCommonAssets(): void {
+    for (const { key, path } of SPRITE_ASSETS) {
+      this.load.image(key, path);
+    }
+  }
+
   create(): void {
-    this.createPlayerTextures();
-    this.createEnemyTextures();
+    const spritesLoaded = this.textures.exists('sprite_player');
+    this.game.registry.set('spriteMode', spritesLoaded);
+
+    if (!spritesLoaded) {
+      this.createPlayerTextures();
+      this.createEnemyTextures();
+    }
     this.createBossTexture();
     this.createBulletTextures();
     this.createPowerUpTextures();
