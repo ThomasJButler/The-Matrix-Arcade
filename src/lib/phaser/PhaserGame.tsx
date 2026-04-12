@@ -53,7 +53,7 @@ export function PhaserGame({
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
   const [hasFocus, setHasFocus] = useState(false);
-  const { playSFX } = useSoundSystem();
+  const { playSFX, toggleMute } = useSoundSystem();
   const { updateGameSave, unlockAchievement: unlockSaveAchievement } = useSaveSystem();
 
   // Sound wrapper that respects mute state
@@ -89,14 +89,18 @@ export function PhaserGame({
           onExit?.();
           break;
         }
-        case 'mute':
+        case 'mute': {
+          // Sync Phaser's mute toggle back to React state
+          toggleMute();
+          break;
+        }
         case 'pause':
         case 'resume':
           // These are handled by the scene internally
           break;
       }
     },
-    [gameId, achievementManager, unlockSaveAchievement, updateGameSave, playSound, onExit]
+    [gameId, achievementManager, unlockSaveAchievement, updateGameSave, playSound, toggleMute, onExit]
   );
 
   // Create sound system interface for Phaser

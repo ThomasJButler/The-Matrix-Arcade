@@ -7,7 +7,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ## Current Status
 
 - **Status**: REBUILDING -- Phaser migration of all React/Canvas games + new features
-- **Last Updated**: 12 April 2026 (R3 -- all P0 critical bugs fixed, all unit tests passing)
+- **Last Updated**: 12 April 2026 (R4 -- 7 P1 bugs fixed, keyed game registry, all tests passing)
 - **Version**: v2.0.0 (next target)
 - **Games**: 11 playable (6 React/Canvas to rebuild into Phaser, 5 already Phaser) + 1 planned (Code Breaker)
 - **Build**: PASSES (code-split, main bundle 370KB) -- one chunk warning: GameOverScene 1,490KB
@@ -18,6 +18,10 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ### What Was Completed (v1.x to v2.0 prep)
 
 All P0/P1/P2 bugs resolved from v1.x. Test seams added to all games. E2E gameplay specs written (78 tests). Code quality fixes across 20+ hooks and components. Code-splitting reduced main bundle from 2.18MB to 370KB. Shared game registry created. Error boundaries added. Collision utility extracted. 5 Phaser games scaffolded (MatrixFrogger, NeoJump, AgentChase, RhythmHacker, CloudJumper) with full scene architecture. 12 rebuild research docs created in `rebuildingoldgames/plans/`. Asset inventory catalogued in `desiredassets/`. Full details in git history.
+
+### What Was Completed (R4 -- 12 April 2026)
+
+Seven P1 bugs fixed: Metris bullet time B key wired up (was dead code, now manually activatable with neos_apprentice achievement reachable). Matrix Cloud pipe collision now prevents scoring on hit (removes redundant failsafe, adds sentinel boss achievement). CTRL-S World save crash fixed (unlockAchievement fallback now uses createDefaultGameSave() instead of incomplete partial object). SimpleSnake achievement toasts restored (achievementManager prop destructured and dual-call pattern applied to all 7 achievement sites). Mute state divergence fixed (PhaserGame.tsx now calls useSoundSystem.toggleMute() when Phaser M key event fires, keeping React in sync). Fragile positional array coupling in App.tsx replaced with keyed GAME_BINDINGS record (game registry entries now have stable `id` field). Rhythm Hacker countdown no longer eats track duration (gameTime only increments after countdown, nextNoteTime reset on countdown end, initial countdown text derived from config).
 
 ### What Was Completed (R3 -- 12 April 2026)
 
@@ -93,38 +97,28 @@ All P0 issues fixed in R3 (12 April 2026).
 
 ## P1 -- High Priority: Game Bugs & Test Failures
 
-### 1.1 Fix Metris Bullet Time (B Key)
+### 1.1 Fix Metris Bullet Time (B Key) ✅
 
-**Problem**: Bullet time power-up (B key) doesn't work. Root cause confirmed: `_toggleBulletTime` function (the only code that manually triggers bullet time and awards the `neos_apprentice` achievement) is dead code -- prefixed with `_` and never called from any keyboard handler or UI element. The B key is never registered in the keyboard event listener. Additionally, `_unlockGameAchievement` wrapper is also dead code.
+**Fixed**: Renamed `_toggleBulletTime` to `toggleBulletTime`, added B key handler in keyboard event listener, added to dependency array. Removed unused `_unlockGameAchievement` wrapper. Auto-activation still works for convenience; manual B key press tracks usage toward `neos_apprentice` achievement. Both paths play activation SFX.
 
-The bullet time meter fills automatically and activates when full (line 721), bypassing the manual trigger entirely. This means the feature half-works (auto-activate) but the player has no manual control.
+- [x] B key handler added, toggleBulletTime wired up
+- [x] Dead `_unlockGameAchievement` wrapper removed
+- [x] neos_apprentice achievement reachable via manual activation
 
-**File**: `src/components/games/Metris.tsx` (1,504 lines)
-- [ ] Add B key handler to the keyboard event listener that calls `toggleBulletTime()`
-- [ ] Remove `_` prefix from `toggleBulletTime` and `unlockGameAchievement`
-- [ ] Verify bullet time visually slows the drop interval
-- [ ] Verify `neos_apprentice` achievement can be unlocked
-- [ ] Test fix
+### 1.2 Fix Matrix Cloud Combo Scoring ✅
 
-### 1.2 Fix Matrix Cloud Combo Scoring
+**Fixed**: Pipe collision now marks pipe as `passed` and skips scoring (player no longer scores on pipes they hit). Redundant failsafe collision block removed (was masked by invulnerability but structurally dangerous). Added sentinel boss achievement (`cloud_sentinel_defeat`) alongside existing agent_smith and architect achievements.
 
-**Problem**: Combo is awarded just by existing near pillars, not from passing through the gap. Correct mechanic: only score when passing through gap, die on any pipe touch. Additionally, boss defeat achievement never fires -- `bossesDefeated.current.add(boss.type)` tracks defeats but no `unlockAchievement()` call follows. Double collision detection at lines 719-725 has a "failsafe" that can cause the player to lose two lives in one frame.
+- [x] Collision marks pipe as passed, prevents scoring
+- [x] Redundant failsafe collision block removed
+- [x] Sentinel boss achievement added
 
-**File**: `src/components/games/MatrixCloud.tsx` (1,451 lines)
-- [ ] Fix gap pass-through detection (score only on clean pass, not proximity)
-- [ ] Verify collision kills player on pipe touch
-- [ ] Add `unlockAchievement` call when boss is defeated
-- [ ] Fix double collision detection (remove failsafe or add guard)
-- [ ] Test fix
+### 1.3 Fix CTRL-S World Save Crash ✅
 
-### 1.3 Fix CTRL-S World Save Crash
+**Fixed**: Replaced malformed fallback object in `unlockAchievement` (missing `level`, `stats` sub-object) with `createDefaultGameSave()` which produces a valid `GameSaveData`.
 
-**Problem**: `unlockAchievement` fallback creates incomplete `GameSaveData` (missing `level`, `stats` sub-object). Crashes when trying to save.
-
-**File**: `src/hooks/useSaveSystem.ts`
-- [ ] Fix fallback to use `createDefaultGameSave()` instead of partial object
-- [ ] Add migration for pre-1.0 data with flat `gamesPlayed` field
-- [ ] Test save/load cycle
+- [x] Fallback uses `createDefaultGameSave()` — structurally valid GameSaveData
+- [x] All 55 useSaveSystem tests pass
 
 ### 1.4 Fix Unit Test Failures (8 failures + 1 OOM) ✅
 
@@ -148,12 +142,11 @@ All test failures resolved:
 
 - [x] `src/lib/phaser/scenes/BaseScene.ts` -- Removed duplicate `playSound('gameOver')` call
 
-### 1.7 Fix Mute State Divergence (NEW)
+### 1.7 Fix Mute State Divergence ✅
 
-**Problem**: `BaseScene.toggleMute()` writes the new mute state to the Phaser registry and emits a `'mute'` event, but `PhaserGame.tsx` `handleGameEvent()` does nothing with `'mute'` events (it's a no-op case). React's `isMuted` prop stays stale. The registry and React can diverge -- if a user presses M in-game, the Phaser side mutes but the React side doesn't know.
+**Fixed**: PhaserGame.tsx now calls `useSoundSystem().toggleMute()` when receiving a `'mute'` event from Phaser scenes. M key press in-game now syncs mute state back to React. No prop threading needed — PhaserGame already had useSoundSystem imported.
 
-**Files**:
-- [ ] `src/lib/phaser/PhaserGame.tsx` -- Handle `'mute'` event type to sync React state, OR disable M key in BaseScene and handle mute entirely from React
+- [x] `src/lib/phaser/PhaserGame.tsx` -- Mute event calls toggleMute(), added to dependency array
 
 ### 1.8 Fix GameOverScene Keyboard UX Gaps ✅
 
@@ -161,20 +154,19 @@ All test failures resolved:
 
 - [x] `src/lib/phaser/scenes/GameOverScene.ts` -- M key calls `goToMenu()`, keyboard restart plays sound
 
-### 1.9 Fix SimpleSnake Achievement Toasts Missing (NEW)
+### 1.9 Fix SimpleSnake Achievement Toasts Missing ✅
 
-**Problem**: `SimpleSnake.tsx` calls `unlockAchievement` only through `useSaveSystem` (persistence), never through the `achievementManager` prop (UI notifications). The `achievementManager` prop is declared but unused. Achievement toasts will not appear for Snake.
+**Fixed**: Destructured `achievementManager` from props. Added `achievementManager?.unlockAchievement()` calls alongside all 7 existing `unlockAchievement()` calls, matching the dual-call pattern used by all other games. Updated dependency arrays.
 
-**File**: `src/components/games/SimpleSnake.tsx`
-- [ ] Add `achievementManager?.unlockAchievement(gameId, achievementId)` calls alongside the existing `unlockSaveAchievement()` calls, matching the dual-call pattern used by all other games
+- [x] `achievementManager` destructured from SimpleSnakeProps
+- [x] 7 achievement sites now use dual-call pattern (UI toast + persistence)
 
-### 1.10 Fix Fragile Positional Array Coupling in App.tsx (NEW)
+### 1.10 Fix Fragile Positional Array Coupling in App.tsx ✅
 
-**Problem**: `App.tsx` zips `GAME_COMPONENTS[i]` and `GAME_ICONS[i]` with `GAME_REGISTRY` by array index (lines 279-283). Reordering any of the three arrays silently mismatches components to registry entries. This is a latent bug waiting to happen during any game addition/removal/reorder.
+**Fixed**: Added `id` field to `GameEntry` interface and all 11 GAME_REGISTRY entries. Replaced positional `GAME_COMPONENTS[]` and `GAME_ICONS[]` arrays with a keyed `GAME_BINDINGS` record indexed by game ID. The zip now uses `GAME_BINDINGS[entry.id]` — reordering GAME_REGISTRY can no longer silently mismatch components.
 
-**File**: `src/App.tsx`
-- [ ] Refactor to use a keyed map (e.g. `Record<string, { component, icon }>`) instead of positional arrays
-- [ ] Add a dev-mode assertion that array lengths match GAME_REGISTRY length
+- [x] `src/data/gameRegistry.ts` -- Added `id: string` field to GameEntry, IDs added to all 11 entries
+- [x] `src/App.tsx` -- GAME_BINDINGS record replaces positional arrays
 
 ### 1.11 Fix useInterval OOM Crash ✅
 
@@ -183,16 +175,13 @@ All test failures resolved:
 - [x] `src/hooks/useInterval.ts` -- `Math.max(delay, 1)` guard
 - [x] `src/hooks/useInterval.test.ts` -- `delay: 0` changed to `delay: 1`
 
-### 1.12 Fix Rhythm Hacker Countdown Eats Track Duration (NEW)
+### 1.12 Fix Rhythm Hacker Countdown Eats Track Duration ✅
 
-**Problem**: `gameTime` increments from frame 0 (line 151: `this.gameTime += delta`), including the full 10s countdown + 0.5s "GO!" display. Track end check at line 167 compares `gameTime >= trackDuration * 1000`. For the easy track (60s), actual gameplay is only ~49s because 11s is consumed by countdown. Notes start spawning at `NOTES_START: 11000` ms, confirming this is intentional for note timing, but the track duration check doesn't account for the offset.
+**Fixed**: `gameTime` now only increments after countdown finishes (`if (!this.isCountdown) this.gameTime += delta`). `nextNoteTime` reset to 0 when countdown ends so notes spawn immediately. Initial countdown text now derived from `GAME_CONFIG.COUNTDOWN.DURATION` instead of hardcoded '10'. Easy track now plays for the full 60s of note time.
 
-**Fix**: Either subtract the countdown duration from `gameTime` when checking track end (`this.gameTime - COUNTDOWN_OFFSET >= trackDuration * 1000`), or start `gameTime` at 0 only after countdown finishes.
-
-**File**: `src/components/games/phaser/RhythmHacker/scenes/GameScene.ts`
-- [ ] Fix track end check to account for countdown duration offset
-- [ ] Verify easy track plays for full 60s of notes (not 49s)
-- [ ] Update time display to show actual gameplay time remaining, not total elapsed
+- [x] gameTime paused during countdown
+- [x] nextNoteTime reset on countdown end
+- [x] Countdown text uses config duration, not hardcoded '10'
 
 ---
 

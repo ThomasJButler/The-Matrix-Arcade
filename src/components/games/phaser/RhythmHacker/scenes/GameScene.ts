@@ -148,7 +148,11 @@ export class RhythmHackerGameScene extends BaseScene {
   update(time: number, delta: number): void {
     if (this.isPaused) return;
 
-    this.gameTime += delta;
+    // Only increment gameTime after countdown finishes so track duration
+    // measures actual gameplay, not countdown + gameplay combined
+    if (!this.isCountdown) {
+      this.gameTime += delta;
+    }
 
     // Update countdown
     if (this.isCountdown) {
@@ -186,7 +190,7 @@ export class RhythmHackerGameScene extends BaseScene {
   private createCountdown(): void {
     const { WIDTH, HEIGHT } = GAME_CONFIG;
 
-    this.countdownText = this.add.text(WIDTH / 2, HEIGHT / 2 - 50, '10', {
+    this.countdownText = this.add.text(WIDTH / 2, HEIGHT / 2 - 50, Math.ceil(GAME_CONFIG.COUNTDOWN.DURATION / 1000).toString(), {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '120px',
       color: MATRIX_COLORS.PRIMARY_HEX,
@@ -211,8 +215,10 @@ export class RhythmHackerGameScene extends BaseScene {
       this.countdownText.setText('GO!');
       this.countdownText.setColor(MATRIX_COLORS.YELLOW_HEX);
     } else {
-      // Countdown finished
+      // Countdown finished — reset note spawn timing since gameTime
+      // now starts at 0 after countdown (not during)
       this.isCountdown = false;
+      this.nextNoteTime = 0;
       this.countdownText.setVisible(false);
     }
   }

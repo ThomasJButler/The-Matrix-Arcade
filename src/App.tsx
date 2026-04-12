@@ -261,25 +261,25 @@ function App() {
     }
   }, [saveData, achievementManager]);
 
-  // Runtime bindings (icons and components) merged with shared registry data
+  // Runtime bindings keyed by game ID — prevents silent mismatch if registry order changes
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const GAME_COMPONENTS: React.ComponentType<any>[] = [
-    CtrlSWorld, SimpleSnake, VortexPong, MatrixCloud, MatrixInvaders,
-    Metris, MatrixFrogger, NeoJump, AgentChase, RhythmHacker, CloudJumper,
-  ];
-  const GAME_ICONS: React.ReactNode[] = [
-    <Keyboard className="w-8 h-8" />, <Gamepad2 className="w-8 h-8" />,
-    <Disc3 className="w-8 h-8" />, <Gamepad2 className="w-8 h-8" />,
-    <Crosshair className="w-8 h-8" />, <Blocks className="w-8 h-8" />,
-    <Footprints className="w-8 h-8" />, <ArrowUp className="w-8 h-8" />,
-    <Circle className="w-8 h-8" />, <Music className="w-8 h-8" />,
-    <Cloud className="w-8 h-8" />,
-  ];
+  const GAME_BINDINGS: Record<string, { component: React.ComponentType<any>; icon: React.ReactNode }> = {
+    'ctrl-s-world':    { component: CtrlSWorld,     icon: <Keyboard className="w-8 h-8" /> },
+    'snake-classic':   { component: SimpleSnake,    icon: <Gamepad2 className="w-8 h-8" /> },
+    'vortex-pong':     { component: VortexPong,     icon: <Disc3 className="w-8 h-8" /> },
+    'matrix-cloud':    { component: MatrixCloud,    icon: <Gamepad2 className="w-8 h-8" /> },
+    'matrix-invaders': { component: MatrixInvaders, icon: <Crosshair className="w-8 h-8" /> },
+    'metris':          { component: Metris,         icon: <Blocks className="w-8 h-8" /> },
+    'matrix-frogger':  { component: MatrixFrogger,  icon: <Footprints className="w-8 h-8" /> },
+    'neo-jump':        { component: NeoJump,        icon: <ArrowUp className="w-8 h-8" /> },
+    'agent-chase':     { component: AgentChase,     icon: <Circle className="w-8 h-8" /> },
+    'rhythm-hacker':   { component: RhythmHacker,   icon: <Music className="w-8 h-8" /> },
+    'cloud-jumper':    { component: CloudJumper,    icon: <Cloud className="w-8 h-8" /> },
+  };
 
-  const games = GAME_REGISTRY.map((entry, i) => ({
+  const games = GAME_REGISTRY.map(entry => ({
     ...entry,
-    icon: GAME_ICONS[i],
-    component: GAME_COMPONENTS[i],
+    ...GAME_BINDINGS[entry.id],
   }));
 
   /**

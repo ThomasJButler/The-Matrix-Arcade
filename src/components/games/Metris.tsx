@@ -203,13 +203,6 @@ export default function Metris({ achievementManager, isMuted, autoStart = false 
     }
   }, [isMuted, playSoundEffect]);
 
-  // Wrapper function for achievement unlocking that handles both UI notifications and persistence
-  // Following the CtrlSWorld pattern for dual-call achievement integration
-  const _unlockGameAchievement = useCallback((achievementId: string) => {
-    achievementManager?.unlockAchievement('metris', achievementId);
-    unlockSaveAchievement('metris', achievementId);
-  }, [achievementManager, unlockSaveAchievement]);
-
   // Initialize empty grid
   const createEmptyGrid = (): Block[][] => {
     return Array(ROWS).fill(null).map(() =>
@@ -590,8 +583,8 @@ export default function Metris({ achievementManager, isMuted, autoStart = false 
     });
   }, [createPiece, synthLaser]);
 
-  // Toggle bullet time - available for future keyboard binding
-  const _toggleBulletTime = useCallback(() => {
+  // Toggle bullet time - activated with B key when meter is full
+  const toggleBulletTime = useCallback(() => {
     setState(prev => {
       if (prev.gamePhase !== 'playing' || prev.bulletTimeActive) return prev;
 
@@ -627,7 +620,7 @@ export default function Metris({ achievementManager, isMuted, autoStart = false 
 
       return prev;
     });
-  }, [achievementManager, saveData, updateGameSave, synthDrum, synthPowerUp, isMuted, unlockSaveAchievement]);
+  }, [achievementManager, saveData, updateGameSave, synthDrum, synthPowerUp, unlockSaveAchievement]);
 
   // Hard drop - instantly drop piece and lock
   const hardDrop = useCallback(() => {
@@ -993,7 +986,7 @@ export default function Metris({ achievementManager, isMuted, autoStart = false 
       if (state.gamePhase !== 'playing') return;
 
       // Prevent default for game keys
-      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'c', 'C', 'x', 'X', 'z', 'Z', 'Shift'].includes(e.key)) {
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'c', 'C', 'x', 'X', 'z', 'Z', 'b', 'B', 'Shift'].includes(e.key)) {
         e.preventDefault();
       }
 
@@ -1048,6 +1041,12 @@ export default function Metris({ achievementManager, isMuted, autoStart = false 
         keysRef.current.add('held');
         holdPiece();
       }
+
+      // Bullet time - manual activation with B key
+      if ((e.key === 'b' || e.key === 'B') && !keysRef.current.has('bulletTime')) {
+        keysRef.current.add('bulletTime');
+        toggleBulletTime();
+      }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -1056,6 +1055,7 @@ export default function Metris({ achievementManager, isMuted, autoStart = false 
       keysRef.current.delete('rotatedCCW');
       keysRef.current.delete('held');
       keysRef.current.delete('hardDropped');
+      keysRef.current.delete('bulletTime');
       keysRef.current.delete('leftHeld');
       keysRef.current.delete('rightHeld');
 
@@ -1072,7 +1072,7 @@ export default function Metris({ achievementManager, isMuted, autoStart = false 
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [state.gamePhase, movePiece, handleRotate, holdPiece, hardDrop, restart, synthPowerUp, isMuted]);
+  }, [state.gamePhase, movePiece, handleRotate, holdPiece, hardDrop, restart, synthPowerUp, toggleBulletTime, isMuted]);
 
   // Render game
   useEffect(() => {
