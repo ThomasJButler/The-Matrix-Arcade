@@ -14,10 +14,11 @@
 
 ## Currently Available (in rebuildingoldgames/inspirationimagesandsprites/matrixfrogger/)
 
-- [x] Frog player — 2 animation frames + blue variant + 7-frame death animation
+- [x] Frog player — 2 animation frames + blue variant + 7-frame death animation — **INTEGRATED** (frog_idle.png + frog_hop.png deployed, `frogSpriteMode` registry flag, `setDisplaySize(64,64)` scaling, directional rotation on hop)
 - [x] Vehicles — car_1, car_2, car_3, truck, tractor — **INTEGRATED** (deployed to `public/assets/matrix-frogger/`, loaded in BootScene, used on bottom road lanes rows 5-7)
 - [x] Animals — crocodile (2f), snake (3f), turtle (5f), otter (2f)
-- [x] Environment — flower grounds, log segments (left/middle/right)
+- [x] Environment — flower grounds, log segments (left/middle/right) — **FLOWER GROUNDS INTEGRATED** (flower_ground_1/2.png deployed, Matrix-green tinted at 25% alpha on safe zone rows)
+- [x] Fly collectible — **INTEGRATED** (fly.png deployed, animated oscillation on finish line as visual target)
 - [x] UI icons — menu, sound on/off, F-R-O-G-G-E-R letter sprites
 - [x] Krita source files (.kra) for all above — editable
 - [x] WAV audio files (death, pickup, move, score, extra_score, soundtrack)

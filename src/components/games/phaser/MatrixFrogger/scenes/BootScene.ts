@@ -16,17 +16,24 @@ export class FroggerBootScene extends BootScene {
   }
 
   preload(): void {
-    // Call parent to show loading screen
     super.preload();
 
-    // Load player spritesheet (128x64, 2 frames of 64x64)
+    // Load player spritesheet (128x64, 2 frames of 64x64) as fallback
     this.load.spritesheet('player', '/assets/TopView_Robot_Asset_Pack/Player.png', {
       frameWidth: 64,
       frameHeight: 64,
     });
 
-    // Load enemy sprites - using individual static sprites
-    // We'll create colored rectangles as fallback if images don't load
+    // Load frog pixel art sprites (16x16, scaled to 64x64 in-game)
+    this.load.image('frog_idle', '/assets/matrix-frogger/frog_idle.png');
+    this.load.image('frog_hop', '/assets/matrix-frogger/frog_hop.png');
+    this.load.image('fly_sprite', '/assets/matrix-frogger/fly.png');
+
+    // Load flower ground tiles for safe zones (16x16 pixel art)
+    this.load.image('flower_ground_1', '/assets/matrix-frogger/flower_ground_1.png');
+    this.load.image('flower_ground_2', '/assets/matrix-frogger/flower_ground_2.png');
+
+    // Load enemy sprites
     this.load.image('enemy_agent', '/assets/TopView_Robot_Asset_Pack/EnemyId_10006_origin.png');
     this.load.image(
       'enemy_sentinel',
@@ -51,19 +58,13 @@ export class FroggerBootScene extends BootScene {
   }
 
   create(): void {
-    // Create pill textures
+    const frogSpritesLoaded = this.textures.exists('frog_idle') && this.textures.exists('frog_hop');
+    this.game.registry.set('frogSpriteMode', frogSpritesLoaded);
+
     this.createPillTextures();
-
-    // Create ability textures
     this.createAbilityTextures();
-
-    // Create vehicle fallback textures (skipped if sprites loaded)
     this.createVehicleTextures();
-
-    // Create player animations
     this.createAnimations();
-
-    // Call parent create to transition to next scene
     super.create();
   }
 
