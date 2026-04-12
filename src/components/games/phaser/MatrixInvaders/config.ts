@@ -31,7 +31,7 @@ export interface BossState {
 }
 
 export interface BulletState {
-  sprite: Phaser.GameObjects.Rectangle;
+  sprite: Phaser.GameObjects.Image;
   vy: number;
   damage: number;
   isPlayer: boolean;

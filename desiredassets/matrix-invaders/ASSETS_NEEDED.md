@@ -45,8 +45,8 @@
 ### Projectiles
 - [x] Player bullet — available — **SOURCE**: `INSPO/matrixinvaders/`
 - [x] Enemy bullet — available — **SOURCE**: `INSPO/matrixinvaders/`
-- [~] Player bullet trail particle — 4×8 or 8×16 — **SOURCE**: `DUMP/Sprites - Lasers Bullets #1/`
-- [~] Enemy bullet trail — different colour variant — **SOURCE**: `DUMP/Sprites - Lasers Bullets #1/`
+- [x] Player bullet glow sprite — green teardrop glow, display 8×20 — **SOURCE**: `DUMP/Sprites - Lasers Bullets #1/` (sprite 10)
+- [x] Enemy bullet glow sprite — magenta teardrop glow, display 6×14 (boss 8×18) — **SOURCE**: `DUMP/Sprites - Lasers Bullets #1/` (sprite 03)
 - [~] Boss special projectile — 16×16 — **SOURCE**: `DUMP/Sprites - Lasers Bullets #1/`
 
 ### Power-ups (currently scaffolded but not implemented)
