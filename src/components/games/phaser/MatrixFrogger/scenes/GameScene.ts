@@ -3,9 +3,12 @@
  *
  * Main gameplay scene implementing Frogger mechanics:
  * - Grid-based movement with hopping animation
- * - Lane-based enemy spawning (Agents and Sentinels)
- * - Power-ups: Bullet Time, Ghost, Shield, Magnet
- * - Collectible pills for score and power-ups
+ * - Lane-based enemy spawning (Agents, Sentinels, Chasers)
+ * - Power-ups: Bullet Time, Ghost, Shield, Magnet, NEO Mode
+ * - Kung Fu ability (K key, 3 charges per game)
+ * - 5-second countdown before gameplay
+ * - Visual lane markings, safe zones, finish line
+ * - Level progression with increasing difficulty
  */
 
 import Phaser from 'phaser';
@@ -15,19 +18,20 @@ import { GAME_CONFIG, ACHIEVEMENTS } from '../config';
 
 /** Enemy sprite with movement data */
 interface Enemy extends Phaser.Physics.Arcade.Sprite {
-  enemyType: 'agent' | 'sentinel';
+  enemyType: 'agent' | 'sentinel' | 'chaser';
   baseSpeed: number;
   direction: 1 | -1;
   lane: number;
+  verticalSpeed?: number;
 }
 
 /** Pill collectible */
 interface Pill extends Phaser.Physics.Arcade.Sprite {
-  pillType: 'red' | 'blue';
+  pillType: 'red' | 'blue' | 'neo';
 }
 
 /** Power-up types */
-type PowerUpType = 'bullet_time' | 'ghost' | 'shield' | 'magnet';
+type PowerUpType = 'bullet_time' | 'ghost' | 'shield' | 'magnet' | 'neo_mode';
 
 /** Active power-up state */
 interface ActivePowerUp {
@@ -51,10 +55,26 @@ export class FroggerGameScene extends BaseScene {
   private lastComboTime = 0;
   private magnetCollected = 0;
   private isGameOver = false;
+  private level = 1;
+  private neoDestroyCount = 0;
+
+  // Countdown
+  private isCountdown = true;
+  private countdownValue = GAME_CONFIG.COUNTDOWN.DURATION;
+  private countdownText!: Phaser.GameObjects.Text;
+
+  // Kung Fu
+  private kungFuCharges = GAME_CONFIG.KUNG_FU.MAX_CHARGES;
+  private kungFuTotalUsed = 0;
+  private lastKungFuTime = 0;
+  private kungFuIcons: Phaser.GameObjects.Sprite[] = [];
 
   // Power-ups
   private activePowerUps: ActivePowerUp[] = [];
   private shieldHits = 0;
+
+  // NEO mode visual
+  private neoFlashTimer = 0;
 
   // Object pools
   private enemies!: Phaser.Physics.Arcade.Group;
@@ -66,6 +86,10 @@ export class FroggerGameScene extends BaseScene {
   private distanceText!: Phaser.GameObjects.Text;
   private powerUpDisplay!: Phaser.GameObjects.Container;
   private comboText!: Phaser.GameObjects.Text;
+  private levelText!: Phaser.GameObjects.Text;
+
+  // Lane visuals
+  private laneGraphics!: Phaser.GameObjects.Graphics;
 
   // Matrix rain
   private rainGroup!: Phaser.GameObjects.Group;
@@ -76,6 +100,7 @@ export class FroggerGameScene extends BaseScene {
   // Input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasdKeys!: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; S: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key };
+  private kungFuKey!: Phaser.Input.Keyboard.Key;
 
   constructor() {
     super(SCENE_KEYS.GAME);
@@ -83,9 +108,14 @@ export class FroggerGameScene extends BaseScene {
 
   create(): void {
     this.createMatrixBackground();
+
+    // Draw lane visuals before rain so they sit beneath everything
+    this.setupLanes();
+    this.drawLaneBackgrounds();
+
     this.rainGroup = this.addMatrixRain(25);
 
-    // Initialize game state
+    // Initialise game state
     this.score = 0;
     this.maxDistance = 0;
     this.nearMissCount = 0;
@@ -95,12 +125,15 @@ export class FroggerGameScene extends BaseScene {
     this.activePowerUps = [];
     this.shieldHits = 0;
     this.isGameOver = false;
+    this.isMoving = false;
+    this.level = 1;
+    this.neoDestroyCount = 0;
+    this.neoFlashTimer = 0;
+    this.kungFuCharges = GAME_CONFIG.KUNG_FU.MAX_CHARGES;
+    this.kungFuTotalUsed = 0;
+    this.lastKungFuTime = 0;
     this.playerCol = GAME_CONFIG.PLAYER.START_COL;
     this.playerRow = GAME_CONFIG.PLAYER.START_ROW;
-    this.isMoving = false;
-
-    // Setup lanes
-    this.setupLanes();
 
     // Create object groups
     this.enemies = this.physics.add.group({
@@ -129,7 +162,7 @@ export class FroggerGameScene extends BaseScene {
     // Setup collisions
     this.setupCollisions();
 
-    // Start spawning
+    // Spawn enemies (frozen during countdown)
     this.spawnInitialEnemies();
     this.spawnPills();
 
@@ -145,6 +178,11 @@ export class FroggerGameScene extends BaseScene {
       callback: () => this.spawnPills(),
       loop: true,
     });
+
+    // Start countdown
+    this.isCountdown = true;
+    this.countdownValue = GAME_CONFIG.COUNTDOWN.DURATION;
+    this.startCountdown();
   }
 
   update(time: number, delta: number): void {
@@ -152,6 +190,9 @@ export class FroggerGameScene extends BaseScene {
 
     // Update matrix rain
     this.updateMatrixRain(this.rainGroup, delta);
+
+    // During countdown, don't process gameplay
+    if (this.isCountdown) return;
 
     // Process input
     this.handleInput();
@@ -161,6 +202,9 @@ export class FroggerGameScene extends BaseScene {
 
     // Update power-ups
     this.updatePowerUps(time);
+
+    // NEO mode flash effect
+    this.updateNeoFlash(delta);
 
     // Apply magnet effect
     this.applyMagnetEffect(delta);
@@ -176,16 +220,77 @@ export class FroggerGameScene extends BaseScene {
       score: this.score,
       maxDistance: this.maxDistance,
       combo: this.combo,
+      level: this.level,
+      kungFuCharges: this.kungFuCharges,
     });
   }
 
-  /**
-   * Setup lane configuration
-   */
+  // ---------------------------------------------------------------------------
+  // Countdown
+  // ---------------------------------------------------------------------------
+
+  private startCountdown(): void {
+    this.countdownText = this.add.text(
+      GAME_CONFIG.WIDTH / 2,
+      GAME_CONFIG.HEIGHT / 2,
+      String(this.countdownValue),
+      {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: '64px',
+        color: MATRIX_COLORS.PRIMARY_HEX,
+      }
+    );
+    this.countdownText.setOrigin(0.5);
+    this.countdownText.setDepth(200);
+
+    this.tickCountdown();
+  }
+
+  private tickCountdown(): void {
+    if (this.countdownValue <= 0) {
+      this.countdownText.setText('GO!');
+      this.countdownText.setColor('#00ffff');
+      this.playSound('levelUp');
+
+      this.tweens.add({
+        targets: this.countdownText,
+        alpha: 0,
+        scale: 2,
+        duration: 500,
+        onComplete: () => {
+          this.countdownText.destroy();
+          this.isCountdown = false;
+        },
+      });
+      return;
+    }
+
+    this.countdownText.setText(String(this.countdownValue));
+    this.countdownText.setScale(1);
+    this.countdownText.setAlpha(1);
+    this.playSound('hit');
+
+    this.tweens.add({
+      targets: this.countdownText,
+      scale: 0.6,
+      alpha: 0.5,
+      duration: 800,
+      ease: 'Quad.easeIn',
+    });
+
+    this.countdownValue--;
+
+    this.time.delayedCall(1000, () => this.tickCountdown());
+  }
+
+  // ---------------------------------------------------------------------------
+  // Lane setup and visuals
+  // ---------------------------------------------------------------------------
+
   private setupLanes(): void {
     // Row 0 = top (goal), Row 8 = bottom (start)
     this.lanes = [
-      { type: 'safe' }, // Row 0 - Goal
+      { type: 'safe' }, // Row 0 - Finish line
       { type: 'road', enemyType: 'sentinel', direction: 1 }, // Row 1
       { type: 'road', enemyType: 'agent', direction: -1 }, // Row 2
       { type: 'road', enemyType: 'sentinel', direction: -1 }, // Row 3
@@ -197,9 +302,83 @@ export class FroggerGameScene extends BaseScene {
     ];
   }
 
-  /**
-   * Create player sprite
-   */
+  private drawLaneBackgrounds(): void {
+    this.laneGraphics = this.add.graphics();
+    this.laneGraphics.setDepth(1);
+
+    const cellSize = GAME_CONFIG.CELL_SIZE;
+    const width = GAME_CONFIG.WIDTH;
+    const offsetY = 16;
+
+    for (let row = 0; row < this.lanes.length; row++) {
+      const lane = this.lanes[row];
+      const y = row * cellSize + offsetY;
+
+      if (lane.type === 'safe') {
+        // Safe zone: subtle green tint
+        const colour = row === 0 ? GAME_CONFIG.LANE_COLORS.SAFE_ZONE : GAME_CONFIG.LANE_COLORS.START_ZONE;
+        this.laneGraphics.fillStyle(colour, 0.6);
+        this.laneGraphics.fillRect(0, y, width, cellSize);
+
+        if (row === 0) {
+          // Finish line: bright green dashed line at top edge
+          this.drawFinishLine(y);
+        }
+      } else {
+        // Road lane: dark surface
+        this.laneGraphics.fillStyle(GAME_CONFIG.LANE_COLORS.ROAD_SURFACE, 0.5);
+        this.laneGraphics.fillRect(0, y, width, cellSize);
+
+        // Dashed road markings at top and bottom of lane
+        this.drawRoadMarkings(y, width);
+        this.drawRoadMarkings(y + cellSize - 1, width);
+      }
+    }
+
+    // Labels for safe zones
+    const labelStyle = {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '8px',
+      color: MATRIX_COLORS.PRIMARY_HEX,
+    };
+
+    const finishLabel = this.add.text(width / 2, 0 * cellSize + offsetY + 6, 'FINISH', { ...labelStyle, color: '#00ff00' });
+    finishLabel.setOrigin(0.5, 0);
+    finishLabel.setAlpha(0.5);
+    finishLabel.setDepth(2);
+
+    const safeLabel = this.add.text(width / 2, 4 * cellSize + offsetY + 6, 'SAFE ZONE', labelStyle);
+    safeLabel.setOrigin(0.5, 0);
+    safeLabel.setAlpha(0.4);
+    safeLabel.setDepth(2);
+
+    const startLabel = this.add.text(width / 2, 8 * cellSize + offsetY + 6, 'START', labelStyle);
+    startLabel.setOrigin(0.5, 0);
+    startLabel.setAlpha(0.4);
+    startLabel.setDepth(2);
+  }
+
+  private drawFinishLine(y: number): void {
+    const segmentWidth = 16;
+    for (let x = 0; x < GAME_CONFIG.WIDTH; x += segmentWidth * 2) {
+      this.laneGraphics.fillStyle(GAME_CONFIG.LANE_COLORS.FINISH_LINE, 0.3);
+      this.laneGraphics.fillRect(x, y, segmentWidth, 3);
+    }
+  }
+
+  private drawRoadMarkings(y: number, width: number): void {
+    const dashWidth = 20;
+    const gapWidth = 30;
+    for (let x = 0; x < width; x += dashWidth + gapWidth) {
+      this.laneGraphics.fillStyle(GAME_CONFIG.LANE_COLORS.ROAD_MARKING, 0.4);
+      this.laneGraphics.fillRect(x, y, dashWidth, 1);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Player
+  // ---------------------------------------------------------------------------
+
   private createPlayer(): void {
     const x = this.colToX(this.playerCol);
     const y = this.rowToY(this.playerRow);
@@ -213,9 +392,10 @@ export class FroggerGameScene extends BaseScene {
     this.player.setTint(MATRIX_COLORS.PRIMARY);
   }
 
-  /**
-   * Create UI elements
-   */
+  // ---------------------------------------------------------------------------
+  // UI
+  // ---------------------------------------------------------------------------
+
   private createUI(): void {
     // Score
     this.scoreText = this.add.text(10, 10, 'SCORE: 0', {
@@ -233,6 +413,15 @@ export class FroggerGameScene extends BaseScene {
     });
     this.distanceText.setDepth(100);
 
+    // Level
+    this.levelText = this.add.text(GAME_CONFIG.WIDTH - 10, 35, 'LEVEL: 1', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '12px',
+      color: MATRIX_COLORS.PRIMARY_HEX,
+    });
+    this.levelText.setOrigin(1, 0);
+    this.levelText.setDepth(100);
+
     // Combo
     this.comboText = this.add.text(10, 55, '', {
       fontFamily: '"Press Start 2P", monospace',
@@ -244,11 +433,48 @@ export class FroggerGameScene extends BaseScene {
     // Power-up display (top right)
     this.powerUpDisplay = this.add.container(GAME_CONFIG.WIDTH - 10, 10);
     this.powerUpDisplay.setDepth(100);
+
+    // Kung Fu charge icons (bottom left)
+    this.createKungFuDisplay();
   }
 
-  /**
-   * Setup keyboard input
-   */
+  private createKungFuDisplay(): void {
+    this.kungFuIcons = [];
+    const baseX = 10;
+    const baseY = GAME_CONFIG.HEIGHT - 35;
+
+    // Label
+    const label = this.add.text(baseX, baseY - 14, 'KUNG FU [K]', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '7px',
+      color: MATRIX_COLORS.PRIMARY_HEX,
+    });
+    label.setAlpha(0.6);
+    label.setDepth(100);
+
+    for (let i = 0; i < GAME_CONFIG.KUNG_FU.MAX_CHARGES; i++) {
+      const icon = this.add.sprite(baseX + 14 + i * 28, baseY + 12, 'kung_fu_icon');
+      icon.setDepth(100);
+      this.kungFuIcons.push(icon);
+    }
+  }
+
+  private updateKungFuDisplay(): void {
+    this.kungFuIcons.forEach((icon, i) => {
+      if (i < this.kungFuCharges) {
+        icon.setTexture('kung_fu_icon');
+        icon.setAlpha(1);
+      } else {
+        icon.setTexture('kung_fu_icon_empty');
+        icon.setAlpha(0.3);
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Input
+  // ---------------------------------------------------------------------------
+
   private setupInput(): void {
     if (!this.input.keyboard) {
       this.time.delayedCall(100, () => this.setupInput());
@@ -262,11 +488,9 @@ export class FroggerGameScene extends BaseScene {
       S: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
       D: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
     };
+    this.kungFuKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K);
   }
 
-  /**
-   * Process movement input
-   */
   private handleInput(): void {
     let newCol = this.playerCol;
     let newRow = this.playerRow;
@@ -283,17 +507,22 @@ export class FroggerGameScene extends BaseScene {
 
     if (newCol !== this.playerCol || newRow !== this.playerRow) {
       if (this.isMoving) {
-        // Buffer the input so it executes when the current hop completes
         this.bufferedInput = { col: newCol, row: newRow };
       } else {
         this.movePlayer(newCol, newRow);
       }
     }
+
+    // Kung Fu attack
+    if (Phaser.Input.Keyboard.JustDown(this.kungFuKey)) {
+      this.useKungFu();
+    }
   }
 
-  /**
-   * Move player to new grid position
-   */
+  // ---------------------------------------------------------------------------
+  // Movement
+  // ---------------------------------------------------------------------------
+
   private movePlayer(col: number, row: number): void {
     this.isMoving = true;
     const wasForward = row < this.playerRow;
@@ -341,11 +570,11 @@ export class FroggerGameScene extends BaseScene {
     });
   }
 
-  /**
-   * Setup collision detection
-   */
+  // ---------------------------------------------------------------------------
+  // Collisions
+  // ---------------------------------------------------------------------------
+
   private setupCollisions(): void {
-    // Player vs enemies
     this.physics.add.overlap(
       this.player,
       this.enemies,
@@ -354,7 +583,6 @@ export class FroggerGameScene extends BaseScene {
       this
     );
 
-    // Player vs pills
     this.physics.add.overlap(
       this.player,
       this.pills,
@@ -364,16 +592,19 @@ export class FroggerGameScene extends BaseScene {
     );
   }
 
-  /**
-   * Handle collision with enemy
-   */
   private handleEnemyCollision(enemy: Enemy): void {
-    // Ghost power-up - no collision
+    // NEO mode — destroy the enemy
+    if (this.hasPowerUp('neo_mode')) {
+      this.destroyEnemyWithNeo(enemy);
+      return;
+    }
+
+    // Ghost power-up — no collision
     if (this.hasPowerUp('ghost')) {
       return;
     }
 
-    // Shield power-up - absorb hit
+    // Shield power-up — absorb hit
     if (this.shieldHits > 0) {
       this.shieldHits--;
       this.playSound('hit');
@@ -387,9 +618,123 @@ export class FroggerGameScene extends BaseScene {
     this.playerDeath(enemy);
   }
 
-  /**
-   * Player death sequence
-   */
+  // ---------------------------------------------------------------------------
+  // NEO Mode
+  // ---------------------------------------------------------------------------
+
+  private destroyEnemyWithNeo(enemy: Enemy): void {
+    this.neoDestroyCount++;
+    this.addScore(GAME_CONFIG.SCORING.NEO_DESTROY);
+    this.playSound('score');
+
+    // Destroy effect
+    this.createEnemyDestroyEffect(enemy.x, enemy.y);
+
+    enemy.setActive(false);
+    enemy.setVisible(false);
+
+    if (this.neoDestroyCount >= 3) {
+      this.unlockAchievement(ACHIEVEMENTS.NEO_UNSTOPPABLE);
+    }
+  }
+
+  private createEnemyDestroyEffect(x: number, y: number): void {
+    for (let i = 0; i < 8; i++) {
+      const particle = this.add.graphics();
+      particle.fillStyle(MATRIX_COLORS.CYAN, 1);
+      particle.fillCircle(0, 0, 3);
+      particle.x = x;
+      particle.y = y;
+
+      const angle = (i / 8) * Math.PI * 2;
+      this.tweens.add({
+        targets: particle,
+        x: x + Math.cos(angle) * 60,
+        y: y + Math.sin(angle) * 60,
+        alpha: 0,
+        duration: 400,
+        onComplete: () => particle.destroy(),
+      });
+    }
+  }
+
+  private updateNeoFlash(delta: number): void {
+    if (!this.hasPowerUp('neo_mode')) return;
+
+    this.neoFlashTimer += delta;
+    if (this.neoFlashTimer > 100) {
+      this.neoFlashTimer = 0;
+      const colours = [MATRIX_COLORS.PRIMARY, MATRIX_COLORS.CYAN, 0xffffff, MATRIX_COLORS.YELLOW];
+      const colour = colours[Math.floor(Math.random() * colours.length)];
+      this.player.setTint(colour);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Kung Fu
+  // ---------------------------------------------------------------------------
+
+  private useKungFu(): void {
+    if (this.kungFuCharges <= 0) return;
+    if (this.time.now - this.lastKungFuTime < GAME_CONFIG.KUNG_FU.COOLDOWN) return;
+
+    const range = GAME_CONFIG.KUNG_FU.RANGE * GAME_CONFIG.CELL_SIZE;
+    let nearest: Enemy | null = null;
+    let nearestDist = Infinity;
+
+    this.enemies.getChildren().forEach((obj) => {
+      const enemy = obj as Enemy;
+      if (!enemy.active) return;
+      const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y);
+      if (dist < range && dist < nearestDist) {
+        nearest = enemy;
+        nearestDist = dist;
+      }
+    });
+
+    if (!nearest) return;
+
+    this.kungFuCharges--;
+    this.kungFuTotalUsed++;
+    this.lastKungFuTime = this.time.now;
+
+    // Destroy the enemy
+    this.createKungFuEffect(this.player.x, this.player.y);
+    this.createEnemyDestroyEffect((nearest as Enemy).x, (nearest as Enemy).y);
+    (nearest as Enemy).setActive(false);
+    (nearest as Enemy).setVisible(false);
+
+    this.playSound('hit');
+    this.addScore(50);
+    this.updateKungFuDisplay();
+
+    if (this.kungFuTotalUsed >= GAME_CONFIG.KUNG_FU.MAX_CHARGES) {
+      this.unlockAchievement(ACHIEVEMENTS.KUNG_FU_MASTER);
+    }
+  }
+
+  private createKungFuEffect(x: number, y: number): void {
+    const circle = this.add.graphics();
+    circle.lineStyle(3, MATRIX_COLORS.YELLOW, 1);
+    circle.strokeCircle(0, 0, 10);
+    circle.x = x;
+    circle.y = y;
+    circle.setDepth(15);
+
+    this.tweens.add({
+      targets: circle,
+      scaleX: 4,
+      scaleY: 4,
+      alpha: 0,
+      duration: 300,
+      onComplete: () => circle.destroy(),
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Death and game over
+  // ---------------------------------------------------------------------------
+
   private playerDeath(enemy?: Enemy): void {
     if (this.isGameOver) return;
     this.isGameOver = true;
@@ -397,7 +742,6 @@ export class FroggerGameScene extends BaseScene {
     this.player.setTint(0xff0000);
     this.playSound('hit');
 
-    // Death animation
     this.tweens.add({
       targets: this.player,
       alpha: 0,
@@ -411,39 +755,37 @@ export class FroggerGameScene extends BaseScene {
       },
     });
 
-    // Screen shake
     this.cameras.main.shake(300, 0.01);
   }
 
-  /**
-   * Collect a pill
-   */
+  // ---------------------------------------------------------------------------
+  // Pills and power-ups
+  // ---------------------------------------------------------------------------
+
   private collectPill(pill: Pill): void {
     const pillType = pill.pillType;
     pill.destroy();
 
     if (pillType === 'red') {
-      // Score pill
       this.addScore(GAME_CONFIG.SCORING.RED_PILL);
       this.playSound('score');
 
-      // Track pills collected while magnet is active
       if (this.hasPowerUp('magnet')) {
         this.magnetCollected++;
         if (this.magnetCollected >= 5) {
           this.unlockAchievement(ACHIEVEMENTS.MAGNET_COLLECTOR);
         }
       }
+    } else if (pillType === 'neo') {
+      this.activatePowerUp('neo_mode', GAME_CONFIG.POWERUPS.NEO_MODE.DURATION);
+      this.neoDestroyCount = 0;
+      this.playSound('powerup');
     } else {
-      // Power-up pill
       this.grantRandomPowerUp();
       this.playSound('powerup');
     }
   }
 
-  /**
-   * Grant a random power-up
-   */
   private grantRandomPowerUp(): void {
     const types: PowerUpType[] = ['bullet_time', 'ghost', 'shield', 'magnet'];
     const type = types[Phaser.Math.Between(0, types.length - 1)];
@@ -471,14 +813,9 @@ export class FroggerGameScene extends BaseScene {
     }
   }
 
-  /**
-   * Activate a timed power-up
-   */
   private activatePowerUp(type: PowerUpType, duration: number): void {
-    // Remove existing of same type
     this.activePowerUps = this.activePowerUps.filter((p) => p.type !== type);
 
-    // Add new
     this.activePowerUps.push({
       type,
       endTime: this.time.now + duration,
@@ -487,28 +824,22 @@ export class FroggerGameScene extends BaseScene {
     this.addPowerUpToDisplay(type);
   }
 
-  /**
-   * Check if power-up is active
-   */
   private hasPowerUp(type: PowerUpType): boolean {
     return this.activePowerUps.some((p) => p.type === type);
   }
 
-  /**
-   * Update power-up timers
-   */
   private updatePowerUps(time: number): void {
     const expired = this.activePowerUps.filter((p) => p.endTime <= time);
     this.activePowerUps = this.activePowerUps.filter((p) => p.endTime > time);
 
     expired.forEach((p) => {
       this.removePowerUpFromDisplay(p.type);
+      if (p.type === 'neo_mode') {
+        this.player.setTint(MATRIX_COLORS.PRIMARY);
+      }
     });
   }
 
-  /**
-   * Add power-up indicator to display
-   */
   private addPowerUpToDisplay(type: PowerUpType | 'shield'): void {
     const existing = this.powerUpDisplay.getByName(type);
     if (existing) return;
@@ -519,14 +850,10 @@ export class FroggerGameScene extends BaseScene {
     this.powerUpDisplay.add(icon);
   }
 
-  /**
-   * Remove power-up indicator from display
-   */
   private removePowerUpFromDisplay(type: PowerUpType | 'shield'): void {
     const icon = this.powerUpDisplay.getByName(type);
     if (icon) {
       icon.destroy();
-      // Reposition remaining
       let index = 0;
       this.powerUpDisplay.each((child: Phaser.GameObjects.GameObject) => {
         if (child instanceof Phaser.GameObjects.Sprite) {
@@ -537,9 +864,10 @@ export class FroggerGameScene extends BaseScene {
     }
   }
 
-  /**
-   * Apply magnet effect to nearby pills
-   */
+  // ---------------------------------------------------------------------------
+  // Magnet effect
+  // ---------------------------------------------------------------------------
+
   private applyMagnetEffect(delta: number): void {
     if (!this.hasPowerUp('magnet')) return;
 
@@ -552,7 +880,6 @@ export class FroggerGameScene extends BaseScene {
       const dist = Phaser.Math.Distance.Between(playerX, playerY, pill.x, pill.y);
 
       if (dist < range && dist > 5) {
-        // Move toward player
         const angle = Phaser.Math.Angle.Between(pill.x, pill.y, playerX, playerY);
         const speed = 200 * (delta / 1000);
         pill.x += Math.cos(angle) * speed;
@@ -561,11 +888,11 @@ export class FroggerGameScene extends BaseScene {
     });
   }
 
-  /**
-   * Spawn enemies on a lane
-   */
+  // ---------------------------------------------------------------------------
+  // Enemy spawning and movement
+  // ---------------------------------------------------------------------------
+
   private spawnEnemy(): void {
-    // Pick a random road lane
     const roadLanes = this.lanes
       .map((lane, index) => ({ ...lane, row: index }))
       .filter((lane) => lane.type === 'road');
@@ -576,63 +903,73 @@ export class FroggerGameScene extends BaseScene {
     const direction = lane.direction;
     const enemyType = lane.enemyType || 'agent';
 
-    // Calculate spawn position
+    // Determine if this should be a chasing agent
+    const isChaser = this.level >= GAME_CONFIG.DIFFICULTY.CHASING_AGENT_MIN_LEVEL && Math.random() < 0.2;
+
     const startX = direction === 1 ? -GAME_CONFIG.CELL_SIZE : GAME_CONFIG.WIDTH + GAME_CONFIG.CELL_SIZE;
     const y = this.rowToY(lane.row);
 
-    // Get or create enemy sprite
-    const enemy = this.enemies.get(startX, y, enemyType === 'agent' ? 'enemy_agent' : 'enemy_sentinel') as Enemy;
+    const textureKey = enemyType === 'agent' ? 'enemy_agent' : 'enemy_sentinel';
+    const enemy = this.enemies.get(startX, y, textureKey) as Enemy;
     if (!enemy) return;
 
     enemy.setActive(true);
     enemy.setVisible(true);
     enemy.setScale(0.8);
-    enemy.enemyType = enemyType;
+    enemy.enemyType = isChaser ? 'chaser' : enemyType;
     enemy.direction = direction;
     enemy.lane = lane.row;
 
-    // Set speed based on type and difficulty
     const config = GAME_CONFIG.ENEMIES[enemyType.toUpperCase() as 'AGENT' | 'SENTINEL'];
     const difficultyBonus = Math.floor(this.maxDistance / 100) * GAME_CONFIG.DIFFICULTY.SPEED_INCREASE_PER_100;
-    enemy.baseSpeed = Phaser.Math.Between(config.SPEED_MIN, config.SPEED_MAX) + difficultyBonus;
+    const levelBonus = (this.level - 1) * 15;
+    enemy.baseSpeed = Phaser.Math.Between(config.SPEED_MIN, config.SPEED_MAX) + difficultyBonus + levelBonus;
 
-    // Tint based on type
-    enemy.setTint(enemyType === 'agent' ? 0x00ff00 : 0xff6600);
+    if (isChaser) {
+      enemy.verticalSpeed = GAME_CONFIG.DIFFICULTY.CHASING_AGENT_VERTICAL_SPEED;
+      enemy.setTint(0xff3333);
+    } else {
+      enemy.verticalSpeed = 0;
+      enemy.setTint(enemyType === 'agent' ? 0x00ff00 : 0xff6600);
+    }
   }
 
-  /**
-   * Spawn initial enemies
-   */
   private spawnInitialEnemies(): void {
     for (let i = 0; i < GAME_CONFIG.DIFFICULTY.ENEMY_COUNT_BASE * 2; i++) {
       this.spawnEnemy();
     }
   }
 
-  /**
-   * Spawn pills on the field
-   */
   private spawnPills(): void {
-    // Random position not on edges
     const col = Phaser.Math.Between(1, GAME_CONFIG.GRID_COLS - 2);
     const row = Phaser.Math.Between(1, GAME_CONFIG.GRID_ROWS - 2);
 
-    // Skip if lane is not safe and already has enemy nearby
     const x = this.colToX(col);
     const y = this.rowToY(row);
 
-    // 80% red (points), 20% blue (power-up)
-    const isBlue = Math.random() < 0.2;
-    const textureKey = isBlue ? 'blue_pill' : 'red_pill';
+    // 10% NEO pickup, 18% blue (power-up), 72% red (points)
+    const roll = Math.random();
+    let textureKey: string;
+    let pillType: Pill['pillType'];
+
+    if (roll < 0.10 && this.level >= 2) {
+      textureKey = 'neo_pickup';
+      pillType = 'neo';
+    } else if (roll < 0.28) {
+      textureKey = 'blue_pill';
+      pillType = 'blue';
+    } else {
+      textureKey = 'red_pill';
+      pillType = 'red';
+    }
 
     const pill = this.pills.get(x, y, textureKey) as Pill;
     if (!pill) return;
 
     pill.setActive(true);
     pill.setVisible(true);
-    pill.pillType = isBlue ? 'blue' : 'red';
+    pill.pillType = pillType;
 
-    // Floating animation
     this.tweens.add({
       targets: pill,
       y: y - 5,
@@ -643,22 +980,28 @@ export class FroggerGameScene extends BaseScene {
     });
   }
 
-  /**
-   * Update all enemies
-   */
   private updateEnemies(delta: number): void {
-    // Get speed multiplier from bullet time
     const speedMult = this.hasPowerUp('bullet_time') ? GAME_CONFIG.POWERUPS.BULLET_TIME.SLOW_FACTOR : 1;
 
     this.enemies.getChildren().forEach((obj) => {
       const enemy = obj as Enemy;
       if (!enemy.active) return;
 
-      // Move enemy
+      // Horizontal movement
       const speed = enemy.baseSpeed * speedMult * (delta / 1000);
       enemy.x += speed * enemy.direction;
 
-      // Wrap or remove
+      // Chasing agents drift vertically toward the player
+      if (enemy.enemyType === 'chaser' && enemy.verticalSpeed) {
+        const playerY = this.rowToY(this.playerRow);
+        const diff = playerY - enemy.y;
+        if (Math.abs(diff) > 5) {
+          const vertSpeed = enemy.verticalSpeed * speedMult * (delta / 1000);
+          enemy.y += Math.sign(diff) * vertSpeed;
+        }
+      }
+
+      // Remove when off-screen
       if (enemy.direction === 1 && enemy.x > GAME_CONFIG.WIDTH + GAME_CONFIG.CELL_SIZE) {
         enemy.setActive(false);
         enemy.setVisible(false);
@@ -669,9 +1012,10 @@ export class FroggerGameScene extends BaseScene {
     });
   }
 
-  /**
-   * Check for near miss
-   */
+  // ---------------------------------------------------------------------------
+  // Near-miss detection
+  // ---------------------------------------------------------------------------
+
   private checkNearMiss(): void {
     const playerX = this.player.x;
     const playerY = this.player.y;
@@ -694,25 +1038,32 @@ export class FroggerGameScene extends BaseScene {
       this.incrementCombo();
       this.addScore(GAME_CONFIG.SCORING.DODGE_NEAR_MISS * this.getComboMultiplier());
 
-      // Achievement for 10 near misses
       if (this.nearMissCount >= 10) {
         this.unlockAchievement(ACHIEVEMENTS.DODGE_MASTER);
       }
     }
   }
 
-  /**
-   * Check progress and achievements
-   */
+  // ---------------------------------------------------------------------------
+  // Progress and level system
+  // ---------------------------------------------------------------------------
+
   private checkProgress(): void {
-    // Reached top row
+    // Reached top row (finish line)
     if (this.playerRow === 0) {
-      // Unlock achievement
       this.unlockAchievement(ACHIEVEMENTS.FIRST_CROSS);
 
-      // Add bonus and reset
-      this.addScore(500);
+      // Level up
+      this.level++;
+      this.addScore(GAME_CONFIG.SCORING.CROSS_BONUS);
       this.playSound('levelUp');
+
+      // Show level text
+      this.showLevelUpText();
+
+      if (this.level >= 5) {
+        this.unlockAchievement(ACHIEVEMENTS.LEVEL_5);
+      }
 
       // Reset to start
       this.playerRow = GAME_CONFIG.PLAYER.START_ROW;
@@ -725,6 +1076,8 @@ export class FroggerGameScene extends BaseScene {
         duration: 300,
         ease: 'Back.easeOut',
       });
+
+      this.updateUI();
     }
 
     // Score achievements
@@ -736,22 +1089,45 @@ export class FroggerGameScene extends BaseScene {
     }
 
     // Distance achievement
-    if (this.maxDistance >= 5) { // 500 distance = 5 rows forward
+    if (this.maxDistance >= 5) {
       this.unlockAchievement(ACHIEVEMENTS.DISTANCE_500);
     }
   }
 
-  /**
-   * Add to score with combo multiplier
-   */
+  private showLevelUpText(): void {
+    const text = this.add.text(
+      GAME_CONFIG.WIDTH / 2,
+      GAME_CONFIG.HEIGHT / 2,
+      `LEVEL ${this.level}`,
+      {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: '32px',
+        color: '#00ffff',
+      }
+    );
+    text.setOrigin(0.5);
+    text.setDepth(200);
+
+    this.tweens.add({
+      targets: text,
+      alpha: 0,
+      y: GAME_CONFIG.HEIGHT / 2 - 50,
+      scale: 1.5,
+      duration: 1000,
+      ease: 'Quad.easeOut',
+      onComplete: () => text.destroy(),
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Scoring and combo
+  // ---------------------------------------------------------------------------
+
   private addScore(points: number): void {
     this.score += points;
     this.updateUI();
   }
 
-  /**
-   * Increment combo counter
-   */
   private incrementCombo(): void {
     this.combo++;
     this.lastComboTime = this.time.now;
@@ -763,20 +1139,13 @@ export class FroggerGameScene extends BaseScene {
     this.updateUI();
   }
 
-  /**
-   * Update combo decay
-   */
   private updateCombo(time: number): void {
-    // Combo expires after 3 seconds
     if (this.combo > 0 && time - this.lastComboTime > 3000) {
       this.combo = 0;
       this.updateUI();
     }
   }
 
-  /**
-   * Get combo score multiplier
-   */
   private getComboMultiplier(): number {
     if (this.combo >= 30) return 5;
     if (this.combo >= 20) return 4;
@@ -785,12 +1154,10 @@ export class FroggerGameScene extends BaseScene {
     return 1;
   }
 
-  /**
-   * Update UI display
-   */
   private updateUI(): void {
     this.scoreText.setText(`SCORE: ${this.score}`);
     this.distanceText.setText(`DISTANCE: ${this.maxDistance * 100}`);
+    this.levelText.setText(`LEVEL: ${this.level}`);
 
     if (this.combo > 0) {
       const mult = this.getComboMultiplier();
@@ -801,9 +1168,10 @@ export class FroggerGameScene extends BaseScene {
     }
   }
 
-  /**
-   * Create shield break particle effect
-   */
+  // ---------------------------------------------------------------------------
+  // Visual effects
+  // ---------------------------------------------------------------------------
+
   private createShieldBreakEffect(): void {
     const x = this.player.x;
     const y = this.player.y;
@@ -829,46 +1197,44 @@ export class FroggerGameScene extends BaseScene {
     }
   }
 
-  /**
-   * Convert grid column to screen X
-   */
+  // ---------------------------------------------------------------------------
+  // Grid helpers
+  // ---------------------------------------------------------------------------
+
   private colToX(col: number): number {
     return col * GAME_CONFIG.CELL_SIZE + GAME_CONFIG.CELL_SIZE / 2 + 16;
   }
 
-  /**
-   * Convert grid row to screen Y
-   */
   private rowToY(row: number): number {
     return row * GAME_CONFIG.CELL_SIZE + GAME_CONFIG.CELL_SIZE / 2 + 16;
   }
 
+  // ---------------------------------------------------------------------------
+  // Cleanup
+  // ---------------------------------------------------------------------------
+
   shutdown(): void {
-    // Remove all time events (spawn timers)
     this.time.removeAllEvents();
 
-    // Remove input listeners
     this.input.off('pointerdown');
     if (this.input.keyboard) {
       this.input.keyboard.removeAllKeys(true);
     }
 
-    // Clear tweens
     this.tweens.killAll();
-
-    // Clear active power-ups array
     this.activePowerUps = [];
+    this.kungFuIcons = [];
 
-    // Destroy groups
     this.enemies.clear(true, true);
     this.pills.clear(true, true);
     this.deathEffects.clear(true, true);
     this.rainGroup.clear(true, true);
 
-    // Clear UI references
     this.scoreText.destroy();
     this.distanceText.destroy();
     this.comboText.destroy();
+    this.levelText.destroy();
     this.powerUpDisplay.destroy();
+    this.laneGraphics.destroy();
   }
 }

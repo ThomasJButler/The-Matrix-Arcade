@@ -51,6 +51,9 @@ export class FroggerBootScene extends BootScene {
     // Create pill textures
     this.createPillTextures();
 
+    // Create ability textures
+    this.createAbilityTextures();
+
     // Create player animations
     this.createAnimations();
 
@@ -97,6 +100,51 @@ export class FroggerBootScene extends BootScene {
       g.generateTexture(`powerup_${name}`, 32, 32);
       g.destroy();
     });
+  }
+
+  /**
+   * Create Kung Fu and NEO mode textures
+   */
+  private createAbilityTextures(): void {
+    // Kung Fu charge icon (fist shape)
+    const fist = this.add.graphics();
+    fist.fillStyle(MATRIX_COLORS.YELLOW, 1);
+    fist.fillCircle(12, 12, 10);
+    fist.fillStyle(0xffff66, 1);
+    fist.fillCircle(10, 10, 4);
+    fist.lineStyle(2, 0x888800, 1);
+    fist.strokeCircle(12, 12, 10);
+    fist.generateTexture('kung_fu_icon', 24, 24);
+    fist.destroy();
+
+    // Kung Fu empty charge icon (dimmed)
+    const fistEmpty = this.add.graphics();
+    fistEmpty.fillStyle(0x333300, 0.5);
+    fistEmpty.fillCircle(12, 12, 10);
+    fistEmpty.lineStyle(1, 0x555500, 0.5);
+    fistEmpty.strokeCircle(12, 12, 10);
+    fistEmpty.generateTexture('kung_fu_icon_empty', 24, 24);
+    fistEmpty.destroy();
+
+    // NEO mode pickup (golden/cyan glowing orb)
+    const neo = this.add.graphics();
+    neo.fillStyle(MATRIX_COLORS.CYAN, 0.3);
+    neo.fillCircle(16, 16, 14);
+    neo.fillStyle(MATRIX_COLORS.CYAN, 0.7);
+    neo.fillCircle(16, 16, 10);
+    neo.fillStyle(0xffffff, 1);
+    neo.fillCircle(14, 14, 4);
+    neo.generateTexture('neo_pickup', 32, 32);
+    neo.destroy();
+
+    // NEO mode power-up indicator
+    const neoIcon = this.add.graphics();
+    neoIcon.fillStyle(MATRIX_COLORS.CYAN, 0.8);
+    neoIcon.fillRoundedRect(0, 0, 32, 32, 4);
+    neoIcon.lineStyle(2, 0xffffff, 1);
+    neoIcon.strokeRoundedRect(0, 0, 32, 32, 4);
+    neoIcon.generateTexture('powerup_neo_mode', 32, 32);
+    neoIcon.destroy();
   }
 
   /**
