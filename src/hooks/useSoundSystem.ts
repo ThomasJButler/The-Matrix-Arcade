@@ -189,7 +189,7 @@ const SOUND_LIBRARY: Record<string, SoundEffect> = {
     filterFreq: 600
   },
 
-  // CrossyRoad distinct power-up sounds
+  // Bullet time power-up sounds
   powerupBulletTime: {
     type: 'powerupBulletTime',
     frequency: { start: 880, end: 440 },
@@ -241,7 +241,7 @@ const SOUND_LIBRARY: Record<string, SoundEffect> = {
     filterFreq: 600
   },
 
-  // MatrixAscension shooting sound
+  // Shooting sound
   shoot: {
     type: 'shoot',
     frequency: { start: 1100, end: 400 },
@@ -255,7 +255,7 @@ const SOUND_LIBRARY: Record<string, SoundEffect> = {
     filterFreq: 1800
   },
 
-  // JimmyMatrix rhythm game sounds
+  // Rhythm game sounds
   rhythmMiss: {
     type: 'rhythmMiss',
     frequency: { start: 220, end: 110 },
@@ -306,7 +306,7 @@ const SOUND_LIBRARY: Record<string, SoundEffect> = {
     reverb: true
   },
 
-  // AgentEscape sounds
+  // Agent Chase sounds
   wakaWaka: {
     type: 'wakaWaka',
     frequency: { start: 550, end: 440 },
