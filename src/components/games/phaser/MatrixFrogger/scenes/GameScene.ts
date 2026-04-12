@@ -229,7 +229,7 @@ export class FroggerGameScene extends BaseScene {
     this.distanceText = this.add.text(10, 35, 'DISTANCE: 0', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '12px',
-      color: MATRIX_COLORS.CYAN_HEX,
+      color: MATRIX_COLORS.PRIMARY_HEX,
     });
     this.distanceText.setDepth(100);
 
@@ -237,7 +237,7 @@ export class FroggerGameScene extends BaseScene {
     this.comboText = this.add.text(10, 55, '', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '10px',
-      color: MATRIX_COLORS.YELLOW_HEX,
+      color: MATRIX_COLORS.PRIMARY_HEX,
     });
     this.comboText.setDepth(100);
 

@@ -226,7 +226,7 @@ export class CloudJumperGameScene extends BaseScene {
     this.distanceText = this.add.text(20, 45, 'DISTANCE: 0m', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '10px',
-      color: '#ffffff',
+      color: MATRIX_COLORS.PRIMARY_HEX,
       stroke: '#000000',
       strokeThickness: 2,
     });

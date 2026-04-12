@@ -7,7 +7,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ## Current Status
 
 - **Status**: REBUILDING -- Phaser migration of all React/Canvas games + new features
-- **Last Updated**: 12 April 2026 (R5 -- P1 build chunk fixed, codebase cleanup, dead code removed)
+- **Last Updated**: 12 April 2026 (R6 -- Matrix green palette applied to 4 Phaser games, HUD colour consistency)
 - **Version**: v2.0.0 (next target)
 - **Games**: 11 playable (6 React/Canvas to rebuild into Phaser, 5 already Phaser) + 1 planned (Code Breaker)
 - **Build**: PASSES (code-split, main bundle 370KB, Phaser vendor chunk 1,479KB) -- zero warnings
@@ -18,6 +18,10 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ### What Was Completed (v1.x to v2.0 prep)
 
 All P0/P1/P2 bugs resolved from v1.x. Test seams added to all games. E2E gameplay specs written (78 tests). Code quality fixes across 20+ hooks and components. Code-splitting reduced main bundle from 2.18MB to 370KB. Shared game registry created. Error boundaries added. Collision utility extracted. 5 Phaser games scaffolded (MatrixFrogger, NeoJump, AgentChase, RhythmHacker, CloudJumper) with full scene architecture. 12 rebuild research docs created in `rebuildingoldgames/plans/`. Asset inventory catalogued in `desiredassets/`. Full details in git history.
+
+### What Was Completed (R6 -- 12 April 2026)
+
+Matrix green palette consistency pass across 4 Phaser games. Cloud Jumper: all cloud textures recoloured from white/blue to green/cyan/dim-green/dark-red Matrix palette, parallax background layers changed from white (0xffffff) to dark green (0x003300–0x005500), collectibles changed from gold/white to cyan/green, obstacles changed from grey to dark-red (bird sentinel) and dark-grey with red windows (plane), DISTANCE text changed from white to green. Agent Chase: HUD text for LIVES changed from yellow to green, LEVEL changed from cyan to green — all three HUD elements now consistently green. Neo Jump: JETPACK fuel label changed from yellow to green, fuelLabel stored as class field instead of local variable for proper cleanup in shutdown(). Matrix Frogger: DISTANCE text changed from cyan to green, COMBO text changed from yellow to green. Cloud Jumper config.ts CLOUD_TYPES colours updated to match new BootScene palette. All 1,899 tests passing, build clean, zero warnings.
 
 ### What Was Completed (R5 -- 12 April 2026)
 
@@ -229,9 +233,9 @@ From the screenshot review (12 Apr 2026, 156 screenshots across all 11 games + U
 - **Matrix Frogger**: SCORE and DISTANCE both read "0" despite the game being in an active state with visible enemies. A floating semi-transparent dark rectangle near the top-centre appears to be an unrendered UI element (tooltip or overlay with no content). The frog player is very small and hard to distinguish from enemies at a glance.
 
 **Moderate visual issues**:
-- **Neo Jump**: A ghost/duplicate grey progress bar appears below the JETPACK indicator in the top-right corner — present in all gameplay screenshots. Purpose unclear (may be an unstyled or conditional bar that should be hidden).
-- **Agent Chase**: HUD uses a mix of green AND yellow text for score/lives/level — inconsistent with other games that use green-only HUD elements. (Gameplay itself looks best of all Phaser games — good maze, clear dots, distinct ghost colours.)
-- **Cloud Jumper sky-blue background**: Doesn't match the Matrix green-on-black theme. Player is a small blue figure with cape.
+- **Neo Jump**: A ghost/duplicate grey progress bar appears below the JETPACK indicator in the top-right corner — present in all gameplay screenshots. Investigation in R6: fuelLabel was a local variable not cleaned up in shutdown(); now stored as class field with proper destroy(). Yellow colour changed to green. If ghost bar persists, it may be a font rendering artifact at 8px — needs visual verification.
+- ~~**Agent Chase**: HUD uses a mix of green AND yellow text for score/lives/level — fixed in R6, all HUD elements now consistently green.~~
+- ~~**Cloud Jumper sky-blue background**: Fixed in R5 (React wrapper) and R6 (full palette — clouds, backgrounds, collectibles, obstacles all recoloured to Matrix green). Player recoloured to green in R5.~~
 
 **Shared issues across Phaser games**:
 - **Identical menu thumbnails**: Cloud Jumper, Neo Jump, and Agent Chase all share the same Matrix city/rain thumbnail image on their menu cards. These should be differentiated if they're meant to be game-specific previews.
@@ -243,7 +247,7 @@ From the screenshot review (12 Apr 2026, 156 screenshots across all 11 games + U
 **Files**: `src/components/games/phaser/CloudJumper/scenes/GameScene.ts`, `config.ts`
 - [ ] Fix canvas width gap — ~15-20% of right-side is empty black border. Game content doesn't fill the full canvas. Check PHASER_CONFIG width vs actual game world width.
 - [x] Fix death sprite — player character becomes an unrecognisable dark oval blob on death. Either add a proper death animation or keep the player sprite visible during the death sequence.
-- [ ] Change sky-blue background to Matrix green-on-black theme (0x0a1a0a or darker)
+- [x] Change sky-blue background to Matrix green-on-black theme — full palette overhaul: all cloud textures, parallax backgrounds, collectibles, and obstacles recoloured to green/cyan/red Matrix palette
 - [x] Generate a unique menu thumbnail image (currently shares the same image as Neo Jump and Agent Chase)
 
 ### 2.5 Matrix Frogger Visual Issues (NEW)
@@ -263,7 +267,7 @@ Low-risk cleanup tasks to reduce tech debt:
 - [x] **Fix PuzzleModal dead state** (done — removed `_showFiftyFifty` state entirely)
 - [x] **Remove dead code in legacy games** (done — AgentEscape._TUNNEL, JimmyMatrix._getTimingGrade/_timeDiff, MatrixAscension._altitude)
 - [x] **Remove `console.log` in usePerformanceMonitor** (line 177) -- debug artifact (fixed in R3)
-- [ ] **Remove `console.log` in useSaveSystem** (line 537) -- migration debug log, should be removed or gated behind a debug flag
+- [x] **`console.log` in useSaveSystem** (line 537) -- already properly gated behind `import.meta.env.DEV && import.meta.env.VITE_DEBUG_SAVE === 'true'`, no fix needed
 - [x] **Move `playwright` from dependencies to devDependencies** (done)
 - [x] **Remove `jest` from devDependencies** (done)
 - [x] **usePerformanceMonitor PerformanceOverlay** (done — extracted to module-scope component with stable identity via ref pattern)

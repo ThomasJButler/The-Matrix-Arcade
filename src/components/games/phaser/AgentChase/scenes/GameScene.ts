@@ -312,14 +312,14 @@ export class AgentChaseGameScene extends BaseScene {
     this.livesText = this.add.text(200, 10, `LIVES: ${this.lives}`, {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '14px',
-      color: MATRIX_COLORS.YELLOW_HEX,
+      color: MATRIX_COLORS.PRIMARY_HEX,
     });
     this.livesText.setDepth(100);
 
     this.levelText = this.add.text(400, 10, `LEVEL: ${this.level}`, {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '14px',
-      color: MATRIX_COLORS.CYAN_HEX,
+      color: MATRIX_COLORS.PRIMARY_HEX,
     });
     this.levelText.setDepth(100);
   }
