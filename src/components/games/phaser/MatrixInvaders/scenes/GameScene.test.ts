@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Phaser from 'phaser';
 import { MatrixInvadersGameScene } from './GameScene';
-import { GAME_CONFIG, ACHIEVEMENTS, ENEMY_DEFS } from '../config';
+import { GAME_CONFIG, ACHIEVEMENTS } from '../config';
 
 const C = GAME_CONFIG;
 

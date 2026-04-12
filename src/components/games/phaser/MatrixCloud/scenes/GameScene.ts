@@ -6,7 +6,6 @@ import {
   ACHIEVEMENTS,
   BOSS_DEFS,
   BOSS_LEVELS,
-  POWERUP_DEFS,
   type PipePair,
   type FieldPowerUp,
   type PowerUpType,
@@ -405,7 +404,7 @@ export class MatrixCloudGameScene extends BaseScene {
     this.reportScore(this.score, this.highScore);
   }
 
-  private onLevelUp(prevLevel: number): void {
+  private onLevelUp(_prevLevel: number): void {
     this.playSound(SOUND_KEYS.LEVEL_UP);
     this.cameras.main.shake(200, 0.005);
 

@@ -63,7 +63,7 @@ function makeMockAgent(state: string = 'scatter') {
  * the instance so that `scene.collectDot(...)` etc. resolve correctly.
  */
 function createTestScene() {
-  const scene = new AgentChaseGameScene() as any;
+  const scene = new AgentChaseGameScene() as unknown as Record<string, unknown>;
 
   // --- Restore the prototype chain that the mock broke ---
   // Walk the prototype chain up to (but not including) Object.prototype and
@@ -122,7 +122,7 @@ function createTestScene() {
 /* ================================================================== */
 
 describe('AgentChaseGameScene', () => {
-  let scene: any;
+  let scene: Record<string, unknown>;
 
   beforeEach(() => {
     scene = createTestScene();

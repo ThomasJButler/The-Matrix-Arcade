@@ -12,7 +12,7 @@ import { NeoJumpGameScene } from './GameScene';
 import { GAME_CONFIG, ACHIEVEMENTS } from '../config';
 
 // Add JustDown mock — not provided by the global Phaser mock in setup.ts
-(Phaser.Input.Keyboard as any).JustDown = vi.fn().mockReturnValue(false);
+(Phaser.Input.Keyboard as unknown as Record<string, unknown>).JustDown = vi.fn().mockReturnValue(false);
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
@@ -20,12 +20,12 @@ import { GAME_CONFIG, ACHIEVEMENTS } from '../config';
 
 /** Build a scene instance with all BaseScene methods stubbed out */
 function createTestScene() {
-  const scene = new NeoJumpGameScene() as any;
+  const scene = new NeoJumpGameScene() as unknown as Record<string, unknown>;
 
   // The Phaser mock returns a plain object from the Scene constructor,
   // so prototype methods from NeoJumpGameScene (and BaseScene) are not
   // on the instance. Copy them manually so we can call private methods.
-  const proto = NeoJumpGameScene.prototype as any;
+  const proto = NeoJumpGameScene.prototype as unknown as Record<string, unknown>;
   Object.getOwnPropertyNames(proto).forEach((key) => {
     if (key !== 'constructor' && typeof proto[key] === 'function') {
       scene[key] = proto[key].bind(scene);
@@ -132,7 +132,7 @@ function createMockEnemy() {
 /* ------------------------------------------------------------------ */
 
 describe('NeoJumpGameScene', () => {
-  let scene: any;
+  let scene: Record<string, unknown>;
 
   beforeEach(() => {
     scene = createTestScene();

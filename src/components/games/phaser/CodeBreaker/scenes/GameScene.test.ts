@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Phaser from 'phaser';
 import { CodeBreakerGameScene } from './GameScene';
-import { GAME_CONFIG, ACHIEVEMENTS, BRICK_DEFS, POWERUP_DEFS } from '../config';
+import { GAME_CONFIG, ACHIEVEMENTS, POWERUP_DEFS } from '../config';
 
 const C = GAME_CONFIG;
 
