@@ -4,6 +4,8 @@ import { GAME_CONFIG, POWERUP_DEFS, BOSS_DEFS, type PowerUpType, type BossType }
 
 const SPRITE_ASSETS = [
   { key: 'bird_sprite', path: 'assets/matrix-cloud/bird.png', type: 'spritesheet' as const, frameWidth: 16, frameHeight: 16 },
+  { key: 'pipe_sprite', path: 'assets/matrix-cloud/pipe.png', type: 'image' as const },
+  { key: 'pipe_cap_sprite', path: 'assets/matrix-cloud/pipe-cap.png', type: 'image' as const },
 ];
 
 export class MatrixCloudBootScene extends BootScene {
@@ -15,9 +17,11 @@ export class MatrixCloudBootScene extends BootScene {
     for (const asset of SPRITE_ASSETS) {
       if (asset.type === 'spritesheet') {
         this.load.spritesheet(asset.key, asset.path, {
-          frameWidth: asset.frameWidth,
-          frameHeight: asset.frameHeight,
+          frameWidth: asset.frameWidth!,
+          frameHeight: asset.frameHeight!,
         });
+      } else {
+        this.load.image(asset.key, asset.path);
       }
     }
   }

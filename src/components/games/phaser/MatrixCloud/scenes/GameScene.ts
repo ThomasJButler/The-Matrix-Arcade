@@ -7,6 +7,7 @@ import {
   BOSS_DEFS,
   BOSS_LEVELS,
   type PipePair,
+  type PipeVisual,
   type FieldPowerUp,
   type PowerUpType,
   type BossType,
@@ -345,6 +346,15 @@ export class MatrixCloudGameScene extends BaseScene {
     }
   }
 
+  private createPipeVisual(x: number, y: number, width: number, height: number): PipeVisual {
+    if (this.game.registry.get('spriteMode') === true) {
+      return this.add.tileSprite(x, y, width, height, 'pipe_sprite');
+    }
+    const rect = this.add.rectangle(x, y, width, height, 0x003300);
+    rect.setStrokeStyle(2, MATRIX_COLORS.PRIMARY);
+    return rect;
+  }
+
   private spawnPipe(): void {
     const playableHeight = C.HEIGHT - C.GROUND_HEIGHT;
     const maxGapY = playableHeight - C.PIPE_GAP - C.PIPE_MIN_HEIGHT;
@@ -353,26 +363,12 @@ export class MatrixCloudGameScene extends BaseScene {
     const x = C.WIDTH;
 
     const topHeight = gapY;
-    const topRect = this.add.rectangle(
-      x + C.PIPE_WIDTH / 2,
-      topHeight / 2,
-      C.PIPE_WIDTH,
-      topHeight,
-      0x003300,
-    );
-    topRect.setStrokeStyle(2, MATRIX_COLORS.PRIMARY);
+    const topRect = this.createPipeVisual(x + C.PIPE_WIDTH / 2, topHeight / 2, C.PIPE_WIDTH, topHeight);
     topRect.setDepth(3);
 
     const bottomY = gapY + C.PIPE_GAP;
     const bottomHeight = playableHeight - bottomY;
-    const bottomRect = this.add.rectangle(
-      x + C.PIPE_WIDTH / 2,
-      bottomY + bottomHeight / 2,
-      C.PIPE_WIDTH,
-      bottomHeight,
-      0x003300,
-    );
-    bottomRect.setStrokeStyle(2, MATRIX_COLORS.PRIMARY);
+    const bottomRect = this.createPipeVisual(x + C.PIPE_WIDTH / 2, bottomY + bottomHeight / 2, C.PIPE_WIDTH, bottomHeight);
     bottomRect.setDepth(3);
 
     const pipe: PipePair = { topRect, bottomRect, x, gapY, passed: false, hit: false };

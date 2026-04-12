@@ -131,12 +131,12 @@ Each game's `desiredassets/[game]/ASSETS_NEEDED.md` has a Source Mapping section
 - [x] **Rhythm Hacker** music tracks: 5 WAV→MP3 conversions deployed, audio playback integrated into GameScene. Remaining: hand-crafted note charts for per-beat sync (currently BPM-based procedural), visual sprite upgrades.
 - [ ] **CTRL-S | The World**: Extract character bases from Mana Seed + Kings and Pigs, create portraits, backgrounds from CyberPunk/scifi packs. ~50 `[~]` items.
 - [x] **Snake Classic**: Head, body, apple, and dead sprites (32px) deployed with display-size scaling. Remaining: tail sprite, bomb sprite, wall sprites, power-up icons.
-- [ ] **Vortex Pong**: Extract pong assets from INSPO + firework particles for trails.
-- [x] **Matrix Cloud** bird sprite: Green bird (4 frames) from Flappy Bird Assets pack deployed with animation. Remaining: pipe sprites, background, 3 boss sprites (scratch), power-up icons.
+- [ ] **Vortex Pong**: Deferred — game uses Rectangle objects for paddles (not sprites); available assets are basic shapes with no visual improvement over procedural textures. Needs paddle→sprite refactor first.
+- [x] **Matrix Cloud** bird sprite: Green bird (4 frames) from Flappy Bird Assets pack deployed with animation. Pipe sprites integrated as tiling textures. Remaining: background, 3 boss sprites (scratch), power-up icons.
 - [x] **Matrix Invaders**: Player and 4 enemy sprites (classic pixel art, recoloured to Matrix palette) deployed with display-size scaling and tint-based shield feedback. Remaining: boss sprite, bullet sprites, power-up icons.
-- [ ] **Metris**: Extract tetris tiles from INSPO (4 variants available) + UI panels.
+- [ ] **Metris**: Deferred — game renders all cells via Graphics draw calls (no texture keys); needs rendering rewrite to image-per-cell before sprite integration is possible.
 - [x] **Matrix Frogger**: Vehicle sprites integrated (5 types: car1, car2, car3, truck, tractor). Remaining: frog death animation, environment tiles, power-up icons, WAV audio integration.
-- [ ] **Neo Jump**: Process Doodle RPG pack from INSPO (406 sprites).
+- [ ] **Neo Jump**: Deferred — Doodle RPG pack contains decorative tiles (rocks, fences), not platform/character sprites. Needs purpose-built sprites.
 - [x] **Agent Chase**: Player (rogue), 4 agent monsters, frightened slime, wall brick sprites integrated from 32rogues pack. Remaining: agent death animation, fruit icons, audio SFX.
 - [x] **Cloud Jumper**: 4 cloud sprites (wide, compact, small, peak) deployed with per-type tinting and display-size physics bodies. Remaining: player sprite, collectible sprites, obstacle sprites, background layers.
 - [x] **Code Breaker**: Brick sprites integrated (4 types: code, agent, sentinel, unbreakable). Remaining: laser sprites, paddle sprites, agent enemies, power-up icons, portal.
