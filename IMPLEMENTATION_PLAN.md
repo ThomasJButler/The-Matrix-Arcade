@@ -6,12 +6,12 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ## Current Status
 
-- **Status**: REBUILDING -- Phaser migration complete, asset pipeline bootstrapped, per-game sprite integration in progress
-- **Last Updated**: 12 April 2026 (R21 -- Agent Chase roguelike sprite integration)
+- **Status**: REBUILDING -- Phaser migration complete, asset pipeline bootstrapped, per-game sprite integration in progress, Rhythm Hacker music integrated
+- **Last Updated**: 12 April 2026 (R22 -- Rhythm Hacker music integration)
 - **Version**: v2.0.0 (next target)
 - **Games**: 12 playable (11 Phaser, 1 DOM)
 - **Build**: PASSES (code-split, main bundle ~372KB, Phaser vendor chunk 1,479KB) -- zero warnings
-- **Unit Tests**: 2,039 passing across 46 files, 0 failures
+- **Unit Tests**: 2,047 passing across 46 files, 0 failures
 - **E2E Tests**: 88 gameplay + 110 visual = 198 tests across 28 spec files -- last run PASSED (new screeenshots in TheMatrixArcade-/e2e, user manually ran the playwright test. 
 - **Asset Pipeline**: Phase 0a COMPLETE -- `public/assets/` deployed with fonts, audio, UI chrome, particles, icons (117 files, ~40MB)
 
@@ -29,6 +29,7 @@ All P0/P1/P2 bugs resolved across R1-R14 (12 April 2026). Key milestones:
 - **R19 Code Breaker brick sprite integration**: First per-game asset integration. Copied 4 brick sprites (code, agent, sentinel, unbreakable) from BBreaker asset pack to `public/assets/code-breaker/`. Updated BootScene to load sprites in preload with procedural texture fallbacks. Changed GameScene brick rendering from `Phaser.GameObjects.Rectangle` to `Phaser.GameObjects.Image` with `setDisplaySize()`. Fixed circular dependency TDZ crash in both BootScene and GameScene by removing module-level `const C = GAME_CONFIG` aliases (deferred to runtime access). All 127 unit tests pass.
 - **R20 Matrix Frogger vehicle sprite integration**: Second per-game asset integration. Copied 5 vehicle sprites (car1, car2, car3, truck, tractor) plus 2 flower ground tiles and frog sprites from frogger INSPO pack to `public/assets/matrix-frogger/`. Updated BootScene to load vehicle sprites with procedural rectangle fallbacks. Changed GameScene road lane rendering: bottom lanes (rows 5-7) now spawn pixel art vehicle sprites instead of Matrix agent textures, creating a gameplay progression from traffic to Matrix agents. Vehicles are 16x16 pixel art scaled 3x with pixelArt mode. Upper lanes (rows 1-3) retain agent/sentinel sprites. All 70 unit tests pass, 2,039 total.
 - **R21 Agent Chase roguelike sprite integration**: Third per-game asset integration. Extracted 7 sprites from 32rogues pixel art pack (rogues.png, monsters.png, tiles.png) using sips: player (rogue), 4 agents (death knight, reaper, lich, zombie), frightened state (small slime), wall tile (stone brick). Deployed to `public/assets/agent-chase/`. Updated BootScene with `loadCommonAssets()` override, `resizeLoadedSprite()` canvas-based downscaling to match game dimensions (32→18/20px), and `textures.exists()` fallback checks. Updated GameScene `updatePlayerRotation()` to use flipX in sprite mode vs angle rotation for procedural Pac-Man. All 96 unit tests pass, 2,039 total.
+- **R22 Rhythm Hacker music integration**: Installed ffmpeg via Homebrew (unblocking WAV→MP3 conversion). Converted 5 music tracks from WAV to MP3 at 192kbps with loudnorm normalisation: In The Moonlight (easy, 120s), Cyberpunkin' (normal, 150s), Cyberpsychotic (hard, 150s), Enhancements (insane, 200s), Resonance (insane, 180s). Deployed to `public/assets/rhythm-hacker/tracks/`. Also converted 3 additional global music tracks (cruise-control, a-last-embrace, ostcrunch2-epic) to `public/assets/audio/music/`. Updated config.ts with real track names, BPMs, durations, and audioUrl paths. Integrated HTML5 Audio playback into GameScene: music starts after countdown, pauses/resumes with game, stops on game over/track complete, respects mute state. Added togglePause override for audio sync. 8 new unit tests (58 total for Rhythm Hacker). All 2,047 tests pass. Build clean.
 - **R18 Global asset extraction + font integration**: Bootstrapped `public/assets/` from zero. Extracted 3 font families from ZIP archives (MatrixType 4 variants WOFF2+TTF, AlphaProta 2 variants WOFF2+TTF, 5 NotJam pixel fonts). Deployed 4 music tracks (MP3), 20 Matrix Trilogy SFX (WAV), hologram UI chrome (4 buttons, 5 card panels, 15 icons), 25 Matrix node icons (green+purple, PNG+WEBP+GIF), 21 firework particle frames (3 colours × 7 frames). Added `@font-face` declarations for all custom fonts with WOFF2→TTF fallback chain. Created 5 new CSS variables (`--matrix-font-title`, `--matrix-font-matrix`, `--matrix-font-cyber`, `--matrix-font-pixel`, `--matrix-font-hud`). Applied MatrixType Display to arcade title in App.tsx and LandingPage.tsx. Updated global ASSETS_NEEDED.md with deployment status. Total: 117 files, ~40MB. Blocker: WAV music tracks (7 files, ~280MB total) need ffmpeg for OGG/MP3 conversion.
 
 Full details in git history (`git log --oneline`).
@@ -59,6 +60,7 @@ All 12 P1 items fixed in R4-R5 (Metris bullet time, Matrix Cloud combo, CTRL-S s
 ### 2.1 Rhythm Hacker Improvements
 
 **File**: `src/components/games/phaser/RhythmHacker/scenes/GameScene.ts`
+- [x] Music tracks integrated (5 tracks with HTML5 Audio playback, BPM-synced procedural notes)
 - [ ] Sync gameplay to backing music track (currently procedurally generated notes). 5+ WAV tracks available in asset dump.
 - [ ] Improve visuals and animations (currently 100% procedural -- 28 textures auto-generated)
 
@@ -118,14 +120,14 @@ The `desiredassets/` folder contains a complete asset inventory with source mapp
 - [x] Pick 4 best font families from `NotJamFontPack/` -- Sci Mono, Mono Clean, UI, Pixel 5, Chunky Sans
 - [x] Copy `firework/` particles -- 3 colours × 7 frames = 21 PNGs
 - [x] Copy `Matrix-Icons/` (already extracted) -- 5 green + 5 purple node icons in PNG/WEBP/GIF
-- [ ] ⚠️ **BLOCKED**: WAV music tracks (7 files, ~280MB) need ffmpeg for OGG/MP3 conversion -- not available on system
+- [x] WAV music tracks converted to MP3 via ffmpeg (installed via Homebrew in R22). 5 rhythm tracks + 3 global tracks deployed.
 - [ ] ⚠️ **REMAINING**: Background textures, sci-fi UI panels, additional icon packs (still in ZIPs)
 
 ### 0b. Per-Game Asset Extraction (parallel with game fixes)
 
 Each game's `desiredassets/[game]/ASSETS_NEEDED.md` has a Source Mapping section. Work through `[~]` items:
 
-- [ ] **Rhythm Hacker** (HIGHEST PRIORITY -- music unlocks the game): Process 5+ WAV tracks from LongTracks/, create note charts to `public/assets/rhythm-hacker/`.
+- [x] **Rhythm Hacker** music tracks: 5 WAV→MP3 conversions deployed, audio playback integrated into GameScene. Remaining: hand-crafted note charts for per-beat sync (currently BPM-based procedural), visual sprite upgrades.
 - [ ] **CTRL-S | The World**: Extract character bases from Mana Seed + Kings and Pigs, create portraits, backgrounds from CyberPunk/scifi packs. ~50 `[~]` items.
 - [ ] **Snake Classic**: Extract snake sprites from INSPO + CyberPunk character anims, recolour.
 - [ ] **Vortex Pong**: Extract pong assets from INSPO + firework particles for trails.
@@ -305,8 +307,8 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 - No orphaned legacy code (cleaned up in R15)
 
 ### Gaps
-- Most games still use procedural textures -- Code Breaker has brick sprites, Matrix Frogger has vehicle sprites, Agent Chase has roguelike sprites, but remaining 9 games are fully procedural
-- WAV music tracks need ffmpeg conversion before deployment (7 tracks, ~280MB)
+- Most games still use procedural textures -- Code Breaker has brick sprites, Matrix Frogger has vehicle sprites, Agent Chase has roguelike sprites, Rhythm Hacker has music tracks, but remaining 8 games are fully procedural
+- Rhythm Hacker BPM values are estimates — may need tuning per track after playtesting
 - `useAdvancedVoice` AudioContext for visualisation never connected to speech output (always returns zeros)
 
 ---
@@ -321,4 +323,4 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 6. **Phase 6**: Final polish and testing pass
 7. Use `/matrix-arcade-gamedev` for game code, `/phaser-gamedev` for Phaser scenes, `/playwright-testing` for E2E
 8. Run `game-tester` agent after every code change
-9. **Blocker**: Install ffmpeg to convert WAV tracks → OGG/MP3 for web deployment
+9. ffmpeg installed via Homebrew (R22) — WAV conversion unblocked

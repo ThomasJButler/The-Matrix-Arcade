@@ -70,10 +70,11 @@ export const GAME_CONFIG = {
 
   /** Track settings */
   TRACKS: [
-    { name: 'EASY MODE', bpm: 100, duration: 60, difficulty: 'easy' },
-    { name: 'NORMAL MODE', bpm: 120, duration: 90, difficulty: 'normal' },
-    { name: 'HARD MODE', bpm: 140, duration: 120, difficulty: 'hard' },
-    { name: 'INSANE MODE', bpm: 180, duration: 150, difficulty: 'insane' },
+    { name: 'IN THE MOONLIGHT', bpm: 100, duration: 120, difficulty: 'easy', audioUrl: '/assets/rhythm-hacker/tracks/in-the-moonlight.mp3' },
+    { name: "CYBERPUNKIN'", bpm: 120, duration: 150, difficulty: 'normal', audioUrl: '/assets/rhythm-hacker/tracks/cyberpunkin.mp3' },
+    { name: 'CYBERPSYCHOTIC', bpm: 140, duration: 150, difficulty: 'hard', audioUrl: '/assets/rhythm-hacker/tracks/cyberpsychotic.mp3' },
+    { name: 'ENHANCEMENTS', bpm: 160, duration: 200, difficulty: 'insane', audioUrl: '/assets/rhythm-hacker/tracks/enhancements.mp3' },
+    { name: 'RESONANCE', bpm: 150, duration: 180, difficulty: 'insane', audioUrl: '/assets/rhythm-hacker/tracks/ostcrunch2-resonance.mp3' },
   ],
 } as const;
 
