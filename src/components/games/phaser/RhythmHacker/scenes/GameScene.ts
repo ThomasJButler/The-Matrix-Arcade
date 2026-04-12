@@ -246,14 +246,14 @@ export class RhythmHackerGameScene extends BaseScene {
     glow.fillRect(this.laneX[0] - LANES.WIDTH / 2 - 5, NOTES.HIT_LINE_Y - 20, LANES.WIDTH * 4 + LANES.SPACING * 3 + 10, 40);
     glow.setDepth(4);
 
-    // Key indicators
+    // Key indicators — positioned just below hit line with tight spacing
     this.laneX.forEach((x, i) => {
-      const key = this.add.image(x, NOTES.HIT_LINE_Y + 50, `key_${i}`);
+      const key = this.add.image(x, NOTES.HIT_LINE_Y + 35, `key_${i}`);
       key.setDepth(10);
       this.keyIndicators.push(key);
 
       // Key label
-      const label = this.add.text(x, NOTES.HIT_LINE_Y + 50, LANES.KEYS[i], {
+      const label = this.add.text(x, NOTES.HIT_LINE_Y + 35, LANES.KEYS[i], {
         fontFamily: '"Press Start 2P", monospace',
         fontSize: '20px',
         color: '#ffffff',
@@ -264,72 +264,86 @@ export class RhythmHackerGameScene extends BaseScene {
   }
 
   /**
-   * Create UI elements
+   * Create UI elements — positioned in the side gutters to keep the
+   * falling zone clear. Left gutter: score, time, track. Right gutter:
+   * health, combo. Grade floats above the hit line in the lane area.
    */
   private createUI(): void {
-    const { WIDTH } = GAME_CONFIG;
+    const { WIDTH, LANES } = GAME_CONFIG;
+
+    // Calculate gutter boundaries
+    const totalLaneWidth = LANES.COUNT * LANES.WIDTH + (LANES.COUNT - 1) * LANES.SPACING;
+    const leftGutterRight = (WIDTH - totalLaneWidth) / 2 - 15;
+    const rightGutterLeft = WIDTH - leftGutterRight + 15;
+
+    // --- LEFT GUTTER ---
 
     // Score
-    this.scoreText = this.add.text(20, 20, 'SCORE: 0', {
+    this.scoreText = this.add.text(20, 30, 'SCORE\n0', {
       fontFamily: '"Press Start 2P", monospace',
-      fontSize: '14px',
+      fontSize: '12px',
       color: MATRIX_COLORS.PRIMARY_HEX,
+      lineSpacing: 8,
     });
     this.scoreText.setDepth(100);
 
-    // Combo
-    this.comboText = this.add.text(WIDTH / 2, 100, '', {
+    // Time remaining
+    this.timeText = this.add.text(20, 100, `TIME\n${this.trackDuration}s`, {
       fontFamily: '"Press Start 2P", monospace',
-      fontSize: '24px',
+      fontSize: '10px',
       color: MATRIX_COLORS.CYAN_HEX,
+      lineSpacing: 6,
     });
-    this.comboText.setOrigin(0.5);
-    this.comboText.setDepth(100);
+    this.timeText.setDepth(100);
 
-    // Grade display
-    this.gradeText = this.add.text(WIDTH / 2, 150, '', {
+    // Track name (in left gutter, below time)
+    const track = GAME_CONFIG.TRACKS[this.trackIndex];
+    const trackName = this.add.text(20, 170, track.name, {
       fontFamily: '"Press Start 2P", monospace',
-      fontSize: '18px',
-      color: '#ffffff',
+      fontSize: '9px',
+      color: MATRIX_COLORS.PRIMARY_HEX,
+      wordWrap: { width: leftGutterRight - 20 },
     });
-    this.gradeText.setOrigin(0.5);
-    this.gradeText.setDepth(100);
+    trackName.setDepth(100);
 
-    // Health bar background
+    // --- RIGHT GUTTER ---
+
+    // Health label
+    const healthLabel = this.add.text(rightGutterLeft, 30, 'HEALTH', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '9px',
+      color: MATRIX_COLORS.PRIMARY_HEX,
+    });
+    healthLabel.setDepth(100);
+
+    // Health bar background (vertical bar in right gutter)
+    const healthBarWidth = Math.min(WIDTH - rightGutterLeft - 20, 140);
     const healthBg = this.add.graphics();
     healthBg.fillStyle(0x333333, 1);
-    healthBg.fillRect(WIDTH - 220, 20, 200, 20);
+    healthBg.fillRect(rightGutterLeft, 50, healthBarWidth, 16);
     healthBg.setDepth(100);
 
     // Health bar
     this.healthBar = this.add.graphics();
     this.healthBar.setDepth(100);
 
-    // Health label
-    const healthLabel = this.add.text(WIDTH - 220, 45, 'HEALTH', {
+    // Combo (in right gutter, below health)
+    this.comboText = this.add.text(rightGutterLeft, 100, '', {
       fontFamily: '"Press Start 2P", monospace',
-      fontSize: '10px',
-      color: MATRIX_COLORS.PRIMARY_HEX,
-    });
-    healthLabel.setDepth(100);
-
-    // Time remaining
-    this.timeText = this.add.text(20, 50, `TIME: ${this.trackDuration}s`, {
-      fontFamily: '"Press Start 2P", monospace',
-      fontSize: '10px',
+      fontSize: '16px',
       color: MATRIX_COLORS.CYAN_HEX,
+      wordWrap: { width: WIDTH - rightGutterLeft - 10 },
     });
-    this.timeText.setDepth(100);
+    this.comboText.setDepth(100);
 
-    // Track name
-    const track = GAME_CONFIG.TRACKS[this.trackIndex];
-    const trackName = this.add.text(WIDTH / 2, 50, track.name, {
+    // Grade display — centred above the hit line, in the lane area
+    this.gradeText = this.add.text(WIDTH / 2, 40, '', {
       fontFamily: '"Press Start 2P", monospace',
-      fontSize: '12px',
-      color: MATRIX_COLORS.PRIMARY_HEX,
+      fontSize: '18px',
+      color: '#ffffff',
     });
-    trackName.setOrigin(0.5);
-    trackName.setDepth(100);
+    this.gradeText.setOrigin(0.5);
+    this.gradeText.setDepth(100);
   }
 
   /**
@@ -832,17 +846,23 @@ export class RhythmHackerGameScene extends BaseScene {
    * Update UI
    */
   private updateUI(): void {
-    this.scoreText.setText(`SCORE: ${this.score}`);
+    this.scoreText.setText(`SCORE\n${this.score}`);
 
-    // Combo display
+    // Combo display (right gutter)
     if (this.combo >= 5) {
-      this.comboText.setText(`${this.combo} COMBO`);
+      this.comboText.setText(`${this.combo}\nCOMBO`);
       this.comboText.setVisible(true);
     } else {
       this.comboText.setVisible(false);
     }
 
-    // Health bar
+    // Health bar (right gutter)
+    const { WIDTH, LANES } = GAME_CONFIG;
+    const totalLaneWidth = LANES.COUNT * LANES.WIDTH + (LANES.COUNT - 1) * LANES.SPACING;
+    const leftGutterRight = (WIDTH - totalLaneWidth) / 2 - 15;
+    const rightGutterLeft = WIDTH - leftGutterRight + 15;
+    const healthBarWidth = Math.min(WIDTH - rightGutterLeft - 20, 140);
+
     this.healthBar.clear();
     const healthPercent = this.health / GAME_CONFIG.HEALTH.MAX;
     let healthColor = MATRIX_COLORS.PRIMARY;
@@ -852,11 +872,11 @@ export class RhythmHackerGameScene extends BaseScene {
       healthColor = 0x00aa00;
     }
     this.healthBar.fillStyle(healthColor, 1);
-    this.healthBar.fillRect(GAME_CONFIG.WIDTH - 218, 22, 196 * healthPercent, 16);
+    this.healthBar.fillRect(rightGutterLeft + 2, 52, (healthBarWidth - 4) * healthPercent, 12);
 
-    // Time remaining
+    // Time remaining (left gutter)
     const timeLeft = Math.max(0, this.trackDuration - Math.floor(this.gameTime / 1000));
-    this.timeText.setText(`TIME: ${timeLeft}s`);
+    this.timeText.setText(`TIME\n${timeLeft}s`);
 
     // Warning flash when time low
     if (timeLeft <= 10 && timeLeft > 0) {

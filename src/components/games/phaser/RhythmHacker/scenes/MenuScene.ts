@@ -64,9 +64,9 @@ export class RhythmHackerMenuScene extends BaseScene {
     // Background
     const bg = this.add.graphics();
     bg.fillStyle(MATRIX_COLORS.DARK_GREEN, 0.5);
-    bg.fillRoundedRect(-200, -30, 400, 60, 8);
+    bg.fillRoundedRect(-250, -30, 500, 60, 8);
     bg.lineStyle(2, MATRIX_COLORS.PRIMARY, 0.5);
-    bg.strokeRoundedRect(-200, -30, 400, 60, 8);
+    bg.strokeRoundedRect(-250, -30, 500, 60, 8);
 
     // Track name
     const text = this.add.text(0, -5, name, {
@@ -90,7 +90,7 @@ export class RhythmHackerMenuScene extends BaseScene {
     container.setData('text', text);
 
     // Interactive
-    const hitArea = new Phaser.Geom.Rectangle(-200, -30, 400, 60);
+    const hitArea = new Phaser.Geom.Rectangle(-250, -30, 500, 60);
     container.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains);
 
     container.on('pointerover', () => this.highlightTrack(index));
@@ -137,15 +137,15 @@ export class RhythmHackerMenuScene extends BaseScene {
       bg.clear();
       if (i === index) {
         bg.fillStyle(MATRIX_COLORS.PRIMARY, 0.3);
-        bg.fillRoundedRect(-200, -30, 400, 60, 8);
+        bg.fillRoundedRect(-250, -30, 500, 60, 8);
         bg.lineStyle(3, MATRIX_COLORS.PRIMARY, 1);
-        bg.strokeRoundedRect(-200, -30, 400, 60, 8);
+        bg.strokeRoundedRect(-250, -30, 500, 60, 8);
         text.setColor(MATRIX_COLORS.WHITE_HEX);
       } else {
         bg.fillStyle(MATRIX_COLORS.DARK_GREEN, 0.5);
-        bg.fillRoundedRect(-200, -30, 400, 60, 8);
+        bg.fillRoundedRect(-250, -30, 500, 60, 8);
         bg.lineStyle(2, MATRIX_COLORS.PRIMARY, 0.5);
-        bg.strokeRoundedRect(-200, -30, 400, 60, 8);
+        bg.strokeRoundedRect(-250, -30, 500, 60, 8);
         text.setColor(MATRIX_COLORS.PRIMARY_HEX);
       }
     });

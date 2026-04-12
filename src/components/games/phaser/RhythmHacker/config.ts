@@ -13,8 +13,8 @@ import { RhythmHackerGameOverScene } from './scenes/GameOverScene';
 
 /** Game constants */
 export const GAME_CONFIG = {
-  /** Game dimensions */
-  WIDTH: 600,
+  /** Game dimensions — widened from 600 to 800 to reduce pillarboxing in 16:9 container */
+  WIDTH: 800,
   HEIGHT: 700,
 
   /** Lane configuration */
@@ -31,7 +31,7 @@ export const GAME_CONFIG = {
     HEIGHT: 30,
     SPEED: 400, // pixels per second
     SPAWN_HEIGHT: -50,
-    HIT_LINE_Y: 600,
+    HIT_LINE_Y: 640,
     HOLD_WIDTH: 60,
   },
 
