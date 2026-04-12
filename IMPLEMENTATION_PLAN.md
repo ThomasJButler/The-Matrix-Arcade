@@ -7,7 +7,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ## Current Status
 
 - **Status**: REBUILDING -- Phaser migration of all React/Canvas games + new features
-- **Last Updated**: 12 April 2026 (R6 -- Matrix green palette applied to 4 Phaser games, HUD colour consistency)
+- **Last Updated**: 12 April 2026 (R7 -- Cloud Jumper 16:9 fix, Rhythm Hacker layout overhaul + note redesign)
 - **Version**: v2.0.0 (next target)
 - **Games**: 11 playable (6 React/Canvas to rebuild into Phaser, 5 already Phaser) + 1 planned (Code Breaker)
 - **Build**: PASSES (code-split, main bundle 370KB, Phaser vendor chunk 1,479KB) -- zero warnings
@@ -18,6 +18,16 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ### What Was Completed (v1.x to v2.0 prep)
 
 All P0/P1/P2 bugs resolved from v1.x. Test seams added to all games. E2E gameplay specs written (78 tests). Code quality fixes across 20+ hooks and components. Code-splitting reduced main bundle from 2.18MB to 370KB. Shared game registry created. Error boundaries added. Collision utility extracted. 5 Phaser games scaffolded (MatrixFrogger, NeoJump, AgentChase, RhythmHacker, CloudJumper) with full scene architecture. 12 rebuild research docs created in `rebuildingoldgames/plans/`. Asset inventory catalogued in `desiredassets/`. Full details in git history.
+
+### What Was Completed (R7 -- 12 April 2026)
+
+Cloud Jumper canvas width gap fixed: dimensions changed from 800x500 (8:5) to 800x450 (16:9) to match the game portal container's `aspect-[16/9]`, eliminating pillarbox black bars. Player start Y adjusted from 250 to 225. All gameplay references use GAME_CONFIG constants so no code changes needed beyond config.ts.
+
+Rhythm Hacker major layout overhaul: canvas widened from 600 to 800 (reduces pillarboxing from ~52% to ~36% in the 16:9 container), HIT_LINE_Y moved from 600 to 640 (notes now travel 690px instead of 650px, using more vertical space), key indicators tightened from +50 to +35 below hit line. HUD relocated from centre-top overlay (which obscured the falling zone) to side gutters — left gutter has score, time, and track name; right gutter has health bar and combo display. Grade text centred at top of play area, no longer in the falling zone. Menu buttons widened from 400px to 500px to fill the wider canvas proportionally.
+
+Note sprites completely redesigned: plain rounded rectangles replaced with circular glowing data-node design — outer ring, filled core, and bright highlight dot. Hold note tails changed from rectangles to small circles. Double note indicator changed from rectangular cyan border to diamond-shaped cyan outline. More visually distinctive and fitting for a Matrix-themed rhythm game about hacking code streams.
+
+All 1,899 tests passing, build clean, zero warnings.
 
 ### What Was Completed (R6 -- 12 April 2026)
 
@@ -206,10 +216,10 @@ These games work but have documented bugs from `rebuildingoldgames/bugs.md`.
 - [x] Reduce countdown from 10s to 5s (current 10s + 0.5s GO + 1s delay = 11.5s before gameplay -- far too long)
 - [ ] Sync gameplay to backing music track (currently procedurally generated notes). 5+ WAV tracks available in asset dump.
 - [ ] Improve visuals and animations (currently 100% procedural -- 28 textures auto-generated)
-- [ ] Fix play area layout — game content is crammed into centre-bottom of the canvas, leaving huge empty black regions. Notes/lanes should fill more of the vertical space.
+- [x] Fix play area layout — canvas widened 600→800, HIT_LINE_Y moved 600→640, HUD moved to side gutters, key indicators tightened
 - [x] Replace magenta/pink "EASY MODE" label and red "HEALTH" label with Matrix-green palette colours
 - [x] Replace multi-colour lane buttons (red/green/indigo/olive) with Matrix-themed colour variants (green/cyan/dark green/white) to maintain aesthetic consistency
-- [ ] Redesign note sprites — current angular arrow shape is unrecognisable as a musical note
+- [x] Redesign note sprites — circular glowing data-node design with ring, core, and highlight
 - [x] Initial countdown text is hardcoded to `'10'` at line 189 but actual duration comes from config — fix initialisation to use `GAME_CONFIG.COUNTDOWN.DURATION` (already fixed, this was done in R4)
 
 ### 2.2 Matrix Frogger Enhancements
@@ -245,7 +255,7 @@ From the screenshot review (12 Apr 2026, 156 screenshots across all 11 games + U
 ### 2.4 Cloud Jumper Visual Issues (NEW)
 
 **Files**: `src/components/games/phaser/CloudJumper/scenes/GameScene.ts`, `config.ts`
-- [ ] Fix canvas width gap — ~15-20% of right-side is empty black border. Game content doesn't fill the full canvas. Check PHASER_CONFIG width vs actual game world width.
+- [x] Fix canvas width gap — dimensions changed from 800x500 (8:5) to 800x450 (16:9), matching the game portal container
 - [x] Fix death sprite — player character becomes an unrecognisable dark oval blob on death. Either add a proper death animation or keep the player sprite visible during the death sequence.
 - [x] Change sky-blue background to Matrix green-on-black theme — full palette overhaul: all cloud textures, parallax backgrounds, collectibles, and obstacles recoloured to green/cyan/red Matrix palette
 - [x] Generate a unique menu thumbnail image (currently shares the same image as Neo Jump and Agent Chase)
@@ -621,8 +631,8 @@ All 17 hooks have unit tests. All Phaser games expose test state via `exposeTest
 - No keyboard retry pattern in ANY Phaser scene -- all 5 games + BaseScene + MenuScene + GameOverScene use `if (!this.input.keyboard) return;` with silent failure and no recovery
 - `useProceduralAudio`, `useViewportCulling`, `useInterval` hooks exist but are unused by any game
 - 4 legacy game files (AgentEscape, CrossyRoad, JimmyMatrix, MatrixAscension) remain as full components with tests but are not in GAME_REGISTRY -- orphaned code from pre-Phaser era
-- Cloud Jumper canvas has ~15-20% empty right border (width mismatch), death sprite is an unrecognisable blob
-- Rhythm Hacker play area severely underutilised (game content crammed into centre-bottom), non-Matrix colour scheme (magenta/red/multi-colour lane buttons)
+- ~~Cloud Jumper canvas width gap~~ -- Fixed in R7 (dimensions changed to 16:9)
+- ~~Rhythm Hacker play area layout~~ -- Fixed in R7 (widened canvas, side HUD, circular note sprites)
 - Matrix Frogger score stuck at 0 in screenshots, unrendered floating UI box, player too small to distinguish from enemies
 - Neo Jump has a ghost/duplicate grey progress bar below JETPACK indicator
 - Neo Jump W key not mapped for WASD jetpack users (only A/D are bound)

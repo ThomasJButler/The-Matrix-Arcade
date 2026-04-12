@@ -53,6 +53,7 @@ export function PhaserGame({
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
   const [hasFocus, setHasFocus] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
   const { playSFX, toggleMute } = useSoundSystem();
   const { updateGameSave, unlockAchievement: unlockSaveAchievement } = useSaveSystem();
 
@@ -210,7 +211,12 @@ export function PhaserGame({
   // Auto-refocus when hovering over the game — prevents keyboard input
   // from silently failing after the user clicks outside the game area
   const handleMouseEnter = useCallback(() => {
+    setIsHovering(true);
     containerRef.current?.focus();
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsHovering(false);
   }, []);
 
   return (
@@ -228,12 +234,15 @@ export function PhaserGame({
       tabIndex={0}
       onClick={handleContainerClick}
       onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       onFocus={() => setHasFocus(true)}
       onBlur={() => setHasFocus(false)}
     >
-      {/* Click-to-play overlay shown when focus is lost — clickable so
-          keyboard-only users can recover focus via assistive tech or Tab */}
-      {!hasFocus && (
+      {/* Click-to-play overlay shown when focus is lost AND mouse is not
+          over the canvas — suppressed while hovering because onMouseEnter
+          already calls focus(), preventing a flicker during active play.
+          Remains visible when the user has tabbed away entirely. */}
+      {!hasFocus && !isHovering && (
         <div
           onClick={handleContainerClick}
           role="button"

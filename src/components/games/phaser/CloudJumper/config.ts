@@ -13,9 +13,9 @@ import { CloudJumperGameOverScene } from './scenes/GameOverScene';
 
 /** Game constants */
 export const GAME_CONFIG = {
-  /** Game dimensions */
+  /** Game dimensions — 16:9 to match the game portal container */
   WIDTH: 800,
-  HEIGHT: 500,
+  HEIGHT: 450,
 
   /** Player settings */
   PLAYER: {
@@ -25,7 +25,7 @@ export const GAME_CONFIG = {
     GRAVITY: 800,
     MAX_FALL_SPEED: 500,
     START_X: 150,
-    START_Y: 250,
+    START_Y: 225,
   },
 
   /** Cloud/platform settings */

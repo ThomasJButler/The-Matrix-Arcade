@@ -27,44 +27,66 @@ export class RhythmHackerBootScene extends BootScene {
   }
 
   /**
-   * Create note textures for each lane
+   * Create note textures for each lane — circular data-node design
+   * with glowing rings, more recognisable than plain rectangles.
    */
   private createNoteTextures(): void {
     const { LANES, NOTES } = GAME_CONFIG;
+    const noteSize = NOTES.HEIGHT; // 30px — used as both width and height for circular notes
 
     LANES.COLORS.forEach((color, index) => {
-      // Normal note
+      // Normal note — glowing data node (circle with ring and core)
       const g = this.add.graphics();
+      const cx = noteSize / 2;
+      const cy = noteSize / 2;
+      const outerR = noteSize / 2 - 2;
+      const innerR = outerR * 0.55;
+
+      // Outer glow ring
+      g.lineStyle(3, color, 0.8);
+      g.strokeCircle(cx, cy, outerR);
+      // Filled core
       g.fillStyle(color, 1);
-      g.fillRoundedRect(0, 0, LANES.WIDTH - 10, NOTES.HEIGHT, 8);
-      g.lineStyle(2, 0xffffff, 0.5);
-      g.strokeRoundedRect(0, 0, LANES.WIDTH - 10, NOTES.HEIGHT, 8);
-      // Highlight
-      g.fillStyle(0xffffff, 0.3);
-      g.fillRoundedRect(4, 4, LANES.WIDTH - 18, 8, 4);
-      g.generateTexture(`note_${index}`, LANES.WIDTH - 10, NOTES.HEIGHT);
+      g.fillCircle(cx, cy, innerR);
+      // Bright highlight dot
+      g.fillStyle(0xffffff, 0.6);
+      g.fillCircle(cx - 2, cy - 2, innerR * 0.4);
+
+      g.generateTexture(`note_${index}`, noteSize, noteSize);
       g.destroy();
 
       // Hold note body
       const hg = this.add.graphics();
-      hg.fillStyle(color, 0.6);
+      hg.fillStyle(color, 0.5);
       hg.fillRect(0, 0, NOTES.HOLD_WIDTH, 10);
+      hg.lineStyle(1, color, 0.3);
+      hg.strokeRect(0, 0, NOTES.HOLD_WIDTH, 10);
       hg.generateTexture(`hold_${index}`, NOTES.HOLD_WIDTH, 10);
       hg.destroy();
 
-      // Hold note tail
+      // Hold note tail — smaller circle at end of hold
       const tg = this.add.graphics();
-      tg.fillStyle(color, 1);
-      tg.fillRoundedRect(0, 0, LANES.WIDTH - 10, NOTES.HEIGHT / 2, 4);
-      tg.generateTexture(`hold_tail_${index}`, LANES.WIDTH - 10, NOTES.HEIGHT / 2);
+      const tailR = noteSize / 4;
+      tg.fillStyle(color, 0.8);
+      tg.fillCircle(tailR, tailR, tailR);
+      tg.generateTexture(`hold_tail_${index}`, noteSize / 2, noteSize / 2);
       tg.destroy();
     });
 
-    // Double note indicator (cyan border)
+    // Double note indicator — pulsing outer diamond/ring
     const dg = this.add.graphics();
-    dg.lineStyle(4, MATRIX_COLORS.CYAN, 1);
-    dg.strokeRoundedRect(2, 2, LANES.WIDTH - 14, NOTES.HEIGHT - 4, 6);
-    dg.generateTexture('double_indicator', LANES.WIDTH - 10, NOTES.HEIGHT);
+    const dcx = noteSize / 2;
+    const dcy = noteSize / 2;
+    dg.lineStyle(3, MATRIX_COLORS.CYAN, 1);
+    // Diamond shape around the note
+    dg.beginPath();
+    dg.moveTo(dcx, 1);
+    dg.lineTo(noteSize - 1, dcy);
+    dg.lineTo(dcx, noteSize - 1);
+    dg.lineTo(1, dcy);
+    dg.closePath();
+    dg.strokePath();
+    dg.generateTexture('double_indicator', noteSize, noteSize);
     dg.destroy();
   }
 
