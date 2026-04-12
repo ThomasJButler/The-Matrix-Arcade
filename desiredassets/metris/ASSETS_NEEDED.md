@@ -1,5 +1,15 @@
 # Metris — Asset Requirements
 
+## Source Mapping
+
+| Asset Category | Source | Location |
+|---|---|---|
+| Tetris tile variants | INSPO/metris/tetrissprites | 4 styles: 1-bit B&W, 1-bit green, 1-bit inverted, 8-bit coloured |
+| UI panels (Hold/Next/Score) | DUMP/1. Free Hologram Interface Wenrexa | Card X* directories for panels |
+| Sound Effects | DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects | SFX kit for all game sounds |
+| Background Music | DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/LongTracks | Tetris tempo-based tracks |
+| Score Display Fonts | DUMP/NotJamFontPack | Multiple font families available |
+
 ## Currently Available (in rebuildingoldgames/inspirationimagesandsprites/metris/)
 
 - [x] Tetris tile set — 4 variants (1-bit B&W, 1-bit green, 1-bit inverted, 8-bit coloured) by Zro Dfects
@@ -10,7 +20,7 @@
 
 ### Blocks / Tetrominoes (7 pieces × unique colour each)
 - [x] Coloured tile sprites — 8-bit coloured variant available
-- [ ] Individual tile sprites per tetromino colour (I=cyan, O=yellow, T=purple, S=green, Z=red, J=blue, L=orange) — 32×32 each
+- [~] Individual tile sprites per tetromino colour (I=cyan, O=yellow, T=purple, S=green, Z=red, J=blue, L=orange) — 32×32 each — SOURCE: INSPO/metris/tetrissprites/Main Individual Tile Assets
 - [ ] Ghost piece tile (translucent/outline version of each colour) — 32×32
 - [ ] Locked/placed tile variant (slightly darker, settled look)
 - [ ] Line clear flash tile — bright white/gold version, 32×32
@@ -22,10 +32,10 @@
 - [ ] Grid top fade (pieces enter from above)
 
 ### UI Panels
-- [ ] Hold piece panel background — ~128×128
-- [ ] Next piece preview panel — ~128×384 (shows 3 upcoming)
-- [ ] Score panel background
-- [ ] Level display panel
+- [~] Hold piece panel background — ~128×128 — SOURCE: DUMP/1. Free Hologram Interface Wenrexa/Card X*
+- [~] Next piece preview panel — ~128×384 (shows 3 upcoming) — SOURCE: DUMP/1. Free Hologram Interface Wenrexa/Card X*
+- [~] Score panel background — SOURCE: DUMP/1. Free Hologram Interface Wenrexa/Card X*
+- [~] Level display panel — SOURCE: DUMP/1. Free Hologram Interface Wenrexa/Card X*
 - [ ] Combo counter popup
 - [ ] Bullet time meter bar (fill + frame)
 - [ ] T-spin indicator flash
@@ -43,16 +53,16 @@
 - [ ] Level-based background variants (optional — gets more intense at higher levels)
 
 ### Audio
-- [ ] Piece move (soft click)
-- [ ] Piece rotate
-- [ ] Piece hard drop (impact thud)
-- [ ] Piece soft drop
-- [ ] Single line clear
-- [ ] Double/triple line clear (bigger sound)
-- [ ] Tetris (4 lines) fanfare
-- [ ] T-spin sound
-- [ ] Bullet time activate
-- [ ] Bullet time deactivate
-- [ ] Level up jingle
-- [ ] Game over dramatic sting
-- [ ] Background music (electronic, tempo increases with level, loopable)
+- [~] Piece move (soft click) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
+- [~] Piece rotate — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
+- [~] Piece hard drop (impact thud) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
+- [~] Piece soft drop — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
+- [~] Single line clear — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
+- [~] Double/triple line clear (bigger sound) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
+- [~] Tetris (4 lines) fanfare — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
+- [~] T-spin sound — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
+- [~] Bullet time activate — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
+- [~] Bullet time deactivate — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
+- [~] Level up jingle — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
+- [~] Game over dramatic sting — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
+- [~] Background music (electronic, tempo increases with level, loopable) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/LongTracks
