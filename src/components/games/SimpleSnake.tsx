@@ -344,7 +344,7 @@ const SnakeMenu: React.FC<SnakeMenuProps> = ({ gameState, score, highScore, onSt
   );
 };
 
-export default function SimpleSnake({ isMuted, autoStart = false }: SimpleSnakeProps) {
+export default function SimpleSnake({ achievementManager, isMuted, autoStart = false }: SimpleSnakeProps) {
   const { saveData, updateGameSave, unlockAchievement } = useSaveSystem();
   const { playSFX: playSoundEffect } = useSoundSystem();
 
@@ -442,32 +442,37 @@ export default function SimpleSnake({ isMuted, autoStart = false }: SimpleSnakeP
   useEffect(() => {
     // First Apple: First food collected
     if (gameState.score > 0 && foodEatenRef.current === 0) {
+      achievementManager?.unlockAchievement('snakeClassic', 'snake_first_apple');
       unlockAchievement('snakeClassic', 'snake_first_apple');
       foodEatenRef.current = 1;
     }
 
     // Score achievements
     if (gameState.score >= 100 && scoreRef.current < 100) {
+      achievementManager?.unlockAchievement('snakeClassic', 'snake_score_100');
       unlockAchievement('snakeClassic', 'snake_score_100');
     }
     if (gameState.score >= 500 && scoreRef.current < 500) {
+      achievementManager?.unlockAchievement('snakeClassic', 'snake_score_500');
       unlockAchievement('snakeClassic', 'snake_score_500');
     }
 
     // Chain Reaction: Eat 10 consecutive food items
     if (gameState.consecutiveFood >= 10 && consecutiveFoodRef.current < 10) {
+      achievementManager?.unlockAchievement('snakeClassic', 'snake_combo_10');
       unlockAchievement('snakeClassic', 'snake_combo_10');
     }
     consecutiveFoodRef.current = gameState.consecutiveFood;
 
     // Power User: Collect 10 power-ups in one game
     if (gameState.powerUpsCollected >= 10 && powerUpsCollectedRef.current < 10) {
+      achievementManager?.unlockAchievement('snakeClassic', 'snake_power_master');
       unlockAchievement('snakeClassic', 'snake_power_master');
     }
     powerUpsCollectedRef.current = gameState.powerUpsCollected;
 
     scoreRef.current = gameState.score;
-  }, [gameState.score, gameState.consecutiveFood, gameState.powerUpsCollected, unlockAchievement]);
+  }, [gameState.score, gameState.consecutiveFood, gameState.powerUpsCollected, achievementManager, unlockAchievement]);
 
   // Track play time and save on game over
   useEffect(() => {
@@ -499,18 +504,20 @@ export default function SimpleSnake({ isMuted, autoStart = false }: SimpleSnakeP
         });
       }, 100);
 
-      // Achievements - using useSaveSystem as single source of truth
+      // Achievements - dual-call pattern for UI notifications and persistence
       // Survivor: Play for 5 minutes
       if (playTime >= 300) {
+        achievementManager?.unlockAchievement('snakeClassic', 'snake_survivor');
         unlockAchievement('snakeClassic', 'snake_survivor');
       }
 
       // Speed Demon: Score 100+ at max speed
       if (gameState.score >= 100 && (gameState.level || 1) >= 10) {
+        achievementManager?.unlockAchievement('snakeClassic', 'snake_speed_demon');
         unlockAchievement('snakeClassic', 'snake_speed_demon');
       }
     }
-  }, [gameState.gameState, gameState.score, gameState.level, gameState.snake, saveData, updateGameSave, unlockAchievement]);
+  }, [gameState.gameState, gameState.score, gameState.level, gameState.snake, saveData, updateGameSave, achievementManager, unlockAchievement]);
 
   // Sound effects using wrapper function (isMuted check encapsulated)
   useEffect(() => {

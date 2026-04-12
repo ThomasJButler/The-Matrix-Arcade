@@ -709,23 +709,9 @@ export default function MatrixCloud({ achievementManager, isMuted = false, autoS
         if (checkCollision(playerBox, topPipe) || checkCollision(playerBox, bottomPipe)) {
           newState = handleCollision(newState);
           if (newState.gamePhase === 'gameOver') return newState;
-        }
-
-        // Additional failsafe: Check if player Y position falls within the gap but might have slipped through
-        // This catches edge cases where the hitbox check might miss due to fast movement
-        const playerCenterX = playerBox.x + playerBox.width / 2;
-        const playerCenterY = playerBox.y + playerBox.height / 2;
-
-        if (playerCenterX >= pipe.x - 5 && playerCenterX <= pipe.x + 54 + 5) {
-          // Player is aligned with pipe horizontally, check vertical position
-          if (playerCenterY < pipe.height || playerCenterY > pipe.height + PIPE_GAP) {
-            // Player center is in the pipe collision zone
-            if (!checkCollision(playerBox, topPipe) && !checkCollision(playerBox, bottomPipe)) {
-              // This shouldn't happen but catch it anyway
-              newState = handleCollision(newState);
-              if (newState.gamePhase === 'gameOver') return newState;
-            }
-          }
+          // Mark pipe as passed on collision so no score is awarded
+          pipesToMark.add(i);
+          continue;
         }
 
         // Score points
@@ -878,6 +864,8 @@ export default function MatrixCloud({ achievementManager, isMuted = false, autoS
               unlockAchievement('matrixCloud', 'cloud_boss_slayer');
             } else if (updatedBoss.type === 'architect') {
               unlockAchievement('matrixCloud', 'cloud_architect_defeat');
+            } else if (updatedBoss.type === 'sentinel') {
+              unlockAchievement('matrixCloud', 'cloud_sentinel_defeat');
             }
 
             // Track all bosses defeated

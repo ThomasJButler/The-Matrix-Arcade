@@ -10,6 +10,7 @@ import matrixInvadersPreview from '../images/matrixinvaders.webp';
 import metrisPreview from '../images/metris.webp';
 
 export interface GameEntry {
+  id: string;
   title: string;
   description: string;
   preview: string;
@@ -25,6 +26,7 @@ export interface GameEntry {
  */
 export const GAME_REGISTRY: GameEntry[] = [
   {
+    id: 'ctrl-s-world',
     title: 'CTRL-S | The World',
     description: 'A hilarious text adventure about saving the digital world across 5 chapters.',
     preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
@@ -34,6 +36,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     controls: 'Type commands, use arrow keys to navigate, ENTER to confirm choices',
   },
   {
+    id: 'snake-classic',
     title: 'Snake Classic',
     description: 'Navigate through the matrix collecting data fragments to grow longer.',
     preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1737071599/matrixsnake2_jw29w1.png',
@@ -43,6 +46,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     controls: 'Arrow keys to move, SPACE to toggle direction mode',
   },
   {
+    id: 'vortex-pong',
     title: 'Vortex Pong',
     description: 'Battle a ruthless AI opponent in a hypnotic arena with power-ups.',
     preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1737071596/vortexpong2_hkjn4k.png',
@@ -52,6 +56,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     controls: 'Mouse to move paddle, SPACE to hit ball',
   },
   {
+    id: 'matrix-cloud',
     title: 'Matrix Cloud',
     description: 'Navigate through gaps in the digital storm — one wrong move and you crash.',
     preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1737071594/matrixcloud_rw8hsa.png',
@@ -61,6 +66,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     controls: 'SPACE or Click to flap, avoid obstacles',
   },
   {
+    id: 'matrix-invaders',
     title: 'Matrix Invaders',
     description: 'Defend against waves of code invaders with bullet time and combo chains.',
     preview: matrixInvadersPreview,
@@ -70,6 +76,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     controls: 'Arrow keys to move, SPACE to fire, B to activate bullet time',
   },
   {
+    id: 'metris',
     title: 'Metris',
     description: 'Stack falling code blocks, clear lines, and activate bullet time mode.',
     preview: metrisPreview,
@@ -79,6 +86,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     controls: 'Arrow keys to move, Z/X to rotate, SPACE to drop, B for bullet time',
   },
   {
+    id: 'matrix-frogger',
     title: 'Matrix Frogger',
     description: 'Cross dangerous lanes packed with Agents and Sentinels to reach safety.',
     preview: matrixFroggerPreview,
@@ -88,6 +96,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     controls: 'Arrow keys to move between lanes',
   },
   {
+    id: 'neo-jump',
     title: 'Neo Jump',
     description: 'Jump through simulation layers, collect power-ups, and reach The Source.',
     preview: neoJumpPreview,
@@ -97,6 +106,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     controls: 'Arrow keys to move left/right, SPACE to jump',
   },
   {
+    id: 'agent-chase',
     title: 'Agent Chase',
     description: 'Navigate a maze collecting data pills while evading the relentless Agent Smith.',
     preview: agentChasePreview,
@@ -106,6 +116,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     controls: 'Arrow keys to move, SPACE to use power-up',
   },
   {
+    id: 'rhythm-hacker',
     title: 'Rhythm Hacker',
     description: 'Hack through streams of falling code by hitting keys in time with the beat.',
     preview: rhythmHackerPreview,
@@ -115,6 +126,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     controls: 'Press keys (1, 2, 3, 4) or Arrow keys to hit notes',
   },
   {
+    id: 'cloud-jumper',
     title: 'Cloud Jumper',
     description: 'Leap between clouds in the digital sky, collecting fragments and avoiding the void.',
     preview: cloudJumperPreview,

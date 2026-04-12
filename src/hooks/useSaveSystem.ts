@@ -623,13 +623,7 @@ export function useSaveSystem() {
   // Unlock achievement
   const unlockAchievement = useCallback((gameId: keyof GlobalSaveData['games'], achievementId: string) => {
     setSaveData(prev => {
-      const gameData = prev.games[gameId] || {
-        highScore: 0,
-        totalScore: 0,
-        gamesPlayed: 0,
-        achievements: [],
-        lastPlayed: Date.now()
-      };
+      const gameData = prev.games[gameId] ?? createDefaultGameSave();
 
       const currentAchievements = gameData.achievements || [];
 
