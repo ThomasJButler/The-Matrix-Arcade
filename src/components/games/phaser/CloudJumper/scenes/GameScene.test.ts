@@ -442,9 +442,10 @@ describe('CloudJumperGameScene', () => {
       expect(scene.isGameOver).toBe(true);
     });
 
-    it('tints player red on death', () => {
+    it('switches to death texture on death', () => {
       scene.playerDeath();
-      expect(scene.player.setTint).toHaveBeenCalledWith(0xff0000);
+      expect(scene.player.setTexture).toHaveBeenCalledWith('player_dead');
+      expect(scene.player.clearTint).toHaveBeenCalled();
     });
 
     it('starts death animation tween', () => {

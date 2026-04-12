@@ -205,7 +205,7 @@ export class FroggerGameScene extends BaseScene {
     const y = this.rowToY(this.playerRow);
 
     this.player = this.physics.add.sprite(x, y, 'player', 0);
-    this.player.setScale(0.8);
+    this.player.setScale(1.0);
     this.player.setDepth(10);
     this.player.play('player_idle');
 
@@ -319,12 +319,12 @@ export class FroggerGameScene extends BaseScene {
         this.isMoving = false;
         this.player.play('player_idle');
 
-        // Score for forward movement
+        // Score for forward movement — always reward forward steps
         if (wasForward) {
+          this.addScore(GAME_CONFIG.SCORING.STEP_FORWARD);
           const distance = GAME_CONFIG.PLAYER.START_ROW - row;
           if (distance > this.maxDistance) {
             this.maxDistance = distance;
-            this.addScore(GAME_CONFIG.SCORING.STEP_FORWARD);
           }
         }
 

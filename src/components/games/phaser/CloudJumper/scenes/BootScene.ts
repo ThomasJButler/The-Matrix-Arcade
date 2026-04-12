@@ -38,19 +38,19 @@ export class CloudJumperBootScene extends BootScene {
     const g = this.add.graphics();
     const size = GAME_CONFIG.PLAYER.WIDTH;
 
-    // Simple character - small figure
-    g.fillStyle(0x4444ff, 1);
+    // Matrix-themed character — green figure
+    g.fillStyle(0x00cc00, 1);
     // Body
     g.fillRoundedRect(8, 12, 16, 16, 4);
     // Head
-    g.fillStyle(0xffcc99, 1);
+    g.fillStyle(0x00ff00, 1);
     g.fillCircle(16, 8, 6);
     // Legs
-    g.fillStyle(0x333333, 1);
+    g.fillStyle(0x006600, 1);
     g.fillRect(10, 26, 4, 6);
     g.fillRect(18, 26, 4, 6);
     // Arms (spread for flying pose)
-    g.fillStyle(0x4444ff, 1);
+    g.fillStyle(0x00cc00, 1);
     g.fillRect(2, 14, 8, 4);
     g.fillRect(22, 14, 8, 4);
 
@@ -59,19 +59,43 @@ export class CloudJumperBootScene extends BootScene {
 
     // Player falling texture
     const fg = this.add.graphics();
-    fg.fillStyle(0x4444ff, 1);
+    fg.fillStyle(0x00cc00, 1);
     fg.fillRoundedRect(8, 12, 16, 16, 4);
-    fg.fillStyle(0xffcc99, 1);
+    fg.fillStyle(0x00ff00, 1);
     fg.fillCircle(16, 8, 6);
-    fg.fillStyle(0x333333, 1);
+    fg.fillStyle(0x006600, 1);
     fg.fillRect(10, 26, 4, 6);
     fg.fillRect(18, 26, 4, 6);
     // Arms up
-    fg.fillStyle(0x4444ff, 1);
+    fg.fillStyle(0x00cc00, 1);
     fg.fillRect(6, 4, 4, 10);
     fg.fillRect(22, 4, 4, 10);
     fg.generateTexture('player_fall', size, size);
     fg.destroy();
+
+    // Player death texture — glitch/dissolve effect
+    const dg = this.add.graphics();
+    // Fragmented body — glitch blocks scattered
+    dg.fillStyle(0x660000, 0.8);
+    dg.fillRect(6, 10, 8, 8);
+    dg.fillRect(18, 14, 6, 6);
+    dg.fillRect(10, 22, 10, 4);
+    // Static noise fragments
+    dg.fillStyle(0x00ff00, 0.4);
+    dg.fillRect(4, 6, 4, 4);
+    dg.fillRect(24, 8, 4, 4);
+    dg.fillRect(14, 2, 4, 4);
+    dg.fillStyle(0xff0000, 0.6);
+    dg.fillRect(12, 16, 4, 4);
+    dg.fillRect(20, 22, 4, 4);
+    // X-eyes
+    dg.lineStyle(2, 0xff0000, 1);
+    dg.lineBetween(12, 6, 16, 10);
+    dg.lineBetween(16, 6, 12, 10);
+    dg.lineBetween(20, 6, 24, 10);
+    dg.lineBetween(24, 6, 20, 10);
+    dg.generateTexture('player_dead', size, size);
+    dg.destroy();
   }
 
   /**

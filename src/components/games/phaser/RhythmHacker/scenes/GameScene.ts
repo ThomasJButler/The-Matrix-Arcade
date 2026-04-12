@@ -213,7 +213,7 @@ export class RhythmHackerGameScene extends BaseScene {
       this.countdownText.setText(countdownSeconds.toString());
     } else if (countdownSeconds <= 0 && this.countdownTime < GO_DISPLAY_END) {
       this.countdownText.setText('GO!');
-      this.countdownText.setColor(MATRIX_COLORS.YELLOW_HEX);
+      this.countdownText.setColor(MATRIX_COLORS.CYAN_HEX);
     } else {
       // Countdown finished — reset note spawn timing since gameTime
       // now starts at 0 after countdown (not during)
@@ -281,7 +281,7 @@ export class RhythmHackerGameScene extends BaseScene {
     this.comboText = this.add.text(WIDTH / 2, 100, '', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '24px',
-      color: MATRIX_COLORS.YELLOW_HEX,
+      color: MATRIX_COLORS.CYAN_HEX,
     });
     this.comboText.setOrigin(0.5);
     this.comboText.setDepth(100);
@@ -309,7 +309,7 @@ export class RhythmHackerGameScene extends BaseScene {
     const healthLabel = this.add.text(WIDTH - 220, 45, 'HEALTH', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '10px',
-      color: MATRIX_COLORS.RED_HEX,
+      color: MATRIX_COLORS.PRIMARY_HEX,
     });
     healthLabel.setDepth(100);
 
@@ -326,7 +326,7 @@ export class RhythmHackerGameScene extends BaseScene {
     const trackName = this.add.text(WIDTH / 2, 50, track.name, {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '12px',
-      color: MATRIX_COLORS.MAGENTA_HEX,
+      color: MATRIX_COLORS.PRIMARY_HEX,
     });
     trackName.setOrigin(0.5);
     trackName.setDepth(100);
@@ -342,10 +342,10 @@ export class RhythmHackerGameScene extends BaseScene {
     }
 
     const keyCodes = [
-      Phaser.Input.Keyboard.KeyCodes.D,
-      Phaser.Input.Keyboard.KeyCodes.F,
-      Phaser.Input.Keyboard.KeyCodes.J,
-      Phaser.Input.Keyboard.KeyCodes.K,
+      Phaser.Input.Keyboard.KeyCodes.Q,
+      Phaser.Input.Keyboard.KeyCodes.W,
+      Phaser.Input.Keyboard.KeyCodes.O,
+      Phaser.Input.Keyboard.KeyCodes.P,
     ];
 
     keyCodes.forEach((code, lane) => {
@@ -561,10 +561,10 @@ export class RhythmHackerGameScene extends BaseScene {
    */
   private showGrade(grade: TimingGrade, x: number, y: number): void {
     const colors: Record<TimingGrade, string> = {
-      perfect: '#ffd700',
+      perfect: '#00ffff',
       great: '#00ff00',
-      good: '#00aaff',
-      miss: '#ff0000',
+      good: '#00aa00',
+      miss: '#660000',
     };
 
     const gradeText = this.add.text(x, y, grade.toUpperCase(), {
@@ -847,9 +847,9 @@ export class RhythmHackerGameScene extends BaseScene {
     const healthPercent = this.health / GAME_CONFIG.HEALTH.MAX;
     let healthColor = MATRIX_COLORS.PRIMARY;
     if (healthPercent < 0.3) {
-      healthColor = 0xff0000;
+      healthColor = MATRIX_COLORS.DARK_GREEN;
     } else if (healthPercent < 0.6) {
-      healthColor = MATRIX_COLORS.YELLOW;
+      healthColor = 0x00aa00;
     }
     this.healthBar.fillStyle(healthColor, 1);
     this.healthBar.fillRect(GAME_CONFIG.WIDTH - 218, 22, 196 * healthPercent, 16);
@@ -860,7 +860,7 @@ export class RhythmHackerGameScene extends BaseScene {
 
     // Warning flash when time low
     if (timeLeft <= 10 && timeLeft > 0) {
-      this.timeText.setColor(Math.floor(this.gameTime / 200) % 2 === 0 ? '#ff0000' : '#ffff00');
+      this.timeText.setColor(Math.floor(this.gameTime / 200) % 2 === 0 ? '#005500' : '#00ff00');
     }
   }
 

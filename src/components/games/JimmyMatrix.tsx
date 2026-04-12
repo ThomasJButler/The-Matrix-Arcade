@@ -310,16 +310,6 @@ export default function JimmyMatrix({ achievementManager, isMuted = false, autoS
     }
   }, [currentTrack, speedMultiplier]);
 
-  // Check timing grade (used for timing calculations)
-  const _getTimingGrade = useCallback((timeDiff: number): TimingGrade | null => {
-    const absDiff = Math.abs(timeDiff);
-    if (absDiff <= PERFECT_WINDOW) return 'perfect';
-    if (absDiff <= GREAT_WINDOW) return 'great';
-    if (absDiff <= GOOD_WINDOW) return 'good';
-    if (absDiff <= MISS_WINDOW) return null; // Can still try
-    return 'miss';
-  }, []);
-
   // Handle note hit
   const tryHitNote = useCallback((lane: number) => {
     const currentTime = gameTimeRef.current;
@@ -331,7 +321,6 @@ export default function JimmyMatrix({ achievementManager, isMuted = false, autoS
 
     for (const note of notesRef.current) {
       if (note.lane === lane && !note.hit && !note.missed) {
-        const _timeDiff = currentTime - (note.targetTime - travelTime + (note.y - NOTE_SPAWN_Y) / (NOTE_FALL_SPEED * speedMultiplier) * 1000);
         const expectedY = NOTE_SPAWN_Y + (currentTime - (note.targetTime - travelTime)) / 1000 * NOTE_FALL_SPEED * speedMultiplier;
         const yDiff = Math.abs(expectedY - HIT_LINE_Y);
         const timeFromHit = yDiff / (NOTE_FALL_SPEED * speedMultiplier) * 1000;

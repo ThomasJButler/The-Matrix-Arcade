@@ -73,7 +73,6 @@ const DOT = 2;
 const POWER_PELLET = 3;
 const EMPTY = 0;
 const GHOST_HOUSE = 4;
-const _TUNNEL = 5;
 
 // Classic Pacman-style maze (28x31)
 const INITIAL_MAZE = [

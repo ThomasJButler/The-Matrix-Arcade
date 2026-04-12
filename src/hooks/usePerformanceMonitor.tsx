@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect, useState } from 'react';
+import React, { useRef, useCallback, useEffect, useState, useMemo } from 'react';
 
 interface PerformanceStats {
   fps: number;
@@ -14,6 +14,64 @@ interface PerformanceOptions {
   showOverlay?: boolean;
   warnThreshold?: number;
   criticalThreshold?: number;
+}
+
+interface PerformanceOverlayProps {
+  showOverlay: boolean;
+  stats: PerformanceStats;
+  targetFPS: number;
+  warnThreshold: number;
+  criticalThreshold: number;
+  suggestions: string[];
+}
+
+function PerformanceOverlayView({
+  showOverlay,
+  stats,
+  targetFPS,
+  warnThreshold,
+  criticalThreshold,
+  suggestions,
+}: PerformanceOverlayProps) {
+  if (!showOverlay) return null;
+
+  const isWarning = stats.fps < warnThreshold;
+  const isCritical = stats.fps < criticalThreshold;
+  const color = isCritical ? '#ff0000' : isWarning ? '#ffaa00' : '#00ff00';
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: 10,
+        right: 10,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        color: color,
+        padding: '10px',
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        borderRadius: '5px',
+        border: `1px solid ${color}`,
+        zIndex: 9999,
+        minWidth: '200px'
+      }}
+    >
+      <div>FPS: {stats.fps} / {targetFPS}</div>
+      <div>Frame Time: {stats.frameTime}ms</div>
+      <div>Memory: {stats.memoryUsed}MB / {stats.memoryLimit}MB</div>
+      <div>Draw Calls: {stats.drawCalls}</div>
+      <div>Active Objects: {stats.activeObjects}</div>
+      {suggestions.length > 0 && (
+        <div style={{ marginTop: '10px', borderTop: '1px solid #666', paddingTop: '10px' }}>
+          {suggestions.map((suggestion, i) => (
+            <div key={i} style={{ fontSize: '10px', marginTop: '2px' }}>
+              • {suggestion}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function usePerformanceMonitor(options: PerformanceOptions = {}) {
@@ -92,7 +150,7 @@ export function usePerformanceMonitor(options: PerformanceOptions = {}) {
   // Performance optimization suggestions
   const getOptimizationSuggestions = useCallback((): string[] => {
     const suggestions: string[] = [];
-    
+
     if (stats.fps < criticalThreshold) {
       suggestions.push('Critical: FPS below ' + criticalThreshold);
       suggestions.push('Reduce particle count or visual effects');
@@ -117,48 +175,23 @@ export function usePerformanceMonitor(options: PerformanceOptions = {}) {
     return suggestions;
   }, [stats, criticalThreshold, warnThreshold]);
 
-  // Create performance overlay component
-  const PerformanceOverlay = useCallback(() => {
-    if (!showOverlay) return null;
+  // Stable ref for overlay data — avoids recreating component identity on every stats change
+  const overlayDataRef = useRef<PerformanceOverlayProps>({
+    showOverlay, stats, targetFPS, warnThreshold, criticalThreshold, suggestions: [],
+  });
+  overlayDataRef.current = {
+    showOverlay, stats, targetFPS, warnThreshold, criticalThreshold,
+    suggestions: getOptimizationSuggestions(),
+  };
 
-    const isWarning = stats.fps < warnThreshold;
-    const isCritical = stats.fps < criticalThreshold;
-    const color = isCritical ? '#ff0000' : isWarning ? '#ffaa00' : '#00ff00';
-
-    return (
-      <div
-        style={{
-          position: 'fixed',
-          top: 10,
-          right: 10,
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          color: color,
-          padding: '10px',
-          fontFamily: 'monospace',
-          fontSize: '12px',
-          borderRadius: '5px',
-          border: `1px solid ${color}`,
-          zIndex: 9999,
-          minWidth: '200px'
-        }}
-      >
-        <div>FPS: {stats.fps} / {targetFPS}</div>
-        <div>Frame Time: {stats.frameTime}ms</div>
-        <div>Memory: {stats.memoryUsed}MB / {stats.memoryLimit}MB</div>
-        <div>Draw Calls: {stats.drawCalls}</div>
-        <div>Active Objects: {stats.activeObjects}</div>
-        {getOptimizationSuggestions().length > 0 && (
-          <div style={{ marginTop: '10px', borderTop: '1px solid #666', paddingTop: '10px' }}>
-            {getOptimizationSuggestions().map((suggestion, i) => (
-              <div key={i} style={{ fontSize: '10px', marginTop: '2px' }}>
-                • {suggestion}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }, [showOverlay, stats, targetFPS, warnThreshold, criticalThreshold, getOptimizationSuggestions]);
+  // Stable component identity — reads current data from ref on each render
+  const PerformanceOverlay = useMemo(() => {
+    function StablePerformanceOverlay() {
+      return <PerformanceOverlayView {...overlayDataRef.current} />;
+    }
+    StablePerformanceOverlay.displayName = 'PerformanceOverlay';
+    return StablePerformanceOverlay;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-update FPS when overlay is shown
   useEffect(() => {
@@ -187,21 +220,21 @@ export function usePerformanceMonitor(options: PerformanceOptions = {}) {
     batchSize: number = 100
   ) => {
     let index = 0;
-    
+
     const processBatch = () => {
       const end = Math.min(index + batchSize, items.length);
-      
+
       for (let i = index; i < end; i++) {
         operation(items[i]);
       }
-      
+
       index = end;
-      
+
       if (index < items.length) {
         requestAnimationFrame(processBatch);
       }
     };
-    
+
     processBatch();
   }, []);
 

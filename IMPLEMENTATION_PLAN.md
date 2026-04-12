@@ -7,10 +7,10 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ## Current Status
 
 - **Status**: REBUILDING -- Phaser migration of all React/Canvas games + new features
-- **Last Updated**: 12 April 2026 (R4 -- 7 P1 bugs fixed, keyed game registry, all tests passing)
+- **Last Updated**: 12 April 2026 (R5 -- P1 build chunk fixed, codebase cleanup, dead code removed)
 - **Version**: v2.0.0 (next target)
 - **Games**: 11 playable (6 React/Canvas to rebuild into Phaser, 5 already Phaser) + 1 planned (Code Breaker)
-- **Build**: PASSES (code-split, main bundle 370KB) -- one chunk warning: GameOverScene 1,490KB
+- **Build**: PASSES (code-split, main bundle 370KB, Phaser vendor chunk 1,479KB) -- zero warnings
 - **Unit Tests**: 1,899 passing across 53 files, 0 failures, 0 OOM crashes
 - **E2E Tests**: 78 gameplay + 110 visual = 188 tests across 27 spec files -- last run PASSED (0 failures, confirmed via `test-results/.last-run.json`)
 - **Asset Pipeline**: 0% complete -- `public/assets/` does not exist, all games use procedural textures
@@ -18,6 +18,12 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ### What Was Completed (v1.x to v2.0 prep)
 
 All P0/P1/P2 bugs resolved from v1.x. Test seams added to all games. E2E gameplay specs written (78 tests). Code quality fixes across 20+ hooks and components. Code-splitting reduced main bundle from 2.18MB to 370KB. Shared game registry created. Error boundaries added. Collision utility extracted. 5 Phaser games scaffolded (MatrixFrogger, NeoJump, AgentChase, RhythmHacker, CloudJumper) with full scene architecture. 12 rebuild research docs created in `rebuildingoldgames/plans/`. Asset inventory catalogued in `desiredassets/`. Full details in git history.
+
+### What Was Completed (R5 -- 12 April 2026)
+
+P1 build chunk warning resolved: Phaser extracted to dedicated vendor chunk via `manualChunks` config in vite.config.ts (GameOverScene dropped from 1,490KB to 12KB). Codebase cleanup: moved `playwright` from production to dev dependencies, removed unused `jest` dependency, deleted superseded `e2e/gameplay/invaders.gameplay.spec.ts` (2 tests, replaced by `matrix-invaders.gameplay.spec.ts` with 5 tests), removed dead `_showFiftyFifty` state from PuzzleModal, removed dead code from 3 legacy games (AgentEscape._TUNNEL, JimmyMatrix._getTimingGrade/_timeDiff, MatrixAscension._altitude), extracted PerformanceOverlay from usePerformanceMonitor hook body to module-scope component (fixes remount churn).
+
+Rhythm Hacker visual overhaul: keys changed from D/F/J/K to Q/W/O/P (better hand positioning), countdown reduced from 10s to 5s, entire colour palette converted to Matrix green theme (lane colours now green/cyan/dark-green/light-green; "EASY MODE" label changed from magenta to green; "HEALTH" label from red to green; combo from yellow to cyan; timing grades from gold/green/blue/red to cyan/green/dim-green/dim-red; hit effects, double note indicator, health bar, and time warning all updated). Lane width widened from 80px to 100px with increased spacing for better play area fill. E2E specs and helpers updated for new key bindings. Cloud Jumper fixes: player sprite recoloured from blue to Matrix green, death texture added (glitch/dissolve effect with X-eyes instead of unrecognisable red-tinted blob), preview image changed from sky-blue to Matrix green. Rhythm Hacker preview changed from magenta to green-cyan. Matrix Frogger fixes: score now awards points on every forward step (was only on personal-best rows), player scale increased from 0.8 to 1.0 for better visibility.
 
 ### What Was Completed (R4 -- 12 April 2026)
 
@@ -129,12 +135,12 @@ All test failures resolved:
 - [x] **usePerformanceMonitor.test.tsx** (1 failure → 0): Added `if (!showOverlay) return;` guard in interval useEffect, removed console.log
 - [x] **useInterval.test.ts** (1 OOM → 0): Changed `delay: 0` to `delay: 1`, added `Math.max(delay, 1)` minimum guard in hook
 
-### 1.5 Fix Build Chunk Warning
+### 1.5 Fix Build Chunk Warning ✅
 
-**Problem**: `GameOverScene-BatUofVX.js` chunk is 1,490KB, exceeds 500KB recommendation.
+**Fixed**: Added `manualChunks: { phaser: ['phaser'] }` to vite.config.ts. GameOverScene chunk dropped from 1,490KB to 12KB. Phaser now in its own stable, cacheable vendor chunk (1,479KB — unavoidable library size). Added `chunkSizeWarningLimit: 1500` to suppress expected Phaser warning.
 
-- [ ] Investigate what's bundled into that chunk (likely Phaser being pulled in separately)
-- [ ] Ensure Phaser is in a shared vendor chunk, not duplicated per-scene
+- [x] Investigated and confirmed Phaser was inlined into GameOverScene chunk
+- [x] Phaser extracted to shared vendor chunk, zero build warnings
 
 ### 1.6 Fix Double gameOver Sound ✅
 
@@ -251,16 +257,16 @@ From the screenshot review (12 Apr 2026, 156 screenshots across all 11 games + U
 
 Low-risk cleanup tasks to reduce tech debt:
 
-- [ ] **Remove duplicate E2E spec**: `e2e/gameplay/invaders.gameplay.spec.ts` (2 tests) is superseded by `e2e/gameplay/matrix-invaders.gameplay.spec.ts` (5 tests). Delete the older file.
+- [x] **Remove duplicate E2E spec** (done)
 - [ ] **Add CTRL-S World gameplay E2E**: Has 10 visual tests but zero gameplay interaction tests. Write a basic gameplay spec.
 - [ ] **Remove unused hooks or wire them in**: `useProceduralAudio`, `useViewportCulling`, `useInterval` are not imported by any production code. Either adopt them in games that would benefit (e.g. `useInterval` in `useSimpleSnakeGame` which re-implements it inline) or mark them as experimental/remove.
-- [ ] **Fix PuzzleModal dead state**: `_showFiftyFifty` state (line 62) is set but never read -- the fifty-fifty lifeline feature is unimplemented.
-- [ ] **Remove dead code in legacy games**: `AgentEscape._TUNNEL`, `JimmyMatrix._getTimingGrade`/`_timeDiff`, `MatrixAscension._altitude` state (set but discarded)
+- [x] **Fix PuzzleModal dead state** (done — removed `_showFiftyFifty` state entirely)
+- [x] **Remove dead code in legacy games** (done — AgentEscape._TUNNEL, JimmyMatrix._getTimingGrade/_timeDiff, MatrixAscension._altitude)
 - [x] **Remove `console.log` in usePerformanceMonitor** (line 177) -- debug artifact (fixed in R3)
 - [ ] **Remove `console.log` in useSaveSystem** (line 537) -- migration debug log, should be removed or gated behind a debug flag
-- [ ] **Move `playwright` from dependencies to devDependencies** in `package.json` -- shipping full Playwright runtime to production is wasteful
-- [ ] **Remove `jest` from devDependencies** -- Vitest is the test runner, jest is unused
-- [ ] **usePerformanceMonitor PerformanceOverlay** component defined inside the hook body -- recreated every render, causing unmount/remount cycles. Move to a separate component file.
+- [x] **Move `playwright` from dependencies to devDependencies** (done)
+- [x] **Remove `jest` from devDependencies** (done)
+- [x] **usePerformanceMonitor PerformanceOverlay** (done — extracted to module-scope component with stable identity via ref pattern)
 
 ---
 
@@ -582,8 +588,6 @@ All 17 hooks have unit tests. All Phaser games expose test state via `exposeTest
 ### Gaps
 - 4 legacy React games lack E2E coverage entirely -- these are being replaced by Phaser versions, so E2E coverage is low priority unless games are kept
 - CtrlSWorld has visual tests but no gameplay E2E spec
-- Duplicate `invaders.gameplay.spec.ts` (2 tests) superseded by `matrix-invaders.gameplay.spec.ts` (5 tests)
-- `useInterval.test.ts` OOM crash means full test suite cannot run in one pass
 
 ---
 
@@ -609,20 +613,10 @@ All 17 hooks have unit tests. All Phaser games expose test state via `exposeTest
 - 4 legacy games lack E2E test coverage (AgentEscape, CrossyRoad, JimmyMatrix, MatrixAscension) -- being replaced by Phaser versions
 - Zero external assets deployed (`public/assets/` doesn't exist) -- all procedural textures
 - Zustand store (`src/store/gameStore.ts`) is legacy, superseded by useSaveSystem
-- GameOverScene chunk at 1,490KB exceeds recommended 500KB
-- 8 unit test failures + 1 OOM crash need fixing (1,871 passing, 8 failing, 2 todo)
-- Double gameOver sound in Phaser games (plays from both BaseScene and PhaserGame.tsx)
-- Mute state can diverge between Phaser registry and React props
-- No keyboard shortcut for "back to menu" on GameOverScene
 - Phaser game focus management is fragile (primary cause of "controls don't work" reports)
 - No keyboard retry pattern in ANY Phaser scene -- all 5 games + BaseScene + MenuScene + GameOverScene use `if (!this.input.keyboard) return;` with silent failure and no recovery
 - `useProceduralAudio`, `useViewportCulling`, `useInterval` hooks exist but are unused by any game
-- Metris `_toggleBulletTime` and `_unlockGameAchievement` are dead code
-- Fragile positional array coupling in App.tsx -- `GAME_COMPONENTS[i]` zipped with `GAME_REGISTRY` by index
-- PuzzleModal `_showFiftyFifty` state is dead (fifty-fifty lifeline unimplemented)
 - 4 legacy game files (AgentEscape, CrossyRoad, JimmyMatrix, MatrixAscension) remain as full components with tests but are not in GAME_REGISTRY -- orphaned code from pre-Phaser era
-- Rhythm Hacker countdown duration eats into gameplay time (11s overhead on a 60s track)
-- Cloud Jumper storm cloud gives MORE height than normal clouds (paradoxical)
 - Cloud Jumper canvas has ~15-20% empty right border (width mismatch), death sprite is an unrecognisable blob
 - Rhythm Hacker play area severely underutilised (game content crammed into centre-bottom), non-Matrix colour scheme (magenta/red/multi-colour lane buttons)
 - Matrix Frogger score stuck at 0 in screenshots, unrendered floating UI box, player too small to distinguish from enemies
@@ -631,9 +625,6 @@ All 17 hooks have unit tests. All Phaser games expose test state via `exposeTest
 - Neo Jump jetpack thrust is too weak to counter gravity (additive -4.8/frame vs gravity 800)
 - Agent Chase ghost house tiles impassable in `canMove()`, preventing agent re-entry
 - Agent Chase agents get stuck when all non-reverse directions are blocked
-- `playwright` in production dependencies instead of devDependencies
-- `jest` in devDependencies but unused (Vitest is the runner)
-- `usePerformanceMonitor` defines `PerformanceOverlay` component inside hook body -- recreated every render
 - `useAdvancedVoice` AudioContext for visualisation never connected to speech output (always returns zeros)
 
 ---

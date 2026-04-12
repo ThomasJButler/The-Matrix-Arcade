@@ -99,7 +99,7 @@ export async function selectTrack(page: Page, direction: 'next' | 'prev'): Promi
 /**
  * Hit notes in Rhythm Hacker (press lane keys).
  */
-export async function hitNotes(page: Page, keys: string[] = ['d', 'f', 'j', 'k']): Promise<void> {
+export async function hitNotes(page: Page, keys: string[] = ['q', 'w', 'o', 'p']): Promise<void> {
   for (const key of keys) {
     await page.keyboard.press(key);
     await page.waitForTimeout(50);

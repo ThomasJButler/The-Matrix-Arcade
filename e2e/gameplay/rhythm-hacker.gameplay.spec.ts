@@ -211,7 +211,7 @@ test.describe('Rhythm Hacker Gameplay', () => {
 
     // Spam a single key rapidly -- many will be empty hits (no notes to match)
     for (let i = 0; i < 40; i++) {
-      await page.keyboard.press('d');
+      await page.keyboard.press('q');
       await page.waitForTimeout(100);
     }
 
