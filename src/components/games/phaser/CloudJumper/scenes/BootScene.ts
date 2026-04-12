@@ -13,6 +13,12 @@ const CLOUD_SPRITES = [
   { key: 'cloud_sprite_storm', path: 'assets/cloud-jumper/cloud-peak.png' },
 ];
 
+const PLAYER_SPRITES = [
+  { key: 'player_sprite_idle', path: 'assets/cloud-jumper/player-idle.png' },
+  { key: 'player_sprite_jump', path: 'assets/cloud-jumper/player-jump.png' },
+  { key: 'player_sprite_fall', path: 'assets/cloud-jumper/player-fall.png' },
+];
+
 export class CloudJumperBootScene extends BootScene {
   constructor() {
     super({
@@ -26,11 +32,17 @@ export class CloudJumperBootScene extends BootScene {
     for (const { key, path } of CLOUD_SPRITES) {
       this.load.image(key, path);
     }
+    for (const { key, path } of PLAYER_SPRITES) {
+      this.load.image(key, path);
+    }
   }
 
   create(): void {
     const spritesLoaded = this.textures.exists('cloud_sprite_normal');
     this.game.registry.set('spriteMode', spritesLoaded);
+
+    const playerSpritesLoaded = this.textures.exists('player_sprite_idle');
+    this.game.registry.set('playerSpriteMode', playerSpritesLoaded);
 
     this.createPlayerTexture();
     if (!spritesLoaded) {

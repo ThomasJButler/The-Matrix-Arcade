@@ -5,6 +5,7 @@ import { GAME_CONFIG, POWERUP_DEFS, type PowerUpType } from '../config';
 const SPRITE_ASSETS = [
   { key: 'snake_sprite_head', path: 'assets/snake/head.png' },
   { key: 'snake_sprite_body', path: 'assets/snake/body.png' },
+  { key: 'snake_sprite_tail', path: 'assets/snake/tail.png' },
   { key: 'snake_sprite_dead', path: 'assets/snake/dead.png' },
   { key: 'food_sprite', path: 'assets/snake/apple.png' },
 ];
