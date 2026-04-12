@@ -30,6 +30,8 @@ import {
   Music,
   Cloud,
   Zap,
+  BookOpen,
+  Trophy,
 } from 'lucide-react';
 // Lazy-loaded game components for code-splitting
 const SimpleSnake = React.lazy(() => import('./components/games/phaser/SnakeClassic'));
@@ -52,6 +54,8 @@ import { PWAInstallPrompt } from './components/ui/PWAInstallPrompt';
 import { PWAUpdatePrompt } from './components/ui/PWAUpdatePrompt';
 import { MobileWarning } from './components/ui/MobileWarning';
 import { GameErrorBoundary } from './components/ui/GameErrorBoundary';
+import { GameInstructions } from './components/ui/GameInstructions';
+import { GameHighScores } from './components/ui/GameHighScores';
 import { useSoundSystem } from './hooks/useSoundSystem';
 import { useAchievementManager } from './hooks/useAchievementManager';
 import { useMobileDetection } from './hooks/useMobileDetection';
@@ -67,6 +71,8 @@ function App() {
   const [showAudioSettings, setShowAudioSettings] = useState(false);
   const [showSaveManager, setShowSaveManager] = useState(false);
   const [showLandingPage, setShowLandingPage] = useState(true);
+  const [showInstructions, setShowInstructions] = useState(false);
+  const [showHighScores, setShowHighScores] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [transitionDirection, setTransitionDirection] = useState<
     'left' | 'right'
@@ -405,6 +411,8 @@ function App() {
     setIsTransitioning(true);
     setTimeout(() => setIsTransitioning(false), 600);
     setShowNav(false);
+    setShowInstructions(false);
+    setShowHighScores(false);
     setSelectedGame(index);
     setIsPlaying(false);
     playSFX('menu');
@@ -479,16 +487,42 @@ function App() {
       // V key to toggle mute
       if (e.key.toLowerCase() === 'v' && !isPlaying &&
           e.target instanceof HTMLElement &&
-          e.target.tagName !== 'INPUT' && 
+          e.target.tagName !== 'INPUT' &&
           e.target.tagName !== 'TEXTAREA') {
         e.preventDefault();
         toggleMute();
       }
+
+      // I key for instructions
+      if (e.key.toLowerCase() === 'i' && !isPlaying &&
+          e.target instanceof HTMLElement &&
+          e.target.tagName !== 'INPUT' &&
+          e.target.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        setShowInstructions(prev => !prev);
+        setShowHighScores(false);
+      }
+
+      // H key for high scores
+      if (e.key.toLowerCase() === 'h' && !isPlaying &&
+          e.target instanceof HTMLElement &&
+          e.target.tagName !== 'INPUT' &&
+          e.target.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        setShowHighScores(prev => !prev);
+        setShowInstructions(false);
+      }
+
+      // ESC also closes modals
+      if (e.key === 'Escape' && !isPlaying) {
+        if (showInstructions) { setShowInstructions(false); e.preventDefault(); }
+        if (showHighScores) { setShowHighScores(false); e.preventDefault(); }
+      }
     };
-    
+
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isPlaying, achievementManager, playSFX, showMobileWarning, playBackgroundMP3, handlePrevious, handleNext, toggleMute, trackPlayTime, checkNightOwlAchievement, checkDedicatedAchievement, selectedGame]);
+  }, [isPlaying, achievementManager, playSFX, showMobileWarning, playBackgroundMP3, handlePrevious, handleNext, toggleMute, trackPlayTime, checkNightOwlAchievement, checkDedicatedAchievement, selectedGame, showInstructions, showHighScores]);
 
   const GameComponent = games[selectedGame].component;
 
@@ -785,10 +819,30 @@ function App() {
                   </button>
                 </div>
                 
+                {/* Instructions & High Scores Buttons */}
+                <div className="mt-3 flex items-center justify-center gap-3">
+                  <button
+                    onClick={() => { setShowInstructions(true); setShowHighScores(false); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-green-500/30 bg-green-500/5 hover:bg-green-500/15 hover:border-green-500/50 rounded-lg transition-colors font-mono text-xs text-green-400/80 hover:text-green-400"
+                    aria-label="View instructions"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    Instructions
+                  </button>
+                  <button
+                    onClick={() => { setShowHighScores(true); setShowInstructions(false); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-green-500/30 bg-green-500/5 hover:bg-green-500/15 hover:border-green-500/50 rounded-lg transition-colors font-mono text-xs text-green-400/80 hover:text-green-400"
+                    aria-label="View high scores"
+                  >
+                    <Trophy className="w-3.5 h-3.5" />
+                    High Scores
+                  </button>
+                </div>
+
                 {/* Keyboard Hints */}
-                <div className="mt-4 text-xs lg:text-sm text-green-400/70 text-center space-y-1">
+                <div className="mt-3 text-xs lg:text-sm text-green-400/70 text-center space-y-1">
                   <p>← → Navigate Games • Enter to Play • ESC to Exit</p>
-                  <p>A for Achievements • V to Toggle Mute</p>
+                  <p>I Instructions • H High Scores • A Achievements • V Mute</p>
                 </div>
               </div>
           </div>
@@ -846,6 +900,24 @@ function App() {
           />
         )}
       </AnimatePresence>
+
+      {/* Game Instructions Modal */}
+      <GameInstructions
+        isOpen={showInstructions}
+        onClose={() => setShowInstructions(false)}
+        game={GAME_REGISTRY[selectedGame]}
+        icon={games[selectedGame].icon}
+      />
+
+      {/* Game High Scores Modal */}
+      <GameHighScores
+        isOpen={showHighScores}
+        onClose={() => setShowHighScores(false)}
+        game={GAME_REGISTRY[selectedGame]}
+        icon={games[selectedGame].icon}
+        saveData={saveData}
+        achievements={achievementManager.achievements}
+      />
 
       {/* Audio Settings Modal */}
       <AudioSettings
