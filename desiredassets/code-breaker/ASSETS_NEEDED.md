@@ -27,15 +27,15 @@
 ## Still Needed
 
 ### Paddle
-- [x] Normal paddle — available (paddle.png)
-- [x] Wide paddle variant — available (paddle_wide.png)
+- [x] Normal paddle — INTEGRATED as paddle.png (from BBreaker/Player.png, 74×26, display-scaled to 100×14)
+- [x] Wide paddle variant — INTEGRATED as paddle_wide.png (from breakout_pixel_art, 96×8, display-scaled to 160×14)
 - [x] Small paddle variant — available (paddle_small.png)
 - [~] Paddle with laser attachment (Laser power-up active) — SOURCE: DUMP/Sprites - Lasers Bullets #1/
 - [ ] Paddle with shield/firewall glow (Firewall power-up active)
 - [ ] Paddle hit flash effect
 
 ### Ball
-- [x] Default ball — available (ball_default.png)
+- [x] Default ball — INTEGRATED as ball.png (from BBreaker/Ball_small-blue.png, 13×12, display-scaled to 12×12)
 - [~] Ball trail particle — 4×4, fading green — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/firework/
 - [~] Multi-ball variant (different colour — cyan) — SOURCE: DUMP/MatrixArcadeCyberPunkAssets/
 - [~] Ball powered-up glow (EMP active) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/firework/
@@ -57,12 +57,12 @@
 - [~] Agent Smith death — 32×48, dissolve/shatter, 4 frames — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/firework/ (effects) + DUMP/MatrixArcadeCyberPunkAssets/
 
 ### Power-ups (6 types, floating down after brick break)
-- [~] Multi-ball icon — 24×24 — SOURCE: DUMP/1. Free Hologram Interface Wenrexa/Icons/
-- [~] Wide Paddle icon — 24×24 — SOURCE: DUMP/1. Free Hologram Interface Wenrexa/Icons/
-- [~] Laser icon — 24×24 — SOURCE: DUMP/1. Free Hologram Interface Wenrexa/Icons/ or DUMP/Sprites - Lasers Bullets #1/
-- [~] Bullet Time icon — 24×24 — SOURCE: DUMP/1. Free Hologram Interface Wenrexa/Icons/
-- [~] Firewall icon — 24×24 — SOURCE: DUMP/1. Free Hologram Interface Wenrexa/Icons/
-- [~] EMP icon — 24×24 — SOURCE: DUMP/1. Free Hologram Interface Wenrexa/Icons/
+- [x] Multi-ball icon — INTEGRATED as powerup_multiBall.png (from Hologram Icons/32, connected nodes, 28×31 display-scaled to 20×20)
+- [x] Wide Paddle icon — INTEGRATED as powerup_widePaddle.png (from Hologram Icons/20, horizontal bars, display-scaled to 20×20)
+- [x] Laser icon — INTEGRATED as powerup_laser.png (from Hologram Icons/16, crosshair, 32×32 display-scaled to 20×20)
+- [x] Bullet Time icon — INTEGRATED as powerup_bulletTime.png (from Hologram Icons/22, circular refresh, display-scaled to 20×20)
+- [x] Firewall icon — INTEGRATED as powerup_firewall.png (from Hologram Icons/18, shield, display-scaled to 20×20)
+- [x] EMP icon — INTEGRATED as powerup_emp.png (from Hologram Icons/08, lightning bolt, display-scaled to 20×20)
 - [~] Power-up glow/particle aura — 32×32 (shared effect) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/firework/
 
 ### Laser (power-up active)
