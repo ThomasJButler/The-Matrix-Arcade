@@ -89,6 +89,9 @@ function createTestScene() {
   // Space key mock — used by handleInput for shooting
   scene.spaceKey = { isDown: false };
 
+  // W key mock — used by handleInput for jetpack (WASD alternative)
+  scene.wKey = { isDown: false };
+
   return scene;
 }
 

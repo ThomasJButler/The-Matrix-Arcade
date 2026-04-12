@@ -129,9 +129,6 @@ export class CloudJumperGameScene extends BaseScene {
   update(time: number, delta: number): void {
     if (this.isPaused) return;
 
-    // Handle input
-    this.handleInput();
-
     // Update scroll speed
     this.updateScrollSpeed(delta);
 
@@ -241,7 +238,10 @@ export class CloudJumperGameScene extends BaseScene {
    * Setup input
    */
   private setupInput(): void {
-    if (!this.input.keyboard) return;
+    if (!this.input.keyboard) {
+      this.time.delayedCall(100, () => this.setupInput());
+      return;
+    }
 
     // All jump inputs use event callbacks for consistency
     this.jumpKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
@@ -251,13 +251,6 @@ export class CloudJumperGameScene extends BaseScene {
 
     // Also allow click/tap to jump
     this.input.on('pointerdown', () => this.jump());
-  }
-
-  /**
-   * Handle input — jump is event-driven, this is reserved for future per-frame input
-   */
-  private handleInput(): void {
-    // Jump input consolidated to event callbacks in setupInput()
   }
 
   /**
@@ -341,18 +334,12 @@ export class CloudJumperGameScene extends BaseScene {
   }
 
   /**
-   * Check if player can land on cloud — uses cloud top surface for reliable collision
+   * Check if player can land on cloud — one-way platform pattern.
+   * Only collide when falling; rising through clouds passes through.
    */
-  private canLandOnCloud(player: Phaser.Physics.Arcade.Sprite, cloud: Cloud): boolean {
+  private canLandOnCloud(player: Phaser.Physics.Arcade.Sprite, _cloud: Cloud): boolean {
     const playerBody = player.body as Phaser.Physics.Arcade.Body;
-
-    // Land when falling (velocity.y > 0) AND player's feet are above the cloud's top surface
-    const isFalling = playerBody.velocity.y > 0;
-    const cloudTop = cloud.y - cloud.displayHeight / 2;
-    const isAboveCloud = player.y + playerBody.height / 2 < cloudTop + 10;
-    const isTouchingDown = playerBody.touching.down || playerBody.blocked.down;
-
-    return (isFalling && isAboveCloud) || isTouchingDown;
+    return playerBody.velocity.y >= 0;
   }
 
   /**
@@ -392,8 +379,8 @@ export class CloudJumperGameScene extends BaseScene {
         break;
 
       case 'storm':
-        // Storm clouds hurt but bounce
-        body.setVelocityY(GAME_CONFIG.PLAYER.JUMP_VELOCITY);
+        // Storm clouds hurt and give a weak bounce (punishment, not reward)
+        body.setVelocityY(GAME_CONFIG.PLAYER.JUMP_VELOCITY * 0.5);
         this.playSound('hit');
         this.stormCloudsSurvived++;
         if (this.stormCloudsSurvived >= 1) {
@@ -540,9 +527,12 @@ export class CloudJumperGameScene extends BaseScene {
     cloud.setImmovable(true);
     cloud.setDepth(5);
 
-    // Scale based on type
+    // Scale visual and sync physics body to match
     const width = Phaser.Math.Between(GAME_CONFIG.CLOUDS.WIDTH_MIN, GAME_CONFIG.CLOUDS.WIDTH_MAX);
     cloud.setScale(width / 120, 1);
+    const cloudBody = cloud.body as Phaser.Physics.Arcade.Body;
+    cloudBody.setSize(width, GAME_CONFIG.CLOUDS.HEIGHT);
+    cloudBody.setOffset((120 - width) / 2, 0);
 
     // Moving cloud setup
     if (type === 'moving') {

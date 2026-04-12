@@ -368,7 +368,8 @@ function App() {
     const preventDefault = (e: Event) => {
       const target = e.target as HTMLElement;
       // Don't block keyboard events for Phaser games or canvas elements
-      const isPhaserGame = target.closest('[data-phaser-game]');
+      // Guard: target may be document/window in jsdom tests (no .closest)
+      const isPhaserGame = typeof target?.closest === 'function' && target.closest('[data-phaser-game]');
       if (
         isPlaying &&
         !isPhaserGame &&

@@ -328,7 +328,10 @@ export class AgentChaseGameScene extends BaseScene {
    * Setup input
    */
   private setupInput(): void {
-    if (!this.input.keyboard) return;
+    if (!this.input.keyboard) {
+      this.time.delayedCall(100, () => this.setupInput());
+      return;
+    }
 
     this.cursors = this.input.keyboard.createCursorKeys();
     this.wasdKeys = {
@@ -562,8 +565,6 @@ export class AgentChaseGameScene extends BaseScene {
     // Reset agents
     this.agents.getChildren().forEach((obj, index) => {
       const agent = obj as Agent;
-      const offsetX = (GAME_CONFIG.WIDTH - GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE) / 2;
-      const offsetY = 40;
 
       // Reset to home position
       agent.x = agent.homePosition.x;
@@ -786,9 +787,11 @@ export class AgentChaseGameScene extends BaseScene {
       if (agent.state === 'returning') {
         const distToHome = Phaser.Math.Distance.Between(
           agent.x, agent.y,
-          agent.homePosition.x, agent.homePosition.y - GAME_CONFIG.TILE_SIZE * 3
+          agent.homePosition.x, agent.homePosition.y
         );
-        if (distToHome < 5) {
+        if (distToHome < GAME_CONFIG.TILE_SIZE) {
+          agent.x = agent.homePosition.x;
+          agent.y = agent.homePosition.y;
           agent.state = this.scatterMode ? 'scatter' : 'chase';
           agent.setTexture(`agent_${agent.agentType}`);
         }
@@ -827,7 +830,7 @@ export class AgentChaseGameScene extends BaseScene {
       if (nextY === 14 && (nextX < 0 || nextX >= GAME_CONFIG.MAZE_COLS)) {
         agent.gridX = nextX < 0 ? GAME_CONFIG.MAZE_COLS - 1 : 0;
         agent.gridY = nextY;
-      } else if (this.canMove(agent.gridX, agent.gridY, agent.direction)) {
+      } else if (this.canMove(agent.gridX, agent.gridY, agent.direction, true)) {
         agent.gridX = nextX;
         agent.gridY = nextY;
       }
@@ -838,15 +841,15 @@ export class AgentChaseGameScene extends BaseScene {
       // Get target based on state
       const target = this.getAgentTarget(agent);
 
-      // Find best direction (can't reverse)
+      // Find best direction (prefer not to reverse)
       const reverse = this.reverseDirection(agent.direction);
       const directions: Direction[] = ['UP', 'LEFT', 'DOWN', 'RIGHT'];
       let bestDir: Direction = agent.direction;
       let bestDist = Infinity;
 
       directions.forEach((dir) => {
-        if (dir === reverse) return; // Can't reverse
-        if (!this.canMove(agent.gridX, agent.gridY, dir)) return;
+        if (dir === reverse) return; // Prefer not to reverse
+        if (!this.canMove(agent.gridX, agent.gridY, dir, true)) return;
 
         const nextTile = {
           x: agent.gridX + DIRECTIONS[dir].x,
@@ -859,6 +862,11 @@ export class AgentChaseGameScene extends BaseScene {
           bestDir = dir;
         }
       });
+
+      // Fallback: if no non-reverse direction is valid, allow reverse
+      if (bestDist === Infinity && this.canMove(agent.gridX, agent.gridY, reverse, true)) {
+        bestDir = reverse;
+      }
 
       agent.direction = bestDir;
     }
@@ -895,7 +903,13 @@ export class AgentChaseGameScene extends BaseScene {
     }
 
     if (agent.state === 'returning') {
-      return { x: 14, y: 11 }; // Ghost house entrance
+      // Target actual home tile so agent walks back inside the ghost house
+      const offsetX = (GAME_CONFIG.WIDTH - GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE) / 2;
+      const offsetY = 40;
+      return {
+        x: Math.round((agent.homePosition.x - offsetX) / GAME_CONFIG.TILE_SIZE),
+        y: Math.round((agent.homePosition.y - offsetY) / GAME_CONFIG.TILE_SIZE),
+      };
     }
 
     if (agent.state === 'frightened') {
@@ -957,9 +971,10 @@ export class AgentChaseGameScene extends BaseScene {
   }
 
   /**
-   * Check if movement in direction is valid
+   * Check if movement in direction is valid.
+   * Agents can pass through ghost house tiles ('4'); the player cannot.
    */
-  private canMove(tileX: number, tileY: number, direction: Direction): boolean {
+  private canMove(tileX: number, tileY: number, direction: Direction, isAgent = false): boolean {
     const dir = DIRECTIONS[direction];
     const nextX = tileX + dir.x;
     const nextY = tileY + dir.y;
@@ -973,9 +988,11 @@ export class AgentChaseGameScene extends BaseScene {
       return false;
     }
 
-    // Wall check
+    // Wall check — agents can traverse ghost house ('4'), player cannot
     const tile = MAZE_LAYOUT[nextY]?.[nextX];
-    return tile !== '1' && tile !== '4';
+    if (tile === '1') return false;
+    if (tile === '4' && !isAgent) return false;
+    return true;
   }
 
   /**

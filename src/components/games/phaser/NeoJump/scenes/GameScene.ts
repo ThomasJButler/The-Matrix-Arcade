@@ -71,6 +71,7 @@ export class NeoJumpGameScene extends BaseScene {
   // Input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private spaceKey!: Phaser.Input.Keyboard.Key;
+  private wKey!: Phaser.Input.Keyboard.Key;
   private wasdKeys!: { A: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key };
 
   // Game over flag to prevent multiple death triggers
@@ -299,10 +300,14 @@ export class NeoJumpGameScene extends BaseScene {
    * Setup input
    */
   private setupInput(): void {
-    if (!this.input.keyboard) return;
+    if (!this.input.keyboard) {
+      this.time.delayedCall(100, () => this.setupInput());
+      return;
+    }
 
     this.cursors = this.input.keyboard.createCursorKeys();
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    this.wKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
     this.wasdKeys = {
       A: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
       D: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
@@ -340,10 +345,11 @@ export class NeoJumpGameScene extends BaseScene {
     }
 
     // Jetpack (UP arrow or W key)
-    if (this.cursors.up.isDown) {
+    if (this.cursors.up.isDown || this.wKey.isDown) {
       if (this.jetpackFuel > 0) {
         this.jetpackActive = true;
-        body.setVelocityY(Math.max(body.velocity.y + GAME_CONFIG.PLAYER.JETPACK_THRUST * (delta / 1000), -400));
+        // Direct velocity set — additive thrust was too weak to counter gravity
+        body.setVelocityY(-400);
         this.jetpackFuel = Math.max(0, this.jetpackFuel - GAME_CONFIG.JETPACK.FUEL_DRAIN * (delta / 1000));
 
         if (!this.hasUsedJetpack) {
@@ -877,9 +883,8 @@ export class NeoJumpGameScene extends BaseScene {
 
     const cameraBottom = this.cameras.main.scrollY + GAME_CONFIG.HEIGHT;
 
-    // Player fell below bottom of screen (game over zone)
-    // Trigger death if player falls significantly below the visible camera area
-    if (this.player.y > cameraBottom + GAME_CONFIG.HEIGHT * 0.3) {
+    // Player fell below bottom of screen — small buffer to avoid false triggers
+    if (this.player.y > cameraBottom + 50) {
       this.isGameOver = true;
       this.playerDeath();
     }

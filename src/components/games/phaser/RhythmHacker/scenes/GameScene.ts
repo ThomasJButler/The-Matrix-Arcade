@@ -330,7 +330,10 @@ export class RhythmHackerGameScene extends BaseScene {
    * Setup input
    */
   private setupInput(): void {
-    if (!this.input.keyboard) return;
+    if (!this.input.keyboard) {
+      this.time.delayedCall(100, () => this.setupInput());
+      return;
+    }
 
     const keyCodes = [
       Phaser.Input.Keyboard.KeyCodes.D,
