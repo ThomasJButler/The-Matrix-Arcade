@@ -53,7 +53,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     category: 'Classic',
     inspiration: 'Pong (1972)',
     inspirationNote: 'The original video game, reimagined with vortex physics and Matrix aesthetics.',
-    controls: 'Mouse to move paddle, SPACE to hit ball',
+    controls: 'Arrow keys / WASD / Mouse: Move paddle | First to 10 wins',
   },
   {
     id: 'matrix-cloud',
