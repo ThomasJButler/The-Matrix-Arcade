@@ -31,9 +31,53 @@ All P0/P1/P2 bugs resolved. Test seams added to all games. E2E gameplay specs wr
 
 ---
 
+## Phase 0: Asset Pipeline (NEW — pre-requisite for all phases)
+
+The `desiredassets/` folder now contains a complete asset inventory with source mappings. The unsorted dump (`desiredassets/TheMatrixArcadeAssetsToADDANDSORT-WILL-BE-FUN-TASK/`, ~4,900 files, ~750MB) has been catalogued and cross-referenced against every game's `ASSETS_NEEDED.md`.
+
+**Legend**: `[x]` = have it, `[~]` = source identified in dump (needs extracting/processing), `[ ]` = must create from scratch
+
+### 0.1 Global Asset Extraction (do first — shared across all games)
+
+- [ ] Unzip `MatrixArcadeFontAssets/` (3 ZIPs) → extract TTF/WOFF2 fonts → `public/assets/fonts/`
+- [ ] Unzip `WeirdoOnTheBus - The Matrix Trilogy (Sound Effects Kit).zip` → catalogue SFX → rename to convention → `public/assets/audio/sfx/`
+- [ ] Process `MatrixArcadeTracksSoundEffectsVisualEffects/LongTracks/` → convert WAV to OGG → trim jingles → `public/assets/audio/music/`
+- [ ] Extract `1. Free Hologram Interface Wenrexa/` → sort buttons/panels/icons → apply Matrix green tint → `public/assets/ui/`
+- [ ] Pick 3-4 best font families from `NotJamFontPack/` → copy TTF + JSON → `public/assets/fonts/`
+- [ ] Process `firework/` particles → recolour green/cyan → create explosion + sparkle sprite sheets → `public/assets/shared/`
+- [ ] Unzip `Matrix-Icons.zip` (85MB) → cherry-pick 30-50 relevant icons → `public/assets/ui/icons/`
+
+### 0.2 Per-Game Asset Extraction (parallel with Phase 1 research)
+
+Each game's `desiredassets/[game]/ASSETS_NEEDED.md` now has a Source Mapping section. Work through `[~]` items:
+
+- [ ] **Rhythm Hacker** (HIGHEST PRIORITY — music unlocks the game): Process 5+ tracks from LongTracks/ → create note charts → `public/assets/rhythm-hacker/`
+- [ ] **CTRL-S | The World** (most art-heavy): Extract character bases from Mana Seed + Kings and Pigs → create portraits → backgrounds from CyberPunk/scifi packs
+- [ ] **Snake Classic**: Extract snake sprites from INSPO + CyberPunk character anims → recolour
+- [ ] **Vortex Pong**: Extract pong assets from INSPO + firework particles for trails
+- [ ] **Matrix Cloud**: Extract Flappy Bird sprites from INSPO (52 sprites ready) → recolour pipes
+- [ ] **Matrix Invaders**: Extract robot enemies from TopView_Robot_Asset_Pack + laser sprites
+- [ ] **Metris**: Extract tetris tiles from INSPO (4 variants available) + UI panels
+- [ ] **Matrix Frogger**: Extract frog sprites from INSPO (83 sprites + Krita sources + WAV audio already there)
+- [ ] **Neo Jump**: Process Doodle RPG pack from INSPO (406 sprites) → decide: retheme or custom
+- [ ] **Agent Chase**: Extract Pac-Man assets from INSPO + roguelike tiles for maze walls
+- [ ] **Cloud Jumper**: Process Cloudy Pack (190+ cloud sprites, 10 themes) → pick Matrix-compatible theme
+- [ ] **Code Breaker**: Extract Breakout sprites from INSPO + laser sprites + robot enemies
+
+### 0.3 Asset Integration Pattern
+
+For each game, the pipeline is:
+1. Extract raw assets from dump → `desiredassets/[game]/raw/`
+2. Process (recolour, resize, atlas-pack) → `desiredassets/[game]/processed/`
+3. Copy final assets → `public/assets/[game]/`
+4. Update BootScene to load from new paths
+5. Mark `[~]` → `[x]` in ASSETS_NEEDED.md
+
+---
+
 ## Phase 1: Research & Planning
 
-Before any code changes, create detailed rebuild documents in `rebuildingoldgames/` for each game. Use reference images from `rebuildingoldgames/inspirationimagesandsprites/`, the user's bug notes in `rebuildingoldgames/bugs.md`, and analysis of existing code.
+Before any code changes, create detailed rebuild documents in `rebuildingoldgames/` for each game. Use reference images from `rebuildingoldgames/inspirationimagesandsprites/`, the user's bug notes in `rebuildingoldgames/bugs.md`, the asset inventories in `desiredassets/*/ASSETS_NEEDED.md`, and analysis of existing code.
 
 ### 1.1 Global Infrastructure Research
 

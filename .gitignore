@@ -31,3 +31,7 @@ package-lock.json
 /e2e
 /assets
 /rebuildingoldgames
+
+# Large binary asset dumps (not for git — back up separately)
+desiredassets/TheMatrixArcadeAssetsToADDANDSORT-WILL-BE-FUN-TASK/
+desiredassets/unused-assets-backup/

@@ -1,5 +1,15 @@
 # Vortex Pong — Asset Requirements
 
+## Source Mapping
+
+| Asset Category | Source |
+|---|---|
+| Base pong assets (paddles, ball, arena) | `INSPO/vortexpong/` |
+| Particle effects & fireworks | `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/firework/` |
+| UI panels & score display | `DUMP/1. Free Hologram Interface Wenrexa/` |
+| Sound effects | `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/` |
+| Bullet & projectile sprites | `DUMP/Sprites - Lasers Bullets #1/` |
+
 ## Currently Available (in rebuildingoldgames/inspirationimagesandsprites/vortexpong/)
 
 - [x] Ball sprite (Ball.png, BallMotion.png)
@@ -13,37 +23,37 @@
 ## Still Needed
 
 ### Player & Opponents
-- [ ] Player paddle sprite — Matrix green glow, elongated, 16×80 — or use existing
-- [ ] AI paddle sprite — Red/orange tint, same dimensions
+- [~] Player paddle sprite — Matrix green glow, elongated, 16×80 — or use existing — **SOURCE**: `INSPO/vortexpong/`
+- [~] AI paddle sprite — Red/orange tint, same dimensions — **SOURCE**: `INSPO/vortexpong/`
 - [ ] Paddle powered-up variant (wider paddle power-up) — 16×120
 
 ### Ball
-- [ ] Ball sprite — glowing Matrix green, 16×16
-- [ ] Ball trail particle — small, fading, 8×8
-- [ ] Multi-ball variant (different colour — cyan?) — 16×16
+- [~] Ball sprite — glowing Matrix green, 16×16 — **SOURCE**: `INSPO/vortexpong/`
+- [~] Ball trail particle — small, fading, 8×8 — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/firework/`
+- [~] Multi-ball variant (different colour — cyan?) — 16×16 — **SOURCE**: `DUMP/Sprites - Lasers Bullets #1/`
 
 ### Power-ups
 - [ ] Bigger paddle icon — 32×32
 - [ ] Slower ball icon — 32×32
 - [ ] Score multiplier icon — 32×32
-- [ ] Multi-ball icon — 32×32
+- [~] Multi-ball icon — 32×32 — **SOURCE**: `DUMP/Sprites - Lasers Bullets #1/`
 
 ### Arena
-- [ ] Arena background — dark with subtle grid lines, 800×400
-- [ ] Centre line — dashed, vertical
-- [ ] Goal flash effect — full-width horizontal line, 2-3 frames
-- [ ] Arena border glow (when ball is near edge)
+- [~] Arena background — dark with subtle grid lines, 800×400 — **SOURCE**: `INSPO/vortexpong/`
+- [~] Centre line — dashed, vertical — **SOURCE**: `DUMP/1. Free Hologram Interface Wenrexa/`
+- [~] Goal flash effect — full-width horizontal line, 2-3 frames — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/firework/`
+- [~] Arena border glow (when ball is near edge) — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/firework/`
 
 ### Effects
 - [x] Fireball trail — 5 frames available, may need Matrix-green recolour
-- [ ] Goal explosion particle — 32×32, 4-6 frames
+- [~] Goal explosion particle — 32×32, 4-6 frames — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/firework/`
 - [ ] Screen shake overlay (or handle procedurally)
 - [ ] Combo text popup sprite (or render procedurally)
 
 ### Audio
-- [ ] Ball hit paddle
-- [ ] Ball hit wall
-- [ ] Goal scored
-- [ ] Power-up collect
-- [ ] Rally building tension (optional ambient)
-- [ ] Match point dramatic sting
+- [~] Ball hit paddle — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
+- [~] Ball hit wall — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
+- [~] Goal scored — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
+- [~] Power-up collect — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
+- [~] Rally building tension (optional ambient) — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
+- [~] Match point dramatic sting — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`

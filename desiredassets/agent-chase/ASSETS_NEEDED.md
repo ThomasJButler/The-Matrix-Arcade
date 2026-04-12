@@ -1,5 +1,17 @@
 # Agent Chase — Asset Requirements
 
+## Source Mapping (from TheMatrixArcadeAssetsToADDANDSORT-WILL-BE-FUN-TASK/)
+
+| Asset Category | Source | Location |
+|---|---|---|
+| Player Sprite | Pac-Man Assets | INSPO/pacman/PacManAssets/ |
+| Agent Ghosts | Pac-Man Assets | INSPO/pacman/PacManAssets/ |
+| Dot Collectibles | Pac-Man Assets | INSPO/pacman/PacManAssets/ |
+| Map Tileset | Pac-Man Assets + Roguelike | INSPO/pacman/PacManAssets/ + DUMP/32rogues/ |
+| Agent Smith Variants | Kings and Pigs | DUMP/Kings and Pigs/ |
+| Bonus Items / UI Icons | Hologram Interface | DUMP/1. Free Hologram Interface Wenrexa/Icons/ |
+| Audio (SFX Kit) | Matrix Arcade Tracks | DUMP/MatrixArcadeTracksSoundEffects/ |
+
 ## Currently Available (in rebuildingoldgames/inspirationimagesandsprites/pacman/)
 
 - [x] Pac-Man sprite (PacManAssets-PacMan.png)
@@ -22,26 +34,26 @@ All 18 textures are procedurally generated (player open/closed mouth, 4 agent gh
 - [ ] Player powered-up variant (glow after power pellet)
 
 ### Agents (Ghosts → Agent Smiths)
-- [ ] Agent Smith (Blinky/red) — 2-frame walk, 4 directions, 18×18 or 32×32
-- [ ] Agent Brown (Pinky/pink) — 2-frame walk, 4 directions
-- [ ] Agent Jones (Inky/cyan) — 2-frame walk, 4 directions
-- [ ] Agent Johnson (Clyde/orange) — 2-frame walk, 4 directions
-- [ ] Frightened agent (blue mode) — 2-frame wobble
-- [ ] Frightened warning (white flash) — 2-frame
-- [ ] Eyes only (returning to box) — directional
+- [~] Agent Smith (Blinky/red) — 2-frame walk, 4 directions, 18×18 or 32×32 — SOURCE: DUMP/Kings and Pigs/ (pig variants as agents)
+- [~] Agent Brown (Pinky/pink) — 2-frame walk, 4 directions — SOURCE: DUMP/Kings and Pigs/
+- [~] Agent Jones (Inky/cyan) — 2-frame walk, 4 directions — SOURCE: DUMP/Kings and Pigs/
+- [~] Agent Johnson (Clyde/orange) — 2-frame walk, 4 directions — SOURCE: DUMP/Kings and Pigs/
+- [~] Frightened agent (blue mode) — 2-frame wobble — SOURCE: DUMP/Kings and Pigs/
+- [~] Frightened warning (white flash) — 2-frame — SOURCE: DUMP/Kings and Pigs/
+- [~] Eyes only (returning to box) — directional — SOURCE: INSPO/pacman/PacManAssets/Ghosts
 
 ### Dots & Collectibles
-- [ ] Data dot — small, 8×8, pulsing glow
-- [ ] Power pellet — large, 16×16, bright glow
-- [ ] Fruit/bonus items — 6 types, 20×20 each (cherry, strawberry, orange, apple, grape, banana — or Matrix-themed equivalents like red pill, blue pill, phone, key, sunglasses, code fragment)
+- [~] Data dot — small, 8×8, pulsing glow — SOURCE: INSPO/pacman/PacManAssets/Items
+- [~] Power pellet — large, 16×16, bright glow — SOURCE: INSPO/pacman/PacManAssets/Items
+- [~] Fruit/bonus items — 6 types, 20×20 each (cherry, strawberry, orange, apple, grape, banana — or Matrix-themed equivalents like red pill, blue pill, phone, key, sunglasses, code fragment) — SOURCE: DUMP/1. Free Hologram Interface Wenrexa/Icons/
 
 ### Maps (3 layouts for difficulty modes)
 - [x] Map tileset available — may need Matrix-green recolour
-- [ ] Square map layout (Easy) — classic Pac-Man grid
-- [ ] Circle map layout (Medium) — circular paths, more open
-- [ ] Diamond map layout (Hard) — diamond shape, tight corridors
-- [ ] Wall tile — Matrix-green border, 20×20 or 32×32
-- [ ] Ghost house / agent spawn box tiles
+- [~] Square map layout (Easy) — classic Pac-Man grid — SOURCE: INSPO/pacman/PacManAssets/Maps (Map_1, Map_2, Map_3)
+- [~] Circle map layout (Medium) — circular paths, more open — SOURCE: INSPO/pacman/PacManAssets/Maps
+- [~] Diamond map layout (Hard) — diamond shape, tight corridors — SOURCE: DUMP/32rogues/ (roguelike maze variants)
+- [~] Wall tile — Matrix-green border, 20×20 or 32×32 — SOURCE: INSPO/pacman/PacManAssets/ + DUMP/32rogues/
+- [~] Ghost house / agent spawn box tiles — SOURCE: DUMP/32rogues/
 
 ### UI
 - [ ] Lives indicator (player icon × remaining)
@@ -50,11 +62,11 @@ All 18 textures are procedurally generated (player open/closed mouth, 4 agent gh
 - [ ] Ready/Start text overlay
 
 ### Audio
-- [ ] Dot eat (wakka wakka — classic, fast)
-- [ ] Power pellet eat (dramatic shift)
-- [ ] Agent eaten (score popup sound)
-- [ ] Fruit eat
-- [ ] Death jingle
-- [ ] Level start jingle
-- [ ] Intermission music (between levels)
-- [ ] Ghost siren ambient (continuous, pitch increases with fewer dots)
+- [~] Dot eat (wakka wakka — classic, fast) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
+- [~] Power pellet eat (dramatic shift) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
+- [~] Agent eaten (score popup sound) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
+- [~] Fruit eat — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
+- [~] Death jingle — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
+- [~] Level start jingle — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
+- [~] Intermission music (between levels) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/LongTracks/
+- [~] Ghost siren ambient (continuous, pitch increases with fewer dots) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
