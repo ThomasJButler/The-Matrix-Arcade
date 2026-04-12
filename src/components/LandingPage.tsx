@@ -6,111 +6,10 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronRight, Monitor } from 'lucide-react';
+import { Play, Monitor, Keyboard } from 'lucide-react';
 import type { GameCategory } from '../types/game';
 import { GAME_REGISTRY, type GameEntry } from '../data/gameRegistry';
 
-/**
- * Generate a unique procedural SVG placeholder based on game title
- * Uses seeded randomness to ensure consistent patterns per game
- */
-function generateGamePlaceholder(gameTitle: string): string {
-  // Create a seed from the game title
-  let hash = 0;
-  for (let i = 0; i < gameTitle.length; i++) {
-    const char = gameTitle.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-
-  // Use hash to generate pseudo-random values
-  const random = (seed: number): number => {
-    const x = Math.sin(seed) * 10000;
-    return x - Math.floor(x);
-  };
-
-  // Generate colors based on hash
-  const hue1 = Math.abs(hash % 360);
-  const hue2 = (hue1 + 120) % 360;
-
-  // Choose pattern type based on hash
-  const patternType = Math.abs(hash) % 3;
-
-  const svgContent = (() => {
-    if (patternType === 0) {
-      // Code rain pattern
-      const chars: string[] = [];
-      for (let i = 0; i < 20; i++) {
-        chars.push(String.fromCharCode(0x30A0 + (Math.abs(hash + i) % 96)));
-      }
-      return `
-        <defs>
-          <linearGradient id="grad-${hash}" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:hsl(${hue1}, 100%, 50%);stop-opacity:0.6" />
-            <stop offset="100%" style="stop-color:hsl(${hue2}, 100%, 30%);stop-opacity:0.3" />
-          </linearGradient>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#grad-${hash})"/>
-        ${Array.from({ length: 40 }).map((_, i) => {
-          const x = random(hash + i * 1.7) * 100;
-          const y = (i / 40) * 100;
-          const opacity = 0.2 + random(hash + i * 2.3) * 0.4;
-          const size = 8 + random(hash + i * 3.1) * 6;
-          return `<text x="${x}%" y="${y}%" font-size="${size}" fill="hsl(${hue1}, 100%, 50%)" opacity="${opacity}" font-family="monospace" text-anchor="middle">${chars[i % chars.length]}</text>`;
-        }).join('')}
-      `;
-    } else if (patternType === 1) {
-      // Circuit pattern with grid
-      return `
-        <defs>
-          <linearGradient id="grad-${hash}" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" style="stop-color:hsl(${hue1}, 100%, 40%);stop-opacity:0.8" />
-            <stop offset="100%" style="stop-color:hsl(${hue2}, 100%, 20%);stop-opacity:0.3" />
-          </linearGradient>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#grad-${hash})"/>
-        ${Array.from({ length: 5 }).map((_, i) => {
-          const y = (i / 5) * 100;
-          return `<line x1="0" y1="${y}%" x2="100%" y2="${y}%" stroke="hsl(${hue1}, 100%, 50%)" stroke-width="1" opacity="0.3"/>`;
-        }).join('')}
-        ${Array.from({ length: 8 }).map((_, i) => {
-          const x = (i / 8) * 100;
-          return `<line x1="${x}%" y1="0" x2="${x}%" y2="100%" stroke="hsl(${hue1}, 100%, 50%)" stroke-width="1" opacity="0.3"/>`;
-        }).join('')}
-        ${Array.from({ length: 12 }).map((_, i) => {
-          const cx = random(hash + i * 1.5) * 100;
-          const cy = random(hash + i * 2.7) * 100;
-          const r = 2 + random(hash + i * 3.3) * 3;
-          return `<circle cx="${cx}%" cy="${cy}%" r="${r}" fill="hsl(${hue1}, 100%, 60%)" opacity="0.6"/>`;
-        }).join('')}
-      `;
-    } else {
-      // Geometric grid pattern
-      return `
-        <defs>
-          <linearGradient id="grad-${hash}" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:hsl(${hue1}, 100%, 45%);stop-opacity:0.7" />
-            <stop offset="100%" style="stop-color:hsl(${hue2}, 100%, 25%);stop-opacity:0.2" />
-          </linearGradient>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#grad-${hash})"/>
-        ${Array.from({ length: 36 }).map((_, i) => {
-          const col = i % 6;
-          const row = Math.floor(i / 6);
-          const x = (col / 6) * 100 + 8;
-          const y = (row / 6) * 100 + 8;
-          const size = 12 + random(hash + i * 1.9) * 4;
-          const opacity = 0.3 + random(hash + i * 2.5) * 0.4;
-          return `<rect x="${x}%" y="${y}%" width="${size}" height="${size}" fill="hsl(${hue1}, 100%, 50%)" opacity="${opacity}" transform="rotate(${random(hash + i * 3.2) * 45} ${x + size/2}% ${y + size/2}%)"/>`;
-        }).join('')}
-      `;
-    }
-  })();
-
-  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">${svgContent}</svg>`;
-}
-
-// Use shared game registry as single source of truth
 const GAME_DATA: GameEntry[] = GAME_REGISTRY;
 
 interface LandingPageProps {
@@ -122,12 +21,12 @@ const ALL_CATEGORIES: GameCategory[] = ['Arcade', 'Classic', 'Shooter', 'Puzzle'
 
 export default function LandingPage({ onSelectGame, onClose }: LandingPageProps) {
   const [activeCategory, setActiveCategory] = useState<GameCategory | 'All'>('All');
+  const [showControls, setShowControls] = useState(false);
 
   const filteredGames = activeCategory === 'All'
     ? GAME_DATA
     : GAME_DATA.filter(g => g.category === activeCategory);
 
-  // Map filtered games back to their original index for onSelectGame
   const getOriginalIndex = (filteredIndex: number) => {
     const game = filteredGames[filteredIndex];
     return GAME_DATA.indexOf(game);
@@ -160,183 +59,163 @@ export default function LandingPage({ onSelectGame, onClose }: LandingPageProps)
         ))}
       </div>
 
-      {/* Header */}
+      {/* Header with collapsible controls */}
       <header className="sticky top-0 z-10 bg-black/90 backdrop-blur-md border-b border-green-500/30">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Monitor className="w-6 h-6 text-green-400" />
             <h1 className="text-green-400 text-lg tracking-wider phosphor-glow" style={{ fontFamily: 'var(--matrix-font-title)' }}>
               THE MATRIX ARCADE
             </h1>
           </div>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 border border-green-500/50 text-green-400 font-mono text-sm rounded hover:bg-green-500/10 transition-colors"
-          >
-            BACK TO ARCADE
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowControls(!showControls)}
+              className={`p-2 border rounded transition-colors ${
+                showControls
+                  ? 'border-green-500/50 text-green-400 bg-green-500/10'
+                  : 'border-green-500/30 text-green-400/60 hover:bg-green-500/10 hover:text-green-400'
+              }`}
+              title="Keyboard controls"
+            >
+              <Keyboard className="w-4 h-4" />
+            </button>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 border border-green-500/50 text-green-400 font-mono text-sm rounded hover:bg-green-500/10 transition-colors"
+            >
+              BACK TO ARCADE
+            </button>
+          </div>
         </div>
-      </header>
-
-      {/* Hero section */}
-      <section className="max-w-6xl mx-auto px-4 py-12 text-center">
-        <motion.h2
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          className="text-green-400 text-3xl md:text-4xl mb-4 tracking-wide phosphor-glow"
-          style={{ fontFamily: 'var(--matrix-font-title)' }}
-        >
-          Welcome to the Arcade
-        </motion.h2>
-        <motion.p
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="text-green-500/70 font-mono text-sm max-w-2xl mx-auto leading-relaxed"
-        >
-          {GAME_DATA.length} games inspired by the classics that defined gaming — rebuilt
-          from the ground up with the visual language of The Matrix. Every game
-          was discovered on a hidden terminal inside the simulation.
-        </motion.p>
-      </section>
-
-      {/* Global Controls section */}
-      <section className="max-w-6xl mx-auto px-4 py-8 mb-4">
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="border border-green-500/30 rounded-lg bg-green-500/5 p-6"
-        >
-          <h3 className="text-green-400 font-mono text-sm mb-4 uppercase tracking-wider">
-            Global Controls
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <span className="text-green-500/60 font-mono text-xs">P</span>
-              <p className="text-green-400/80 font-mono text-xs mt-1">Pause Game</p>
-            </div>
-            <div>
-              <span className="text-green-500/60 font-mono text-xs">R</span>
-              <p className="text-green-400/80 font-mono text-xs mt-1">Restart Game</p>
-            </div>
-            <div>
-              <span className="text-green-500/60 font-mono text-xs">ESC</span>
-              <p className="text-green-400/80 font-mono text-xs mt-1">Exit to Menu</p>
-            </div>
-            <div>
-              <span className="text-green-500/60 font-mono text-xs">Arrow Keys</span>
-              <p className="text-green-400/80 font-mono text-xs mt-1">Navigate</p>
+        {showControls && (
+          <div className="border-t border-green-500/20 bg-black/60">
+            <div className="max-w-7xl mx-auto px-4 py-2.5 flex flex-wrap gap-x-6 gap-y-1 justify-center">
+              {[
+                ['P', 'Pause'],
+                ['R', 'Restart'],
+                ['ESC', 'Exit'],
+                ['M', 'Mute'],
+                ['Arrows', 'Move'],
+                ['WASD', 'Alt Move'],
+              ].map(([key, action]) => (
+                <span key={key} className="font-mono text-xs text-green-500/60">
+                  <kbd className="text-green-400/80 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20 mr-1.5">{key}</kbd>
+                  {action}
+                </span>
+              ))}
             </div>
           </div>
-        </motion.div>
-      </section>
+        )}
+      </header>
 
-      {/* Category filter */}
-      <section className="max-w-6xl mx-auto px-4 mb-6">
-        <div className="flex flex-wrap gap-2 items-center">
-          <button
-            onClick={() => setActiveCategory('All')}
-            className={`px-3 py-1 rounded-full font-mono text-xs transition-colors ${
-              activeCategory === 'All'
-                ? 'bg-green-500 text-black font-bold'
-                : 'border border-green-500/30 text-green-500/60 hover:border-green-500/60 hover:text-green-400'
-            }`}
+      {/* Hero + Category filter */}
+      <section className="max-w-7xl mx-auto px-4 pt-8 pb-4">
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
+          <div>
+            <motion.h2
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.1 }}
+              className="text-green-400 text-2xl md:text-3xl tracking-wide phosphor-glow mb-1"
+              style={{ fontFamily: 'var(--matrix-font-title)' }}
+            >
+              Choose Your Program
+            </motion.h2>
+            <motion.p
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="text-green-500/50 font-mono text-xs"
+            >
+              {GAME_DATA.length} programs recovered from terminals inside the simulation
+            </motion.p>
+          </div>
+
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="flex flex-wrap gap-2"
           >
-            All ({GAME_DATA.length})
-          </button>
-          {ALL_CATEGORIES.map(cat => {
-            const count = GAME_DATA.filter(g => g.category === cat).length;
-            if (count === 0) return null;
-            return (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`px-3 py-1 rounded-full font-mono text-xs transition-colors ${
-                  activeCategory === cat
-                    ? 'bg-green-500 text-black font-bold'
-                    : 'border border-green-500/30 text-green-500/60 hover:border-green-500/60 hover:text-green-400'
-                }`}
-              >
-                {cat} ({count})
-              </button>
-            );
-          })}
+            <button
+              onClick={() => setActiveCategory('All')}
+              className={`px-3 py-1 rounded-full font-mono text-xs transition-colors ${
+                activeCategory === 'All'
+                  ? 'bg-green-500 text-black font-bold'
+                  : 'border border-green-500/30 text-green-500/60 hover:border-green-500/60 hover:text-green-400'
+              }`}
+            >
+              All ({GAME_DATA.length})
+            </button>
+            {ALL_CATEGORIES.map(cat => {
+              const count = GAME_DATA.filter(g => g.category === cat).length;
+              if (count === 0) return null;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
+                  className={`px-3 py-1 rounded-full font-mono text-xs transition-colors ${
+                    activeCategory === cat
+                      ? 'bg-green-500 text-black font-bold'
+                      : 'border border-green-500/30 text-green-500/60 hover:border-green-500/60 hover:text-green-400'
+                  }`}
+                >
+                  {cat} ({count})
+                </button>
+              );
+            })}
+          </motion.div>
         </div>
       </section>
 
       {/* Games grid */}
-      <section className="max-w-6xl mx-auto px-4 pb-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <section className="max-w-7xl mx-auto px-4 pb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {filteredGames.map((game, index) => (
             <motion.div
               key={game.title}
               initial={{ y: 30, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.1 + index * 0.05 }}
+              transition={{ delay: 0.05 + index * 0.03 }}
               onClick={() => onSelectGame(getOriginalIndex(index))}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectGame(getOriginalIndex(index)); } }}
               role="button"
               tabIndex={0}
               aria-label={`Play ${game.title}`}
-              className="group cursor-pointer border border-green-500/35 rounded-lg bg-green-500/5 hover:bg-green-500/10 hover:border-green-500/50 focus:outline-none focus:ring-2 focus:ring-green-500/60 transition-all duration-300 overflow-hidden"
+              className="group cursor-pointer border border-green-500/25 rounded-lg bg-green-500/[0.03] hover:bg-green-500/10 hover:border-green-500/50 focus:outline-none focus:ring-2 focus:ring-green-500/60 transition-all duration-300 overflow-hidden"
             >
-              {/* Preview image */}
-              {game.preview ? (
-                <div className="h-36 overflow-hidden bg-black">
+              {/* Preview image with play overlay */}
+              <div className="relative h-44 overflow-hidden bg-black">
+                {game.preview ? (
                   <img
                     src={game.preview}
                     alt={game.title}
-                    className="w-full h-full object-cover opacity-75 group-hover:opacity-90 transition-opacity"
+                    className="w-full h-full object-cover opacity-70 group-hover:opacity-90 group-hover:scale-105 transition-all duration-500"
                   />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-green-900/20 to-black" />
+                )}
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <div className="w-12 h-12 rounded-full bg-green-500/20 border border-green-400/40 flex items-center justify-center backdrop-blur-sm">
+                    <Play className="w-5 h-5 text-green-400 ml-0.5" fill="currentColor" />
+                  </div>
                 </div>
-              ) : (
-                <div
-                  className="h-36 bg-black"
-                  dangerouslySetInnerHTML={{ __html: generateGamePlaceholder(game.title) }}
-                />
-              )}
-
-              <div className="p-4 relative">
-                {/* Category badge */}
-                <span className="absolute top-4 right-4 bg-green-500/15 text-green-400/70 text-[9px] font-mono px-2 py-0.5 rounded border border-green-500/20">
+                <span className="absolute top-2 right-2 bg-black/70 text-green-400/80 text-[9px] font-mono px-2 py-0.5 rounded border border-green-500/20 backdrop-blur-sm">
                   {game.category}
                 </span>
+              </div>
 
-                {/* Title */}
-                <h3 className="text-green-400 font-mono text-sm mb-2 group-hover:text-green-300 transition-colors flex items-center gap-2">
+              <div className="p-3">
+                <h3 className="text-green-400 font-mono text-sm mb-1.5 group-hover:text-green-300 transition-colors truncate">
                   {game.title}
-                  <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </h3>
-
-                {/* Description */}
-                <p className="text-green-500/60 font-mono text-xs mb-3 leading-relaxed">
+                <p className="text-green-500/55 font-mono text-[11px] leading-relaxed line-clamp-2 mb-2">
                   {game.description}
                 </p>
-
-                {/* Controls section */}
-                <div className="border-t border-green-500/10 pt-3 mb-3">
-                  <span className="text-green-500/40 font-mono text-[10px] uppercase tracking-wider">
-                    Controls
-                  </span>
-                  <p className="text-green-400/80 font-mono text-xs mt-1">
-                    {game.controls}
-                  </p>
-                </div>
-
-                {/* Inspiration tag */}
-                <div className="border-t border-green-500/10 pt-3">
-                  <span className="text-green-500/40 font-mono text-[10px] uppercase tracking-wider">
-                    Inspired by
-                  </span>
-                  <p className="text-green-400/80 font-mono text-xs mt-1">
-                    {game.inspiration}
-                  </p>
-                  <p className="text-green-500/40 font-mono text-[10px] mt-1 leading-relaxed">
-                    {game.inspirationNote}
-                  </p>
-                </div>
+                <p className="text-green-500/35 font-mono text-[10px] truncate">
+                  Inspired by {game.inspiration}
+                </p>
               </div>
             </motion.div>
           ))}
@@ -344,7 +223,7 @@ export default function LandingPage({ onSelectGame, onClose }: LandingPageProps)
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-green-500/20 py-8 text-center">
+      <footer className="border-t border-green-500/20 py-6 text-center">
         <p className="text-green-500/30 font-mono text-xs">
           Built with love by Tom Butler — React + Phaser 3 + Web Audio API
         </p>
