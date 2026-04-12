@@ -37,6 +37,10 @@ export class RhythmHackerGameScene extends BaseScene {
   private trackDuration = 0;
   private trackBpm = 120;
   private difficulty: 'easy' | 'normal' | 'hard' | 'insane' = 'normal';
+  private audioUrl = '';
+
+  // Music playback
+  private trackAudio: HTMLAudioElement | null = null;
 
   // Game state
   private score = 0;
@@ -93,6 +97,7 @@ export class RhythmHackerGameScene extends BaseScene {
     this.trackBpm = track.bpm;
     this.difficulty = track.difficulty as 'easy' | 'normal' | 'hard' | 'insane';
     this.beatInterval = 60000 / this.trackBpm;
+    this.audioUrl = track.audioUrl;
   }
 
   create(): void {
@@ -143,6 +148,9 @@ export class RhythmHackerGameScene extends BaseScene {
     // Setup input
     this.setupInput();
     this.setupCommonInputs();
+
+    // Prepare music track
+    this.initTrackAudio();
   }
 
   update(time: number, delta: number): void {
@@ -170,6 +178,11 @@ export class RhythmHackerGameScene extends BaseScene {
     // Check for track end
     if (this.gameTime >= this.trackDuration * 1000 && this.activeNotes.length === 0) {
       this.trackComplete();
+    }
+
+    // Sync mute state to track audio
+    if (this.trackAudio) {
+      this.trackAudio.muted = this.getIsMuted();
     }
 
     // Update UI
@@ -220,6 +233,7 @@ export class RhythmHackerGameScene extends BaseScene {
       this.isCountdown = false;
       this.nextNoteTime = 0;
       this.countdownText.setVisible(false);
+      this.startTrackAudio();
     }
   }
 
@@ -399,6 +413,7 @@ export class RhythmHackerGameScene extends BaseScene {
       this.playSound('rhythmMiss');
 
       if (this.health <= 0) {
+        this.stopTrackAudio();
         this.reportScore(this.score, this.score);
         this.gameOver(this.score, 'Health depleted');
       }
@@ -538,6 +553,7 @@ export class RhythmHackerGameScene extends BaseScene {
 
     // Check health
     if (this.health <= 0) {
+      this.stopTrackAudio();
       this.reportScore(this.score, this.score);
       this.gameOver(this.score, 'Health depleted');
     }
@@ -814,6 +830,7 @@ export class RhythmHackerGameScene extends BaseScene {
    * Track complete
    */
   private trackComplete(): void {
+    this.stopTrackAudio();
     this.playSound('levelUp');
 
     // Check for full combo
@@ -884,10 +901,53 @@ export class RhythmHackerGameScene extends BaseScene {
     }
   }
 
+  private initTrackAudio(): void {
+    if (!this.audioUrl) return;
+    try {
+      this.trackAudio = new Audio(this.audioUrl);
+      this.trackAudio.preload = 'auto';
+      this.trackAudio.volume = 0.6;
+      this.trackAudio.muted = this.getIsMuted();
+    } catch {
+      this.trackAudio = null;
+    }
+  }
+
+  private startTrackAudio(): void {
+    if (!this.trackAudio) return;
+    this.trackAudio.currentTime = 0;
+    this.trackAudio.muted = this.getIsMuted();
+    this.trackAudio.play().catch(() => {});
+  }
+
+  private stopTrackAudio(): void {
+    if (!this.trackAudio) return;
+    this.trackAudio.pause();
+    this.trackAudio.currentTime = 0;
+  }
+
+  protected togglePause(): void {
+    const wasPaused = this.isPaused;
+    super.togglePause();
+
+    if (this.trackAudio) {
+      if (wasPaused) {
+        this.trackAudio.play().catch(() => {});
+      } else {
+        this.trackAudio.pause();
+      }
+    }
+  }
+
   /**
    * Cleanup on scene shutdown
    */
   shutdown(): void {
+    this.stopTrackAudio();
+    if (this.trackAudio) {
+      this.trackAudio.src = '';
+      this.trackAudio = null;
+    }
     this.time?.removeAllEvents();
     this.tweens?.killAll();
     this.laneKeys.forEach(key => {

@@ -157,35 +157,43 @@ describe('RhythmHackerGameScene', () => {
   // Track Initialisation
   // -----------------------------------------------------------------------
   describe('Track Initialisation', () => {
-    it('easy track: 100 BPM, 60s duration, beatInterval 600ms', () => {
+    it('easy track: 100 BPM, 120s duration, beatInterval 600ms', () => {
       const s = createTestScene(0);
       expect(s.trackBpm).toBe(100);
-      expect(s.trackDuration).toBe(60);
+      expect(s.trackDuration).toBe(120);
       expect(s.beatInterval).toBe(600);
       expect(s.difficulty).toBe('easy');
     });
 
-    it('normal track: 120 BPM, 90s duration, beatInterval 500ms', () => {
+    it('normal track: 120 BPM, 150s duration, beatInterval 500ms', () => {
       const s = createTestScene(1);
       expect(s.trackBpm).toBe(120);
-      expect(s.trackDuration).toBe(90);
+      expect(s.trackDuration).toBe(150);
       expect(s.beatInterval).toBe(500);
       expect(s.difficulty).toBe('normal');
     });
 
-    it('hard track: 140 BPM, 120s duration', () => {
+    it('hard track: 140 BPM, 150s duration', () => {
       const s = createTestScene(2);
       expect(s.trackBpm).toBe(140);
-      expect(s.trackDuration).toBe(120);
+      expect(s.trackDuration).toBe(150);
       expect(s.beatInterval).toBeCloseTo(60000 / 140, 1);
       expect(s.difficulty).toBe('hard');
     });
 
-    it('insane track: 180 BPM, 150s duration', () => {
+    it('insane track: 160 BPM, 200s duration', () => {
       const s = createTestScene(3);
-      expect(s.trackBpm).toBe(180);
-      expect(s.trackDuration).toBe(150);
-      expect(s.beatInterval).toBeCloseTo(60000 / 180, 1);
+      expect(s.trackBpm).toBe(160);
+      expect(s.trackDuration).toBe(200);
+      expect(s.beatInterval).toBeCloseTo(60000 / 160, 1);
+      expect(s.difficulty).toBe('insane');
+    });
+
+    it('bonus insane track: 150 BPM, 180s duration', () => {
+      const s = createTestScene(4);
+      expect(s.trackBpm).toBe(150);
+      expect(s.trackDuration).toBe(180);
+      expect(s.beatInterval).toBe(400);
       expect(s.difficulty).toBe('insane');
     });
 
@@ -456,6 +464,58 @@ describe('RhythmHackerGameScene', () => {
 
     it('countdown duration is 5000ms', () => {
       expect(GAME_CONFIG.COUNTDOWN.DURATION).toBe(5000);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Track Audio
+  // -----------------------------------------------------------------------
+  describe('Track Audio', () => {
+    it('all tracks have audioUrl pointing to /assets/rhythm-hacker/tracks/', () => {
+      GAME_CONFIG.TRACKS.forEach((track) => {
+        expect(track.audioUrl).toMatch(/^\/assets\/rhythm-hacker\/tracks\/.+\.mp3$/);
+      });
+    });
+
+    it('track count is 5 (easy, normal, hard, 2x insane)', () => {
+      expect(GAME_CONFIG.TRACKS.length).toBe(5);
+    });
+
+    it('initTrackAudio creates Audio element when audioUrl is set', () => {
+      scene.audioUrl = '/assets/rhythm-hacker/tracks/test.mp3';
+      scene.getIsMuted = vi.fn().mockReturnValue(false);
+      scene.initTrackAudio();
+      expect(scene.trackAudio).not.toBeNull();
+    });
+
+    it('initTrackAudio is a no-op without audioUrl', () => {
+      scene.audioUrl = '';
+      scene.initTrackAudio();
+      expect(scene.trackAudio).toBeNull();
+    });
+
+    it('stopTrackAudio pauses and resets the audio element', () => {
+      const mockAudio = { pause: vi.fn(), currentTime: 5 };
+      scene.trackAudio = mockAudio;
+      scene.stopTrackAudio();
+      expect(mockAudio.pause).toHaveBeenCalled();
+      expect(mockAudio.currentTime).toBe(0);
+    });
+
+    it('stopTrackAudio is a no-op without audio', () => {
+      scene.trackAudio = null;
+      expect(() => scene.stopTrackAudio()).not.toThrow();
+    });
+
+    it('shutdown clears the audio element', () => {
+      const mockAudio = { pause: vi.fn(), currentTime: 0, src: 'test.mp3' };
+      scene.trackAudio = mockAudio;
+      scene.time = { removeAllEvents: vi.fn() };
+      scene.tweens = { killAll: vi.fn() };
+      scene.laneKeys = [];
+      scene.input = { keyboard: { removeAllKeys: vi.fn() } };
+      scene.shutdown();
+      expect(scene.trackAudio).toBeNull();
     });
   });
 });
