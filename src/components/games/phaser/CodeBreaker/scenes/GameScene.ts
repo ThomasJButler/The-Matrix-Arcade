@@ -124,18 +124,20 @@ export class CodeBreakerGameScene extends BaseScene {
 
   private createPaddle(): void {
     this.paddle = this.add.sprite(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.PADDLE_Y, 'paddle');
+    this.paddle.setDisplaySize(GAME_CONFIG.PADDLE_WIDTH, GAME_CONFIG.PADDLE_HEIGHT);
     this.paddle.setDepth(5);
   }
 
   // -- Ball --
 
   private spawnBall(attached: boolean): void {
-    const sprite = this.add.circle(
+    const ballSize = GAME_CONFIG.BALL_RADIUS * 2;
+    const sprite = this.add.image(
       attached ? this.paddle.x : GAME_CONFIG.WIDTH / 2,
       attached ? this.paddle.y - GAME_CONFIG.PADDLE_HEIGHT / 2 - GAME_CONFIG.BALL_RADIUS - 1 : GAME_CONFIG.HEIGHT * 0.6,
-      GAME_CONFIG.BALL_RADIUS,
-      MATRIX_COLORS.PRIMARY
+      'ball'
     );
+    sprite.setDisplaySize(ballSize, ballSize);
     sprite.setDepth(6);
 
     const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.6;
@@ -1030,6 +1032,7 @@ export class CodeBreakerGameScene extends BaseScene {
     const type = types[Math.floor(Math.random() * types.length)];
 
     const sprite = this.add.sprite(x, y, `powerup_${type}`);
+    sprite.setDisplaySize(GAME_CONFIG.POWERUP_SIZE, GAME_CONFIG.POWERUP_SIZE);
     sprite.setDepth(4);
 
     this.tweens.add({
@@ -1166,10 +1169,13 @@ export class CodeBreakerGameScene extends BaseScene {
   private updatePaddleTexture(): void {
     if (this.laserActive) {
       this.paddle.setTexture('paddle_laser');
+      this.paddle.setDisplaySize(GAME_CONFIG.PADDLE_WIDTH, GAME_CONFIG.PADDLE_HEIGHT);
     } else if (this.widePaddleActive) {
       this.paddle.setTexture('paddle_wide');
+      this.paddle.setDisplaySize(GAME_CONFIG.PADDLE_WIDE_WIDTH, GAME_CONFIG.PADDLE_HEIGHT);
     } else {
       this.paddle.setTexture('paddle');
+      this.paddle.setDisplaySize(GAME_CONFIG.PADDLE_WIDTH, GAME_CONFIG.PADDLE_HEIGHT);
     }
   }
 

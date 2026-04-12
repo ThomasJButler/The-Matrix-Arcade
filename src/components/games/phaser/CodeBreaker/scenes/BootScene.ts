@@ -2,11 +2,20 @@ import { BootScene } from '@/lib/phaser/scenes/BootScene';
 import { SCENE_KEYS, MATRIX_COLORS } from '@/lib/phaser/types';
 import { POWERUP_DEFS, GAME_CONFIG, type PowerUpType } from '../config';
 
-const BRICK_ASSETS: Array<{ key: string; path: string }> = [
+const SPRITE_ASSETS: Array<{ key: string; path: string }> = [
   { key: 'brick_code', path: 'assets/code-breaker/brick_code.png' },
   { key: 'brick_agent', path: 'assets/code-breaker/brick_agent.png' },
   { key: 'brick_sentinel', path: 'assets/code-breaker/brick_sentinel.png' },
   { key: 'brick_unbreakable', path: 'assets/code-breaker/brick_unbreakable.png' },
+  { key: 'paddle', path: 'assets/code-breaker/paddle.png' },
+  { key: 'paddle_wide', path: 'assets/code-breaker/paddle_wide.png' },
+  { key: 'ball', path: 'assets/code-breaker/ball.png' },
+  { key: 'powerup_multiBall', path: 'assets/code-breaker/powerup_multiBall.png' },
+  { key: 'powerup_widePaddle', path: 'assets/code-breaker/powerup_widePaddle.png' },
+  { key: 'powerup_laser', path: 'assets/code-breaker/powerup_laser.png' },
+  { key: 'powerup_bulletTime', path: 'assets/code-breaker/powerup_bulletTime.png' },
+  { key: 'powerup_firewall', path: 'assets/code-breaker/powerup_firewall.png' },
+  { key: 'powerup_emp', path: 'assets/code-breaker/powerup_emp.png' },
 ];
 
 export class CodeBreakerBootScene extends BootScene {
@@ -15,7 +24,7 @@ export class CodeBreakerBootScene extends BootScene {
   }
 
   protected loadCommonAssets(): void {
-    for (const { key, path } of BRICK_ASSETS) {
+    for (const { key, path } of SPRITE_ASSETS) {
       this.load.image(key, path);
     }
   }
@@ -35,25 +44,29 @@ export class CodeBreakerBootScene extends BootScene {
   }
 
   private createPaddleTexture(C: typeof GAME_CONFIG): void {
-    const g = this.make.graphics({ x: 0, y: 0 });
-    g.fillStyle(MATRIX_COLORS.PRIMARY, 1);
-    g.fillRoundedRect(0, 0, C.PADDLE_WIDTH, C.PADDLE_HEIGHT, 4);
-    g.lineStyle(1, 0x00cc00, 0.8);
-    g.strokeRoundedRect(0, 0, C.PADDLE_WIDTH, C.PADDLE_HEIGHT, 4);
-    g.fillStyle(0x00cc00, 0.6);
-    g.fillRect(4, 3, C.PADDLE_WIDTH - 8, 3);
-    g.generateTexture('paddle', C.PADDLE_WIDTH, C.PADDLE_HEIGHT);
-    g.destroy();
+    if (!this.textures.exists('paddle')) {
+      const g = this.make.graphics({ x: 0, y: 0 });
+      g.fillStyle(MATRIX_COLORS.PRIMARY, 1);
+      g.fillRoundedRect(0, 0, C.PADDLE_WIDTH, C.PADDLE_HEIGHT, 4);
+      g.lineStyle(1, 0x00cc00, 0.8);
+      g.strokeRoundedRect(0, 0, C.PADDLE_WIDTH, C.PADDLE_HEIGHT, 4);
+      g.fillStyle(0x00cc00, 0.6);
+      g.fillRect(4, 3, C.PADDLE_WIDTH - 8, 3);
+      g.generateTexture('paddle', C.PADDLE_WIDTH, C.PADDLE_HEIGHT);
+      g.destroy();
+    }
 
-    const gw = this.make.graphics({ x: 0, y: 0 });
-    gw.fillStyle(MATRIX_COLORS.YELLOW, 1);
-    gw.fillRoundedRect(0, 0, C.PADDLE_WIDE_WIDTH, C.PADDLE_HEIGHT, 4);
-    gw.lineStyle(1, 0xccaa00, 0.8);
-    gw.strokeRoundedRect(0, 0, C.PADDLE_WIDE_WIDTH, C.PADDLE_HEIGHT, 4);
-    gw.fillStyle(0xccaa00, 0.6);
-    gw.fillRect(4, 3, C.PADDLE_WIDE_WIDTH - 8, 3);
-    gw.generateTexture('paddle_wide', C.PADDLE_WIDE_WIDTH, C.PADDLE_HEIGHT);
-    gw.destroy();
+    if (!this.textures.exists('paddle_wide')) {
+      const gw = this.make.graphics({ x: 0, y: 0 });
+      gw.fillStyle(MATRIX_COLORS.YELLOW, 1);
+      gw.fillRoundedRect(0, 0, C.PADDLE_WIDE_WIDTH, C.PADDLE_HEIGHT, 4);
+      gw.lineStyle(1, 0xccaa00, 0.8);
+      gw.strokeRoundedRect(0, 0, C.PADDLE_WIDE_WIDTH, C.PADDLE_HEIGHT, 4);
+      gw.fillStyle(0xccaa00, 0.6);
+      gw.fillRect(4, 3, C.PADDLE_WIDE_WIDTH - 8, 3);
+      gw.generateTexture('paddle_wide', C.PADDLE_WIDE_WIDTH, C.PADDLE_HEIGHT);
+      gw.destroy();
+    }
 
     const gl = this.make.graphics({ x: 0, y: 0 });
     gl.fillStyle(MATRIX_COLORS.MAGENTA, 1);
@@ -67,6 +80,8 @@ export class CodeBreakerBootScene extends BootScene {
   }
 
   private createBallTexture(C: typeof GAME_CONFIG): void {
+    if (this.textures.exists('ball')) return;
+
     const r = C.BALL_RADIUS;
     const size = r * 2 + 2;
     const cx = size / 2;
@@ -114,6 +129,8 @@ export class CodeBreakerBootScene extends BootScene {
   }
 
   private createAgentTexture(C: typeof GAME_CONFIG): void {
+    if (this.textures.exists('agent_smith')) return;
+
     const w = C.AGENT_WIDTH;
     const h = C.AGENT_HEIGHT;
     const g = this.make.graphics({ x: 0, y: 0 });
@@ -133,6 +150,8 @@ export class CodeBreakerBootScene extends BootScene {
   }
 
   private createBossTexture(C: typeof GAME_CONFIG): void {
+    if (this.textures.exists('boss_brick')) return;
+
     const w = C.BOSS_WIDTH;
     const h = C.BOSS_HEIGHT;
     const g = this.make.graphics({ x: 0, y: 0 });
@@ -159,6 +178,9 @@ export class CodeBreakerBootScene extends BootScene {
     const r = size / 2;
 
     for (const [type, def] of types) {
+      const key = `powerup_${type}`;
+      if (this.textures.exists(key)) continue;
+
       const g = this.make.graphics({ x: 0, y: 0 });
       g.fillStyle(def.color, 0.3);
       g.fillCircle(r, r, r);
@@ -166,12 +188,14 @@ export class CodeBreakerBootScene extends BootScene {
       g.strokeCircle(r, r, r - 1);
       g.fillStyle(def.color, 1);
       g.fillCircle(r, r, r * 0.5);
-      g.generateTexture(`powerup_${type}`, size, size);
+      g.generateTexture(key, size, size);
       g.destroy();
     }
   }
 
   private createLaserTexture(C: typeof GAME_CONFIG): void {
+    if (this.textures.exists('laser_beam')) return;
+
     const g = this.make.graphics({ x: 0, y: 0 });
     g.fillStyle(MATRIX_COLORS.MAGENTA, 1);
     g.fillRect(0, 0, C.LASER_WIDTH, C.LASER_HEIGHT);
@@ -182,6 +206,8 @@ export class CodeBreakerBootScene extends BootScene {
   }
 
   private createFirewallTexture(C: typeof GAME_CONFIG): void {
+    if (this.textures.exists('firewall')) return;
+
     const g = this.make.graphics({ x: 0, y: 0 });
     g.fillStyle(MATRIX_COLORS.CYAN, 0.6);
     g.fillRect(0, 0, C.WIDTH, C.FIREWALL_HEIGHT);
@@ -193,6 +219,8 @@ export class CodeBreakerBootScene extends BootScene {
   }
 
   private createPortalTexture(): void {
+    if (this.textures.exists('portal')) return;
+
     const size = 48;
     const g = this.make.graphics({ x: 0, y: 0 });
     g.fillStyle(MATRIX_COLORS.CYAN, 0.3);

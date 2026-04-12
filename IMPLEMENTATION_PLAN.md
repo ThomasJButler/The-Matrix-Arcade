@@ -7,11 +7,11 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ## Current Status
 
 - **Status**: REBUILDING -- Phaser migration complete, asset pipeline bootstrapped, per-game sprite integration in progress, Rhythm Hacker music integrated
-- **Last Updated**: 12 April 2026 (R23 -- Matrix Cloud bird sprite integration)
+- **Last Updated**: 12 April 2026 (R24 -- Code Breaker paddle, ball, and power-up sprite integration)
 - **Version**: v2.0.0 (next target)
 - **Games**: 12 playable (11 Phaser, 1 DOM)
 - **Build**: PASSES (code-split, main bundle ~372KB, Phaser vendor chunk 1,479KB) -- zero warnings
-- **Unit Tests**: 2,051 passing across 46 files, 0 failures
+- **Unit Tests**: 2,053 passing across 46 files, 0 failures
 - **E2E Tests**: 88 gameplay + 110 visual = 198 tests across 28 spec files -- last run PASSED (new screeenshots in TheMatrixArcade-/e2e, user manually ran the playwright test. 
 - **Asset Pipeline**: Phase 0a COMPLETE -- `public/assets/` deployed with fonts, audio, UI chrome, particles, icons (117 files, ~40MB)
 
@@ -32,6 +32,7 @@ All P0/P1/P2 bugs resolved across R1-R14 (12 April 2026). Key milestones:
 - **R22 Rhythm Hacker music integration**: Installed ffmpeg via Homebrew (unblocking WAV→MP3 conversion). Converted 5 music tracks from WAV to MP3 at 192kbps with loudnorm normalisation: In The Moonlight (easy, 120s), Cyberpunkin' (normal, 150s), Cyberpsychotic (hard, 150s), Enhancements (insane, 200s), Resonance (insane, 180s). Deployed to `public/assets/rhythm-hacker/tracks/`. Also converted 3 additional global music tracks (cruise-control, a-last-embrace, ostcrunch2-epic) to `public/assets/audio/music/`. Updated config.ts with real track names, BPMs, durations, and audioUrl paths. Integrated HTML5 Audio playback into GameScene: music starts after countdown, pauses/resumes with game, stops on game over/track complete, respects mute state. Added togglePause override for audio sync. 8 new unit tests (58 total for Rhythm Hacker). All 2,047 tests pass. Build clean.
 - **R18 Global asset extraction + font integration**: Bootstrapped `public/assets/` from zero. Extracted 3 font families from ZIP archives (MatrixType 4 variants WOFF2+TTF, AlphaProta 2 variants WOFF2+TTF, 5 NotJam pixel fonts). Deployed 4 music tracks (MP3), 20 Matrix Trilogy SFX (WAV), hologram UI chrome (4 buttons, 5 card panels, 15 icons), 25 Matrix node icons (green+purple, PNG+WEBP+GIF), 21 firework particle frames (3 colours × 7 frames). Added `@font-face` declarations for all custom fonts with WOFF2→TTF fallback chain. Created 5 new CSS variables (`--matrix-font-title`, `--matrix-font-matrix`, `--matrix-font-cyber`, `--matrix-font-pixel`, `--matrix-font-hud`). Applied MatrixType Display to arcade title in App.tsx and LandingPage.tsx. Updated global ASSETS_NEEDED.md with deployment status. Total: 117 files, ~40MB. Blocker: WAV music tracks (7 files, ~280MB total) need ffmpeg for OGG/MP3 conversion.
 - **R23 Matrix Cloud bird sprite integration**: Extracted green bird sprite (4 frames, 16×16 pixel art) from Flappy Bird Assets pack, plus green pipe and pipe-cap sprites. Deployed to `public/assets/matrix-cloud/`. Updated BootScene with `loadCommonAssets()` override to load bird spritesheet, creates `bird_flap` animation (4 frames at 10fps), sets `spriteMode` registry flag. GameScene `createPlayer()` uses animated bird sprite with `setDisplaySize()` scaling when available, procedural fallback when not. `updatePlayerTexture()` uses tint-based state changes (red=damaged, magenta=shield) in sprite mode vs texture-swap in fallback mode. 4 new unit tests (85 total for Matrix Cloud). All 2,051 tests pass.
+- **R24 Code Breaker paddle, ball, and power-up sprite integration**: Deployed 10 new sprites to `public/assets/code-breaker/`: paddle (BBreaker Player.png, 74×26), paddle_wide (breakout_pixel_art, 96×8), ball (BBreaker Ball_small-blue.png, 13×12), and 6 hologram power-up icons (multiBall=nodes, widePaddle=bars, laser=crosshair, bulletTime=circular, firewall=shield, emp=lightning). Updated BootScene with `textures.exists()` guards so loaded sprites take priority over procedural fallbacks. Changed GameScene ball rendering from `add.circle()` to `add.image()` with `setDisplaySize()` scaling. Added `setDisplaySize()` to paddle creation and texture switching for consistent sizing across sprite/procedural modes. All 127 unit tests pass, 2,053 total.
 
 Full details in git history (`git log --oneline`).
 
@@ -139,7 +140,7 @@ Each game's `desiredassets/[game]/ASSETS_NEEDED.md` has a Source Mapping section
 - [ ] **Neo Jump**: Deferred — Doodle RPG pack contains decorative tiles (rocks, fences), not platform/character sprites. Needs purpose-built sprites.
 - [x] **Agent Chase**: Player (rogue), 4 agent monsters, frightened slime, wall brick sprites integrated from 32rogues pack. Remaining: agent death animation, fruit icons, audio SFX.
 - [x] **Cloud Jumper**: 4 cloud sprites (wide, compact, small, peak) deployed with per-type tinting and display-size physics bodies. Remaining: player sprite, collectible sprites, obstacle sprites, background layers.
-- [x] **Code Breaker**: Brick sprites integrated (4 types: code, agent, sentinel, unbreakable). Remaining: laser sprites, paddle sprites, agent enemies, power-up icons, portal.
+- [x] **Code Breaker**: Brick sprites integrated (4 types: code, agent, sentinel, unbreakable). Paddle sprites (normal + wide), ball sprite, and 6 power-up icons integrated with display-size scaling. Remaining: laser sprites, agent enemies, portal.
 
 ### 0c. Asset Integration Pattern
 
@@ -308,7 +309,7 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 - No orphaned legacy code (cleaned up in R15)
 
 ### Gaps
-- Most games still use procedural textures -- Code Breaker has brick sprites, Matrix Frogger has vehicle sprites, Agent Chase has roguelike sprites, Matrix Cloud has bird sprite, Rhythm Hacker has music tracks, but remaining 7 games are fully procedural
+- Most games still use procedural textures -- Code Breaker has brick, paddle, ball, and power-up sprites, Matrix Frogger has vehicle sprites, Agent Chase has roguelike sprites, Matrix Cloud has bird sprite, Rhythm Hacker has music tracks, but remaining 7 games are fully procedural
 - Rhythm Hacker BPM values are estimates — may need tuning per track after playtesting
 - `useAdvancedVoice` AudioContext for visualisation never connected to speech output (always returns zeros)
 

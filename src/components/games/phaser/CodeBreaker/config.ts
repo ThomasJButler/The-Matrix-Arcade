@@ -50,7 +50,7 @@ export interface BrickState {
 }
 
 export interface BallState {
-  sprite: Phaser.GameObjects.Arc;
+  sprite: Phaser.GameObjects.Image;
   vx: number;
   vy: number;
 }
