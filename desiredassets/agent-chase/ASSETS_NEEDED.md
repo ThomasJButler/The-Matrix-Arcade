@@ -28,17 +28,17 @@ All 18 textures are procedurally generated (player open/closed mouth, 4 agent gh
 ## Still Needed
 
 ### Player (Neo as Pac-Man)
-- [ ] Player sprite — open mouth, 4 directions, 18×18 or 32×32
+- [x] Player sprite — open mouth, 4 directions, 18×18 or 32×32
 - [ ] Player sprite — closed mouth, 4 directions
 - [ ] Player death animation — 6-8 frames (shrink / dissolve)
 - [ ] Player powered-up variant (glow after power pellet)
 
 ### Agents (Ghosts → Agent Smiths)
-- [~] Agent Smith (Blinky/red) — 2-frame walk, 4 directions, 18×18 or 32×32 — SOURCE: DUMP/Kings and Pigs/ (pig variants as agents)
-- [~] Agent Brown (Pinky/pink) — 2-frame walk, 4 directions — SOURCE: DUMP/Kings and Pigs/
-- [~] Agent Jones (Inky/cyan) — 2-frame walk, 4 directions — SOURCE: DUMP/Kings and Pigs/
-- [~] Agent Johnson (Clyde/orange) — 2-frame walk, 4 directions — SOURCE: DUMP/Kings and Pigs/
-- [~] Frightened agent (blue mode) — 2-frame wobble — SOURCE: DUMP/Kings and Pigs/
+- [x] Agent Smith (Blinky/red) — 2-frame walk, 4 directions, 18×18 or 32×32 — SOURCE: DUMP/Kings and Pigs/ (pig variants as agents)
+- [x] Agent Brown (Pinky/pink) — 2-frame walk, 4 directions — SOURCE: DUMP/Kings and Pigs/
+- [x] Agent Jones (Inky/cyan) — 2-frame walk, 4 directions — SOURCE: DUMP/Kings and Pigs/
+- [x] Agent Johnson (Clyde/orange) — 2-frame walk, 4 directions — SOURCE: DUMP/Kings and Pigs/
+- [x] Frightened agent (blue mode) — 2-frame wobble — SOURCE: DUMP/Kings and Pigs/
 - [~] Frightened warning (white flash) — 2-frame — SOURCE: DUMP/Kings and Pigs/
 - [~] Eyes only (returning to box) — directional — SOURCE: INSPO/pacman/PacManAssets/Ghosts
 
@@ -52,7 +52,7 @@ All 18 textures are procedurally generated (player open/closed mouth, 4 agent gh
 - [~] Square map layout (Easy) — classic Pac-Man grid — SOURCE: INSPO/pacman/PacManAssets/Maps (Map_1, Map_2, Map_3)
 - [~] Circle map layout (Medium) — circular paths, more open — SOURCE: INSPO/pacman/PacManAssets/Maps
 - [~] Diamond map layout (Hard) — diamond shape, tight corridors — SOURCE: DUMP/32rogues/ (roguelike maze variants)
-- [~] Wall tile — Matrix-green border, 20×20 or 32×32 — SOURCE: INSPO/pacman/PacManAssets/ + DUMP/32rogues/
+- [x] Wall tile — Matrix-green border, 20×20 or 32×32 — SOURCE: INSPO/pacman/PacManAssets/ + DUMP/32rogues/
 - [~] Ghost house / agent spawn box tiles — SOURCE: DUMP/32rogues/
 
 ### UI
