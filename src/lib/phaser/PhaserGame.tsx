@@ -54,6 +54,7 @@ export function PhaserGame({
   const gameRef = useRef<Phaser.Game | null>(null);
   const [hasFocus, setHasFocus] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
+  const [hasEverFocused, setHasEverFocused] = useState(false);
   const { playSFX, toggleMute } = useSoundSystem();
   const { updateGameSave, unlockAchievement: unlockSaveAchievement } = useSaveSystem();
 
@@ -235,14 +236,17 @@ export function PhaserGame({
       onClick={handleContainerClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      onFocus={() => setHasFocus(true)}
+      onFocus={() => {
+        setHasFocus(true);
+        setHasEverFocused(true);
+      }}
       onBlur={() => setHasFocus(false)}
     >
-      {/* Click-to-play overlay shown when focus is lost AND mouse is not
-          over the canvas — suppressed while hovering because onMouseEnter
-          already calls focus(), preventing a flicker during active play.
-          Remains visible when the user has tabbed away entirely. */}
-      {!hasFocus && !isHovering && (
+      {/* Click-to-play overlay shown only after the container has had focus
+          at least once and subsequently lost it — prevents the overlay from
+          flashing on initial mount before auto-focus resolves, which was
+          reported as a "floating dark rectangle near top-centre." */}
+      {hasEverFocused && !hasFocus && !isHovering && (
         <div
           onClick={handleContainerClick}
           role="button"

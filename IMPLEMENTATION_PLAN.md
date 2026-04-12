@@ -7,12 +7,12 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ## Current Status
 
 - **Status**: REBUILDING -- Phaser migration complete, now cleanup + polish + assets
-- **Last Updated**: 12 April 2026 (R16 -- Agent Chase map layouts + difficulty scaling)
+- **Last Updated**: 12 April 2026 (R17 -- Fix focus overlay, add CTRL-S World gameplay E2E)
 - **Version**: v2.0.0 (next target)
 - **Games**: 12 playable (11 Phaser, 1 DOM)
 - **Build**: PASSES (code-split, main bundle ~372KB, Phaser vendor chunk 1,479KB) -- zero warnings
 - **Unit Tests**: 2,039 passing across 46 files, 0 failures
-- **E2E Tests**: 78 gameplay + 110 visual = 188 tests across 27 spec files -- last run PASSED
+- **E2E Tests**: 88 gameplay + 110 visual = 198 tests across 28 spec files -- last run PASSED
 - **Asset Pipeline**: 0% complete -- `public/assets/` does not exist, all games use procedural textures
 
 ### Completed Work Summary
@@ -25,6 +25,7 @@ All P0/P1/P2 bugs resolved across R1-R14 (12 April 2026). Key milestones:
 - **Infrastructure** (R1-R5): Code-splitting (2.18MB → 370KB), Phaser vendor chunk, shared game registry, error boundaries, E2E framework (188 tests).
 - **R15 cleanup**: Removed 9 orphaned legacy React game files, 4 unused hooks, 1 dead Zustand store, and 13 associated test files (11,386 lines of dead production code + ~5,000 lines of dead tests). Updated sound system comments from legacy game names. Test count: 2,521 → 2,019 (502 tests were testing only dead code).
 - **R16 Agent Chase map layouts**: Three distinct maze layouts (Classic, Arena, Labyrinth) cycle each level. Shared ghost house section (rows 9-19) keeps agent AI consistent. Difficulty scaling: agent speed increases 5% per level, frightened duration decreases 500ms per level (min 3s). New ALL_MAZES achievement for playing all three layouts. 20 new unit tests (96 total for Agent Chase).
+- **R17 Focus overlay fix + CTRL-S World E2E**: Fixed "floating dark rectangle" bug caused by PhaserGame.tsx click-to-play overlay rendering before auto-focus resolved — overlay now deferred until container has had focus at least once. Added 10 gameplay E2E tests for CTRL-S World covering command prompt entry, chapter navigation, story advancement, pause/resume, keyboard shortcuts, and full lifecycle.
 
 Full details in git history (`git log --oneline`).
 
@@ -64,17 +65,16 @@ All 12 P1 items fixed in R4-R5 (Metris bullet time, Matrix Cloud combo, CTRL-S s
 - **All games use 100% procedural textures** -- no external sprite assets loaded. Every visual element is generated in BootScene at runtime.
 - **Game-over screens**: Generic across all games (shared GameOverScene with no game-specific context beyond the `reason` string).
 
-### 2.5 Matrix Frogger Visual Issues
+### 2.5 Matrix Frogger Visual Issues ✅
 
-**File**: `src/components/games/phaser/MatrixFrogger/scenes/GameScene.ts`
-- [ ] Fix unrendered floating UI box -- semi-transparent dark rectangle near top-centre. Investigated in R8: not caused by powerUpDisplay, scoreText, or BaseScene overlay. Needs visual verification with dev server.
+- [x] Fix unrendered floating UI box -- root cause: PhaserGame.tsx click-to-play overlay (`rgba(0,0,0,0.5)`) rendered before auto-focus resolved. Fixed in R17 by deferring overlay until container has had focus at least once.
 
 ### 2.6 Codebase Cleanup
 
 - [x] **Remove orphaned legacy React games** (done R15 -- AgentEscape, CrossyRoad, JimmyMatrix, MatrixAscension + old React versions of 5 Phaser games)
 - [x] **Remove unused hooks** (done R15 -- useProceduralAudio, useViewportCulling, useInterval, useSimpleSnakeGame)
 - [x] **Remove dead Zustand store** (done R15 -- src/store/gameStore.ts)
-- [ ] **Add CTRL-S World gameplay E2E**: Has 10 visual tests but zero gameplay interaction tests. Write a basic gameplay spec.
+- [x] **Add CTRL-S World gameplay E2E**: 10 tests covering command prompt, chapter hub, story advance, pause/resume, keyboard shortcuts, restart, ESC navigation, and full lifecycle (done R17).
 
 ---
 
@@ -265,7 +265,7 @@ src/components/games/phaser/[GameName]/
 
 | Game | Type | Unit Test | E2E Visual | E2E Gameplay |
 |------|------|-----------|------------|--------------|
-| CtrlSWorld | DOM | Yes | Yes | **MISSING** |
+| CtrlSWorld | DOM | Yes | Yes | Yes |
 | SnakeClassic | Phaser | Yes | Yes | Yes |
 | VortexPong | Phaser | Yes | Yes | Yes |
 | MatrixCloud | Phaser | Yes | Yes | Yes |
@@ -281,7 +281,7 @@ src/components/games/phaser/[GameName]/
 All Phaser games expose test state via `exposeTestState()`. E2E fixtures support both React and Phaser games.
 
 ### Gaps
-- CtrlSWorld has visual tests but no gameplay E2E spec
+- None — all 12 games have unit, visual, and gameplay E2E coverage
 
 ---
 
@@ -300,7 +300,6 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 
 ### Gaps
 - Zero external assets deployed (`public/assets/` doesn't exist) -- all procedural textures
-- Phaser game focus management relies on triple-focus strategy (fragile but working)
 - `useAdvancedVoice` AudioContext for visualisation never connected to speech output (always returns zeros)
 
 ---
