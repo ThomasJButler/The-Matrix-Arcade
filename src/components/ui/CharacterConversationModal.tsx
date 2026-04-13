@@ -102,35 +102,37 @@ export const CharacterConversationModal: React.FC<CharacterConversationModalProp
       return;
     }
 
-    // Stage 1: Intercepting (1.5s)
+    let lineIntervalId: ReturnType<typeof setInterval>;
+    let consensusTimer: ReturnType<typeof setTimeout>;
+    let closeTimer: ReturnType<typeof setTimeout>;
+
     const interceptTimer = setTimeout(() => {
       setStage('conversation');
 
-      // Stage 2: Show conversation lines one by one
       if (conversationData) {
         let lineIndex = 0;
-        const lineInterval = setInterval(() => {
+        lineIntervalId = setInterval(() => {
           setCurrentLine(lineIndex);
           lineIndex++;
 
           if (lineIndex >= conversationData.lines.length) {
-            clearInterval(lineInterval);
+            clearInterval(lineIntervalId);
 
-            // Stage 3: Show consensus after all lines
-            setTimeout(() => {
+            consensusTimer = setTimeout(() => {
               setStage('consensus');
-
-              // Auto-close after 8 seconds
-              setTimeout(onClose, 8000);
+              closeTimer = setTimeout(onClose, 8000);
             }, 1000);
           }
-        }, 1200); // Each line appears every 1.2s
-
-        return () => clearInterval(lineInterval);
+        }, 1200);
       }
     }, 1500);
 
-    return () => clearTimeout(interceptTimer);
+    return () => {
+      clearTimeout(interceptTimer);
+      clearInterval(lineIntervalId);
+      clearTimeout(consensusTimer);
+      clearTimeout(closeTimer);
+    };
   }, [isOpen, puzzle]); // simplified dependencies - removed conversationData and onClose
 
   if (!isOpen || !conversationData) return null;

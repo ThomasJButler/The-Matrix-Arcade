@@ -96,6 +96,8 @@ function App() {
   const totalPlayTime = useRef(0);
   const nightOwlCheckedRef = useRef(false);
   const dedicatedCheckedRef = useRef(false);
+  const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mp3TimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
    * Check for Night Owl achievement (playing between midnight and 5am)
@@ -332,7 +334,8 @@ function App() {
     const direction = index > selectedGame ? 'right' : 'left';
     setTransitionDirection(direction);
     setIsTransitioning(true);
-    setTimeout(() => setIsTransitioning(false), 600);
+    if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
+    transitionTimerRef.current = setTimeout(() => setIsTransitioning(false), 600);
     setShowNav(false);
     setShowInstructions(false);
     setShowHighScores(false);
@@ -387,7 +390,8 @@ function App() {
         e.preventDefault();
         setIsPlaying(true);
         playSFX('score');
-        setTimeout(() => playBackgroundMP3('/matrixarcaderetrobeat.mp3'), 500);
+        if (mp3TimerRef.current) clearTimeout(mp3TimerRef.current);
+        mp3TimerRef.current = setTimeout(() => playBackgroundMP3('/matrixarcaderetrobeat.mp3'), 500);
 
         // Track game played and check achievements (same as button click)
         const gameName = games[selectedGame].title;
@@ -689,8 +693,8 @@ function App() {
                           setIsPlaying(!isPlaying);
                           playSFX(isPlaying ? 'menu' : 'score');
                           if (!isPlaying) {
-                            // Start ambient music when game starts
-                            setTimeout(() => playBackgroundMP3('/matrixarcaderetrobeat.mp3'), 500);
+                            if (mp3TimerRef.current) clearTimeout(mp3TimerRef.current);
+                            mp3TimerRef.current = setTimeout(() => playBackgroundMP3('/matrixarcaderetrobeat.mp3'), 500);
 
                             // Track game played
                             const gameName = games[selectedGame].title;
