@@ -97,6 +97,7 @@ export class MatrixCloudGameScene extends BaseScene {
     this.setupInput();
     this.setupCommonInputs();
     this.playSound(SOUND_KEYS.MENU);
+    this.playBackgroundMusic('/assets/audio/music/a-last-embrace.mp3');
   }
 
   private resetState(): void {
@@ -901,6 +902,7 @@ export class MatrixCloudGameScene extends BaseScene {
   // --- CLEANUP ---
 
   shutdown(): void {
+    this.stopBackgroundMusic();
     this.invulnerableTimer?.destroy();
     this.invulnerableFlashTimer?.destroy();
     this.timeSlowTimer?.destroy();

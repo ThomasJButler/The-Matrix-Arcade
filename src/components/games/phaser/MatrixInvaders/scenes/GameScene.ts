@@ -89,6 +89,7 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.setupCommonInputs();
     this.spawnWave();
     this.playSound(SOUND_KEYS.MENU);
+    this.playBackgroundMusic('/assets/audio/music/ostcrunch2-epic.mp3');
   }
 
   private resetState(): void {
@@ -1026,6 +1027,7 @@ export class MatrixInvadersGameScene extends BaseScene {
   }
 
   shutdown(): void {
+    this.stopBackgroundMusic();
     for (const e of this.enemies) e.sprite.destroy();
     this.enemies = [];
     for (const b of this.playerBullets) b.sprite.destroy();

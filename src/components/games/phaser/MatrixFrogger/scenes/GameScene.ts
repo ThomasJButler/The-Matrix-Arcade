@@ -1319,6 +1319,7 @@ export class FroggerGameScene extends BaseScene {
   // ---------------------------------------------------------------------------
 
   shutdown(): void {
+    this.stopBackgroundMusic();
     this.time.removeAllEvents();
 
     this.input.off('pointerdown');

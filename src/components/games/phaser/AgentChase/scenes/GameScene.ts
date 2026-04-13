@@ -143,6 +143,8 @@ export class AgentChaseGameScene extends BaseScene {
 
     // Setup collisions
     this.setupCollisions();
+
+    this.playBackgroundMusic('/assets/audio/music/boss-theme.mp3');
   }
 
   update(time: number, delta: number): void {
@@ -994,6 +996,7 @@ export class AgentChaseGameScene extends BaseScene {
   }
 
   shutdown(): void {
+    this.stopBackgroundMusic();
     // Remove input listeners
     this.input.off('pointerdown');
     if (this.input.keyboard) {

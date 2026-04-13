@@ -128,6 +128,8 @@ export class CloudJumperGameScene extends BaseScene {
 
     // Setup collisions
     this.setupCollisions();
+
+    this.playBackgroundMusic('/assets/audio/music/a-last-embrace.mp3');
   }
 
   update(time: number, delta: number): void {
@@ -769,6 +771,7 @@ export class CloudJumperGameScene extends BaseScene {
    * Cleanup on scene shutdown
    */
   shutdown(): void {
+    this.stopBackgroundMusic();
     this.time?.removeAllEvents();
     this.tweens?.killAll();
     this.input.off('pointerdown');

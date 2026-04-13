@@ -194,7 +194,7 @@ export abstract class BaseScene extends Phaser.Scene {
    * Stop background music
    */
   protected stopBackgroundMusic(): void {
-    const soundSystem = this.registry.get(REGISTRY_KEYS.SOUND_SYSTEM);
+    const soundSystem = this.registry?.get(REGISTRY_KEYS.SOUND_SYSTEM);
     if (soundSystem && typeof soundSystem.stopBgMusic === 'function') {
       soundSystem.stopBgMusic();
     }
@@ -241,6 +241,7 @@ export abstract class BaseScene extends Phaser.Scene {
    * Transition to game over scene
    */
   protected gameOver(score: number, reason?: string, highScore?: number): void {
+    this.stopBackgroundMusic();
     // Sound is played by PhaserGame.tsx when it receives the gameOver event —
     // do NOT also play here, or the sound fires twice.
     this.emitGameEvent({
