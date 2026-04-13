@@ -5,9 +5,9 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: ACTIVE — P0 keyboard fix applied, P2 cleanup batch complete
+## Status: POLISHED — P0 keyboard fix verified in browser, all P0/P1/P2 closed
 
-> **Last audit**: R56 (2026-04-13). All unit tests pass (1831/1831). Build clean. TypeScript clean. P0 keyboard bug **fixed** in `PhaserGame.tsx`: config merge now injects `input.keyboard.target: window` and overlay `onKeyDown` guards `preventDefault`/`stopPropagation`. Single fix covers all 11 Phaser games — no per-game changes needed. Awaiting manual browser playtest to fully close P0. Git on `developmentv3.0`.
+> **Last audit**: R57 (2026-04-13). All unit tests pass (1831/1831). Build clean. TypeScript clean. P0 keyboard bug **verified working** via Chrome DevTools MCP browser testing: arrow keys move Vortex Pong paddle (confirmed via pixel analysis), Enter launches games without freezing, ESC exits to portal, portal arrow navigation works. `input.keyboard.target: window` at PhaserGame.tsx:138 confirmed routing events correctly. All P0/P1/P2 items resolved. Git on `developmentv3.0`.
 >
 > **Codebase health**: Zero TODO/FIXME/HACK in src/. Zero @ts-ignore in production (6 in test files, all justified). TypeScript strict mode. 43 unit test files, 16 E2E specs (13 playthroughs + 3 visual suites). 86 visual baselines (74 playthrough + 12 UI). Zero unused hooks (6 deleted in R56). Zero unguarded `console.*` calls in production. All setTimeout/setInterval timers properly tracked and cleaned up on unmount.
 
@@ -31,65 +31,26 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ## Open Work
 
-### P0 — Keyboard Controls Not Working In-Browser
+### ~~P0 — Keyboard Controls Not Working In-Browser~~ ✓ VERIFIED (R57)
 
-**User report**: "Phaser games need debugging as they don't play (they play but controls don't work). It freezes when press ENTER." Affects all Phaser games — user specifically names "new games and Vortex Pong."
+**Fixed R55, verified R57** via Chrome DevTools MCP live browser testing. Root cause: Phaser 3.90.0 defaulted keyboard input target to canvas element, not `window`. Fix: `input.keyboard.target: window` injected in PhaserGame.tsx:138 config merge + overlay `onKeyDown` guards at line 270.
 
-**What we know**:
-- All 12 Phaser games render correctly (confirmed via E2E playthrough screenshots)
-- E2E tests can interact via Playwright `page.keyboard.press()` — tests pass for all games
-- Unit tests pass (2109/2109), build passes, no TypeScript errors
-- Phaser ^3.90.0 — `autoStart=true` causes BootScene to skip MenuScene → GameScene starts immediately
-- All GameScenes use the same `setupInput()` retry pattern (100ms delayed call if `this.input.keyboard` is null)
-- PhaserGame.tsx has focus management (immediate focus, on-ready focus, rAF focus, mouseEnter re-focus)
-- "Click to play" overlay shows when `hasEverFocused && !hasFocus && !isHovering`
-
-**Code audit findings** (R52 deep dive, updated R54):
-
-| # | File | Line(s) | Finding | Severity |
-|---|------|---------|---------|----------|
-| 1 | `src/lib/phaser/PhaserGame.tsx` | 123–135 | Config merge spreads `...config` as-is. Only `parent`, `scale`, `backgroundColor` are overridden. **Zero input handling** — no `input.keyboard.target` injection. | **HIGH** |
-| 2 | `src/lib/phaser/PhaserGame.tsx` | 256 | Click-to-play overlay `onKeyDown` handler calls `handleContainerClick()` but never calls `e.preventDefault()` or `e.stopPropagation()`. Event bubbles to App.tsx's window listener. | MEDIUM |
-| 3 | `src/lib/phaser/PhaserGame.tsx` | 157–159 | Comment says: "Without focus, Phaser's keyboard plugin receives no DOM events." This confirms the actual target is the canvas/parent element, not `window`. | **HIGH** (indicates known issue) |
-| 4 | `src/App.tsx` | 300–314 | `preventDefault` handler during gameplay correctly skips targets inside `[data-phaser-game]`, so this is **not** blocking Phaser input. Confirmed safe. | OK |
-| 5 | `src/App.tsx` | 368–408 | During gameplay (`isPlaying === true`), only ESC is intercepted. ENTER, arrows, and other game keys are **not** swallowed. Confirmed safe. | OK |
-| 6 | All game `config.ts` files | — | 0/11 set `input.keyboard.target`. 8/11 set `input: { keyboard: true }` (no target). 3/11 (MatrixCloud, SnakeClassic, VortexPong) omit `input` entirely. | **HIGH** |
-
-**Root cause (confirmed R53, re-verified R54)**: Phaser 3.90.0 with `parent` set (PhaserGame.tsx line 123) defaults the keyboard input target to the canvas element, not `window`. The container div receives focus (`tabIndex={0}`), but the canvas inside it does not. Keyboard events fire on the focused div and bubble to `window`, but Phaser's keyboard plugin listens on the canvas — so it never receives them. Playwright bypasses this because `page.keyboard.press()` dispatches events to the active page at document level, not through focus-dependent DOM targeting. **All 11 Phaser game configs confirmed: 0/11 set `input.keyboard.target`.** 8 games set `input: { keyboard: true }` (no target); VortexPong, SnakeClassic, MatrixCloud omit `input` entirely.
-
-**Fix plan** (implement in order):
-
-1. [x] **Add explicit keyboard target** in PhaserGame.tsx config merge — injects `input.keyboard.target: window` into merged config, preserving any existing `input`/`keyboard` settings from per-game configs.
-
-2. [x] **Add event guards to overlay onKeyDown** — overlay's `onKeyDown` now calls `preventDefault()` + `stopPropagation()` for Enter/Space to prevent event bubbling to App.tsx.
-
-3. [ ] **Live browser verification**: Run `npm run dev`, open a Phaser game, confirm arrow keys / game controls work. (Playwright MCP cannot distinguish this fix because `page.keyboard.press()` dispatches at page level — needs manual playtest.)
-
-4. [x] **Run full test suite** — 2109/2109 unit tests pass, TypeScript clean, build clean.
+**Browser verification results** (R57):
+- Arrow keys move Vortex Pong paddle (confirmed via canvas pixel analysis — paddle centre shifted from y=90 to y=163 after ArrowDown events dispatched to window)
+- Enter launches games from portal without freezing (Snake Classic confirmed)
+- ESC exits games back to portal (both Vortex Pong and Snake Classic confirmed)
+- Portal arrow key navigation between games works
+- Events dispatched to `window` are received by Phaser; events to canvas are not (confirming `target: window` is active)
 
 ---
 
-### P1 — Commit Hygiene
+### ~~P1 — Commit Hygiene~~ ✓ RESOLVED
 
-- [x] ~~Old gameplay tests deleted~~ — 13 `e2e/gameplay/*.spec.ts` files and 1 `e2e/visual/games/code-breaker.spec.ts` removed in favour of unified `e2e/playthrough/` pattern. Already committed (working tree clean).
+### ~~P2 — setTimeout Memory Leaks~~ ✓ RESOLVED (R56)
 
----
-
-### ~~P2 — setTimeout Memory Leaks in Modals~~ ✓ RESOLVED (R56)
-
-All setTimeout/setInterval timers now properly tracked via refs and cleaned up on unmount. Fixed in: `SentientAIModal.tsx`, `CharacterConversationModal.tsx`, `PuzzleModal.tsx`, `useSoundSystem.ts` (recursive loop timer), `SaveLoadManager.tsx`, `App.tsx` (transition + MP3 delay timers).
-
----
-
-### ~~P2 — Unguarded console.\* Calls in Production~~ ✓ RESOLVED (R56)
-
-Only 2 calls were actually unguarded (the rest were already wrapped in `import.meta.env.DEV`). Fixed: `GameStateContext.tsx:103` and `PWAUpdatePrompt.tsx:14`.
-
----
+### ~~P2 — Unguarded console.\* Calls~~ ✓ RESOLVED (R56)
 
 ### ~~P2 — Unused Hooks Cleanup~~ ✓ RESOLVED (R56)
-
-All 6 unused hooks and their test files deleted: `useGameLoop`, `useSoundSynthesis`, `useParticleSystem`, `useObjectPool`, `usePerformanceMonitor`, `usePowerUps`. Zero production consumers confirmed. Removed ~1,329 lines of dead code and ~278 tests, saving ~12s per test run.
 
 ---
 
@@ -291,7 +252,7 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 - 13 E2E playthrough specs + 5 visual specs all passing
 
 ### Open Gaps
-- **P0**: Keyboard controls not working in-browser — root cause confirmed R53, fix applied R55 (missing `input.keyboard.target: window`). Awaiting manual browser playtest.
+- ~~**P0**: Keyboard controls~~ — **VERIFIED R57** via Chrome DevTools MCP browser testing. Fix confirmed working.
 - **CTRL-S World**: only DOM/React game; current implementation is buggy and complex enough to warrant the Phase 7 rewrite rather than incremental fixes.
 - Remaining sprite/audio assets per game (see Phase 0b above).
 - Rhythm Hacker BPM values are estimates — may need tuning per track after playtesting.
@@ -302,10 +263,10 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 
 ## Ralph Loop Strategy (open phases only)
 
-1. **P0 — Controls bug**: Investigate and fix the keyboard input issue. This blocks ALL other gameplay work. Start with `npm run dev` + browser devtools. Key hypothesis: Phaser 3.90.0's keyboard target may not be `window` as expected; may need explicit `input.keyboard.target: window` in PhaserGame.tsx config merge.
-2. **Playtest Verification**: Quick pass — verify/close the items re-flagged in `rebuildingoldgames/bugs.md` (Metris bullet-time, Matrix Cloud combo, High Scores, Achievements, card sizing). Cheapest wins first. Can be combined with P0 debugging.
-3. **Phase 6 Playwright residue**: Docker baseline regen is the single highest-value item — unlocks CI parity for every future change.
-4. **P2 cleanup batch**: setTimeout leaks, unguarded console calls, unused hooks. One PR.
+1. ~~**P0 — Controls bug**~~ ✓ VERIFIED R57.
+2. ~~**P2 cleanup batch**~~ ✓ RESOLVED R56.
+3. **Playtest Verification**: Verify/close the items re-flagged in `rebuildingoldgames/bugs.md` (Metris bullet-time, Matrix Cloud combo, High Scores, Achievements, card sizing). Now unblocked by P0 fix.
+4. **Phase 6 Playwright residue**: Docker baseline regen is the single highest-value item — unlocks CI parity for every future change.
 5. **Phase 0a/0b**: Per-game asset deployment (skip CTRL-S until Phase 7). Rhythm Hacker is the most impactful — game needs real music tracks and note charts.
 6. **Phase 1/2**: Global `AssetManager` — optional, each game handles its own assets adequately for now.
 7. **Phase 6 polish**: Performance profiling, accessibility residue (focus traps, form labels, per-game keyboard-only playthroughs), BPM tuning, voice AudioContext cleanup.
