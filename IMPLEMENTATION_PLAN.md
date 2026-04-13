@@ -7,7 +7,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ## Current Status
 
 - **Status**: POLISHED -- All 12 games playable, all Phaser migrations complete, all P0/P1/P2 resolved, full E2E coverage (213 tests), WCAG 2.1 AA accessibility audit done, PWA caching complete. Only optional enhancements remain.
-- **Last Updated**: 13 April 2026 (R46 -- PWA cache improvements)
+- **Last Updated**: 13 April 2026 (R48 -- PWA build fix)
 - **Version**: v2.0.0 (next target)
 - **Games**: 12 playable (11 Phaser, 1 DOM)
 - **Build**: PASSES (code-split, main bundle ~385KB, Phaser vendor chunk 1,479KB) -- zero lint errors
@@ -33,6 +33,7 @@ All P0/P1/P2 bugs resolved across R1-R14 (12 April 2026). Key milestones:
 - **R45**: WCAG 2.1 AA accessibility fixes — text contrast, skip-to-content, ARIA attributes, prefers-reduced-motion, Phaser container role + keyboard-accessible overlay.
 - **R46**: PWA cache improvements — extended precache to cover audio/images/JSON, runtime CacheFirst for large audio files, update prompt snooze-on-dismiss.
 - **R39**: Playtest bug fixes — TDZ crashes (4 games), Agent Chase lives underflow, pause stacking on GameOver, Matrix Frogger asset errors, achievement toast setState-in-render.
+- **R48**: Fixed PWA build failure — removed audio from precache glob (large MP3s exceeded 5MB limit), audio handled by runtime CacheFirst strategy instead.
 
 Full details in git history (`git log --oneline`).
 
