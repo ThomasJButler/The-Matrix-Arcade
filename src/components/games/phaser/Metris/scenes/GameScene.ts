@@ -1,5 +1,5 @@
 import { BaseScene } from '@/lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS } from '@/lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '@/lib/phaser/types';
 import {
   GAME_CONFIG as C,
   ACHIEVEMENTS,
@@ -123,7 +123,7 @@ export class MetrisGameScene extends BaseScene {
     this.dasState = { left: 0, right: 0 };
     this.dasMovedAt = { left: 0, right: 0 };
 
-    const saveSystem = this.registry.get('SAVE_SYSTEM');
+    const saveSystem = this.registry.get(REGISTRY_KEYS.SAVE_SYSTEM);
     if (saveSystem) {
       const saveData = saveSystem.getSaveData();
       this.highScore = saveData?.games?.metris?.highScore ?? 0;
@@ -487,7 +487,7 @@ export class MetrisGameScene extends BaseScene {
 
     this.highScore = Math.max(this.highScore, this.score);
 
-    const saveSystem = this.registry.get('SAVE_SYSTEM');
+    const saveSystem = this.registry.get(REGISTRY_KEYS.SAVE_SYSTEM);
     if (saveSystem) {
       const saveData = saveSystem.getSaveData();
       const prev = saveData?.games?.metris?.stats ?? {};
@@ -599,7 +599,7 @@ export class MetrisGameScene extends BaseScene {
     this.bulletTimeTimer = C.BULLET_TIME_DURATION;
     this.bulletTimeCount++;
 
-    const saveSystem = this.registry.get('SAVE_SYSTEM');
+    const saveSystem = this.registry.get(REGISTRY_KEYS.SAVE_SYSTEM);
     if (saveSystem) {
       const saveData = saveSystem.getSaveData();
       const prefs = saveData?.games?.metris?.preferences ?? {};

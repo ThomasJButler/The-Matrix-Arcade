@@ -5,9 +5,14 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: ACTIVE — P0 keyboard fixed, P1 shutdown/controls/console all resolved. P2 and asset work remains.
+## Status: ACTIVE — P0 keyboard fixed, P1 all resolved, P2 setTimeout/dead-types/registry resolved. Spec cleanup, assets, and polish remain.
 
-> **Last audit**: R62 (2026-04-13). All unit tests pass (1831/1831). Build clean. TypeScript clean. All E2E tests pass. 12 games total, all with E2E playthrough coverage. Git on `developmentv3.0`.
+> **Last audit**: R63 (2026-04-13). All unit tests pass (1831/1831). Build clean. TypeScript clean. All E2E tests pass. 12 games total, all with E2E playthrough coverage. Git on `developmentv3.0`.
+>
+> **R63 delta from R62**: Resolved P2 setTimeout leaks (4 files), P2 dead types, and P2 broken Metris save system registry key:
+> - **P2 RESOLVED**: All 4 untracked `setTimeout` calls now tracked in refs and cleared on unmount (PuzzleModal, useAdvancedVoice, PWAInstallPrompt, AchievementNotification).
+> - **P2 RESOLVED**: Removed dead `BaseSceneHelpers` and `PhaserGameConfig` interfaces from `types.ts`. Removed unused `Phaser` type import.
+> - **P2 RESOLVED**: Fixed Metris save system — `registry.get('SAVE_SYSTEM')` was using wrong string (uppercase vs constant). Changed to `REGISTRY_KEYS.SAVE_SYSTEM` and wired up save system in `PhaserGame.tsx` registry. Metris high scores, stats, and bullet-time count now persist correctly.
 >
 > **R62 delta from R61**: Resolved P0 keyboard race condition (all 7 factors), P1 shutdown cleanup, P1 controls descriptions, and P1 console guards:
 > - **P0 RESOLVED**: Replaced single 100ms `delayedCall` retry with `waitForKeyboard()` helper (50ms × 10 polling + scene `update` fallback). Applied to BaseScene, MenuScene, GameOverScene, RhythmHacker MenuScene, and all 11 GameScene `setupInput()` methods (16 locations total).
@@ -182,33 +187,22 @@ Three games (Rhythm Hacker, Matrix Cloud, Vortex Pong) were crashing with "Canno
 
 ---
 
-### P2 — Untracked setTimeout Calls (R59, refined R61)
+### ~~P2 — Untracked setTimeout Calls~~ RESOLVED (R63)
 
-**R61 audit**: 4 untracked setTimeout calls confirmed. PuzzleModal.tsx:261 is the highest risk — it's the only timer in that file that bypasses the established `timersRef` cleanup pattern.
-
-| File | Line | Issue | Risk |
-|------|------|-------|------|
-| `PuzzleModal.tsx` | 261 | `setTimeout(() => handleSubmit(), 300)` — only untracked setTimeout in file; all others correctly use `timersRef.current.push()` | **HIGH** — `handleSubmit` calls `onComplete` which triggers score/nav in parent |
-| `useAdvancedVoice.ts` | 347 | `setTimeout(() => speak(nextText), 1000)` in `utterance.onend` — fires into unmounted component | Medium — state setters post-unmount |
-| `PWAInstallPrompt.tsx` | 28 | `setTimeout(() => setShowPrompt(true), 2000)` — leaks if component unmounts during delay | Low-Medium — timer stacking possible |
-| `AchievementNotification.tsx` | 29 | Nested `setTimeout(onDismiss, 300)` inside outer tracked timer — inner one not stored; 300ms orphan window | Low — narrow window |
-
-- [ ] Fix PuzzleModal.tsx:261 — one-character fix: `timersRef.current.push(setTimeout(() => handleSubmit(), 300))`
-- [ ] Track remaining 3 in refs and cancel on unmount
+All 4 untracked setTimeout calls now properly tracked in refs and cleared on unmount:
+- **PuzzleModal.tsx**: Added to existing `timersRef.current.push()` pattern
+- **useAdvancedVoice.ts**: New `autoAdvanceTimerRef` cleared in cleanup effect
+- **PWAInstallPrompt.tsx**: New `promptTimerRef` cleared in useEffect cleanup
+- **AchievementNotification.tsx**: Inner dismiss timer tracked via `dismissTimerRef`
 
 ---
 
-### P2 — Dead Types and Broken Registry Key (NEW R61)
+### ~~P2 — Dead Types and Broken Registry Key~~ RESOLVED (R63)
 
-| File | Issue |
-|------|-------|
-| `src/lib/phaser/types.ts` | `interface BaseSceneHelpers` (line 79) — never imported or used anywhere |
-| `src/lib/phaser/types.ts` | `interface PhaserGameConfig` (line 87) — never imported or used anywhere |
-| `src/lib/phaser/types.ts` | `REGISTRY_KEYS.SAVE_SYSTEM` (line 65) — declared as `'saveSystem'` but never set in PhaserGame.tsx's registry setup |
-| `src/components/games/phaser/Metris/scenes/GameScene.ts` | Lines 126, 491, 603 — reads `this.registry.get('SAVE_SYSTEM')` (uppercase), but constant value is `'saveSystem'` (lowercase). Always returns `undefined`. Save system reads in Metris are silently broken. |
-
-- [ ] Remove dead interfaces (`BaseSceneHelpers`, `PhaserGameConfig`)
-- [ ] Either wire up `SAVE_SYSTEM` in PhaserGame.tsx's registry setup OR remove the constant and fix Metris to use an alternative pattern
+- Removed dead `BaseSceneHelpers` and `PhaserGameConfig` interfaces from `types.ts` (and unused `Phaser` type import)
+- Removed `PhaserGameConfig` re-export from `index.ts`
+- Fixed Metris `registry.get('SAVE_SYSTEM')` → `registry.get(REGISTRY_KEYS.SAVE_SYSTEM)` (3 call sites)
+- Wired up `REGISTRY_KEYS.SAVE_SYSTEM` in `PhaserGame.tsx` — save system now properly registered with `getSaveData()` and `updateGameSave()` methods, making Metris high scores, stats, and bullet-time persistence functional
 
 ---
 

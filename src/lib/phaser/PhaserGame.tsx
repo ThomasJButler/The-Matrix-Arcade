@@ -8,7 +8,7 @@
  * - Integrates with useSoundSystem for audio
  */
 
-import React, { useEffect, useRef, useCallback, useState } from 'react';
+import React, { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import Phaser from 'phaser';
 import { useSoundSystem } from '../../hooks/useSoundSystem';
 import { useSaveSystem } from '../../hooks/useSaveSystem';
@@ -56,7 +56,7 @@ export function PhaserGame({
   const [isHovering, setIsHovering] = useState(false);
   const [hasEverFocused, setHasEverFocused] = useState(false);
   const { playSFX, playBackgroundMP3, stopBackgroundMP3, toggleMute } = useSoundSystem();
-  const { updateGameSave, unlockAchievement: unlockSaveAchievement } = useSaveSystem();
+  const { saveData, updateGameSave, unlockAchievement: unlockSaveAchievement } = useSaveSystem();
 
   // Sound wrapper that respects mute state
   const playSound = useCallback(
@@ -116,6 +116,17 @@ export function PhaserGame({
     [playSound, playBackgroundMP3, stopBackgroundMP3, isMuted]
   );
 
+  const saveDataRef = useRef(saveData);
+  saveDataRef.current = saveData;
+
+  const saveSystem = useMemo(
+    () => ({
+      getSaveData: () => saveDataRef.current,
+      updateGameSave,
+    }),
+    [updateGameSave]
+  );
+
   // Initialize Phaser game on mount
   useEffect(() => {
     if (!containerRef.current || gameRef.current) return;
@@ -157,6 +168,7 @@ export function PhaserGame({
     game.registry.set(REGISTRY_KEYS.IS_MUTED, isMuted);
     game.registry.set(REGISTRY_KEYS.ON_GAME_EVENT, handleGameEvent);
     game.registry.set(REGISTRY_KEYS.SOUND_SYSTEM, soundSystem());
+    game.registry.set(REGISTRY_KEYS.SAVE_SYSTEM, saveSystem);
 
     // Store autoStart in registry for scenes to check
     game.registry.set('autoStart', autoStart);
