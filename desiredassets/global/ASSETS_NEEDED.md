@@ -51,23 +51,23 @@
 
 ## Audio — Global SFX Library
 
-- [x] Button click — `public/assets/audio/sfx/sfx_button_click.wav`
-- [x] Beeps — `public/assets/audio/sfx/sfx_beeps.wav`
-- [x] Light flicker — `public/assets/audio/sfx/sfx_light_flicker.wav`
-- [x] Blown fuse — `public/assets/audio/sfx/sfx_blown_fuse.wav`
-- [x] Matrix code 1 & 2 — `public/assets/audio/sfx/sfx_matrix_code_*.wav`
-- [x] Laser gun 1 & 2 — `public/assets/audio/sfx/sfx_laser_gun_*.wav`
-- [x] Agent dies — `public/assets/audio/sfx/sfx_agent_dies.wav`
-- [x] Charge ignitor — `public/assets/audio/sfx/sfx_charge_ignitor.wav`
-- [x] Bullet time — `public/assets/audio/sfx/sfx_bullet_time.wav`
-- [x] Bullets drop — `public/assets/audio/sfx/sfx_bullets_drop.wav`
-- [x] Impact small/medium — `public/assets/audio/sfx/sfx_impact_*.wav`
-- [x] Landing — `public/assets/audio/sfx/sfx_landing.wav`
-- [x] Hit ground — `public/assets/audio/sfx/sfx_hit_ground.wav`
-- [x] Explosion EMP — `public/assets/audio/sfx/sfx_explosion_emp.wav`
-- [x] Burst — `public/assets/audio/sfx/sfx_burst.wav`
-- [x] Ambient beeps — `public/assets/audio/sfx/sfx_ambient_beeps.wav`
-- [x] Door open — `public/assets/audio/sfx/sfx_door_open.wav`
+- [x] Button click — `public/assets/audio/sfx/sfx_button_click.mp3` (deployed + active in useSoundSystem)
+- [x] Beeps — `public/assets/audio/sfx/sfx_beeps.mp3` (deployed + active in useSoundSystem)
+- [x] Light flicker — `public/assets/audio/sfx/sfx_light_flicker.mp3` (deployed + active in useSoundSystem)
+- [x] Blown fuse — `public/assets/audio/sfx/sfx_blown_fuse.mp3` (deployed + active in useSoundSystem)
+- [x] Matrix code 1 & 2 — `public/assets/audio/sfx/sfx_matrix_code_*.mp3` (deployed + active in useSoundSystem)
+- [x] Laser gun 1 & 2 — `public/assets/audio/sfx/sfx_laser_gun_*.mp3` (deployed + active in useSoundSystem)
+- [x] Agent dies — `public/assets/audio/sfx/sfx_agent_dies.mp3` (deployed + active in useSoundSystem)
+- [x] Charge ignitor — `public/assets/audio/sfx/sfx_charge_ignitor.mp3` (deployed + active in useSoundSystem)
+- [x] Bullet time — `public/assets/audio/sfx/sfx_bullet_time.mp3` (deployed + active in useSoundSystem)
+- [x] Bullets drop — `public/assets/audio/sfx/sfx_bullets_drop.mp3` (deployed + active in useSoundSystem)
+- [x] Impact small/medium — `public/assets/audio/sfx/sfx_impact_*.mp3` (deployed + active in useSoundSystem)
+- [x] Landing — `public/assets/audio/sfx/sfx_landing.mp3` (deployed + active in useSoundSystem)
+- [x] Hit ground — `public/assets/audio/sfx/sfx_hit_ground.mp3` (deployed + active in useSoundSystem)
+- [x] Explosion EMP — `public/assets/audio/sfx/sfx_explosion_emp.mp3` (deployed + active in useSoundSystem)
+- [x] Burst — `public/assets/audio/sfx/sfx_burst.mp3` (deployed + active in useSoundSystem)
+- [x] Ambient beeps — `public/assets/audio/sfx/sfx_ambient_beeps.mp3` (deployed + active in useSoundSystem)
+- [x] Door open — `public/assets/audio/sfx/sfx_door_open.mp3` (deployed + active in useSoundSystem)
 - [~] Achievement unlock fanfare — trim from `cruise control (game start).wav` (needs ffmpeg)
 - [~] High score celebration — trim from `a last embrace (credit roll).wav` (needs ffmpeg)
 

@@ -131,4 +131,9 @@ export const SOUND_KEYS = {
   POWERUP_GHOST: 'powerupGhost',
   POWERUP_SHIELD: 'powerupShield',
   POWERUP_MAGNET: 'powerupMagnet',
+  FROGGER_DEATH: 'froggerDeath',
+  FROGGER_MOVE: 'froggerMove',
+  FROGGER_SCORE: 'froggerScore',
+  FROGGER_PICKUP: 'froggerPickup',
+  FROGGER_EXTRA_SCORE: 'froggerExtraScore',
 } as const;

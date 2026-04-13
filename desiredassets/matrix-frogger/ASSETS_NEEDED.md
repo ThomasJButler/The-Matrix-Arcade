@@ -21,7 +21,7 @@
 - [x] Fly collectible — **INTEGRATED** (fly.png deployed, animated oscillation on finish line as visual target)
 - [x] UI icons — menu, sound on/off, F-R-O-G-G-E-R letter sprites
 - [x] Krita source files (.kra) for all above — editable
-- [x] WAV audio files (death, pickup, move, score, extra_score, soundtrack)
+- [x] WAV audio files (death, pickup, move, score, extra_score, soundtrack) — **INTEGRATED** (converted to MP3 and deployed to `public/assets/matrix-frogger/audio/` in R37)
 
 ## Still Needed
 
@@ -56,7 +56,7 @@
 - [ ] Score with multiplier indicator
 
 ### Audio
-- [x] Core sounds available (death, pickup, move, score, soundtrack WAVs)
+- [x] Core sounds available (death, pickup, move, score, extra_score, frog_pick_up, soundtrack) — **INTEGRATED** (converted to MP3 and deployed to `public/assets/matrix-frogger/audio/` in R37)
 - [~] Kung Fu attack sound — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
 - [~] NEO mode activation — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
 - [~] Countdown beeps (5 beeps + GO) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects

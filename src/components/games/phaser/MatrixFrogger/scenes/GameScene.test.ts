@@ -235,10 +235,10 @@ describe('FroggerGameScene', () => {
       expect(scene.score).toBe(GAME_CONFIG.SCORING.RED_PILL);
     });
 
-    it('should play the "score" sound for a red pill', () => {
+    it('should play the frogger pickup sound for a red pill', () => {
       const pill = createMockPill('red');
       scene.collectPill(pill);
-      expect(scene.playSound).toHaveBeenCalledWith('score');
+      expect(scene.playSound).toHaveBeenCalledWith('froggerPickup');
     });
 
     it('should play the "powerup" sound for a blue pill', () => {
@@ -524,9 +524,9 @@ describe('FroggerGameScene', () => {
       expect(scene.player.setTint).toHaveBeenCalledWith(0xff0000);
     });
 
-    it('should play the "hit" sound on death', () => {
+    it('should play the frogger death sound on death', () => {
       scene.playerDeath(createMockEnemy());
-      expect(scene.playSound).toHaveBeenCalledWith('hit');
+      expect(scene.playSound).toHaveBeenCalledWith('froggerDeath');
     });
 
     it('should not double-trigger if already game over', () => {
