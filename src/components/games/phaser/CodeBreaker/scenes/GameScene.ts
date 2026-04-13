@@ -87,6 +87,7 @@ export class CodeBreakerGameScene extends BaseScene {
     this.loadLevel(this.level);
     this.spawnBall(true);
     this.playSound(SOUND_KEYS.MENU);
+    this.playBackgroundMusic('/assets/audio/music/ostcrunch2-epic.mp3');
   }
 
   private resetState(): void {
@@ -1239,6 +1240,7 @@ export class CodeBreakerGameScene extends BaseScene {
   // -- Cleanup --
 
   shutdown(): void {
+    this.stopBackgroundMusic();
     for (const b of this.balls) b.sprite.destroy();
     this.balls = [];
     for (const b of this.bricks) b.sprite.destroy();

@@ -104,6 +104,7 @@ export class VortexPongGameScene extends BaseScene {
     this.setupInput();
     this.setupCommonInputs();
     this.startPowerUpTimer();
+    this.playBackgroundMusic('/assets/audio/music/stage-theme.mp3');
   }
 
   update(_time: number, delta: number): void {
@@ -135,6 +136,7 @@ export class VortexPongGameScene extends BaseScene {
   }
 
   shutdown(): void {
+    this.stopBackgroundMusic();
     this.powerUpTimer?.destroy();
     this.activePowerUps.forEach((timer) => timer.destroy());
     this.activePowerUps.clear();

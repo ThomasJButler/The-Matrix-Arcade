@@ -180,6 +180,8 @@ export class NeoJumpGameScene extends BaseScene {
 
     // Setup camera
     this.setupCamera();
+
+    this.playBackgroundMusic('/assets/audio/music/menu-theme.mp3');
   }
 
   update(time: number, delta: number): void {
@@ -1217,6 +1219,7 @@ export class NeoJumpGameScene extends BaseScene {
   }
 
   shutdown(): void {
+    this.stopBackgroundMusic();
     // Remove input listeners
     this.input.off('pointerdown');
     if (this.input.keyboard) {

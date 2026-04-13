@@ -93,6 +93,7 @@ export class MetrisGameScene extends BaseScene {
     this.setupCommonInputs();
     this.startDropTimer();
     this.playSound(SOUND_KEYS.MENU);
+    this.playBackgroundMusic('/assets/audio/music/brothers-and-sisters.mp3');
   }
 
   private resetState(): void {
@@ -1006,6 +1007,7 @@ export class MetrisGameScene extends BaseScene {
   }
 
   shutdown(): void {
+    this.stopBackgroundMusic();
     this.destroyDropTimer();
     this.particles = [];
     this.glowMap.clear();

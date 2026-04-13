@@ -83,6 +83,7 @@ export class SnakeGameScene extends BaseScene {
     this.setupCommonInputs();
     this.startMoveTimer();
     this.playSound('menu');
+    this.playBackgroundMusic('/assets/audio/music/cruise-control.mp3');
   }
 
   update(_time: number, delta: number): void {
@@ -96,6 +97,7 @@ export class SnakeGameScene extends BaseScene {
   }
 
   shutdown(): void {
+    this.stopBackgroundMusic();
     this.destroyMoveTimer();
     this.destroyFieldPowerUp();
     this.destroyPowerUpTimers();
