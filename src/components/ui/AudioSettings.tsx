@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Volume2,
@@ -48,16 +48,28 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
   const stopBackgroundMP3 = onStopBackgroundMP3 ?? fallback.stopBackgroundMP3;
   const [testingSound, setTestingSound] = useState<string | null>(null);
   const [showSaved, setShowSaved] = useState(false);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(() => {
+    return () => {
+      timersRef.current.forEach(clearTimeout);
+    };
+  }, []);
+
+  const scheduledTimeout = (fn: () => void, ms: number) => {
+    const id = setTimeout(fn, ms);
+    timersRef.current.push(id);
+    return id;
+  };
 
   const handleVolumeChange = (key: keyof SoundConfig, value: number) => {
     updateConfig({ [key]: value });
   };
 
   const handleSaveSettings = () => {
-    // Settings are auto-saved, but we show visual feedback
     setShowSaved(true);
-    playSFX('score'); // Play a success sound
-    setTimeout(() => setShowSaved(false), 2000);
+    playSFX('score');
+    scheduledTimeout(() => setShowSaved(false), 2000);
   };
 
   const handleToggle = (key: keyof SoundConfig) => {
@@ -67,13 +79,13 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
   const testSound = (soundType: string) => {
     setTestingSound(soundType);
     playSFX(soundType);
-    setTimeout(() => setTestingSound(null), 300);
+    scheduledTimeout(() => setTestingSound(null), 300);
   };
 
   const testMusic = () => {
     if (config.music) {
       playBackgroundMP3('/matrixarcaderetrobeat.mp3');
-      setTimeout(() => stopBackgroundMP3(), 3000);
+      scheduledTimeout(() => stopBackgroundMP3(), 3000);
     }
   };
 

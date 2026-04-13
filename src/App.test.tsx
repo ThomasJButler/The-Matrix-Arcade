@@ -309,12 +309,11 @@ describe('App Component', () => {
     expect(mockAchievementManager.toggleDisplay).toHaveBeenCalled();
   });
 
-  it('renders matrix rain effect elements', () => {
-    render(<App />);
-    
-    // Check for matrix rain elements
-    const matrixChars = document.querySelectorAll('.animate-matrix-rain');
-    expect(matrixChars.length).toBeGreaterThan(0);
+  it('renders matrix rain canvas background', () => {
+    const { container } = render(<App />);
+
+    const rainCanvas = container.querySelector('canvas[aria-hidden="true"]');
+    expect(rainCanvas).toBeTruthy();
   });
 
   it('handles games menu button click', () => {

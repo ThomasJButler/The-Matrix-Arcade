@@ -6,12 +6,12 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ## Current Status
 
-- **Status**: REBUILDING -- Phaser migration complete, asset pipeline bootstrapped, per-game sprite integration in progress, Metris tile sprite rendering rewrite complete, Rhythm Hacker music synced to beat charts + visual overhaul, game portal UX improved, landing page redesigned, Vortex Pong sprite integration complete, audio system upgraded with file-based SFX, background music integrated across all 11 Phaser games. R41: ASCII art titles for game portal carousel.
-- **Last Updated**: 13 April 2026 (R41 -- ASCII art title generator for game portal)
+- **Status**: REBUILDING -- Phaser migration complete, asset pipeline bootstrapped, per-game sprite integration in progress, Metris tile sprite rendering rewrite complete, Rhythm Hacker music synced to beat charts + visual overhaul, game portal UX improved, landing page redesigned, Vortex Pong sprite integration complete, audio system upgraded with file-based SFX, background music integrated across all 11 Phaser games. R41: ASCII art titles for game portal carousel. R42: Full-screen Matrix rain canvas background, AudioSettings timer cleanup, dead CSS removal.
+- **Last Updated**: 13 April 2026 (R42 -- full-screen Matrix rain canvas)
 - **Version**: v2.0.0 (next target)
 - **Games**: 12 playable (11 Phaser, 1 DOM)
 - **Build**: PASSES (code-split, main bundle ~386KB, Phaser vendor chunk 1,479KB) -- zero warnings
-- **Unit Tests**: 2,097 passing across 48 files, 0 failures
+- **Unit Tests**: 2,109 passing across 48 files, 0 failures
 - **E2E Tests**: 88 gameplay + 110 visual = 198 tests across 28 spec files -- last run PASSED (new screeenshots in TheMatrixArcade-/e2e, user manually ran the playwright test. 
 - **Asset Pipeline**: Phase 0a COMPLETE -- `public/assets/` deployed with fonts, audio, UI chrome, particles, icons (117 files, ~40MB)
 
@@ -50,6 +50,8 @@ All P0/P1/P2 bugs resolved across R1-R14 (12 April 2026). Key milestones:
 - **R40 Rhythm Hacker visual overhaul**: Replaced all circle-based note textures with diamond/gem shapes (layered glow halo, filled diamond body, white specular core) for a proper rhythm-game aesthetic. Upgraded lane backgrounds with horizontal grid lines for highway feel and brighter edge accents. Enhanced hit line from 8px to 14px with multi-layered glow (soft fringe, medium band, bright core, white specular centre). Added lane divider texture between lanes for visual separation. Replaced basic effect particles with star-burst (perfect) and diamond (other grades) shapes. Added four GameScene visual effects: (1) scrolling grid overlay — horizontal lines moving downward at 30fps creating highway motion, (2) note approach scaling — notes grow 15% larger as they near the hit line for depth, (3) combo glow — ambient glow behind hit line that intensifies with combo (green→cyan at 50+), (4) beat-reactive hit line — hit line scales vertically and brightens on each beat. Hold note tails changed from ring-with-dot to matching diamond shape. All 2,088 tests pass.
 
 - **R41 ASCII art titles for game portal carousel**: Created `src/lib/asciiArt.ts` with a 5-row block pixel font (A-Z, 0-9, symbols) using █ characters, variable-width glyphs (3-5 columns per character). Font renderer composes characters with 1-space gaps and centres multi-line titles. Pre-computed `GAME_TITLES` map for all 12 games with two-line layout (word per line, centred). Replaced icon + plain text `<h2>` in App.tsx carousel with `<pre>` element rendering block-letter ASCII art titles, styled with green glow (`text-shadow`), responsive font sizing (`text-[7px] lg:text-[9px] xl:text-[10px]`), and `sr-only` h2 for accessibility. Each game now has a dramatic Matrix-terminal-style title banner in the portal carousel. 9 new unit tests (2,097 total). All tests pass.
+
+- **R42 Full-screen Matrix rain canvas background**: Created `MatrixRainCanvas` component (`src/components/ui/MatrixRainCanvas.tsx`) — a single full-screen Canvas 2D element at 30fps replacing three scattered implementations: header/footer canvas strips (inline useEffect in App.tsx), CSS keyframe rain divs in the game portal carousel, and unused `.matrix-rain-bg` CSS class. The new canvas renders behind the entire app as a fixed-position element with bright leading characters (#aaffaa) and standard green trails (#00ff00), Katakana + digit glyphs, responsive resize handling, and proper cleanup on unmount. Chose Canvas 2D over Three.js to avoid adding ~600KB bundle dependency for a 2D effect. Also fixed AudioSettings setTimeout leak (3 timers firing after component unmount) by adding useRef-based timer tracking with useEffect cleanup. Removed dead `.matrix-rain-bg` CSS class and keyframe from theme.css. Removed `headerRef`/`footerRef` refs from App.tsx. Net: 26 insertions, 136 deletions. 12 new unit tests (2,109 total). All tests pass, zero unhandled errors.
 
 - **R39 Playtest bug fixes**: Fixed all 5 bugs identified in PLAYTEST_REPORT_2026-04-13.md. **B1 TDZ crashes** (4 games): Vortex Pong, Matrix Cloud, Matrix Invaders — removed module-level `const C = GAME_CONFIG` aliases that triggered Temporal Dead Zone errors due to circular config↔scene imports; replaced with direct `GAME_CONFIG.` access in methods. Rhythm Hacker — made `TRACK_CHARTS` lazy via `getTrackCharts()` singleton function since charts.ts evaluated `GAME_CONFIG.TRACKS.map(...)` at module top level. **B2 Agent Chase lives underflow**: Added `Math.max(0, lives - 1)` floor guard, invulnerability check in `playerDeath()`, and 2-second post-death invulnerability with blinking visual feedback to prevent spawn-camping. **Q2 P-pause on GameOver**: Added `allowPause` flag to BaseScene (default true), overridden to `false` in GameOverScene and MenuScene. **Q1 Matrix Frogger asset errors**: Removed 4 references to non-existent TopView_Robot_Asset_Pack sprites; added procedural enemy_agent and enemy_sentinel fallback textures. **Q3 Achievement toast setState-in-render**: Replaced nested `setQueue` call inside `setProgress` updater with separate `dismissed` state + `useEffect` to defer parent state update; replaced `displayedIds` state with `useRef` to avoid render-phase cross-component updates. All 2,088 tests pass.
 
@@ -195,7 +197,7 @@ For each game, the pipeline is:
 
 ### 1.1 Global Infrastructure Research (remaining)
 
-- [ ] **Three.js Matrix Rain Background** -- Replace CSS matrix rain with smooth 3D Three.js implementation.
+- [x] **Matrix Rain Background** -- Replaced CSS/canvas strips with full-screen Canvas 2D rain component (chose Canvas 2D over Three.js to avoid ~600KB dependency). Done R42.
 - [ ] **Global Asset System** -- Design unified font, spritesheet, and audio management in `src/lib/assets/`.
 - [x] **Game Card Portal Redesign** -- Instructions/High Scores buttons (R32), ASCII art titles (R41). Landing page redesigned (R33).
 - [x] **Global Controls UX Redesign** -- Collapsible keyboard icon strip (R33).
@@ -204,7 +206,7 @@ For each game, the pipeline is:
 
 ## Phase 2: Global Infrastructure Build
 
-- [ ] Implement Three.js matrix rain background (replaces CSS animation)
+- [x] Implement full-screen Matrix rain canvas background (replaces CSS animation) -- done R42, Canvas 2D chosen over Three.js
 - [ ] Create `src/lib/assets/AssetManager.ts` -- centralised font, spritesheet, and audio loading
 - [ ] Create global spritesheet atlas system for shared sprites across games
 - [x] Add Instructions/High Scores buttons to game card portal (done R32)
@@ -349,6 +351,7 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 - All games now benefit from pre-recorded Matrix Trilogy SFX (MP3) via the upgraded useSoundSystem — file-based audio takes priority over procedural synthesis with automatic fallback. All 11 Phaser games now have looping background music (R38) using 7 Matrix Trilogy tracks, with clean shutdown/game-over teardown. Matrix Frogger additionally has 5 game-specific SFX.
 - Rhythm Hacker BPM values are estimates — may need tuning per track after playtesting
 - `useAdvancedVoice` AudioContext for visualisation never connected to speech output (always returns zeros)
+- ~~AudioSettings setTimeout leak (3 timers firing after unmount)~~ — fixed R42 via useRef-based timer tracking with useEffect cleanup
 
 ---
 
