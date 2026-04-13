@@ -156,6 +156,7 @@ export class AgentChaseGameScene extends BaseScene {
 
   update(time: number, delta: number): void {
     if (this.isPaused) return;
+    if (!this.cursors) return;
 
     // Update animation
     this.animTimer += delta;

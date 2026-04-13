@@ -186,6 +186,7 @@ export class NeoJumpGameScene extends BaseScene {
 
   update(time: number, delta: number): void {
     if (this.isPaused) return;
+    if (!this.cursors) return;
 
     // Update parallax rain
     this.updateParallaxRain(delta);
