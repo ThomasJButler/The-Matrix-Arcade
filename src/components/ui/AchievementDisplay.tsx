@@ -5,9 +5,10 @@
  *              with search, filtering, and statistics.
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Trophy, Lock, X, Search, Star, Target, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface Achievement {
   id: string;
@@ -70,6 +71,9 @@ export const AchievementDisplay: React.FC<AchievementDisplayProps> = ({
     return { total, unlocked, percentage };
   }, [achievements]);
 
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, isOpen, onClose);
+
   if (!isOpen) return null;
 
   return (
@@ -82,7 +86,11 @@ export const AchievementDisplay: React.FC<AchievementDisplayProps> = ({
         onClick={onClose}
       >
         <motion.div
-          className="relative w-full max-w-6xl h-[90vh] bg-black/95 border-2 border-green-500 
+          ref={modalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="achievements-title"
+          className="relative w-full max-w-6xl h-[90vh] bg-black/95 border-2 border-green-500
                      rounded-lg shadow-[0_0_50px_rgba(0,255,0,0.3)] overflow-hidden"
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -99,7 +107,7 @@ export const AchievementDisplay: React.FC<AchievementDisplayProps> = ({
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-4">
                 <Trophy className="w-8 h-8 text-green-500" />
-                <h1 className="text-3xl font-mono text-green-500 tracking-wider">
+                <h1 id="achievements-title" className="text-3xl font-mono text-green-500 tracking-wider">
                   ACHIEVEMENTS
                 </h1>
               </div>

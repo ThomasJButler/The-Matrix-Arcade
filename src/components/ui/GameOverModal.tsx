@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { motion } from 'framer-motion';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface GameOverModalProps {
   score: {
@@ -11,6 +12,8 @@ interface GameOverModalProps {
 
 export const GameOverModal = ({ score, onRestart }: GameOverModalProps) => {
   const isWinner = score.player > score.ai;
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, true, onRestart);
 
   return (
     <motion.div
@@ -20,13 +23,18 @@ export const GameOverModal = ({ score, onRestart }: GameOverModalProps) => {
       exit={{ opacity: 0 }}
     >
       <motion.div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="game-over-title"
         className="bg-black border-2 border-green-500 p-8 rounded-lg text-center font-mono"
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         exit={{ scale: 0 }}
         transition={{ type: "spring", damping: 15 }}
       >
-        <motion.h2 
+        <motion.h2
+          id="game-over-title"
           className={`text-4xl mb-6 ${isWinner ? 'text-green-500' : 'text-red-500'}`}
           animate={{ 
             textShadow: [

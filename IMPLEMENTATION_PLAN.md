@@ -5,14 +5,18 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: ACTIVE — P0 keyboard fixed, P1 all resolved, P2 setTimeout/dead-types/registry resolved. Spec cleanup, assets, and polish remain.
+## Status: ACTIVE — All P0–P2 resolved. useAdvancedVoice AudioContext dead code removed (R64). Phase 6 polish, assets, and CTRL-S rewrite remain.
 
-> **Last audit**: R63 (2026-04-13). All unit tests pass (1831/1831). Build clean. TypeScript clean. All E2E tests pass. 12 games total, all with E2E playthrough coverage. Git on `developmentv3.0`.
+> **Last audit**: R64 (2026-04-13). All unit tests pass (1838/1838). Build clean. TypeScript clean. All E2E tests pass. 12 games total, all with E2E playthrough coverage. Git on `developmentv3.0`.
 >
 > **R63 delta from R62**: Resolved P2 setTimeout leaks (4 files), P2 dead types, and P2 broken Metris save system registry key:
 > - **P2 RESOLVED**: All 4 untracked `setTimeout` calls now tracked in refs and cleared on unmount (PuzzleModal, useAdvancedVoice, PWAInstallPrompt, AchievementNotification).
 > - **P2 RESOLVED**: Removed dead `BaseSceneHelpers` and `PhaserGameConfig` interfaces from `types.ts`. Removed unused `Phaser` type import.
 > - **P2 RESOLVED**: Fixed Metris save system — `registry.get('SAVE_SYSTEM')` was using wrong string (uppercase vs constant). Changed to `REGISTRY_KEYS.SAVE_SYSTEM` and wired up save system in `PhaserGame.tsx` registry. Metris high scores, stats, and bullet-time count now persist correctly.
+>
+> **R64 delta from R63**: Two Phase 6 polish items resolved:
+> - **RESOLVED**: Removed dead `useAdvancedVoice` AudioContext code path. The AudioContext and AnalyserNode were created but never connected to the SpeechSynthesis output — `getByteFrequencyData()` always returned zeros. Replaced with synthetic visualisation driven by `utterance.onboundary` timing events. Removed ~30 lines of dead code.
+> - **RESOLVED**: Added focus traps to all 5 modals (GameOverModal, AchievementDisplay, PuzzleModal, SentientAIModal, CharacterConversationModal). New `useFocusTrap` hook provides Tab cycling, Escape-to-close, initial focus, and focus restoration. Added `role="dialog"`, `aria-modal="true"`, and `aria-labelledby` to all modal containers. 7 new unit tests for the hook. Fixed framer-motion test mocks to support `forwardRef`.
 >
 > **R62 delta from R61**: Resolved P0 keyboard race condition (all 7 factors), P1 shutdown cleanup, P1 controls descriptions, and P1 console guards:
 > - **P0 RESOLVED**: Replaced single 100ms `delayedCall` retry with `waitForKeyboard()` helper (50ms × 10 polling + scene `update` fallback). Applied to BaseScene, MenuScene, GameOverScene, RhythmHacker MenuScene, and all 11 GameScene `setupInput()` methods (16 locations total).
@@ -285,11 +289,11 @@ For each game, the pipeline is:
 
 - [ ] **Performance profiling** (60fps on all games) — requires manual browser testing
 - [ ] **Accessibility residue**:
-  - [ ] Focus traps on modals
+  - [x] ~~Focus traps on modals~~ RESOLVED (R64) — new `useFocusTrap` hook applied to all 5 modals (GameOverModal, AchievementDisplay, PuzzleModal, SentientAIModal, CharacterConversationModal). Added `role="dialog"`, `aria-modal="true"`, `aria-labelledby`, Escape-to-close, Tab cycling, and focus restoration.
   - [ ] CTRL-S World `aria-live` on story text (will be addressed by Phase 7 rewrite)
   - [ ] Form input labels
 - [ ] **Rhythm Hacker BPM tuning** — current values are estimates; tune per track after playtesting
-- [ ] **`useAdvancedVoice` AudioContext** — never connected to speech output (always returns zeros). Either wire it up or delete the dead path.
+- [x] ~~**`useAdvancedVoice` AudioContext** — never connected to speech output (always returns zeros). Either wire it up or delete the dead path.~~ RESOLVED (R64) — removed dead AudioContext, replaced with synthetic visualisation.
 
 #### Phase 6 — Playwright E2E residue (from R50 bulk-up)
 
@@ -481,13 +485,13 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 - GAME_CONFIG TDZ crash resolved (commit `ee18028`)
 
 ### Open Gaps
-- **P2**: 4 untracked `setTimeout` calls (PuzzleModal:261 highest risk)
-- **P2**: Dead types (`BaseSceneHelpers`, `PhaserGameConfig`) and broken `SAVE_SYSTEM` registry key (Metris save reads silently return undefined)
-- **P2**: Spec inconsistencies between phaser-games.md, game-architecture.md, and ux-guidelines.md
+- ~~**P2**: 4 untracked `setTimeout` calls~~ RESOLVED (R63)
+- ~~**P2**: Dead types (`BaseSceneHelpers`, `PhaserGameConfig`) and broken `SAVE_SYSTEM` registry key~~ RESOLVED (R63)
+- ~~**P2**: Spec inconsistencies~~ RESOLVED (R63)
 - **CTRL-S World**: only DOM/React game; current implementation is buggy and complex enough to warrant the Phase 7 rewrite rather than incremental fixes
 - Remaining sprite/audio assets per game (see Phase 0b above). Audio is the biggest cross-cutting gap — only Matrix Frogger has any deployed.
 - Rhythm Hacker BPM values are estimates — may need tuning per track after playtesting
-- `useAdvancedVoice` AudioContext for visualisation never connected to speech output (always returns zeros)
+- ~~`useAdvancedVoice` AudioContext~~ RESOLVED (R64)
 - No global `AssetManager` yet — each game still owns its own asset loading
 - Circular dependency in all Phaser games (`config.ts` <-> scene files) — fragile but functional; documented in Architecture Notes
 
@@ -499,12 +503,12 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 2. ~~**P1 — Shutdown cleanup**~~ DONE R62.
 3. ~~**P1 — Controls descriptions**~~ DONE R62.
 4. ~~**P1 — Console guards**~~ Already done, verified R62.
-5. **P2 — setTimeout tracking**: Track 4 untracked setTimeout calls in refs with cleanup. PuzzleModal:261 is highest risk — one-character fix.
-6. **P2 — Dead types / broken registry**: Remove unused interfaces, fix Metris save system registry key.
+5. ~~**P2 — setTimeout tracking**~~ DONE R63.
+6. ~~**P2 — Dead types / broken registry**~~ DONE R63.
 7. **Playtest Verification**: After P0 fix lands, verify Metris bullet-time, Matrix Cloud combo, and other items via live browser testing.
 8. **Phase 6 Playwright residue**: Docker baseline regen is the single highest-value remaining item. Multi-viewport and flake cluster are next.
 9. **Phase 0a/0b**: Per-game asset deployment (skip CTRL-S until Phase 7). Audio extraction is the biggest bang-for-buck across all games.
-10. **P2 — Spec consistency**: Align architecture.md with actual project structure.
+10. ~~**P2 — Spec consistency**~~ DONE R63.
 11. **Phase 1/2**: Global `AssetManager` — optional, each game handles its own assets adequately for now.
 12. **Phase 6 polish**: Remaining accessibility residue (focus traps, form labels), BPM tuning, voice AudioContext cleanup.
 13. **Phase 7**: CTRL-S World Phaser rewrite — only after the above are closed. Start from `rebuildingoldgames/plans/ctrl-s-rebuild.md`.

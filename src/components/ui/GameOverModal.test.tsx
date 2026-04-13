@@ -1,3 +1,4 @@
+import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { GameOverModal } from './GameOverModal';
@@ -5,11 +6,11 @@ import { GameOverModal } from './GameOverModal';
 // Mock framer-motion
 vi.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => <div {...props}>{children}</div>,
+    div: React.forwardRef(({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }, ref: React.Ref<HTMLDivElement>) => <div ref={ref} {...props}>{children}</div>),
     h2: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => <h2 {...props}>{children}</h2>,
-    button: ({ children, onClick, ...props }: { children?: React.ReactNode; onClick?: () => void; [key: string]: unknown }) => (
-      <button onClick={onClick} {...props}>{children}</button>
-    ),
+    button: React.forwardRef(({ children, onClick, ...props }: { children?: React.ReactNode; onClick?: () => void; [key: string]: unknown }, ref: React.Ref<HTMLButtonElement>) => (
+      <button ref={ref} onClick={onClick} {...props}>{children}</button>
+    )),
   },
 }));
 
