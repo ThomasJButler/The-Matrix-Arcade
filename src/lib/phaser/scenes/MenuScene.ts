@@ -71,6 +71,7 @@ export class MenuScene extends BaseScene {
     if (this.rainGroup) {
       this.updateMatrixRain(this.rainGroup, delta);
     }
+    this.exposeTestState({});
   }
 
   /**

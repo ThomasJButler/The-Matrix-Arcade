@@ -449,6 +449,15 @@ function App() {
 
   const GameComponent = games[selectedGame].component;
 
+  // E2E ready markers — let Playwright wait on these instead of arbitrary settle delays.
+  useEffect(() => {
+    document.body.dataset.portalReady = (!showLandingPage).toString();
+  }, [showLandingPage]);
+  useEffect(() => {
+    document.body.dataset.portalGameId = games[selectedGame]?.id ?? '';
+    document.body.dataset.portalIsPlaying = isPlaying.toString();
+  }, [selectedGame, isPlaying, games]);
+
   return (
     <GameStateProvider>
       {/* Mobile Warning */}

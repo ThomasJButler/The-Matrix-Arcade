@@ -447,6 +447,25 @@ export default function CtrlSWorld({ achievementManager, isMuted = false, autoSt
   const [textSpeed, setTextSpeed] = useState<5 | 15 | 30>(15); // ms per character
   const [fontSize, setFontSize] = useState<'sm' | 'base' | 'lg'>('base');
 
+  // E2E state seam — exposes phase + chapter so Playwright can assert progression.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    (window as unknown as { __CTRLS_STATE__?: object }).__CTRLS_STATE__ = {
+      phase: gamePhase,
+      chapter: currentNode,
+      paragraphIndex: currentTextIndex,
+      isTyping,
+      activeModal,
+      isPaused,
+    };
+    document.body.dataset.gameReady = 'ctrl-s-world';
+    return () => {
+      if (document.body.dataset.gameReady === 'ctrl-s-world') {
+        delete document.body.dataset.gameReady;
+      }
+    };
+  }, [gamePhase, currentNode, currentTextIndex, isTyping, activeModal, isPaused]);
+
   // Puzzle state (currentPuzzleId tracks which puzzle is active, activeModal='puzzle' shows it)
   const [currentPuzzleId, setCurrentPuzzleId] = useState<string | null>(null);
 

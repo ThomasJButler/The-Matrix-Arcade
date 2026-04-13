@@ -4,7 +4,7 @@
  *              descriptions and the classic arcade games that inspired them.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Play, Monitor, Keyboard } from 'lucide-react';
 import type { GameCategory } from '../types/game';
@@ -22,6 +22,13 @@ const ALL_CATEGORIES: GameCategory[] = ['Arcade', 'Classic', 'Shooter', 'Puzzle'
 export default function LandingPage({ onSelectGame, onClose }: LandingPageProps) {
   const [activeCategory, setActiveCategory] = useState<GameCategory | 'All'>('All');
   const [showControls, setShowControls] = useState(false);
+  const inTestMode = typeof window !== 'undefined' && window.__TEST__;
+
+  // E2E ready marker so tests can wait on the landing grid being live.
+  useEffect(() => {
+    document.body.dataset.landingReady = 'true';
+    return () => { delete document.body.dataset.landingReady; };
+  }, []);
 
   const filteredGames = activeCategory === 'All'
     ? GAME_DATA
@@ -39,25 +46,27 @@ export default function LandingPage({ onSelectGame, onClose }: LandingPageProps)
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 bg-black overflow-y-auto"
     >
-      {/* Matrix rain background effect */}
-      <div className="fixed inset-0 opacity-5 pointer-events-none overflow-hidden">
-        {Array.from({ length: 20 }).map((_, i) => (
-          <div
-            key={i}
-            className="absolute text-green-500 font-mono text-xs whitespace-nowrap animate-pulse"
-            style={{
-              left: `${i * 5}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 3}s`,
-              opacity: 0.3 + Math.random() * 0.4,
-            }}
-          >
-            {Array.from({ length: 30 }).map(() =>
-              String.fromCharCode(0x30A0 + Math.random() * 96)
-            ).join('')}
-          </div>
-        ))}
-      </div>
+      {/* Matrix rain background effect — skipped in test mode for pixel-stable baselines */}
+      {!inTestMode && (
+        <div className="fixed inset-0 opacity-5 pointer-events-none overflow-hidden">
+          {Array.from({ length: 20 }).map((_, i) => (
+            <div
+              key={i}
+              className="absolute text-green-500 font-mono text-xs whitespace-nowrap animate-pulse"
+              style={{
+                left: `${i * 5}%`,
+                top: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 3}s`,
+                opacity: 0.3 + Math.random() * 0.4,
+              }}
+            >
+              {Array.from({ length: 30 }).map(() =>
+                String.fromCharCode(0x30A0 + Math.random() * 96)
+              ).join('')}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Header with collapsible controls */}
       <header className="sticky top-0 z-10 bg-black/90 backdrop-blur-md border-b border-green-500/30">
