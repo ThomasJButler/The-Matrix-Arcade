@@ -6,12 +6,12 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ## Current Status
 
-- **Status**: REBUILDING -- Phaser migration complete, asset pipeline bootstrapped, per-game sprite integration in progress, Metris tile sprite rendering rewrite complete, Rhythm Hacker music synced to beat charts + visual overhaul, game portal UX improved, landing page redesigned, Vortex Pong sprite integration complete, audio system upgraded with file-based SFX, background music integrated across all 11 Phaser games. R40: Rhythm Hacker visual overhaul (diamond notes, highway grid, beat-reactive hit line, combo glow, note approach scaling).
-- **Last Updated**: 13 April 2026 (R40 -- Rhythm Hacker visual enhancements)
+- **Status**: REBUILDING -- Phaser migration complete, asset pipeline bootstrapped, per-game sprite integration in progress, Metris tile sprite rendering rewrite complete, Rhythm Hacker music synced to beat charts + visual overhaul, game portal UX improved, landing page redesigned, Vortex Pong sprite integration complete, audio system upgraded with file-based SFX, background music integrated across all 11 Phaser games. R41: ASCII art titles for game portal carousel.
+- **Last Updated**: 13 April 2026 (R41 -- ASCII art title generator for game portal)
 - **Version**: v2.0.0 (next target)
 - **Games**: 12 playable (11 Phaser, 1 DOM)
-- **Build**: PASSES (code-split, main bundle ~384KB, Phaser vendor chunk 1,479KB) -- zero warnings
-- **Unit Tests**: 2,088 passing across 47 files, 0 failures
+- **Build**: PASSES (code-split, main bundle ~386KB, Phaser vendor chunk 1,479KB) -- zero warnings
+- **Unit Tests**: 2,097 passing across 48 files, 0 failures
 - **E2E Tests**: 88 gameplay + 110 visual = 198 tests across 28 spec files -- last run PASSED (new screeenshots in TheMatrixArcade-/e2e, user manually ran the playwright test. 
 - **Asset Pipeline**: Phase 0a COMPLETE -- `public/assets/` deployed with fonts, audio, UI chrome, particles, icons (117 files, ~40MB)
 
@@ -48,6 +48,8 @@ All P0/P1/P2 bugs resolved across R1-R14 (12 April 2026). Key milestones:
 - **R36 Metris tile sprite integration and rendering rewrite**: Deployed 7 beveled tile sprites (32×32, one per tetromino type: I=cyan, O=yellow, T=purple, S=green, Z=red, J=blue, L=orange) to `public/assets/metris/`. Rewrote BootScene with `loadCommonAssets()` override to load sprite PNGs and `generateFallbackTiles()` for procedural beveled textures when sprites are unavailable. Refactored GameScene rendering architecture from single `Phaser.GameObjects.Graphics` with `fillRect()` calls to a layered Image-pool approach: 200 pre-positioned `Phaser.GameObjects.Image` objects for the 10×20 grid (depth 2), 4 ghost piece Images (depth 1, alpha 0.25), 4 active piece Images (depth 3), background on `gridGraphics` (depth 0), and glow/grid-lines/border/particles on new `overlayGraphics` (depth 10). Each frame, cell Images update texture key and visibility; ghost/active Images also update position. Preview panels (HOLD/NEXT) remain Graphics-based. Updated test mock infrastructure: added `createMockImage()` helper, upgraded `add.image` mock from shared `mockReturnValue` to per-call `mockImplementation`, pre-populated `cellImages`/`ghostImages`/`activeImages` arrays in `beforeEach`. Metris was previously the only Phaser game with zero sprite assets — now has full tile textures. All 2,088 tests pass.
 
 - **R40 Rhythm Hacker visual overhaul**: Replaced all circle-based note textures with diamond/gem shapes (layered glow halo, filled diamond body, white specular core) for a proper rhythm-game aesthetic. Upgraded lane backgrounds with horizontal grid lines for highway feel and brighter edge accents. Enhanced hit line from 8px to 14px with multi-layered glow (soft fringe, medium band, bright core, white specular centre). Added lane divider texture between lanes for visual separation. Replaced basic effect particles with star-burst (perfect) and diamond (other grades) shapes. Added four GameScene visual effects: (1) scrolling grid overlay — horizontal lines moving downward at 30fps creating highway motion, (2) note approach scaling — notes grow 15% larger as they near the hit line for depth, (3) combo glow — ambient glow behind hit line that intensifies with combo (green→cyan at 50+), (4) beat-reactive hit line — hit line scales vertically and brightens on each beat. Hold note tails changed from ring-with-dot to matching diamond shape. All 2,088 tests pass.
+
+- **R41 ASCII art titles for game portal carousel**: Created `src/lib/asciiArt.ts` with a 5-row block pixel font (A-Z, 0-9, symbols) using █ characters, variable-width glyphs (3-5 columns per character). Font renderer composes characters with 1-space gaps and centres multi-line titles. Pre-computed `GAME_TITLES` map for all 12 games with two-line layout (word per line, centred). Replaced icon + plain text `<h2>` in App.tsx carousel with `<pre>` element rendering block-letter ASCII art titles, styled with green glow (`text-shadow`), responsive font sizing (`text-[7px] lg:text-[9px] xl:text-[10px]`), and `sr-only` h2 for accessibility. Each game now has a dramatic Matrix-terminal-style title banner in the portal carousel. 9 new unit tests (2,097 total). All tests pass.
 
 - **R39 Playtest bug fixes**: Fixed all 5 bugs identified in PLAYTEST_REPORT_2026-04-13.md. **B1 TDZ crashes** (4 games): Vortex Pong, Matrix Cloud, Matrix Invaders — removed module-level `const C = GAME_CONFIG` aliases that triggered Temporal Dead Zone errors due to circular config↔scene imports; replaced with direct `GAME_CONFIG.` access in methods. Rhythm Hacker — made `TRACK_CHARTS` lazy via `getTrackCharts()` singleton function since charts.ts evaluated `GAME_CONFIG.TRACKS.map(...)` at module top level. **B2 Agent Chase lives underflow**: Added `Math.max(0, lives - 1)` floor guard, invulnerability check in `playerDeath()`, and 2-second post-death invulnerability with blinking visual feedback to prevent spawn-camping. **Q2 P-pause on GameOver**: Added `allowPause` flag to BaseScene (default true), overridden to `false` in GameOverScene and MenuScene. **Q1 Matrix Frogger asset errors**: Removed 4 references to non-existent TopView_Robot_Asset_Pack sprites; added procedural enemy_agent and enemy_sentinel fallback textures. **Q3 Achievement toast setState-in-render**: Replaced nested `setQueue` call inside `setProgress` updater with separate `dismissed` state + `useEffect` to defer parent state update; replaced `displayedIds` state with `useRef` to avoid render-phase cross-component updates. All 2,088 tests pass.
 
@@ -195,8 +197,8 @@ For each game, the pipeline is:
 
 - [ ] **Three.js Matrix Rain Background** -- Replace CSS matrix rain with smooth 3D Three.js implementation.
 - [ ] **Global Asset System** -- Design unified font, spritesheet, and audio management in `src/lib/assets/`.
-- [ ] **Game Card Portal Redesign** -- Larger game cards (see `gamecardlayout.png`), Instructions/High Scores buttons, ASCII art titles.
-- [ ] **Global Controls UX Redesign** -- Compact into a sleek bar or hide behind a keyboard icon toggle.
+- [x] **Game Card Portal Redesign** -- Instructions/High Scores buttons (R32), ASCII art titles (R41). Landing page redesigned (R33).
+- [x] **Global Controls UX Redesign** -- Collapsible keyboard icon strip (R33).
 
 ---
 
@@ -207,8 +209,8 @@ For each game, the pipeline is:
 - [ ] Create global spritesheet atlas system for shared sprites across games
 - [x] Add Instructions/High Scores buttons to game card portal (done R32)
 - [x] Redesign landing page grid (larger previews, cleaner cards, play overlay, collapsible controls, xl:grid-cols-4) -- done R33
-- [ ] Redesign game card portal carousel (ASCII art titles, larger card)
-- [ ] Add ASCII art generator/renderer for game titles
+- [x] Redesign game card portal carousel (ASCII art titles, larger card) -- done R41: ASCII art block-letter titles with green glow replace plain text titles
+- [x] Add ASCII art generator/renderer for game titles -- done R41: `src/lib/asciiArt.ts` with 5-row block font, variable-width glyphs, multi-line centring
 
 ---
 
