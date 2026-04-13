@@ -209,25 +209,24 @@ export class MetrisGameScene extends BaseScene {
   }
 
   private setupInput(): void {
-    if (!this.input.keyboard) {
-      this.time.delayedCall(100, () => this.setupInput());
-      return;
-    }
+    this.waitForKeyboard(() => {
+      if (!this.input.keyboard) return;
 
-    this.leftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT);
-    this.rightKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT);
-    this.downKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
-    this.upKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
-    this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    this.cKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
-    this.bKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
-    this.xKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X);
-    this.zKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
-    this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
-    this.aKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
-    this.dKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
-    this.sKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
-    this.wKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
+      this.leftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT);
+      this.rightKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT);
+      this.downKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
+      this.upKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
+      this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+      this.cKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
+      this.bKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
+      this.xKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X);
+      this.zKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
+      this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
+      this.aKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+      this.dKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+      this.sKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+      this.wKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
+    });
   }
 
   // --- Bag Randomiser ---
@@ -1013,6 +1012,8 @@ export class MetrisGameScene extends BaseScene {
 
   shutdown(): void {
     this.stopBackgroundMusic();
+    this.time?.removeAllEvents();
+    this.tweens?.killAll();
     this.destroyDropTimer();
     this.particles = [];
     this.glowMap.clear();
@@ -1030,5 +1031,6 @@ export class MetrisGameScene extends BaseScene {
     for (const img of this.activeImages) img.destroy();
     this.activeImages = [];
     if (this.input.keyboard) this.input.keyboard.removeAllKeys(true);
+    super.shutdown();
   }
 }

@@ -455,24 +455,23 @@ export class RhythmHackerGameScene extends BaseScene {
    * Setup input
    */
   private setupInput(): void {
-    if (!this.input.keyboard) {
-      this.time.delayedCall(100, () => this.setupInput());
-      return;
-    }
+    this.waitForKeyboard(() => {
+      if (!this.input.keyboard) return;
 
-    const keyCodes = [
-      Phaser.Input.Keyboard.KeyCodes.D,
-      Phaser.Input.Keyboard.KeyCodes.F,
-      Phaser.Input.Keyboard.KeyCodes.J,
-      Phaser.Input.Keyboard.KeyCodes.K,
-    ];
+      const keyCodes = [
+        Phaser.Input.Keyboard.KeyCodes.D,
+        Phaser.Input.Keyboard.KeyCodes.F,
+        Phaser.Input.Keyboard.KeyCodes.J,
+        Phaser.Input.Keyboard.KeyCodes.K,
+      ];
 
-    keyCodes.forEach((code, lane) => {
-      const key = this.input.keyboard!.addKey(code);
-      this.laneKeys.push(key);
+      keyCodes.forEach((code, lane) => {
+        const key = this.input.keyboard!.addKey(code);
+        this.laneKeys.push(key);
 
-      key.on('down', () => this.onKeyDown(lane));
-      key.on('up', () => this.onKeyUp(lane));
+        key.on('down', () => this.onKeyDown(lane));
+        key.on('up', () => this.onKeyUp(lane));
+      });
     });
   }
 
@@ -1261,5 +1260,6 @@ export class RhythmHackerGameScene extends BaseScene {
     this.gridGraphics?.destroy();
     this.comboGlow?.destroy();
     this.input.keyboard?.removeAllKeys(true);
+    super.shutdown();
   }
 }

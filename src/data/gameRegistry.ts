@@ -82,7 +82,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     category: 'Puzzle',
     inspiration: 'Tetris (1985)',
     inspirationNote: "Alexey Pajitnov's masterpiece gets a Matrix makeover with slow-motion mechanics.",
-    controls: 'Arrow keys to move, Z/X to rotate, SPACE to drop, B for bullet time',
+    controls: 'Arrows/WASD to move, Z/X to rotate, C to hold, SPACE to hard drop, B for bullet time',
   },
   {
     id: 'matrix-frogger',
@@ -92,7 +92,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     category: 'Arcade',
     inspiration: 'Frogger (1981)',
     inspirationNote: "Konami's road-crossing classic, but the traffic is Agent Smith and his clones.",
-    controls: 'Arrow keys to move between lanes',
+    controls: 'Arrow keys/WASD to move, K to Kung Fu attack',
   },
   {
     id: 'neo-jump',
@@ -102,7 +102,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     category: 'Classic',
     inspiration: 'Doodle Jump (2009)',
     inspirationNote: 'The endless vertical platformer — with jetpacks, springs, and Matrix platforms.',
-    controls: 'Arrow keys to move left/right, SPACE to jump',
+    controls: 'Left/Right/A/D to move, UP/W for jetpack, SPACE to shoot',
   },
   {
     id: 'agent-chase',
@@ -112,7 +112,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     category: 'Classic',
     inspiration: 'Pac-Man (1980)',
     inspirationNote: "Namco's dot-munching legend — you're Neo, the ghosts are Agents, the dots are data.",
-    controls: 'Arrow keys to move, SPACE to use power-up',
+    controls: 'Arrow keys/WASD to move. Eat power pellets to frighten agents!',
   },
   {
     id: 'rhythm-hacker',
@@ -132,7 +132,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     category: 'Arcade',
     inspiration: 'Doodle Jump / Platformers',
     inspirationNote: 'Side-scrolling cloud hopping through the Matrix skyline.',
-    controls: 'Arrow keys to move, SPACE to jump',
+    controls: 'SPACE/UP/W to jump between clouds',
   },
   {
     id: 'code-breaker',

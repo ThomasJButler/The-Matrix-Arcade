@@ -103,25 +103,27 @@ export class RhythmHackerMenuScene extends BaseScene {
    * Setup keyboard input
    */
   private setupInput(): void {
-    if (!this.input.keyboard) return;
+    this.waitForKeyboard(() => {
+      if (!this.input.keyboard) return;
 
-    const upKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
-    const downKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
-    const enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
-    const spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+      const upKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
+      const downKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
+      const enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
+      const spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
-    upKey.on('down', () => {
-      this.selectedTrack = Math.max(0, this.selectedTrack - 1);
-      this.highlightTrack(this.selectedTrack);
+      upKey.on('down', () => {
+        this.selectedTrack = Math.max(0, this.selectedTrack - 1);
+        this.highlightTrack(this.selectedTrack);
+      });
+
+      downKey.on('down', () => {
+        this.selectedTrack = Math.min(GAME_CONFIG.TRACKS.length - 1, this.selectedTrack + 1);
+        this.highlightTrack(this.selectedTrack);
+      });
+
+      enterKey.on('down', () => this.selectTrack(this.selectedTrack));
+      spaceKey.on('down', () => this.selectTrack(this.selectedTrack));
     });
-
-    downKey.on('down', () => {
-      this.selectedTrack = Math.min(GAME_CONFIG.TRACKS.length - 1, this.selectedTrack + 1);
-      this.highlightTrack(this.selectedTrack);
-    });
-
-    enterKey.on('down', () => this.selectTrack(this.selectedTrack));
-    spaceKey.on('down', () => this.selectTrack(this.selectedTrack));
   }
 
   /**
@@ -159,5 +161,12 @@ export class RhythmHackerMenuScene extends BaseScene {
   private selectTrack(index: number): void {
     this.playSound('score');
     this.scene.start(SCENE_KEYS.GAME, { trackIndex: index });
+  }
+
+  shutdown(): void {
+    if (this.input.keyboard) {
+      this.input.keyboard.removeAllKeys(true);
+    }
+    super.shutdown();
   }
 }

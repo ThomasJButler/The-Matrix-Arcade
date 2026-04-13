@@ -132,16 +132,22 @@ export class MenuScene extends BaseScene {
    * Set up keyboard input for menu
    */
   protected setupMenuInput(): void {
-    if (!this.input.keyboard) {
-      this.time.delayedCall(100, () => this.setupMenuInput());
-      return;
+    this.waitForKeyboard(() => {
+      if (!this.input.keyboard) return;
+
+      const enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
+      enterKey.on('down', () => this.startGame());
+
+      const spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+      spaceKey.on('down', () => this.startGame());
+    });
+  }
+
+  shutdown(): void {
+    if (this.input.keyboard) {
+      this.input.keyboard.removeAllKeys(true);
     }
-
-    const enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
-    enterKey.on('down', () => this.startGame());
-
-    const spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    spaceKey.on('down', () => this.startGame());
+    super.shutdown();
   }
 
   /**

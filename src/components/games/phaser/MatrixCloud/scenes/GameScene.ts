@@ -208,16 +208,15 @@ export class MatrixCloudGameScene extends BaseScene {
   }
 
   private setupInput(): void {
-    if (!this.input.keyboard) {
-      this.time.delayedCall(100, () => this.setupInput());
-      return;
-    }
+    this.waitForKeyboard(() => {
+      if (!this.input.keyboard) return;
 
-    this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    this.enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
+      this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+      this.enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
 
-    this.input.on('pointerdown', () => {
-      if (!this.isGameOver && !this.isPaused) this.jump();
+      this.input.on('pointerdown', () => {
+        if (!this.isGameOver && !this.isPaused) this.jump();
+      });
     });
   }
 
@@ -932,5 +931,8 @@ export class MatrixCloudGameScene extends BaseScene {
       this.input.keyboard.removeAllKeys(true);
     }
     this.input.off('pointerdown');
+    this.time?.removeAllEvents();
+    this.tweens?.killAll();
+    super.shutdown();
   }
 }

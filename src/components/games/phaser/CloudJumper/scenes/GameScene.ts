@@ -248,19 +248,18 @@ export class CloudJumperGameScene extends BaseScene {
    * Setup input
    */
   private setupInput(): void {
-    if (!this.input.keyboard) {
-      this.time.delayedCall(100, () => this.setupInput());
-      return;
-    }
+    this.waitForKeyboard(() => {
+      if (!this.input.keyboard) return;
 
-    // All jump inputs use event callbacks for consistency
-    this.jumpKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    this.jumpKey.on('down', () => this.jump());
-    this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP).on('down', () => this.jump());
-    this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W).on('down', () => this.jump());
+      // All jump inputs use event callbacks for consistency
+      this.jumpKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+      this.jumpKey.on('down', () => this.jump());
+      this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP).on('down', () => this.jump());
+      this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W).on('down', () => this.jump());
 
-    // Also allow click/tap to jump
-    this.input.on('pointerdown', () => this.jump());
+      // Also allow click/tap to jump
+      this.input.on('pointerdown', () => this.jump());
+    });
   }
 
   /**
@@ -782,5 +781,6 @@ export class CloudJumperGameScene extends BaseScene {
     if (this.input.keyboard) {
       this.input.keyboard.removeAllKeys(true);
     }
+    super.shutdown();
   }
 }

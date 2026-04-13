@@ -51,6 +51,7 @@ vi.mock('phaser', () => {
     time: {
       addEvent: vi.fn(),
       delayedCall: vi.fn(),
+      removeAllEvents: vi.fn(),
     },
     scene: {
       start: vi.fn(),
@@ -75,6 +76,10 @@ vi.mock('phaser', () => {
     game: {
       destroy: vi.fn(),
       events: { on: vi.fn(), off: vi.fn() },
+    },
+    tweens: {
+      add: vi.fn(),
+      killAll: vi.fn(),
     },
     scale: {
       width: 800,
