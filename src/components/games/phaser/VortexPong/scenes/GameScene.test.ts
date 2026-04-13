@@ -106,6 +106,13 @@ function createTestScene() {
       setSize: vi.fn(),
       destroy: vi.fn(),
     })),
+    image: vi.fn().mockImplementation((x: number, y: number) => ({
+      x, y,
+      setDisplaySize: vi.fn(),
+      setDepth: vi.fn(),
+      setAlpha: vi.fn(),
+      destroy: vi.fn(),
+    })),
     sprite: vi.fn().mockImplementation((x: number, y: number) => ({
       x, y,
       setAlpha: vi.fn(),
@@ -159,8 +166,8 @@ describe('VortexPongGameScene', () => {
     scene.activePowerUps = new Map();
     scene.powerUpIndicators = [];
     // Create mock paddles
-    scene.playerPaddle = { x: GAME_CONFIG.PADDLE.OFFSET_X + GAME_CONFIG.PADDLE.WIDTH / 2, y: 225, width: GAME_CONFIG.PADDLE.WIDTH, height: GAME_CONFIG.PADDLE.HEIGHT, setSize: vi.fn(), destroy: vi.fn() };
-    scene.aiPaddle = { x: GAME_CONFIG.WIDTH - GAME_CONFIG.PADDLE.OFFSET_X - GAME_CONFIG.PADDLE.WIDTH / 2, y: 225, width: GAME_CONFIG.PADDLE.WIDTH, height: GAME_CONFIG.PADDLE.HEIGHT, setSize: vi.fn(), destroy: vi.fn() };
+    scene.playerPaddle = { x: GAME_CONFIG.PADDLE.OFFSET_X + GAME_CONFIG.PADDLE.WIDTH / 2, y: 225, setDisplaySize: vi.fn(), destroy: vi.fn() };
+    scene.aiPaddle = { x: GAME_CONFIG.WIDTH - GAME_CONFIG.PADDLE.OFFSET_X - GAME_CONFIG.PADDLE.WIDTH / 2, y: 225, setDisplaySize: vi.fn(), destroy: vi.fn() };
     // UI mocks
     scene.playerScoreText = { setText: vi.fn(), setAlpha: vi.fn(), destroy: vi.fn() };
     scene.aiScoreText = { setText: vi.fn(), setAlpha: vi.fn(), destroy: vi.fn() };

@@ -41,8 +41,8 @@ const { WIDTH, HEIGHT, PADDLE, BALL, AI, WIN_SCORE, POWERUP, SHAKE } = GAME_CONF
 
 export class VortexPongGameScene extends BaseScene {
   // Paddles
-  private playerPaddle!: Phaser.GameObjects.Rectangle;
-  private aiPaddle!: Phaser.GameObjects.Rectangle;
+  private playerPaddle!: Phaser.GameObjects.Image;
+  private aiPaddle!: Phaser.GameObjects.Image;
 
   // Balls
   private balls: PongBall[] = [];
@@ -185,31 +185,31 @@ export class VortexPongGameScene extends BaseScene {
   // ── Paddles ──────────────────────────��───────────────────────
 
   private createPaddles(): void {
-    this.playerPaddle = this.add.rectangle(
+    this.playerPaddle = this.add.image(
       PADDLE.OFFSET_X + PADDLE.WIDTH / 2,
       HEIGHT / 2,
-      PADDLE.WIDTH,
-      PADDLE.HEIGHT,
-      0x00ff00,
+      'paddle_player',
     );
-    this.aiPaddle = this.add.rectangle(
+    this.playerPaddle.setDisplaySize(PADDLE.WIDTH, PADDLE.HEIGHT);
+
+    this.aiPaddle = this.add.image(
       WIDTH - PADDLE.OFFSET_X - PADDLE.WIDTH / 2,
       HEIGHT / 2,
-      PADDLE.WIDTH,
-      PADDLE.HEIGHT,
-      0x00bb00,
+      'paddle_ai',
     );
+    this.aiPaddle.setDisplaySize(PADDLE.WIDTH, PADDLE.HEIGHT);
+
     this.previousPlayerY = HEIGHT / 2;
   }
 
   private resizePlayerPaddle(height: number): void {
     this.currentPaddleHeight = height;
-    this.playerPaddle.setSize(PADDLE.WIDTH, height);
+    this.playerPaddle.setDisplaySize(PADDLE.WIDTH, height);
     this.clampPaddle(this.playerPaddle, height);
   }
 
   private clampPaddle(
-    paddle: Phaser.GameObjects.Rectangle,
+    paddle: { y: number },
     height: number,
   ): void {
     paddle.y = clamp(paddle.y, height / 2, HEIGHT - height / 2);
@@ -368,7 +368,7 @@ export class VortexPongGameScene extends BaseScene {
 
   private ballHitsPaddle(
     ball: PongBall,
-    paddle: Phaser.GameObjects.Rectangle,
+    paddle: { x: number },
     paddleHeight: number,
   ): boolean {
     const bx = ball.sprite.x;
