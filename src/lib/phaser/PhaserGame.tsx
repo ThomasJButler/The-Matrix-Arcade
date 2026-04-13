@@ -226,10 +226,12 @@ export function PhaserGame({
     <div
       ref={containerRef}
       data-phaser-game="true"
+      role="application"
+      aria-label={`${gameId} game`}
       className={`w-full h-full ${className}`}
       style={{
         minHeight: '400px',
-        outline: 'none',
+        outline: '2px solid transparent',
         boxShadow: hasFocus ? '0 0 0 2px #00ff00' : 'none',
         transition: 'box-shadow 0.2s ease',
         position: 'relative',
@@ -251,8 +253,10 @@ export function PhaserGame({
       {hasEverFocused && !hasFocus && !isHovering && (
         <div
           onClick={handleContainerClick}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleContainerClick(); }}
           role="button"
-          tabIndex={-1}
+          tabIndex={0}
+          aria-label="Click to play"
           style={{
             position: 'absolute',
             inset: 0,

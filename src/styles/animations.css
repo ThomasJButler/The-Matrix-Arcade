@@ -131,3 +131,16 @@
 .phosphor-glow {
   animation: phosphor-glow 4s ease-in-out infinite;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .phosphor-glow,
+  .transition-enhanced,
+  .animate-pulse,
+  .animate-pulse-red {
+    animation: none;
+  }
+
+  .crt-effect::before {
+    display: none;
+  }
+}
