@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { BaseScene } from '@/lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS } from '@/lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '@/lib/phaser/types';
 import {
   GAME_CONFIG,
   ACHIEVEMENTS,
@@ -112,6 +112,11 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.boss = null;
     this.bossTime = 0;
     this.highScore = 0;
+    const saveSystem = this.registry.get(REGISTRY_KEYS.SAVE_SYSTEM);
+    if (saveSystem) {
+      const saveData = saveSystem.getSaveData();
+      this.highScore = saveData?.games?.matrixInvaders?.highScore ?? 0;
+    }
     this.achievementsUnlocked = new Set();
     this.enemies = [];
     this.playerBullets = [];

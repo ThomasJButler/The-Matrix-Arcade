@@ -145,6 +145,7 @@ function createTestScene(): any {
   scene.scale = { width: C.WIDTH, height: C.HEIGHT };
   scene.events = { on: vi.fn(), off: vi.fn(), emit: vi.fn() };
   scene.sys = { game: scene.game };
+  scene.registry = { get: vi.fn().mockReturnValue(undefined), set: vi.fn() };
   scene.isPaused = false;
 
   scene.resetState();
