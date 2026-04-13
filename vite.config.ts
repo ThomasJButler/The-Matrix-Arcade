@@ -52,7 +52,7 @@ export default defineConfig({
         categories: ['games', 'entertainment']
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,ttf,eot}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,webp,gif,woff,woff2,ttf,eot,mp3,ogg,json}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MiB - increased for Phaser bundle
         runtimeCaching: [
           {
@@ -67,6 +67,21 @@ export default defineConfig({
               cacheableResponse: {
                 statuses: [0, 200]
               }
+            }
+          },
+          {
+            urlPattern: /\.(?:mp3|ogg|wav)$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'game-audio',
+              expiration: {
+                maxEntries: 30,
+                maxAgeSeconds: 30 * 24 * 60 * 60
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              },
+              rangeRequests: true,
             }
           },
           {
