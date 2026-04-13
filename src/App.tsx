@@ -56,6 +56,7 @@ import { MobileWarning } from './components/ui/MobileWarning';
 import { GameErrorBoundary } from './components/ui/GameErrorBoundary';
 import { GameInstructions } from './components/ui/GameInstructions';
 import { GameHighScores } from './components/ui/GameHighScores';
+import { MatrixRainCanvas } from './components/ui/MatrixRainCanvas';
 import { useSoundSystem } from './hooks/useSoundSystem';
 import { useAchievementManager } from './hooks/useAchievementManager';
 import { useMobileDetection } from './hooks/useMobileDetection';
@@ -79,8 +80,6 @@ function App() {
     'left' | 'right'
   >('right');
   const containerRef = useRef<HTMLDivElement>(null);
-  const headerRef = useRef<HTMLDivElement>(null);
-  const footerRef = useRef<HTMLDivElement>(null);
   
   // Initialize sound system and achievement manager
   const { config: soundConfig, updateConfig: updateSoundConfig, playSFX, playBackgroundMP3, stopBackgroundMP3, toggleMute, isMuted } = useSoundSystem();
@@ -292,83 +291,6 @@ function App() {
     ...GAME_BINDINGS[entry.id],
   }));
 
-  /**
-   * @constructs - Initialises Matrix rain effect using RequestAnimationFrame
-   *               Limited to 30 FPS for performance optimisation
-   */
-  useEffect(() => {
-    const createMatrixRain = (canvas: HTMLCanvasElement) => {
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return null;
-
-      const parent = canvas.parentElement;
-      if (!parent) return null;
-
-      // Set canvas size
-      canvas.width = parent.offsetWidth;
-      canvas.height = parent.offsetHeight;
-
-      const chars =
-        'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
-      const fontSize = 14;
-      const columns = Math.floor(canvas.width / fontSize);
-      const drops: number[] = Array(columns).fill(1);
-
-      let animationId: number;
-      let lastTime = 0;
-
-      const draw = (timestamp: number) => {
-        // Throttle to 30 FPS to reduce CPU usage
-        if (timestamp - lastTime < 33) {
-          animationId = requestAnimationFrame(draw);
-          return;
-        }
-        lastTime = timestamp;
-
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#0F0';
-        ctx.font = `${fontSize}px monospace`;
-
-        for (let i = 0; i < drops.length; i++) {
-          const char = chars[Math.floor(Math.random() * chars.length)];
-          ctx.fillText(char, i * fontSize, drops[i] * fontSize);
-          if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
-            drops[i] = 0;
-          }
-          drops[i]++;
-        }
-
-        animationId = requestAnimationFrame(draw);
-      };
-
-      animationId = requestAnimationFrame(draw);
-      return () => cancelAnimationFrame(animationId);
-    };
-
-    // Create canvases for header and footer
-    let headerCleanup: (() => void) | null = null;
-    let footerCleanup: (() => void) | null = null;
-
-    if (headerRef.current) {
-      const canvas = headerRef.current.querySelector('canvas.matrix-rain');
-      if (canvas instanceof HTMLCanvasElement) {
-        headerCleanup = createMatrixRain(canvas);
-      }
-    }
-
-    if (footerRef.current) {
-      const canvas = footerRef.current.querySelector('canvas.matrix-rain');
-      if (canvas instanceof HTMLCanvasElement) {
-        footerCleanup = createMatrixRain(canvas);
-      }
-    }
-
-    return () => {
-      if (headerCleanup) headerCleanup();
-      if (footerCleanup) footerCleanup();
-    };
-  }, []);
 
   /**
    * @listens isPlaying - Prevents page scrolling during active gameplay
@@ -532,16 +454,12 @@ function App() {
       {/* Mobile Warning */}
       {showMobileWarning && <MobileWarning />}
       
-      <div className="h-screen flex flex-col bg-black text-green-500 overflow-hidden crt-effect">
+      <MatrixRainCanvas />
+      <div className="h-screen flex flex-col bg-black text-green-500 overflow-hidden crt-effect relative z-10">
       {/* Header */}
       <header
-        ref={headerRef}
         className="relative border-b border-green-500/50 p-2 lg:p-3 overflow-hidden backdrop-blur-sm"
       >
-        <canvas
-          className="matrix-rain absolute top-0 left-0 w-full h-full opacity-15 z-0"
-          style={{ pointerEvents: 'none' }}
-        />
         <div className="max-w-7xl mx-auto flex items-center justify-between relative z-10">
           <div className="flex items-center gap-4">
             <div className="relative group">
@@ -675,23 +593,6 @@ function App() {
           </div>
         ) : (
           <div className="relative w-full max-w-2xl mx-auto flex flex-col justify-center h-full game-portal-container px-4">
-          {/* Matrix Rain Effect - Reduced for performance */}
-          <div className="absolute inset-0 opacity-20 pointer-events-none overflow-hidden">
-            {[...Array(20)].map((_, i) => (
-              <div
-                key={i}
-                className="absolute text-green-500 animate-matrix-rain"
-                style={{
-                  left: `${Math.random() * 100}%`,
-                  animationDelay: `${Math.random() * 2}s`,
-                  animationDuration: `${1 + Math.random() * 3}s`,
-                }}
-              >
-                {String.fromCharCode(0x30a0 + Math.random() * 96)}
-              </div>
-            ))}
-          </div>
-
           {/* Digital Transformation Container */}
           <div
             ref={containerRef}
@@ -855,13 +756,8 @@ function App() {
 
       {/* Enhanced Footer */}
       <footer
-        ref={footerRef}
         className="relative border-t border-green-500/50 p-2 lg:p-3 overflow-hidden backdrop-blur-sm bottom-0 w-full"
       >
-        <canvas
-          className="matrix-rain absolute top-0 left-0 w-full h-full opacity-15 z-0"
-          style={{ pointerEvents: 'none' }}
-        />
         <div className="max-w-7xl mx-auto flex items-center justify-between relative z-10">
           <div className="font-mono text-xs lg:text-sm flex items-center gap-2 lg:gap-4">
             <p className="tracking-wider hidden lg:block">THE MATRIX ARCADE v2.0</p>

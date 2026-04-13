@@ -41,18 +41,6 @@
   --particle-timing: 2s;
 }
 
-/* CodeBreaker */
-.matrix-rain-bg {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.85);
-  z-index: -1;
-  overflow: hidden;
-  animation: matrix-rain-bg 10s linear infinite;
-}
 
 .matrix-game-container {
   padding: 1rem;  /* Reduced from 2rem */
@@ -199,11 +187,6 @@
   gap: 5px;
   justify-content: center;
   margin-bottom: 20px;
-}
-
-@keyframes matrix-rain-bg {
-  0% { transform: translateY(0); }
-  100% { transform: translateY(100vh); }
 }
 
 /* Glow effect */
