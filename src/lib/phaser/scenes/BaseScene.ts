@@ -239,6 +239,13 @@ export abstract class BaseScene extends Phaser.Scene {
         isPaused: this.isPaused,
         ...state,
       };
+      // E2E ready marker — surfaced as a DOM attribute so Playwright can poll
+      // it without evaluating page JS each tick. Updated every frame so it
+      // reliably tracks scene transitions (vs hooking the CREATE event, which
+      // misses scenes that fire during teardown timing windows).
+      if (typeof document !== 'undefined') {
+        document.body.dataset.gameReady = this.scene.key;
+      }
     }
   }
 
@@ -302,6 +309,12 @@ export abstract class BaseScene extends Phaser.Scene {
    */
   protected addMatrixRain(density = 50): Phaser.GameObjects.Group {
     const rainGroup = this.add.group();
+    // In E2E test mode, skip rain entirely — Phaser uses its own RNG which the
+    // ?test=1 seam can't seed, so rain animation produces non-stable pixels
+    // across runs and breaks visual baselines.
+    if (typeof window !== 'undefined' && (window as { __TEST__?: boolean }).__TEST__) {
+      return rainGroup;
+    }
     const chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789';
 
     for (let i = 0; i < density; i++) {

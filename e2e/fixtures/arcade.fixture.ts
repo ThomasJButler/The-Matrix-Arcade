@@ -1,281 +1,163 @@
 import { test as base, expect, Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
-import { enableTestMode } from './test-utils';
 
-// Screenshot output directory
+// Screenshot output directory for ad-hoc captures (kept for debugging — visual
+// regression assertions use Playwright's built-in toHaveScreenshot baselines).
 const SCREENSHOT_DIR = path.join(process.cwd(), 'e2e', 'screenshots');
+if (!fs.existsSync(SCREENSHOT_DIR)) fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
-// Ensure screenshot directory exists
-if (!fs.existsSync(SCREENSHOT_DIR)) {
-  fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
-}
+// Test-mode URL: ?test=1 enables the seam in src/lib/test-mode.ts (seeded RNG +
+// noise-free rain). seed=42 is arbitrary but stable.
+const TEST_URL = '/?test=1&seed=42';
 
-/**
- * Custom test fixture for Matrix Arcade visual testing.
- */
-export const test = base.extend<{
+interface Fixtures {
   arcadePage: Page;
   gameplayPage: Page;
   screenshotDir: string;
-}>({
-  // Arcade page with common setup
+}
+
+export const test = base.extend<Fixtures>({
   arcadePage: async ({ page }, use) => {
-    // Navigate to the arcade
-    await page.goto('/');
-
-    // Wait for the app to load (Matrix rain should be visible)
-    await page.waitForSelector('[data-testid="matrix-rain"], .matrix-rain, canvas', {
-      timeout: 10000,
-    }).catch(() => {
-      // Matrix rain might not have a test id, just wait for page load
-    });
-
-    // Wait for any initial animations to settle
-    await page.waitForTimeout(1000);
-
+    await preparePage(page);
+    await page.goto(TEST_URL);
+    await page.waitForSelector('body[data-landing-ready="true"]', { timeout: 15000 });
     await use(page);
+    await assertNoConsoleErrors(page);
   },
 
-  // Gameplay page with test mode enabled for state inspection
   gameplayPage: async ({ page }, use) => {
-    await enableTestMode(page);
-    await page.goto('/');
-
-    await page.waitForSelector('[data-testid="matrix-rain"], .matrix-rain, canvas', {
-      timeout: 10000,
-    }).catch(() => {});
-
-    await page.waitForTimeout(1000);
-
+    await preparePage(page);
+    await page.goto(TEST_URL);
+    await page.waitForSelector('body[data-landing-ready="true"]', { timeout: 15000 });
     await use(page);
+    await assertNoConsoleErrors(page);
   },
 
-  // Screenshot directory path provided to tests that need direct file path access
-  screenshotDir: async ({ }, use) => {
+  screenshotDir: async ({}, use) => {
     await use(SCREENSHOT_DIR);
   },
 });
 
 export { expect };
 
-/**
- * Helper to take a named screenshot and save it to the screenshots directory.
- */
+// ---------------------------------------------------------------------------
+// Console / page error capture
+// ---------------------------------------------------------------------------
+const consoleErrors = new WeakMap<Page, string[]>();
+
+async function preparePage(page: Page): Promise<void> {
+  consoleErrors.set(page, []);
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') {
+      const text = msg.text();
+      // Ignore expected dev-server / hot-reload noise.
+      if (/Failed to load resource/.test(text) && /favicon|sw\.js|manifest/.test(text)) return;
+      // Phaser's loader prints `Failed to process file` at console.error severity for missing
+      // optional sprite assets that the game gracefully falls back from. Pre-existing — not
+      // a regression introduced by tests.
+      if (/Failed to process file/.test(text)) return;
+      consoleErrors.get(page)?.push(`console.error: ${text}`);
+    }
+  });
+  page.on('pageerror', (err) => {
+    consoleErrors.get(page)?.push(`pageerror: ${err.message}`);
+  });
+}
+
+async function assertNoConsoleErrors(page: Page): Promise<void> {
+  const errors = consoleErrors.get(page) ?? [];
+  if (errors.length > 0) {
+    throw new Error(`Page produced console errors:\n${errors.join('\n')}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Ad-hoc screenshot helper (debug-only)
+// ---------------------------------------------------------------------------
 export async function takeScreenshot(
   page: Page,
   name: string,
-  options?: {
-    fullPage?: boolean;
-    clip?: { x: number; y: number; width: number; height: number };
-  }
+  options?: { fullPage?: boolean; clip?: { x: number; y: number; width: number; height: number } }
 ): Promise<string> {
-  const filename = `${name}.png`;
-  const filepath = path.join(SCREENSHOT_DIR, filename);
-
-  await page.screenshot({
-    path: filepath,
-    fullPage: options?.fullPage ?? false,
-    clip: options?.clip,
-  });
-
-  console.log(`Screenshot saved: ${filepath}`);
+  const filepath = path.join(SCREENSHOT_DIR, `${name}.png`);
+  await page.screenshot({ path: filepath, fullPage: options?.fullPage ?? false, clip: options?.clip });
   return filepath;
 }
 
-/**
- * Game name mappings - short names to patterns that match the carousel titles.
- * Note: Game titles are case-insensitive matched.
- */
-const GAME_NAME_PATTERNS: Record<string, string[]> = {
-  'snake': ['snake classic'],
-  'pong': ['vortex pong'],
-  'cloud': ['matrix cloud'],
-  'metris': ['metris'],
-  'invaders': ['matrix invaders'],
-  'ctrl-s': ['ctrl-s | the world'],
-  'matrix-frogger': ['matrix frogger'],
-  'neo-jump': ['neo jump'],
-  'agent-chase': ['agent chase'],
-  'rhythm-hacker': ['rhythm hacker'],
-  'cloud-jumper': ['cloud jumper'],
-  'code-breaker': ['code breaker'],
+// ---------------------------------------------------------------------------
+// Game navigation
+// ---------------------------------------------------------------------------
+export const GAME_IDS = [
+  'ctrl-s-world',
+  'snake-classic',
+  'vortex-pong',
+  'matrix-cloud',
+  'matrix-invaders',
+  'metris',
+  'matrix-frogger',
+  'neo-jump',
+  'agent-chase',
+  'rhythm-hacker',
+  'cloud-jumper',
+  'code-breaker',
+] as const;
+export type GameId = typeof GAME_IDS[number];
+
+const GAME_DISPLAY_TITLES: Record<GameId, string> = {
+  'ctrl-s-world': 'CTRL-S | The World',
+  'snake-classic': 'Snake Classic',
+  'vortex-pong': 'Vortex Pong',
+  'matrix-cloud': 'Matrix Cloud',
+  'matrix-invaders': 'Matrix Invaders',
+  'metris': 'Metris',
+  'matrix-frogger': 'Matrix Frogger',
+  'neo-jump': 'Neo Jump',
+  'agent-chase': 'Agent Chase',
+  'rhythm-hacker': 'Rhythm Hacker',
+  'cloud-jumper': 'Cloud Jumper',
+  'code-breaker': 'Code Breaker',
 };
 
 /**
- * Helper to check if the target game is the currently selected game in the portal view.
- * Looks for the game title in the portal's h2 heading (single visible game).
+ * Navigate from the landing grid to a specific game's portal view.
+ * After this call, `body[data-portal-ready="true"]` is set and the named game
+ * is the selected game in the carousel.
  */
-async function isGameSelectedInPortal(page: Page, gameName: string): Promise<boolean> {
-  const patterns = GAME_NAME_PATTERNS[gameName.toLowerCase()] || [gameName.toLowerCase()];
-
-  // In the portal view, only one h2 is prominent — the selected game's title
-  const portalHeading = page.locator('.game-controls-enhanced h2, .flex-1.text-center h2').first();
-  const text = await portalHeading.textContent().catch(() => '');
-  if (text) {
-    const normalizedText = text.toLowerCase().trim();
-    for (const pattern of patterns) {
-      if (normalizedText === pattern.toLowerCase()) {
-        return true;
-      }
-    }
+export async function navigateToGame(page: Page, gameId: GameId): Promise<void> {
+  // From landing — click the matching aria-label.
+  const card = page.locator(`[role="button"][aria-label="Play ${GAME_DISPLAY_TITLES[gameId]}"]`);
+  if (await card.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await card.click();
   }
 
-  return false;
+  await page.waitForFunction(
+    (id) => document.body.dataset.portalReady === 'true' && document.body.dataset.portalGameId === id,
+    gameId,
+    { timeout: 15000 }
+  );
 }
 
 /**
- * Helper to navigate to a specific game.
- *
- * Strategy:
- * 1. If the landing page grid is visible, click the matching game card directly
- * 2. If already in the portal view, use carousel arrows to find the game
- */
-export async function navigateToGame(page: Page, gameName: string): Promise<void> {
-  const patterns = GAME_NAME_PATTERNS[gameName.toLowerCase()] || [gameName.toLowerCase()];
-
-  // Strategy 1: Landing page grid — click the game card directly
-  // Game cards have role="button" and aria-label="Play {title}"
-  for (const pattern of patterns) {
-    const cardByAria = page.locator(`[role="button"][aria-label*="${pattern}" i]`).first();
-    if (await cardByAria.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await cardByAria.click();
-      await page.waitForTimeout(800); // Wait for landing page to close & portal to appear
-      console.log(`Clicked game card "${pattern}" on landing page grid`);
-      return;
-    }
-  }
-
-  // Strategy 2: Try clicking a card by matching h3/h2 text within the grid
-  const allCards = page.locator('[role="button"]');
-  const cardCount = await allCards.count();
-  for (let i = 0; i < cardCount; i++) {
-    const card = allCards.nth(i);
-    const cardText = await card.textContent().catch(() => '');
-    if (cardText) {
-      const normalizedText = cardText.toLowerCase();
-      for (const pattern of patterns) {
-        if (normalizedText.includes(pattern.toLowerCase())) {
-          if (await card.isVisible().catch(() => false)) {
-            await card.scrollIntoViewIfNeeded().catch(() => {});
-            await card.click();
-            await page.waitForTimeout(800);
-            console.log(`Clicked game card containing "${pattern}" text`);
-            return;
-          }
-        }
-      }
-    }
-  }
-
-  // Strategy 3: Already in portal view — use carousel arrows
-  if (await isGameSelectedInPortal(page, gameName)) {
-    console.log(`Game "${gameName}" is already selected in portal`);
-    return;
-  }
-
-  const rightArrow = page.locator('[data-testid="carousel-next"]').first();
-  const leftArrow = page.locator('[data-testid="carousel-prev"]').first();
-  const maxAttempts = 12;
-
-  for (let i = 0; i < maxAttempts; i++) {
-    if (await isGameSelectedInPortal(page, gameName)) {
-      console.log(`Found game "${gameName}" after ${i} carousel clicks`);
-      return;
-    }
-
-    if (await rightArrow.isVisible().catch(() => false)) {
-      await rightArrow.click();
-      await page.waitForTimeout(400);
-    } else {
-      await page.keyboard.press('ArrowRight');
-      await page.waitForTimeout(400);
-    }
-  }
-
-  console.warn(`Could not navigate to game "${gameName}", capturing current state`);
-}
-
-/**
- * Helper to start a game (press Enter or click start button).
+ * Press PLAY on the portal view to actually start the selected game.
+ * After this returns, the React/Phaser game has mounted (but may still be on
+ * its menu screen — use waitForGameReady to wait for a specific scene).
  */
 export async function startGame(page: Page): Promise<void> {
-  // Try clicking a start button first
-  const startSelectors = [
-    'button:has-text("Start")',
-    'button:has-text("Play")',
-    'button:has-text("Begin")',
-    '[data-testid="start-button"]',
-  ];
-
-  for (const selector of startSelectors) {
-    const button = page.locator(selector).first();
-    if (await button.isVisible().catch(() => false)) {
-      await button.click();
-      await page.waitForTimeout(500);
-      return;
-    }
+  const playButton = page.locator('button[aria-label*="Start" i], button:has-text("PLAY")').first();
+  if (await playButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await playButton.click();
+  } else {
+    await page.keyboard.press('Enter');
   }
-
-  // Fallback: press Enter
-  await page.keyboard.press('Enter');
-  await page.waitForTimeout(500);
+  await page.waitForFunction(() => document.body.dataset.portalIsPlaying === 'true', undefined, { timeout: 10000 });
 }
 
-/**
- * Helper to pause a game.
- */
 export async function pauseGame(page: Page): Promise<void> {
   await page.keyboard.press('p');
-  await page.waitForTimeout(300);
 }
 
-/**
- * Helper to exit a game (press Escape).
- */
 export async function exitGame(page: Page): Promise<void> {
   await page.keyboard.press('Escape');
-  await page.waitForTimeout(500);
-}
-
-/**
- * Helper to wait for game to be in a specific state.
- */
-export async function waitForGameState(
-  page: Page,
-  state: 'playing' | 'paused' | 'gameover' | 'menu',
-  timeout = 5000
-): Promise<void> {
-  const stateSelectors: Record<string, string[]> = {
-    playing: ['canvas', '[data-state="playing"]', '.game-active'],
-    paused: ['[data-state="paused"]', '.paused', ':text("PAUSED")'],
-    gameover: [':text("GAME OVER")', ':text("Game Over")', '[data-state="gameover"]'],
-    menu: ['.game-menu', '[data-state="menu"]', '.start-screen'],
-  };
-
-  const selectors = stateSelectors[state] || [];
-
-  for (const selector of selectors) {
-    try {
-      await page.waitForSelector(selector, { timeout: timeout / selectors.length });
-      return;
-    } catch {
-      // Try next selector
-    }
-  }
-}
-
-/**
- * Helper to simulate gameplay for a brief period.
- */
-export async function simulateGameplay(page: Page, durationMs = 2000): Promise<void> {
-  const endTime = Date.now() + durationMs;
-
-  while (Date.now() < endTime) {
-    // Random arrow key press
-    const keys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'];
-    const randomKey = keys[Math.floor(Math.random() * keys.length)];
-    await page.keyboard.press(randomKey);
-    await page.waitForTimeout(100 + Math.random() * 200);
-  }
+  await page.waitForFunction(() => document.body.dataset.portalIsPlaying === 'false', undefined, { timeout: 5000 });
 }

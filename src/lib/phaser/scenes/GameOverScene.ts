@@ -97,6 +97,7 @@ export class GameOverScene extends BaseScene {
     if (this.rainGroup) {
       this.updateMatrixRain(this.rainGroup, delta);
     }
+    this.exposeTestState({ score: this.finalScore, highScore: this.highScore });
   }
 
   /**

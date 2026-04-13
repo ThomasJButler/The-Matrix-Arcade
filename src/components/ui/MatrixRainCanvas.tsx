@@ -19,6 +19,9 @@ export function MatrixRainCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    // Skip the animated rain in test mode so visual baselines are pixel-stable.
+    if (typeof window !== 'undefined' && window.__TEST__) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
