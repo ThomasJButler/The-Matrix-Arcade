@@ -1008,7 +1008,8 @@ describe('CodeBreakerGameScene', () => {
       expect(scene.gameOver).toHaveBeenCalledWith(
         expect.any(Number),
         expect.stringContaining('5'),
-        expect.any(Number)
+        expect.any(Number),
+        expect.any(Array)
       );
     });
   });

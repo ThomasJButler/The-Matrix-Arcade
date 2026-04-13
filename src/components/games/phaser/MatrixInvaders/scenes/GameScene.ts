@@ -801,7 +801,12 @@ export class MatrixInvadersGameScene extends BaseScene {
     if (this.score >= 10000) this.tryUnlockAchievement(ACHIEVEMENTS.HIGH_SCORE);
 
     const reason = this.playerHealth <= 0 ? 'Ship destroyed' : 'Enemies reached your position';
-    this.gameOver(this.score, reason, this.highScore);
+    this.gameOver(this.score, reason, this.highScore, [
+      { label: 'Wave', value: this.wave },
+      { label: 'Enemies', value: this.enemiesKilled },
+      { label: 'Max Combo', value: `${this.combo}×` },
+      { label: 'Bullet Time', value: this.bulletTimeUses },
+    ]);
   }
 
   // -- Power-ups --

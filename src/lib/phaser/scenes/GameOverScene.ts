@@ -7,7 +7,7 @@
 
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS } from '../types';
+import { SCENE_KEYS, MATRIX_COLORS, type GameOverStat } from '../types';
 
 export interface GameOverSceneConfig {
   /** Scene key for this game over scene */
@@ -22,6 +22,7 @@ export interface GameOverData {
   score: number;
   highScore?: number;
   reason?: string;
+  stats?: GameOverStat[];
 }
 
 export class GameOverScene extends BaseScene {
@@ -29,6 +30,7 @@ export class GameOverScene extends BaseScene {
   protected finalScore = 0;
   protected highScore = 0;
   protected reason?: string;
+  protected stats: GameOverStat[] = [];
   protected gameScene: string;
   protected menuScene: string;
   protected rainGroup?: Phaser.GameObjects.Group;
@@ -43,6 +45,7 @@ export class GameOverScene extends BaseScene {
     this.finalScore = data.score ?? 0;
     this.highScore = data.highScore ?? this.finalScore;
     this.reason = data.reason;
+    this.stats = data.stats ?? [];
   }
 
   create(): void {
@@ -52,41 +55,40 @@ export class GameOverScene extends BaseScene {
     const width = Number(this.game.config.width);
     const height = Number(this.game.config.height);
     const centerX = width / 2;
+    const hasStats = this.stats.length > 0;
 
-    // Game Over title
-    this.createMatrixText(centerX, height * 0.15, 'GAME OVER', 28, MATRIX_COLORS.RED_HEX);
+    const titleY = hasStats ? 0.08 : 0.15;
+    const reasonY = hasStats ? 0.16 : 0.25;
+    const scoreY = hasStats ? 0.25 : 0.40;
+    const scoreValueY = hasStats ? 0.31 : 0.48;
+    const highScoreY = hasStats ? 0.38 : 0.58;
+    const restartY = hasStats ? 0.78 : 0.72;
+    const menuY = hasStats ? 0.88 : 0.82;
 
-    // Reason (if provided)
+    this.createMatrixText(centerX, height * titleY, 'GAME OVER', hasStats ? 24 : 28, MATRIX_COLORS.RED_HEX);
+
     if (this.reason) {
-      this.createMatrixText(centerX, height * 0.25, this.reason, 12, MATRIX_COLORS.YELLOW_HEX);
+      this.createMatrixText(centerX, height * reasonY, this.reason, 11, MATRIX_COLORS.YELLOW_HEX);
     }
 
-    // Score display
-    this.createMatrixText(centerX, height * 0.4, 'SCORE', 14);
-    this.createMatrixText(centerX, height * 0.48, this.finalScore.toString(), 24);
+    this.createMatrixText(centerX, height * scoreY, 'SCORE', 12);
+    this.createMatrixText(centerX, height * scoreValueY, this.finalScore.toString(), hasStats ? 20 : 24);
 
-    // High score
     const isNewHighScore = this.finalScore >= this.highScore && this.finalScore > 0;
     if (isNewHighScore) {
-      this.createMatrixText(
-        centerX,
-        height * 0.58,
-        'NEW HIGH SCORE!',
-        16,
-        MATRIX_COLORS.YELLOW_HEX
-      );
-      this.createFlashingEffect(centerX, height * 0.58);
+      this.createMatrixText(centerX, height * highScoreY, 'NEW HIGH SCORE!', 14, MATRIX_COLORS.YELLOW_HEX);
+      this.createFlashingEffect(centerX, height * highScoreY);
     } else {
-      this.createMatrixText(centerX, height * 0.58, `HIGH SCORE: ${this.highScore}`, 12);
+      this.createMatrixText(centerX, height * highScoreY, `HIGH SCORE: ${this.highScore}`, 11);
     }
 
-    // Restart button
-    this.createButton(centerX, height * 0.72, 'RESTART', () => this.restartGame());
+    if (hasStats) {
+      this.renderStatsGrid(centerX, height * 0.46, width, height);
+    }
 
-    // Menu button
-    this.createButton(centerX, height * 0.82, 'MENU', () => this.goToMenu());
+    this.createButton(centerX, height * restartY, 'RESTART', () => this.restartGame());
+    this.createButton(centerX, height * menuY, 'MENU', () => this.goToMenu());
 
-    // Keyboard input
     this.setupGameOverInput();
     this.setupCommonInputs();
   }
@@ -94,6 +96,46 @@ export class GameOverScene extends BaseScene {
   update(_time: number, delta: number): void {
     if (this.rainGroup) {
       this.updateMatrixRain(this.rainGroup, delta);
+    }
+  }
+
+  /**
+   * Render per-game stats in a two-column grid
+   */
+  protected renderStatsGrid(centerX: number, startY: number, width: number, _height: number): void {
+    const stats = this.stats;
+    if (stats.length === 0) return;
+
+    const separator = this.add.graphics();
+    separator.lineStyle(1, MATRIX_COLORS.DARK_GREEN, 0.6);
+    const lineW = Math.min(width * 0.6, 400);
+    separator.lineBetween(centerX - lineW / 2, startY - 20, centerX + lineW / 2, startY - 20);
+
+    const columns = stats.length === 1 ? 1 : 2;
+    const columnGap = Math.min(width * 0.38, 300);
+    const rowHeight = 28;
+
+    for (let i = 0; i < stats.length; i++) {
+      const col = i % columns;
+      const row = Math.floor(i / columns);
+
+      const colOffset = columns === 1 ? 0 : (col - 0.5) * columnGap;
+      const x = centerX + colOffset;
+      const y = startY + row * rowHeight;
+
+      this.add.text(x - 8, y, stats[i].label.toUpperCase(), {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: '8px',
+        color: '#338833',
+        align: 'right',
+      }).setOrigin(1, 0.5);
+
+      this.add.text(x + 8, y, String(stats[i].value), {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: '10px',
+        color: MATRIX_COLORS.PRIMARY_HEX,
+        align: 'left',
+      }).setOrigin(0, 0.5);
     }
   }
 

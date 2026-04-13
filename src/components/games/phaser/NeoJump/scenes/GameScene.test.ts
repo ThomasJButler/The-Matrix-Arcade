@@ -650,7 +650,7 @@ describe('NeoJumpGameScene', () => {
       tweenConfig.onComplete();
 
       expect(scene.reportScore).toHaveBeenCalledWith(250, 250);
-      expect(scene.gameOver).toHaveBeenCalledWith(250, 'Altitude: 42m');
+      expect(scene.gameOver).toHaveBeenCalledWith(250, 'Altitude: 42m', undefined, expect.any(Array));
     });
   });
 

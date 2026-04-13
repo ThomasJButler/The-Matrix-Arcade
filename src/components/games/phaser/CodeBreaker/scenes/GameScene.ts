@@ -1011,7 +1011,11 @@ export class CodeBreakerGameScene extends BaseScene {
       ? `Escaped the simulation at level ${this.level}`
       : `Terminated at level ${this.level}`;
 
-    this.gameOver(this.score, message, this.highScore);
+    this.gameOver(this.score, message, this.highScore, [
+      { label: 'Level', value: `${this.level}/10` },
+      { label: 'Agents', value: this.agentsKilled },
+      { label: 'Bullet Time', value: this.bulletTimeUses },
+    ]);
   }
 
   // -- Spawning --

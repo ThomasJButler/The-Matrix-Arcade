@@ -838,7 +838,12 @@ export class FroggerGameScene extends BaseScene {
       onComplete: () => {
         this.reportScore(this.score, this.score);
         const reason = enemy ? `Hit by ${enemy.enemyType.toUpperCase()}` : 'Game Over';
-        this.gameOver(this.score, reason);
+        this.gameOver(this.score, reason, undefined, [
+          { label: 'Level', value: this.level },
+          { label: 'Near Misses', value: this.nearMissCount },
+          { label: 'Kung Fu', value: this.kungFuTotalUsed },
+          { label: 'Shield Hits', value: this.shieldHits },
+        ]);
       },
     });
 

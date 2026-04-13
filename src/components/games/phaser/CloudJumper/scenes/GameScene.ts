@@ -453,7 +453,11 @@ export class CloudJumperGameScene extends BaseScene {
       duration: 600,
       onComplete: () => {
         this.reportScore(this.score, this.score);
-        this.gameOver(this.score, `Distance: ${Math.floor(this.distance)}m`);
+        this.gameOver(this.score, `Distance: ${Math.floor(this.distance)}m`, undefined, [
+          { label: 'Collectibles', value: this.collectiblesCount },
+          { label: 'Bounce Streak', value: this.bounceStreak },
+          { label: 'Storms', value: this.stormCloudsSurvived },
+        ]);
       },
     });
   }

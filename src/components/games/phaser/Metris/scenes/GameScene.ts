@@ -506,7 +506,12 @@ export class MetrisGameScene extends BaseScene {
 
     this.cameras.main.shake(300, 0.01);
     this.time.delayedCall(600, () => {
-      this.gameOver(this.score, 'Board filled', this.highScore);
+      this.gameOver(this.score, 'Board filled', this.highScore, [
+        { label: 'Level', value: this.level },
+        { label: 'Lines', value: this.lines },
+        { label: 'T-Spins', value: this.tSpins },
+        { label: 'Bullet Time', value: this.bulletTimeCount },
+      ]);
     });
   }
 

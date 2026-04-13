@@ -601,7 +601,11 @@ export class MatrixCloudGameScene extends BaseScene {
     this.clearBossBattle();
 
     this.time.delayedCall(600, () => {
-      this.gameOver(this.score, `Level ${this.level} | Pipes cleared`, this.highScore);
+      this.gameOver(this.score, `Level ${this.level} | Pipes cleared`, this.highScore, [
+        { label: 'Max Combo', value: `${this.combo.toFixed(1)}×` },
+        { label: 'Bosses', value: this.bossesDefeated.size },
+        { label: 'Power-ups', value: this.powerUpsCollected },
+      ]);
     });
   }
 

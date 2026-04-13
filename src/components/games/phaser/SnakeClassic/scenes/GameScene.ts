@@ -682,8 +682,12 @@ export class SnakeGameScene extends BaseScene {
     }
 
     this.time.delayedCall(600, () => {
-      const reason = `Length: ${this.snake.length} | Food: ${this.foodEaten}`;
-      this.gameOver(this.score, reason, this.highScore);
+      this.gameOver(this.score, undefined, this.highScore, [
+        { label: 'Length', value: this.snake.length },
+        { label: 'Food', value: this.foodEaten },
+        { label: 'Power-ups', value: this.powerUpsCollected },
+        { label: 'Best Streak', value: this.consecutiveFood },
+      ]);
     });
   }
 

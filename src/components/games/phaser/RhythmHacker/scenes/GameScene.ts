@@ -506,7 +506,7 @@ export class RhythmHackerGameScene extends BaseScene {
       if (this.health <= 0) {
         this.stopTrackAudio();
         this.reportScore(this.score, this.score);
-        this.gameOver(this.score, 'Health depleted');
+        this.gameOver(this.score, 'Health depleted', undefined, this.buildEndStats());
       }
     }
   }
@@ -651,7 +651,7 @@ export class RhythmHackerGameScene extends BaseScene {
     if (this.health <= 0) {
       this.stopTrackAudio();
       this.reportScore(this.score, this.score);
-      this.gameOver(this.score, 'Health depleted');
+      this.gameOver(this.score, 'Health depleted', undefined, this.buildEndStats());
     }
   }
 
@@ -1054,7 +1054,21 @@ export class RhythmHackerGameScene extends BaseScene {
     }
 
     this.reportScore(this.score, this.score);
-    this.gameOver(this.score, `Max Combo: ${this.maxCombo}`);
+    this.gameOver(this.score, `Max Combo: ${this.maxCombo}`, undefined, this.buildEndStats());
+  }
+
+  private buildEndStats(): { label: string; value: string | number }[] {
+    const totalHit = this.perfectCount + this.greatCount + this.goodCount;
+    const totalAttempted = totalHit + this.missCount;
+    const accuracy = totalAttempted > 0 ? Math.round((totalHit / totalAttempted) * 100) : 0;
+    return [
+      { label: 'Max Combo', value: `${this.maxCombo}×` },
+      { label: 'Accuracy', value: `${accuracy}%` },
+      { label: 'Perfect', value: this.perfectCount },
+      { label: 'Great', value: this.greatCount },
+      { label: 'Good', value: this.goodCount },
+      { label: 'Miss', value: this.missCount },
+    ];
   }
 
   /**
