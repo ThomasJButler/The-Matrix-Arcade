@@ -6,8 +6,8 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ## Current Status
 
-- **Status**: REBUILDING -- Phaser migration complete, asset pipeline bootstrapped, per-game sprite integration in progress, Rhythm Hacker music integrated, game portal UX improved, landing page redesigned
-- **Last Updated**: 13 April 2026 (R33 -- Landing page UX redesign)
+- **Status**: REBUILDING -- Phaser migration complete, asset pipeline bootstrapped, per-game sprite integration in progress, Rhythm Hacker music integrated, game portal UX improved, landing page redesigned, Vortex Pong sprite integration complete
+- **Last Updated**: 13 April 2026 (R34 -- Vortex Pong paddle/ball/board sprite integration)
 - **Version**: v2.0.0 (next target)
 - **Games**: 12 playable (11 Phaser, 1 DOM)
 - **Build**: PASSES (code-split, main bundle ~384KB, Phaser vendor chunk 1,479KB) -- zero warnings
@@ -44,6 +44,8 @@ All P0/P1/P2 bugs resolved across R1-R14 (12 April 2026). Key milestones:
 - **R32 Game portal Instructions and High Scores buttons**: Added two new UI modal components (`GameInstructions`, `GameHighScores`) to the game portal carousel, matching the `gamecardlayout.png` reference design. Instructions modal displays game description, controls (game-specific + universal keys grid), and inspiration info. High Scores modal shows high score with trophy display, play statistics grid (games played, total score, best combo, longest survival, bosses defeated, last played), per-game achievement progress bar, and individual achievement unlock/lock status. Added keyboard shortcuts I (instructions) and H (high scores) alongside existing A/V shortcuts. Updated keyboard hints bar to show all shortcuts. Modals auto-close on game navigation or play start. ESC closes open modals. All 2,067 tests pass.
 
 - **R33 Landing page UX redesign**: Overhauled landing page grid layout for better visual hierarchy. Enlarged preview images (h-36→h-44) so gameplay screenshots are the focal point. Added play icon overlay with hover scale-up animation. Moved category badge onto image with backdrop blur. Removed per-card controls section (duplicated global controls) and collapsed inspiration to a single subtle line — cards are now scannable at a glance. Replaced full-width global controls panel with a collapsible strip behind a keyboard icon in the header. Merged hero section and category filter into a single compact row. Added xl:grid-cols-4 breakpoint for wider screens. Widened content from max-w-6xl to max-w-7xl. Removed dead `generateGamePlaceholder` SVG function (all games have real previews since R30). Net: 120 insertions, 241 deletions. All 2,067 tests pass.
+
+- **R34 Vortex Pong paddle, ball, and board sprite integration**: Deployed 10 sprites to `public/assets/vortex-pong/`: paddle_player.png (17×120), paddle_ai.png (17×120), ball.png (30×30), ball_motion.png (46×46), board.png (802×455), and fireball_1 through fireball_5 (64×32 each). All sprites sourced from Simple Ping Pong 2D Game Assets pack and fireball frames, recoloured to Matrix green palette via Python PIL (grayscale luminance mapped to green channel). Refactored GameScene paddles from `Phaser.GameObjects.Rectangle` to `Phaser.GameObjects.Image` with `setDisplaySize()` scaling — the existing procedural paddle textures (`paddle_player`, `paddle_ai`) were already generated in BootScene but never used. Updated `resizePlayerPaddle()` from `setSize()` to `setDisplaySize()`. Widened `clampPaddle()` and `ballHitsPaddle()` type signatures from `Phaser.GameObjects.Rectangle` to structural types. Added `loadCommonAssets()` override with `textures.exists()` guards so loaded sprites take priority over procedural fallbacks. Switched BootScene from `this.add.graphics()` to `this.make.graphics()` for off-screen texture baking. Updated test mock paddles from `setSize` to `setDisplaySize` and added `add.image` mock. All 2,067 tests pass.
 
 Full details in git history (`git log --oneline`).
 
@@ -143,7 +145,7 @@ Each game's `desiredassets/[game]/ASSETS_NEEDED.md` has a Source Mapping section
 - [x] **Rhythm Hacker** music tracks: 5 WAV→MP3 conversions deployed, audio playback integrated into GameScene. Remaining: hand-crafted note charts for per-beat sync (currently BPM-based procedural), visual sprite upgrades.
 - [ ] **CTRL-S | The World**: Extract character bases from Mana Seed + Kings and Pigs, create portraits, backgrounds from CyberPunk/scifi packs. ~50 `[~]` items.
 - [x] **Snake Classic**: Head, body, apple, dead, and tail sprites (32px) deployed with display-size scaling. Remaining: bomb sprite, wall sprites, power-up icons.
-- [ ] **Vortex Pong**: Deferred — game uses Rectangle objects for paddles (not sprites); available assets are basic shapes with no visual improvement over procedural textures. Needs paddle→sprite refactor first.
+- [x] **Vortex Pong**: Paddle sprites (player + AI, 17×120), ball (30×30), ball motion trail (46×46), board background (802×455), and fireball frames (5 × 64×32) deployed. All recoloured to Matrix green via PIL. Paddles refactored from Rectangle to Image with setDisplaySize() scaling. Remaining: power-up icons, goal explosion particles, audio SFX.
 - [x] **Matrix Cloud** bird sprite: Green bird (4 frames) from Flappy Bird Assets pack deployed with animation. Pipe sprites integrated as tiling textures. Remaining: background, 3 boss sprites (scratch), power-up icons.
 - [x] **Matrix Invaders**: Player and 4 enemy sprites (classic pixel art, recoloured to Matrix palette) deployed with display-size scaling and tint-based shield feedback. Bullet glow sprites integrated (green player, magenta enemy/boss) from laser sprite pack with display-size scaling. Remaining: boss sprite, power-up icons, enemy death explosion.
 - [ ] **Metris**: Deferred — game renders all cells via Graphics draw calls (no texture keys); needs rendering rewrite to image-per-cell before sprite integration is possible.
@@ -320,7 +322,7 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 - No orphaned legacy code (cleaned up in R15)
 
 ### Gaps
-- Most games still use procedural textures -- Code Breaker has brick, paddle, ball, and power-up sprites, Matrix Frogger has vehicle + frog + flower + fly sprites, Agent Chase has roguelike + fruit sprites, Matrix Cloud has bird sprite, Snake Classic has head/body/tail/dead/apple sprites with directional rotation, Cloud Jumper has cloud and player sprites, Rhythm Hacker has music tracks, Matrix Invaders has player/enemy/bullet sprites, Neo Jump has player/platform/enemy/collectible/jetpack sprites, but remaining 3 games are fully procedural (Vortex Pong, Metris, CTRL-S World)
+- Most games now have sprite assets -- Code Breaker has brick, paddle, ball, and power-up sprites, Matrix Frogger has vehicle + frog + flower + fly sprites, Agent Chase has roguelike + fruit sprites, Matrix Cloud has bird sprite, Snake Classic has head/body/tail/dead/apple sprites with directional rotation, Cloud Jumper has cloud and player sprites, Rhythm Hacker has music tracks, Matrix Invaders has player/enemy/bullet sprites, Neo Jump has player/platform/enemy/collectible/jetpack sprites, Vortex Pong has paddle, ball, board, and fireball sprites, but remaining 2 games are fully procedural (Metris, CTRL-S World)
 - Rhythm Hacker BPM values are estimates — may need tuning per track after playtesting
 - `useAdvancedVoice` AudioContext for visualisation never connected to speech output (always returns zeros)
 

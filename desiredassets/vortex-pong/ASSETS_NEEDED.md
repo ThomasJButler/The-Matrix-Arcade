@@ -23,13 +23,13 @@
 ## Still Needed
 
 ### Player & Opponents
-- [~] Player paddle sprite — Matrix green glow, elongated, 16×80 — or use existing — **SOURCE**: `INSPO/vortexpong/`
-- [~] AI paddle sprite — Red/orange tint, same dimensions — **SOURCE**: `INSPO/vortexpong/`
+- [x] Player paddle sprite — Matrix green glow, elongated, 16×80 — or use existing — **SOURCE**: `INSPO/vortexpong/` — deployed as `paddle_player.png` (17×120, recoloured to Matrix green)
+- [x] AI paddle sprite — Red/orange tint, same dimensions — **SOURCE**: `INSPO/vortexpong/` — deployed as `paddle_ai.png` (17×120, recoloured to darker Matrix green)
 - [ ] Paddle powered-up variant (wider paddle power-up) — 16×120
 
 ### Ball
-- [~] Ball sprite — glowing Matrix green, 16×16 — **SOURCE**: `INSPO/vortexpong/`
-- [~] Ball trail particle — small, fading, 8×8 — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/firework/`
+- [x] Ball sprite — glowing Matrix green, 16×16 — **SOURCE**: `INSPO/vortexpong/` — deployed as `ball.png` (30×30, recoloured to Matrix green)
+- [x] Ball trail particle — small, fading, 8×8 — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/firework/` — deployed as `ball_motion.png` (46×46, recoloured to Matrix green)
 - [~] Multi-ball variant (different colour — cyan?) — 16×16 — **SOURCE**: `DUMP/Sprites - Lasers Bullets #1/`
 
 ### Power-ups
@@ -39,13 +39,13 @@
 - [~] Multi-ball icon — 32×32 — **SOURCE**: `DUMP/Sprites - Lasers Bullets #1/`
 
 ### Arena
-- [~] Arena background — dark with subtle grid lines, 800×400 — **SOURCE**: `INSPO/vortexpong/`
-- [~] Centre line — dashed, vertical — **SOURCE**: `DUMP/1. Free Hologram Interface Wenrexa/`
+- [x] Arena background — dark with subtle grid lines, 800×400 — **SOURCE**: `INSPO/vortexpong/` — deployed as `board.png` (802×455, green-tinted centre line)
+- [x] Centre line — dashed, vertical — **SOURCE**: `DUMP/1. Free Hologram Interface Wenrexa/` — integrated into `board.png`
 - [~] Goal flash effect — full-width horizontal line, 2-3 frames — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/firework/`
 - [~] Arena border glow (when ball is near edge) — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/firework/`
 
 ### Effects
-- [x] Fireball trail — 5 frames available, may need Matrix-green recolour
+- [x] Fireball trail — 5 frames deployed as `fireball_1-5.png` (64×32 each, recoloured to Matrix green)
 - [~] Goal explosion particle — 32×32, 4-6 frames — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/firework/`
 - [ ] Screen shake overlay (or handle procedurally)
 - [ ] Combo text popup sprite (or render procedurally)
