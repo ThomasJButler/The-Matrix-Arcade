@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateChart, TRACK_CHARTS, ChartNote } from './charts';
+import { generateChart, TRACK_CHARTS } from './charts';
 import { GAME_CONFIG } from './config';
 
 describe('RhythmHacker Charts', () => {
