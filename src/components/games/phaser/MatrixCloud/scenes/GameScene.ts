@@ -16,12 +16,10 @@ import {
   type AttackType,
 } from '../config';
 
-const C = GAME_CONFIG;
-
 export class MatrixCloudGameScene extends BaseScene {
   // Player
   private player!: Phaser.GameObjects.Sprite;
-  private playerY: number = C.HEIGHT / 2;
+  private playerY: number = GAME_CONFIG.HEIGHT / 2;
   private playerVelocity: number = 0;
   private isInvulnerable: boolean = false;
   private invulnerableTimer: Phaser.Time.TimerEvent | null = null;
@@ -46,7 +44,7 @@ export class MatrixCloudGameScene extends BaseScene {
   private level: number = 1;
 
   // Lives
-  private lives: number = C.INITIAL_LIVES;
+  private lives: number = GAME_CONFIG.INITIAL_LIVES;
 
   // Boss
   private inBossBattle: boolean = false;
@@ -101,7 +99,7 @@ export class MatrixCloudGameScene extends BaseScene {
   }
 
   private resetState(): void {
-    this.playerY = C.HEIGHT * 0.4;
+    this.playerY = GAME_CONFIG.HEIGHT * 0.4;
     this.playerVelocity = 0;
     this.isInvulnerable = false;
     this.invulnerableTimer?.destroy();
@@ -110,7 +108,7 @@ export class MatrixCloudGameScene extends BaseScene {
     this.invulnerableFlashTimer = null;
 
     this.pipes = [];
-    this.lastPipeX = C.WIDTH + 100;
+    this.lastPipeX = GAME_CONFIG.WIDTH + 100;
 
     this.fieldPowerUps = [];
     this.shieldActive = false;
@@ -125,7 +123,7 @@ export class MatrixCloudGameScene extends BaseScene {
     this.highScore = 0;
     this.combo = 1.0;
     this.level = 1;
-    this.lives = C.INITIAL_LIVES;
+    this.lives = GAME_CONFIG.INITIAL_LIVES;
 
     this.inBossBattle = false;
     this.boss = null;
@@ -143,10 +141,10 @@ export class MatrixCloudGameScene extends BaseScene {
 
   private createGround(): void {
     this.groundRect = this.add.rectangle(
-      C.WIDTH / 2,
-      C.HEIGHT - C.GROUND_HEIGHT / 2,
-      C.WIDTH,
-      C.GROUND_HEIGHT,
+      GAME_CONFIG.WIDTH / 2,
+      GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT / 2,
+      GAME_CONFIG.WIDTH,
+      GAME_CONFIG.GROUND_HEIGHT,
       0x003300,
     );
     this.groundRect.setStrokeStyle(2, MATRIX_COLORS.PRIMARY);
@@ -156,11 +154,11 @@ export class MatrixCloudGameScene extends BaseScene {
   private createPlayer(): void {
     const spriteMode = this.game.registry.get('spriteMode') === true;
     if (spriteMode) {
-      this.player = this.add.sprite(C.PLAYER_X, this.playerY, 'bird_sprite');
-      this.player.setDisplaySize(C.PLAYER_WIDTH, C.PLAYER_HEIGHT);
+      this.player = this.add.sprite(GAME_CONFIG.PLAYER_X, this.playerY, 'bird_sprite');
+      this.player.setDisplaySize(GAME_CONFIG.PLAYER_WIDTH, GAME_CONFIG.PLAYER_HEIGHT);
       this.player.play('bird_flap');
     } else {
-      this.player = this.add.sprite(C.PLAYER_X, this.playerY, 'player');
+      this.player = this.add.sprite(GAME_CONFIG.PLAYER_X, this.playerY, 'player');
     }
     this.player.setDepth(10);
   }
@@ -168,9 +166,9 @@ export class MatrixCloudGameScene extends BaseScene {
   private createHUD(): void {
     this.scoreText = this.createMatrixText(10, 10, 'SCORE: 0', 10).setOrigin(0, 0);
     this.highScoreText = this.createMatrixText(10, 28, 'HIGH: 0', 8).setOrigin(0, 0);
-    this.levelText = this.createMatrixText(C.WIDTH - 10, 10, 'LEVEL: 1', 10).setOrigin(1, 0);
-    this.comboText = this.createMatrixText(C.WIDTH - 10, 28, 'COMBO: x1.0', 8).setOrigin(1, 0);
-    this.livesText = this.createMatrixText(C.WIDTH / 2, 10, '', 10);
+    this.levelText = this.createMatrixText(GAME_CONFIG.WIDTH - 10, 10, 'LEVEL: 1', 10).setOrigin(1, 0);
+    this.comboText = this.createMatrixText(GAME_CONFIG.WIDTH - 10, 28, 'COMBO: x1.0', 8).setOrigin(1, 0);
+    this.livesText = this.createMatrixText(GAME_CONFIG.WIDTH / 2, 10, '', 10);
     this.updateHUD();
   }
 
@@ -194,17 +192,17 @@ export class MatrixCloudGameScene extends BaseScene {
 
     let y = 48;
     if (this.shieldActive) {
-      const t = this.createMatrixText(C.WIDTH - 10, y, 'SHIELD', 7, MATRIX_COLORS.MAGENTA_HEX).setOrigin(1, 0);
+      const t = this.createMatrixText(GAME_CONFIG.WIDTH - 10, y, 'SHIELD', 7, MATRIX_COLORS.MAGENTA_HEX).setOrigin(1, 0);
       this.powerUpIndicators.push(t);
       y += 14;
     }
     if (this.timeSlowActive) {
-      const t = this.createMatrixText(C.WIDTH - 10, y, 'SLOW', 7, MATRIX_COLORS.YELLOW_HEX).setOrigin(1, 0);
+      const t = this.createMatrixText(GAME_CONFIG.WIDTH - 10, y, 'SLOW', 7, MATRIX_COLORS.YELLOW_HEX).setOrigin(1, 0);
       this.powerUpIndicators.push(t);
       y += 14;
     }
     if (this.doublePointsActive) {
-      const t = this.createMatrixText(C.WIDTH - 10, y, '2X POINTS', 7, MATRIX_COLORS.CYAN_HEX).setOrigin(1, 0);
+      const t = this.createMatrixText(GAME_CONFIG.WIDTH - 10, y, '2X POINTS', 7, MATRIX_COLORS.CYAN_HEX).setOrigin(1, 0);
       this.powerUpIndicators.push(t);
     }
   }
@@ -224,7 +222,7 @@ export class MatrixCloudGameScene extends BaseScene {
   }
 
   private jump(): void {
-    this.playerVelocity = C.JUMP_VELOCITY;
+    this.playerVelocity = GAME_CONFIG.JUMP_VELOCITY;
     this.playSound(SOUND_KEYS.JUMP);
 
     if (!this.hasJumped) {
@@ -239,7 +237,7 @@ export class MatrixCloudGameScene extends BaseScene {
     this.updateMatrixRain(this.matrixRainGroup, delta);
 
     const dt = delta / 1000;
-    const speedMult = this.timeSlowActive ? C.TIME_SLOW_FACTOR : 1.0;
+    const speedMult = this.timeSlowActive ? GAME_CONFIG.TIME_SLOW_FACTOR : 1.0;
 
     this.handleInput();
     this.updatePlayer(dt);
@@ -266,8 +264,8 @@ export class MatrixCloudGameScene extends BaseScene {
   // --- PLAYER PHYSICS ---
 
   private updatePlayer(dt: number): void {
-    this.playerVelocity += C.GRAVITY * dt;
-    this.playerVelocity = Math.min(this.playerVelocity, C.TERMINAL_VELOCITY);
+    this.playerVelocity += GAME_CONFIG.GRAVITY * dt;
+    this.playerVelocity = Math.min(this.playerVelocity, GAME_CONFIG.TERMINAL_VELOCITY);
     this.playerY += this.playerVelocity * dt;
 
     if (this.playerY < 0) {
@@ -275,7 +273,7 @@ export class MatrixCloudGameScene extends BaseScene {
       this.playerVelocity = 0;
     }
 
-    const groundY = C.HEIGHT - C.GROUND_HEIGHT - C.PLAYER_HEIGHT / 2;
+    const groundY = GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT - GAME_CONFIG.PLAYER_HEIGHT / 2;
     if (this.playerY > groundY) {
       this.handleCollision();
       return;
@@ -283,7 +281,7 @@ export class MatrixCloudGameScene extends BaseScene {
 
     this.player.setY(this.playerY);
 
-    const angle = Phaser.Math.Clamp(this.playerVelocity / C.TERMINAL_VELOCITY, -1, 1) * 0.4;
+    const angle = Phaser.Math.Clamp(this.playerVelocity / GAME_CONFIG.TERMINAL_VELOCITY, -1, 1) * 0.4;
     this.player.setRotation(angle);
 
     this.updatePlayerTexture();
@@ -313,22 +311,22 @@ export class MatrixCloudGameScene extends BaseScene {
   // --- PIPES ---
 
   private updatePipes(dt: number, speedMult: number): void {
-    const pipeSpeed = C.PIPE_SPEED * speedMult;
+    const pipeSpeed = GAME_CONFIG.PIPE_SPEED * speedMult;
 
     for (let i = this.pipes.length - 1; i >= 0; i--) {
       const pipe = this.pipes[i];
       pipe.x -= pipeSpeed * dt;
-      pipe.topRect.setX(pipe.x + C.PIPE_WIDTH / 2);
-      pipe.bottomRect.setX(pipe.x + C.PIPE_WIDTH / 2);
+      pipe.topRect.setX(pipe.x + GAME_CONFIG.PIPE_WIDTH / 2);
+      pipe.bottomRect.setX(pipe.x + GAME_CONFIG.PIPE_WIDTH / 2);
 
-      if (pipe.x + C.PIPE_WIDTH < 0) {
+      if (pipe.x + GAME_CONFIG.PIPE_WIDTH < 0) {
         pipe.topRect.destroy();
         pipe.bottomRect.destroy();
         this.pipes.splice(i, 1);
         continue;
       }
 
-      if (!pipe.passed && pipe.x + C.PIPE_WIDTH < C.PLAYER_X) {
+      if (!pipe.passed && pipe.x + GAME_CONFIG.PIPE_WIDTH < GAME_CONFIG.PLAYER_X) {
         if (!pipe.hit) {
           this.scorePipe();
         }
@@ -340,7 +338,7 @@ export class MatrixCloudGameScene extends BaseScene {
       }
     }
 
-    if (this.pipes.length === 0 || this.lastPipeX - (pipeSpeed * dt) <= C.WIDTH - C.PIPE_SPACING) {
+    if (this.pipes.length === 0 || this.lastPipeX - (pipeSpeed * dt) <= GAME_CONFIG.WIDTH - GAME_CONFIG.PIPE_SPACING) {
       this.spawnPipe();
     } else {
       this.lastPipeX -= pipeSpeed * dt;
@@ -357,43 +355,43 @@ export class MatrixCloudGameScene extends BaseScene {
   }
 
   private spawnPipe(): void {
-    const playableHeight = C.HEIGHT - C.GROUND_HEIGHT;
-    const maxGapY = playableHeight - C.PIPE_GAP - C.PIPE_MIN_HEIGHT;
-    const gapY = C.PIPE_MIN_HEIGHT + Math.random() * (maxGapY - C.PIPE_MIN_HEIGHT);
+    const playableHeight = GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT;
+    const maxGapY = playableHeight - GAME_CONFIG.PIPE_GAP - GAME_CONFIG.PIPE_MIN_HEIGHT;
+    const gapY = GAME_CONFIG.PIPE_MIN_HEIGHT + Math.random() * (maxGapY - GAME_CONFIG.PIPE_MIN_HEIGHT);
 
-    const x = C.WIDTH;
+    const x = GAME_CONFIG.WIDTH;
 
     const topHeight = gapY;
-    const topRect = this.createPipeVisual(x + C.PIPE_WIDTH / 2, topHeight / 2, C.PIPE_WIDTH, topHeight);
+    const topRect = this.createPipeVisual(x + GAME_CONFIG.PIPE_WIDTH / 2, topHeight / 2, GAME_CONFIG.PIPE_WIDTH, topHeight);
     topRect.setDepth(3);
 
-    const bottomY = gapY + C.PIPE_GAP;
+    const bottomY = gapY + GAME_CONFIG.PIPE_GAP;
     const bottomHeight = playableHeight - bottomY;
-    const bottomRect = this.createPipeVisual(x + C.PIPE_WIDTH / 2, bottomY + bottomHeight / 2, C.PIPE_WIDTH, bottomHeight);
+    const bottomRect = this.createPipeVisual(x + GAME_CONFIG.PIPE_WIDTH / 2, bottomY + bottomHeight / 2, GAME_CONFIG.PIPE_WIDTH, bottomHeight);
     bottomRect.setDepth(3);
 
     const pipe: PipePair = { topRect, bottomRect, x, gapY, passed: false, hit: false };
     this.pipes.push(pipe);
     this.lastPipeX = x;
 
-    if (!this.inBossBattle && Math.random() < C.POWERUP_CHANCE) {
+    if (!this.inBossBattle && Math.random() < GAME_CONFIG.POWERUP_CHANCE) {
       this.spawnPowerUp(x);
     }
   }
 
   private checkPipeCollision(pipe: PipePair): void {
-    const px = C.PLAYER_X - C.PLAYER_WIDTH / 2;
-    const py = this.playerY - C.PLAYER_HEIGHT / 2;
-    const pw = C.PLAYER_WIDTH;
-    const ph = C.PLAYER_HEIGHT;
+    const px = GAME_CONFIG.PLAYER_X - GAME_CONFIG.PLAYER_WIDTH / 2;
+    const py = this.playerY - GAME_CONFIG.PLAYER_HEIGHT / 2;
+    const pw = GAME_CONFIG.PLAYER_WIDTH;
+    const ph = GAME_CONFIG.PLAYER_HEIGHT;
 
     const pipeLeft = pipe.x;
-    const pipeRight = pipe.x + C.PIPE_WIDTH;
+    const pipeRight = pipe.x + GAME_CONFIG.PIPE_WIDTH;
 
     if (px + pw <= pipeLeft || px >= pipeRight) return;
 
     const inTopPipe = py < pipe.gapY;
-    const inBottomPipe = py + ph > pipe.gapY + C.PIPE_GAP;
+    const inBottomPipe = py + ph > pipe.gapY + GAME_CONFIG.PIPE_GAP;
 
     if (inTopPipe || inBottomPipe) {
       pipe.hit = true;
@@ -403,14 +401,14 @@ export class MatrixCloudGameScene extends BaseScene {
 
   private scorePipe(): void {
     const scoreMultiplier = this.doublePointsActive ? 2 : 1;
-    const points = Math.floor(C.SCORE_PER_PIPE * Math.min(this.combo, C.MAX_COMBO) * scoreMultiplier);
+    const points = Math.floor(GAME_CONFIG.SCORE_PER_PIPE * Math.min(this.combo, GAME_CONFIG.MAX_COMBO) * scoreMultiplier);
     this.score += points;
-    this.combo = Math.min(this.combo + C.COMBO_INCREMENT, C.MAX_COMBO);
+    this.combo = Math.min(this.combo + GAME_CONFIG.COMBO_INCREMENT, GAME_CONFIG.MAX_COMBO);
 
     this.playSound(SOUND_KEYS.SCORE);
 
     const prevLevel = this.level;
-    this.level = Math.floor(this.score / C.LEVEL_THRESHOLD) + 1;
+    this.level = Math.floor(this.score / GAME_CONFIG.LEVEL_THRESHOLD) + 1;
 
     if (this.level > prevLevel) {
       this.onLevelUp(prevLevel);
@@ -423,7 +421,7 @@ export class MatrixCloudGameScene extends BaseScene {
     this.playSound(SOUND_KEYS.LEVEL_UP);
     this.cameras.main.shake(200, 0.005);
 
-    const levelText = this.createMatrixText(C.WIDTH / 2, C.HEIGHT / 2, `LEVEL ${this.level}`, 16, MATRIX_COLORS.CYAN_HEX);
+    const levelText = this.createMatrixText(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, `LEVEL ${this.level}`, 16, MATRIX_COLORS.CYAN_HEX);
     this.tweens.add({
       targets: levelText,
       y: levelText.y - 40,
@@ -449,7 +447,7 @@ export class MatrixCloudGameScene extends BaseScene {
   private spawnPowerUp(x: number): void {
     const types: PowerUpType[] = ['shield', 'timeSlow', 'extraLife', 'doublePoints'];
     const type = types[Math.floor(Math.random() * types.length)];
-    const y = 80 + Math.random() * (C.HEIGHT - C.GROUND_HEIGHT - 160);
+    const y = 80 + Math.random() * (GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT - 160);
 
     const sprite = this.add.sprite(x, y, `powerup_${type}`);
     sprite.setDepth(4);
@@ -468,14 +466,14 @@ export class MatrixCloudGameScene extends BaseScene {
   }
 
   private updateFieldPowerUps(dt: number, speedMult: number): void {
-    const speed = C.PIPE_SPEED * speedMult;
+    const speed = GAME_CONFIG.PIPE_SPEED * speedMult;
 
     for (let i = this.fieldPowerUps.length - 1; i >= 0; i--) {
       const pu = this.fieldPowerUps[i];
       pu.x -= speed * dt;
       pu.sprite.setX(pu.x);
 
-      if (pu.x < -C.POWERUP_SIZE) {
+      if (pu.x < -GAME_CONFIG.POWERUP_SIZE) {
         pu.sprite.destroy();
         this.fieldPowerUps.splice(i, 1);
         continue;
@@ -490,10 +488,10 @@ export class MatrixCloudGameScene extends BaseScene {
   }
 
   private checkPowerUpCollision(pu: FieldPowerUp): boolean {
-    const dx = C.PLAYER_X - pu.x;
+    const dx = GAME_CONFIG.PLAYER_X - pu.x;
     const dy = this.playerY - pu.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    return dist < (C.PLAYER_WIDTH + C.POWERUP_SIZE) / 2;
+    return dist < (GAME_CONFIG.PLAYER_WIDTH + GAME_CONFIG.POWERUP_SIZE) / 2;
   }
 
   private collectPowerUp(pu: FieldPowerUp): void {
@@ -510,18 +508,18 @@ export class MatrixCloudGameScene extends BaseScene {
       case 'timeSlow':
         this.timeSlowTimer?.destroy();
         this.timeSlowActive = true;
-        this.timeSlowTimer = this.time.delayedCall(C.POWERUP_DURATION, () => {
+        this.timeSlowTimer = this.time.delayedCall(GAME_CONFIG.POWERUP_DURATION, () => {
           this.timeSlowActive = false;
           this.timeSlowTimer = null;
         });
         break;
       case 'extraLife':
-        this.lives = Math.min(this.lives + 1, C.MAX_LIVES);
+        this.lives = Math.min(this.lives + 1, GAME_CONFIG.MAX_LIVES);
         break;
       case 'doublePoints':
         this.doublePointsTimer?.destroy();
         this.doublePointsActive = true;
-        this.doublePointsTimer = this.time.delayedCall(C.POWERUP_DURATION, () => {
+        this.doublePointsTimer = this.time.delayedCall(GAME_CONFIG.POWERUP_DURATION, () => {
           this.doublePointsActive = false;
           this.doublePointsTimer = null;
         });
@@ -555,8 +553,8 @@ export class MatrixCloudGameScene extends BaseScene {
 
     this.startInvulnerability();
 
-    this.playerY = Math.min(this.playerY, C.HEIGHT - C.GROUND_HEIGHT - C.PLAYER_HEIGHT);
-    this.playerVelocity = C.JUMP_VELOCITY * 0.5;
+    this.playerY = Math.min(this.playerY, GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT - GAME_CONFIG.PLAYER_HEIGHT);
+    this.playerVelocity = GAME_CONFIG.JUMP_VELOCITY * 0.5;
   }
 
   private startInvulnerability(): void {
@@ -566,13 +564,13 @@ export class MatrixCloudGameScene extends BaseScene {
 
     this.invulnerableFlashTimer = this.time.addEvent({
       delay: 100,
-      repeat: Math.floor(C.INVULNERABLE_DURATION / 100) - 1,
+      repeat: Math.floor(GAME_CONFIG.INVULNERABLE_DURATION / 100) - 1,
       callback: () => {
         this.player.setVisible(!this.player.visible);
       },
     });
 
-    this.invulnerableTimer = this.time.delayedCall(C.INVULNERABLE_DURATION, () => {
+    this.invulnerableTimer = this.time.delayedCall(GAME_CONFIG.INVULNERABLE_DURATION, () => {
       this.isInvulnerable = false;
       this.player.setVisible(true);
       this.invulnerableTimer = null;
@@ -581,7 +579,7 @@ export class MatrixCloudGameScene extends BaseScene {
   }
 
   private showShieldBreakEffect(): void {
-    const ring = this.add.circle(C.PLAYER_X, this.playerY, 10, MATRIX_COLORS.MAGENTA, 0.6);
+    const ring = this.add.circle(GAME_CONFIG.PLAYER_X, this.playerY, 10, MATRIX_COLORS.MAGENTA, 0.6);
     ring.setDepth(15);
     this.tweens.add({
       targets: ring,
@@ -627,7 +625,7 @@ export class MatrixCloudGameScene extends BaseScene {
     this.fieldPowerUps = [];
 
     const def = BOSS_DEFS[type];
-    const sprite = this.add.sprite(C.WIDTH + def.size, C.HEIGHT / 2, `boss_${type}`);
+    const sprite = this.add.sprite(GAME_CONFIG.WIDTH + def.size, GAME_CONFIG.HEIGHT / 2, `boss_${type}`);
     sprite.setDepth(8);
 
     const healthBg = this.add.graphics();
@@ -642,14 +640,14 @@ export class MatrixCloudGameScene extends BaseScene {
       type,
       health: def.health,
       maxHealth: def.health,
-      x: C.WIDTH + def.size,
-      y: C.HEIGHT / 2,
+      x: GAME_CONFIG.WIDTH + def.size,
+      y: GAME_CONFIG.HEIGHT / 2,
       elapsedTime: 0,
     };
 
     this.tweens.add({
       targets: this.boss,
-      x: C.WIDTH * 0.75,
+      x: GAME_CONFIG.WIDTH * 0.75,
       duration: 1500,
       ease: 'Power2',
     });
@@ -657,7 +655,7 @@ export class MatrixCloudGameScene extends BaseScene {
     this.playSound(SOUND_KEYS.HIT);
     this.cameras.main.shake(300, 0.01);
 
-    const bossText = this.createMatrixText(C.WIDTH / 2, C.HEIGHT / 2, `${type.replace('_', ' ').toUpperCase()}`, 14, MATRIX_COLORS.RED_HEX);
+    const bossText = this.createMatrixText(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, `${type.replace('_', ' ').toUpperCase()}`, 14, MATRIX_COLORS.RED_HEX);
     this.tweens.add({
       targets: bossText,
       alpha: 0,
@@ -673,7 +671,7 @@ export class MatrixCloudGameScene extends BaseScene {
     this.bossElapsed += dt;
     this.boss.elapsedTime += dt * 1000;
 
-    if (this.bossElapsed >= C.BOSS_DURATION) {
+    if (this.bossElapsed >= GAME_CONFIG.BOSS_DURATION) {
       this.endBossBattle(false);
       return;
     }
@@ -685,7 +683,7 @@ export class MatrixCloudGameScene extends BaseScene {
     this.bossAttackCooldown -= dt;
     if (this.bossAttackCooldown <= 0) {
       this.fireBossAttack();
-      this.bossAttackCooldown = C.BOSS_ATTACK_INTERVAL;
+      this.bossAttackCooldown = GAME_CONFIG.BOSS_ATTACK_INTERVAL;
     }
 
     this.checkBossPlayerCollision();
@@ -711,8 +709,8 @@ export class MatrixCloudGameScene extends BaseScene {
         break;
     }
 
-    this.boss.x = Phaser.Math.Clamp(this.boss.x, C.WIDTH * 0.5, C.WIDTH - def.size);
-    this.boss.y = Phaser.Math.Clamp(this.boss.y, def.size, C.HEIGHT - C.GROUND_HEIGHT - def.size);
+    this.boss.x = Phaser.Math.Clamp(this.boss.x, GAME_CONFIG.WIDTH * 0.5, GAME_CONFIG.WIDTH - def.size);
+    this.boss.y = Phaser.Math.Clamp(this.boss.y, def.size, GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT - def.size);
     this.boss.sprite.setPosition(this.boss.x, this.boss.y);
   }
 
@@ -728,7 +726,7 @@ export class MatrixCloudGameScene extends BaseScene {
     const vy = (Math.random() - 0.5) * 150;
     this.bossAttacks.push({
       sprite,
-      vx: -C.BOSS_ATTACK_SPEED,
+      vx: -GAME_CONFIG.BOSS_ATTACK_SPEED,
       vy,
       life: 1.0,
     });
@@ -760,22 +758,22 @@ export class MatrixCloudGameScene extends BaseScene {
   private checkAttackPlayerCollision(attack: BossAttackState): boolean {
     if (this.isInvulnerable) return false;
 
-    const dx = C.PLAYER_X - attack.sprite.x;
+    const dx = GAME_CONFIG.PLAYER_X - attack.sprite.x;
     const dy = this.playerY - attack.sprite.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    return dist < (C.PLAYER_WIDTH + C.BOSS_ATTACK_SIZE) / 2;
+    return dist < (GAME_CONFIG.PLAYER_WIDTH + GAME_CONFIG.BOSS_ATTACK_SIZE) / 2;
   }
 
   private checkBossPlayerCollision(): void {
     if (!this.boss || this.isInvulnerable) return;
 
     const def = BOSS_DEFS[this.boss.type];
-    const dx = C.PLAYER_X - this.boss.x;
+    const dx = GAME_CONFIG.PLAYER_X - this.boss.x;
     const dy = this.playerY - this.boss.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
-    if (dist < (C.PLAYER_WIDTH + def.size) / 2) {
-      this.boss.health -= C.BOSS_DAMAGE_PER_HIT;
+    if (dist < (GAME_CONFIG.PLAYER_WIDTH + def.size) / 2) {
+      this.boss.health -= GAME_CONFIG.BOSS_DAMAGE_PER_HIT;
       this.handleCollision();
 
       if (this.boss.health <= 0) {
@@ -841,7 +839,7 @@ export class MatrixCloudGameScene extends BaseScene {
 
     this.clearBossBattle();
     this.inBossBattle = false;
-    this.lastPipeX = C.WIDTH;
+    this.lastPipeX = GAME_CONFIG.WIDTH;
   }
 
   private clearBossBattle(): void {

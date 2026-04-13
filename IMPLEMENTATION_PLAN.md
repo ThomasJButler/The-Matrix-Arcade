@@ -6,8 +6,8 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ## Current Status
 
-- **Status**: REBUILDING -- Phaser migration complete, asset pipeline bootstrapped, per-game sprite integration in progress, Metris tile sprite rendering rewrite complete, Rhythm Hacker music synced to beat charts, game portal UX improved, landing page redesigned, Vortex Pong sprite integration complete, audio system upgraded with file-based SFX, background music integrated across all 11 Phaser games. User is running /playwright-testing in a separate claude window, will report when finished.
-- **Last Updated**: 13 April 2026 (R38 -- background music for all Phaser games)
+- **Status**: REBUILDING -- Phaser migration complete, asset pipeline bootstrapped, per-game sprite integration in progress, Metris tile sprite rendering rewrite complete, Rhythm Hacker music synced to beat charts, game portal UX improved, landing page redesigned, Vortex Pong sprite integration complete, audio system upgraded with file-based SFX, background music integrated across all 11 Phaser games. R39: Fixed all playtest bugs from PLAYTEST_REPORT_2026-04-13.md (4 TDZ crashes, lives underflow, pause-on-gameover, asset errors, setState warning).
+- **Last Updated**: 13 April 2026 (R39 -- playtest bug fixes)
 - **Version**: v2.0.0 (next target)
 - **Games**: 12 playable (11 Phaser, 1 DOM)
 - **Build**: PASSES (code-split, main bundle ~384KB, Phaser vendor chunk 1,479KB) -- zero warnings
@@ -46,6 +46,8 @@ All P0/P1/P2 bugs resolved across R1-R14 (12 April 2026). Key milestones:
 - **R33 Landing page UX redesign**: Overhauled landing page grid layout for better visual hierarchy. Enlarged preview images (h-36→h-44) so gameplay screenshots are the focal point. Added play icon overlay with hover scale-up animation. Moved category badge onto image with backdrop blur. Removed per-card controls section (duplicated global controls) and collapsed inspiration to a single subtle line — cards are now scannable at a glance. Replaced full-width global controls panel with a collapsible strip behind a keyboard icon in the header. Merged hero section and category filter into a single compact row. Added xl:grid-cols-4 breakpoint for wider screens. Widened content from max-w-6xl to max-w-7xl. Removed dead `generateGamePlaceholder` SVG function (all games have real previews since R30). Net: 120 insertions, 241 deletions. All 2,067 tests pass.
 
 - **R36 Metris tile sprite integration and rendering rewrite**: Deployed 7 beveled tile sprites (32×32, one per tetromino type: I=cyan, O=yellow, T=purple, S=green, Z=red, J=blue, L=orange) to `public/assets/metris/`. Rewrote BootScene with `loadCommonAssets()` override to load sprite PNGs and `generateFallbackTiles()` for procedural beveled textures when sprites are unavailable. Refactored GameScene rendering architecture from single `Phaser.GameObjects.Graphics` with `fillRect()` calls to a layered Image-pool approach: 200 pre-positioned `Phaser.GameObjects.Image` objects for the 10×20 grid (depth 2), 4 ghost piece Images (depth 1, alpha 0.25), 4 active piece Images (depth 3), background on `gridGraphics` (depth 0), and glow/grid-lines/border/particles on new `overlayGraphics` (depth 10). Each frame, cell Images update texture key and visibility; ghost/active Images also update position. Preview panels (HOLD/NEXT) remain Graphics-based. Updated test mock infrastructure: added `createMockImage()` helper, upgraded `add.image` mock from shared `mockReturnValue` to per-call `mockImplementation`, pre-populated `cellImages`/`ghostImages`/`activeImages` arrays in `beforeEach`. Metris was previously the only Phaser game with zero sprite assets — now has full tile textures. All 2,088 tests pass.
+
+- **R39 Playtest bug fixes**: Fixed all 5 bugs identified in PLAYTEST_REPORT_2026-04-13.md. **B1 TDZ crashes** (4 games): Vortex Pong, Matrix Cloud, Matrix Invaders — removed module-level `const C = GAME_CONFIG` aliases that triggered Temporal Dead Zone errors due to circular config↔scene imports; replaced with direct `GAME_CONFIG.` access in methods. Rhythm Hacker — made `TRACK_CHARTS` lazy via `getTrackCharts()` singleton function since charts.ts evaluated `GAME_CONFIG.TRACKS.map(...)` at module top level. **B2 Agent Chase lives underflow**: Added `Math.max(0, lives - 1)` floor guard, invulnerability check in `playerDeath()`, and 2-second post-death invulnerability with blinking visual feedback to prevent spawn-camping. **Q2 P-pause on GameOver**: Added `allowPause` flag to BaseScene (default true), overridden to `false` in GameOverScene and MenuScene. **Q1 Matrix Frogger asset errors**: Removed 4 references to non-existent TopView_Robot_Asset_Pack sprites; added procedural enemy_agent and enemy_sentinel fallback textures. **Q3 Achievement toast setState-in-render**: Replaced nested `setQueue` call inside `setProgress` updater with separate `dismissed` state + `useEffect` to defer parent state update; replaced `displayedIds` state with `useRef` to avoid render-phase cross-component updates. All 2,088 tests pass.
 
 - **R38 Background music for all Phaser games**: Wired looping background music into all 11 Phaser games using the 7 pre-deployed Matrix Trilogy music tracks from `public/assets/audio/music/`. Track assignments: VortexPong→stage-theme, SnakeClassic→cruise-control, MatrixCloud→a-last-embrace, MatrixInvaders→ostcrunch2-epic, Metris→brothers-and-sisters, AgentChase→boss-theme, NeoJump→menu-theme, CloudJumper→a-last-embrace, CodeBreaker→ostcrunch2-epic (MatrixFrogger and RhythmHacker already had game-specific music). Added `this.stopBackgroundMusic()` to every game's `shutdown()` for clean scene-exit audio teardown, and to BaseScene's `gameOver()` for universal game-over cleanup. Added defensive `?.` on registry access in `stopBackgroundMusic()` to prevent test-environment crashes when scenes are partially mocked. All 2,088 tests pass.
 
@@ -97,6 +99,15 @@ All 12 P1 items fixed in R4-R5 (Metris bullet time, Matrix Cloud combo, CTRL-S s
 ### 2.5 Matrix Frogger Visual Issues ✅
 
 - [x] Fix unrendered floating UI box -- root cause: PhaserGame.tsx click-to-play overlay (`rgba(0,0,0,0.5)`) rendered before auto-focus resolved. Fixed in R17 by deferring overlay until container has had focus at least once.
+
+### 2.7 Playtest Report Fixes (13 April 2026) ✅
+
+All bugs from PLAYTEST_REPORT_2026-04-13.md resolved in R39:
+- [x] **B1**: TDZ crashes in Vortex Pong, Matrix Cloud, Matrix Invaders, Rhythm Hacker — deferred GAME_CONFIG access to runtime
+- [x] **B2**: Agent Chase lives underflow to -2 — floor guard + respawn invulnerability
+- [x] **Q2**: P-pause stacking on GameOver scene — allowPause flag in BaseScene
+- [x] **Q1**: Matrix Frogger 4 asset load errors — removed missing sprite references, added procedural fallbacks
+- [x] **Q3**: Achievement toast setState-in-render — separated state updates to avoid cross-component render-phase mutation
 
 ### 2.6 Codebase Cleanup
 

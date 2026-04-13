@@ -207,12 +207,31 @@ export function generateChart(
   return notes;
 }
 
-/** Pre-generated charts — one per track, matching GAME_CONFIG.TRACKS order */
-export const TRACK_CHARTS: ChartNote[][] = GAME_CONFIG.TRACKS.map((track, i) =>
-  generateChart(
-    track.bpm,
-    track.duration,
-    track.difficulty,
-    42 + i * 97,
-  ),
-);
+/** Pre-generated charts — one per track, matching GAME_CONFIG.TRACKS order.
+ *  Lazy singleton to avoid TDZ crash from circular dependency:
+ *  config.ts → GameScene.ts → charts.ts → config.ts */
+let _trackCharts: ChartNote[][] | null = null;
+export function getTrackCharts(): ChartNote[][] {
+  if (!_trackCharts) {
+    _trackCharts = GAME_CONFIG.TRACKS.map((track, i) =>
+      generateChart(
+        track.bpm,
+        track.duration,
+        track.difficulty,
+        42 + i * 97,
+      ),
+    );
+  }
+  return _trackCharts;
+}
+
+/** @deprecated Use getTrackCharts() instead — kept for backward compatibility with tests */
+export const TRACK_CHARTS: ChartNote[][] = new Proxy([] as ChartNote[][], {
+  get(_, prop) {
+    const charts = getTrackCharts();
+    const value = (charts as Record<string | symbol, unknown>)[prop];
+    return typeof value === 'function'
+      ? (value as (...args: unknown[]) => unknown).bind(charts)
+      : value;
+  },
+});

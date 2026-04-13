@@ -37,8 +37,6 @@ interface ImpactEffect {
   life: number;
 }
 
-const { WIDTH, HEIGHT, PADDLE, BALL, AI, WIN_SCORE, POWERUP, SHAKE } = GAME_CONFIG;
-
 export class VortexPongGameScene extends BaseScene {
   // Paddles
   private playerPaddle!: Phaser.GameObjects.Image;
@@ -58,13 +56,13 @@ export class VortexPongGameScene extends BaseScene {
   private combo = 0;
   private rallyCount = 0;
   private maxRally = 0;
-  private aiDifficulty = AI.INITIAL_DIFFICULTY;
+  private aiDifficulty = GAME_CONFIG.AI.INITIAL_DIFFICULTY;
   private timeSinceLastGoal = 0;
   private lastPaddleHit: 'player' | 'ai' | null = null;
   private hasFirstPoint = false;
   private powerUpsCollected = 0;
   private scoreMultiplier = 1;
-  private currentPaddleHeight = PADDLE.HEIGHT;
+  private currentPaddleHeight = GAME_CONFIG.PADDLE.HEIGHT;
   private isSlowBall = false;
   private playerPaddleVelocity = 0;
   private aiPaddleVelocity = 0;
@@ -159,17 +157,17 @@ export class VortexPongGameScene extends BaseScene {
     this.combo = 0;
     this.rallyCount = 0;
     this.maxRally = 0;
-    this.aiDifficulty = AI.INITIAL_DIFFICULTY;
+    this.aiDifficulty = GAME_CONFIG.AI.INITIAL_DIFFICULTY;
     this.timeSinceLastGoal = 0;
     this.lastPaddleHit = null;
     this.hasFirstPoint = false;
     this.powerUpsCollected = 0;
     this.scoreMultiplier = 1;
-    this.currentPaddleHeight = PADDLE.HEIGHT;
+    this.currentPaddleHeight = GAME_CONFIG.PADDLE.HEIGHT;
     this.isSlowBall = false;
     this.playerPaddleVelocity = 0;
     this.aiPaddleVelocity = 0;
-    this.previousPlayerY = HEIGHT / 2;
+    this.previousPlayerY = GAME_CONFIG.HEIGHT / 2;
   }
 
   // ── Drawing ──────────────────���───────────────────────────────
@@ -177,9 +175,9 @@ export class VortexPongGameScene extends BaseScene {
   private drawCenterLine(): void {
     this.centerLineGraphics = this.add.graphics();
     this.centerLineGraphics.lineStyle(2, MATRIX_COLORS.DARK_GREEN, 0.5);
-    for (let y = 0; y < HEIGHT; y += 20) {
-      this.centerLineGraphics.moveTo(WIDTH / 2, y);
-      this.centerLineGraphics.lineTo(WIDTH / 2, y + 10);
+    for (let y = 0; y < GAME_CONFIG.HEIGHT; y += 20) {
+      this.centerLineGraphics.moveTo(GAME_CONFIG.WIDTH / 2, y);
+      this.centerLineGraphics.lineTo(GAME_CONFIG.WIDTH / 2, y + 10);
     }
     this.centerLineGraphics.strokePath();
   }
@@ -188,25 +186,25 @@ export class VortexPongGameScene extends BaseScene {
 
   private createPaddles(): void {
     this.playerPaddle = this.add.image(
-      PADDLE.OFFSET_X + PADDLE.WIDTH / 2,
-      HEIGHT / 2,
+      GAME_CONFIG.PADDLE.OFFSET_X + GAME_CONFIG.PADDLE.WIDTH / 2,
+      GAME_CONFIG.HEIGHT / 2,
       'paddle_player',
     );
-    this.playerPaddle.setDisplaySize(PADDLE.WIDTH, PADDLE.HEIGHT);
+    this.playerPaddle.setDisplaySize(GAME_CONFIG.PADDLE.WIDTH, GAME_CONFIG.PADDLE.HEIGHT);
 
     this.aiPaddle = this.add.image(
-      WIDTH - PADDLE.OFFSET_X - PADDLE.WIDTH / 2,
-      HEIGHT / 2,
+      GAME_CONFIG.WIDTH - GAME_CONFIG.PADDLE.OFFSET_X - GAME_CONFIG.PADDLE.WIDTH / 2,
+      GAME_CONFIG.HEIGHT / 2,
       'paddle_ai',
     );
-    this.aiPaddle.setDisplaySize(PADDLE.WIDTH, PADDLE.HEIGHT);
+    this.aiPaddle.setDisplaySize(GAME_CONFIG.PADDLE.WIDTH, GAME_CONFIG.PADDLE.HEIGHT);
 
-    this.previousPlayerY = HEIGHT / 2;
+    this.previousPlayerY = GAME_CONFIG.HEIGHT / 2;
   }
 
   private resizePlayerPaddle(height: number): void {
     this.currentPaddleHeight = height;
-    this.playerPaddle.setDisplaySize(PADDLE.WIDTH, height);
+    this.playerPaddle.setDisplaySize(GAME_CONFIG.PADDLE.WIDTH, height);
     this.clampPaddle(this.playerPaddle, height);
   }
 
@@ -214,7 +212,7 @@ export class VortexPongGameScene extends BaseScene {
     paddle: { y: number },
     height: number,
   ): void {
-    paddle.y = clamp(paddle.y, height / 2, HEIGHT - height / 2);
+    paddle.y = clamp(paddle.y, height / 2, GAME_CONFIG.HEIGHT - height / 2);
   }
 
   // ── Input ─────────────────────────────────���──────────────────
@@ -241,7 +239,7 @@ export class VortexPongGameScene extends BaseScene {
   }
 
   private handlePlayerInput(dt: number): void {
-    const moveAmount = PADDLE.SPEED * dt;
+    const moveAmount = GAME_CONFIG.PADDLE.SPEED * dt;
     const kbUp = this.upKey?.isDown || this.wKey?.isDown;
     const kbDown = this.downKey?.isDown || this.sKey?.isDown;
 
@@ -279,24 +277,24 @@ export class VortexPongGameScene extends BaseScene {
     const targetBall = this.getClosestBallToAI();
     if (!targetBall) return;
 
-    const maxSpeed = Math.min(this.aiDifficulty, AI.MAX_SPEED_FACTOR) * 60;
+    const maxSpeed = Math.min(this.aiDifficulty, GAME_CONFIG.AI.MAX_SPEED_FACTOR) * 60;
     const ballMovingToward = targetBall.vx > 0;
-    const accelRate = ballMovingToward ? AI.NEAR_ACCELERATION : AI.FAR_ACCELERATION;
-    const distFactor = targetBall.sprite.x < WIDTH / 2 ? 0.5 : 1.0;
+    const accelRate = ballMovingToward ? GAME_CONFIG.AI.NEAR_ACCELERATION : GAME_CONFIG.AI.FAR_ACCELERATION;
+    const distFactor = targetBall.sprite.x < GAME_CONFIG.WIDTH / 2 ? 0.5 : 1.0;
 
-    const errorOffset = (Math.random() - 0.5) * AI.ERROR_MARGIN;
+    const errorOffset = (Math.random() - 0.5) * GAME_CONFIG.AI.ERROR_MARGIN;
     const targetY = targetBall.sprite.y + errorOffset;
     const diff = targetY - this.aiPaddle.y;
 
     // Damping (exponential decay scaled to frame equivalent)
     const frames = dt * 60;
-    this.aiPaddleVelocity *= Math.pow(AI.DAMPING, frames);
+    this.aiPaddleVelocity *= Math.pow(GAME_CONFIG.AI.DAMPING, frames);
 
     // Accelerate toward target
     this.aiPaddleVelocity += maxSpeed * accelRate * distFactor * Math.sign(diff) * dt;
 
     // Deliberate mistake (probability scaled to delta)
-    const mistakeChance = 1 - Math.pow(1 - AI.MISTAKE_CHANCE, frames);
+    const mistakeChance = 1 - Math.pow(1 - GAME_CONFIG.AI.MISTAKE_CHANCE, frames);
     if (Math.random() < mistakeChance) {
       this.aiPaddleVelocity *= -0.5;
     }
@@ -305,14 +303,14 @@ export class VortexPongGameScene extends BaseScene {
     const maxVel = maxSpeed * 2;
     this.aiPaddleVelocity = clamp(this.aiPaddleVelocity, -maxVel, maxVel);
     this.aiPaddle.y += this.aiPaddleVelocity * dt;
-    this.clampPaddle(this.aiPaddle, PADDLE.HEIGHT);
+    this.clampPaddle(this.aiPaddle, GAME_CONFIG.PADDLE.HEIGHT);
   }
 
   // ── Balls ────────────────────────────────────────────────────
 
   private spawnBall(
-    x = WIDTH / 2,
-    y = HEIGHT / 2,
+    x = GAME_CONFIG.WIDTH / 2,
+    y = GAME_CONFIG.HEIGHT / 2,
     vx?: number,
     vy?: number,
   ): void {
@@ -321,8 +319,8 @@ export class VortexPongGameScene extends BaseScene {
     if (vx === undefined || vy === undefined) {
       const angle = (Math.random() - 0.5) * 1.2;
       const dir = Math.random() < 0.5 ? 1 : -1;
-      vx = Math.cos(angle) * BALL.INITIAL_SPEED * dir;
-      vy = Math.sin(angle) * BALL.INITIAL_SPEED;
+      vx = Math.cos(angle) * GAME_CONFIG.BALL.INITIAL_SPEED * dir;
+      vy = Math.sin(angle) * GAME_CONFIG.BALL.INITIAL_SPEED;
     }
 
     this.balls.push({ sprite, vx, vy });
@@ -330,8 +328,8 @@ export class VortexPongGameScene extends BaseScene {
 
   private getSpeedMultiplier(): number {
     if (this.isSlowBall) return 0.6;
-    const ramp = 1 + this.timeSinceLastGoal * BALL.SPEED_RAMP_PER_SECOND;
-    return Math.min(BALL.MAX_SPEED / BALL.INITIAL_SPEED, ramp);
+    const ramp = 1 + this.timeSinceLastGoal * GAME_CONFIG.BALL.SPEED_RAMP_PER_SECOND;
+    return Math.min(GAME_CONFIG.BALL.MAX_SPEED / GAME_CONFIG.BALL.INITIAL_SPEED, ramp);
   }
 
   private updateBalls(dt: number): void {
@@ -342,16 +340,16 @@ export class VortexPongGameScene extends BaseScene {
       ball.sprite.y += ball.vy * multiplier * dt;
 
       // Top/bottom wall bounce
-      if (ball.sprite.y - BALL.RADIUS <= 0) {
-        ball.sprite.y = BALL.RADIUS;
+      if (ball.sprite.y - GAME_CONFIG.BALL.RADIUS <= 0) {
+        ball.sprite.y = GAME_CONFIG.BALL.RADIUS;
         ball.vy = Math.abs(ball.vy);
         this.playSound('pongBounce');
-        this.cameras.main.shake(SHAKE.WALL.duration, SHAKE.WALL.intensity);
-      } else if (ball.sprite.y + BALL.RADIUS >= HEIGHT) {
-        ball.sprite.y = HEIGHT - BALL.RADIUS;
+        this.cameras.main.shake(GAME_CONFIG.SHAKE.WALL.duration, GAME_CONFIG.SHAKE.WALL.intensity);
+      } else if (ball.sprite.y + GAME_CONFIG.BALL.RADIUS >= GAME_CONFIG.HEIGHT) {
+        ball.sprite.y = GAME_CONFIG.HEIGHT - GAME_CONFIG.BALL.RADIUS;
         ball.vy = -Math.abs(ball.vy);
         this.playSound('pongBounce');
-        this.cameras.main.shake(SHAKE.WALL.duration, SHAKE.WALL.intensity);
+        this.cameras.main.shake(GAME_CONFIG.SHAKE.WALL.duration, GAME_CONFIG.SHAKE.WALL.intensity);
       }
     }
   }
@@ -362,7 +360,7 @@ export class VortexPongGameScene extends BaseScene {
     for (const ball of this.balls) {
       if (this.ballHitsPaddle(ball, this.playerPaddle, this.currentPaddleHeight)) {
         this.onPlayerPaddleHit(ball);
-      } else if (this.ballHitsPaddle(ball, this.aiPaddle, PADDLE.HEIGHT)) {
+      } else if (this.ballHitsPaddle(ball, this.aiPaddle, GAME_CONFIG.PADDLE.HEIGHT)) {
         this.onAIPaddleHit(ball);
       }
     }
@@ -375,12 +373,12 @@ export class VortexPongGameScene extends BaseScene {
   ): boolean {
     const bx = ball.sprite.x;
     const by = ball.sprite.y;
-    const px = paddle.x - PADDLE.WIDTH / 2;
+    const px = paddle.x - GAME_CONFIG.PADDLE.WIDTH / 2;
     const py = paddle.y - paddleHeight / 2;
 
     return (
-      bx - BALL.RADIUS <= px + PADDLE.WIDTH &&
-      bx + BALL.RADIUS >= px &&
+      bx - GAME_CONFIG.BALL.RADIUS <= px + GAME_CONFIG.PADDLE.WIDTH &&
+      bx + GAME_CONFIG.BALL.RADIUS >= px &&
       by >= py &&
       by <= py + paddleHeight
     );
@@ -390,25 +388,25 @@ export class VortexPongGameScene extends BaseScene {
     const paddleCenter = this.playerPaddle.y;
     const relativeIntersect = (paddleCenter - ball.sprite.y) / (this.currentPaddleHeight / 2);
     const normalized = clamp(relativeIntersect, -1, 1);
-    const bounceAngle = normalized * BALL.MAX_BOUNCE_ANGLE;
+    const bounceAngle = normalized * GAME_CONFIG.BALL.MAX_BOUNCE_ANGLE;
 
-    ball.vx = Math.cos(bounceAngle) * BALL.INITIAL_SPEED;
-    ball.vy = -Math.sin(bounceAngle) * BALL.INITIAL_SPEED;
-    ball.vy += this.playerPaddleVelocity * BALL.SPIN_TRANSFER;
+    ball.vx = Math.cos(bounceAngle) * GAME_CONFIG.BALL.INITIAL_SPEED;
+    ball.vy = -Math.sin(bounceAngle) * GAME_CONFIG.BALL.INITIAL_SPEED;
+    ball.vy += this.playerPaddleVelocity * GAME_CONFIG.BALL.SPIN_TRANSFER;
 
     // Push ball out of paddle to prevent repeat collisions
-    ball.sprite.x = this.playerPaddle.x + PADDLE.WIDTH / 2 + BALL.RADIUS + 1;
+    ball.sprite.x = this.playerPaddle.x + GAME_CONFIG.PADDLE.WIDTH / 2 + GAME_CONFIG.BALL.RADIUS + 1;
 
     this.combo++;
     this.lastPaddleHit = 'player';
-    this.aiDifficulty = Math.min(AI.MAX_DIFFICULTY, this.aiDifficulty + AI.DIFFICULTY_INCREMENT);
+    this.aiDifficulty = Math.min(GAME_CONFIG.AI.MAX_DIFFICULTY, this.aiDifficulty + GAME_CONFIG.AI.DIFFICULTY_INCREMENT);
 
     // Rally tracking
     this.rallyCount++;
     this.maxRally = Math.max(this.maxRally, this.rallyCount);
 
     this.playSound('pongBounce');
-    this.cameras.main.shake(SHAKE.PLAYER_HIT.duration, SHAKE.PLAYER_HIT.intensity);
+    this.cameras.main.shake(GAME_CONFIG.SHAKE.PLAYER_HIT.duration, GAME_CONFIG.SHAKE.PLAYER_HIT.intensity);
     this.addImpactEffect(ball.sprite.x, ball.sprite.y, 10);
 
     // Achievements
@@ -418,20 +416,20 @@ export class VortexPongGameScene extends BaseScene {
 
   private onAIPaddleHit(ball: PongBall): void {
     const paddleCenter = this.aiPaddle.y;
-    const relativeIntersect = (paddleCenter - ball.sprite.y) / (PADDLE.HEIGHT / 2);
+    const relativeIntersect = (paddleCenter - ball.sprite.y) / (GAME_CONFIG.PADDLE.HEIGHT / 2);
     const normalized = clamp(relativeIntersect, -1, 1);
-    const bounceAngle = normalized * BALL.MAX_BOUNCE_ANGLE;
+    const bounceAngle = normalized * GAME_CONFIG.BALL.MAX_BOUNCE_ANGLE;
 
-    ball.vx = -Math.cos(bounceAngle) * BALL.INITIAL_SPEED;
-    ball.vy = -Math.sin(bounceAngle) * BALL.INITIAL_SPEED;
+    ball.vx = -Math.cos(bounceAngle) * GAME_CONFIG.BALL.INITIAL_SPEED;
+    ball.vy = -Math.sin(bounceAngle) * GAME_CONFIG.BALL.INITIAL_SPEED;
 
     // Push ball out of paddle
-    ball.sprite.x = this.aiPaddle.x - PADDLE.WIDTH / 2 - BALL.RADIUS - 1;
+    ball.sprite.x = this.aiPaddle.x - GAME_CONFIG.PADDLE.WIDTH / 2 - GAME_CONFIG.BALL.RADIUS - 1;
 
     this.lastPaddleHit = 'ai';
 
     this.playSound('pongBounce');
-    this.cameras.main.shake(SHAKE.AI_HIT.duration, SHAKE.AI_HIT.intensity);
+    this.cameras.main.shake(GAME_CONFIG.SHAKE.AI_HIT.duration, GAME_CONFIG.SHAKE.AI_HIT.intensity);
     this.addImpactEffect(ball.sprite.x, ball.sprite.y, 8);
   }
 
@@ -441,20 +439,20 @@ export class VortexPongGameScene extends BaseScene {
     const toRemove: PongBall[] = [];
 
     for (const ball of this.balls) {
-      if (ball.sprite.x + BALL.RADIUS < 0) {
+      if (ball.sprite.x + GAME_CONFIG.BALL.RADIUS < 0) {
         // Ball exits left — AI scores
         this.aiScore += this.scoreMultiplier;
         this.playSound('hit');
         this.addImpactEffect(0, ball.sprite.y, 20);
         toRemove.push(ball);
-      } else if (ball.sprite.x - BALL.RADIUS > WIDTH) {
+      } else if (ball.sprite.x - GAME_CONFIG.BALL.RADIUS > GAME_CONFIG.WIDTH) {
         // Ball exits right — Player scores
         const comboBonus = this.scoreMultiplier === 1 ? Math.floor(this.combo / 3) : 0;
         this.playerScore += this.scoreMultiplier + comboBonus;
 
         if (comboBonus > 0) this.playSound('combo');
         this.playSound('score');
-        this.addImpactEffect(WIDTH, ball.sprite.y, 20);
+        this.addImpactEffect(GAME_CONFIG.WIDTH, ball.sprite.y, 20);
 
         if (!this.hasFirstPoint) {
           this.hasFirstPoint = true;
@@ -477,7 +475,7 @@ export class VortexPongGameScene extends BaseScene {
       this.rallyCount = 0;
       this.timeSinceLastGoal = 0;
 
-      this.cameras.main.shake(SHAKE.GOAL.duration, SHAKE.GOAL.intensity);
+      this.cameras.main.shake(GAME_CONFIG.SHAKE.GOAL.duration, GAME_CONFIG.SHAKE.GOAL.intensity);
       this.updateScoreDisplay();
 
       if (this.checkWinCondition(ballCountBeforeRemoval)) return;
@@ -490,7 +488,7 @@ export class VortexPongGameScene extends BaseScene {
   }
 
   private checkWinCondition(ballCountBeforeRemoval: number): boolean {
-    if (this.playerScore >= WIN_SCORE) {
+    if (this.playerScore >= GAME_CONFIG.WIN_SCORE) {
       this.unlockAchievement(ACHIEVEMENTS.BEAT_AI);
       if (this.aiScore === 0) {
         this.unlockAchievement(ACHIEVEMENTS.PERFECT_GAME);
@@ -499,7 +497,7 @@ export class VortexPongGameScene extends BaseScene {
         this.unlockAchievement(ACHIEVEMENTS.MULTI_BALL);
       }
       this.playSound('levelUp');
-      this.cameras.main.shake(SHAKE.GAME_OVER.duration, SHAKE.GAME_OVER.intensity);
+      this.cameras.main.shake(GAME_CONFIG.SHAKE.GAME_OVER.duration, GAME_CONFIG.SHAKE.GAME_OVER.intensity);
       this.reportScore(this.playerScore);
       this.time.delayedCall(600, () => {
         this.gameOver(this.playerScore, 'YOU WIN!');
@@ -507,11 +505,11 @@ export class VortexPongGameScene extends BaseScene {
       return true;
     }
 
-    if (this.aiScore >= WIN_SCORE) {
+    if (this.aiScore >= GAME_CONFIG.WIN_SCORE) {
       if (ballCountBeforeRemoval >= 3) {
         this.unlockAchievement(ACHIEVEMENTS.MULTI_BALL);
       }
-      this.cameras.main.shake(SHAKE.GAME_OVER.duration, SHAKE.GAME_OVER.intensity);
+      this.cameras.main.shake(GAME_CONFIG.SHAKE.GAME_OVER.duration, GAME_CONFIG.SHAKE.GAME_OVER.intensity);
       this.reportScore(this.playerScore);
       this.time.delayedCall(600, () => {
         this.gameOver(this.playerScore, 'AI WINS');
@@ -527,8 +525,8 @@ export class VortexPongGameScene extends BaseScene {
   private getPowerUpInterval(): number {
     const totalScore = this.playerScore + this.aiScore;
     return Math.max(
-      POWERUP.MIN_INTERVAL,
-      POWERUP.BASE_INTERVAL - totalScore * POWERUP.INTERVAL_REDUCTION,
+      GAME_CONFIG.POWERUP.MIN_INTERVAL,
+      GAME_CONFIG.POWERUP.BASE_INTERVAL - totalScore * GAME_CONFIG.POWERUP.INTERVAL_REDUCTION,
     );
   }
 
@@ -547,13 +545,13 @@ export class VortexPongGameScene extends BaseScene {
   }
 
   private spawnPowerUp(): void {
-    if (this.fieldPowerUps.length >= POWERUP.MAX_ON_FIELD) return;
+    if (this.fieldPowerUps.length >= GAME_CONFIG.POWERUP.MAX_ON_FIELD) return;
 
     const types: PowerUpType[] = ['bigger_paddle', 'slower_ball', 'score_multiplier', 'multi_ball'];
     const type = types[Math.floor(Math.random() * types.length)];
 
-    const x = POWERUP.SPAWN_MARGIN.x + Math.random() * (WIDTH - POWERUP.SPAWN_MARGIN.x * 2);
-    const y = POWERUP.SPAWN_MARGIN.y + Math.random() * (HEIGHT - POWERUP.SPAWN_MARGIN.y * 2);
+    const x = GAME_CONFIG.POWERUP.SPAWN_MARGIN.x + Math.random() * (GAME_CONFIG.WIDTH - GAME_CONFIG.POWERUP.SPAWN_MARGIN.x * 2);
+    const y = GAME_CONFIG.POWERUP.SPAWN_MARGIN.y + Math.random() * (GAME_CONFIG.HEIGHT - GAME_CONFIG.POWERUP.SPAWN_MARGIN.y * 2);
 
     const sprite = this.add.sprite(x, y, `powerup_${type}`);
     sprite.setAlpha(0);
@@ -580,7 +578,7 @@ export class VortexPongGameScene extends BaseScene {
         const dx = ball.sprite.x - pu.sprite.x;
         const dy = ball.sprite.y - pu.sprite.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < POWERUP.COLLISION_RADIUS + BALL.RADIUS) {
+        if (dist < GAME_CONFIG.POWERUP.COLLISION_RADIUS + GAME_CONFIG.BALL.RADIUS) {
           toCollect.push(pu);
           break;
         }
@@ -615,7 +613,7 @@ export class VortexPongGameScene extends BaseScene {
     // Apply effect
     switch (type) {
       case 'bigger_paddle':
-        this.resizePlayerPaddle(PADDLE.HEIGHT * PADDLE.BIGGER_MULTIPLIER);
+        this.resizePlayerPaddle(GAME_CONFIG.PADDLE.HEIGHT * GAME_CONFIG.PADDLE.BIGGER_MULTIPLIER);
         break;
       case 'slower_ball':
         this.isSlowBall = true;
@@ -625,13 +623,13 @@ export class VortexPongGameScene extends BaseScene {
         break;
       case 'multi_ball':
         this.spawnMultiBalls();
-        this.cameras.main.shake(SHAKE.MULTI_BALL.duration, SHAKE.MULTI_BALL.intensity);
+        this.cameras.main.shake(GAME_CONFIG.SHAKE.MULTI_BALL.duration, GAME_CONFIG.SHAKE.MULTI_BALL.intensity);
         break;
     }
 
     // Set expiry timer (except multi_ball which is instant)
     if (type !== 'multi_ball') {
-      const timer = this.time.delayedCall(POWERUP.DURATION, () => {
+      const timer = this.time.delayedCall(GAME_CONFIG.POWERUP.DURATION, () => {
         this.deactivatePowerUp(type);
       });
       this.activePowerUps.set(type, timer);
@@ -645,7 +643,7 @@ export class VortexPongGameScene extends BaseScene {
 
     switch (type) {
       case 'bigger_paddle':
-        this.resizePlayerPaddle(PADDLE.HEIGHT);
+        this.resizePlayerPaddle(GAME_CONFIG.PADDLE.HEIGHT);
         break;
       case 'slower_ball':
         this.isSlowBall = false;
@@ -661,11 +659,11 @@ export class VortexPongGameScene extends BaseScene {
   private spawnMultiBalls(): void {
     const count = Math.min(2, 3 - this.balls.length);
     for (let i = 0; i < count; i++) {
-      const x = WIDTH / 2 + (Math.random() - 0.5) * 200;
-      const y = HEIGHT / 2 + (Math.random() - 0.5) * 200;
+      const x = GAME_CONFIG.WIDTH / 2 + (Math.random() - 0.5) * 200;
+      const y = GAME_CONFIG.HEIGHT / 2 + (Math.random() - 0.5) * 200;
       const dir = Math.random() < 0.5 ? 1 : -1;
-      const vx = dir * (BALL.INITIAL_SPEED + Math.random() * 120);
-      const vy = (Math.random() - 0.5) * BALL.INITIAL_SPEED * 1.5;
+      const vx = dir * (GAME_CONFIG.BALL.INITIAL_SPEED + Math.random() * 120);
+      const vy = (Math.random() - 0.5) * GAME_CONFIG.BALL.INITIAL_SPEED * 1.5;
       this.spawnBall(x, y, vx, vy);
       this.addImpactEffect(x, y, 15);
     }
@@ -715,13 +713,13 @@ export class VortexPongGameScene extends BaseScene {
   // ── UI ────────────────────────────��──────────────────────────
 
   private createUI(): void {
-    this.playerScoreText = this.createMatrixText(WIDTH * 0.25, 30, '0', 32);
+    this.playerScoreText = this.createMatrixText(GAME_CONFIG.WIDTH * 0.25, 30, '0', 32);
     this.playerScoreText.setAlpha(0.8);
 
-    this.aiScoreText = this.createMatrixText(WIDTH * 0.75, 30, '0', 32);
+    this.aiScoreText = this.createMatrixText(GAME_CONFIG.WIDTH * 0.75, 30, '0', 32);
     this.aiScoreText.setAlpha(0.8);
 
-    this.comboText = this.createMatrixText(WIDTH / 2, 60, '', 14, MATRIX_COLORS.YELLOW_HEX);
+    this.comboText = this.createMatrixText(GAME_CONFIG.WIDTH / 2, 60, '', 14, MATRIX_COLORS.YELLOW_HEX);
     this.comboText.setAlpha(0);
   }
 
@@ -746,7 +744,7 @@ export class VortexPongGameScene extends BaseScene {
       const def = POWERUP_DEFS[type];
       const text = this.add.text(
         10,
-        HEIGHT - 20 - idx * 18,
+        GAME_CONFIG.HEIGHT - 20 - idx * 18,
         def.label,
         {
           fontFamily: '"Press Start 2P", monospace',

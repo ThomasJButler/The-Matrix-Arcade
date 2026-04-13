@@ -25,6 +25,7 @@ export interface GameOverData {
 }
 
 export class GameOverScene extends BaseScene {
+  protected override allowPause = false;
   protected finalScore = 0;
   protected highScore = 0;
   protected reason?: string;

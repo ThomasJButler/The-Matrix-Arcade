@@ -15,11 +15,9 @@ import {
   type PowerUpType,
 } from '../config';
 
-const C = GAME_CONFIG;
-
 export class MatrixInvadersGameScene extends BaseScene {
   private player!: Phaser.GameObjects.Sprite;
-  private playerHealth = C.PLAYER_MAX_HEALTH;
+  private playerHealth = GAME_CONFIG.PLAYER_MAX_HEALTH;
   private isInvulnerable = false;
   private shieldActive = false;
 
@@ -96,7 +94,7 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.score = 0;
     this.wave = 1;
     this.combo = 0;
-    this.playerHealth = C.PLAYER_MAX_HEALTH;
+    this.playerHealth = GAME_CONFIG.PLAYER_MAX_HEALTH;
     this.isInvulnerable = false;
     this.shieldActive = false;
     this.bulletTimeActive = false;
@@ -124,9 +122,9 @@ export class MatrixInvadersGameScene extends BaseScene {
 
   private createPlayer(): void {
     const key = this._spriteMode ? 'sprite_player' : 'player';
-    this.player = this.add.sprite(C.WIDTH / 2, C.HEIGHT - C.PLAYER_Y_OFFSET, key);
+    this.player = this.add.sprite(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT - GAME_CONFIG.PLAYER_Y_OFFSET, key);
     if (this._spriteMode) {
-      this.player.setDisplaySize(C.PLAYER_WIDTH, C.PLAYER_HEIGHT);
+      this.player.setDisplaySize(GAME_CONFIG.PLAYER_WIDTH, GAME_CONFIG.PLAYER_HEIGHT);
     }
   }
 
@@ -140,27 +138,27 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.comboText = this.createMatrixText(10, 48, '', 10, MATRIX_COLORS.CYAN_HEX);
     this.comboText.setOrigin(0, 0);
 
-    this.highScoreText = this.createMatrixText(C.WIDTH - 10, 12, 'HI: 0', 10);
+    this.highScoreText = this.createMatrixText(GAME_CONFIG.WIDTH - 10, 12, 'HI: 0', 10);
     this.highScoreText.setOrigin(1, 0);
 
-    this.healthLabel = this.createMatrixText(C.WIDTH - 210, 30, 'HEALTH', 8);
+    this.healthLabel = this.createMatrixText(GAME_CONFIG.WIDTH - 210, 30, 'HEALTH', 8);
     this.healthLabel.setOrigin(0, 0);
 
     this.healthBarBg = this.add.graphics();
     this.healthBarFill = this.add.graphics();
 
     this.bulletTimeText = this.createMatrixText(
-      C.WIDTH / 2, C.HEIGHT * 0.45, 'BULLET TIME ACTIVE', 12, MATRIX_COLORS.MAGENTA_HEX
+      GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT * 0.45, 'BULLET TIME ACTIVE', 12, MATRIX_COLORS.MAGENTA_HEX
     );
     this.bulletTimeText.setVisible(false);
     this.bulletTimeText.setDepth(100);
 
-    this.waveCompleteText = this.createMatrixText(C.WIDTH / 2, C.HEIGHT * 0.4, '', 12);
+    this.waveCompleteText = this.createMatrixText(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT * 0.4, '', 12);
     this.waveCompleteText.setVisible(false);
     this.waveCompleteText.setDepth(100);
 
     this.bossWarningText = this.createMatrixText(
-      C.WIDTH / 2, C.HEIGHT * 0.3, 'BOSS INCOMING', 16, MATRIX_COLORS.MAGENTA_HEX
+      GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT * 0.3, 'BOSS INCOMING', 16, MATRIX_COLORS.MAGENTA_HEX
     );
     this.bossWarningText.setVisible(false);
     this.bossWarningText.setDepth(100);
@@ -184,7 +182,7 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.updateMatrixRain(this.matrixRainGroup, delta);
 
     const dt = delta / 1000;
-    const timeScale = this.bulletTimeActive ? C.BULLET_TIME_SCALE : 1.0;
+    const timeScale = this.bulletTimeActive ? GAME_CONFIG.BULLET_TIME_SCALE : 1.0;
     const scaledDt = dt * timeScale;
 
     this.handleMovement(scaledDt);
@@ -217,7 +215,7 @@ export class MatrixInvadersGameScene extends BaseScene {
   // -- Movement --
 
   private handleMovement(dt: number): void {
-    const speed = C.PLAYER_SPEED * dt;
+    const speed = GAME_CONFIG.PLAYER_SPEED * dt;
     let dx = 0;
 
     if (this.cursors?.left.isDown || this.wasdA?.isDown) dx -= speed;
@@ -225,8 +223,8 @@ export class MatrixInvadersGameScene extends BaseScene {
 
     this.player.x = Phaser.Math.Clamp(
       this.player.x + dx,
-      C.PLAYER_WIDTH / 2,
-      C.WIDTH - C.PLAYER_WIDTH / 2
+      GAME_CONFIG.PLAYER_WIDTH / 2,
+      GAME_CONFIG.WIDTH - GAME_CONFIG.PLAYER_WIDTH / 2
     );
   }
 
@@ -235,7 +233,7 @@ export class MatrixInvadersGameScene extends BaseScene {
   private handleShooting(time: number): void {
     if (!this.spaceKey?.isDown) return;
 
-    const cooldown = this.rapidFireActive ? C.RAPID_FIRE_COOLDOWN : C.FIRE_COOLDOWN;
+    const cooldown = this.rapidFireActive ? GAME_CONFIG.RAPID_FIRE_COOLDOWN : GAME_CONFIG.FIRE_COOLDOWN;
     if (time - this.lastFireTime < cooldown) return;
     this.lastFireTime = time;
 
@@ -244,18 +242,18 @@ export class MatrixInvadersGameScene extends BaseScene {
     const texKey = this._spriteMode ? 'sprite_bullet_player' : 'bullet_player';
     const img = this.add.image(
       this.player.x,
-      this.player.y - C.PLAYER_HEIGHT / 2,
+      this.player.y - GAME_CONFIG.PLAYER_HEIGHT / 2,
       texKey
     );
     img.setDisplaySize(
-      this._spriteMode ? 8 : C.PLAYER_BULLET_WIDTH,
-      this._spriteMode ? 20 : C.PLAYER_BULLET_HEIGHT
+      this._spriteMode ? 8 : GAME_CONFIG.PLAYER_BULLET_WIDTH,
+      this._spriteMode ? 20 : GAME_CONFIG.PLAYER_BULLET_HEIGHT
     );
     img.setDepth(5);
 
     const bullet: BulletState = {
       sprite: img,
-      vy: -C.PLAYER_BULLET_SPEED,
+      vy: -GAME_CONFIG.PLAYER_BULLET_SPEED,
       damage: 1,
       isPlayer: true,
     };
@@ -271,14 +269,14 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.bulletTimeText.setVisible(true);
     this.playSound(SOUND_KEYS.POWERUP);
 
-    this.time.delayedCall(C.BULLET_TIME_DURATION, () => {
+    this.time.delayedCall(GAME_CONFIG.BULLET_TIME_DURATION, () => {
       this.bulletTimeActive = false;
       this.bulletTimeText.setVisible(false);
     });
   }
 
   private handleEnemyShooting(dt: number): void {
-    const fireChance = C.ENEMY_FIRE_CHANCE * 60;
+    const fireChance = GAME_CONFIG.ENEMY_FIRE_CHANCE * 60;
 
     for (const enemy of this.enemies) {
       if (Math.random() < fireChance * dt) {
@@ -289,15 +287,15 @@ export class MatrixInvadersGameScene extends BaseScene {
           texKey
         );
         img.setDisplaySize(
-          this._spriteMode ? 6 : C.ENEMY_BULLET_WIDTH,
-          this._spriteMode ? 14 : C.ENEMY_BULLET_HEIGHT
+          this._spriteMode ? 6 : GAME_CONFIG.ENEMY_BULLET_WIDTH,
+          this._spriteMode ? 14 : GAME_CONFIG.ENEMY_BULLET_HEIGHT
         );
         img.setDepth(5);
 
         const bullet: BulletState = {
           sprite: img,
-          vy: C.ENEMY_BULLET_SPEED,
-          damage: C.PLAYER_HIT_DAMAGE,
+          vy: GAME_CONFIG.ENEMY_BULLET_SPEED,
+          damage: GAME_CONFIG.PLAYER_HIT_DAMAGE,
           isPlayer: false,
         };
         this.enemyBullets.push(bullet);
@@ -322,7 +320,7 @@ export class MatrixInvadersGameScene extends BaseScene {
     for (let i = this.enemyBullets.length - 1; i >= 0; i--) {
       const b = this.enemyBullets[i];
       b.sprite.y += b.vy * dt;
-      if (b.sprite.y > C.HEIGHT + 10) {
+      if (b.sprite.y > GAME_CONFIG.HEIGHT + 10) {
         b.sprite.destroy();
         this.enemyBullets.splice(i, 1);
       }
@@ -332,28 +330,28 @@ export class MatrixInvadersGameScene extends BaseScene {
   private updateEnemies(dt: number): void {
     if (this.enemies.length === 0) return;
 
-    const waveSpeedFactor = 1 + (this.wave - 1) * C.WAVE_SPEED_BONUS;
-    const totalSlots = C.WAVE_COLS * C.WAVE_ROWS;
+    const waveSpeedFactor = 1 + (this.wave - 1) * GAME_CONFIG.WAVE_SPEED_BONUS;
+    const totalSlots = GAME_CONFIG.WAVE_COLS * GAME_CONFIG.WAVE_ROWS;
     const aliveRatio = Math.min(this.enemies.length / totalSlots, 1);
     const speedBoost = 1 + (1 - aliveRatio) * 0.3;
 
     let shouldReverse = false;
-    const halfW = C.ENEMY_WIDTH / 2;
+    const halfW = GAME_CONFIG.ENEMY_WIDTH / 2;
 
     for (const enemy of this.enemies) {
-      enemy.sprite.x += this.enemyDirection * C.ENEMY_BASE_SPEED *
+      enemy.sprite.x += this.enemyDirection * GAME_CONFIG.ENEMY_BASE_SPEED *
         enemy.speedMultiplier * waveSpeedFactor * speedBoost * dt;
 
-      if (enemy.sprite.x - halfW < 0 || enemy.sprite.x + halfW > C.WIDTH) {
+      if (enemy.sprite.x - halfW < 0 || enemy.sprite.x + halfW > GAME_CONFIG.WIDTH) {
         shouldReverse = true;
-        enemy.sprite.x = Phaser.Math.Clamp(enemy.sprite.x, halfW, C.WIDTH - halfW);
+        enemy.sprite.x = Phaser.Math.Clamp(enemy.sprite.x, halfW, GAME_CONFIG.WIDTH - halfW);
       }
     }
 
     if (shouldReverse) {
       this.enemyDirection *= -1;
       for (const enemy of this.enemies) {
-        enemy.sprite.y += C.ENEMY_DESCENT;
+        enemy.sprite.y += GAME_CONFIG.ENEMY_DESCENT;
       }
     }
   }
@@ -363,13 +361,13 @@ export class MatrixInvadersGameScene extends BaseScene {
 
     this.bossTime += dt;
 
-    const centerX = C.WIDTH / 2;
-    const amplitude = (C.WIDTH - C.BOSS_WIDTH) / 2 - 20;
-    this.boss.sprite.x = centerX + Math.sin(this.bossTime * C.BOSS_SPEED) * amplitude;
+    const centerX = GAME_CONFIG.WIDTH / 2;
+    const amplitude = (GAME_CONFIG.WIDTH - GAME_CONFIG.BOSS_WIDTH) / 2 - 20;
+    this.boss.sprite.x = centerX + Math.sin(this.bossTime * GAME_CONFIG.BOSS_SPEED) * amplitude;
 
     this.drawBossHealthBar();
 
-    const fireChance = C.BOSS_FIRE_CHANCE * 60;
+    const fireChance = GAME_CONFIG.BOSS_FIRE_CHANCE * 60;
     for (const offset of this.boss.barrelOffsets) {
       if (Math.random() < fireChance * dt) {
         const texKey = this._spriteMode ? 'sprite_bullet_enemy' : 'bullet_enemy';
@@ -379,15 +377,15 @@ export class MatrixInvadersGameScene extends BaseScene {
           texKey
         );
         img.setDisplaySize(
-          this._spriteMode ? 8 : C.ENEMY_BULLET_WIDTH + 2,
-          this._spriteMode ? 18 : C.ENEMY_BULLET_HEIGHT + 2
+          this._spriteMode ? 8 : GAME_CONFIG.ENEMY_BULLET_WIDTH + 2,
+          this._spriteMode ? 18 : GAME_CONFIG.ENEMY_BULLET_HEIGHT + 2
         );
         img.setDepth(5);
 
         const bullet: BulletState = {
           sprite: img,
-          vy: C.ENEMY_BULLET_SPEED,
-          damage: C.PLAYER_HIT_DAMAGE,
+          vy: GAME_CONFIG.ENEMY_BULLET_SPEED,
+          damage: GAME_CONFIG.PLAYER_HIT_DAMAGE,
           isPlayer: false,
         };
         this.enemyBullets.push(bullet);
@@ -400,7 +398,7 @@ export class MatrixInvadersGameScene extends BaseScene {
       const p = this.particles[i];
       p.rect.x += p.vx * dt;
       p.rect.y += p.vy * dt;
-      p.life -= C.PARTICLE_DECAY * dt;
+      p.life -= GAME_CONFIG.PARTICLE_DECAY * dt;
       p.rect.setAlpha(Math.max(0, p.life));
 
       if (p.life <= 0) {
@@ -415,7 +413,7 @@ export class MatrixInvadersGameScene extends BaseScene {
       const pu = this.fieldPowerUps[i];
       pu.sprite.y += pu.vy * dt;
 
-      if (pu.sprite.y > C.HEIGHT + 10) {
+      if (pu.sprite.y > GAME_CONFIG.HEIGHT + 10) {
         pu.sprite.destroy();
         this.fieldPowerUps.splice(i, 1);
       }
@@ -438,7 +436,7 @@ export class MatrixInvadersGameScene extends BaseScene {
 
       if (this.boss) {
         if (this.aabbOverlap(
-          bullet.sprite.x, bullet.sprite.y, C.PLAYER_BULLET_WIDTH, C.PLAYER_BULLET_HEIGHT,
+          bullet.sprite.x, bullet.sprite.y, GAME_CONFIG.PLAYER_BULLET_WIDTH, GAME_CONFIG.PLAYER_BULLET_HEIGHT,
           this.boss.sprite.x, this.boss.sprite.y, this.boss.width, this.boss.height
         )) {
           this.hitBoss(bullet.damage);
@@ -453,7 +451,7 @@ export class MatrixInvadersGameScene extends BaseScene {
       for (let ei = this.enemies.length - 1; ei >= 0; ei--) {
         const enemy = this.enemies[ei];
         if (this.aabbOverlap(
-          bullet.sprite.x, bullet.sprite.y, C.PLAYER_BULLET_WIDTH, C.PLAYER_BULLET_HEIGHT,
+          bullet.sprite.x, bullet.sprite.y, GAME_CONFIG.PLAYER_BULLET_WIDTH, GAME_CONFIG.PLAYER_BULLET_HEIGHT,
           enemy.sprite.x, enemy.sprite.y, enemy.width, enemy.height
         )) {
           this.hitEnemy(ei, bullet.damage);
@@ -472,9 +470,9 @@ export class MatrixInvadersGameScene extends BaseScene {
       const bullet = this.enemyBullets[i];
       if (this.aabbOverlap(
         bullet.sprite.x, bullet.sprite.y,
-        C.ENEMY_BULLET_WIDTH + 2, C.ENEMY_BULLET_HEIGHT + 2,
+        GAME_CONFIG.ENEMY_BULLET_WIDTH + 2, GAME_CONFIG.ENEMY_BULLET_HEIGHT + 2,
         this.player.x, this.player.y,
-        C.PLAYER_WIDTH, C.PLAYER_HEIGHT
+        GAME_CONFIG.PLAYER_WIDTH, GAME_CONFIG.PLAYER_HEIGHT
       )) {
         this.hitPlayer();
         bullet.sprite.destroy();
@@ -484,7 +482,7 @@ export class MatrixInvadersGameScene extends BaseScene {
   }
 
   private checkPowerUpCollisions(): void {
-    const pickupDist = (C.PLAYER_WIDTH + C.POWERUP_SIZE) / 2;
+    const pickupDist = (GAME_CONFIG.PLAYER_WIDTH + GAME_CONFIG.POWERUP_SIZE) / 2;
 
     for (let i = this.fieldPowerUps.length - 1; i >= 0; i--) {
       const pu = this.fieldPowerUps[i];
@@ -521,7 +519,7 @@ export class MatrixInvadersGameScene extends BaseScene {
     const y = enemy.sprite.y;
     const def = ENEMY_DEFS[enemy.type];
 
-    const scoreBonus = Math.floor(enemy.value * (1 + this.combo * C.COMBO_MULTIPLIER));
+    const scoreBonus = Math.floor(enemy.value * (1 + this.combo * GAME_CONFIG.COMBO_MULTIPLIER));
     this.score += scoreBonus * (this.scoreMultiplierActive ? 2 : 1);
     this.combo++;
     this.enemiesKilled++;
@@ -536,7 +534,7 @@ export class MatrixInvadersGameScene extends BaseScene {
       this.spawnVirusChildren(x, y);
     }
 
-    if (Math.random() < C.POWERUP_DROP_CHANCE) {
+    if (Math.random() < GAME_CONFIG.POWERUP_DROP_CHANCE) {
       this.spawnPowerUp(x, y);
     }
 
@@ -604,13 +602,13 @@ export class MatrixInvadersGameScene extends BaseScene {
       } else {
         this.player.setTexture('player');
       }
-      this.time.delayedCall(C.INVULNERABLE_DURATION, () => {
+      this.time.delayedCall(GAME_CONFIG.INVULNERABLE_DURATION, () => {
         this.isInvulnerable = false;
       });
       return;
     }
 
-    this.playerHealth -= C.PLAYER_HIT_DAMAGE;
+    this.playerHealth -= GAME_CONFIG.PLAYER_HIT_DAMAGE;
     this.playerHealth = Math.max(0, this.playerHealth);
     this.combo = 0;
     this.waveDamageTaken = true;
@@ -627,13 +625,13 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.isInvulnerable = true;
     const flashEvent = this.time.addEvent({
       delay: 80,
-      repeat: Math.floor(C.INVULNERABLE_DURATION / 80) - 1,
+      repeat: Math.floor(GAME_CONFIG.INVULNERABLE_DURATION / 80) - 1,
       callback: () => {
         if (this.player.active) this.player.setVisible(!this.player.visible);
       },
     });
 
-    this.time.delayedCall(C.INVULNERABLE_DURATION, () => {
+    this.time.delayedCall(GAME_CONFIG.INVULNERABLE_DURATION, () => {
       this.isInvulnerable = false;
       if (this.player.active) this.player.setVisible(true);
       flashEvent.destroy();
@@ -651,18 +649,18 @@ export class MatrixInvadersGameScene extends BaseScene {
       return;
     }
 
-    for (let row = 0; row < C.WAVE_ROWS; row++) {
-      for (let col = 0; col < C.WAVE_COLS; col++) {
+    for (let row = 0; row < GAME_CONFIG.WAVE_ROWS; row++) {
+      for (let col = 0; col < GAME_CONFIG.WAVE_COLS; col++) {
         const type = this.getEnemyType(row);
         const def = ENEMY_DEFS[type];
 
-        const x = C.GRID_START_X + col * C.GRID_COL_SPACING;
-        const y = C.GRID_START_Y + row * C.GRID_ROW_SPACING;
+        const x = GAME_CONFIG.GRID_START_X + col * GAME_CONFIG.GRID_COL_SPACING;
+        const y = GAME_CONFIG.GRID_START_Y + row * GAME_CONFIG.GRID_ROW_SPACING;
 
         const texKey = this._spriteMode ? `sprite_enemy_${type}` : `enemy_${type}`;
         const sprite = this.add.sprite(x, y, texKey);
         sprite.setDepth(3);
-        if (this._spriteMode) sprite.setDisplaySize(C.ENEMY_WIDTH, C.ENEMY_HEIGHT);
+        if (this._spriteMode) sprite.setDisplaySize(GAME_CONFIG.ENEMY_WIDTH, GAME_CONFIG.ENEMY_HEIGHT);
 
         this.enemies.push({
           sprite,
@@ -671,8 +669,8 @@ export class MatrixInvadersGameScene extends BaseScene {
           maxHealth: def.health,
           value: def.value,
           speedMultiplier: def.speedMultiplier,
-          width: C.ENEMY_WIDTH,
-          height: C.ENEMY_HEIGHT,
+          width: GAME_CONFIG.ENEMY_WIDTH,
+          height: GAME_CONFIG.ENEMY_HEIGHT,
         });
       }
     }
@@ -703,10 +701,10 @@ export class MatrixInvadersGameScene extends BaseScene {
       this.bossSpawning = false;
 
       const encounter = this.wave / 5;
-      const health = C.BOSS_BASE_HEALTH + (encounter - 1) * C.BOSS_HEALTH_PER_ENCOUNTER;
-      const value = C.BOSS_BASE_VALUE * encounter;
+      const health = GAME_CONFIG.BOSS_BASE_HEALTH + (encounter - 1) * GAME_CONFIG.BOSS_HEALTH_PER_ENCOUNTER;
+      const value = GAME_CONFIG.BOSS_BASE_VALUE * encounter;
 
-      const sprite = this.add.sprite(C.WIDTH / 2, C.BOSS_Y, 'boss');
+      const sprite = this.add.sprite(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.BOSS_Y, 'boss');
       sprite.setDepth(3);
       const healthBg = this.add.graphics();
       healthBg.setDepth(10);
@@ -720,8 +718,8 @@ export class MatrixInvadersGameScene extends BaseScene {
         health,
         maxHealth: health,
         value,
-        width: C.BOSS_WIDTH,
-        height: C.BOSS_HEIGHT,
+        width: GAME_CONFIG.BOSS_WIDTH,
+        height: GAME_CONFIG.BOSS_HEIGHT,
         barrelOffsets: [-30, 0, 30],
       };
 
@@ -770,10 +768,10 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.waveCompleteText.setVisible(true);
     this.playSound(SOUND_KEYS.LEVEL_UP);
 
-    this.playerHealth = C.PLAYER_MAX_HEALTH;
+    this.playerHealth = GAME_CONFIG.PLAYER_MAX_HEALTH;
     this.clearAllBullets();
 
-    this.time.delayedCall(C.WAVE_DELAY, () => {
+    this.time.delayedCall(GAME_CONFIG.WAVE_DELAY, () => {
       this.waveCompleteText.setVisible(false);
       this.wave++;
       this.isBossWave = false;
@@ -785,7 +783,7 @@ export class MatrixInvadersGameScene extends BaseScene {
   private checkGameOverConditions(): void {
     if (this.isGameOver || this.waveTransitioning) return;
 
-    const playerTopY = this.player.y - C.PLAYER_HEIGHT / 2;
+    const playerTopY = this.player.y - GAME_CONFIG.PLAYER_HEIGHT / 2;
     for (const enemy of this.enemies) {
       if (enemy.sprite.y + enemy.height / 2 >= playerTopY) {
         this.handleGameOver();
@@ -825,7 +823,7 @@ export class MatrixInvadersGameScene extends BaseScene {
       repeat: -1,
     });
 
-    this.fieldPowerUps.push({ sprite, type, vy: C.POWERUP_FALL_SPEED });
+    this.fieldPowerUps.push({ sprite, type, vy: GAME_CONFIG.POWERUP_FALL_SPEED });
   }
 
   private activatePowerUp(type: PowerUpType): void {
@@ -886,10 +884,10 @@ export class MatrixInvadersGameScene extends BaseScene {
 
   // -- Effects --
 
-  private spawnExplosion(x: number, y: number, color: number, count: number = C.PARTICLE_COUNT): void {
+  private spawnExplosion(x: number, y: number, color: number, count: number = GAME_CONFIG.PARTICLE_COUNT): void {
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2;
-      const speed = C.PARTICLE_SPEED_MIN + Math.random() * (C.PARTICLE_SPEED_MAX - C.PARTICLE_SPEED_MIN);
+      const speed = GAME_CONFIG.PARTICLE_SPEED_MIN + Math.random() * (GAME_CONFIG.PARTICLE_SPEED_MAX - GAME_CONFIG.PARTICLE_SPEED_MIN);
       const size = 2 + Math.random() * 4;
 
       const rect = this.add.rectangle(x, y, size, size, color);
@@ -910,16 +908,16 @@ export class MatrixInvadersGameScene extends BaseScene {
     for (const offsetX of [-20, 20]) {
       const sprite = this.add.sprite(x + offsetX, y, texKey);
       sprite.setDepth(3);
-      if (this._spriteMode) sprite.setDisplaySize(C.ENEMY_WIDTH, C.ENEMY_HEIGHT);
+      if (this._spriteMode) sprite.setDisplaySize(GAME_CONFIG.ENEMY_WIDTH, GAME_CONFIG.ENEMY_HEIGHT);
       this.enemies.push({
         sprite,
         type: 'code',
         health: 1,
         maxHealth: 1,
-        value: C.VIRUS_CHILD_VALUE,
+        value: GAME_CONFIG.VIRUS_CHILD_VALUE,
         speedMultiplier: ENEMY_DEFS.code.speedMultiplier,
-        width: C.ENEMY_WIDTH,
-        height: C.ENEMY_HEIGHT,
+        width: GAME_CONFIG.ENEMY_WIDTH,
+        height: GAME_CONFIG.ENEMY_HEIGHT,
       });
     }
   }
@@ -946,11 +944,11 @@ export class MatrixInvadersGameScene extends BaseScene {
   }
 
   private drawHealthBar(time: number): void {
-    const barX = C.WIDTH - 210;
+    const barX = GAME_CONFIG.WIDTH - 210;
     const barY = 42;
     const barW = 200;
     const barH = 10;
-    const healthPct = this.playerHealth / C.PLAYER_MAX_HEALTH;
+    const healthPct = this.playerHealth / GAME_CONFIG.PLAYER_MAX_HEALTH;
 
     let color = MATRIX_COLORS.PRIMARY;
     if (healthPct < 0.25) {

@@ -18,12 +18,6 @@ export class FroggerBootScene extends BootScene {
   preload(): void {
     super.preload();
 
-    // Load player spritesheet (128x64, 2 frames of 64x64) as fallback
-    this.load.spritesheet('player', '/assets/TopView_Robot_Asset_Pack/Player.png', {
-      frameWidth: 64,
-      frameHeight: 64,
-    });
-
     // Load frog pixel art sprites (16x16, scaled to 64x64 in-game)
     this.load.image('frog_idle', '/assets/matrix-frogger/frog_idle.png');
     this.load.image('frog_hop', '/assets/matrix-frogger/frog_hop.png');
@@ -32,23 +26,6 @@ export class FroggerBootScene extends BootScene {
     // Load flower ground tiles for safe zones (16x16 pixel art)
     this.load.image('flower_ground_1', '/assets/matrix-frogger/flower_ground_1.png');
     this.load.image('flower_ground_2', '/assets/matrix-frogger/flower_ground_2.png');
-
-    // Load enemy sprites
-    this.load.image('enemy_agent', '/assets/TopView_Robot_Asset_Pack/EnemyId_10006_origin.png');
-    this.load.image(
-      'enemy_sentinel',
-      '/assets/TopView_Robot_Asset_Pack/EnemyId_140012_origin.png'
-    );
-
-    // Load death animation (512x64, 8 frames of 64x64)
-    this.load.spritesheet(
-      'enemy_death',
-      '/assets/TopView_Robot_Asset_Pack/Animation_Sheet/Enemy_dead_10006.png',
-      {
-        frameWidth: 64,
-        frameHeight: 64,
-      }
-    );
 
     // Load vehicle sprites for road lane variety (16x16 pixel art)
     const vehicleKeys = ['vehicle_car1', 'vehicle_car2', 'vehicle_car3', 'vehicle_truck', 'vehicle_tractor'];
@@ -64,7 +41,7 @@ export class FroggerBootScene extends BootScene {
     this.createPillTextures();
     this.createAbilityTextures();
     this.createVehicleTextures();
-    this.createAnimations();
+    this.createEnemyTextures();
     super.create();
   }
 
@@ -180,32 +157,38 @@ export class FroggerBootScene extends BootScene {
   }
 
   /**
-   * Create sprite animations
+   * Create procedural fallback textures for enemy sprites.
+   * Used when no external sprite sheet is available.
    */
-  private createAnimations(): void {
-    // Player idle animation (frame 0)
-    this.anims.create({
-      key: 'player_idle',
-      frames: [{ key: 'player', frame: 0 }],
-      frameRate: 1,
-      repeat: 0,
-    });
+  private createEnemyTextures(): void {
+    // Agent enemy — red humanoid silhouette
+    if (!this.textures.exists('enemy_agent')) {
+      const agent = this.add.graphics();
+      agent.fillStyle(0xcc0000, 1);
+      agent.fillRect(6, 0, 12, 12);  // head
+      agent.fillRect(4, 12, 16, 18); // body
+      agent.fillRect(2, 30, 8, 14);  // left leg
+      agent.fillRect(14, 30, 8, 14); // right leg
+      agent.fillStyle(0xff4444, 1);
+      agent.fillRect(8, 3, 8, 6);    // face highlight
+      agent.generateTexture('enemy_agent', 24, 44);
+      agent.destroy();
+    }
 
-    // Player hop animation (frame 0 to 1)
-    this.anims.create({
-      key: 'player_hop',
-      frames: this.anims.generateFrameNumbers('player', { start: 0, end: 1 }),
-      frameRate: 8,
-      repeat: 0,
-    });
-
-    // Enemy death animation
-    this.anims.create({
-      key: 'enemy_death',
-      frames: this.anims.generateFrameNumbers('enemy_death', { start: 0, end: 7 }),
-      frameRate: 16,
-      repeat: 0,
-      hideOnComplete: true,
-    });
+    // Sentinel enemy — purple mechanical shape
+    if (!this.textures.exists('enemy_sentinel')) {
+      const sentinel = this.add.graphics();
+      sentinel.fillStyle(0x6600cc, 1);
+      sentinel.fillCircle(16, 12, 10); // body core
+      sentinel.fillStyle(0x9933ff, 1);
+      sentinel.fillCircle(16, 12, 6);  // inner glow
+      sentinel.fillStyle(0x440088, 1);
+      sentinel.fillRect(10, 22, 4, 10); // tentacle 1
+      sentinel.fillRect(18, 22, 4, 10); // tentacle 2
+      sentinel.fillRect(6, 20, 4, 8);   // tentacle 3
+      sentinel.fillRect(22, 20, 4, 8);  // tentacle 4
+      sentinel.generateTexture('enemy_sentinel', 32, 32);
+      sentinel.destroy();
+    }
   }
 }
