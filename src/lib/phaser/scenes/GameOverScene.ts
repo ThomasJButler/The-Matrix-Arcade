@@ -220,26 +220,33 @@ export class GameOverScene extends BaseScene {
    * Set up keyboard input — ENTER, SPACE, and R all restart
    */
   protected setupGameOverInput(): void {
-    if (!this.input.keyboard) {
-      this.time.delayedCall(100, () => this.setupGameOverInput());
-      return;
-    }
+    this.waitForKeyboard(() => {
+      if (!this.input.keyboard) return;
 
-    const enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
-    enterKey.on('down', () => this.restartGame());
+      const enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
+      enterKey.on('down', () => this.restartGame());
 
-    const spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    spaceKey.on('down', () => this.restartGame());
+      const spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+      spaceKey.on('down', () => this.restartGame());
 
-    const rKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
-    rKey.on('down', () => this.restartGame());
+      const rKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+      rKey.on('down', () => this.restartGame());
 
-    // M key navigates to menu (keyboard-only users had no way to reach menu)
-    const mKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M);
-    mKey.on('down', () => {
-      this.playSound('menu');
-      this.goToMenu();
+      // M key navigates to menu (keyboard-only users had no way to reach menu)
+      const mKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M);
+      mKey.on('down', () => {
+        this.playSound('menu');
+        this.goToMenu();
+      });
     });
+  }
+
+  shutdown(): void {
+    this.tweens?.killAll();
+    if (this.input.keyboard) {
+      this.input.keyboard.removeAllKeys(true);
+    }
+    super.shutdown();
   }
 
   /**

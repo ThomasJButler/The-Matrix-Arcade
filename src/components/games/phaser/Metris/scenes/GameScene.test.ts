@@ -93,6 +93,7 @@ function createTestScene(): any {
     now: 1000,
     addEvent: vi.fn().mockReturnValue({ destroy: vi.fn() }),
     delayedCall: vi.fn().mockReturnValue({ destroy: vi.fn() }),
+    removeAllEvents: vi.fn(),
   };
   scene.input = {
     keyboard: { addKey: vi.fn().mockReturnValue({ isDown: false }), removeAllKeys: vi.fn(), on: vi.fn() },

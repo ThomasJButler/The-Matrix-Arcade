@@ -314,15 +314,14 @@ export class CodeBreakerGameScene extends BaseScene {
   // -- Input --
 
   private setupInput(): void {
-    if (!this.input.keyboard) {
-      this.time.delayedCall(100, () => this.setupInput());
-      return;
-    }
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    this.wasdA = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
-    this.wasdD = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
-    this.bulletTimeKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
+    this.waitForKeyboard(() => {
+      if (!this.input.keyboard) return;
+      this.cursors = this.input.keyboard.createCursorKeys();
+      this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+      this.wasdA = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+      this.wasdD = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+      this.bulletTimeKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
+    });
   }
 
   // -- Update loop --
@@ -1245,6 +1244,8 @@ export class CodeBreakerGameScene extends BaseScene {
 
   shutdown(): void {
     this.stopBackgroundMusic();
+    this.time?.removeAllEvents();
+    this.tweens?.killAll();
     for (const b of this.balls) b.sprite.destroy();
     this.balls = [];
     for (const b of this.bricks) b.sprite.destroy();
@@ -1276,5 +1277,6 @@ export class CodeBreakerGameScene extends BaseScene {
     }
 
     this.input.keyboard?.removeAllKeys(true);
+    super.shutdown();
   }
 }

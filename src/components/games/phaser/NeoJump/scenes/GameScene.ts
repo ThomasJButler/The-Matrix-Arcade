@@ -388,18 +388,17 @@ export class NeoJumpGameScene extends BaseScene {
    * Setup input
    */
   private setupInput(): void {
-    if (!this.input.keyboard) {
-      this.time.delayedCall(100, () => this.setupInput());
-      return;
-    }
+    this.waitForKeyboard(() => {
+      if (!this.input.keyboard) return;
 
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    this.wKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
-    this.wasdKeys = {
-      A: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-      D: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
-    };
+      this.cursors = this.input.keyboard.createCursorKeys();
+      this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+      this.wKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
+      this.wasdKeys = {
+        A: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
+        D: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
+      };
+    });
   }
 
   /**
@@ -1223,6 +1222,7 @@ export class NeoJumpGameScene extends BaseScene {
 
   shutdown(): void {
     this.stopBackgroundMusic();
+    this.time?.removeAllEvents();
     // Remove input listeners
     this.input.off('pointerdown');
     if (this.input.keyboard) {
@@ -1266,5 +1266,7 @@ export class NeoJumpGameScene extends BaseScene {
       this.shieldText.destroy();
       this.shieldText = null;
     }
+
+    super.shutdown();
   }
 }

@@ -346,18 +346,17 @@ export class AgentChaseGameScene extends BaseScene {
   }
 
   private setupInput(): void {
-    if (!this.input.keyboard) {
-      this.time.delayedCall(100, () => this.setupInput());
-      return;
-    }
+    this.waitForKeyboard(() => {
+      if (!this.input.keyboard) return;
 
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.wasdKeys = {
-      W: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
-      A: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-      S: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
-      D: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
-    };
+      this.cursors = this.input.keyboard.createCursorKeys();
+      this.wasdKeys = {
+        W: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
+        A: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
+        S: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
+        D: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
+      };
+    });
   }
 
   private handleInput(): void {
@@ -1054,5 +1053,6 @@ export class AgentChaseGameScene extends BaseScene {
     this.livesText.destroy();
     this.levelText.destroy();
     this.mapText.destroy();
+    super.shutdown();
   }
 }

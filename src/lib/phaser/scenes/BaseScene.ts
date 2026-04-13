@@ -28,9 +28,35 @@ export abstract class BaseScene extends Phaser.Scene {
   private pauseOverlayBg?: Phaser.GameObjects.Graphics;
   private pauseOverlayText?: Phaser.GameObjects.Text;
   private pauseOverlayHint?: Phaser.GameObjects.Text;
+  private keyboardRetryCount = 0;
+  private static readonly MAX_KEYBOARD_RETRIES = 10;
+  private static readonly KEYBOARD_RETRY_MS = 50;
 
   constructor(config: string | Phaser.Types.Scenes.SettingsConfig) {
     super(config);
+  }
+
+  /**
+   * Wait for Phaser's keyboard plugin to initialise, then run the callback.
+   * Polls every 50ms up to 10 times (500ms). If polling exhausts, falls back
+   * to the scene's first update tick where the plugin is guaranteed ready.
+   */
+  protected waitForKeyboard(callback: () => void): void {
+    if (this.input.keyboard) {
+      callback();
+      return;
+    }
+
+    this.keyboardRetryCount++;
+    if (this.keyboardRetryCount < BaseScene.MAX_KEYBOARD_RETRIES) {
+      this.time.delayedCall(BaseScene.KEYBOARD_RETRY_MS, () => this.waitForKeyboard(callback));
+    } else {
+      this.events.once('update', () => {
+        if (this.input.keyboard) {
+          callback();
+        }
+      });
+    }
   }
 
   /**
@@ -38,25 +64,45 @@ export abstract class BaseScene extends Phaser.Scene {
    * Sets up keyboard shortcuts and common bindings
    */
   protected setupCommonInputs(): void {
-    if (!this.input.keyboard) {
-      this.time.delayedCall(100, () => this.setupCommonInputs());
-      return;
-    }
+    this.waitForKeyboard(() => this._bindCommonKeys());
+  }
 
-    // ESC - Exit game
+  private _bindCommonKeys(): void {
+    if (!this.input.keyboard) return;
+
     this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.escKey.on('down', () => this.handleExit());
 
-    // P - Pause/unpause (only during gameplay, not on GameOver or Menu scenes)
     this.pauseKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P);
     this.pauseKey.on('down', () => {
       if (!this.allowPause) return;
       this.togglePause();
     });
 
-    // M - Toggle mute
     this.muteKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M);
     this.muteKey.on('down', () => this.toggleMute());
+  }
+
+  /**
+   * Clean up common resources on scene shutdown.
+   * All subclass shutdown() methods should call super.shutdown().
+   */
+  shutdown(): void {
+    this.pauseOverlayBg?.destroy();
+    this.pauseOverlayText?.destroy();
+    this.pauseOverlayHint?.destroy();
+    this.pauseOverlayBg = undefined;
+    this.pauseOverlayText = undefined;
+    this.pauseOverlayHint = undefined;
+    if (this.input?.keyboard) {
+      this.escKey?.destroy();
+      this.pauseKey?.destroy();
+      this.muteKey?.destroy();
+    }
+    this.escKey = undefined;
+    this.pauseKey = undefined;
+    this.muteKey = undefined;
+    this.keyboardRetryCount = 0;
   }
 
   /**

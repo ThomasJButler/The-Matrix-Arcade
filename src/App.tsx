@@ -300,12 +300,14 @@ function App() {
    */
   useEffect(() => {
     const preventDefault = (e: Event) => {
+      if (!isPlaying) return;
+      // When a Phaser game is mounted, never block keyboard events —
+      // Phaser targets `window` so event.target is often document.body,
+      // not the canvas or game container.
+      if (e.type === 'keydown' && document.querySelector('[data-phaser-game]')) return;
       const target = e.target as HTMLElement;
-      // Don't block keyboard events for Phaser games or canvas elements
-      // Guard: target may be document/window in jsdom tests (no .closest)
       const isPhaserGame = typeof target?.closest === 'function' && target.closest('[data-phaser-game]');
       if (
-        isPlaying &&
         !isPhaserGame &&
         target.tagName !== 'INPUT' &&
         target.tagName !== 'TEXTAREA' &&
@@ -590,7 +592,7 @@ function App() {
           <div className="relative w-full h-full">
             <GameErrorBoundary gameName={games[selectedGame].title} onReset={() => setIsPlaying(false)}>
               <Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-black text-green-500 font-mono">Loading...</div>}>
-                <GameComponent achievementManager={achievementManager} isMuted={isMuted} autoStart={true} />
+                <GameComponent achievementManager={achievementManager} isMuted={isMuted} autoStart={true} onExit={() => { setIsPlaying(false); playSFX('menu'); trackPlayTime(); }} />
               </Suspense>
             </GameErrorBoundary>
 
@@ -639,7 +641,7 @@ function App() {
                       {isPlaying && GameComponent ? (
                         <GameErrorBoundary gameName={games[selectedGame].title} onReset={() => setIsPlaying(false)}>
                           <Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-black text-green-500 font-mono">Loading...</div>}>
-                            <GameComponent achievementManager={achievementManager} isMuted={isMuted} autoStart={true} />
+                            <GameComponent achievementManager={achievementManager} isMuted={isMuted} autoStart={true} onExit={() => { setIsPlaying(false); playSFX('menu'); trackPlayTime(); }} />
                           </Suspense>
                         </GameErrorBoundary>
                       ) : (

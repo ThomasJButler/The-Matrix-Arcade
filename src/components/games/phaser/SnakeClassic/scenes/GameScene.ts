@@ -98,6 +98,8 @@ export class SnakeGameScene extends BaseScene {
 
   shutdown(): void {
     this.stopBackgroundMusic();
+    this.time?.removeAllEvents();
+    this.tweens?.killAll();
     this.destroyMoveTimer();
     this.destroyFieldPowerUp();
     this.destroyPowerUpTimers();
@@ -243,16 +245,15 @@ export class SnakeGameScene extends BaseScene {
   // ─── Input ─────────────────────────────────────────────
 
   private setupInput(): void {
-    if (!this.input.keyboard) {
-      this.time.delayedCall(100, () => this.setupInput());
-      return;
-    }
+    this.waitForKeyboard(() => {
+      if (!this.input.keyboard) return;
 
-    this.arrowKeys = this.input.keyboard.createCursorKeys();
-    this.wKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
-    this.aKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
-    this.sKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
-    this.dKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+      this.arrowKeys = this.input.keyboard.createCursorKeys();
+      this.wKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
+      this.aKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+      this.sKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+      this.dKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+    });
   }
 
   private handleInput(): void {

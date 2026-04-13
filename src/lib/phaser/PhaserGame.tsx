@@ -267,9 +267,7 @@ export function PhaserGame({
       {hasEverFocused && !hasFocus && !isHovering && (
         <div
           onClick={handleContainerClick}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); handleContainerClick(); } }}
           role="button"
-          tabIndex={0}
           aria-label="Click to play"
           style={{
             position: 'absolute',

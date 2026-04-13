@@ -135,6 +135,8 @@ export class VortexPongGameScene extends BaseScene {
 
   shutdown(): void {
     this.stopBackgroundMusic();
+    this.time?.removeAllEvents();
+    this.tweens?.killAll();
     this.powerUpTimer?.destroy();
     this.activePowerUps.forEach((timer) => timer.destroy());
     this.activePowerUps.clear();
@@ -147,6 +149,7 @@ export class VortexPongGameScene extends BaseScene {
     this.powerUpIndicators.forEach((t) => t.destroy());
     this.powerUpIndicators = [];
     if (this.input.keyboard) this.input.keyboard.removeAllKeys(true);
+    super.shutdown();
   }
 
   // ── State Reset ──────────────────────────────────────────────
@@ -218,17 +221,16 @@ export class VortexPongGameScene extends BaseScene {
   // ── Input ─────────────────────────────────���──────────────────
 
   private setupInput(): void {
-    if (!this.input.keyboard) {
-      this.time.delayedCall(100, () => this.setupInput());
-      return;
-    }
+    this.waitForKeyboard(() => {
+      if (!this.input.keyboard) return;
 
-    this.upKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
-    this.downKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
-    this.wKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
-    this.sKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
-    this.rKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
-    this.rKey.on('down', () => this.scene.restart());
+      this.upKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
+      this.downKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
+      this.wKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
+      this.sKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+      this.rKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+      this.rKey.on('down', () => this.scene.restart());
+    });
   }
 
   private trackPlayerVelocity(dt: number): void {
