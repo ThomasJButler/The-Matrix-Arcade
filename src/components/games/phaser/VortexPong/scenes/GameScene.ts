@@ -500,7 +500,12 @@ export class VortexPongGameScene extends BaseScene {
       this.cameras.main.shake(GAME_CONFIG.SHAKE.GAME_OVER.duration, GAME_CONFIG.SHAKE.GAME_OVER.intensity);
       this.reportScore(this.playerScore);
       this.time.delayedCall(600, () => {
-        this.gameOver(this.playerScore, 'YOU WIN!');
+        this.gameOver(this.playerScore, 'YOU WIN!', undefined, [
+          { label: 'You', value: this.playerScore },
+          { label: 'AI', value: this.aiScore },
+          { label: 'Best Rally', value: this.maxRally },
+          { label: 'Power-ups', value: this.powerUpsCollected },
+        ]);
       });
       return true;
     }
@@ -512,7 +517,12 @@ export class VortexPongGameScene extends BaseScene {
       this.cameras.main.shake(GAME_CONFIG.SHAKE.GAME_OVER.duration, GAME_CONFIG.SHAKE.GAME_OVER.intensity);
       this.reportScore(this.playerScore);
       this.time.delayedCall(600, () => {
-        this.gameOver(this.playerScore, 'AI WINS');
+        this.gameOver(this.playerScore, 'AI WINS', undefined, [
+          { label: 'You', value: this.playerScore },
+          { label: 'AI', value: this.aiScore },
+          { label: 'Best Rally', value: this.maxRally },
+          { label: 'Power-ups', value: this.powerUpsCollected },
+        ]);
       });
       return true;
     }

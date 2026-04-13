@@ -16,6 +16,7 @@ import {
   MATRIX_COLORS,
   type AchievementManager,
   type GameEvent,
+  type GameOverStat,
 } from '../types';
 
 export abstract class BaseScene extends Phaser.Scene {
@@ -244,7 +245,7 @@ export abstract class BaseScene extends Phaser.Scene {
   /**
    * Transition to game over scene
    */
-  protected gameOver(score: number, reason?: string, highScore?: number): void {
+  protected gameOver(score: number, reason?: string, highScore?: number, stats?: GameOverStat[]): void {
     this.stopBackgroundMusic();
     // Sound is played by PhaserGame.tsx when it receives the gameOver event —
     // do NOT also play here, or the sound fires twice.
@@ -252,7 +253,7 @@ export abstract class BaseScene extends Phaser.Scene {
       type: 'gameOver',
       data: { score, reason },
     });
-    this.scene.start(SCENE_KEYS.GAME_OVER, { score, reason, highScore: highScore ?? score });
+    this.scene.start(SCENE_KEYS.GAME_OVER, { score, reason, highScore: highScore ?? score, stats });
   }
 
   /**

@@ -44,6 +44,12 @@ export interface AchievementEventData {
   achievementId: string;
 }
 
+/** Single stat displayed on the game-over screen */
+export interface GameOverStat {
+  label: string;
+  value: string | number;
+}
+
 /** Game over event data */
 export interface GameOverEventData {
   score: number;

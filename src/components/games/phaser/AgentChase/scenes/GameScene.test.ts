@@ -465,7 +465,7 @@ describe('AgentChaseGameScene', () => {
       scene.lives = 1;
       scene.playerDeath();
 
-      expect(scene.gameOver).toHaveBeenCalledWith(scene.score, expect.stringContaining('Level'));
+      expect(scene.gameOver).toHaveBeenCalledWith(scene.score, expect.stringContaining('Level'), undefined, expect.any(Array));
     });
 
     it('should report final score on game over', () => {
