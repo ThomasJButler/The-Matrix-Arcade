@@ -1,8 +1,9 @@
 /**
  * @author Tom Butler
  * @date 2025-10-25
- * @description Web Audio API sound system with procedural synthesis and ADSR envelopes.
- *              Provides pre-defined sound effects library and MP3 playback support.
+ * @description Web Audio API sound system with procedural synthesis, ADSR envelopes,
+ *              and file-based SFX via AudioBuffer. Pre-loaded Matrix Trilogy audio
+ *              takes priority; procedural synthesis is the fallback.
  */
 
 import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
@@ -330,7 +331,98 @@ const SOUND_LIBRARY: Record<string, SoundEffect> = {
     release: 0.15,
     filterType: 'bandpass',
     filterFreq: 1200
+  },
+
+  // Matrix Frogger (synthesis fallbacks while audio files load)
+  froggerDeath: {
+    type: 'froggerDeath',
+    frequency: { start: 200, end: 80 },
+    oscillatorType: 'triangle',
+    duration: 0.35,
+    attack: 0.01,
+    decay: 0.1,
+    sustain: 0.1,
+    release: 0.2,
+    filterType: 'lowpass',
+    filterFreq: 350
+  },
+  froggerMove: {
+    type: 'froggerMove',
+    frequency: { start: 500, end: 350 },
+    oscillatorType: 'sine',
+    duration: 0.06,
+    attack: 0.005,
+    decay: 0.02,
+    sustain: 0.15,
+    release: 0.03,
+    filterType: 'bandpass',
+    filterFreq: 700
+  },
+  froggerScore: {
+    type: 'froggerScore',
+    frequency: { start: 523, end: 784 },
+    oscillatorType: 'triangle',
+    duration: 0.25,
+    attack: 0.02,
+    decay: 0.08,
+    sustain: 0.35,
+    release: 0.12,
+    filterType: 'bandpass',
+    filterFreq: 1500
+  },
+  froggerPickup: {
+    type: 'froggerPickup',
+    frequency: { start: 659, end: 880 },
+    oscillatorType: 'triangle',
+    duration: 0.2,
+    attack: 0.01,
+    decay: 0.06,
+    sustain: 0.3,
+    release: 0.1,
+    filterType: 'highpass',
+    filterFreq: 500
+  },
+  froggerExtraScore: {
+    type: 'froggerExtraScore',
+    frequency: { start: 784, end: 1047 },
+    oscillatorType: 'triangle',
+    duration: 0.3,
+    attack: 0.03,
+    decay: 0.1,
+    sustain: 0.4,
+    release: 0.15,
+    filterType: 'bandpass',
+    filterFreq: 1800,
+    reverb: true
   }
+};
+
+// Maps sound keys to pre-recorded audio files (Matrix Trilogy SFX kit + per-game audio).
+// Keys present here play the file; keys absent fall back to procedural synthesis above.
+const AUDIO_FILE_MAP: Record<string, string> = {
+  menu: '/assets/audio/sfx/sfx_button_click.mp3',
+  shoot: '/assets/audio/sfx/sfx_laser_gun_1.mp3',
+  hit: '/assets/audio/sfx/sfx_impact_medium.mp3',
+  score: '/assets/audio/sfx/sfx_beeps.mp3',
+  powerup: '/assets/audio/sfx/sfx_charge_ignitor.mp3',
+  powerupBulletTime: '/assets/audio/sfx/sfx_bullet_time.mp3',
+  levelUp: '/assets/audio/sfx/sfx_burst.mp3',
+  gameOver: '/assets/audio/sfx/sfx_explosion_emp.mp3',
+  combo: '/assets/audio/sfx/sfx_impact_small.mp3',
+  jump: '/assets/audio/sfx/sfx_landing.mp3',
+  snakeEat: '/assets/audio/sfx/sfx_matrix_code_1.mp3',
+  terminalType: '/assets/audio/sfx/sfx_matrix_code_2.mp3',
+  matrixRain: '/assets/audio/sfx/sfx_light_flicker.mp3',
+  rhythmMiss: '/assets/audio/sfx/sfx_blown_fuse.mp3',
+  ghostEat: '/assets/audio/sfx/sfx_agent_dies.mp3',
+  pongBounce: '/assets/audio/sfx/sfx_impact_small.mp3',
+
+  // Matrix Frogger game-specific audio
+  froggerDeath: '/assets/matrix-frogger/audio/death.mp3',
+  froggerMove: '/assets/matrix-frogger/audio/move.mp3',
+  froggerScore: '/assets/matrix-frogger/audio/score.mp3',
+  froggerPickup: '/assets/matrix-frogger/audio/frog_pick_up.mp3',
+  froggerExtraScore: '/assets/matrix-frogger/audio/extra_score.mp3',
 };
 
 // Background music sequences using Web Audio synthesis
@@ -370,6 +462,8 @@ export function useSoundSystem() {
   const backgroundMusicRef = useRef<HTMLAudioElement | null>(null);
   const reverbRef = useRef<ConvolverNode | null>(null);
   const preMuteConfigRef = useRef<{ music: boolean; sfx: boolean } | null>(null);
+  const audioBufferCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
+  const preloadingRef = useRef(false);
 
   // Create reverb impulse response
   const createReverbBuffer = useCallback((
@@ -433,6 +527,12 @@ export function useSoundSystem() {
       convolver.buffer = reverbBuffer;
       reverbRef.current = convolver;
 
+      // Preload audio file SFX in the background
+      if (!preloadingRef.current) {
+        preloadingRef.current = true;
+        preloadAudioFiles(audioContext);
+      }
+
       return audioContext;
     } catch (error) {
       if (import.meta.env.DEV) {
@@ -443,20 +543,69 @@ export function useSoundSystem() {
     }
   }, [config.masterVolume, config.musicVolume, config.sfxVolume, createReverbBuffer]);
 
-  // Play sound effect
+  // Preload all mapped audio files into AudioBuffer cache
+  const preloadAudioFiles = useCallback((audioContext: AudioContext) => {
+    const uniqueUrls = new Set(Object.values(AUDIO_FILE_MAP));
+    for (const url of uniqueUrls) {
+      fetch(url)
+        .then(res => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.arrayBuffer();
+        })
+        .then(data => audioContext.decodeAudioData(data))
+        .then(buffer => {
+          audioBufferCacheRef.current.set(url, buffer);
+        })
+        .catch(() => {
+          // File not available — synthesis fallback will handle it
+        });
+    }
+  }, []);
+
+  // Play a cached AudioBuffer through the SFX gain chain
+  const playAudioBuffer = useCallback((
+    audioContext: AudioContext,
+    buffer: AudioBuffer,
+    sfxGain: GainNode
+  ) => {
+    const source = audioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(sfxGain);
+    source.start(0);
+  }, []);
+
+  // Play sound effect — uses pre-loaded audio file when available, procedural synthesis as fallback
   const playSFX = useCallback(async (soundType: string, customConfig?: Partial<SoundEffect>) => {
     if (!config.sfx) return;
 
     const audioContext = await initializeAudio();
     if (!audioContext || !sfxGainRef.current) return;
 
-    const soundConfig = customConfig 
+    // Prefer pre-loaded audio file when available and no custom synthesis config
+    if (!customConfig) {
+      const fileUrl = AUDIO_FILE_MAP[soundType];
+      if (fileUrl) {
+        const cached = audioBufferCacheRef.current.get(fileUrl);
+        if (cached) {
+          try {
+            if (audioContext.state !== 'closed') {
+              playAudioBuffer(audioContext, cached, sfxGainRef.current);
+            }
+          } catch {
+            // Fall through to synthesis on playback error
+          }
+          return;
+        }
+      }
+    }
+
+    const soundConfig = customConfig
       ? { ...SOUND_LIBRARY[soundType], ...customConfig }
       : SOUND_LIBRARY[soundType];
-    
+
     if (!soundConfig) {
       if (import.meta.env.DEV) {
-         
+
         console.warn(`Sound effect '${soundType}' not found in library`);
       }
       return;

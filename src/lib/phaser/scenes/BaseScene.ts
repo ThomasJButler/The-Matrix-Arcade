@@ -181,6 +181,26 @@ export abstract class BaseScene extends Phaser.Scene {
   }
 
   /**
+   * Play looping background music via React's sound system
+   */
+  protected playBackgroundMusic(src: string): void {
+    const soundSystem = this.registry.get(REGISTRY_KEYS.SOUND_SYSTEM);
+    if (soundSystem && typeof soundSystem.playBgMusic === 'function') {
+      soundSystem.playBgMusic(src);
+    }
+  }
+
+  /**
+   * Stop background music
+   */
+  protected stopBackgroundMusic(): void {
+    const soundSystem = this.registry.get(REGISTRY_KEYS.SOUND_SYSTEM);
+    if (soundSystem && typeof soundSystem.stopBgMusic === 'function') {
+      soundSystem.stopBgMusic();
+    }
+  }
+
+  /**
    * Unlock achievement via both manager and save system
    */
   protected unlockAchievement(achievementId: string): void {

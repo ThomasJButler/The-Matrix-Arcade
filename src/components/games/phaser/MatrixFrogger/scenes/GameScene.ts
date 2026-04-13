@@ -13,7 +13,7 @@
 
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS } from '../../../../../lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS } from '../../../../../lib/phaser/types';
 import { GAME_CONFIG, ACHIEVEMENTS } from '../config';
 
 /** Enemy sprite with movement data */
@@ -197,6 +197,9 @@ export class FroggerGameScene extends BaseScene {
     this.isCountdown = true;
     this.countdownValue = GAME_CONFIG.COUNTDOWN.DURATION;
     this.startCountdown();
+
+    // Background music
+    this.playBackgroundMusic('/assets/matrix-frogger/audio/soundtrack.mp3');
   }
 
   update(time: number, delta: number): void {
@@ -615,7 +618,7 @@ export class FroggerGameScene extends BaseScene {
     } else {
       this.player.play('player_hop');
     }
-    this.playSound('jump');
+    this.playSound(SOUND_KEYS.FROGGER_MOVE);
 
     this.tweens.add({
       targets: this.player,
@@ -709,7 +712,7 @@ export class FroggerGameScene extends BaseScene {
   private destroyEnemyWithNeo(enemy: Enemy): void {
     this.neoDestroyCount++;
     this.addScore(GAME_CONFIG.SCORING.NEO_DESTROY);
-    this.playSound('score');
+    this.playSound(SOUND_KEYS.FROGGER_EXTRA_SCORE);
 
     // Destroy effect
     this.createEnemyDestroyEffect(enemy.x, enemy.y);
@@ -824,7 +827,7 @@ export class FroggerGameScene extends BaseScene {
     this.isGameOver = true;
 
     this.player.setTint(0xff0000);
-    this.playSound('hit');
+    this.playSound(SOUND_KEYS.FROGGER_DEATH);
 
     this.tweens.add({
       targets: this.player,
@@ -852,7 +855,7 @@ export class FroggerGameScene extends BaseScene {
 
     if (pillType === 'red') {
       this.addScore(GAME_CONFIG.SCORING.RED_PILL);
-      this.playSound('score');
+      this.playSound(SOUND_KEYS.FROGGER_PICKUP);
 
       if (this.hasPowerUp('magnet')) {
         this.magnetCollected++;
@@ -1158,7 +1161,7 @@ export class FroggerGameScene extends BaseScene {
       // Level up
       this.level++;
       this.addScore(GAME_CONFIG.SCORING.CROSS_BONUS);
-      this.playSound('levelUp');
+      this.playSound(SOUND_KEYS.FROGGER_SCORE);
 
       // Show level text
       this.showLevelUpText();
