@@ -45,9 +45,13 @@ export class MetrisGameScene extends BaseScene {
   private achievementsUnlocked = new Set<string>();
 
   private gridGraphics!: Phaser.GameObjects.Graphics;
+  private overlayGraphics!: Phaser.GameObjects.Graphics;
   private holdGraphics!: Phaser.GameObjects.Graphics;
   private nextGraphics!: Phaser.GameObjects.Graphics;
   private meterGraphics!: Phaser.GameObjects.Graphics;
+  private cellImages: Phaser.GameObjects.Image[][] = [];
+  private activeImages: Phaser.GameObjects.Image[] = [];
+  private ghostImages: Phaser.GameObjects.Image[] = [];
   private scoreText!: Phaser.GameObjects.Text;
   private levelText!: Phaser.GameObjects.Text;
   private linesText!: Phaser.GameObjects.Text;
@@ -131,10 +135,44 @@ export class MetrisGameScene extends BaseScene {
   }
 
   private createGraphics(): void {
-    this.gridGraphics = this.add.graphics();
+    this.gridGraphics = this.add.graphics().setDepth(0);
+    this.overlayGraphics = this.add.graphics().setDepth(10);
     this.holdGraphics = this.add.graphics();
     this.nextGraphics = this.add.graphics();
     this.meterGraphics = this.add.graphics();
+
+    this.cellImages = [];
+    for (let r = 0; r < C.ROWS; r++) {
+      this.cellImages[r] = [];
+      for (let c = 0; c < C.COLS; c++) {
+        this.cellImages[r][c] = this.add.image(
+          C.GRID_X + c * C.CELL_SIZE + C.CELL_SIZE / 2,
+          C.GRID_Y + r * C.CELL_SIZE + C.CELL_SIZE / 2,
+          'tile_s',
+        ).setDisplaySize(C.CELL_SIZE - 2, C.CELL_SIZE - 2).setDepth(2).setVisible(false);
+      }
+    }
+
+    this.ghostImages = [];
+    for (let i = 0; i < 4; i++) {
+      this.ghostImages.push(
+        this.add.image(0, 0, 'tile_s')
+          .setDisplaySize(C.CELL_SIZE - 2, C.CELL_SIZE - 2)
+          .setDepth(1)
+          .setAlpha(0.25)
+          .setVisible(false),
+      );
+    }
+
+    this.activeImages = [];
+    for (let i = 0; i < 4; i++) {
+      this.activeImages.push(
+        this.add.image(0, 0, 'tile_s')
+          .setDisplaySize(C.CELL_SIZE - 2, C.CELL_SIZE - 2)
+          .setDepth(3)
+          .setVisible(false),
+      );
+    }
   }
 
   private createHUD(): void {
@@ -722,68 +760,92 @@ export class MetrisGameScene extends BaseScene {
     for (let r = 0; r < C.ROWS; r++) {
       for (let c = 0; c < C.COLS; c++) {
         const cell = this.grid[r][c];
+        const img = this.cellImages[r]?.[c];
+        if (!img) continue;
         if (cell) {
-          const px = C.GRID_X + c * C.CELL_SIZE;
-          const py = C.GRID_Y + r * C.CELL_SIZE;
-          g.fillStyle(cell.color, 1);
-          g.fillRect(px + 1, py + 1, C.CELL_SIZE - 2, C.CELL_SIZE - 2);
-
-          const glowKey = `${r}-${c}`;
-          const glow = this.glowMap.get(glowKey);
-          if (glow && glow > 0.1) {
-            g.fillStyle(0xffffff, glow * 0.3);
-            g.fillRect(px + 1, py + 1, C.CELL_SIZE - 2, C.CELL_SIZE - 2);
-          }
+          img.setTexture(`tile_${cell.type.toLowerCase()}`);
+          img.setVisible(true);
+        } else {
+          img.setVisible(false);
         }
       }
     }
 
+    let ghostIdx = 0;
     if (this.currentPiece) {
       const ghostY = this.getGhostY();
-      const ghostColor = MATRIX_COLORS.PRIMARY;
       for (let r = 0; r < this.currentPiece.shape.length; r++) {
         for (let c = 0; c < this.currentPiece.shape[r].length; c++) {
-          if (this.currentPiece.shape[r][c]) {
-            const px = C.GRID_X + (this.currentPiece.x + c) * C.CELL_SIZE;
-            const py = C.GRID_Y + (ghostY + r) * C.CELL_SIZE;
-            if (ghostY + r >= 0) {
-              g.lineStyle(1, ghostColor, 0.3);
-              g.strokeRect(px + 1, py + 1, C.CELL_SIZE - 2, C.CELL_SIZE - 2);
-              g.fillStyle(ghostColor, 0.08);
-              g.fillRect(px + 1, py + 1, C.CELL_SIZE - 2, C.CELL_SIZE - 2);
-            }
+          if (this.currentPiece.shape[r][c] && ghostY + r >= 0 && ghostIdx < this.ghostImages.length) {
+            const img = this.ghostImages[ghostIdx];
+            img.setTexture(`tile_${this.currentPiece.type.toLowerCase()}`);
+            img.setPosition(
+              C.GRID_X + (this.currentPiece.x + c) * C.CELL_SIZE + C.CELL_SIZE / 2,
+              C.GRID_Y + (ghostY + r) * C.CELL_SIZE + C.CELL_SIZE / 2,
+            );
+            img.setVisible(true);
+            ghostIdx++;
           }
         }
       }
+    }
+    for (let i = ghostIdx; i < this.ghostImages.length; i++) {
+      this.ghostImages[i].setVisible(false);
+    }
 
-      const pieceColor = TETROMINO_DEFS[this.currentPiece.type].color;
+    let activeIdx = 0;
+    if (this.currentPiece) {
       for (let r = 0; r < this.currentPiece.shape.length; r++) {
         for (let c = 0; c < this.currentPiece.shape[r].length; c++) {
-          if (this.currentPiece.shape[r][c]) {
+          if (this.currentPiece.shape[r][c] && activeIdx < this.activeImages.length) {
             const gy = this.currentPiece.y + r;
             if (gy >= 0) {
-              const px = C.GRID_X + (this.currentPiece.x + c) * C.CELL_SIZE;
-              const py = C.GRID_Y + gy * C.CELL_SIZE;
-              g.fillStyle(pieceColor, 1);
-              g.fillRect(px + 1, py + 1, C.CELL_SIZE - 2, C.CELL_SIZE - 2);
+              const img = this.activeImages[activeIdx];
+              img.setTexture(`tile_${this.currentPiece.type.toLowerCase()}`);
+              img.setPosition(
+                C.GRID_X + (this.currentPiece.x + c) * C.CELL_SIZE + C.CELL_SIZE / 2,
+                C.GRID_Y + gy * C.CELL_SIZE + C.CELL_SIZE / 2,
+              );
+              img.setVisible(true);
+              activeIdx++;
             }
           }
         }
       }
     }
+    for (let i = activeIdx; i < this.activeImages.length; i++) {
+      this.activeImages[i].setVisible(false);
+    }
 
-    g.lineStyle(1, 0x003300, 0.5);
+    const ov = this.overlayGraphics;
+    ov.clear();
+
+    for (const [key, glow] of this.glowMap.entries()) {
+      if (glow > 0.1) {
+        const parts = key.split('-');
+        const row = parseInt(parts[0]);
+        const col = parseInt(parts[1]);
+        if (this.grid[row]?.[col]) {
+          const px = C.GRID_X + col * C.CELL_SIZE;
+          const py = C.GRID_Y + row * C.CELL_SIZE;
+          ov.fillStyle(0xffffff, glow * 0.3);
+          ov.fillRect(px + 1, py + 1, C.CELL_SIZE - 2, C.CELL_SIZE - 2);
+        }
+      }
+    }
+
+    ov.lineStyle(1, 0x003300, 0.5);
     const gridW = C.COLS * C.CELL_SIZE;
     const gridH = C.ROWS * C.CELL_SIZE;
     for (let r = 0; r <= C.ROWS; r++) {
-      g.lineBetween(C.GRID_X, C.GRID_Y + r * C.CELL_SIZE, C.GRID_X + gridW, C.GRID_Y + r * C.CELL_SIZE);
+      ov.lineBetween(C.GRID_X, C.GRID_Y + r * C.CELL_SIZE, C.GRID_X + gridW, C.GRID_Y + r * C.CELL_SIZE);
     }
     for (let c = 0; c <= C.COLS; c++) {
-      g.lineBetween(C.GRID_X + c * C.CELL_SIZE, C.GRID_Y, C.GRID_X + c * C.CELL_SIZE, C.GRID_Y + gridH);
+      ov.lineBetween(C.GRID_X + c * C.CELL_SIZE, C.GRID_Y, C.GRID_X + c * C.CELL_SIZE, C.GRID_Y + gridH);
     }
 
-    g.lineStyle(2, 0x00ff00, 0.6);
-    g.strokeRect(C.GRID_X, C.GRID_Y, gridW, gridH);
+    ov.lineStyle(2, 0x00ff00, 0.6);
+    ov.strokeRect(C.GRID_X, C.GRID_Y, gridW, gridH);
   }
 
   private drawPiecePreview(g: Phaser.GameObjects.Graphics, type: TetrominoType | null, cx: number, cy: number): void {
@@ -835,7 +897,7 @@ export class MetrisGameScene extends BaseScene {
   }
 
   private updateParticles(dt: number): void {
-    const g = this.gridGraphics;
+    const g = this.overlayGraphics;
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       p.x += p.vx * dt;
@@ -948,9 +1010,18 @@ export class MetrisGameScene extends BaseScene {
     this.particles = [];
     this.glowMap.clear();
     if (this.gridGraphics) this.gridGraphics.destroy();
+    if (this.overlayGraphics) this.overlayGraphics.destroy();
     if (this.holdGraphics) this.holdGraphics.destroy();
     if (this.nextGraphics) this.nextGraphics.destroy();
     if (this.meterGraphics) this.meterGraphics.destroy();
+    for (const row of this.cellImages) {
+      for (const img of row) img.destroy();
+    }
+    this.cellImages = [];
+    for (const img of this.ghostImages) img.destroy();
+    this.ghostImages = [];
+    for (const img of this.activeImages) img.destroy();
+    this.activeImages = [];
     if (this.input.keyboard) this.input.keyboard.removeAllKeys(true);
   }
 }

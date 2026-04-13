@@ -48,6 +48,16 @@ function createMockText() {
   return t;
 }
 
+function createMockImage() {
+  const img: Record<string, unknown> = { x: 0, y: 0, visible: true, alpha: 1, depth: 0 };
+  for (const m of ['setTexture', 'setPosition', 'setDisplaySize', 'setDepth', 'setAlpha', 'setVisible', 'setTint', 'clearTint', 'setOrigin']) {
+    img[m] = vi.fn().mockReturnValue(img);
+  }
+  img.destroy = vi.fn();
+  img.texture = { key: '' };
+  return img;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function createTestScene(): any {
   const scene = new MetrisGameScene();
@@ -91,7 +101,7 @@ function createTestScene(): any {
   scene.add = {
     graphics: vi.fn().mockReturnValue(createMockGraphics()),
     text: vi.fn().mockReturnValue(createMockText()),
-    image: vi.fn().mockReturnValue({ setOrigin: vi.fn().mockReturnThis(), destroy: vi.fn() }),
+    image: vi.fn().mockImplementation(() => createMockImage()),
     container: vi.fn().mockReturnValue({ add: vi.fn(), setDepth: vi.fn(), destroy: vi.fn() }),
     group: vi.fn().mockReturnValue({ getChildren: () => [], add: vi.fn() }),
   };
@@ -118,9 +128,15 @@ describe('MetrisGameScene', () => {
     scene = createTestScene();
 
     scene.gridGraphics = createMockGraphics();
+    scene.overlayGraphics = createMockGraphics();
     scene.holdGraphics = createMockGraphics();
     scene.nextGraphics = createMockGraphics();
     scene.meterGraphics = createMockGraphics();
+    scene.cellImages = Array.from({ length: C.ROWS }, () =>
+      Array.from({ length: C.COLS }, () => createMockImage()),
+    );
+    scene.ghostImages = Array.from({ length: 4 }, () => createMockImage());
+    scene.activeImages = Array.from({ length: 4 }, () => createMockImage());
     scene.scoreText = createMockText();
     scene.levelText = createMockText();
     scene.linesText = createMockText();

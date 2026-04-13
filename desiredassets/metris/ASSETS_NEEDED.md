@@ -20,7 +20,7 @@
 
 ### Blocks / Tetrominoes (7 pieces × unique colour each)
 - [x] Coloured tile sprites — 8-bit coloured variant available
-- [~] Individual tile sprites per tetromino colour (I=cyan, O=yellow, T=purple, S=green, Z=red, J=blue, L=orange) — 32×32 each — SOURCE: INSPO/metris/tetrissprites/Main Individual Tile Assets
+- [x] Individual tile sprites per tetromino colour (I=cyan, O=yellow, T=purple, S=green, Z=red, J=blue, L=orange) — 32×32 each — deployed to `public/assets/metris/tile_*.png` (R36)
 - [ ] Ghost piece tile (translucent/outline version of each colour) — 32×32
 - [ ] Locked/placed tile variant (slightly darker, settled look)
 - [ ] Line clear flash tile — bright white/gold version, 32×32
