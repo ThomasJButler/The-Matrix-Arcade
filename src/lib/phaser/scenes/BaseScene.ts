@@ -28,7 +28,6 @@ export abstract class BaseScene extends Phaser.Scene {
   private pauseOverlayBg?: Phaser.GameObjects.Graphics;
   private pauseOverlayText?: Phaser.GameObjects.Text;
   private pauseOverlayHint?: Phaser.GameObjects.Text;
-  private keyboardRetryCount = 0;
   private static readonly MAX_KEYBOARD_RETRIES = 10;
   private static readonly KEYBOARD_RETRY_MS = 50;
 
@@ -41,15 +40,14 @@ export abstract class BaseScene extends Phaser.Scene {
    * Polls every 50ms up to 10 times (500ms). If polling exhausts, falls back
    * to the scene's first update tick where the plugin is guaranteed ready.
    */
-  protected waitForKeyboard(callback: () => void): void {
+  protected waitForKeyboard(callback: () => void, retries = 0): void {
     if (this.input.keyboard) {
       callback();
       return;
     }
 
-    this.keyboardRetryCount++;
-    if (this.keyboardRetryCount < BaseScene.MAX_KEYBOARD_RETRIES) {
-      this.time.delayedCall(BaseScene.KEYBOARD_RETRY_MS, () => this.waitForKeyboard(callback));
+    if (retries < BaseScene.MAX_KEYBOARD_RETRIES) {
+      this.time.delayedCall(BaseScene.KEYBOARD_RETRY_MS, () => this.waitForKeyboard(callback, retries + 1));
     } else {
       this.events.once('update', () => {
         if (this.input.keyboard) {
@@ -102,7 +100,6 @@ export abstract class BaseScene extends Phaser.Scene {
     this.escKey = undefined;
     this.pauseKey = undefined;
     this.muteKey = undefined;
-    this.keyboardRetryCount = 0;
   }
 
   /**

@@ -5,43 +5,40 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: POLISHED — All P0/P1/P2 bugs resolved. Only optional enhancements (assets, Phase 7) remain.
+## Status: P0 RESOLVED (R72) — cursor guards added to MatrixFrogger/NeoJump/AgentChase; VortexPong P1 guarded; BaseScene retry counter made per-callback. Awaiting live-browser verification.
 
-> **Last audit**: R68 (2026-04-13). All unit tests pass (1838/1838). Build clean. TypeScript clean. All E2E tests pass. 12 games total, all with E2E playthrough coverage. Git on `developmentv3.0`.
+> **Last change**: R72 (2026-04-14) — shipped the R71-identified P0/P1 guard fixes in one commit. Lint clean, typecheck clean, 1838/1838 unit tests pass. 12 games total. Git on `developmentv3.0`.
 >
-> **R68 delta from R67**: Resolved all 3 bugs found in R67 deep audit:
-> - **P1 RESOLVED**: M key conflict in GameOverScene — changed menu shortcut from M to Q. M is now exclusively for mute toggle (BaseScene). All 11 Phaser games no longer have the dual-fire issue.
-> - **P2 RESOLVED**: High score now loaded from save system in MatrixInvaders, MatrixCloud, and CodeBreaker. Follows the Metris pattern: `registry.get(REGISTRY_KEYS.SAVE_SYSTEM).getSaveData()`. "NEW HIGH SCORE!" only displays when genuinely beaten.
-> - **P2 RESOLVED**: VortexPong R key now calls `reportScore()` before `scene.restart()`, ensuring the score is persisted to React before the scene resets. Cleanup still happens via Phaser's scene lifecycle.
+> **R72 delta**:
+> - `BaseScene.waitForKeyboard` now takes a `retries` recursion parameter instead of using a shared instance field. The previous shared counter was effectively halving the retry budget because each scene calls `waitForKeyboard` twice (`setupInput` + `setupCommonInputs`).
+> - Added `if (!this.cursors) return;` guard after `isPaused` check in `update()` for MatrixFrogger, NeoJump, AgentChase.
+> - Added `if (!this.upKey || !this.downKey) return;` guard in VortexPong `update()` — converts silent unresponsiveness into a visibly brief "waiting" state.
+> - Removed `keyboardRetryCount` field and its `shutdown()` reset from BaseScene.
 >
-> **R67 planning audit findings**: Deep code analysis of all 11 Phaser game scenes uncovered 3 previously untracked bugs (1× P1, 2× P2). All original user-reported issues remain resolved:
-> - **"E2E tests for new games"** — All 12 games have full E2E playthrough coverage (10 playthrough specs + ctrl-s-world). Each captures 6 visual checkpoints (portal, menu, early play, mid play, paused, final). 21 E2E spec files total.
-> - **"Phaser games controls don't work"** — P0 keyboard race condition fully resolved in R62. `waitForKeyboard()` polling + update-tick fallback ensures input setup completes reliably. All E2E playthroughs exercise keyboard controls successfully.
-> - **"Press enter to start"** — Resolved in R62. App.tsx passes `autoStart={true}`, skipping MenuScene. Post-game-over restart via MenuScene uses `waitForKeyboard()`. Click-to-play overlay no longer steals focus.
-> - **"Test failures"** — Zero failures. 1838/1838 unit tests pass. Build clean. All E2E green.
-> - **"4 games to rebuild"** — MatrixFrogger, NeoJump, AgentChase, RhythmHacker + CloudJumper all rebuilt as Phaser 3 games with full scene structure, E2E coverage, and visual baselines. All confirmed rendering correctly in screenshots.
+> **Previous audit (R71)**: All unit tests pass (1838/1838). Build clean. TypeScript clean. E2E tests pass in automated Playwright but **user reported controls do not work in live browser**. This P0 is the fix.
 >
-> **R63 delta from R62**: Resolved P2 setTimeout leaks (4 files), P2 dead types, and P2 broken Metris save system registry key:
-> - **P2 RESOLVED**: All 4 untracked `setTimeout` calls now tracked in refs and cleared on unmount (PuzzleModal, useAdvancedVoice, PWAInstallPrompt, AchievementNotification).
-> - **P2 RESOLVED**: Removed dead `BaseSceneHelpers` and `PhaserGameConfig` interfaces from `types.ts`. Removed unused `Phaser` type import.
-> - **P2 RESOLVED**: Fixed Metris save system — `registry.get('SAVE_SYSTEM')` was using wrong string (uppercase vs constant). Changed to `REGISTRY_KEYS.SAVE_SYSTEM` and wired up save system in `PhaserGame.tsx` registry. Metris high scores, stats, and bullet-time count now persist correctly.
+> **R71 planning findings**: Full codebase re-audit confirms all R69/R70 findings. P0 crash sites verified still present:
+> - **MatrixFrogger** (`GameScene.ts:205→569`): `update()` has no cursor guard; `handleInput()` accesses `this.cursors.up` directly
+> - **NeoJump** (`GameScene.ts:187→407`): `update()` has no cursor guard; `handleInput()` accesses `this.cursors.left.isDown` directly
+> - **AgentChase** (`GameScene.ts:157→362`): `update()` has no cursor guard; `handleInput()` accesses `this.cursors.up.isDown` directly
+> - All three declare cursors/wasdKeys with `!` (non-null assertion) but initialise them async in `waitForKeyboard`
+> - **VortexPong** (lines 72-76): declares keys as `?` optional, uses `?.isDown` at lines 248-249 — safe from crashes but controls silently don't respond until callback fires
+> - **CloudJumper** and **RhythmHacker** use event-driven `key.on('down', ...)` — immune to this bug
 >
-> **R64 delta from R63**: Two Phase 6 polish items resolved:
-> - **RESOLVED**: Removed dead `useAdvancedVoice` AudioContext code path. The AudioContext and AnalyserNode were created but never connected to the SpeechSynthesis output — `getByteFrequencyData()` always returned zeros. Replaced with synthetic visualisation driven by `utterance.onboundary` timing events. Removed ~30 lines of dead code.
-> - **RESOLVED**: Added focus traps to all 5 modals (GameOverModal, AchievementDisplay, PuzzleModal, SentientAIModal, CharacterConversationModal). New `useFocusTrap` hook provides Tab cycling, Escape-to-close, initial focus, and focus restoration. Added `role="dialog"`, `aria-modal="true"`, and `aria-labelledby` to all modal containers. 7 new unit tests for the hook. Fixed framer-motion test mocks to support `forwardRef`.
+> **BaseScene.keyboardRetryCount** (line 31): Single instance field shared across all `waitForKeyboard` calls. Both `setupInput()` and `setupCommonInputs()` call `waitForKeyboard`, sharing the same counter. Each recursive retry increments it (line 50), effectively halving the retry budget from 10 to ~5 per callback. Reset only in `shutdown()` (line 105).
 >
-> **R62 delta from R61**: Resolved P0 keyboard race condition (all 7 factors), P1 shutdown cleanup, P1 controls descriptions, and P1 console guards:
-> - **P0 RESOLVED**: Replaced single 100ms `delayedCall` retry with `waitForKeyboard()` helper (50ms × 10 polling + scene `update` fallback). Applied to BaseScene, MenuScene, GameOverScene, RhythmHacker MenuScene, and all 11 GameScene `setupInput()` methods (16 locations total).
-> - **P0 RESOLVED**: Added `shutdown()` to BaseScene (cleans up pause overlay + common keys), MenuScene, GameOverScene, and RhythmHacker MenuScene. All now call `super.shutdown()`.
-> - **P0 RESOLVED**: Removed `tabIndex` and `stopPropagation` from PhaserGame.tsx click-to-play overlay so it cannot steal keyboard focus.
-> - **P0 RESOLVED**: Fixed App.tsx `preventDefault` guard — now skips all keydown events when a `[data-phaser-game]` element exists in DOM, regardless of event target.
-> - **P0 RESOLVED**: Wired up `onExit` prop at both render sites in App.tsx, making Phaser ESC → exit path functional.
-> - **P1 RESOLVED**: Added `time.removeAllEvents()`, `tweens.killAll()`, and `super.shutdown()` to all 11 GameScenes that were missing them.
-> - **P1 RESOLVED**: Fixed 5 HIGH/MEDIUM severity controls descriptions in gameRegistry (AgentChase, NeoJump, CloudJumper, MatrixFrogger, Metris).
-> - **P1 RESOLVED**: Console guards were already in place (re-checked all 4 locations — all wrapped in `import.meta.env.DEV`).
-> - **Test infra**: Added `removeAllEvents` and `tweens` mocks to shared Phaser test setup.
+> **R71 screenshot audit** (from Playwright playthrough snapshots):
+> - **Code Breaker**: Ball never launches in screenshots — Space key input not triggering. Game appears static.
+> - **Matrix Invaders**: Player never fires — score stuck at 0 across all snapshots.
+> - **Matrix Cloud**: Instant game-over on first run (Score: 0 on frame 2).
+> - **Agent Chase**: Never reaches true end state — final snapshot identical to paused.
+> - **Rhythm Hacker**: Very sparse notes visible, health draining to near-zero.
+> - **Portal thumbnails**: ~5 games show blank/black preview canvases (Phaser canvas not rendered in time).
+> - **UI screenshots**: All healthy — landing page, achievements, modals, settings all render correctly.
 >
-> **Codebase health**: Zero TODO/FIXME/HACK in src/. Zero @ts-ignore in production (5 in test files, all justified). TypeScript strict mode. 43 unit test files, 21 E2E specs. ~87 visual baselines. Zero unused hooks. All console calls guarded. 4 untracked setTimeout calls remain. GAME_CONFIG TDZ crash resolved. P0 keyboard race fully resolved.
+> **R71 test audit**: Last E2E run passed (0 failures). 43 unit test files (1838 tests), 21 E2E spec files, ~87 visual baselines. 4 hollow test cases in ShatnerVoiceControls.test.tsx (mock setup but no assertions). Dead `enableTestMode` export in test-utils.ts (migration complete, can remove). FPS budget test only runs with `PLAYWRIGHT_PERF=1` env var.
+>
+> **Why E2E passes but live browser fails**: Playwright manages focus precisely — it clicks the game container, sends keyboard events directly, and has no competing focus targets. In a live browser, the user may click PLAY from the portal, focus might land on the portal container div rather than the Phaser canvas, and keyboard init timing may differ.
 
 ## Reference Docs
 
@@ -67,7 +64,83 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ## Open Work
 
-### ~~P0 — Keyboard Input Race Condition~~ RESOLVED (R62)
+### ~~P0 — Unguarded Cursor Access in 3 Phaser Games~~ RESOLVED (R72)
+
+R72 added `if (!this.cursors) return;` guard after the `isPaused` check in MatrixFrogger, NeoJump, and AgentChase `update()` methods. Also refactored `BaseScene.waitForKeyboard` to take a per-callback `retries` parameter instead of using the shared `keyboardRetryCount` instance field, restoring the full 10-retry budget per callback. Lint, typecheck, and 1838/1838 unit tests all pass. Awaiting live-browser verification.
+
+<details>
+<summary>Original analysis (R69–R71)</summary>
+
+### P0 — Unguarded Cursor Access in 3 Phaser Games (R69, verified R70)
+
+**User report**: "Phaser games controls don't work — they play but controls don't work. Press enter freezes." Legacy (React canvas) games work fine.
+
+**Root cause**: `waitForKeyboard()` was added in R62 to delay key registration until `input.keyboard` is ready. However, the `handleInput()` methods in 3 games access the cursor/WASD keys **without null guards**. If `update()` fires before the callback completes, accessing `this.cursors.up` throws a silent `TypeError` that kills Phaser's update loop — the scene renders but all controls are dead.
+
+**R70 verification** — exact crash sites confirmed with line numbers:
+
+| Game | File | update() | handleInput() | Pattern |
+|------|------|----------|---------------|---------|
+| MatrixFrogger | `scenes/GameScene.ts` | Line 205: no guard, only `isPaused`+`isCountdown` | Line 569: `Phaser.Input.Keyboard.JustDown(this.cursors.up)` | `!` declaration, no guard |
+| NeoJump | `scenes/GameScene.ts` | Line 187: no guard, only `isPaused` | Line 407: `this.cursors.left.isDown` | `!` declaration, no guard |
+| AgentChase | `scenes/GameScene.ts` | Line 157: no guard, only `isPaused` | Line 362: `this.cursors.up.isDown` | `!` declaration, no guard |
+
+**VortexPong** declares keys as `?` optional (lines 72-76), uses `?.isDown` (lines 248-249) — no crash, but controls silently don't respond until callback fires. **CloudJumper** and **RhythmHacker** use event-driven `key.on('down', ...)` — immune.
+
+**Fix approach** (two-pronged):
+
+1. **Defensive guard in `update()`**: Add an early return guard before calling `handleInput()` in all 3 games:
+   ```typescript
+   update(time: number, delta: number): void {
+     if (this.isPaused) return;
+     if (!this.cursors) return;  // Wait for keyboard init
+     // ... rest of update
+   }
+   ```
+
+2. **Per-callback retry counter in BaseScene**: Currently `keyboardRetryCount` (line 31) is a single instance field shared across all `waitForKeyboard` calls. Each scene calls it twice (`setupInput` + `setupCommonInputs`), effectively halving the retry budget from 10 to ~5 per callback. Fix by passing a local counter through the recursive calls:
+   ```typescript
+   protected waitForKeyboard(callback: () => void, retries = 0): void {
+     if (this.input.keyboard) { callback(); return; }
+     if (retries < BaseScene.MAX_KEYBOARD_RETRIES) {
+       this.time.delayedCall(BaseScene.KEYBOARD_RETRY_MS, () => this.waitForKeyboard(callback, retries + 1));
+     } else {
+       this.events.once('update', () => { if (this.input.keyboard) callback(); });
+     }
+   }
+   ```
+
+3. **Optional: refactor to event-driven input** (like RhythmHacker/CloudJumper) to eliminate the race entirely. Lower priority — the guard in step 1 is sufficient.
+
+**Files to modify**:
+- `src/components/games/phaser/MatrixFrogger/scenes/GameScene.ts` — add `if (!this.cursors) return;` guard in `update()`
+- `src/components/games/phaser/NeoJump/scenes/GameScene.ts` — same guard
+- `src/components/games/phaser/AgentChase/scenes/GameScene.ts` — same guard
+- `src/lib/phaser/scenes/BaseScene.ts` — refactor `waitForKeyboard` to use per-callback counter (remove shared `keyboardRetryCount` field)
+
+</details>
+
+### ~~P1 — VortexPong Controls Delayed Response~~ RESOLVED (R72)
+
+R72 added `if (!this.upKey || !this.downKey) return;` after the `isPaused` check in VortexPong's `update()`. Silent unresponsiveness is now a visibly brief waiting state, matching the other three games' behaviour.
+
+### P2 — Dead Cleanup Code in useSoundSystem (NEW R69)
+
+`useSoundSystem.ts:806-811` contains a `return () => { ... }` inside a `useCallback`. The return value of `useCallback` is ignored by React — this cleanup function is never called. It appears to be a copy-paste artefact from a `useEffect`. Either move the cleanup logic into a `useEffect` or remove the dead code.
+
+**File**: `src/hooks/useSoundSystem.ts:806-811`
+
+### ~~P2 — Unguarded console.warn/error in Production~~ RESOLVED (R70 — already guarded)
+
+R69 reported 6 unguarded `console.warn`/`console.error` calls. **R70 code verification confirms all 6 are already properly wrapped in `if (import.meta.env.DEV)` guards.** The R69 report was incorrect. Specifically:
+- `useSoundSystem.ts` lines 541, 610, 678 — all guarded
+- `useShatnerVoice.ts` line 218 — guarded
+- `useAdvancedVoice.ts` line 338 — guarded
+- `useLifelineManager.ts` line 80 — guarded
+
+---
+
+### ~~P0 — Keyboard Input Race Condition~~ PARTIALLY RESOLVED (R62, re-opened R69)
 
 **User report**: "Phaser games freeze when pressing Enter to start and controls don't work." Legacy games work fine.
 
@@ -391,6 +464,25 @@ protected setupInput(): void {
 
 `waitForKeyboard()` polls every 50ms up to 10 times (500ms), then falls back to the scene's first `update` tick. This replaced the old single-retry `delayedCall(100)` pattern in R62.
 
+**CRITICAL (R69)**: The `update()` method MUST guard against cursors/keys being undefined. Since `waitForKeyboard` is async, there is a window where `update()` fires before keys are registered. Two safe patterns:
+
+```typescript
+// Pattern 1: Guard in update (REQUIRED for polling-based input)
+update(time: number, delta: number): void {
+  if (this.isPaused) return;
+  if (!this.cursors) return;  // Keys not yet registered
+  this.handleInput(delta);
+}
+
+// Pattern 2: Event-driven input (PREFERRED — immune to race condition)
+this.waitForKeyboard(() => {
+  const key = this.input.keyboard!.addKey(KeyCodes.SPACE);
+  key.on('down', () => this.jump());  // Fires only after key exists
+});
+```
+
+**DO NOT** declare key fields with `!` (non-null assertion) and then read `.isDown` in `update()` without a guard — this throws a silent TypeError that kills the scene.
+
 ### GAME_CONFIG Circular Import Pattern (CAUTION)
 
 All Phaser games have a circular dependency: `config.ts` imports scene classes (for the Phaser config's scene array), and scene classes import `GAME_CONFIG` from `config.ts`. This is safe **only if** scene files never read `GAME_CONFIG` at module-evaluation time (i.e. at the top level of the file). All reads must be inside class methods, constructors, or lazy-evaluated functions.
@@ -493,7 +585,7 @@ Visual regression baselines exist for landing page and shared UI (modals, portal
 
 All Phaser games expose test state via `exposeTestState()`. E2E fixtures support both React and Phaser games. E2E uses `?test=1` URL param for deterministic `Math.random` (seeded mulberry32) and DOM ready markers.
 
-**Test infrastructure stats (R61)**: 43 unit test files (1831 tests), 21 E2E spec files, ~87 visual baselines. Categories: playthrough (12), visual (5), a11y (1), edge-cases (1), modals (1), performance (1). Last E2E run: all passed.
+**Test infrastructure stats (R71)**: 43 unit test files (1838 tests), 21 E2E spec files, ~87 visual baselines. Categories: playthrough (12), visual (5), a11y (1), edge-cases (1), modals (1), performance (1). Last E2E run: all passed. 4 hollow tests in ShatnerVoiceControls.test.tsx. FPS budget test opt-in only (`PLAYWRIGHT_PERF=1`). All 12 games have E2E playthrough coverage; CTRL-S World missing dedicated exit-to-portal test.
 
 ---
 
@@ -515,38 +607,69 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 - GAME_CONFIG TDZ crash resolved (commit `ee18028`)
 
 ### Open Gaps
-- ~~**P1 (R67)**: M key conflict in GameOverScene~~ RESOLVED (R68) — menu shortcut changed to Q
-- ~~**P2 (R67)**: High score not loaded from save~~ RESOLVED (R68) — 3 games now read from save system
-- ~~**P2 (R67)**: VortexPong R key bypass~~ RESOLVED (R68) — now reports score before restart
-- ~~**P2**: 4 untracked `setTimeout` calls~~ RESOLVED (R63)
-- ~~**P2**: Dead types (`BaseSceneHelpers`, `PhaserGameConfig`) and broken `SAVE_SYSTEM` registry key~~ RESOLVED (R63)
-- ~~**P2**: Spec inconsistencies~~ RESOLVED (R63)
-- **CTRL-S World**: only DOM/React game; current implementation is buggy and complex enough to warrant the Phase 7 rewrite rather than incremental fixes
-- Remaining sprite/audio assets per game (see Phase 0b above). Audio is the biggest cross-cutting gap — only Matrix Frogger has any deployed.
-- Rhythm Hacker BPM values are estimates — may need tuning per track after playtesting
-- ~~`useAdvancedVoice` AudioContext~~ RESOLVED (R64)
-- No global `AssetManager` yet — each game still owns its own asset loading
-- Circular dependency in all Phaser games (`config.ts` <-> scene files) — fragile but functional; documented in Architecture Notes
+- ~~**P0 (R69, verified R71)**: Unguarded cursor access in MatrixFrogger, NeoJump, AgentChase~~ — **RESOLVED R72**. Awaiting live-browser verification.
+- ~~**P0 (R71)**: `keyboardRetryCount` in BaseScene shared across multiple `waitForKeyboard` calls~~ — **RESOLVED R72**. Now a per-callback recursion parameter.
+- ~~**P1 (R69, verified R70)**: VortexPong controls silently fail until `waitForKeyboard` callback completes~~ — **RESOLVED R72**.
+- **P2 (R69, verified R70)**: Dead `return () => {}` cleanup in `useSoundSystem.ts:807-811` inside `useCallback` (never called)
+- **P2 (R71)**: Dead `enableTestMode` export in `e2e/fixtures/test-utils.ts` — unused since `?test=1` migration
+- **P2 (R71)**: 4 hollow test cases in `ShatnerVoiceControls.test.tsx` — mock setup with no assertions
+- **P2 (R71)**: E2E screenshot anomalies — Code Breaker ball never launches, Matrix Invaders never fires, Matrix Cloud instant death, Agent Chase never reaches end state. Likely test timing issues, not game bugs — needs verification after P0 fix.
+- **CTRL-S World**: only DOM/React game; current implementation too buggy for incremental fixes — Phase 7 rewrite
+- Remaining sprite/audio assets per game (see Phase 0b). Audio is biggest cross-cutting gap — only Matrix Frogger has deployed audio.
+- Rhythm Hacker BPM values are estimates — needs playtesting
+- No global `AssetManager` yet — each game owns its own asset loading
+- Circular dependency in all Phaser games (`config.ts` <-> scene files) — fragile but functional
 
 ---
 
 ## Ralph Loop Strategy (open phases only)
 
-1. ~~**P0 — Keyboard input race condition**~~ DONE R62.
-2. ~~**P1 — Shutdown cleanup**~~ DONE R62.
-3. ~~**P1 — Controls descriptions**~~ DONE R62.
-4. ~~**P1 — Console guards**~~ Already done, verified R62.
-5. ~~**P2 — setTimeout tracking**~~ DONE R63.
-6. ~~**P2 — Dead types / broken registry**~~ DONE R63.
-7. ~~**P1 — M key conflict in GameOverScene**~~ DONE R68.
-8. ~~**P2 — High score not loaded from save**~~ DONE R68.
-9. ~~**P2 — VortexPong R key bypass**~~ DONE R68.
-10. **Playtest Verification**: Verify Metris bullet-time, Matrix Cloud combo, and other items via live browser testing.
-11. **Phase 6 Playwright residue**: Docker baseline regen is the single highest-value remaining item. Multi-viewport and flake cluster are next.
-12. **Phase 0a/0b**: Per-game asset deployment (skip CTRL-S until Phase 7). Audio extraction is the biggest bang-for-buck across all games.
-13. ~~**P2 — Spec consistency**~~ DONE R63.
-14. **Phase 1/2**: Global `AssetManager` — optional, each game handles its own assets adequately for now.
-15. **Phase 6 polish**: Remaining accessibility residue (form labels), BPM tuning.
-16. **Phase 7**: CTRL-S World Phaser rewrite — only after the above are closed. Start from `rebuildingoldgames/plans/ctrl-s-rebuild.md`.
-17. Use `/matrix-arcade-gamedev` for game code, `/phaser-gamedev` for Phaser scenes, `/playwright-testing` for E2E.
-18. Run `game-tester` agent after every code change. After any UI change, run `npm run test:visual` and commit updated baselines (both darwin + linux variants when possible).
+### Immediate (post-R72 verification)
+
+1. **Live-browser playtest of R72 fix**: Open MatrixFrogger, NeoJump, AgentChase, VortexPong in Chrome via `npm run dev`. Confirm controls respond on first frame, no console `TypeError`, ESC/P/R/M still work. This closes the R69–R71 loop.
+
+### Medium (P2 — code quality / infra)
+
+2. **P2 — Dead cleanup in useSoundSystem (R69, verified R70)**: Remove dead `return () => {}` at lines 807-811 of `useSoundSystem.ts`.
+3. **P2 — Dead `enableTestMode` export**: Remove unused `enableTestMode()` from `e2e/fixtures/test-utils.ts` (migration to `?test=1` URL param is complete, nothing imports it).
+4. **P2 — Hollow unit tests**: Fix 4 empty test cases in `ShatnerVoiceControls.test.tsx` (lines 131, 333, 356, 372) — either implement assertions or remove them.
+
+### Post-R72 verification
+
+5. **Playtest Verification**: After R72 live-browser check, verify all games — Metris bullet-time, Matrix Cloud combo, Code Breaker ball launch, Matrix Invaders firing, all new game controls.
+6. **Screenshot audit follow-up**: Investigate E2E screenshot issues found in R71 audit:
+   - Code Breaker: ball never launches (Space key not triggering in test)
+   - Matrix Invaders: player never fires (score stuck at 0)
+   - Matrix Cloud: instant game-over on first frame
+   - Agent Chase: test never reaches true end state
+   - These may be test timing issues rather than game bugs — verify in live browser after P0 fix.
+
+### Infrastructure (Phase 6 residue)
+
+7. **Phase 6 Playwright residue**: Docker baseline regen, multi-viewport, flake cluster.
+8. **Phase 6 polish**: Form labels, BPM tuning, performance profiling.
+
+### Asset pipeline (Phase 0b)
+
+9. **Phase 0a/0b**: Per-game asset deployment (skip CTRL-S until Phase 7). Audio extraction is biggest bang-for-buck — only Matrix Frogger has deployed audio out of 12 games.
+
+### Future (Phase 1/2/7)
+
+10. **Phase 1/2**: Global `AssetManager` — optional.
+11. **Phase 7**: CTRL-S World Phaser rewrite — only after all above are closed.
+
+### Completed
+
+- ~~P0 — Keyboard input race condition~~ Partially done R62, completion tracked in item 1.
+- ~~P1 — Shutdown cleanup~~ DONE R62.
+- ~~P1 — Controls descriptions~~ DONE R62.
+- ~~P1 — Console guards~~ DONE — R70 verified all 6 calls are already guarded.
+- ~~P2 — setTimeout tracking~~ DONE R63.
+- ~~P2 — Dead types / broken registry~~ DONE R63.
+- ~~P1 — M key conflict in GameOverScene~~ DONE R68.
+- ~~P2 — High score not loaded from save~~ DONE R68.
+- ~~P2 — VortexPong R key bypass~~ DONE R68.
+- ~~P2 — Spec consistency~~ DONE R63.
+
+**Skill usage**: `/matrix-arcade-gamedev` for game code, `/phaser-gamedev` for Phaser scenes, `/playwright-testing` for E2E.
+Run `game-tester` agent after every code change. After any UI change, run `npm run test:visual` and commit updated baselines.
