@@ -63,6 +63,7 @@ import { useSaveSystem } from './hooks/useSaveSystem';
 import { GameStateProvider } from './contexts/GameStateContext';
 import LandingPage from './components/LandingPage';
 import { GAME_REGISTRY } from './data/gameRegistry';
+import { GAME_TITLES } from './lib/asciiArt';
 
 function App() {
   const [selectedGame, setSelectedGame] = useState<number>(0);
@@ -738,13 +739,15 @@ function App() {
                   </button>
 
                   <div className="flex-1 text-center">
-                    <div className="flex items-center justify-center gap-3 mb-2">
-                      <div className="lg:scale-110">
-                        {games[selectedGame].icon}
-                      </div>
-                      <h2 className="text-lg lg:text-xl xl:text-2xl font-mono">
-                        {games[selectedGame].title}
-                      </h2>
+                    <div className="mb-2">
+                      <h2 className="sr-only">{games[selectedGame].title}</h2>
+                      <pre
+                        className="text-green-500 font-mono text-[7px] lg:text-[9px] xl:text-[10px] leading-none text-center select-none overflow-hidden mx-auto"
+                        aria-hidden="true"
+                        style={{ textShadow: '0 0 8px rgba(0,255,0,0.6), 0 0 20px rgba(0,255,0,0.15)' }}
+                      >
+                        {GAME_TITLES[games[selectedGame].id] || games[selectedGame].title}
+                      </pre>
                     </div>
                     {games[selectedGame].category && (
                       <span className="inline-block text-green-500/60 font-mono text-xs border border-green-500/30 px-2 py-0.5 rounded-full mb-2">
