@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, Star, Zap, Lock, X } from 'lucide-react';
 
@@ -31,6 +31,7 @@ const AchievementCard: React.FC<{
   onClose: () => void;
 }> = ({ achievement, onClose }) => {
   const [progress, setProgress] = useState(100);
+  const [dismissed, setDismissed] = useState(false);
 
   // Auto-dismiss timer
   useEffect(() => {
@@ -43,7 +44,7 @@ const AchievementCard: React.FC<{
         const newProgress = prev - step;
         if (newProgress <= 0) {
           clearInterval(timer);
-          onClose();
+          setDismissed(true);
           return 0;
         }
         return newProgress;
@@ -51,7 +52,11 @@ const AchievementCard: React.FC<{
     }, interval);
 
     return () => clearInterval(timer);
-  }, [onClose]);
+  }, []);
+
+  useEffect(() => {
+    if (dismissed) onClose();
+  }, [dismissed, onClose]);
 
   // Get icon and colors based on category
   const getCategoryStyle = () => {
@@ -155,24 +160,26 @@ export const AchievementToastContainer: React.FC<AchievementToastProps> = ({
   playSFX
 }) => {
   const [queue, setQueue] = useState<ToastItem[]>([]);
-  const [displayedIds, setDisplayedIds] = useState<Set<string>>(new Set());
+  const displayedIdsRef = useRef<Set<string>>(new Set());
   const maxVisible = 3;
 
   // Add new achievements to queue
   useEffect(() => {
+    const newItems: ToastItem[] = [];
     achievements.forEach(achievement => {
-      if (!displayedIds.has(achievement.id)) {
-        setQueue(prev => [...prev, {
+      if (!displayedIdsRef.current.has(achievement.id)) {
+        displayedIdsRef.current.add(achievement.id);
+        newItems.push({
           achievement,
           id: `${achievement.id}-${Date.now()}`
-        }]);
-        setDisplayedIds(prev => new Set(prev).add(achievement.id));
-
-        // Play sound effect
+        });
         playSFX?.('score');
       }
     });
-  }, [achievements, displayedIds, playSFX]);
+    if (newItems.length > 0) {
+      setQueue(prev => [...prev, ...newItems]);
+    }
+  }, [achievements, playSFX]);
 
   // Handle toast dismissal
   const handleDismiss = useCallback((toastId: string, achievementId: string) => {

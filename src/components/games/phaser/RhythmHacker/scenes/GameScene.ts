@@ -12,7 +12,7 @@ import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
 import { SCENE_KEYS, MATRIX_COLORS } from '../../../../../lib/phaser/types';
 import { GAME_CONFIG, NOTE_PROBABILITIES, ACHIEVEMENTS } from '../config';
-import { ChartNote, TRACK_CHARTS } from '../charts';
+import { ChartNote, getTrackCharts } from '../charts';
 
 /** Note types */
 type NoteType = 'normal' | 'hold' | 'double';
@@ -113,7 +113,7 @@ export class RhythmHackerGameScene extends BaseScene {
 
     const { NOTES } = GAME_CONFIG;
     this.noteTravelTime = (NOTES.HIT_LINE_Y - NOTES.SPAWN_HEIGHT) / NOTES.SPEED * 1000;
-    this.chart = TRACK_CHARTS[this.trackIndex] ?? [];
+    this.chart = getTrackCharts()[this.trackIndex] ?? [];
   }
 
   create(): void {

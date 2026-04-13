@@ -21,6 +21,7 @@ export interface MenuSceneConfig {
 }
 
 export class MenuScene extends BaseScene {
+  protected override allowPause = false;
   protected title: string;
   protected subtitle: string;
   protected gameScene: string;

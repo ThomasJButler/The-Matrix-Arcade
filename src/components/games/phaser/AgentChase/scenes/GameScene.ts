@@ -88,6 +88,11 @@ export class AgentChaseGameScene extends BaseScene {
   // Animation timer
   private animTimer = 0;
 
+  // Respawn invulnerability
+  private isInvulnerable = false;
+  private invulnerabilityTimer = 0;
+  private readonly INVULNERABILITY_DURATION = 2000; // 2 seconds after death
+
   constructor() {
     super(SCENE_KEYS.GAME);
   }
@@ -113,6 +118,8 @@ export class AgentChaseGameScene extends BaseScene {
     this.nextDirection = 'NONE';
     this.mouthOpen = true;
     this.animTimer = 0;
+    this.isInvulnerable = false;
+    this.invulnerabilityTimer = 0;
     this.mazesPlayed = new Set();
 
     // Set initial layout
@@ -156,6 +163,17 @@ export class AgentChaseGameScene extends BaseScene {
       this.animTimer = 0;
       this.mouthOpen = !this.mouthOpen;
       this.player.setTexture(this.mouthOpen ? 'player_open' : 'player_closed');
+    }
+
+    // Update invulnerability timer
+    if (this.isInvulnerable) {
+      this.invulnerabilityTimer -= delta;
+      // Blink the player sprite to indicate invulnerability
+      this.player.setAlpha(Math.sin(this.invulnerabilityTimer * 0.01) > 0 ? 1 : 0.3);
+      if (this.invulnerabilityTimer <= 0) {
+        this.isInvulnerable = false;
+        this.player.setAlpha(1);
+      }
     }
 
     // Handle input
@@ -492,6 +510,9 @@ export class AgentChaseGameScene extends BaseScene {
   }
 
   private handleAgentCollision(agent: Agent): void {
+    // Skip collision during respawn invulnerability (but still allow eating frightened agents)
+    if (this.isInvulnerable && agent.state !== 'frightened') return;
+
     if (agent.state === 'frightened') {
       // Eat the ghost
       this.ghostsEatenThisPellet++;
@@ -515,7 +536,10 @@ export class AgentChaseGameScene extends BaseScene {
   }
 
   private playerDeath(): void {
-    this.lives--;
+    // Guard against multiple death calls in the same frame (e.g. two agents hitting simultaneously)
+    if (this.isInvulnerable) return;
+
+    this.lives = Math.max(0, this.lives - 1);
     this.diedThisLevel = true;
     this.playSound('hit');
 
@@ -523,8 +547,10 @@ export class AgentChaseGameScene extends BaseScene {
       this.reportScore(this.score, this.score);
       this.gameOver(this.score, `Level ${this.level}`);
     } else {
-      // Reset positions
+      // Reset positions and grant temporary invulnerability
       this.resetPositions();
+      this.isInvulnerable = true;
+      this.invulnerabilityTimer = this.INVULNERABILITY_DURATION;
     }
   }
 

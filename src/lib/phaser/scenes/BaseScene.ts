@@ -20,6 +20,7 @@ import {
 
 export abstract class BaseScene extends Phaser.Scene {
   protected isPaused = false;
+  protected allowPause = true;
   protected escKey?: Phaser.Input.Keyboard.Key;
   protected pauseKey?: Phaser.Input.Keyboard.Key;
   protected muteKey?: Phaser.Input.Keyboard.Key;
@@ -45,9 +46,12 @@ export abstract class BaseScene extends Phaser.Scene {
     this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.escKey.on('down', () => this.handleExit());
 
-    // P - Pause/unpause
+    // P - Pause/unpause (only during gameplay, not on GameOver or Menu scenes)
     this.pauseKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P);
-    this.pauseKey.on('down', () => this.togglePause());
+    this.pauseKey.on('down', () => {
+      if (!this.allowPause) return;
+      this.togglePause();
+    });
 
     // M - Toggle mute
     this.muteKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M);
