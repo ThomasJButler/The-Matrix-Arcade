@@ -9,6 +9,12 @@ dev-dist
 # Ralph loop auto-generated files
 IMPLEMENTATION_PLAN.md
 
+# Debugging screenshots
+*.png
+
+# Playwright MCP
+.playwright-mcp/
+
 # Playwright
 test-results/
 playwright-report/
