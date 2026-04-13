@@ -61,26 +61,35 @@ function createTestScene(trackIndex = 0) {
   // UI text / graphics objects
   scene.scoreText = { setText: vi.fn() };
   scene.comboText = { setText: vi.fn(), setVisible: vi.fn(), setAlpha: vi.fn(), setScale: vi.fn() };
-  scene.healthBar = { clear: vi.fn(), fillStyle: vi.fn(), fillRect: vi.fn() };
+  scene.healthBar = { clear: vi.fn(), fillStyle: vi.fn(), fillRect: vi.fn(), fillRoundedRect: vi.fn() };
   scene.gradeText = { setText: vi.fn(), setColor: vi.fn(), setAlpha: vi.fn(), setScale: vi.fn() };
-  scene.timeText = { setText: vi.fn() };
+  scene.timeText = { setText: vi.fn(), setColor: vi.fn() };
+  scene.multiplierText = { setText: vi.fn(), setVisible: vi.fn() };
+  scene.laneFlashes = [];
+  scene.useParticleSprites = false;
+  scene.useUiSprites = false;
 
-  // Tweens and add (used by showGrade and createHitEffect)
+  // Tweens and add (used by showGrade, createHitEffect, showComboMilestone)
   scene.tweens = { add: vi.fn() };
   scene.add = {
     text: vi.fn().mockReturnValue({
       setOrigin: vi.fn(),
       setDepth: vi.fn(),
+      setShadow: vi.fn(),
+      setScale: vi.fn(),
       destroy: vi.fn(),
     }),
     image: vi.fn().mockReturnValue({
       setScale: vi.fn(),
+      setDisplaySize: vi.fn(),
+      setTint: vi.fn(),
       setDepth: vi.fn(),
       destroy: vi.fn(),
     }),
     graphics: vi.fn().mockReturnValue({
       fillStyle: vi.fn().mockReturnThis(),
       fillRect: vi.fn().mockReturnThis(),
+      fillRoundedRect: vi.fn().mockReturnThis(),
       clear: vi.fn().mockReturnThis(),
     }),
   };

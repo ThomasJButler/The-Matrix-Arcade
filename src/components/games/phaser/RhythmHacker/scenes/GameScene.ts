@@ -76,6 +76,12 @@ export class RhythmHackerGameScene extends BaseScene {
   private healthBar!: Phaser.GameObjects.Graphics;
   private gradeText!: Phaser.GameObjects.Text;
   private timeText!: Phaser.GameObjects.Text;
+  private multiplierText!: Phaser.GameObjects.Text;
+
+  // Visual enhancements
+  private laneFlashes: Phaser.GameObjects.Image[] = [];
+  private useParticleSprites = false;
+  private useUiSprites = false;
 
   // Input
   private laneKeys: Phaser.Input.Keyboard.Key[] = [];
@@ -132,7 +138,10 @@ export class RhythmHackerGameScene extends BaseScene {
     this.countdownTime = 0;
     this.laneBackgrounds = [];
     this.keyIndicators = [];
+    this.laneFlashes = [];
     this.recentLanes = [];
+    this.useParticleSprites = !!this.registry?.get('particleSpriteMode');
+    this.useUiSprites = !!this.registry?.get('uiSpriteMode');
 
     // Calculate lane positions
     const { LANES, WIDTH } = GAME_CONFIG;
@@ -249,35 +258,40 @@ export class RhythmHackerGameScene extends BaseScene {
   }
 
   /**
-   * Create lane backgrounds and hit line
+   * Create lane backgrounds, beat-pulse overlays, hit line, and key indicators.
    */
   private createLanes(): void {
     const { LANES, HEIGHT, NOTES } = GAME_CONFIG;
 
-    // Lane backgrounds
     this.laneX.forEach((x, _i) => {
+      // Lane background
       const bg = this.add.image(x, HEIGHT / 2, 'lane_bg');
       bg.setAlpha(0.3);
       this.laneBackgrounds.push(bg);
+
+      // Beat flash overlay — invisible by default, pulsed on beat
+      const flash = this.add.image(x, HEIGHT / 2, 'lane_flash');
+      flash.setAlpha(0);
+      flash.setDepth(1);
+      this.laneFlashes.push(flash);
     });
 
     // Hit line
     const hitLine = this.add.image(GAME_CONFIG.WIDTH / 2, NOTES.HIT_LINE_Y, 'hit_line');
     hitLine.setDepth(5);
 
-    // Glow effect on hit line
+    // Hit line glow
     const glow = this.add.graphics();
-    glow.fillStyle(MATRIX_COLORS.PRIMARY, 0.2);
+    glow.fillStyle(MATRIX_COLORS.PRIMARY, 0.15);
     glow.fillRect(this.laneX[0] - LANES.WIDTH / 2 - 5, NOTES.HIT_LINE_Y - 20, LANES.WIDTH * 4 + LANES.SPACING * 3 + 10, 40);
     glow.setDepth(4);
 
-    // Key indicators — positioned just below hit line with tight spacing
+    // Key indicators
     this.laneX.forEach((x, i) => {
       const key = this.add.image(x, NOTES.HIT_LINE_Y + 35, `key_${i}`);
       key.setDepth(10);
       this.keyIndicators.push(key);
 
-      // Key label
       const label = this.add.text(x, NOTES.HIT_LINE_Y + 35, LANES.KEYS[i], {
         fontFamily: '"Press Start 2P", monospace',
         fontSize: '20px',
@@ -289,22 +303,27 @@ export class RhythmHackerGameScene extends BaseScene {
   }
 
   /**
-   * Create UI elements — positioned in the side gutters to keep the
-   * falling zone clear. Left gutter: score, time, track. Right gutter:
-   * health, combo. Grade floats above the hit line in the lane area.
+   * Create UI elements with hologram panel backdrops.
+   * Left gutter: score, time, track. Right gutter: health, combo, multiplier.
+   * Grade floats above the hit line in the lane area.
    */
   private createUI(): void {
     const { WIDTH, LANES } = GAME_CONFIG;
 
-    // Calculate gutter boundaries
     const totalLaneWidth = LANES.COUNT * LANES.WIDTH + (LANES.COUNT - 1) * LANES.SPACING;
     const leftGutterRight = (WIDTH - totalLaneWidth) / 2 - 15;
     const rightGutterLeft = WIDTH - leftGutterRight + 15;
 
     // --- LEFT GUTTER ---
 
-    // Score
-    this.scoreText = this.add.text(20, 30, 'SCORE\n0', {
+    // Score panel backdrop
+    const scorePanel = this.add.image(20 + 56, 45, 'ui_panel_green');
+    scorePanel.setOrigin(0.5);
+    scorePanel.setDisplaySize(leftGutterRight - 10, 55);
+    scorePanel.setAlpha(0.4);
+    scorePanel.setDepth(99);
+
+    this.scoreText = this.add.text(20, 25, 'SCORE\n0', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '12px',
       color: MATRIX_COLORS.PRIMARY_HEX,
@@ -312,8 +331,14 @@ export class RhythmHackerGameScene extends BaseScene {
     });
     this.scoreText.setDepth(100);
 
-    // Time remaining
-    this.timeText = this.add.text(20, 100, `TIME\n${this.trackDuration}s`, {
+    // Time panel backdrop
+    const timePanel = this.add.image(20 + 56, 112, 'ui_panel_empty');
+    timePanel.setOrigin(0.5);
+    timePanel.setDisplaySize(leftGutterRight - 10, 45);
+    timePanel.setAlpha(0.35);
+    timePanel.setDepth(99);
+
+    this.timeText = this.add.text(20, 96, `TIME\n${this.trackDuration}s`, {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '10px',
       color: MATRIX_COLORS.CYAN_HEX,
@@ -321,9 +346,9 @@ export class RhythmHackerGameScene extends BaseScene {
     });
     this.timeText.setDepth(100);
 
-    // Track name (in left gutter, below time)
+    // Track name
     const track = GAME_CONFIG.TRACKS[this.trackIndex];
-    const trackName = this.add.text(20, 170, track.name, {
+    const trackName = this.add.text(20, 160, track.name, {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '9px',
       color: MATRIX_COLORS.PRIMARY_HEX,
@@ -331,29 +356,49 @@ export class RhythmHackerGameScene extends BaseScene {
     });
     trackName.setDepth(100);
 
+    // Difficulty badge
+    const diffColors: Record<string, string> = {
+      easy: MATRIX_COLORS.PRIMARY_HEX,
+      normal: MATRIX_COLORS.CYAN_HEX,
+      hard: MATRIX_COLORS.YELLOW_HEX,
+      insane: MATRIX_COLORS.RED_HEX,
+    };
+    const diffText = this.add.text(20, 195, this.difficulty.toUpperCase(), {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '8px',
+      color: diffColors[this.difficulty] ?? MATRIX_COLORS.PRIMARY_HEX,
+    });
+    diffText.setDepth(100);
+
     // --- RIGHT GUTTER ---
 
-    // Health label
-    const healthLabel = this.add.text(rightGutterLeft, 30, 'HEALTH', {
+    // Health panel backdrop — switches to red panel at low health
+    const healthPanelKey = 'ui_panel_green';
+    const healthPanel = this.add.image(rightGutterLeft + 56, 45, healthPanelKey);
+    healthPanel.setOrigin(0.5);
+    healthPanel.setDisplaySize(Math.min(WIDTH - rightGutterLeft - 10, 150), 55);
+    healthPanel.setAlpha(0.4);
+    healthPanel.setDepth(99);
+    healthPanel.setData('panelRef', true);
+
+    const healthLabel = this.add.text(rightGutterLeft, 25, 'HEALTH', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '9px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
     healthLabel.setDepth(100);
 
-    // Health bar background (vertical bar in right gutter)
     const healthBarWidth = Math.min(WIDTH - rightGutterLeft - 20, 140);
     const healthBg = this.add.graphics();
-    healthBg.fillStyle(0x333333, 1);
-    healthBg.fillRect(rightGutterLeft, 50, healthBarWidth, 16);
+    healthBg.fillStyle(0x222222, 1);
+    healthBg.fillRoundedRect(rightGutterLeft, 45, healthBarWidth, 16, 3);
     healthBg.setDepth(100);
 
-    // Health bar
     this.healthBar = this.add.graphics();
-    this.healthBar.setDepth(100);
+    this.healthBar.setDepth(101);
 
-    // Combo (in right gutter, below health)
-    this.comboText = this.add.text(rightGutterLeft, 100, '', {
+    // Combo
+    this.comboText = this.add.text(rightGutterLeft, 90, '', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '16px',
       color: MATRIX_COLORS.CYAN_HEX,
@@ -361,7 +406,15 @@ export class RhythmHackerGameScene extends BaseScene {
     });
     this.comboText.setDepth(100);
 
-    // Grade display — centred above the hit line, in the lane area
+    // Multiplier display
+    this.multiplierText = this.add.text(rightGutterLeft, 145, '', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '10px',
+      color: MATRIX_COLORS.YELLOW_HEX,
+    });
+    this.multiplierText.setDepth(100);
+
+    // Grade display
     this.gradeText = this.add.text(WIDTH / 2, 40, '', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '18px',
@@ -542,6 +595,11 @@ export class RhythmHackerGameScene extends BaseScene {
       this.maxCombo = this.combo;
     }
 
+    // Combo milestone effects
+    if (this.combo > 0 && this.combo % 25 === 0) {
+      this.showComboMilestone(this.combo);
+    }
+
     // Combo achievements
     if (this.combo >= 50) {
       this.unlockAchievement(ACHIEVEMENTS.COMBO_50);
@@ -598,7 +656,32 @@ export class RhythmHackerGameScene extends BaseScene {
   }
 
   /**
-   * Show grade text
+   * Show a combo milestone burst at the centre of the lane area.
+   */
+  private showComboMilestone(combo: number): void {
+    const { WIDTH } = GAME_CONFIG;
+    const milestoneText = this.add.text(WIDTH / 2, 300, `${combo} COMBO!`, {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '24px',
+      color: MATRIX_COLORS.YELLOW_HEX,
+    });
+    milestoneText.setOrigin(0.5);
+    milestoneText.setDepth(200);
+    milestoneText.setShadow(0, 0, MATRIX_COLORS.YELLOW_HEX, 10);
+
+    this.tweens.add({
+      targets: milestoneText,
+      scale: { from: 0.5, to: 1.4 },
+      alpha: { from: 1, to: 0 },
+      y: 250,
+      duration: 800,
+      ease: 'Power2',
+      onComplete: () => milestoneText.destroy(),
+    });
+  }
+
+  /**
+   * Show grade text with glow shadow and scale pop for higher grades.
    */
   private showGrade(grade: TimingGrade, x: number, y: number): void {
     const colors: Record<TimingGrade, string> = {
@@ -607,35 +690,72 @@ export class RhythmHackerGameScene extends BaseScene {
       good: '#00aa00',
       miss: '#660000',
     };
+    const sizes: Record<TimingGrade, string> = {
+      perfect: '20px',
+      great: '16px',
+      good: '14px',
+      miss: '12px',
+    };
 
     const gradeText = this.add.text(x, y, grade.toUpperCase(), {
       fontFamily: '"Press Start 2P", monospace',
-      fontSize: '16px',
+      fontSize: sizes[grade],
       color: colors[grade],
     });
     gradeText.setOrigin(0.5);
     gradeText.setDepth(50);
+    gradeText.setShadow(0, 0, colors[grade], grade === 'perfect' ? 8 : 4);
+
+    const startScale = grade === 'perfect' ? 1.3 : 1.0;
+    gradeText.setScale(startScale);
 
     this.tweens.add({
       targets: gradeText,
-      y: y - 30,
+      y: y - 40,
       alpha: 0,
-      duration: 500,
+      scale: 0.6,
+      duration: 600,
+      ease: 'Power2',
       onComplete: () => gradeText.destroy(),
     });
   }
 
   /**
-   * Create hit effect
+   * Create hit effect — firework particle sprites when available,
+   * procedural fallback circles otherwise.
    */
   private createHitEffect(x: number, y: number, grade: TimingGrade): void {
-    for (let i = 0; i < 5; i++) {
-      const particle = this.add.image(x, y, `effect_${grade}`);
-      particle.setScale(0.5);
+    const gradeTints: Record<TimingGrade, number> = {
+      perfect: 0x00ffff,
+      great: 0x00ff00,
+      good: 0x00aa00,
+      miss: 0x660000,
+    };
+    const tint = gradeTints[grade];
+
+    const particleKeys = this.useParticleSprites
+      ? ['particle_pink_1', 'particle_pink_2', 'particle_purple_1', 'particle_purple_2', 'particle_yellow_1']
+      : null;
+
+    const count = grade === 'perfect' ? 8 : grade === 'miss' ? 3 : 5;
+
+    for (let i = 0; i < count; i++) {
+      const textureKey = particleKeys
+        ? particleKeys[i % particleKeys.length]
+        : `effect_${grade}`;
+
+      const particle = this.add.image(x, y, textureKey);
+
+      if (particleKeys) {
+        particle.setDisplaySize(20, 20);
+        particle.setTint(tint);
+      } else {
+        particle.setScale(0.5);
+      }
       particle.setDepth(40);
 
-      const angle = (i / 5) * Math.PI * 2 + Math.random() * 0.5;
-      const speed = 100 + Math.random() * 50;
+      const angle = (i / count) * Math.PI * 2 + Math.random() * 0.5;
+      const speed = 80 + Math.random() * 60;
 
       this.tweens.add({
         targets: particle,
@@ -643,7 +763,8 @@ export class RhythmHackerGameScene extends BaseScene {
         y: y + Math.sin(angle) * speed,
         scale: 0,
         alpha: 0,
-        duration: 400,
+        rotation: Math.random() * Math.PI,
+        duration: grade === 'perfect' ? 500 : 350,
         onComplete: () => particle.destroy(),
       });
     }
@@ -910,7 +1031,7 @@ export class RhythmHackerGameScene extends BaseScene {
   }
 
   /**
-   * Update UI
+   * Update UI — score, combo, health bar, multiplier, beat pulse, time.
    */
   private updateUI(): void {
     this.scoreText.setText(`SCORE\n${this.score}`);
@@ -921,6 +1042,15 @@ export class RhythmHackerGameScene extends BaseScene {
       this.comboText.setVisible(true);
     } else {
       this.comboText.setVisible(false);
+    }
+
+    // Multiplier display
+    const comboMultiplier = 1 + Math.floor(this.combo / 10) * GAME_CONFIG.SCORING.COMBO_MULTIPLIER;
+    if (comboMultiplier > 1) {
+      this.multiplierText?.setText(`x${comboMultiplier.toFixed(1)}`);
+      this.multiplierText?.setVisible(true);
+    } else {
+      this.multiplierText?.setVisible(false);
     }
 
     // Health bar (right gutter)
@@ -934,20 +1064,26 @@ export class RhythmHackerGameScene extends BaseScene {
     const healthPercent = this.health / GAME_CONFIG.HEALTH.MAX;
     let healthColor = MATRIX_COLORS.PRIMARY;
     if (healthPercent < 0.3) {
-      healthColor = MATRIX_COLORS.DARK_GREEN;
+      healthColor = MATRIX_COLORS.RED;
     } else if (healthPercent < 0.6) {
       healthColor = 0x00aa00;
     }
     this.healthBar.fillStyle(healthColor, 1);
-    this.healthBar.fillRect(rightGutterLeft + 2, 52, (healthBarWidth - 4) * healthPercent, 12);
+    this.healthBar.fillRoundedRect(rightGutterLeft + 2, 47, (healthBarWidth - 4) * healthPercent, 12, 2);
 
     // Time remaining (left gutter)
     const timeLeft = Math.max(0, this.trackDuration - Math.floor(this.gameTime / 1000));
     this.timeText.setText(`TIME\n${timeLeft}s`);
 
-    // Warning flash when time low
     if (timeLeft <= 10 && timeLeft > 0) {
       this.timeText.setColor(Math.floor(this.gameTime / 200) % 2 === 0 ? '#005500' : '#00ff00');
+    }
+
+    // Beat pulse — flash lane overlays on each beat (driven by gameTime)
+    if (!this.isCountdown) {
+      const beatPhase = (this.gameTime % this.beatInterval) / this.beatInterval;
+      const pulseAlpha = beatPhase < 0.15 ? (1 - beatPhase / 0.15) * 0.25 : 0;
+      this.laneFlashes.forEach(flash => flash.setAlpha(pulseAlpha));
     }
   }
 
@@ -1005,6 +1141,7 @@ export class RhythmHackerGameScene extends BaseScene {
     });
     this.laneKeys = [];
     this.activeNotes = [];
+    this.laneFlashes = [];
     this.input.keyboard?.removeAllKeys(true);
   }
 }
