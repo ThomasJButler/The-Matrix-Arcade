@@ -12,6 +12,7 @@ import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
 import { SCENE_KEYS, MATRIX_COLORS } from '../../../../../lib/phaser/types';
 import { GAME_CONFIG, NOTE_PROBABILITIES, ACHIEVEMENTS } from '../config';
+import { ChartNote, TRACK_CHARTS } from '../charts';
 
 /** Note types */
 type NoteType = 'normal' | 'hold' | 'double';
@@ -58,6 +59,11 @@ export class RhythmHackerGameScene extends BaseScene {
   private nextNoteTime = 0;
   private beatInterval = 500; // ms between beats
 
+  // Chart-based spawning (audio-synced)
+  private chart: ChartNote[] = [];
+  private chartIndex = 0;
+  private noteTravelTime = 0;
+
   // Notes
   private notes!: Phaser.GameObjects.Group;
   private activeNotes: Note[] = [];
@@ -98,6 +104,10 @@ export class RhythmHackerGameScene extends BaseScene {
     this.difficulty = track.difficulty as 'easy' | 'normal' | 'hard' | 'insane';
     this.beatInterval = 60000 / this.trackBpm;
     this.audioUrl = track.audioUrl;
+
+    const { NOTES } = GAME_CONFIG;
+    this.noteTravelTime = (NOTES.HIT_LINE_Y - NOTES.SPAWN_HEIGHT) / NOTES.SPEED * 1000;
+    this.chart = TRACK_CHARTS[this.trackIndex] ?? [];
   }
 
   create(): void {
@@ -116,6 +126,7 @@ export class RhythmHackerGameScene extends BaseScene {
     this.gameTime = 0;
     this.nextNoteTime = GAME_CONFIG.COUNTDOWN.NOTES_START;
     this.activeNotes = [];
+    this.chartIndex = 0;
     this.keyHeld = [false, false, false, false];
     this.isCountdown = true;
     this.countdownTime = 0;
@@ -370,10 +381,10 @@ export class RhythmHackerGameScene extends BaseScene {
     }
 
     const keyCodes = [
-      Phaser.Input.Keyboard.KeyCodes.Q,
-      Phaser.Input.Keyboard.KeyCodes.W,
-      Phaser.Input.Keyboard.KeyCodes.O,
-      Phaser.Input.Keyboard.KeyCodes.P,
+      Phaser.Input.Keyboard.KeyCodes.D,
+      Phaser.Input.Keyboard.KeyCodes.F,
+      Phaser.Input.Keyboard.KeyCodes.J,
+      Phaser.Input.Keyboard.KeyCodes.K,
     ];
 
     keyCodes.forEach((code, lane) => {
@@ -639,24 +650,63 @@ export class RhythmHackerGameScene extends BaseScene {
   }
 
   /**
-   * Spawn notes based on timing
+   * Audio-synced track time — authoritative when the backing track is
+   * playing, falls back to the frame-delta accumulator otherwise.
+   */
+  private getTrackTime(): number {
+    if (this.trackAudio && this.trackAudio.currentTime > 0) {
+      return this.trackAudio.currentTime * 1000;
+    }
+    return this.gameTime;
+  }
+
+  /**
+   * Spawn notes — chart-driven when a beat-map exists, procedural fallback otherwise.
    */
   private spawnNotes(): void {
-    if (this.gameTime >= this.trackDuration * 1000) return;
+    const trackTime = this.getTrackTime();
+    if (trackTime >= this.trackDuration * 1000) return;
 
-    while (this.gameTime >= this.nextNoteTime) {
-      this.spawnNote();
-
-      // Next note timing (randomized around beat)
-      const variation = this.beatInterval * 0.3 * (Math.random() - 0.5);
-      this.nextNoteTime += this.beatInterval + variation;
-
-      // Increase note frequency for harder difficulties
-      if (this.difficulty === 'hard') {
-        this.nextNoteTime -= this.beatInterval * 0.2;
-      } else if (this.difficulty === 'insane') {
-        this.nextNoteTime -= this.beatInterval * 0.4;
+    if (this.chart.length > 0) {
+      while (this.chartIndex < this.chart.length) {
+        const chartNote = this.chart[this.chartIndex];
+        const spawnTime = chartNote.time - this.noteTravelTime;
+        if (trackTime < spawnTime) break;
+        this.spawnChartNote(chartNote);
+        this.chartIndex++;
       }
+    } else {
+      while (this.gameTime >= this.nextNoteTime) {
+        this.spawnNote();
+        const variation = this.beatInterval * 0.3 * (Math.random() - 0.5);
+        this.nextNoteTime += this.beatInterval + variation;
+        if (this.difficulty === 'hard') {
+          this.nextNoteTime -= this.beatInterval * 0.2;
+        } else if (this.difficulty === 'insane') {
+          this.nextNoteTime -= this.beatInterval * 0.4;
+        }
+      }
+    }
+  }
+
+  /**
+   * Spawn a note from chart data — lane and type are pre-determined.
+   */
+  private spawnChartNote(chartNote: ChartNote): void {
+    const { NOTES } = GAME_CONFIG;
+    const x = this.laneX[chartNote.lane];
+
+    const note = this.createNote(x, NOTES.SPAWN_HEIGHT, chartNote.lane, chartNote.type, chartNote.holdDuration);
+    this.activeNotes.push(note);
+    this.totalNotes++;
+
+    if (chartNote.type === 'double' && chartNote.pairedLane !== undefined) {
+      const x2 = this.laneX[chartNote.pairedLane];
+      const note2 = this.createNote(x2, NOTES.SPAWN_HEIGHT, chartNote.pairedLane, 'double');
+      note.pairedNote = note2;
+      note2.pairedNote = note;
+      this.activeNotes.push(note2);
+      this.totalNotes++;
     }
   }
 
@@ -713,7 +763,7 @@ export class RhythmHackerGameScene extends BaseScene {
   /**
    * Create note visual
    */
-  private createNote(x: number, y: number, lane: number, noteType: NoteType): Note {
+  private createNote(x: number, y: number, lane: number, noteType: NoteType, chartHoldDuration?: number): Note {
     const { NOTES } = GAME_CONFIG;
 
     const container = this.add.container(x, y) as Note;
@@ -735,7 +785,7 @@ export class RhythmHackerGameScene extends BaseScene {
 
     // Hold note tail
     if (noteType === 'hold') {
-      const holdDuration = Phaser.Math.Between(500, 1500);
+      const holdDuration = chartHoldDuration ?? Phaser.Math.Between(500, 1500);
       const holdLength = (holdDuration / 1000) * NOTES.SPEED;
 
       container.holdDuration = holdDuration;

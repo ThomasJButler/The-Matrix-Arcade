@@ -36,7 +36,7 @@ export class RhythmHackerMenuScene extends BaseScene {
 
     // HOW TO PLAY section
     this.createMatrixText(WIDTH / 2, HEIGHT - 180, 'HOW TO PLAY', 14, MATRIX_COLORS.CYAN_HEX);
-    this.createMatrixText(WIDTH / 2, HEIGHT - 160, 'Q W O P: Hit notes in time | Hold keys for hold notes', 10);
+    this.createMatrixText(WIDTH / 2, HEIGHT - 160, 'D F J K: Hit notes in time | Hold keys for hold notes', 10);
     this.createMatrixText(WIDTH / 2, HEIGHT - 145, 'Goal: Hit falling code fragments to the beat', 10);
 
     // Controls info

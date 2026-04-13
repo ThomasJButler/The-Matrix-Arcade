@@ -9,6 +9,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { RhythmHackerGameScene } from './GameScene';
 import { GAME_CONFIG, NOTE_PROBABILITIES, ACHIEVEMENTS } from '../config';
+import { TRACK_CHARTS } from '../charts';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -42,6 +43,13 @@ function createTestScene(trackIndex = 0) {
   scene.trackBpm = track.bpm;
   scene.difficulty = track.difficulty;
   scene.beatInterval = 60000 / track.bpm;
+  scene.audioUrl = track.audioUrl;
+
+  // Chart fields
+  const { NOTES } = GAME_CONFIG;
+  scene.noteTravelTime = (NOTES.HIT_LINE_Y - NOTES.SPAWN_HEIGHT) / NOTES.SPEED * 1000;
+  scene.chart = TRACK_CHARTS[trackIndex] ?? [];
+  scene.chartIndex = 0;
 
   // BaseScene helpers
   scene.playSound = vi.fn();
@@ -77,7 +85,7 @@ function createTestScene(trackIndex = 0) {
     }),
   };
 
-  // Input stubs (four lanes: Q, W, O, P)
+  // Input stubs (four lanes: D, F, J, K)
   scene.laneKeys = [
     { isDown: false },
     { isDown: false },
@@ -516,6 +524,57 @@ describe('RhythmHackerGameScene', () => {
       scene.input = { keyboard: { removeAllKeys: vi.fn() } };
       scene.shutdown();
       expect(scene.trackAudio).toBeNull();
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Chart-based Spawning & Audio Sync
+  // -----------------------------------------------------------------------
+  describe('Chart-based Spawning', () => {
+    it('scene loads chart data for the selected track', () => {
+      const s = createTestScene(0);
+      expect(s.chart).toBeDefined();
+      expect(s.chart.length).toBeGreaterThan(0);
+      expect(s.chart).toEqual(TRACK_CHARTS[0]);
+    });
+
+    it('chartIndex resets to 0 on creation', () => {
+      const s = createTestScene(2);
+      expect(s.chartIndex).toBe(0);
+    });
+
+    it('noteTravelTime is computed from config constants', () => {
+      const { NOTES } = GAME_CONFIG;
+      const expected = (NOTES.HIT_LINE_Y - NOTES.SPAWN_HEIGHT) / NOTES.SPEED * 1000;
+      expect(scene.noteTravelTime).toBeCloseTo(expected, 1);
+    });
+
+    it('getTrackTime returns gameTime when no audio is playing', () => {
+      scene.trackAudio = null;
+      scene.gameTime = 5000;
+      const time = scene.getTrackTime();
+      expect(time).toBe(5000);
+    });
+
+    it('getTrackTime returns audio time when track is playing', () => {
+      scene.trackAudio = { currentTime: 3.5, paused: false };
+      scene.gameTime = 3400;
+      const time = scene.getTrackTime();
+      expect(time).toBe(3500);
+    });
+
+    it('getTrackTime falls back to gameTime when audio currentTime is 0', () => {
+      scene.trackAudio = { currentTime: 0, paused: false };
+      scene.gameTime = 100;
+      const time = scene.getTrackTime();
+      expect(time).toBe(100);
+    });
+
+    it('each track gets a unique chart', () => {
+      for (let i = 0; i < GAME_CONFIG.TRACKS.length; i++) {
+        const s = createTestScene(i);
+        expect(s.chart).toEqual(TRACK_CHARTS[i]);
+      }
     });
   });
 });
