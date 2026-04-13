@@ -131,6 +131,24 @@ export async function activateJetpack(page: Page): Promise<void> {
 }
 
 /**
+ * Move paddle left/right in Code Breaker.
+ */
+export async function moveBreakerPaddle(page: Page, direction: 'left' | 'right', duration = 200): Promise<void> {
+  const key = direction === 'left' ? 'ArrowLeft' : 'ArrowRight';
+  await page.keyboard.down(key);
+  await page.waitForTimeout(duration);
+  await page.keyboard.up(key);
+}
+
+/**
+ * Launch ball in Code Breaker.
+ */
+export async function launchBall(page: Page): Promise<void> {
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(200);
+}
+
+/**
  * Pause and resume a game.
  */
 export async function togglePause(page: Page): Promise<void> {

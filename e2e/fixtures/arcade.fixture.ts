@@ -99,6 +99,7 @@ const GAME_NAME_PATTERNS: Record<string, string[]> = {
   'agent-chase': ['agent chase'],
   'rhythm-hacker': ['rhythm hacker'],
   'cloud-jumper': ['cloud jumper'],
+  'code-breaker': ['code breaker'],
 };
 
 /**
