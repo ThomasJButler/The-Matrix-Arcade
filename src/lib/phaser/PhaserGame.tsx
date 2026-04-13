@@ -121,9 +121,23 @@ export function PhaserGame({
     if (!containerRef.current || gameRef.current) return;
 
     // Create game with merged config
+    // Ensure keyboard events target `window` so they reach Phaser's plugin
+    // regardless of which element has DOM focus (container div vs canvas).
+    const inputConfig = typeof config.input === 'object' && config.input !== null ? config.input : {};
+    const kbConfig = 'keyboard' in inputConfig && typeof (inputConfig as Record<string, unknown>).keyboard === 'object'
+      ? (inputConfig as Record<string, unknown>).keyboard as Record<string, unknown>
+      : {};
+
     const gameConfig: Phaser.Types.Core.GameConfig = {
       ...config,
       parent: containerRef.current,
+      input: {
+        ...(inputConfig as Phaser.Types.Core.InputConfig),
+        keyboard: {
+          ...kbConfig,
+          target: window,
+        },
+      },
       scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
@@ -253,7 +267,7 @@ export function PhaserGame({
       {hasEverFocused && !hasFocus && !isHovering && (
         <div
           onClick={handleContainerClick}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleContainerClick(); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); handleContainerClick(); } }}
           role="button"
           tabIndex={0}
           aria-label="Click to play"
