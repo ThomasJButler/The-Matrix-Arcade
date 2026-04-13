@@ -5,7 +5,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: ACTIVE — All P0–P2 resolved. useAdvancedVoice AudioContext dead code removed (R64). Phase 6 polish, assets, and CTRL-S rewrite remain.
+## Status: POLISHED — All P0–P2 resolved. Only optional P3 enhancements remain (asset deployment, Phase 6 polish, CTRL-S World Phaser rewrite).
 
 > **Last audit**: R64 (2026-04-13). All unit tests pass (1838/1838). Build clean. TypeScript clean. All E2E tests pass. 12 games total, all with E2E playthrough coverage. Git on `developmentv3.0`.
 >

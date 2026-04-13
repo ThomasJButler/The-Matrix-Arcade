@@ -1,6 +1,55 @@
-# Completed Work — The Matrix Arcade (R1–R50)
+# Completed Work — The Matrix Arcade (R1–R61)
 
 Archived from `IMPLEMENTATION_PLAN.md` on 2026-04-13. This file is the durable record of everything Ralph completed across the planning/build loops. The live plan now tracks only open work.
+
+---
+
+## R61 — Deep Multi-Agent Audit (2026-04-13)
+
+Planning-only round. 8 parallel research agents audited the full codebase against specs. Key outcomes:
+
+**Resolved items confirmed:**
+- **GAME_CONFIG TDZ crash** (Rhythm Hacker, Matrix Cloud, Vortex Pong) — already fixed in commit `ee18028`. Circular import caused module-level `const` reads to hit TDZ. Fix moved reads into method bodies / lazy singletons.
+
+**New findings added to live plan:**
+- **P0 Factor 6 (NEW)**: App.tsx global `preventDefault` on keydown may block Phaser events — guard doesn't account for `window`-targeted keyboard events.
+- **P0 Factor 7 (NEW)**: MenuScene and GameOverScene have no `shutdown()` — ghost key handlers leak across scene transitions.
+- **P1 Controls descriptions (EXPANDED)**: Full audit found 8 games with mismatches (3 HIGH, 2 MEDIUM, 3 LOW) vs original plan's 1 game.
+- **P1 Console guards (RE-OPENED)**: 4 unguarded `console.warn`/`console.error` calls found in `useShatnerVoice`, `useAdvancedVoice`, `useLifelineManager` — R60 had incorrectly marked as fully resolved.
+- **P2 Dead types**: `BaseSceneHelpers`, `PhaserGameConfig` interfaces never imported. `REGISTRY_KEYS.SAVE_SYSTEM` declared but never set. Metris uses wrong key string — save reads silently broken.
+- **P2 Spec inconsistencies**: 9 gaps between phaser-games.md, game-architecture.md, and ux-guidelines.md documented.
+- **Asset audit**: Full per-game deployment status with file counts. Audio is the biggest cross-cutting gap — only Matrix Frogger has any deployed.
+
+No code changes. No files modified beyond IMPLEMENTATION_PLAN.md and COMPLETED_WORK.md.
+
+---
+
+## R58 — Playwright E2E Residue: A11y, Perf Budgets, Modal Coverage (2026-04-13)
+
+Closes two Phase 6 Playwright residue items carried over from R50 and adds automated coverage for the Playtest Verification modals.
+
+**New specs (22 tests, all green in isolation):**
+- `e2e/a11y/keyboard-only.spec.ts` — per-game keyboard-only playthroughs: Tab through landing to locate `aria-label="Play <title>"`, Enter → portal, ArrowRight walks carousel to target game, Enter starts, assert `data-game-ready`, Escape exits. 12 games + 2 focus-visibility tests (outline or box-shadow present on focused card; `role="button"` + `tabIndex=0` + aria-label contract).
+- `e2e/performance/budgets.spec.ts` — landing LCP < 10000ms via `PerformanceObserver('largest-contentful-paint')` attached before navigation through `addInitScript` (measured ~1.4s on laptop); Snake Classic FPS ≥ 25 over a 2s rAF-counted sample (measured ~119 FPS in isolation, ~72 under moderate parallelism). FPS test gated behind `PLAYWRIGHT_PERF=1` — too flaky under full-suite 5-worker parallelism where rAF scheduling competes across workers.
+- `e2e/playthrough/modals.spec.ts` — H opens `GameHighScores` and Escape closes (keyed off `aria-label="Close high scores"` which is unique to the open modal); A opens `AchievementDisplay` and backdrop-click closes (no Escape handler wired for it); I opens `GameInstructions` and Escape closes; V toggles mute (asserts the Audio Settings button's class changes); settings button opens the AudioSettings panel with volume sliders. Plus a focus-restoration probe that currently logs `<BODY>` — documents the Phase 6 "focus traps on modals" gap without failing.
+
+**Debugging iterations:**
+- LCP test first hit `Execution context was destroyed` because the evaluate ran across the navigation boundary. Fix: use `addInitScript` so the PerformanceObserver registers in the fresh page context before first paint.
+- Modal locators first collided with always-visible toolbar buttons (`getByText(/high scores/i)` matched the "View high scores" button, not the modal heading). Fix: key off the modal's close-button `aria-label` which only exists when the modal is open.
+- `I` modal heading triggered strict-mode violation (3 matches — `h2 sr-only`, card `h3`, modal `h2`). Fix: use the same close-button aria-label pattern plus "Universal Keys" text which is unique to the instructions modal.
+
+**Budgets rationale:** Sized to survive full-suite parallel load, not benchmark real hardware. In isolation LCP is ~1.4s and FPS is ~119 — both logged via `console.log` so regressions are visible even when assertions pass. If real regressions push past 10s LCP or below 25 FPS, something is seriously broken.
+
+**Unrelated pre-existing flakes surfaced** (not regressions from R58, confirmed by rerunning in isolation):
+- `e2e/visual/landing.spec.ts:40` — 1px height drift (297×288 baseline vs 297×287 actual) under parallel load, passes in isolation.
+- `code-breaker` / `matrix-invaders` / `cloud-jumper` full playthroughs occasionally time out under heavy parallel load. All four pass cleanly when run alone. Captured as new Phase 6 residue item.
+
+**Files created:**
+- `e2e/a11y/keyboard-only.spec.ts`
+- `e2e/performance/budgets.spec.ts`
+- `e2e/playthrough/modals.spec.ts`
+
+No source files modified. No config changes (multi-viewport was de-scoped for this round).
 
 ---
 
