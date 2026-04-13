@@ -76,7 +76,9 @@ export default function LandingPage({ onSelectGame, onClose }: LandingPageProps)
                   ? 'border-green-500/50 text-green-400 bg-green-500/10'
                   : 'border-green-500/30 text-green-400/60 hover:bg-green-500/10 hover:text-green-400'
               }`}
-              title="Keyboard controls"
+              aria-expanded={showControls}
+              aria-controls="keyboard-controls-panel"
+              aria-label="Keyboard controls"
             >
               <Keyboard className="w-4 h-4" />
             </button>
@@ -89,7 +91,7 @@ export default function LandingPage({ onSelectGame, onClose }: LandingPageProps)
           </div>
         </div>
         {showControls && (
-          <div className="border-t border-green-500/20 bg-black/60">
+          <div id="keyboard-controls-panel" className="border-t border-green-500/20 bg-black/60">
             <div className="max-w-7xl mx-auto px-4 py-2.5 flex flex-wrap gap-x-6 gap-y-1 justify-center">
               {[
                 ['P', 'Pause'],
@@ -126,7 +128,7 @@ export default function LandingPage({ onSelectGame, onClose }: LandingPageProps)
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.2 }}
-              className="text-green-500/50 font-mono text-xs"
+              className="text-green-500/70 font-mono text-xs"
             >
               {GAME_DATA.length} programs recovered from terminals inside the simulation
             </motion.p>
@@ -140,6 +142,7 @@ export default function LandingPage({ onSelectGame, onClose }: LandingPageProps)
           >
             <button
               onClick={() => setActiveCategory('All')}
+              aria-pressed={activeCategory === 'All'}
               className={`px-3 py-1 rounded-full font-mono text-xs transition-colors ${
                 activeCategory === 'All'
                   ? 'bg-green-500 text-black font-bold'
@@ -155,6 +158,7 @@ export default function LandingPage({ onSelectGame, onClose }: LandingPageProps)
                 <button
                   key={cat}
                   onClick={() => setActiveCategory(cat)}
+                  aria-pressed={activeCategory === cat}
                   className={`px-3 py-1 rounded-full font-mono text-xs transition-colors ${
                     activeCategory === cat
                       ? 'bg-green-500 text-black font-bold'
@@ -190,7 +194,8 @@ export default function LandingPage({ onSelectGame, onClose }: LandingPageProps)
                 {game.preview ? (
                   <img
                     src={game.preview}
-                    alt={game.title}
+                    alt=""
+                    aria-hidden="true"
                     className="w-full h-full object-cover opacity-70 group-hover:opacity-90 group-hover:scale-105 transition-all duration-500"
                   />
                 ) : (
@@ -210,10 +215,10 @@ export default function LandingPage({ onSelectGame, onClose }: LandingPageProps)
                 <h3 className="text-green-400 font-mono text-sm mb-1.5 group-hover:text-green-300 transition-colors truncate">
                   {game.title}
                 </h3>
-                <p className="text-green-500/55 font-mono text-[11px] leading-relaxed line-clamp-2 mb-2">
+                <p className="text-green-500/70 font-mono text-[11px] leading-relaxed line-clamp-2 mb-2">
                   {game.description}
                 </p>
-                <p className="text-green-500/35 font-mono text-[10px] truncate">
+                <p className="text-green-500/60 font-mono text-[10px] truncate">
                   Inspired by {game.inspiration}
                 </p>
               </div>
@@ -224,7 +229,7 @@ export default function LandingPage({ onSelectGame, onClose }: LandingPageProps)
 
       {/* Footer */}
       <footer className="border-t border-green-500/20 py-6 text-center">
-        <p className="text-green-500/30 font-mono text-xs">
+        <p className="text-green-500/60 font-mono text-xs">
           Built with love by Tom Butler — React + Phaser 3 + Web Audio API
         </p>
       </footer>

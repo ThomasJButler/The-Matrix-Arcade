@@ -455,6 +455,12 @@ function App() {
       {showMobileWarning && <MobileWarning />}
       
       <MatrixRainCanvas />
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-green-500 focus:text-black focus:font-mono focus:rounded"
+      >
+        Skip to content
+      </a>
       <div className="h-screen flex flex-col bg-black text-green-500 overflow-hidden crt-effect relative z-10">
       {/* Header */}
       <header
@@ -508,12 +514,15 @@ function App() {
               onClick={() => setShowLandingPage(true)}
               className="flex items-center gap-2 px-4 py-2 bg-green-900/50 rounded hover:bg-green-800 transition-colors border border-green-500/30 backdrop-blur-sm group"
               title="View all games"
+              aria-label="View all games"
             >
               <Monitor className="w-4 h-4" />
               <span className="hidden sm:inline">Arcade</span>
             </button>
             <button
               onClick={() => setShowNav(!showNav)}
+              aria-expanded={showNav}
+              aria-controls="game-nav"
               className="flex items-center gap-2 px-4 py-2 bg-green-900/50 rounded hover:bg-green-800 transition-colors border border-green-500/30 backdrop-blur-sm group"
             >
               Games
@@ -525,6 +534,7 @@ function App() {
       {/* Side Nav */}
       {showNav && (
         <nav
+          id="game-nav"
           className="absolute left-0 top-0 h-full w-64 bg-black/90 border-r border-green-500/50 z-50 backdrop-blur-sm overflow-y-auto"
           style={{ paddingTop: '5rem' }} // offset from header
           role="navigation"
@@ -558,7 +568,10 @@ function App() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 overflow-hidden flex items-center justify-center p-2 lg:p-4">
+      <div aria-live="polite" className="sr-only">
+        {isMuted ? 'Audio muted' : 'Audio unmuted'}
+      </div>
+      <main id="main-content" className="flex-1 overflow-hidden flex items-center justify-center p-2 lg:p-4">
         {/* Fullscreen Game View */}
         {isPlaying && GameComponent ? (
           <div className="relative w-full h-full">
