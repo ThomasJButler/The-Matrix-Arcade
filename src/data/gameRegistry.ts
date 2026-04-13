@@ -122,7 +122,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     category: 'Rhythm',
     inspiration: 'Guitar Hero / Dance Dance Revolution',
     inspirationNote: 'The rhythm game genre, reimagined as a Matrix hacking sequence with 4 lanes.',
-    controls: 'Press keys (1, 2, 3, 4) or Arrow keys to hit notes',
+    controls: 'D F J K to hit notes in each lane, hold for hold notes',
   },
   {
     id: 'cloud-jumper',

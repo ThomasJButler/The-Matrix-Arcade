@@ -20,7 +20,7 @@ export const GAME_CONFIG = {
   /** Lane configuration */
   LANES: {
     COUNT: 4,
-    KEYS: ['Q', 'W', 'O', 'P'],
+    KEYS: ['D', 'F', 'J', 'K'],
     COLORS: [0x00ff00, 0x00ffff, 0x00cc00, 0xccffcc], // Green, Cyan, Dark Green, Light Green
     WIDTH: 100,
     SPACING: 15,

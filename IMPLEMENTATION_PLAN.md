@@ -6,12 +6,12 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ## Current Status
 
-- **Status**: REBUILDING -- Phaser migration complete, asset pipeline bootstrapped, per-game sprite integration in progress, Rhythm Hacker music integrated, game portal UX improved, landing page redesigned, Vortex Pong sprite integration complete
-- **Last Updated**: 13 April 2026 (R34 -- Vortex Pong paddle/ball/board sprite integration)
+- **Status**: REBUILDING -- Phaser migration complete, asset pipeline bootstrapped, per-game sprite integration in progress, Rhythm Hacker music synced to beat charts, game portal UX improved, landing page redesigned, Vortex Pong sprite integration complete
+- **Last Updated**: 13 April 2026 (R35 -- Rhythm Hacker beat-locked chart sync and control fix)
 - **Version**: v2.0.0 (next target)
 - **Games**: 12 playable (11 Phaser, 1 DOM)
 - **Build**: PASSES (code-split, main bundle ~384KB, Phaser vendor chunk 1,479KB) -- zero warnings
-- **Unit Tests**: 2,067 passing across 46 files, 0 failures
+- **Unit Tests**: 2,088 passing across 48 files, 0 failures
 - **E2E Tests**: 88 gameplay + 110 visual = 198 tests across 28 spec files -- last run PASSED (new screeenshots in TheMatrixArcade-/e2e, user manually ran the playwright test. 
 - **Asset Pipeline**: Phase 0a COMPLETE -- `public/assets/` deployed with fonts, audio, UI chrome, particles, icons (117 files, ~40MB)
 
@@ -45,6 +45,8 @@ All P0/P1/P2 bugs resolved across R1-R14 (12 April 2026). Key milestones:
 
 - **R33 Landing page UX redesign**: Overhauled landing page grid layout for better visual hierarchy. Enlarged preview images (h-36→h-44) so gameplay screenshots are the focal point. Added play icon overlay with hover scale-up animation. Moved category badge onto image with backdrop blur. Removed per-card controls section (duplicated global controls) and collapsed inspiration to a single subtle line — cards are now scannable at a glance. Replaced full-width global controls panel with a collapsible strip behind a keyboard icon in the header. Merged hero section and category filter into a single compact row. Added xl:grid-cols-4 breakpoint for wider screens. Widened content from max-w-6xl to max-w-7xl. Removed dead `generateGamePlaceholder` SVG function (all games have real previews since R30). Net: 120 insertions, 241 deletions. All 2,067 tests pass.
 
+- **R35 Rhythm Hacker beat-locked chart sync and control fix**: Replaced random-jitter procedural note spawning with deterministic, musically-structured beat charts. Created `charts.ts` with seeded PRNG chart generator that divides each track into musical sections (intro/verse/chorus/bridge/outro) with per-section lane patterns and difficulty-scaled note density. Notes now land on exact beat subdivisions — no random timing jitter. Added audio-time sync via `getTrackTime()` method that uses `trackAudio.currentTime` as authoritative time source (preventing drift between game clock and music). Chart-driven `spawnNotes()` pre-spawns notes based on travel time so they arrive at the hit line in sync with the beat. Fixed critical P-key conflict: changed lane keys from Q/W/O/P to D/F/J/K (industry-standard rhythm game layout) since P was shared with the universal pause key, making the game unplayable. Updated MenuScene help text, config, and gameRegistry controls description. Procedural fallback preserved for any tracks without chart data. 14 new chart unit tests, 7 new GameScene integration tests (79 total for Rhythm Hacker). All 2,088 tests pass.
+
 - **R34 Vortex Pong paddle, ball, and board sprite integration**: Deployed 10 sprites to `public/assets/vortex-pong/`: paddle_player.png (17×120), paddle_ai.png (17×120), ball.png (30×30), ball_motion.png (46×46), board.png (802×455), and fireball_1 through fireball_5 (64×32 each). All sprites sourced from Simple Ping Pong 2D Game Assets pack and fireball frames, recoloured to Matrix green palette via Python PIL (grayscale luminance mapped to green channel). Refactored GameScene paddles from `Phaser.GameObjects.Rectangle` to `Phaser.GameObjects.Image` with `setDisplaySize()` scaling — the existing procedural paddle textures (`paddle_player`, `paddle_ai`) were already generated in BootScene but never used. Updated `resizePlayerPaddle()` from `setSize()` to `setDisplaySize()`. Widened `clampPaddle()` and `ballHitsPaddle()` type signatures from `Phaser.GameObjects.Rectangle` to structural types. Added `loadCommonAssets()` override with `textures.exists()` guards so loaded sprites take priority over procedural fallbacks. Switched BootScene from `this.add.graphics()` to `this.make.graphics()` for off-screen texture baking. Updated test mock paddles from `setSize` to `setDisplaySize` and added `add.image` mock. All 2,067 tests pass.
 
 Full details in git history (`git log --oneline`).
@@ -76,7 +78,7 @@ All 12 P1 items fixed in R4-R5 (Metris bullet time, Matrix Cloud combo, CTRL-S s
 
 **File**: `src/components/games/phaser/RhythmHacker/scenes/GameScene.ts`
 - [x] Music tracks integrated (5 tracks with HTML5 Audio playback, BPM-synced procedural notes)
-- [ ] Sync gameplay to backing music track (currently procedurally generated notes). 5+ WAV tracks available in asset dump.
+- [x] Sync gameplay to backing music track — beat-locked chart system with audio-time sync (R35). Lane keys changed from Q/W/O/P to D/F/J/K to fix P-key pause conflict.
 - [ ] Improve visuals and animations (currently 100% procedural -- 28 textures auto-generated)
 
 ### 2.3 Visual & UX Observations from Screenshots
