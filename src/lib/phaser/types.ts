@@ -3,8 +3,6 @@
  * Shared types for React-Phaser bridge
  */
 
-import type Phaser from 'phaser';
-
 /** Achievement manager interface matching the arcade's pattern */
 export interface AchievementManager {
   unlockAchievement(gameId: string, achievementId: string): void;
@@ -74,27 +72,6 @@ export const SCENE_KEYS = {
   GAME_OVER: 'GameOverScene',
   UI: 'UIScene',
 } as const;
-
-/** Base scene class type with registry access helpers */
-export interface BaseSceneHelpers {
-  getAchievementManager(): AchievementManager | undefined;
-  getIsMuted(): boolean;
-  emitGameEvent(event: GameEvent): void;
-  playSound(key: string): void;
-}
-
-/** Config for creating a Phaser game */
-export interface PhaserGameConfig {
-  gameId: string;
-  width: number;
-  height: number;
-  scenes: typeof Phaser.Scene[];
-  physics?: {
-    gravity?: { x?: number; y?: number };
-    debug?: boolean;
-  };
-  backgroundColor?: string;
-}
 
 /** Matrix theme colours */
 export const MATRIX_COLORS = {

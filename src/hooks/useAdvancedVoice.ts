@@ -190,6 +190,7 @@ export function useAdvancedVoice() {
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const voiceVisualizationRef = useRef<{ amplitude: number; frequency: number[] }>({
     amplitude: 0,
     frequency: [],
@@ -344,7 +345,7 @@ export function useAdvancedVoice() {
       if (config.autoAdvance && speechQueue.length > 0) {
         const nextText = speechQueue[0];
         setSpeechQueue(prev => prev.slice(1));
-        setTimeout(() => speak(nextText), 1000);
+        autoAdvanceTimerRef.current = setTimeout(() => speak(nextText), 1000);
       }
     };
 
@@ -448,6 +449,9 @@ export function useAdvancedVoice() {
   useEffect(() => {
     return () => {
       stop();
+      if (autoAdvanceTimerRef.current) {
+        clearTimeout(autoAdvanceTimerRef.current);
+      }
       if (audioContextRef.current) {
         audioContextRef.current.close();
       }

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Trophy, Unlock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -20,15 +20,21 @@ export const AchievementNotification: React.FC<AchievementNotificationProps> = (
   onDismiss
 }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (achievement) {
       setIsVisible(true);
       const timer = setTimeout(() => {
         setIsVisible(false);
-        setTimeout(onDismiss, 300);
+        dismissTimerRef.current = setTimeout(onDismiss, 300);
       }, 5000);
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+        if (dismissTimerRef.current) {
+          clearTimeout(dismissTimerRef.current);
+        }
+      };
     }
   }, [achievement, onDismiss]);
 

@@ -31,5 +31,4 @@ export {
   type ScoreEventData,
   type AchievementEventData,
   type GameOverEventData,
-  type PhaserGameConfig,
 } from './types';

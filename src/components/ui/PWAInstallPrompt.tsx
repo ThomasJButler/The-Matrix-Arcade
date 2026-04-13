@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Download, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -11,6 +11,7 @@ export const PWAInstallPrompt: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
+  const promptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     // Check if already installed
@@ -25,7 +26,7 @@ export const PWAInstallPrompt: React.FC = () => {
       // Stash the event so it can be triggered later
       setDeferredPrompt(e as BeforeInstallPromptEvent);
       // Show install prompt after a delay
-      setTimeout(() => setShowPrompt(true), 2000);
+      promptTimerRef.current = setTimeout(() => setShowPrompt(true), 2000);
     };
 
     const handleAppInstalled = () => {
@@ -40,6 +41,9 @@ export const PWAInstallPrompt: React.FC = () => {
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
+      if (promptTimerRef.current) {
+        clearTimeout(promptTimerRef.current);
+      }
     };
   }, []);
 

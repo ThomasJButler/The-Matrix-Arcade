@@ -258,7 +258,7 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
                 if (!isSubmitting && !isEliminated) {
                   setUserAnswer(value || '');
                   // Auto-submit for multiple choice
-                  setTimeout(() => handleSubmit(), 300);
+                  timersRef.current.push(setTimeout(() => handleSubmit(), 300));
                 }
               }}
               disabled={isSubmitting || isEliminated}
