@@ -206,23 +206,17 @@ All 4 untracked setTimeout calls now properly tracked in refs and cleared on unm
 
 ---
 
-### P2 — Spec Inconsistencies (NEW R61)
+### ~~P2 — Spec Inconsistencies~~ RESOLVED (R63)
 
-Gaps between `specs/phaser-games.md`, `specs/game-architecture.md`, and `specs/ux-guidelines.md`:
+Fixed cross-spec alignment between `game-architecture.md`, `phaser-games.md`, and `ux-guidelines.md`:
+- Added `autoStart` and `onExit` to architecture GameProps interface
+- Added `M` key (mute toggle) to architecture input table
+- Added `select` sound to architecture required sound events
+- Added Phaser file structure alongside React/Canvas structure in architecture spec
+- Added `R` key (restart) to phaser-games.md integration requirements
+- Added `onExit` to phaser-games.md GameProps
 
-| Gap | Details |
-|-----|---------|
-| `autoStart` prop | Only defined in phaser-games.md; missing from game-architecture.md's `GameProps` interface |
-| `M` key for mute | Listed in ux-guidelines and phaser-games but missing from game-architecture.md's input table |
-| File structure | game-architecture.md specifies flat `src/components/games/GameName.tsx`; phaser-games.md specifies nested `src/components/games/phaser/GameName/`. No exception clause in architecture spec |
-| `R` key for restart | Listed in architecture and UX but never mentioned in any individual game's controls table in phaser-games.md |
-| Difficulty progression | Template has full level 1-10+ spec; none of the 5 Phaser games define difficulty scaling |
-| Scoring values | Only high-level notes (e.g. "distance") — no concrete point values for any game |
-| Achievement definitions | Architecture defines categories; no per-game achievements specified in phaser-games.md |
-| Touch/mobile controls | UX guidelines require tablet touch; no Phaser game spec mentions touch at all |
-| Background music | No game specifies a music track path or whether one should exist |
-
-- [ ] Update specs to be internally consistent (focus on architecture.md alignment with actual Phaser project structure)
+Remaining gaps intentionally left open (too speculative to define without playtesting): difficulty progression values, per-game scoring tables, per-game achievement lists, touch/mobile controls, music track assignments.
 
 ---
 
