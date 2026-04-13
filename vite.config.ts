@@ -52,7 +52,7 @@ export default defineConfig({
         categories: ['games', 'entertainment']
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,webp,gif,woff,woff2,ttf,eot,mp3,ogg,json}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,webp,gif,woff,woff2,ttf,eot,json}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MiB - increased for Phaser bundle
         runtimeCaching: [
           {
