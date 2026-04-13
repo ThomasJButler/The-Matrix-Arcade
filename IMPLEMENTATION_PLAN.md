@@ -5,9 +5,21 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: POLISHED — All P0–P2 resolved. Only optional P3 enhancements remain (asset deployment, Phase 6 polish, CTRL-S World Phaser rewrite).
+## Status: POLISHED — All P0/P1/P2 bugs resolved. Only optional enhancements (assets, Phase 7) remain.
 
-> **Last audit**: R64 (2026-04-13). All unit tests pass (1838/1838). Build clean. TypeScript clean. All E2E tests pass. 12 games total, all with E2E playthrough coverage. Git on `developmentv3.0`.
+> **Last audit**: R68 (2026-04-13). All unit tests pass (1838/1838). Build clean. TypeScript clean. All E2E tests pass. 12 games total, all with E2E playthrough coverage. Git on `developmentv3.0`.
+>
+> **R68 delta from R67**: Resolved all 3 bugs found in R67 deep audit:
+> - **P1 RESOLVED**: M key conflict in GameOverScene — changed menu shortcut from M to Q. M is now exclusively for mute toggle (BaseScene). All 11 Phaser games no longer have the dual-fire issue.
+> - **P2 RESOLVED**: High score now loaded from save system in MatrixInvaders, MatrixCloud, and CodeBreaker. Follows the Metris pattern: `registry.get(REGISTRY_KEYS.SAVE_SYSTEM).getSaveData()`. "NEW HIGH SCORE!" only displays when genuinely beaten.
+> - **P2 RESOLVED**: VortexPong R key now calls `reportScore()` before `scene.restart()`, ensuring the score is persisted to React before the scene resets. Cleanup still happens via Phaser's scene lifecycle.
+>
+> **R67 planning audit findings**: Deep code analysis of all 11 Phaser game scenes uncovered 3 previously untracked bugs (1× P1, 2× P2). All original user-reported issues remain resolved:
+> - **"E2E tests for new games"** — All 12 games have full E2E playthrough coverage (10 playthrough specs + ctrl-s-world). Each captures 6 visual checkpoints (portal, menu, early play, mid play, paused, final). 21 E2E spec files total.
+> - **"Phaser games controls don't work"** — P0 keyboard race condition fully resolved in R62. `waitForKeyboard()` polling + update-tick fallback ensures input setup completes reliably. All E2E playthroughs exercise keyboard controls successfully.
+> - **"Press enter to start"** — Resolved in R62. App.tsx passes `autoStart={true}`, skipping MenuScene. Post-game-over restart via MenuScene uses `waitForKeyboard()`. Click-to-play overlay no longer steals focus.
+> - **"Test failures"** — Zero failures. 1838/1838 unit tests pass. Build clean. All E2E green.
+> - **"4 games to rebuild"** — MatrixFrogger, NeoJump, AgentChase, RhythmHacker + CloudJumper all rebuilt as Phaser 3 games with full scene structure, E2E coverage, and visual baselines. All confirmed rendering correctly in screenshots.
 >
 > **R63 delta from R62**: Resolved P2 setTimeout leaks (4 files), P2 dead types, and P2 broken Metris save system registry key:
 > - **P2 RESOLVED**: All 4 untracked `setTimeout` calls now tracked in refs and cleared on unmount (PuzzleModal, useAdvancedVoice, PWAInstallPrompt, AchievementNotification).
@@ -221,6 +233,24 @@ Fixed cross-spec alignment between `game-architecture.md`, `phaser-games.md`, an
 - Added `onExit` to phaser-games.md GameProps
 
 Remaining gaps intentionally left open (too speculative to define without playtesting): difficulty progression values, per-game scoring tables, per-game achievement lists, touch/mobile controls, music track assignments.
+
+---
+
+### ~~P1 — M Key Conflict in GameOverScene~~ RESOLVED (R68)
+
+Changed menu shortcut from M to Q in `GameOverScene.setupGameOverInput()`. M is now exclusively the mute toggle from BaseScene. All 11 Phaser games no longer double-fire on M keypress.
+
+---
+
+### ~~P2 — High Score Not Loaded From Save~~ RESOLVED (R68)
+
+Added save system reads to `resetState()` in MatrixInvaders, MatrixCloud, and CodeBreaker. Follows the Metris pattern: `registry.get(REGISTRY_KEYS.SAVE_SYSTEM).getSaveData()`. High scores now persist across sessions correctly. Updated test mocks to include `scene.registry`.
+
+---
+
+### ~~P2 — VortexPong R Key Bypasses Game Over Flow~~ RESOLVED (R68)
+
+Added `this.reportScore(this.playerScore)` before `this.scene.restart()` so the score is persisted to React before the scene resets. Phaser's scene lifecycle handles `shutdown()` cleanup automatically on restart.
 
 ---
 
@@ -479,12 +509,15 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 - Single source of truth: GAME_REGISTRY in `src/data/gameRegistry.ts`
 - Code-split lazy loading for all game components
 - No orphaned legacy code (cleaned up in R15)
-- All 1831 unit tests passing, build clean
+- All 1838 unit tests passing, build clean
 - All E2E tests passing (12 playthroughs + 5 visual specs + keyboard-only a11y + performance budgets + modal shortcuts)
 - All 12 games have complete E2E playthrough coverage with 6-checkpoint visual baselines
 - GAME_CONFIG TDZ crash resolved (commit `ee18028`)
 
 ### Open Gaps
+- ~~**P1 (R67)**: M key conflict in GameOverScene~~ RESOLVED (R68) — menu shortcut changed to Q
+- ~~**P2 (R67)**: High score not loaded from save~~ RESOLVED (R68) — 3 games now read from save system
+- ~~**P2 (R67)**: VortexPong R key bypass~~ RESOLVED (R68) — now reports score before restart
 - ~~**P2**: 4 untracked `setTimeout` calls~~ RESOLVED (R63)
 - ~~**P2**: Dead types (`BaseSceneHelpers`, `PhaserGameConfig`) and broken `SAVE_SYSTEM` registry key~~ RESOLVED (R63)
 - ~~**P2**: Spec inconsistencies~~ RESOLVED (R63)
@@ -505,12 +538,15 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 4. ~~**P1 — Console guards**~~ Already done, verified R62.
 5. ~~**P2 — setTimeout tracking**~~ DONE R63.
 6. ~~**P2 — Dead types / broken registry**~~ DONE R63.
-7. **Playtest Verification**: After P0 fix lands, verify Metris bullet-time, Matrix Cloud combo, and other items via live browser testing.
-8. **Phase 6 Playwright residue**: Docker baseline regen is the single highest-value remaining item. Multi-viewport and flake cluster are next.
-9. **Phase 0a/0b**: Per-game asset deployment (skip CTRL-S until Phase 7). Audio extraction is the biggest bang-for-buck across all games.
-10. ~~**P2 — Spec consistency**~~ DONE R63.
-11. **Phase 1/2**: Global `AssetManager` — optional, each game handles its own assets adequately for now.
-12. **Phase 6 polish**: Remaining accessibility residue (focus traps, form labels), BPM tuning, voice AudioContext cleanup.
-13. **Phase 7**: CTRL-S World Phaser rewrite — only after the above are closed. Start from `rebuildingoldgames/plans/ctrl-s-rebuild.md`.
-14. Use `/matrix-arcade-gamedev` for game code, `/phaser-gamedev` for Phaser scenes, `/playwright-testing` for E2E.
-15. Run `game-tester` agent after every code change. After any UI change, run `npm run test:visual` and commit updated baselines (both darwin + linux variants when possible).
+7. ~~**P1 — M key conflict in GameOverScene**~~ DONE R68.
+8. ~~**P2 — High score not loaded from save**~~ DONE R68.
+9. ~~**P2 — VortexPong R key bypass**~~ DONE R68.
+10. **Playtest Verification**: Verify Metris bullet-time, Matrix Cloud combo, and other items via live browser testing.
+11. **Phase 6 Playwright residue**: Docker baseline regen is the single highest-value remaining item. Multi-viewport and flake cluster are next.
+12. **Phase 0a/0b**: Per-game asset deployment (skip CTRL-S until Phase 7). Audio extraction is the biggest bang-for-buck across all games.
+13. ~~**P2 — Spec consistency**~~ DONE R63.
+14. **Phase 1/2**: Global `AssetManager` — optional, each game handles its own assets adequately for now.
+15. **Phase 6 polish**: Remaining accessibility residue (form labels), BPM tuning.
+16. **Phase 7**: CTRL-S World Phaser rewrite — only after the above are closed. Start from `rebuildingoldgames/plans/ctrl-s-rebuild.md`.
+17. Use `/matrix-arcade-gamedev` for game code, `/phaser-gamedev` for Phaser scenes, `/playwright-testing` for E2E.
+18. Run `game-tester` agent after every code change. After any UI change, run `npm run test:visual` and commit updated baselines (both darwin + linux variants when possible).

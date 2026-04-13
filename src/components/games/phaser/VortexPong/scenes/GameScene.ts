@@ -229,7 +229,10 @@ export class VortexPongGameScene extends BaseScene {
       this.wKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
       this.sKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
       this.rKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
-      this.rKey.on('down', () => this.scene.restart());
+      this.rKey.on('down', () => {
+        this.reportScore(this.playerScore);
+        this.scene.restart();
+      });
     });
   }
 

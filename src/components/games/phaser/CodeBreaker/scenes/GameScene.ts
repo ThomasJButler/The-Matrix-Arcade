@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { BaseScene } from '@/lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS } from '@/lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '@/lib/phaser/types';
 import {
   GAME_CONFIG,
   ACHIEVEMENTS,
@@ -107,6 +107,11 @@ export class CodeBreakerGameScene extends BaseScene {
     this.firewallActive = false;
     this.laserTimer = 0;
     this.highScore = 0;
+    const saveSystem = this.registry.get(REGISTRY_KEYS.SAVE_SYSTEM);
+    if (saveSystem) {
+      const saveData = saveSystem.getSaveData();
+      this.highScore = saveData?.games?.codeBreaker?.highScore ?? 0;
+    }
     this.achievementsUnlocked = new Set();
     this.paddleWidth = GAME_CONFIG.PADDLE_WIDTH;
     this.balls = [];

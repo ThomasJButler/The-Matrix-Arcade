@@ -232,9 +232,9 @@ export class GameOverScene extends BaseScene {
       const rKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
       rKey.on('down', () => this.restartGame());
 
-      // M key navigates to menu (keyboard-only users had no way to reach menu)
-      const mKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M);
-      mKey.on('down', () => {
+      // Q key navigates to menu (M is reserved for mute toggle in BaseScene)
+      const qKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q);
+      qKey.on('down', () => {
         this.playSound('menu');
         this.goToMenu();
       });
