@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Cpu, Zap } from 'lucide-react';
 import { generateAIResponse, getThinkingState } from '../../data/aiResponses';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 // ============================================================================
 // SENTIENT AI MODAL
@@ -26,6 +27,8 @@ export const SentientAIModal: React.FC<SentientAIModalProps> = ({
   const [stage, setStage] = useState<'thinking' | 'revealing' | 'complete'>('thinking');
   const [thinkingText, setThinkingText] = useState(getThinkingState());
   const [response, setResponse] = useState<{ intro: string; answer: string; outro: string } | null>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, isOpen, onClose);
 
   useEffect(() => {
     if (!isOpen) {
@@ -77,6 +80,10 @@ export const SentientAIModal: React.FC<SentientAIModalProps> = ({
 
         {/* Modal */}
         <motion.div
+          ref={modalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Sentient AI response"
           initial={{ scale: 0.8, opacity: 0, y: 50 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.8, opacity: 0, y: 50 }}

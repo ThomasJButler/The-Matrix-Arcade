@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Radio, BarChart3, Users } from 'lucide-react';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import {
   getRandomCharacters,
   generateCharacterOpinion,
@@ -33,6 +34,8 @@ export const CharacterConversationModal: React.FC<CharacterConversationModalProp
 }) => {
   const [stage, setStage] = useState<'intercepting' | 'conversation' | 'consensus'>('intercepting');
   const [currentLine, setCurrentLine] = useState(0);
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, isOpen, onClose);
 
   // Generate conversation data
   const conversationData = useMemo(() => {
@@ -150,6 +153,10 @@ export const CharacterConversationModal: React.FC<CharacterConversationModalProp
 
         {/* Modal */}
         <motion.div
+          ref={modalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Team conversation"
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}

@@ -188,13 +188,8 @@ export function useAdvancedVoice() {
   const [speechQueue, setSpeechQueue] = useState<string[]>([]);
   
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
   const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const voiceVisualizationRef = useRef<{ amplitude: number; frequency: number[] }>({
-    amplitude: 0,
-    frequency: [],
-  });
+  const lastBoundaryTimeRef = useRef<number>(0);
 
   // Check for speech synthesis support
   useEffect(() => {
@@ -202,19 +197,6 @@ export function useAdvancedVoice() {
       const supported = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
       setIsSupported(supported);
       
-      // Initialize audio context for visualization
-      if (supported && !audioContextRef.current) {
-        try {
-          audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-          analyserRef.current = audioContextRef.current.createAnalyser();
-          analyserRef.current.fftSize = 256;
-        } catch (error) {
-          if (import.meta.env.DEV) {
-             
-            console.warn('Audio context initialization failed:', error);
-          }
-        }
-      }
     };
 
     checkSupport();
@@ -327,6 +309,7 @@ export function useAdvancedVoice() {
     utterance.onboundary = (event) => {
       if (event.name === 'word') {
         setCurrentWord(wordIndex++);
+        lastBoundaryTimeRef.current = performance.now();
       }
     };
 
@@ -416,33 +399,27 @@ export function useAdvancedVoice() {
     setConfig(prev => ({ ...prev, ...updates }));
   }, []);
 
-  // Get audio visualization data
+  // Synthetic visualisation driven by speech boundary events
   const getVisualizationData = useCallback(() => {
-    if (!analyserRef.current || !isSpeaking) {
+    if (!isSpeaking) {
       return { amplitude: 0, frequency: new Array(32).fill(0) };
     }
 
-    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-    analyserRef.current.getByteFrequencyData(dataArray);
-    
-    // Calculate amplitude
-    const amplitude = dataArray.reduce((sum, val) => sum + val, 0) / dataArray.length / 255;
-    
-    // Get frequency bins
+    const now = performance.now();
+    const timeSinceBoundary = now - lastBoundaryTimeRef.current;
+    // Pulse decays over ~300ms after each word boundary
+    const boundaryPulse = Math.max(0, 1 - timeSinceBoundary / 300);
+    const baseAmplitude = 0.3 + boundaryPulse * 0.5;
+
     const bins = 32;
-    const binSize = Math.floor(dataArray.length / bins);
     const frequency = [];
-    
     for (let i = 0; i < bins; i++) {
-      let sum = 0;
-      for (let j = 0; j < binSize; j++) {
-        sum += dataArray[i * binSize + j];
-      }
-      frequency.push(sum / binSize / 255);
+      const wave = Math.sin((now / 200) + i * 0.4) * 0.3;
+      const decay = 1 - (i / bins) * 0.6;
+      frequency.push(Math.max(0, (baseAmplitude * decay + wave * boundaryPulse)));
     }
 
-    voiceVisualizationRef.current = { amplitude, frequency };
-    return { amplitude, frequency };
+    return { amplitude: baseAmplitude, frequency };
   }, [isSpeaking]);
 
   // Clean up on unmount
@@ -451,9 +428,6 @@ export function useAdvancedVoice() {
       stop();
       if (autoAdvanceTimerRef.current) {
         clearTimeout(autoAdvanceTimerRef.current);
-      }
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
       }
     };
   }, [stop]);

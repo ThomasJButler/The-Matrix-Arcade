@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HelpCircle, Clock, Lightbulb, CheckCircle, XCircle, Zap, Cpu, Users } from 'lucide-react';
 import { useLifelineManager } from '@/hooks/useLifelineManager';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { SentientAIModal } from './SentientAIModal';
 import { CharacterConversationModal } from './CharacterConversationModal';
 
@@ -56,7 +57,9 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
   const [showAnswer, setShowAnswer] = useState(false);
   const MAX_ATTEMPTS = 3;
   const inputRef = useRef<HTMLInputElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useFocusTrap(modalRef, isOpen, onClose);
 
   useEffect(() => {
     return () => { timersRef.current.forEach(clearTimeout); };
@@ -296,6 +299,10 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
 
         {/* Modal */}
         <motion.div
+          ref={modalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="puzzle-title"
           initial={{ scale: 0.9, opacity: 0, y: 20 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -305,7 +312,7 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
           <div className="bg-green-900/20 border-b border-green-500/50 p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-              <h2 className="text-xl font-mono text-green-400 uppercase tracking-wider">
+              <h2 id="puzzle-title" className="text-xl font-mono text-green-400 uppercase tracking-wider">
                 {puzzle.type.replace('-', ' ')} Challenge
               </h2>
               <span className={`px-2 py-1 rounded text-xs font-mono ${
