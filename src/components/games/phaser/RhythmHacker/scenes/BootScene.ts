@@ -60,7 +60,7 @@ export class RhythmHackerBootScene extends BootScene {
   }
 
   /**
-   * Hexagonal data-node notes with layered glow rings.
+   * Diamond-shaped note gems with layered glow — rhythm-game style.
    */
   private createNoteTextures(): void {
     const { LANES, NOTES } = GAME_CONFIG;
@@ -70,51 +70,82 @@ export class RhythmHackerBootScene extends BootScene {
       const g = this.add.graphics();
       const cx = size / 2;
       const cy = size / 2;
-      const outerR = size / 2 - 2;
-      const innerR = outerR * 0.5;
+      const inset = 3;
 
-      // Outer glow halo
-      g.fillStyle(color, 0.15);
-      g.fillCircle(cx, cy, outerR + 1);
-      // Outer ring
-      g.lineStyle(3, color, 0.9);
-      g.strokeCircle(cx, cy, outerR);
-      // Mid ring
-      g.lineStyle(1, color, 0.4);
-      g.strokeCircle(cx, cy, outerR * 0.75);
-      // Filled core
-      g.fillStyle(color, 1);
-      g.fillCircle(cx, cy, innerR);
+      // Soft circular glow behind the diamond
+      g.fillStyle(color, 0.12);
+      g.fillCircle(cx, cy, size / 2);
+
+      // Outer diamond stroke
+      g.lineStyle(2, color, 0.9);
+      g.beginPath();
+      g.moveTo(cx, inset);
+      g.lineTo(size - inset, cy);
+      g.lineTo(cx, size - inset);
+      g.lineTo(inset, cy);
+      g.closePath();
+      g.strokePath();
+
+      // Filled diamond body
+      g.fillStyle(color, 0.75);
+      g.beginPath();
+      g.moveTo(cx, inset + 2);
+      g.lineTo(size - inset - 2, cy);
+      g.lineTo(cx, size - inset - 2);
+      g.lineTo(inset + 2, cy);
+      g.closePath();
+      g.fillPath();
+
+      // Inner bright core diamond
+      g.fillStyle(0xffffff, 0.35);
+      g.beginPath();
+      g.moveTo(cx, cy - 5);
+      g.lineTo(cx + 5, cy);
+      g.lineTo(cx, cy + 5);
+      g.lineTo(cx - 5, cy);
+      g.closePath();
+      g.fillPath();
+
       // Specular highlight
       g.fillStyle(0xffffff, 0.7);
-      g.fillCircle(cx - 2, cy - 3, innerR * 0.35);
+      g.fillCircle(cx - 3, cy - 4, 2);
 
       g.generateTexture(`note_${index}`, size, size);
       g.destroy();
 
-      // Hold body — gradient-feel with bright centre stripe
+      // Hold body — glowing ribbon with bright centre beam
       const hg = this.add.graphics();
-      hg.fillStyle(color, 0.25);
+      hg.fillStyle(color, 0.2);
       hg.fillRect(0, 0, NOTES.HOLD_WIDTH, 10);
-      hg.fillStyle(color, 0.6);
-      hg.fillRect(NOTES.HOLD_WIDTH * 0.3, 2, NOTES.HOLD_WIDTH * 0.4, 6);
-      hg.lineStyle(1, color, 0.4);
+      hg.fillStyle(color, 0.5);
+      hg.fillRect(NOTES.HOLD_WIDTH * 0.2, 1, NOTES.HOLD_WIDTH * 0.6, 8);
+      hg.fillStyle(0xffffff, 0.15);
+      hg.fillRect(NOTES.HOLD_WIDTH * 0.35, 3, NOTES.HOLD_WIDTH * 0.3, 4);
+      hg.lineStyle(1, color, 0.3);
       hg.strokeRect(0, 0, NOTES.HOLD_WIDTH, 10);
       hg.generateTexture(`hold_${index}`, NOTES.HOLD_WIDTH, 10);
       hg.destroy();
 
-      // Hold tail — ring with dot
+      // Hold tail — small diamond matching note shape
+      const tailSize = Math.floor(size / 2);
       const tg = this.add.graphics();
-      const tailR = size / 4;
-      tg.lineStyle(2, color, 0.8);
-      tg.strokeCircle(tailR, tailR, tailR - 1);
-      tg.fillStyle(color, 1);
-      tg.fillCircle(tailR, tailR, tailR * 0.4);
-      tg.generateTexture(`hold_tail_${index}`, size / 2, size / 2);
+      const tcx = tailSize / 2;
+      const tcy = tailSize / 2;
+      tg.fillStyle(color, 0.7);
+      tg.beginPath();
+      tg.moveTo(tcx, 1);
+      tg.lineTo(tailSize - 1, tcy);
+      tg.lineTo(tcx, tailSize - 1);
+      tg.lineTo(1, tcy);
+      tg.closePath();
+      tg.fillPath();
+      tg.lineStyle(1, color, 0.9);
+      tg.strokePath();
+      tg.generateTexture(`hold_tail_${index}`, tailSize, tailSize);
       tg.destroy();
     });
 
-    // Double note indicator — diamond with corner dots
+    // Double note indicator — pulsing outer ring with corner flares
     const dg = this.add.graphics();
     const dcx = size / 2;
     const dcy = size / 2;
@@ -126,52 +157,86 @@ export class RhythmHackerBootScene extends BootScene {
     dg.lineTo(1, dcy);
     dg.closePath();
     dg.strokePath();
-    dg.fillStyle(MATRIX_COLORS.CYAN, 0.6);
-    const dotR = 2;
-    dg.fillCircle(dcx, 2, dotR);
-    dg.fillCircle(size - 2, dcy, dotR);
-    dg.fillCircle(dcx, size - 2, dotR);
-    dg.fillCircle(2, dcy, dotR);
+    // Corner flare dots
+    dg.fillStyle(MATRIX_COLORS.CYAN, 0.8);
+    dg.fillCircle(dcx, 2, 2.5);
+    dg.fillCircle(size - 2, dcy, 2.5);
+    dg.fillCircle(dcx, size - 2, 2.5);
+    dg.fillCircle(2, dcy, 2.5);
+    // Inner glow fill
+    dg.fillStyle(MATRIX_COLORS.CYAN, 0.15);
+    dg.beginPath();
+    dg.moveTo(dcx, 4);
+    dg.lineTo(size - 4, dcy);
+    dg.lineTo(dcx, size - 4);
+    dg.lineTo(4, dcy);
+    dg.closePath();
+    dg.fillPath();
     dg.generateTexture('double_indicator', size, size);
     dg.destroy();
   }
 
   /**
-   * Lane backgrounds with subtle grid lines and improved key indicators.
+   * Lane backgrounds with highway grid, enhanced hit line, and bevelled key indicators.
    */
   private createLaneTextures(): void {
     const { LANES, HEIGHT } = GAME_CONFIG;
+    const GRID_SPACING = 40;
 
-    // Lane background with vertical grid lines
+    // Lane background — dark fill with horizontal grid lines for highway feel
     const lg = this.add.graphics();
-    lg.fillStyle(MATRIX_COLORS.DARK_GREEN, 0.25);
+    lg.fillStyle(MATRIX_COLORS.DARK_GREEN, 0.2);
     lg.fillRect(0, 0, LANES.WIDTH, HEIGHT);
-    // Edge accent lines
-    lg.lineStyle(1, MATRIX_COLORS.PRIMARY, 0.08);
-    lg.lineBetween(1, 0, 1, HEIGHT);
-    lg.lineBetween(LANES.WIDTH - 2, 0, LANES.WIDTH - 2, HEIGHT);
-    // Centre line
-    lg.lineStyle(1, MATRIX_COLORS.PRIMARY, 0.04);
+    // Edge accent lines (brighter for lane definition)
+    lg.lineStyle(1, MATRIX_COLORS.PRIMARY, 0.15);
+    lg.lineBetween(0, 0, 0, HEIGHT);
+    lg.lineBetween(LANES.WIDTH - 1, 0, LANES.WIDTH - 1, HEIGHT);
+    // Horizontal grid lines — scrolled in GameScene for highway motion
+    lg.lineStyle(1, MATRIX_COLORS.PRIMARY, 0.05);
+    for (let y = 0; y < HEIGHT; y += GRID_SPACING) {
+      lg.lineBetween(2, y, LANES.WIDTH - 2, y);
+    }
+    // Centre guide line
+    lg.lineStyle(1, MATRIX_COLORS.PRIMARY, 0.03);
     lg.lineBetween(LANES.WIDTH / 2, 0, LANES.WIDTH / 2, HEIGHT);
     lg.generateTexture('lane_bg', LANES.WIDTH, HEIGHT);
     lg.destroy();
 
-    // Lane flash overlay — bright version for beat pulse
+    // Lane flash overlay — brighter for more impactful beat pulse
     const fg = this.add.graphics();
-    fg.fillStyle(MATRIX_COLORS.PRIMARY, 0.12);
+    fg.fillStyle(MATRIX_COLORS.PRIMARY, 0.18);
     fg.fillRect(0, 0, LANES.WIDTH, HEIGHT);
     fg.generateTexture('lane_flash', LANES.WIDTH, HEIGHT);
     fg.destroy();
 
-    // Hit line — wider with glow fringe
+    // Hit line — multi-layered glow (wider, more prominent)
     const hitW = LANES.WIDTH * 4 + LANES.SPACING * 3 + 40;
+    const hitH = 14;
     const hg = this.add.graphics();
-    hg.fillStyle(MATRIX_COLORS.PRIMARY, 0.3);
-    hg.fillRect(0, 0, hitW, 8);
+    // Wide soft glow fringe
+    hg.fillStyle(MATRIX_COLORS.PRIMARY, 0.12);
+    hg.fillRect(0, 0, hitW, hitH);
+    // Medium glow band
+    hg.fillStyle(MATRIX_COLORS.PRIMARY, 0.35);
+    hg.fillRect(0, 2, hitW, hitH - 4);
+    // Bright core stripe
     hg.fillStyle(MATRIX_COLORS.PRIMARY, 1);
-    hg.fillRect(0, 2, hitW, 4);
-    hg.generateTexture('hit_line', hitW, 8);
+    hg.fillRect(0, 4, hitW, 6);
+    // White specular centre
+    hg.fillStyle(0xffffff, 0.25);
+    hg.fillRect(0, 6, hitW, 2);
+    hg.generateTexture('hit_line', hitW, hitH);
     hg.destroy();
+
+    // Lane divider — thin vertical glow line between lanes
+    const divH = HEIGHT;
+    const divg = this.add.graphics();
+    divg.fillStyle(MATRIX_COLORS.PRIMARY, 0.08);
+    divg.fillRect(0, 0, 3, divH);
+    divg.fillStyle(MATRIX_COLORS.PRIMARY, 0.2);
+    divg.fillRect(1, 0, 1, divH);
+    divg.generateTexture('lane_divider', 3, divH);
+    divg.destroy();
 
     // Key indicators — bevelled buttons with inner shadow
     LANES.COLORS.forEach((color, index) => {
@@ -179,13 +244,10 @@ export class RhythmHackerBootScene extends BootScene {
       const kh = 40;
 
       const kg = this.add.graphics();
-      // Background fill
       kg.fillStyle(color, 0.2);
       kg.fillRoundedRect(0, 0, kw, kh, 8);
-      // Top highlight
       kg.fillStyle(color, 0.1);
       kg.fillRoundedRect(2, 2, kw - 4, kh / 2 - 2, { tl: 6, tr: 6, bl: 0, br: 0 });
-      // Border
       kg.lineStyle(2, color, 0.7);
       kg.strokeRoundedRect(0, 0, kw, kh, 8);
       kg.generateTexture(`key_${index}`, kw, kh);
@@ -205,7 +267,7 @@ export class RhythmHackerBootScene extends BootScene {
   }
 
   /**
-   * Effect textures — used as fallback when firework particles are unavailable.
+   * Effect textures — star-burst shapes for hits, used as fallback when firework particles are unavailable.
    */
   private createEffectTextures(): void {
     const grades = ['perfect', 'great', 'good', 'miss'] as const;
@@ -213,15 +275,45 @@ export class RhythmHackerBootScene extends BootScene {
 
     grades.forEach((name, index) => {
       const g = this.add.graphics();
-      // Outer glow
-      g.fillStyle(effectColors[index], 0.3);
-      g.fillCircle(16, 16, 15);
-      // Core
-      g.fillStyle(effectColors[index], 1);
-      g.fillCircle(16, 16, 10);
-      // Highlight
+      const cx = 16;
+      const cy = 16;
+      const color = effectColors[index];
+
+      // Outer soft glow
+      g.fillStyle(color, 0.2);
+      g.fillCircle(cx, cy, 15);
+
+      if (name === 'perfect') {
+        // 4-point star burst for perfect hits
+        g.fillStyle(color, 0.9);
+        g.beginPath();
+        const points = 4;
+        const outerR = 12;
+        const innerR = 5;
+        for (let p = 0; p < points * 2; p++) {
+          const angle = (p * Math.PI) / points - Math.PI / 2;
+          const r = p % 2 === 0 ? outerR : innerR;
+          if (p === 0) g.moveTo(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+          else g.lineTo(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+        }
+        g.closePath();
+        g.fillPath();
+      } else {
+        // Diamond shape for other grades
+        g.fillStyle(color, 0.8);
+        g.beginPath();
+        g.moveTo(cx, cy - 10);
+        g.lineTo(cx + 10, cy);
+        g.lineTo(cx, cy + 10);
+        g.lineTo(cx - 10, cy);
+        g.closePath();
+        g.fillPath();
+      }
+
+      // White specular highlight
       g.fillStyle(0xffffff, 0.5);
-      g.fillCircle(13, 13, 5);
+      g.fillCircle(cx - 2, cy - 3, 3);
+
       g.generateTexture(`effect_${name}`, 32, 32);
       g.destroy();
     });

@@ -82,6 +82,10 @@ export class RhythmHackerGameScene extends BaseScene {
   private laneFlashes: Phaser.GameObjects.Image[] = [];
   private useParticleSprites = false;
   private useUiSprites = false;
+  private hitLineImage!: Phaser.GameObjects.Image;
+  private hitLineGlow!: Phaser.GameObjects.Graphics;
+  private gridGraphics!: Phaser.GameObjects.Graphics;
+  private comboGlow!: Phaser.GameObjects.Graphics;
 
   // Input
   private laneKeys: Phaser.Input.Keyboard.Key[] = [];
@@ -195,6 +199,11 @@ export class RhythmHackerGameScene extends BaseScene {
     // Update notes
     this.updateNotes(delta);
 
+    // Visual effects — scrolling grid, note approach scaling, combo glow
+    this.updateScrollingGrid();
+    this.updateNoteApproachEffects();
+    this.updateComboGlow();
+
     // Check for track end
     if (this.gameTime >= this.trackDuration * 1000 && this.activeNotes.length === 0) {
       this.trackComplete();
@@ -258,10 +267,17 @@ export class RhythmHackerGameScene extends BaseScene {
   }
 
   /**
-   * Create lane backgrounds, beat-pulse overlays, hit line, and key indicators.
+   * Create lane backgrounds, dividers, beat-pulse overlays, scrolling grid,
+   * hit line with glow, combo glow overlay, and key indicators.
    */
   private createLanes(): void {
-    const { LANES, HEIGHT, NOTES } = GAME_CONFIG;
+    const { LANES, HEIGHT, NOTES, WIDTH } = GAME_CONFIG;
+    const totalWidth = LANES.COUNT * LANES.WIDTH + (LANES.COUNT - 1) * LANES.SPACING;
+    const areaStartX = (WIDTH - totalWidth) / 2;
+
+    // Scrolling grid overlay — redrawn each frame for highway motion
+    this.gridGraphics = this.add.graphics();
+    this.gridGraphics.setDepth(0.5);
 
     this.laneX.forEach((x, _i) => {
       // Lane background
@@ -276,15 +292,26 @@ export class RhythmHackerGameScene extends BaseScene {
       this.laneFlashes.push(flash);
     });
 
-    // Hit line
-    const hitLine = this.add.image(GAME_CONFIG.WIDTH / 2, NOTES.HIT_LINE_Y, 'hit_line');
-    hitLine.setDepth(5);
+    // Lane dividers between lanes
+    for (let i = 0; i < LANES.COUNT - 1; i++) {
+      const divX = (this.laneX[i] + this.laneX[i + 1]) / 2;
+      const divider = this.add.image(divX, HEIGHT / 2, 'lane_divider');
+      divider.setDepth(1.5);
+    }
 
-    // Hit line glow
-    const glow = this.add.graphics();
-    glow.fillStyle(MATRIX_COLORS.PRIMARY, 0.15);
-    glow.fillRect(this.laneX[0] - LANES.WIDTH / 2 - 5, NOTES.HIT_LINE_Y - 20, LANES.WIDTH * 4 + LANES.SPACING * 3 + 10, 40);
-    glow.setDepth(4);
+    // Combo glow — drawn behind hit line, intensity scales with combo
+    this.comboGlow = this.add.graphics();
+    this.comboGlow.setDepth(3);
+
+    // Hit line glow — wider ambient glow behind the hit line
+    this.hitLineGlow = this.add.graphics();
+    this.hitLineGlow.fillStyle(MATRIX_COLORS.PRIMARY, 0.15);
+    this.hitLineGlow.fillRect(areaStartX - 5, NOTES.HIT_LINE_Y - 20, totalWidth + 10, 40);
+    this.hitLineGlow.setDepth(4);
+
+    // Hit line
+    this.hitLineImage = this.add.image(WIDTH / 2, NOTES.HIT_LINE_Y, 'hit_line');
+    this.hitLineImage.setDepth(5);
 
     // Key indicators
     this.laneX.forEach((x, i) => {
@@ -1079,12 +1106,86 @@ export class RhythmHackerGameScene extends BaseScene {
       this.timeText.setColor(Math.floor(this.gameTime / 200) % 2 === 0 ? '#005500' : '#00ff00');
     }
 
-    // Beat pulse — flash lane overlays on each beat (driven by gameTime)
+    // Beat pulse — flash lane overlays and hit line on each beat
     if (!this.isCountdown) {
       const beatPhase = (this.gameTime % this.beatInterval) / this.beatInterval;
-      const pulseAlpha = beatPhase < 0.15 ? (1 - beatPhase / 0.15) * 0.25 : 0;
+      const pulseAlpha = beatPhase < 0.15 ? (1 - beatPhase / 0.15) * 0.35 : 0;
       this.laneFlashes.forEach(flash => flash.setAlpha(pulseAlpha));
+
+      // Hit line brightens on beat
+      const hitScale = 1 + pulseAlpha * 0.4;
+      this.hitLineImage?.setScale(1, hitScale);
+      this.hitLineImage?.setAlpha(0.8 + pulseAlpha);
     }
+  }
+
+  /**
+   * Scrolling horizontal grid lines across the lane area — creates the classic
+   * rhythm-game "highway" motion effect at 30fps to save GPU cycles.
+   */
+  private gridFrame = 0;
+  private updateScrollingGrid(): void {
+    this.gridFrame++;
+    if (this.gridFrame % 2 !== 0) return; // throttle to 30fps
+
+    this.gridGraphics.clear();
+
+    const { LANES, WIDTH, HEIGHT } = GAME_CONFIG;
+    const totalWidth = LANES.COUNT * LANES.WIDTH + (LANES.COUNT - 1) * LANES.SPACING;
+    const startX = (WIDTH - totalWidth) / 2;
+    const gridSpacing = 40;
+    const offset = (this.gameTime * 0.15) % gridSpacing;
+
+    this.gridGraphics.lineStyle(1, MATRIX_COLORS.PRIMARY, 0.06);
+    for (let y = offset; y < HEIGHT; y += gridSpacing) {
+      this.gridGraphics.lineBetween(startX, y, startX + totalWidth, y);
+    }
+  }
+
+  /**
+   * Notes scale up slightly as they approach the hit line — draws the eye
+   * to the timing zone and creates depth.
+   */
+  private updateNoteApproachEffects(): void {
+    const { NOTES, HEIGHT } = GAME_CONFIG;
+
+    this.activeNotes.forEach(note => {
+      if (note.isHit) return;
+
+      const distToHit = Math.abs(note.y - NOTES.HIT_LINE_Y);
+      const approachZone = HEIGHT * 0.3;
+
+      if (distToHit < approachZone) {
+        const t = 1 - distToHit / approachZone;
+        const scale = 1 + t * 0.15;
+        note.setScale(scale);
+      } else {
+        note.setScale(1);
+      }
+    });
+  }
+
+  /**
+   * Glowing overlay behind the hit line that intensifies with combo —
+   * rewards sustained accuracy with visual feedback.
+   */
+  private updateComboGlow(): void {
+    this.comboGlow.clear();
+    if (this.combo < 10) return;
+
+    const { LANES, WIDTH, NOTES } = GAME_CONFIG;
+    const totalWidth = LANES.COUNT * LANES.WIDTH + (LANES.COUNT - 1) * LANES.SPACING;
+    const startX = (WIDTH - totalWidth) / 2;
+
+    const intensity = Math.min(this.combo / 100, 1);
+    const glowH = 30 + intensity * 20;
+
+    // Warm glow: green → cyan → white as combo increases
+    let glowColor = MATRIX_COLORS.PRIMARY;
+    if (this.combo >= 50) glowColor = MATRIX_COLORS.CYAN;
+
+    this.comboGlow.fillStyle(glowColor, 0.08 + intensity * 0.12);
+    this.comboGlow.fillRect(startX - 5, NOTES.HIT_LINE_Y - glowH / 2, totalWidth + 10, glowH);
   }
 
   private initTrackAudio(): void {
@@ -1130,6 +1231,7 @@ export class RhythmHackerGameScene extends BaseScene {
    */
   shutdown(): void {
     this.stopTrackAudio();
+    this.stopBackgroundMusic?.();
     if (this.trackAudio) {
       this.trackAudio.src = '';
       this.trackAudio = null;
@@ -1142,6 +1244,8 @@ export class RhythmHackerGameScene extends BaseScene {
     this.laneKeys = [];
     this.activeNotes = [];
     this.laneFlashes = [];
+    this.gridGraphics?.destroy();
+    this.comboGlow?.destroy();
     this.input.keyboard?.removeAllKeys(true);
   }
 }
