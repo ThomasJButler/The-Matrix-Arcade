@@ -5,11 +5,11 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: ACTIVE — P0 keyboard fix applied, awaiting manual playtest
+## Status: ACTIVE — P0 keyboard fix applied, P2 cleanup batch complete
 
-> **Last audit**: R55 (2026-04-13). All unit tests pass (2109/2109). Build clean. TypeScript clean. P0 keyboard bug **fixed** in `PhaserGame.tsx`: config merge now injects `input.keyboard.target: window` and overlay `onKeyDown` guards `preventDefault`/`stopPropagation`. Single fix covers all 11 Phaser games — no per-game changes needed. Awaiting manual browser playtest to fully close P0. Git on `developmentv3.0`.
+> **Last audit**: R56 (2026-04-13). All unit tests pass (1831/1831). Build clean. TypeScript clean. P0 keyboard bug **fixed** in `PhaserGame.tsx`: config merge now injects `input.keyboard.target: window` and overlay `onKeyDown` guards `preventDefault`/`stopPropagation`. Single fix covers all 11 Phaser games — no per-game changes needed. Awaiting manual browser playtest to fully close P0. Git on `developmentv3.0`.
 >
-> **Codebase health**: Zero TODO/FIXME/HACK in src/. Zero @ts-ignore in production (6 in test files, all justified). TypeScript strict mode. 57 unit test files, 16 E2E specs (13 playthroughs + 3 visual suites). 86 visual baselines (74 playthrough + 12 UI). 6 unused hooks (test-only). 8 unguarded `console.error` calls reach production. setTimeout leaks in 10+ modal/hook locations.
+> **Codebase health**: Zero TODO/FIXME/HACK in src/. Zero @ts-ignore in production (6 in test files, all justified). TypeScript strict mode. 43 unit test files, 16 E2E specs (13 playthroughs + 3 visual suites). 86 visual baselines (74 playthrough + 12 UI). Zero unused hooks (6 deleted in R56). Zero unguarded `console.*` calls in production. All setTimeout/setInterval timers properly tracked and cleaned up on unmount.
 
 ## Reference Docs
 
@@ -75,41 +75,21 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ---
 
-### P2 — setTimeout Memory Leaks in Modals
+### ~~P2 — setTimeout Memory Leaks in Modals~~ ✓ RESOLVED (R56)
 
-These fire from event handlers or nested callbacks where the returned timer ID is never tracked or cleaned up. Low severity (modals are short-lived) but can set state on unmounted components.
-
-| File | Lines | Issue |
-|------|-------|-------|
-| `src/components/ui/SentientAIModal.tsx` | 50–52 | Inner `setTimeout` calls not cleaned on unmount |
-| `src/components/ui/CharacterConversationModal.tsx` | 120–124 | Inner stage-transition timers leak on unmount |
-| `src/components/ui/PuzzleModal.tsx` | 193, 210, 216 | `handleSubmit` timers have no cleanup |
-| `src/hooks/useSoundSystem.ts` | 741 | Recursive `setTimeout(playSequence, ...)` with no cancellation path |
-| `src/components/ui/SaveLoadManager.tsx` | 65 | `setTimeout(() => setConfirmingClear(false), 5000)` untracked |
-| `src/App.tsx` | 335, 390, 693 | Transition/music timers inline, no cleanup |
+All setTimeout/setInterval timers now properly tracked via refs and cleaned up on unmount. Fixed in: `SentientAIModal.tsx`, `CharacterConversationModal.tsx`, `PuzzleModal.tsx`, `useSoundSystem.ts` (recursive loop timer), `SaveLoadManager.tsx`, `App.tsx` (transition + MP3 delay timers).
 
 ---
 
-### P2 — Unguarded console.* Calls in Production
+### ~~P2 — Unguarded console.\* Calls in Production~~ ✓ RESOLVED (R56)
 
-13 `console.error`/`console.warn` calls reach production without `import.meta.env.DEV` guards. Most are in `useSaveSystem.ts` (6), `useSoundSystem.ts` (3), plus `GameStateContext.tsx`, `useLifelineManager.ts`, and `PWAUpdatePrompt.tsx`. These won't cause bugs but expose internals to end users.
+Only 2 calls were actually unguarded (the rest were already wrapped in `import.meta.env.DEV`). Fixed: `GameStateContext.tsx:103` and `PWAUpdatePrompt.tsx:14`.
 
 ---
 
-### P2 — Unused Hooks Cleanup
+### ~~P2 — Unused Hooks Cleanup~~ ✓ RESOLVED (R56)
 
-Six hooks in `src/hooks/` have **zero production consumers** (only their own test files import them):
-
-| Hook | Reason Unused |
-|------|--------------|
-| `useGameLoop` | All games use Phaser's built-in loop |
-| `useSoundSynthesis` | `useSoundSystem` covers all synthesis needs |
-| `useParticleSystem` | Phaser games use Phaser's particle system |
-| `useObjectPool` | Phaser manages its own object pooling |
-| `usePerformanceMonitor` | Overlay never wired up |
-| `usePowerUps` | VortexPong uses Phaser-native power-up code |
-
-These could be deleted or moved to an `archive/` directory. Their test files add ~12s of test time per run.
+All 6 unused hooks and their test files deleted: `useGameLoop`, `useSoundSynthesis`, `useParticleSystem`, `useObjectPool`, `usePerformanceMonitor`, `usePowerUps`. Zero production consumers confirmed. Removed ~1,329 lines of dead code and ~278 tests, saving ~12s per test run.
 
 ---
 
@@ -307,19 +287,16 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 - Single source of truth: GAME_REGISTRY in `src/data/gameRegistry.ts`
 - Code-split lazy loading for all game components
 - No orphaned legacy code (cleaned up in R15)
-- All 2109 unit tests passing, build clean
+- All 1831 unit tests passing, build clean
 - 13 E2E playthrough specs + 5 visual specs all passing
 
 ### Open Gaps
-- **P0**: Keyboard controls not working in-browser — root cause confirmed R53 (missing `input.keyboard.target: window`), fix plan ready
+- **P0**: Keyboard controls not working in-browser — root cause confirmed R53, fix applied R55 (missing `input.keyboard.target: window`). Awaiting manual browser playtest.
 - **CTRL-S World**: only DOM/React game; current implementation is buggy and complex enough to warrant the Phase 7 rewrite rather than incremental fixes.
 - Remaining sprite/audio assets per game (see Phase 0b above).
 - Rhythm Hacker BPM values are estimates — may need tuning per track after playtesting.
 - `useAdvancedVoice` AudioContext for visualisation never connected to speech output (always returns zeros).
 - No global `AssetManager` yet — each game still owns its own asset loading.
-- 6 unused hooks adding dead code and ~12s test time.
-- 13 unguarded `console.*` calls reaching production.
-- setTimeout leaks in 6 modal/hook files (low severity).
 
 ---
 

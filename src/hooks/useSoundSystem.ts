@@ -459,6 +459,7 @@ export function useSoundSystem() {
   const musicGainRef = useRef<GainNode | null>(null);
   const sfxGainRef = useRef<GainNode | null>(null);
   const currentMusicRef = useRef<string | null>(null);
+  const musicLoopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backgroundMusicRef = useRef<HTMLAudioElement | null>(null);
   const reverbRef = useRef<ConvolverNode | null>(null);
   const preMuteConfigRef = useRef<{ music: boolean; sfx: boolean } | null>(null);
@@ -738,7 +739,7 @@ export function useSoundSystem() {
         // Schedule next loop if enabled
         if (sequence.loop && currentMusicRef.current === sequenceType) {
           const totalDuration = sequence.rhythm.reduce((sum, r) => sum + r * noteDuration, 0);
-          setTimeout(playSequence, totalDuration * 1000);
+          musicLoopTimerRef.current = setTimeout(playSequence, totalDuration * 1000);
         }
       };
 
@@ -754,6 +755,10 @@ export function useSoundSystem() {
   // Stop music
   const stopMusic = useCallback(() => {
     currentMusicRef.current = null;
+    if (musicLoopTimerRef.current) {
+      clearTimeout(musicLoopTimerRef.current);
+      musicLoopTimerRef.current = null;
+    }
     if (musicSourceRef.current) {
       musicSourceRef.current.stop();
       musicSourceRef.current = null;

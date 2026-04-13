@@ -100,7 +100,7 @@ export const GameStateProvider: React.FC<{ children: ReactNode }> = ({ children 
         // Remove legacy key after successful migration
         localStorage.removeItem(LEGACY_STORAGE_KEY);
       } catch (e) {
-        console.error('Failed to migrate legacy CTRL-S save data:', e);
+        if (import.meta.env.DEV) console.error('Failed to migrate legacy CTRL-S save data:', e);
         // Remove corrupted legacy data
         localStorage.removeItem(LEGACY_STORAGE_KEY);
       }

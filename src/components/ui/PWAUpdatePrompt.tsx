@@ -11,7 +11,7 @@ export const PWAUpdatePrompt: React.FC = () => {
     updateServiceWorker,
   } = useRegisterSW({
     onRegisterError(error) {
-      console.error('SW registration error:', error);
+      if (import.meta.env.DEV) console.error('SW registration error:', error);
     },
   });
 

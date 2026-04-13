@@ -39,23 +39,26 @@ export const SentientAIModal: React.FC<SentientAIModalProps> = ({
       setThinkingText(getThinkingState());
     }, 600);
 
-    // After 2 seconds, generate and show response
+    let completeTimer: ReturnType<typeof setTimeout>;
+    let closeTimer: ReturnType<typeof setTimeout>;
+
     const revealTimer = setTimeout(() => {
       const aiResponse = generateAIResponse(difficulty, puzzleType, answer);
       setResponse(aiResponse);
       setStage('revealing');
       clearInterval(thinkingInterval);
 
-      // After showing answer for 5 seconds, auto-close
-      setTimeout(() => {
+      completeTimer = setTimeout(() => {
         setStage('complete');
-        setTimeout(onClose, 500);
+        closeTimer = setTimeout(onClose, 500);
       }, 5000);
     }, 2000);
 
     return () => {
       clearInterval(thinkingInterval);
       clearTimeout(revealTimer);
+      clearTimeout(completeTimer);
+      clearTimeout(closeTimer);
     };
   }, [isOpen, difficulty, puzzleType, answer]); // removed onClose from dependencies
 

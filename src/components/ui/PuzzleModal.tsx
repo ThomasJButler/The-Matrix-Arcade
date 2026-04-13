@@ -56,6 +56,11 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
   const [showAnswer, setShowAnswer] = useState(false);
   const MAX_ATTEMPTS = 3;
   const inputRef = useRef<HTMLInputElement>(null);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(() => {
+    return () => { timersRef.current.forEach(clearTimeout); };
+  }, []);
 
   // Lifeline system
   const lifelineManager = useLifelineManager();
@@ -83,10 +88,9 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
       setShowCharacters(false);
       setShowAnswerConfirm(false);
 
-      // Focus input after modal opens
-      setTimeout(() => {
+      timersRef.current.push(setTimeout(() => {
         inputRef.current?.focus();
-      }, 100);
+      }, 100));
     }
   }, [isOpen, puzzle]);
 
@@ -189,11 +193,10 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
       setIsSubmitting(true);
       playSFX?.('score');
 
-      // Show result for 2 seconds, then close
-      setTimeout(() => {
+      timersRef.current.push(setTimeout(() => {
         onComplete(true, hintsUsed, lifelinesUsed);
         onClose();
-      }, 2000);
+      }, 2000));
     } else {
       // Incorrect answer
       const newAttempts = attempts + 1;
@@ -206,18 +209,16 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
         setShowAnswer(true);
         setIsSubmitting(true);
 
-        // Auto-close after 4 seconds to give time to read answer
-        setTimeout(() => {
+        timersRef.current.push(setTimeout(() => {
           onComplete(false, hintsUsed, lifelinesUsed);
           onClose();
-        }, 4000);
+        }, 4000));
       } else {
-        // Still have attempts left - allow retry
-        setTimeout(() => {
+        timersRef.current.push(setTimeout(() => {
           setResult(null);
           setUserAnswer('');
           inputRef.current?.focus();
-        }, 1500);
+        }, 1500));
       }
     }
   };
