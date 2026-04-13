@@ -6,7 +6,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ## Current Status
 
-- **Status**: POLISHING -- All 12 games playable, all Phaser migrations complete, CTRL-S World remains DOM (text adventure, Phaser inappropriate), full E2E coverage across all 12 games, asset pipeline bootstrapped, per-game sprite integration in progress.
+- **Status**: POLISHED -- All 12 games playable, all Phaser migrations complete, all P0/P1/P2 resolved, full E2E coverage (213 tests), WCAG 2.1 AA accessibility audit done, PWA caching complete. Only optional enhancements remain.
 - **Last Updated**: 13 April 2026 (R46 -- PWA cache improvements)
 - **Version**: v2.0.0 (next target)
 - **Games**: 12 playable (11 Phaser, 1 DOM)
@@ -211,10 +211,10 @@ Built in R14. Breakout/Arkanoid inspired, 10 levels, 6 power-ups, boss battles, 
 
 - [x] Full E2E gameplay suite against all 12 games -- 94 gameplay tests across 13 spec files (Code Breaker added R44)
 - [x] Visual regression tests for all Phaser games -- 119 visual tests across 15 spec files (Code Breaker added R44)
-- [ ] Performance profiling (60fps on all games)
+- [ ] Performance profiling (60fps on all games) -- requires manual browser testing
 - [x] Accessibility audit (R45) -- Text contrast fixes (WCAG 1.4.3), skip-to-content link (2.4.1), ARIA attributes on buttons/filters (4.1.2), Phaser container role + keyboard-accessible overlay (2.1.1), aria-live mute announcements (4.1.3), prefers-reduced-motion media query (2.3.3). Remaining: focus traps on modals, CTRL-S World aria-live on story text, form input labels.
 - [x] PWA cache improvements (R46) -- Extended precache glob to cover mp3/ogg/wav/jpg/webp/gif/json; added CacheFirst runtime caching for large audio files (>5MB) with range request support; update prompt snoozes on dismiss and re-appears after 2 minutes
-- [ ] Documentation update
+- [x] Documentation update -- AGENTS.md updated with E2E, PWA, and audio notes (R47)
 
 ---
 
