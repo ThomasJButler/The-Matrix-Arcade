@@ -33,9 +33,9 @@ This file is auto-generated and updated by Ralph during planning and building lo
 >
 > **R75 planning findings**:
 > - **P1 — Over-broad cursor guards RE-CONFIRMED**: All 4 affected `update()` methods verified line-by-line. Guards at MatrixFrogger:207, NeoJump:189, AgentChase:159, VortexPong:110 still block ALL game logic — rain, physics, AI, animations, timers, UI updates, and `exposeTestState()` all freeze for ~500ms during keyboard init. No changes since R74.
-> - **P2 — Metris wKey dead code**: Still present. Field declared at line 80, bound at line 228, never read anywhere.
-> - **P2 — Control hints invisible**: Still present. MenuScene:55-61 uses `MATRIX_COLORS.DARK_GREEN_HEX` (#003300) — nearly invisible against black.
-> - **P2 — Dead cleanup in useSoundSystem**: Still present at lines 806-812. The `return () => {}` inside the `useEffect` merely re-sets the volume to the same value the effect body just set — completely redundant.
+> - ~~**P2 — Metris wKey dead code**~~ FALSE POSITIVE — wKey IS actively used on GameScene.ts:752 as rotate-CW alias (W = Up = rotate). Declared line 80, bound line 243, read line 752. Closed.
+> - ~~**P2 — Control hints invisible**~~ RESOLVED (R78.11) — RhythmHacker MenuScene line 44 changed from `DARK_GREEN_HEX` to `PRIMARY_HEX` with `setAlpha(0.3)`, matching the base MenuScene pattern. Control hints now readable.
+> - ~~**P2 — Dead cleanup in useSoundSystem**~~ ALREADY RESOLVED — the redundant `return () => {}` cleanup no longer exists in the current file. Likely removed during earlier R78 lint work. Closed.
 > - **Codebase health**: Zero TODO/FIXME/HACK comments. All console.error/warn properly DEV-gated. No commented-out code. All 12 games have unit + E2E tests. TypeScript strict mode fully enforced.
 > - **E2E coverage COMPLETE**: All 12 games have dedicated playthrough specs + keyboard-only a11y tests. 18 total spec files across playthrough, a11y, performance, and visual categories. No new games need E2E tests created.
 > - **E2E gap persists**: All playthrough tests use `autoStart=true`, bypassing MenuScene. The user-reported "press ENTER to start" bug is NOT tested. Adding `autoStart=false` E2E tests would catch this regression.
@@ -151,6 +151,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 - **CTRL-S World a11y inputs** `DEFERRED-CTRLS-DEDICATED-PHASE`: CtrlSWorld.tsx has 3 unlabelled inputs (terminal command, text speed select, font size select). Will be addressed in Phase 7 rewrite.
 - **Rhythm Hacker BPM/duration tuning needs manual verification** (found during R78.9): Cyberpsychotic (140 BPM) and Enhancements (160 BPM) could not be confirmed algorithmically — detection returned ambiguous results across multiple methods. These should be verified by ear during playtest. In The Moonlight (100 BPM) is likely correct. All five track durations were significantly wrong (some missing over 100s of audio).
 - [x] **Lint warning reduction (20→14)** (R78.11 continuous improvement): Fixed 6 lint warnings — 2 genuine ref-cleanup bugs in AudioSettings and PuzzleModal (`timersRef.current` captured in cleanup closures), 4 missing-dependency warnings in App.tsx resolved by memoising `games` array with `useMemo`. Remaining 14 warnings are all in CTRL-S World (fenced off) or intentional patterns (circular hooks deps, mount-only effects, onClose exclusions).
+- [x] **RhythmHacker control hints invisible** (R78.11): Control hints text on MenuScene used `DARK_GREEN_HEX` (#003300) — nearly invisible on black. Changed to `PRIMARY_HEX` with `setAlpha(0.3)` matching base MenuScene pattern. Also closed 2 stale P2 plan items: Metris wKey (false positive — actively used as rotate alias) and useSoundSystem dead cleanup (already resolved).
 
 ### R78 Terminator Rule (IMPORTANT — differs from R76/R77)
 
