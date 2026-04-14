@@ -538,10 +538,11 @@ export class NeoJumpGameScene extends BaseScene {
       });
     }
 
+    const projKey = this.game?.registry?.get('projectileSpriteMode') ? 'projectile_sprite' : 'projectile';
     const projectile = this.projectiles.get(
       this.player.x,
       this.player.y - 20,
-      'projectile'
+      projKey
     ) as Phaser.Physics.Arcade.Sprite;
 
     if (!projectile) return;

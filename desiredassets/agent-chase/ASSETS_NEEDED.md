@@ -39,12 +39,12 @@
 - [x] Agent Jones (Inky/cyan) — 2-frame walk, 4 directions — SOURCE: DUMP/Kings and Pigs/
 - [x] Agent Johnson (Clyde/orange) — 2-frame walk, 4 directions — SOURCE: DUMP/Kings and Pigs/
 - [x] Frightened agent (blue mode) — 2-frame wobble — SOURCE: DUMP/Kings and Pigs/
-- [~] Frightened warning (white flash) — 2-frame — SOURCE: DUMP/Kings and Pigs/
-- [~] Eyes only (returning to box) — directional — SOURCE: INSPO/pacman/PacManAssets/Ghosts
+- [x] Frightened warning (white flash) — 2-frame — SOURCE: DUMP/Kings and Pigs/ — deployed as agent_frightened_warning.png (32x32, tinted from PacMan ghosts sheet)
+- [x] Eyes only (returning to box) — directional — SOURCE: INSPO/pacman/PacManAssets/Ghosts — deployed as agent_eyes.png (32x32, custom floating eyeballs)
 
 ### Dots & Collectibles
-- [~] Data dot — small, 8×8, pulsing glow — SOURCE: INSPO/pacman/PacManAssets/Items
-- [~] Power pellet — large, 16×16, bright glow — SOURCE: INSPO/pacman/PacManAssets/Items
+- [x] Data dot — small, 8×8, pulsing glow — SOURCE: INSPO/pacman/PacManAssets/Items — deployed as dot.png (8x8, glowing green circle)
+- [x] Power pellet — large, 16×16, bright glow — SOURCE: INSPO/pacman/PacManAssets/Items — deployed as power_pellet.png (16x16, layered green glow)
 - [x] Fruit/bonus items — 6 types, 20×20 each (cherry, strawberry, orange, apple, grape, banana) — extracted from PacManAssets-Items.png spritesheet with PIL bbox cropping, deployed to public/assets/agent-chase/
 
 ### Maps (3 layouts for difficulty modes)

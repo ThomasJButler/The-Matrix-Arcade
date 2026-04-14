@@ -18,6 +18,10 @@ const SPRITE_ASSETS: Array<{ key: string; path: string }> = [
   { key: 'agent_jones', path: 'assets/agent-chase/agent_jones_sprite.png' },
   { key: 'agent_johnson', path: 'assets/agent-chase/agent_johnson_sprite.png' },
   { key: 'agent_frightened', path: 'assets/agent-chase/agent_frightened_sprite.png' },
+  { key: 'agent_frightened_warning', path: 'assets/agent-chase/agent_frightened_warning.png' },
+  { key: 'agent_eyes', path: 'assets/agent-chase/agent_eyes.png' },
+  { key: 'dot', path: 'assets/agent-chase/dot.png' },
+  { key: 'power_pellet', path: 'assets/agent-chase/power_pellet.png' },
   { key: 'wall', path: 'assets/agent-chase/wall_brick.png' },
   { key: 'fruit_cherry', path: 'assets/agent-chase/fruit_cherry.png' },
   { key: 'fruit_strawberry', path: 'assets/agent-chase/fruit_strawberry.png' },
@@ -71,6 +75,10 @@ export class AgentChaseBootScene extends BootScene {
       { key: 'agent_jones', w: ps, h: ps },
       { key: 'agent_johnson', w: ps, h: ps },
       { key: 'agent_frightened', w: ps, h: ps },
+      { key: 'agent_frightened_warning', w: ps, h: ps },
+      { key: 'agent_eyes', w: ps, h: ps },
+      { key: 'dot', w: 8, h: 8 },
+      { key: 'power_pellet', w: 16, h: 16 },
       { key: 'wall', w: ts, h: ts },
       { key: 'fruit_cherry', w: fs, h: fs },
       { key: 'fruit_strawberry', w: fs, h: fs },
@@ -136,17 +144,21 @@ export class AgentChaseBootScene extends BootScene {
       this.createGhostTexture('agent_frightened', 0x0000ff, size);
     }
 
-    this.createGhostTexture('agent_frightened_warning', 0xffffff, size);
+    if (!this.textures.exists('agent_frightened_warning')) {
+      this.createGhostTexture('agent_frightened_warning', 0xffffff, size);
+    }
 
-    const g = this.add.graphics();
-    g.fillStyle(0xffffff, 1);
-    g.fillCircle(size * 0.3, size * 0.4, 3);
-    g.fillCircle(size * 0.7, size * 0.4, 3);
-    g.fillStyle(0x0000ff, 1);
-    g.fillCircle(size * 0.3, size * 0.4, 1.5);
-    g.fillCircle(size * 0.7, size * 0.4, 1.5);
-    g.generateTexture('agent_eyes', size, size);
-    g.destroy();
+    if (!this.textures.exists('agent_eyes')) {
+      const g = this.add.graphics();
+      g.fillStyle(0xffffff, 1);
+      g.fillCircle(size * 0.3, size * 0.4, 3);
+      g.fillCircle(size * 0.7, size * 0.4, 3);
+      g.fillStyle(0x0000ff, 1);
+      g.fillCircle(size * 0.3, size * 0.4, 1.5);
+      g.fillCircle(size * 0.7, size * 0.4, 1.5);
+      g.generateTexture('agent_eyes', size, size);
+      g.destroy();
+    }
   }
 
   private createGhostTexture(key: string, color: number, size: number): void {
@@ -179,19 +191,23 @@ export class AgentChaseBootScene extends BootScene {
   }
 
   private createDotTextures(): void {
-    let g = this.add.graphics();
-    g.fillStyle(MATRIX_COLORS.PRIMARY, 1);
-    g.fillCircle(4, 4, 2);
-    g.generateTexture('dot', 8, 8);
-    g.destroy();
+    if (!this.textures.exists('dot')) {
+      const g = this.add.graphics();
+      g.fillStyle(MATRIX_COLORS.PRIMARY, 1);
+      g.fillCircle(4, 4, 2);
+      g.generateTexture('dot', 8, 8);
+      g.destroy();
+    }
 
-    g = this.add.graphics();
-    g.fillStyle(MATRIX_COLORS.PRIMARY, 0.5);
-    g.fillCircle(8, 8, 7);
-    g.fillStyle(MATRIX_COLORS.PRIMARY, 1);
-    g.fillCircle(8, 8, 5);
-    g.generateTexture('power_pellet', 16, 16);
-    g.destroy();
+    if (!this.textures.exists('power_pellet')) {
+      const g = this.add.graphics();
+      g.fillStyle(MATRIX_COLORS.PRIMARY, 0.5);
+      g.fillCircle(8, 8, 7);
+      g.fillStyle(MATRIX_COLORS.PRIMARY, 1);
+      g.fillCircle(8, 8, 5);
+      g.generateTexture('power_pellet', 16, 16);
+      g.destroy();
+    }
   }
 
   private createFruitTextures(): void {

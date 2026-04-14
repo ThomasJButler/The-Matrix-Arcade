@@ -44,8 +44,11 @@
 
 ### Enemies
 - [x] Basic enemy — `public/assets/neo-jump/enemy.png` (Bomba, 71×79, scaled to 40×40 via setDisplaySize, tinted red)
-- [~] Flying enemy — winged/hovering, 40×32, 2-frame flap — SOURCE: DUMP/Tiny Swords (Free Pack)/Units or INSPO/doodlejump/Doodle RPG/Particles
+- [x] Flying enemy — `public/assets/neo-jump/enemy-flying.png` (40×40, tinted from Legacy Fantasy Small Bee)
 - [~] Shooting enemy — armed, fires downward, 32×32 — SOURCE: DUMP/MatrixArcadeCyberPunkAssets/shoot.zip
+
+### Projectiles
+- [x] Projectile — `public/assets/neo-jump/projectile.png` (8×8, cyan energy bolt)
 
 ### Collectibles
 - [x] Jetpack fuel pickup — `public/assets/neo-jump/collectible-fuel.png` (Loot_0, 49×50, Doodle RPG, scaled to 24×24 via setDisplaySize)

@@ -19,6 +19,8 @@ const PLATFORM_SPRITES = [
 ];
 
 const ENEMY_SPRITE = { key: 'enemy_sprite', path: 'assets/neo-jump/enemy.png' };
+const FLYING_ENEMY_SPRITE = { key: 'enemy_flying_sprite', path: 'assets/neo-jump/enemy-flying.png' };
+const PROJECTILE_SPRITE = { key: 'projectile_sprite', path: 'assets/neo-jump/projectile.png' };
 
 const COLLECTIBLE_SPRITES = [
   { key: 'collectible_sprite_fuel', path: 'assets/neo-jump/collectible-fuel.png' },
@@ -44,6 +46,8 @@ export class NeoJumpBootScene extends BootScene {
       this.load.image(key, path);
     }
     this.load.image(ENEMY_SPRITE.key, ENEMY_SPRITE.path);
+    this.load.image(FLYING_ENEMY_SPRITE.key, FLYING_ENEMY_SPRITE.path);
+    this.load.image(PROJECTILE_SPRITE.key, PROJECTILE_SPRITE.path);
     for (const { key, path } of COLLECTIBLE_SPRITES) {
       this.load.image(key, path);
     }
@@ -59,6 +63,12 @@ export class NeoJumpBootScene extends BootScene {
 
     const enemySpriteLoaded = this.textures.exists('enemy_sprite');
     this.game.registry.set('enemySpriteMode', enemySpriteLoaded);
+
+    const flyingEnemySpriteLoaded = this.textures.exists('enemy_flying_sprite');
+    this.game.registry.set('flyingEnemySpriteMode', flyingEnemySpriteLoaded);
+
+    const projectileSpriteLoaded = this.textures.exists('projectile_sprite');
+    this.game.registry.set('projectileSpriteMode', projectileSpriteLoaded);
 
     const collectibleSpritesLoaded = this.textures.exists('collectible_sprite_fuel');
     this.game.registry.set('collectibleSpriteMode', collectibleSpritesLoaded);
@@ -143,6 +153,8 @@ export class NeoJumpBootScene extends BootScene {
   }
 
   private createProjectileTexture(): void {
+    if (this.textures.exists('projectile_sprite')) return;
+
     const g = this.add.graphics();
     g.fillStyle(MATRIX_COLORS.CYAN, 1);
     g.fillCircle(4, 4, 4);

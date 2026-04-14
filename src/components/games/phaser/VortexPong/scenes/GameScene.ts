@@ -92,6 +92,11 @@ export class VortexPongGameScene extends BaseScene {
 
   create(): void {
     this.createMatrixBackground();
+    if (this.textures.exists('board')) {
+      const board = this.add.image(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, 'board');
+      board.setAlpha(0.15);
+      board.setDisplaySize(GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT);
+    }
     this.rainGroup = this.addMatrixRain(15);
 
     this.resetState();
@@ -332,7 +337,9 @@ export class VortexPongGameScene extends BaseScene {
     vx?: number,
     vy?: number,
   ): void {
-    const sprite = this.add.sprite(x, y, 'ball');
+    const isExtra = this.balls.length > 0;
+    const textureKey = isExtra && this.textures?.exists('ball_multi') ? 'ball_multi' : 'ball';
+    const sprite = this.add.sprite(x, y, textureKey);
 
     if (vx === undefined || vy === undefined) {
       const angle = (Math.random() - 0.5) * 1.2;
