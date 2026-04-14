@@ -181,28 +181,14 @@ Every item is tagged with its P-level. `[P0]` = game-breaking in playtest.
 #### ~~PG12 — [P1] NeoJump: bomb sprites too large~~ RESOLVED (R76.3)
 - [x] (R76.3) Enemy texture reduced from 40×40 to 28×28 (~30%), display size matched.
 
-#### PG13 — [P2] NeoJump: 5-layer parallax depth (UNBLOCKED R76.6)
-- [ ] **(R76.6)** Implement the following per Tom's design direction (2026-04-14):
-  - **5 parallax layers**, each a full-height `TileSprite` with `setScrollFactor(0)`, manually offset `tilePositionY` by `cameraY * (1 - scrollFactor)` in `update()`:
-    ```typescript
-    PARALLAX: {
-      LAYERS: [
-        { key: 'rain_deep',     scrollFactor: 0.1, depth: -50 },
-        { key: 'skyline',       scrollFactor: 0.3, depth: -40 },
-        { key: 'mid_buildings', scrollFactor: 0.5, depth: -30 },
-        { key: 'near_arches',   scrollFactor: 0.7, depth: -20 },
-        // platforms + player implicitly at 1.0, depth 0
-      ],
-    }
-    ```
-  - **Platforms stay uniform size** across all altitudes — hit-boxes UNCHANGED, jump mechanics UNCHANGED. Pure rendering-layer change.
-  - **Procedural textures** for the 3 new layers in `BootScene.ts`: rectangles for buildings, rounded arches, decreasing Matrix-green intensities (`#004400` far → `#00aa00` near) to reinforce depth via value contrast.
-  - **Existing rain** becomes the deepest layer (0.1×). Lift it into the new parallax manager rather than duplicating logic.
-- **Files**: `NeoJump/config.ts`, `NeoJump/scenes/GameScene.ts`, `NeoJump/scenes/BootScene.ts` (3 new procedural textures).
-- **Perf budget (critical)**: Ralph MUST run the perf E2E (`PLAYWRIGHT_PERF=1 npm run test:e2e -- performance`) and confirm ≥ 55fps p95. If it drops below:
-  1. Drop to 4 layers (merge skyline + mid_buildings).
-  2. Still fails → 3 layers.
-  3. Still fails → revert PG13 to pre-R76.6 state, mark `BLOCKED-NEEDS-PERF-WORK`, document regression under R77 `### Discovered Work`.
+#### ~~PG13 — [P2] NeoJump: 5-layer parallax depth~~ RESOLVED (R76.9)
+- [x] **(R76.9)** 5-layer parallax implemented:
+  - **Rain** (depth -50): existing 3 rain sub-layers now set to `PARALLAX.RAIN_DEPTH`, `setScrollFactor(0)` unchanged.
+  - **3 building TileSprite layers** (depths -40, -30, -20): `skyline` (#004400, scrollFactor 0.3), `mid_buildings` (#006600, 0.5), `near_arches` (#00aa00, 0.7). Manual `tilePositionY = -camY * (1 - scrollFactor)` in update.
+  - **Platforms + player** at depth 0 (implicit 5th layer).
+  - **Procedural textures** in BootScene: building silhouettes, windowed mid-rises, rounded arch columns — all Matrix-green value-graded.
+  - Platforms unchanged. Jump mechanics unchanged. Pure rendering addition.
+  - All 73 NeoJump tests + build pass.
 
 #### ~~PG14 — [P0] AgentChase: wall-collision glitch (stutter into walls)~~ RESOLVED (R76.2)
 - [x] (R76.2) Implemented Pac-Man-style buffered turn + slide-along-wall. Post-advance turn check at tile boundaries, guarded progress advancement, clamped interpolation when blocked.

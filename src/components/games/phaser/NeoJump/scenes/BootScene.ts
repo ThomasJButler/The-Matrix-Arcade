@@ -69,6 +69,7 @@ export class NeoJumpBootScene extends BootScene {
     this.createEnemyTexture();
     this.createCollectibleTextures();
     this.createJetpackFlameTexture();
+    this.createParallaxTextures();
 
     super.create();
   }
@@ -217,5 +218,61 @@ export class NeoJumpBootScene extends BootScene {
     g.lineBetween(21, 7, 16, 9);
     g.generateTexture('enemy', 28, 28);
     g.destroy();
+  }
+
+  private createParallaxTextures(): void {
+    const W = 400;
+    const H = 300;
+
+    // Skyline — tall building silhouettes
+    const sky = this.add.graphics();
+    const skyBuildings = [
+      { x: 10, w: 40, h: 220 }, { x: 70, w: 35, h: 180 }, { x: 130, w: 50, h: 260 },
+      { x: 200, w: 30, h: 150 }, { x: 250, w: 45, h: 240 }, { x: 320, w: 55, h: 200 },
+      { x: 380, w: 20, h: 170 },
+    ];
+    sky.fillStyle(0x004400, 0.4);
+    for (const b of skyBuildings) {
+      sky.fillRect(b.x, H - b.h, b.w, b.h);
+    }
+    sky.generateTexture('skyline', W, H);
+    sky.destroy();
+
+    // Mid buildings — medium structures with window dots
+    const mid = this.add.graphics();
+    const midBuildings = [
+      { x: 5, w: 30, h: 120 }, { x: 50, w: 45, h: 160 }, { x: 110, w: 35, h: 100 },
+      { x: 160, w: 50, h: 140 }, { x: 230, w: 40, h: 180 }, { x: 290, w: 30, h: 110 },
+      { x: 340, w: 55, h: 150 }, { x: 390, w: 10, h: 90 },
+    ];
+    mid.fillStyle(0x006600, 0.35);
+    for (const b of midBuildings) {
+      mid.fillRect(b.x, H - b.h, b.w, b.h);
+      mid.fillStyle(0x009900, 0.3);
+      for (let wy = H - b.h + 8; wy < H - 4; wy += 16) {
+        for (let wx = b.x + 5; wx < b.x + b.w - 3; wx += 10) {
+          mid.fillRect(wx, wy, 4, 6);
+        }
+      }
+      mid.fillStyle(0x006600, 0.35);
+    }
+    mid.generateTexture('mid_buildings', W, H);
+    mid.destroy();
+
+    // Near arches — rounded column structures
+    const arch = this.add.graphics();
+    arch.fillStyle(0x00aa00, 0.2);
+    const archPositions = [30, 130, 230, 330];
+    for (const ax of archPositions) {
+      arch.fillRect(ax, 80, 12, 220);
+      arch.fillRect(ax + 28, 80, 12, 220);
+      arch.fillStyle(0x00aa00, 0.15);
+      arch.fillCircle(ax + 20, 80, 20);
+      arch.fillStyle(0x000000, 1);
+      arch.fillCircle(ax + 20, 80, 10);
+      arch.fillStyle(0x00aa00, 0.2);
+    }
+    arch.generateTexture('near_arches', W, H);
+    arch.destroy();
   }
 }
