@@ -160,27 +160,17 @@ Every item is tagged with its P-level. `[P0]` = game-breaking in playtest.
 #### ~~PG8 — [P0] MatrixFrogger: Kung Fu (`K`) doesn't work~~ RESOLVED (R76.2)
 - [x] (R76.2) Changed `kungFuKey!` non-null assertion to optional `kungFuKey?`, added null guard before `JustDown()` call.
 
-#### PG9 — [P2] MatrixFrogger: 3D tilt camera + perspective + lane textures (UNBLOCKED R76.6)
-- [ ] **(R76.6)** Implement the following per Tom's design direction (2026-04-14):
-  - **Camera tilt**: 25° forward tilt. Render lanes as trapezoids by adjusting Y-spacing + X-inset per row (no `camera.setRotation` — preserves Phaser hit-boxes).
-  - **Vehicle scale**: linearly interpolate `0.6×` (far lane) → `1.0×` (near lane) across lane index. `sprite.setScale(scale)`.
-  - **Vehicle rotation**: tilt sprites back proportionally to lane distance — `sprite.setAngle(ROTATION_DEG * (1 - scale))` where `ROTATION_DEG = -12`.
-  - **Origin**: `setOrigin(0.5, 1)` so scale pivots at lane baseline.
-  - **Hit-box safety**: `sprite.setScale(scale).setBodySize(ORIGINAL_W, ORIGINAL_H)` — keep physics body at original size so far-lane cars remain hittable/avoidable consistently.
-  - **Lane textures**: procedural `road_dashes` (TileSprite, animated at `LANE_DASH_SPEED = 40 px/s`, alternating direction per road lane) + `water_shimmer` (noise texture, `WATER_SHIMMER_SPEED = 15 px/s`).
-  - Config block in `MatrixFrogger/config.ts`:
-    ```typescript
-    PERSPECTIVE: {
-      TILT_DEGREES: 25,
-      VEHICLE_SCALE_MIN: 0.6,
-      VEHICLE_SCALE_MAX: 1.0,
-      VEHICLE_ROTATION_DEG: -12,
-      LANE_DASH_SPEED: 40,
-      WATER_SHIMMER_SPEED: 15,
-    }
-    ```
-- **Files**: `MatrixFrogger/config.ts`, `MatrixFrogger/scenes/GameScene.ts`, `MatrixFrogger/scenes/BootScene.ts` (procedural dash + shimmer textures).
-- **Perf budget**: ≥ 55fps p95 (existing perf spec).
+#### ~~PG9 — [P2] MatrixFrogger: 3D tilt camera + perspective + lane textures~~ RESOLVED (R76.9)
+- [x] **(R76.9)** Full pseudo-3D perspective implemented:
+  - **Precomputed lane layout**: Variable lane heights (compressed at top, expanded at bottom) via `computeLaneLayout()`. Y positions and heights stored in `laneYPos[]`/`laneH[]`.
+  - **X convergence**: `colToX(col, row)` maps flat grid X toward screen centre based on `laneScale(row)` (0.6× far → 1.0× near).
+  - **Trapezoid lane backgrounds**: All lanes drawn with Graphics path API — top edges narrow, bottom edges wide.
+  - **Vehicle/enemy scale + rotation**: `setScale(baseScale * perspScale)`, `setOrigin(0.5, 1)`, `setAngle(-12 * (1 - perspScale))`, `setBodySize(frame.width, frame.height)` to preserve physics.
+  - **Player perspective**: `applyPlayerPerspective()` updates display size/scale on every hop and level-up teleport.
+  - **Animated road dashes**: Procedural `road_dashes` texture (128×4) tiled per road lane, scrolling at 40px/s alternating by direction.
+  - **Lane-aware bounds**: Enemies spawn/despawn at perspective lane edges, not full-width screen edges.
+  - Water shimmer deferred (no river lanes exist in current layout).
+  - All 989 Phaser tests pass. Build clean.
 
 #### ~~PG10 — [P0] NeoJump: falling off-screen doesn't kill player~~ RESOLVED (R76.2)
 - [x] (R76.2) Root cause: `checkGameOver()` set `isGameOver=true` before calling `playerDeath()`, which guards on `isGameOver`. Removed premature flag set — death sequence now fires correctly.

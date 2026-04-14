@@ -114,6 +114,16 @@ export const GAME_CONFIG = {
     FINISH_LINE: 0x00ff00,
     START_ZONE: 0x001100,
   },
+
+  /** Perspective / pseudo-3D settings */
+  PERSPECTIVE: {
+    TILT_DEGREES: 25,
+    VEHICLE_SCALE_MIN: 0.6,
+    VEHICLE_SCALE_MAX: 1.0,
+    VEHICLE_ROTATION_DEG: -12,
+    LANE_DASH_SPEED: 40,
+    WATER_SHIMMER_SPEED: 15,
+  },
 } as const;
 
 /** Achievement IDs for Matrix Frogger */

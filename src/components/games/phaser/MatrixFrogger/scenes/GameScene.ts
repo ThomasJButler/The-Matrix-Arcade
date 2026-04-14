@@ -86,6 +86,7 @@ export class FroggerGameScene extends BaseScene {
   // Lane visuals
   private laneGraphics!: Phaser.GameObjects.Graphics;
   private safeZoneFlowers: Phaser.GameObjects.Image[] = [];
+  private roadDashSprites: Array<{ sprite: Phaser.GameObjects.TileSprite; direction: number }> = [];
 
   // Finish line fly decoration
   private flySprite: Phaser.GameObjects.Image | null = null;
@@ -118,7 +119,9 @@ export class FroggerGameScene extends BaseScene {
     this.createMatrixBackground();
 
     this.setupLanes();
+    this.computeLaneLayout();
     this.drawLaneBackgrounds();
+    this.addRoadDashes();
     this.addSafeZoneFlowers();
     this.addFinishLineFly();
 
@@ -202,6 +205,11 @@ export class FroggerGameScene extends BaseScene {
     // Update matrix rain
     this.updateMatrixRain(this.rainGroup, delta);
 
+    // Animate road dashes
+    for (const dash of this.roadDashSprites) {
+      dash.sprite.tilePositionX += GAME_CONFIG.PERSPECTIVE.LANE_DASH_SPEED * dash.direction * (delta / 1000);
+    }
+
     // During countdown, don't process gameplay
     if (this.isCountingDown) return;
 
@@ -259,72 +267,88 @@ export class FroggerGameScene extends BaseScene {
     this.laneGraphics = this.add.graphics();
     this.laneGraphics.setDepth(1);
 
-    const cellSize = GAME_CONFIG.CELL_SIZE;
     const width = GAME_CONFIG.WIDTH;
-    const offsetY = 16;
 
     for (let row = 0; row < this.lanes.length; row++) {
       const lane = this.lanes[row];
-      const y = row * cellSize + offsetY;
+      const y = this.laneYPos[row];
+      const h = this.laneH[row];
+      const topIn = this.laneInset(row);
+      const botIn = row < this.lanes.length - 1 ? this.laneInset(row + 1) : topIn;
 
       if (lane.type === 'safe') {
-        // Safe zone: subtle green tint
         const colour = row === 0 ? GAME_CONFIG.LANE_COLORS.SAFE_ZONE : GAME_CONFIG.LANE_COLORS.START_ZONE;
         this.laneGraphics.fillStyle(colour, 0.6);
-        this.laneGraphics.fillRect(0, y, width, cellSize);
-
-        if (row === 0) {
-          // Finish line: bright green dashed line at top edge
-          this.drawFinishLine(y);
-        }
       } else {
-        // Road lane: dark surface
         this.laneGraphics.fillStyle(GAME_CONFIG.LANE_COLORS.ROAD_SURFACE, 0.5);
-        this.laneGraphics.fillRect(0, y, width, cellSize);
+      }
 
-        // Dashed road markings at top and bottom of lane
-        this.drawRoadMarkings(y, width);
-        this.drawRoadMarkings(y + cellSize - 1, width);
+      this.laneGraphics.beginPath();
+      this.laneGraphics.moveTo(topIn, y);
+      this.laneGraphics.lineTo(width - topIn, y);
+      this.laneGraphics.lineTo(width - botIn, y + h);
+      this.laneGraphics.lineTo(botIn, y + h);
+      this.laneGraphics.closePath();
+      this.laneGraphics.fillPath();
+
+      if (lane.type === 'safe' && row === 0) {
+        this.drawFinishLine(y, topIn, width - topIn);
+      }
+      if (lane.type === 'road') {
+        this.drawRoadMarkings(y, topIn, width - topIn);
+        this.drawRoadMarkings(y + h - 1, botIn, width - botIn);
       }
     }
 
-    // Labels for safe zones
     const labelStyle = {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '8px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     };
 
-    const finishLabel = this.add.text(width / 2, 0 * cellSize + offsetY + 6, 'FINISH', { ...labelStyle, color: '#00ff00' });
+    const finishLabel = this.add.text(width / 2, this.laneYPos[0] + 6, 'FINISH', { ...labelStyle, color: '#00ff00' });
     finishLabel.setOrigin(0.5, 0);
     finishLabel.setAlpha(0.5);
     finishLabel.setDepth(2);
 
-    const safeLabel = this.add.text(width / 2, 4 * cellSize + offsetY + 6, 'SAFE ZONE', labelStyle);
+    const safeLabel = this.add.text(width / 2, this.laneYPos[4] + 6, 'SAFE ZONE', labelStyle);
     safeLabel.setOrigin(0.5, 0);
     safeLabel.setAlpha(0.4);
     safeLabel.setDepth(2);
 
-    const startLabel = this.add.text(width / 2, 8 * cellSize + offsetY + 6, 'START', labelStyle);
+    const startLabel = this.add.text(width / 2, this.laneYPos[8] + 6, 'START', labelStyle);
     startLabel.setOrigin(0.5, 0);
     startLabel.setAlpha(0.4);
     startLabel.setDepth(2);
   }
 
-  private drawFinishLine(y: number): void {
+  private drawFinishLine(y: number, startX: number, endX: number): void {
     const segmentWidth = 16;
-    for (let x = 0; x < GAME_CONFIG.WIDTH; x += segmentWidth * 2) {
+    for (let x = startX; x < endX; x += segmentWidth * 2) {
       this.laneGraphics.fillStyle(GAME_CONFIG.LANE_COLORS.FINISH_LINE, 0.3);
-      this.laneGraphics.fillRect(x, y, segmentWidth, 3);
+      this.laneGraphics.fillRect(x, y, Math.min(segmentWidth, endX - x), 3);
     }
   }
 
-  private drawRoadMarkings(y: number, width: number): void {
+  private drawRoadMarkings(y: number, startX: number, endX: number): void {
     const dashWidth = 20;
     const gapWidth = 30;
-    for (let x = 0; x < width; x += dashWidth + gapWidth) {
+    for (let x = startX; x < endX; x += dashWidth + gapWidth) {
       this.laneGraphics.fillStyle(GAME_CONFIG.LANE_COLORS.ROAD_MARKING, 0.4);
-      this.laneGraphics.fillRect(x, y, dashWidth, 1);
+      this.laneGraphics.fillRect(x, y, Math.min(dashWidth, endX - x), 1);
+    }
+  }
+
+  private addRoadDashes(): void {
+    this.roadDashSprites = [];
+    for (let row = 0; row < this.lanes.length; row++) {
+      const lane = this.lanes[row];
+      if (lane.type !== 'road') continue;
+      const y = this.rowToY(row);
+      const sprite = this.add.tileSprite(GAME_CONFIG.WIDTH / 2, y, GAME_CONFIG.WIDTH, 4, 'road_dashes');
+      sprite.setDepth(1);
+      sprite.setAlpha(0.25);
+      this.roadDashSprites.push({ sprite, direction: lane.direction ?? 1 });
     }
   }
 
@@ -332,20 +356,21 @@ export class FroggerGameScene extends BaseScene {
     if (!this.textures.exists('flower_ground_1') || !this.textures.exists('flower_ground_2')) return;
 
     this.safeZoneFlowers = [];
-    const cellSize = GAME_CONFIG.CELL_SIZE;
-    const offsetY = 16;
     const tileSize = 16;
-    const scale = cellSize / tileSize;
 
     for (let row = 0; row < this.lanes.length; row++) {
       if (this.lanes[row].type !== 'safe') continue;
       if (row === 0) continue;
 
-      const y = row * cellSize + offsetY;
-      for (let tx = 0; tx < GAME_CONFIG.WIDTH; tx += cellSize) {
+      const y = this.laneYPos[row];
+      const h = this.laneH[row];
+      const flowerScale = h / tileSize;
+      const inset = this.laneInset(row);
+
+      for (let tx = inset; tx < GAME_CONFIG.WIDTH - inset; tx += h) {
         const key = Math.random() < 0.5 ? 'flower_ground_1' : 'flower_ground_2';
-        const flower = this.add.image(tx + cellSize / 2, y + cellSize / 2, key);
-        flower.setScale(scale);
+        const flower = this.add.image(tx + h / 2, y + h / 2, key);
+        flower.setScale(flowerScale);
         flower.setTint(MATRIX_COLORS.PRIMARY);
         flower.setAlpha(0.25);
         flower.setDepth(1);
@@ -357,19 +382,19 @@ export class FroggerGameScene extends BaseScene {
   private addFinishLineFly(): void {
     if (!this.textures.exists('fly_sprite')) return;
 
-    const offsetY = 16;
-    const cellSize = GAME_CONFIG.CELL_SIZE;
     const x = GAME_CONFIG.WIDTH / 2;
-    const y = 0 * cellSize + offsetY + cellSize / 2;
+    const y = this.rowToY(0);
+    const size = this.laneH[0] * 0.6;
 
     this.flySprite = this.add.image(x, y, 'fly_sprite');
-    this.flySprite.setDisplaySize(cellSize * 0.6, cellSize * 0.6);
+    this.flySprite.setDisplaySize(size, size);
     this.flySprite.setDepth(5);
     this.flySprite.setAlpha(0.8);
 
+    const sway = 40 * this.laneScale(0);
     this.tweens.add({
       targets: this.flySprite,
-      x: { from: x - 40, to: x + 40 },
+      x: { from: x - sway, to: x + sway },
       yoyo: true,
       repeat: -1,
       duration: 2000,
@@ -382,19 +407,29 @@ export class FroggerGameScene extends BaseScene {
   // ---------------------------------------------------------------------------
 
   private createPlayer(): void {
-    const x = this.colToX(this.playerCol);
+    const x = this.colToX(this.playerCol, this.playerRow);
     const y = this.rowToY(this.playerRow);
 
     if (this.frogSpriteMode) {
       this.player = this.physics.add.sprite(x, y, 'frog_idle');
-      this.player.setDisplaySize(GAME_CONFIG.CELL_SIZE, GAME_CONFIG.CELL_SIZE);
+      this.applyPlayerPerspective();
     } else {
       this.player = this.physics.add.sprite(x, y, 'player', 0);
-      this.player.setScale(1.0);
+      this.applyPlayerPerspective();
       this.player.play('player_idle');
     }
     this.player.setDepth(10);
     this.player.setTint(MATRIX_COLORS.PRIMARY);
+  }
+
+  private applyPlayerPerspective(): void {
+    const scale = this.laneScale(this.playerRow);
+    const size = GAME_CONFIG.CELL_SIZE * scale;
+    if (this.frogSpriteMode) {
+      this.player.setDisplaySize(size, size);
+    } else {
+      this.player.setScale(scale);
+    }
   }
 
   private setFrogDirection(dx: number, dy: number): void {
@@ -543,12 +578,11 @@ export class FroggerGameScene extends BaseScene {
     this.playerCol = col;
     this.playerRow = row;
 
-    const targetX = this.colToX(col);
+    const targetX = this.colToX(col, row);
     const targetY = this.rowToY(row);
 
     if (this.frogSpriteMode) {
       this.player.setTexture('frog_hop');
-      this.player.setDisplaySize(GAME_CONFIG.CELL_SIZE, GAME_CONFIG.CELL_SIZE);
       this.setFrogDirection(col - prevCol, row - prevRow);
     } else {
       this.player.play('player_hop');
@@ -563,14 +597,13 @@ export class FroggerGameScene extends BaseScene {
       ease: 'Quad.easeOut',
       onComplete: () => {
         this.isMoving = false;
+        this.applyPlayerPerspective();
         if (this.frogSpriteMode) {
           this.player.setTexture('frog_idle');
-          this.player.setDisplaySize(GAME_CONFIG.CELL_SIZE, GAME_CONFIG.CELL_SIZE);
         } else {
           this.player.play('player_idle');
         }
 
-        // Score for forward movement — always reward forward steps
         if (wasForward) {
           this.addScore(GAME_CONFIG.SCORING.STEP_FORWARD);
           const distance = GAME_CONFIG.PLAYER.START_ROW - row;
@@ -579,10 +612,8 @@ export class FroggerGameScene extends BaseScene {
           }
         }
 
-        // Check near-miss immediately after landing
         this.checkNearMiss();
 
-        // Execute buffered input from key presses during hop animation
         if (this.bufferedInput) {
           const { col: buffCol, row: buffRow } = this.bufferedInput;
           this.bufferedInput = null;
@@ -930,13 +961,13 @@ export class FroggerGameScene extends BaseScene {
     const direction = lane.direction ?? 1;
     const enemyType = lane.enemyType || 'agent';
 
-    // Determine if this should be a chasing agent
     const isChaser = this.level >= GAME_CONFIG.DIFFICULTY.CHASING_AGENT_MIN_LEVEL && Math.random() < 0.2;
 
-    const startX = direction === 1 ? -GAME_CONFIG.CELL_SIZE : GAME_CONFIG.WIDTH + GAME_CONFIG.CELL_SIZE;
+    const perspScale = this.laneScale(lane.row);
+    const inset = this.laneInset(lane.row);
+    const startX = direction === 1 ? inset - GAME_CONFIG.CELL_SIZE : GAME_CONFIG.WIDTH - inset + GAME_CONFIG.CELL_SIZE;
     const y = this.rowToY(lane.row);
 
-    // Use vehicle sprites for traffic lanes, agent sprites for Matrix lanes
     const useVehicle = !isChaser && lane.vehicleTextures && lane.vehicleTextures.length > 0;
     const textureKey = useVehicle
       ? Phaser.Utils.Array.GetRandom(lane.vehicleTextures!)
@@ -953,14 +984,22 @@ export class FroggerGameScene extends BaseScene {
     enemy.lane = lane.row;
 
     if (useVehicle) {
-      // Vehicle sprites are 16x16 (truck 32x16) — scale to fill grid cell
-      const scale = textureKey === 'vehicle_truck' ? 2.5 : 3.0;
-      enemy.setScale(scale);
+      const baseScale = textureKey === 'vehicle_truck' ? 2.5 : 3.0;
+      enemy.setScale(baseScale * perspScale);
       enemy.setFlipX(direction === -1);
+      enemy.setOrigin(0.5, 1);
+      enemy.setAngle(GAME_CONFIG.PERSPECTIVE.VEHICLE_ROTATION_DEG * (1 - perspScale));
       enemy.clearTint();
     } else {
-      enemy.setScale(0.8);
+      enemy.setScale(0.8 * perspScale);
       enemy.setFlipX(false);
+      enemy.setOrigin(0.5, 1);
+      enemy.setAngle(GAME_CONFIG.PERSPECTIVE.VEHICLE_ROTATION_DEG * (1 - perspScale));
+    }
+
+    if (enemy.body) {
+      const frame = enemy.frame;
+      (enemy.body as Phaser.Physics.Arcade.Body).setSize(frame.width, frame.height);
     }
 
     const config = GAME_CONFIG.ENEMIES[enemyType.toUpperCase() as 'AGENT' | 'SENTINEL'];
@@ -989,7 +1028,7 @@ export class FroggerGameScene extends BaseScene {
     const col = Phaser.Math.Between(1, GAME_CONFIG.GRID_COLS - 2);
     const row = Phaser.Math.Between(1, GAME_CONFIG.GRID_ROWS - 2);
 
-    const x = this.colToX(col);
+    const x = this.colToX(col, row);
     const y = this.rowToY(row);
 
     // 10% NEO pickup, 18% blue (power-up), 72% red (points)
@@ -1046,11 +1085,12 @@ export class FroggerGameScene extends BaseScene {
         }
       }
 
-      // Remove when off-screen
-      if (enemy.direction === 1 && enemy.x > GAME_CONFIG.WIDTH + GAME_CONFIG.CELL_SIZE) {
+      // Remove when past perspective lane edge
+      const inset = this.laneInset(enemy.lane);
+      if (enemy.direction === 1 && enemy.x > GAME_CONFIG.WIDTH - inset + GAME_CONFIG.CELL_SIZE) {
         enemy.setActive(false);
         enemy.setVisible(false);
-      } else if (enemy.direction === -1 && enemy.x < -GAME_CONFIG.CELL_SIZE) {
+      } else if (enemy.direction === -1 && enemy.x < inset - GAME_CONFIG.CELL_SIZE) {
         enemy.setActive(false);
         enemy.setVisible(false);
       }
@@ -1116,10 +1156,11 @@ export class FroggerGameScene extends BaseScene {
 
       this.tweens.add({
         targets: this.player,
-        x: this.colToX(this.playerCol),
+        x: this.colToX(this.playerCol, this.playerRow),
         y: this.rowToY(this.playerRow),
         duration: 300,
         ease: 'Back.easeOut',
+        onComplete: () => this.applyPlayerPerspective(),
       });
 
       this.updateUI();
@@ -1243,14 +1284,53 @@ export class FroggerGameScene extends BaseScene {
   }
 
   // ---------------------------------------------------------------------------
-  // Grid helpers
+  // Grid helpers & perspective
   // ---------------------------------------------------------------------------
 
-  private colToX(col: number): number {
-    return col * GAME_CONFIG.CELL_SIZE + GAME_CONFIG.CELL_SIZE / 2 + 16;
+  private laneYPos: number[] = [];
+  private laneH: number[] = [];
+
+  private laneScale(row: number): number {
+    const { VEHICLE_SCALE_MIN, VEHICLE_SCALE_MAX } = GAME_CONFIG.PERSPECTIVE;
+    const t = row / (GAME_CONFIG.GRID_ROWS - 1);
+    return VEHICLE_SCALE_MIN + t * (VEHICLE_SCALE_MAX - VEHICLE_SCALE_MIN);
+  }
+
+  private laneInset(row: number): number {
+    return (GAME_CONFIG.WIDTH * (1 - this.laneScale(row))) / 2;
+  }
+
+  private computeLaneLayout(): void {
+    const rows = GAME_CONFIG.GRID_ROWS;
+    const heights: number[] = [];
+    let total = 0;
+    for (let r = 0; r < rows; r++) {
+      const h = GAME_CONFIG.CELL_SIZE * this.laneScale(r);
+      heights.push(h);
+      total += h;
+    }
+    const avail = rows * GAME_CONFIG.CELL_SIZE;
+    const norm = avail / total;
+    let y = 16;
+    for (let r = 0; r < rows; r++) {
+      this.laneH[r] = heights[r] * norm;
+      this.laneYPos[r] = y;
+      y += this.laneH[r];
+    }
+  }
+
+  private colToX(col: number, row?: number): number {
+    const flat = col * GAME_CONFIG.CELL_SIZE + GAME_CONFIG.CELL_SIZE / 2 + 16;
+    if (row === undefined || !this.laneYPos?.length) return flat;
+    const scale = this.laneScale(row);
+    const cx = GAME_CONFIG.WIDTH / 2;
+    return cx + (flat - cx) * scale;
   }
 
   private rowToY(row: number): number {
+    if (this.laneYPos?.length > 0) {
+      return this.laneYPos[row] + this.laneH[row] / 2;
+    }
     return row * GAME_CONFIG.CELL_SIZE + GAME_CONFIG.CELL_SIZE / 2 + 16;
   }
 
@@ -1285,6 +1365,8 @@ export class FroggerGameScene extends BaseScene {
 
     this.safeZoneFlowers.forEach(f => f.destroy());
     this.safeZoneFlowers = [];
+    this.roadDashSprites.forEach(d => d.sprite.destroy());
+    this.roadDashSprites = [];
     if (this.flySprite) {
       this.flySprite.destroy();
       this.flySprite = null;
