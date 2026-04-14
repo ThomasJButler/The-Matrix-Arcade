@@ -1262,8 +1262,7 @@ export class NeoJumpGameScene extends BaseScene {
       this.input.keyboard.removeAllKeys(true);
     }
 
-    // Clear tweens
-    this.tweens.killAll();
+    this.tweens?.killAll();
 
     // Clear parallax layers
     this.rainLayers.forEach((layer) => {
