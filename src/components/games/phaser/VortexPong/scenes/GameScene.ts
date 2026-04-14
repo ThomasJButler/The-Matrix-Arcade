@@ -286,32 +286,41 @@ export class VortexPongGameScene extends BaseScene {
     const targetBall = this.getClosestBallToAI();
     if (!targetBall) return;
 
-    const maxSpeed = Math.min(this.aiDifficulty, GAME_CONFIG.AI.MAX_SPEED_FACTOR) * 60;
-    const ballMovingToward = targetBall.vx > 0;
-    const accelRate = ballMovingToward ? GAME_CONFIG.AI.NEAR_ACCELERATION : GAME_CONFIG.AI.FAR_ACCELERATION;
-    const distFactor = targetBall.sprite.x < GAME_CONFIG.WIDTH / 2 ? 0.5 : 1.0;
+    // Difficulty ramp: AI gets faster as player scores increase
+    const difficultyBonus = Math.min(this.playerScore * 0.06, 0.4);
+    const baseTracking = 2.5;
+    const trackingSpeed = baseTracking + difficultyBonus;
 
-    const errorOffset = (Math.random() - 0.5) * GAME_CONFIG.AI.ERROR_MARGIN;
-    const targetY = targetBall.sprite.y + errorOffset;
+    // When the ball is heading away, drift lazily toward center
+    const ballMovingToward = targetBall.vx > 0;
+    const effectiveTracking = ballMovingToward ? trackingSpeed : trackingSpeed * 0.4;
+
+    // Stable error offset based on rally count (not random each frame)
+    const errorOffset = Math.sin(this.rallyCount * 1.7 + this.aiScore * 2.3) *
+      GAME_CONFIG.AI.ERROR_MARGIN * 0.3;
+    const targetY = ballMovingToward
+      ? targetBall.sprite.y + errorOffset
+      : GAME_CONFIG.HEIGHT / 2;
+
     const diff = targetY - this.aiPaddle.y;
 
-    // Damping (exponential decay scaled to frame equivalent)
-    const frames = dt * 60;
-    this.aiPaddleVelocity *= Math.pow(GAME_CONFIG.AI.DAMPING, frames);
+    // Direct tracking: move toward the ball's Y position
+    const maxSpeed = GAME_CONFIG.PADDLE.SPEED * 0.85;
+    let moveAmount = diff * effectiveTracking * dt;
 
-    // Accelerate toward target
-    this.aiPaddleVelocity += maxSpeed * accelRate * distFactor * Math.sign(diff) * dt;
-
-    // Deliberate mistake (probability scaled to delta)
-    const mistakeChance = 1 - Math.pow(1 - GAME_CONFIG.AI.MISTAKE_CHANCE, frames);
-    if (Math.random() < mistakeChance) {
-      this.aiPaddleVelocity *= -0.5;
+    // Minimum speed floor so the paddle always visibly tracks
+    const minSpeed = 30;
+    if (Math.abs(diff) > 2) {
+      const minMove = minSpeed * dt * Math.sign(diff);
+      if (Math.abs(moveAmount) < Math.abs(minMove)) {
+        moveAmount = minMove;
+      }
     }
 
-    // Clamp velocity and apply
-    const maxVel = maxSpeed * 2;
-    this.aiPaddleVelocity = clamp(this.aiPaddleVelocity, -maxVel, maxVel);
-    this.aiPaddle.y += this.aiPaddleVelocity * dt;
+    // Clamp to max speed so the AI is beatable
+    moveAmount = clamp(moveAmount, -maxSpeed * dt, maxSpeed * dt);
+
+    this.aiPaddle.y += moveAmount;
     this.clampPaddle(this.aiPaddle, GAME_CONFIG.PADDLE.HEIGHT);
   }
 

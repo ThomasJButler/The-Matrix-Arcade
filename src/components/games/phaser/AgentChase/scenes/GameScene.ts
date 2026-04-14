@@ -380,18 +380,16 @@ export class AgentChaseGameScene extends BaseScene {
     const offsetY = 40;
     const speed = GAME_CONFIG.PLAYER.SPEED;
 
-    // Try to turn if next direction is pressed
-    if (this.nextDirection !== 'NONE' && this.canMove(this.playerGridX, this.playerGridY, this.nextDirection)) {
+    // Try to apply buffered turn at current grid position (pre-move)
+    if (this.nextDirection !== 'NONE' && this.playerMoveProgress === 0 &&
+        this.canMove(this.playerGridX, this.playerGridY, this.nextDirection)) {
       this.playerDirection = this.nextDirection;
       this.nextDirection = 'NONE';
-      this.playerMoveProgress = 0;
       this.updatePlayerRotation();
     }
 
-    // Move in current direction (tile-based)
+    // When the player has finished traversing one tile, advance to the next
     if (this.playerMoveProgress >= 1.0) {
-      this.playerMoveProgress = 0;
-
       const dir = DIRECTIONS[this.playerDirection];
       const nextX = this.playerGridX + dir.x;
       const nextY = this.playerGridY + dir.y;
@@ -404,30 +402,48 @@ export class AgentChaseGameScene extends BaseScene {
         this.playerGridX = nextX;
         this.playerGridY = nextY;
       }
+
+      // Reset progress for the new tile
+      this.playerMoveProgress = 0;
+
+      // At the new tile, try the buffered direction again (auto-turn at corners)
+      if (this.nextDirection !== 'NONE' && this.canMove(this.playerGridX, this.playerGridY, this.nextDirection)) {
+        this.playerDirection = this.nextDirection;
+        this.nextDirection = 'NONE';
+        this.updatePlayerRotation();
+      }
     }
 
-    // Progress through current tile movement
-    const deltaSeconds = delta / 1000;
-    const tilesPerSecond = speed / GAME_CONFIG.TILE_SIZE;
-    this.playerMoveProgress += tilesPerSecond * deltaSeconds;
+    // Only start new tile movement if the path ahead is clear.
+    // If progress > 0 we are mid-tile and must finish arriving at the next grid cell.
+    const canAdvance = this.canMove(this.playerGridX, this.playerGridY, this.playerDirection);
+    if (canAdvance || this.playerMoveProgress > 0) {
+      const deltaSeconds = delta / 1000;
+      const tilesPerSecond = speed / GAME_CONFIG.TILE_SIZE;
+      this.playerMoveProgress += tilesPerSecond * deltaSeconds;
 
-    // Clamp progress
-    if (this.playerMoveProgress > 1.0) {
-      this.playerMoveProgress = 1.0;
+      // Clamp progress
+      if (this.playerMoveProgress > 1.0) {
+        this.playerMoveProgress = 1.0;
+      }
     }
 
     // Interpolate position between grid tiles
     const offsetDir = DIRECTIONS[this.playerDirection];
+    // Only interpolate toward next tile if the path is clear; otherwise stay at grid position
+    const blocked = !this.canMove(this.playerGridX, this.playerGridY, this.playerDirection);
+    const interpProgress = blocked ? 0 : this.playerMoveProgress;
+
     const nextGridX = this.playerGridX + offsetDir.x;
     const nextGridY = this.playerGridY + offsetDir.y;
 
     const currentX = offsetX + this.playerGridX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
     const currentY = offsetY + this.playerGridY * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
-    const nextX = offsetX + nextGridX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
-    const nextY = offsetY + nextGridY * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+    const nextTileX = offsetX + nextGridX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+    const nextTileY = offsetY + nextGridY * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
 
-    this.player.x = Phaser.Math.Interpolation.Linear([currentX, nextX], this.playerMoveProgress);
-    this.player.y = Phaser.Math.Interpolation.Linear([currentY, nextY], this.playerMoveProgress);
+    this.player.x = Phaser.Math.Interpolation.Linear([currentX, nextTileX], interpProgress);
+    this.player.y = Phaser.Math.Interpolation.Linear([currentY, nextTileY], interpProgress);
   }
 
   private updatePlayerRotation(): void {
