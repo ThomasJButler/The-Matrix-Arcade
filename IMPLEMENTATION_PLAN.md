@@ -40,7 +40,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > - **E2E coverage COMPLETE**: All 12 games have dedicated playthrough specs + keyboard-only a11y tests. 18 total spec files across playthrough, a11y, performance, and visual categories. No new games need E2E tests created.
 > - **E2E gap persists**: All playthrough tests use `autoStart=true`, bypassing MenuScene. The user-reported "press ENTER to start" bug is NOT tested. Adding `autoStart=false` E2E tests would catch this regression.
 > - **onExit IS wired up**: App.tsx passes `onExit` to all game components (lines 595, 644). The R69 "onExit never passed" finding is outdated — this was fixed.
-> - **Asset status unchanged**: 12 games have deployed sprites. Only Matrix Frogger has deployed audio. 5 music tracks for Rhythm Hacker. All other games use procedural audio only.
+> - ~~**Asset status unchanged**~~ STALE (R78.1–R78.4 deployed sprites + global SFX across all 11 non-CTRL-S games). See R78 status entries for current per-game counts.
 > - **Architecture note update**: The Architecture Notes section still documents Pattern 1 (guard in update) as the REQUIRED pattern, but the guard MUST be narrowed to wrap only `handleInput()`, not the entire `update()`. Pattern 2 (event-driven) remains preferred.
 > - **All 4 old buggy games successfully rebuilt**: CrossyRoad→MatrixFrogger, MatrixAscension→NeoJump, AgentEscape→AgentChase, JimmyMatrix→RhythmHacker. Plus Cloud Jumper (new) and Code Breaker (new). Total: 12 games.
 >
@@ -76,7 +76,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > - **Portal thumbnails**: ~5 games show blank/black preview canvases (Phaser canvas not rendered in time).
 > - **UI screenshots**: All healthy — landing page, achievements, modals, settings all render correctly.
 >
-> **R71 test audit**: Last E2E run passed (0 failures). 43 unit test files (1838 tests), 21 E2E spec files, ~87 visual baselines. 4 hollow test cases in ShatnerVoiceControls.test.tsx (mock setup but no assertions). Dead `enableTestMode` export in test-utils.ts (migration complete, can remove). FPS budget test only runs with `PLAYWRIGHT_PERF=1` env var.
+> **R71 test audit**: Last E2E run passed (0 failures). ~~43 unit test files (1838 tests)~~ now 1,855 tests. ~~21 E2E spec files, ~87 visual baselines~~ now 69+ E2E specs with 86 darwin baselines. ~~4 hollow test cases in ShatnerVoiceControls.test.tsx~~ RESOLVED (R76.1). ~~Dead `enableTestMode` export in test-utils.ts~~ RESOLVED (R76.1). FPS budget test only runs with `PLAYWRIGHT_PERF=1` env var.
 >
 > **Why E2E passes but live browser fails**: Playwright manages focus precisely — it clicks the game container, sends keyboard events directly, and has no competing focus targets. In a live browser, the user may click PLAY from the portal, focus might land on the portal container div rather than the Phaser canvas, and keyboard init timing may differ.
 
@@ -152,6 +152,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 - **Rhythm Hacker BPM/duration tuning needs manual verification** (found during R78.9): Cyberpsychotic (140 BPM) and Enhancements (160 BPM) could not be confirmed algorithmically — detection returned ambiguous results across multiple methods. These should be verified by ear during playtest. In The Moonlight (100 BPM) is likely correct. All five track durations were significantly wrong (some missing over 100s of audio).
 - [x] **Lint warning reduction (20→14)** (R78.11 continuous improvement): Fixed 6 lint warnings — 2 genuine ref-cleanup bugs in AudioSettings and PuzzleModal (`timersRef.current` captured in cleanup closures), 4 missing-dependency warnings in App.tsx resolved by memoising `games` array with `useMemo`. Remaining 14 warnings are all in CTRL-S World (fenced off) or intentional patterns (circular hooks deps, mount-only effects, onClose exclusions).
 - [x] **RhythmHacker control hints invisible** (R78.11): Control hints text on MenuScene used `DARK_GREEN_HEX` (#003300) — nearly invisible on black. Changed to `PRIMARY_HEX` with `setAlpha(0.3)` matching base MenuScene pattern. Also closed 2 stale P2 plan items: Metris wKey (false positive — actively used as rotate alias) and useSoundSystem dead cleanup (already resolved).
+- [x] **Dead collision library + stale plan cleanup** (R78.11): Removed `src/lib/collision.ts` — 67 lines of AABB/circle/grid collision utilities written for React canvas games, entirely unused since all 12 games migrated to Phaser (which has its own physics). Updated stale R71 test audit stats, struck through outdated R75 asset status, and annotated Phase 0b partial deployment items with R78.2–R78.4 progress.
 
 ### R78 Terminator Rule (IMPORTANT — differs from R76/R77)
 
@@ -204,17 +205,17 @@ Sprites/audio not yet deployed. CTRL-S World is intentionally deprioritised — 
 - [ ] **Rhythm Hacker**: 5 music tracks deployed but all visual assets are procedural. Note charts (timing data) are generated procedurally via `charts.ts` — works but could be improved with hand-authored charts.
 - [ ] **CTRL-S World**: Zero assets. Everything sourced but needs extraction. **Defer until Phase 7.**
 
-**Partial deployment** (~25–75% done):
-- [ ] **Snake Classic**: 4-directional sprite variants, Agent Smith, boss, grid tiles, 5 power-up icons
-- [ ] **Matrix Cloud**: Player death anim, 3 boss sprites (must be created), power-up icons
-- [ ] **Metris**: Ghost/variant tiles, UI panels (Hold/Next/Score), all effect animations
-- [ ] **Matrix Invaders**: Boss sprite, death explosion, 6 power-up icons
-- [ ] **Cloud Jumper**: Player death anim, collectibles, obstacles, 3 backgrounds
-- [ ] **Matrix Frogger**: Neo player sprite replacing frog, chasing agents, environment tiles, power-up icons
-- [ ] **Code Breaker**: Agent Smith animations, ball effects, portal sprite
-- [ ] **Agent Chase**: Player death anim, dot/pellet sprites, map layout PNGs
-- [ ] **Neo Jump**: Flying/shooting enemies, 3 background layers, altitude meter
-- [ ] **Vortex Pong**: Power-up icons, goal flash, combo text
+**Partial deployment** (~25–75% done — core sprites shipped in R78.2–R78.4, remaining items are polish):
+- [~] **Snake Classic**: ~~head/body/food/bomb/eyes/wall sprites~~ (R78.2). Remaining: 4-directional variants, Agent Smith, boss, grid tiles, power-up icons
+- [~] **Matrix Cloud**: ~~city skyline bg, ground tile~~ (R78.2). Remaining: player death anim, boss sprites, power-up icons
+- [~] **Metris**: ~~hologram UI panels~~ (R78.2). Remaining: ghost/variant tiles, effect animations
+- [~] **Matrix Invaders**: ~~laser bullet sprites~~ (R78.2). Remaining: boss, death explosion, power-up icons
+- [~] **Cloud Jumper**: ~~parallax bg layers, collectibles, Crabby + cannonball obstacles~~ (R78.3). Remaining: player death anim, 3 backgrounds
+- [~] **Matrix Frogger**: ~~Neo Cyberpunk player, TopView Robot enemies, hologram power-ups~~ (R78.3). Remaining: environment tiles, chasing agents
+- [~] **Code Breaker**: ~~breakout frame bg~~ (R78.3). Remaining: Agent Smith anims, ball effects, portal
+- [~] **Agent Chase**: ~~frightened ghost, eyeball eyes, dot/pellet sprites~~ (R78.4). Remaining: player death anim, map layouts
+- [~] **Neo Jump**: ~~flying enemy, energy bolt projectile~~ (R78.4). Remaining: shooting enemy, backgrounds, altitude meter
+- [~] **Vortex Pong**: ~~4 power-up icons, multi-ball, board bg~~ (R78.4). Remaining: goal flash, combo text
 
 #### Asset Integration Pattern
 
