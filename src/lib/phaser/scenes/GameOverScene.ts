@@ -242,7 +242,8 @@ export class GameOverScene extends BaseScene {
   }
 
   shutdown(): void {
-    this.tweens?.killAll();
+    this.rainGroup?.destroy(true);
+    this.rainGroup = undefined;
     if (this.input.keyboard) {
       this.input.keyboard.removeAllKeys(true);
     }

@@ -144,6 +144,8 @@ export class MenuScene extends BaseScene {
   }
 
   shutdown(): void {
+    this.rainGroup?.destroy(true);
+    this.rainGroup = undefined;
     if (this.input.keyboard) {
       this.input.keyboard.removeAllKeys(true);
     }

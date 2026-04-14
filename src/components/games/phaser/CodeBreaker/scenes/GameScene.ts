@@ -1265,8 +1265,6 @@ export class CodeBreakerGameScene extends BaseScene {
 
   shutdown(): void {
     this.stopBackgroundMusic();
-    this.time?.removeAllEvents();
-    this.tweens?.killAll();
     for (const b of this.balls) b.sprite.destroy();
     this.balls = [];
     for (const b of this.bricks) b.sprite.destroy();

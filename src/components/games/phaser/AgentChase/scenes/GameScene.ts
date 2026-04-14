@@ -1183,9 +1183,6 @@ export class AgentChaseGameScene extends BaseScene {
       this.input.keyboard.removeAllKeys(true);
     }
 
-    this.time?.removeAllEvents();
-    this.tweens?.killAll();
-
     // Destroy groups
     this.walls.clear(true, true);
     this.dots.clear(true, true);

@@ -830,8 +830,6 @@ export class CloudJumperGameScene extends BaseScene {
    */
   shutdown(): void {
     this.stopBackgroundMusic();
-    this.time?.removeAllEvents();
-    this.tweens?.killAll();
     this.input.off('pointerdown');
     if (this.input.keyboard) {
       this.input.keyboard.removeAllKeys(true);

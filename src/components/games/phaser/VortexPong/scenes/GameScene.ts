@@ -151,8 +151,8 @@ export class VortexPongGameScene extends BaseScene {
 
   shutdown(): void {
     this.stopBackgroundMusic();
-    this.time?.removeAllEvents();
-    this.tweens?.killAll();
+    this.rainGroup?.destroy(true);
+    this.rainGroup = undefined;
     this.powerUpTimer?.destroy();
     this.activePowerUps.forEach((timer) => timer.destroy());
     this.activePowerUps.clear();

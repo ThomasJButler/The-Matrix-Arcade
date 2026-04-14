@@ -164,6 +164,8 @@ export class RhythmHackerMenuScene extends BaseScene {
   }
 
   shutdown(): void {
+    this.rainGroup?.destroy(true);
+    this.trackButtons = [];
     if (this.input.keyboard) {
       this.input.keyboard.removeAllKeys(true);
     }
