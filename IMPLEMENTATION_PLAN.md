@@ -7,6 +7,8 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ## Status: R78 open — Phase 0b per-game asset deployment + Phase 6 infrastructure polish (R76 + R77 archived)
 
+> **R78.4 complete (2026-04-14)**: Per-game sprite deployment pass 3 — Agent Chase (frightened warning ghost from PacMan sheet, floating eyeball eyes, glowing dot + power pellet sprites), Neo Jump (flying enemy from Legacy Fantasy Small Bee, projectile energy bolt), Vortex Pong (4 power-up icons from Hologram Interface tinted per-type, cyan multi-ball variant, board background overlay at 15% opacity). 11 new sprite files across 3 games, BootScenes + GameScenes wired with sprite-mode fallbacks.
+>
 > **R78.3 complete (2026-04-14)**: Per-game sprite deployment pass 2 — Cloud Jumper (parallax background layers from cloud tileset, Treasure Hunters collectible sprites for coin/gem/star, Crabby + cannonball obstacle sprites), Matrix Frogger (Neo Cyberpunk player replacing frog, TopView Robot 64×64 agent + sentinel enemies replacing procedural fallbacks, hologram power-up icons), Code Breaker (breakout frame background overlay). 15 new sprite files across 3 games, BootScenes + GameScenes wired with sprite-mode fallbacks.
 >
 > **R78.2 complete (2026-04-14)**: Per-game sprite deployment pass 1 — Snake Classic (upgraded head/body to pixel art, added wall borders, bomb, food variant, eyes), Matrix Cloud (city skyline background with green tint, ground tile), Metris (hologram UI panel backdrops for Hold/Next), Matrix Invaders (glowing laser bullet sprites replacing solid rectangles). 14 new sprite files across 4 games, BootScenes + GameScenes wired up.
@@ -127,7 +129,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 - [x] **R78.1 — [P1]** Phase 0b audio extraction sweep (biggest cross-cutting gap: only Matrix Frogger has deployed audio). Extract from `desiredassets/TheMatrixArcadeAssetsToADDANDSORT-WILL-BE-FUN-TASK/.../SoundEffects/` + `LongTracks/`, place per-game, wire BootScene loads.
 - [x] **R78.2 — [P1]** Per-game sprite deployment pass 1 (Snake, Matrix Cloud, Metris, Invaders) — core gameplay sprites. Flip `[~]` → `[x]` in each game's `ASSETS_NEEDED.md` as sprites land.
 - [x] **R78.3 — [P1]** Per-game sprite deployment pass 2 (Cloud Jumper, Matrix Frogger, Code Breaker) — polish sprites.
-- [ ] **R78.4 — [P1]** Per-game sprite deployment pass 3 (Agent Chase, Neo Jump, Vortex Pong) — remaining items.
+- [x] **R78.4 — [P1]** Per-game sprite deployment pass 3 (Agent Chase, Neo Jump, Vortex Pong) — remaining items.
 - [ ] **R78.5 — [P2]** Visual regression baseline regen for all games post-deployment. Commit new `*-chromium-darwin.png` baselines separately with `R78.N-visual: baseline update` message.
 - [ ] **R78.6 — [P2]** Phase 6: Docker baseline regen — `docker compose -f docker-compose.playwright.yml run --rm e2e-tests npx playwright test --update-snapshots`, commit `*-chromium-linux.png` for CI parity.
 - [ ] **R78.7 — [P2]** Phase 6: Multi-viewport matrix — add mobile (375×667) + tablet (768×1024) projects to `playwright.config.ts`, generate baselines.

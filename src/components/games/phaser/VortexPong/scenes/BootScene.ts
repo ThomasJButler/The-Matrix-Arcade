@@ -6,8 +6,13 @@ const SPRITE_ASSETS: Array<{ key: string; path: string }> = [
   { key: 'paddle_player', path: 'assets/vortex-pong/paddle_player.png' },
   { key: 'paddle_ai', path: 'assets/vortex-pong/paddle_ai.png' },
   { key: 'ball', path: 'assets/vortex-pong/ball.png' },
+  { key: 'ball_multi', path: 'assets/vortex-pong/ball_multi.png' },
   { key: 'ball_motion', path: 'assets/vortex-pong/ball_motion.png' },
   { key: 'board', path: 'assets/vortex-pong/board.png' },
+  { key: 'powerup_bigger_paddle', path: 'assets/vortex-pong/powerup_bigger_paddle.png' },
+  { key: 'powerup_slower_ball', path: 'assets/vortex-pong/powerup_slower_ball.png' },
+  { key: 'powerup_score_multiplier', path: 'assets/vortex-pong/powerup_score_multiplier.png' },
+  { key: 'powerup_multi_ball', path: 'assets/vortex-pong/powerup_multi_ball.png' },
 ];
 
 export class VortexPongBootScene extends BootScene {

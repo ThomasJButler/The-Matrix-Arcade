@@ -30,13 +30,13 @@
 ### Ball
 - [x] Ball sprite — glowing Matrix green, 16×16 — **SOURCE**: `INSPO/vortexpong/` — deployed as `ball.png` (30×30, recoloured to Matrix green)
 - [x] Ball trail particle — small, fading, 8×8 — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/firework/` — deployed as `ball_motion.png` (46×46, recoloured to Matrix green)
-- [~] Multi-ball variant (different colour — cyan?) — 16×16 — **SOURCE**: `DUMP/Sprites - Lasers Bullets #1/`
+- [x] Multi-ball variant (different colour — cyan?) — 16×16 — **SOURCE**: `DUMP/Sprites - Lasers Bullets #1/` — deployed as `ball_multi.png` (30×30, cyan-tinted)
 
 ### Power-ups
-- [ ] Bigger paddle icon — 32×32
-- [ ] Slower ball icon — 32×32
-- [ ] Score multiplier icon — 32×32
-- [~] Multi-ball icon — 32×32 — **SOURCE**: `DUMP/Sprites - Lasers Bullets #1/`
+- [x] Bigger paddle icon — 32×32 — deployed as `powerup_bigger_paddle.png` (32×32, from Hologram Interface icon, green tint)
+- [x] Slower ball icon — 32×32 — deployed as `powerup_slower_ball.png` (32×32, from Hologram Interface icon, cyan tint)
+- [x] Score multiplier icon — 32×32 — deployed as `powerup_score_multiplier.png` (32×32, from Hologram Interface icon, yellow tint)
+- [x] Multi-ball icon — 32×32 — **SOURCE**: `DUMP/Sprites - Lasers Bullets #1/` — deployed as `powerup_multi_ball.png` (32×32, from Hologram Interface icon, magenta tint)
 
 ### Arena
 - [x] Arena background — dark with subtle grid lines, 800×400 — **SOURCE**: `INSPO/vortexpong/` — deployed as `board.png` (802×455, green-tinted centre line)
