@@ -11,6 +11,7 @@ import { CloudJumperMenuScene } from './scenes/MenuScene';
 import { CloudJumperGameScene } from './scenes/GameScene';
 import { CloudJumperGameOverScene } from './scenes/GameOverScene';
 import { HighScoreEntryScene } from '../../../../lib/phaser/scenes/HighScoreEntryScene';
+import { MATRIX_COLORS } from '../../../../lib/phaser/types';
 
 /** Game constants */
 export const GAME_CONFIG = {
@@ -41,7 +42,7 @@ export const GAME_CONFIG = {
 
   /** Cloud types — Matrix green palette */
   CLOUD_TYPES: {
-    NORMAL: { weight: 0.6, color: 0x00cc00 },
+    NORMAL: { weight: 0.6, color: MATRIX_COLORS.MEDIUM_GREEN },
     MOVING: { weight: 0.2, color: 0x00dddd },
     DISAPPEARING: { weight: 0.1, color: 0x338833 },
     STORM: { weight: 0.1, color: 0x663333 },
@@ -93,7 +94,7 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   width: GAME_CONFIG.WIDTH,
   height: GAME_CONFIG.HEIGHT,
-  backgroundColor: 0x0a1a0a, // Dark Matrix-green sky
+  backgroundColor: MATRIX_COLORS.NEAR_BLACK, // Dark Matrix-green sky
   physics: {
     default: 'arcade',
     arcade: {

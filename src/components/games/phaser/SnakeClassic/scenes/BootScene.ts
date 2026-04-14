@@ -51,7 +51,7 @@ export class SnakeBootScene extends BootScene {
     headG.destroy();
 
     const bodyG = this.make.graphics({ x: 0, y: 0 });
-    bodyG.fillStyle(0x00cc00, 1);
+    bodyG.fillStyle(MATRIX_COLORS.MEDIUM_GREEN, 1);
     bodyG.fillRoundedRect(2, 2, s - 4, s - 4, 2);
     bodyG.generateTexture('snake_body', s, s);
     bodyG.destroy();

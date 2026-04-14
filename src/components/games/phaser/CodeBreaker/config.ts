@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { MATRIX_COLORS } from '../../../../lib/phaser/types';
 import { CodeBreakerBootScene } from './scenes/BootScene';
 import { CodeBreakerMenuScene } from './scenes/MenuScene';
 import { CodeBreakerGameScene } from './scenes/GameScene';
@@ -305,7 +306,7 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   width: C.WIDTH,
   height: C.HEIGHT,
-  backgroundColor: '#000000',
+  backgroundColor: MATRIX_COLORS.BACKGROUND_HEX,
   pixelArt: true,
   scale: {
     mode: Phaser.Scale.FIT,

@@ -47,7 +47,7 @@ export class MatrixInvadersBootScene extends BootScene {
     const H = GAME_CONFIG.PLAYER_HEIGHT;
 
     const g = this.make.graphics({ x: 0, y: 0 });
-    g.fillStyle(0x00cc00, 1);
+    g.fillStyle(MATRIX_COLORS.MEDIUM_GREEN, 1);
     g.fillRect(4, Math.floor(H * 0.4), W - 8, Math.ceil(H * 0.6));
     g.fillTriangle(W / 2, 0, 4, Math.floor(H * 0.4), W - 4, Math.floor(H * 0.4));
     g.fillStyle(0xffffff, 1);
@@ -59,7 +59,7 @@ export class MatrixInvadersBootScene extends BootScene {
     g.destroy();
 
     const gs = this.make.graphics({ x: 0, y: 0 });
-    gs.fillStyle(0x00cc00, 1);
+    gs.fillStyle(MATRIX_COLORS.MEDIUM_GREEN, 1);
     gs.fillRect(4, Math.floor(H * 0.4), W - 8, Math.ceil(H * 0.6));
     gs.fillTriangle(W / 2, 0, 4, Math.floor(H * 0.4), W - 4, Math.floor(H * 0.4));
     gs.fillStyle(0xffffff, 1);

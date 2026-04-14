@@ -49,9 +49,9 @@ export class CodeBreakerBootScene extends BootScene {
       const g = this.make.graphics({ x: 0, y: 0 });
       g.fillStyle(MATRIX_COLORS.PRIMARY, 1);
       g.fillRoundedRect(0, 0, C.PADDLE_WIDTH, C.PADDLE_HEIGHT, 4);
-      g.lineStyle(1, 0x00cc00, 0.8);
+      g.lineStyle(1, MATRIX_COLORS.MEDIUM_GREEN, 0.8);
       g.strokeRoundedRect(0, 0, C.PADDLE_WIDTH, C.PADDLE_HEIGHT, 4);
-      g.fillStyle(0x00cc00, 0.6);
+      g.fillStyle(MATRIX_COLORS.MEDIUM_GREEN, 0.6);
       g.fillRect(4, 3, C.PADDLE_WIDTH - 8, 3);
       g.generateTexture('paddle', C.PADDLE_WIDTH, C.PADDLE_HEIGHT);
       g.destroy();

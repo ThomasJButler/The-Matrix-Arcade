@@ -93,9 +93,9 @@ export class NeoJumpBootScene extends BootScene {
 
     g.fillStyle(MATRIX_COLORS.PRIMARY, 1);
     g.fillRoundedRect(4, 0, w - 8, h * 0.6, 4);
-    g.fillStyle(0x00cc00, 1);
+    g.fillStyle(MATRIX_COLORS.MEDIUM_GREEN, 1);
     g.fillCircle(w / 2, h * 0.15, 6);
-    g.fillStyle(0x006600, 1);
+    g.fillStyle(MATRIX_COLORS.DEEP_GREEN, 1);
     g.fillRect(8, h * 0.6, 6, h * 0.3);
     g.fillRect(w - 14, h * 0.6, 6, h * 0.3);
     g.fillStyle(MATRIX_COLORS.PRIMARY, 1);
@@ -257,32 +257,32 @@ export class NeoJumpBootScene extends BootScene {
       { x: 160, w: 50, h: 140 }, { x: 230, w: 40, h: 180 }, { x: 290, w: 30, h: 110 },
       { x: 340, w: 55, h: 150 }, { x: 390, w: 10, h: 90 },
     ];
-    mid.fillStyle(0x006600, 0.35);
+    mid.fillStyle(MATRIX_COLORS.DEEP_GREEN, 0.35);
     for (const b of midBuildings) {
       mid.fillRect(b.x, H - b.h, b.w, b.h);
-      mid.fillStyle(0x009900, 0.3);
+      mid.fillStyle(MATRIX_COLORS.FOREST_GREEN, 0.3);
       for (let wy = H - b.h + 8; wy < H - 4; wy += 16) {
         for (let wx = b.x + 5; wx < b.x + b.w - 3; wx += 10) {
           mid.fillRect(wx, wy, 4, 6);
         }
       }
-      mid.fillStyle(0x006600, 0.35);
+      mid.fillStyle(MATRIX_COLORS.DEEP_GREEN, 0.35);
     }
     mid.generateTexture('mid_buildings', W, H);
     mid.destroy();
 
     // Near arches — rounded column structures
     const arch = this.add.graphics();
-    arch.fillStyle(0x00aa00, 0.2);
+    arch.fillStyle(MATRIX_COLORS.DIM_GREEN, 0.2);
     const archPositions = [30, 130, 230, 330];
     for (const ax of archPositions) {
       arch.fillRect(ax, 80, 12, 220);
       arch.fillRect(ax + 28, 80, 12, 220);
-      arch.fillStyle(0x00aa00, 0.15);
+      arch.fillStyle(MATRIX_COLORS.DIM_GREEN, 0.15);
       arch.fillCircle(ax + 20, 80, 20);
       arch.fillStyle(0x000000, 1);
       arch.fillCircle(ax + 20, 80, 10);
-      arch.fillStyle(0x00aa00, 0.2);
+      arch.fillStyle(MATRIX_COLORS.DIM_GREEN, 0.2);
     }
     arch.generateTexture('near_arches', W, H);
     arch.destroy();

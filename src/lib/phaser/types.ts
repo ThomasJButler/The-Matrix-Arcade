@@ -98,6 +98,12 @@ export const MATRIX_COLORS = {
   WHITE_HEX: '#ffffff',
   DARK_GREEN: 0x003300,
   DARK_GREEN_HEX: '#003300',
+  MEDIUM_GREEN: 0x00cc00,
+  DIM_GREEN: 0x00aa00,
+  DEEP_GREEN: 0x006600,
+  FOREST_GREEN: 0x009900,
+  DARK_GREY: 0x333333,
+  NEAR_BLACK: 0x0a1a0a,
 } as const;
 
 /** Sound effect keys (matching useSoundSystem) */

@@ -395,7 +395,7 @@ export class NeoJumpGameScene extends BaseScene {
 
     // Fuel bar background
     this.fuelBarBg = this.add.graphics();
-    this.fuelBarBg.fillStyle(0x333333, 1);
+    this.fuelBarBg.fillStyle(MATRIX_COLORS.DARK_GREY, 1);
     this.fuelBarBg.fillRect(GAME_CONFIG.WIDTH - 110, 10, 100, 15);
     this.fuelBarBg.setScrollFactor(0);
     this.fuelBarBg.setDepth(100);

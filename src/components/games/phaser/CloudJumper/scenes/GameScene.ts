@@ -85,7 +85,7 @@ export class CloudJumperGameScene extends BaseScene {
 
   create(): void {
     // Sky background
-    this.cameras.main.setBackgroundColor(0x0a1a0a); // Dark Matrix-green sky
+    this.cameras.main.setBackgroundColor(MATRIX_COLORS.NEAR_BLACK); // Dark Matrix-green sky
 
     // Reset state
     this.distance = 0;
@@ -205,13 +205,13 @@ export class CloudJumperGameScene extends BaseScene {
       this.bgMid.setScrollFactor(0);
       this.bgMid.setDepth(-2);
       this.bgMid.setAlpha(0.4);
-      this.bgMid.setTint(0x00cc00);
+      this.bgMid.setTint(MATRIX_COLORS.MEDIUM_GREEN);
 
       this.bgNear = this.add.tileSprite(WIDTH / 2, HEIGHT - 50, WIDTH, 176, 'bg_sprite_cloud1');
       this.bgNear.setScrollFactor(0);
       this.bgNear.setDepth(-1);
       this.bgNear.setAlpha(0.5);
-      this.bgNear.setTint(0x00aa00);
+      this.bgNear.setTint(MATRIX_COLORS.DIM_GREEN);
     } else {
       this.bgFar = this.add.tileSprite(WIDTH / 2, 75, WIDTH, 150, 'bg_far');
       this.bgFar.setScrollFactor(0);
@@ -258,7 +258,7 @@ export class CloudJumperGameScene extends BaseScene {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '14px',
       color: MATRIX_COLORS.PRIMARY_HEX,
-      stroke: '#000000',
+      stroke: MATRIX_COLORS.BACKGROUND_HEX,
       strokeThickness: 3,
     });
     this.scoreText.setScrollFactor(0);
@@ -268,7 +268,7 @@ export class CloudJumperGameScene extends BaseScene {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '10px',
       color: MATRIX_COLORS.PRIMARY_HEX,
-      stroke: '#000000',
+      stroke: MATRIX_COLORS.BACKGROUND_HEX,
       strokeThickness: 2,
     });
     this.distanceText.setScrollFactor(0);
