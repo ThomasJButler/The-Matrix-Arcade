@@ -5,7 +5,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: R76 reopened (G6 pause/resume regression, PG9+PG13 unblocked) + R77 opened (retro scoreboard) — overnight loop target.
+## Status: R76 COMPLETE — final polish achieved. R77 opened (retro scoreboard) — next loop target.
 
 > **Last change**: R76 (2026-04-14) — planning-only session. Tom completed full hands-on playtest in live browser ("Brilliant implementation so far, well done!"). R75 P1 cursor-guard work is now playtest-confirmed resolved. New findings logged below as `R76 Playtest Findings` — these supersede R75's open items in priority. Ralph Loop Strategy rewritten as an **overnight autonomous protocol** with a defined terminator condition (see bottom of file). Intended outcome: single unattended loop closes all R76 items before morning.
 >
@@ -98,140 +98,12 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 These are the items surfaced by Tom's hands-on playtest (2026-04-14). Every item has: severity, file paths, proposed fix, and acceptance criteria. Ralph's overnight loop walks this list top-to-bottom. Global items first; per-game second. **All R75 P1/P2 items are now either resolved in live browser or folded into `R75 P2 Cleanup Batch` below.**
 
-### R76 — Global Items
+### R76 — Closed Items
 
-#### ~~G1 — [P0] No start menu on launch (all 12 games)~~ RESOLVED (R76.1)
-- [x] (R76.1) Changed `autoStart={true}` → `autoStart={false}` at both App.tsx GameComponent sites.
+R76 work (G1–G9, PG1–PG22, E1–E2, R76.8, PG9, PG13) archived — see [COMPLETED_WORK.md § R76](COMPLETED_WORK.md#r76--final-polish-phase).
 
-#### ~~G2 — [P0] Global BGM (`matrixarcaderetrobeat.mp3`) overlaps per-game music~~ RESOLVED (R76.1)
-- [x] (R76.1) Replaced `playBackgroundMP3` on game entry with `stopBackgroundMP3`. Added `playBackgroundMP3` resume on all exit paths (ESC, exit button, onExit callback).
-
-#### ~~G3 — [P0] Achievements modal "crushes the page"~~ RESOLVED (R76.1)
-- [x] (R76.1) Changed `h-[90vh]` → `max-h-[90vh]`, added `flex flex-col` to modal container, `shrink-0` to header, `flex-1 min-h-0` to scrollable grid area.
-
-#### ~~G4 — [P1] Landing page grid card sizes inconsistent~~ RESOLVED (R76.1)
-- [x] (R76.1) Added `flex flex-col h-full` to card container, `flex-1` to description paragraph so all cards stretch to equal height.
-
-#### ~~G5 — [P1] Card layout — only PLAY button stands out~~ RESOLVED (R76.1)
-- [x] (R76.1) Bumped button contrast (bg-green-500/10, text-green-400), renamed buttons to "HOW TO PLAY" / "HIGH SCORE", improved keyboard hints formatting.
-
-#### ~~G6 — [P1] Pause/resume often fails to resume~~ RESOLVED (R76.8)
-- [x] (R76.1) Added `BaseScene.resumeGame()` that re-enables keyboard, re-focuses canvas, hides overlay, then calls `scene.resume()`. Called from `togglePause()` on unpause path.
-- [x] **(R76.8)** Root cause: `scene.pause()` suspends Phaser's input processing for the paused scene, so the P key listener never fires to unpause. Fix: replaced `scene.pause()`/`scene.resume()` with granular `physics.pause()`/`physics.resume()` + `tweens.pauseAll()`/`tweens.resumeAll()` + `time.paused`. The scene stays active so input listeners keep working, but physics/tweens/timers freeze. All 989 Phaser unit tests pass. Only RhythmHacker overrides `togglePause()` and correctly calls `super`.
-
-#### ~~G7 — [P2] New "About / Inspiration / Passion" tab~~ RESOLVED (R76.4)
-- [x] (R76.4) Created `src/components/About.tsx` with 3 sections (About, Inspirations, Why I Built This). Wired into header nav with B keyboard shortcut. Focus-trapped, ESC closes.
-
-#### ~~G8 — [P1] 5-second countdown before gameplay starts (all games)~~ RESOLVED (R76.1)
-- [x] (R76.1) Promoted countdown to `BaseScene.startCountdown(seconds, onComplete)`. Added to all 11 Phaser games. RhythmHacker retains its own ms-precision countdown. MatrixFrogger refactored to use BaseScene's version. `countdownValue` exposed via `exposeTestState()`.
-
-#### ~~G9 — [P2] R75 P2 Cleanup Batch~~ RESOLVED (R76.1)
-- [x] (R76.1) Metris `wKey` wired to CW rotation.
-- [x] (R76.1) MenuScene control hints changed to `PRIMARY_HEX` at `setAlpha(0.3)`.
-- [x] (R76.1) Dead `return () => {}` removed from `useSoundSystem.ts`.
-- [x] (R76.1) Dead `enableTestMode` export removed from `test-utils.ts`.
-- [x] (R76.1) 4 hollow test cases in `ShatnerVoiceControls.test.tsx` given real assertions.
-
-### R76 — Per-Game Items
-
-Every item is tagged with its P-level. `[P0]` = game-breaking in playtest.
-
-#### ~~PG1 — [P1] Snake Classic: app area exceeds 1 grid square~~ RESOLVED (R76.3)
-- [x] (R76.3) Reduced canvas to 640×400, CELL_SIZE 20→16. Grid remains 20×20.
-
-#### ~~PG2 — [P0] VortexPong: AI paddle doesn't move → unwinnable~~ RESOLVED (R76.2)
-- [x] (R76.2) Replaced broken acceleration/damping AI with direct tracking approach. Min speed floor 30px/s, difficulty ramp based on player score, max speed clamped to 85% of player speed.
-
-#### ~~PG3 — [P2] MatrixCloud → renamed to "Matrix Bird"~~ RESOLVED (R76.3)
-- [x] (R76.3) Updated display name in gameRegistry, useSaveSystem, SaveLoadManager, App.test, E2E fixtures. Folder remains `MatrixCloud/`.
-
-#### ~~PG4 — [P1] Matrix Bird: power-ups spawn too close to pipes~~ RESOLVED (R76.3)
-- [x] (R76.3) Power-ups now spawn within safe window 80px clear of both neighbouring pipes.
-
-#### ~~PG5 — [P2] Matrix Bird: obstacle balance~~ RESOLVED (R76.3)
-- [x] (R76.3) Active pipe cap of 4, dynamic spacing ramp from 320→240 based on score, gentler early game.
-
-#### ~~PG6 — [P2] MatrixInvaders: characters plain + slightly too big~~ RESOLVED (R76.3)
-- [x] (R76.3) Enemy sprites reduced 40×30→32×24 (~20%). Per-row tinting added (cyan→green→yellow palette).
-
-#### ~~PG7 — [P0] Metris: `B` bullet-time key doesn't work~~ RESOLVED (R76.2)
-- [x] (R76.2) Added null guard before `JustDown(this.bKey!)` — changed to `this.bKey && JustDown(this.bKey)`.
-
-#### ~~PG8 — [P0] MatrixFrogger: Kung Fu (`K`) doesn't work~~ RESOLVED (R76.2)
-- [x] (R76.2) Changed `kungFuKey!` non-null assertion to optional `kungFuKey?`, added null guard before `JustDown()` call.
-
-#### ~~PG9 — [P2] MatrixFrogger: 3D tilt camera + perspective + lane textures~~ RESOLVED (R76.9)
-- [x] **(R76.9)** Full pseudo-3D perspective implemented:
-  - **Precomputed lane layout**: Variable lane heights (compressed at top, expanded at bottom) via `computeLaneLayout()`. Y positions and heights stored in `laneYPos[]`/`laneH[]`.
-  - **X convergence**: `colToX(col, row)` maps flat grid X toward screen centre based on `laneScale(row)` (0.6× far → 1.0× near).
-  - **Trapezoid lane backgrounds**: All lanes drawn with Graphics path API — top edges narrow, bottom edges wide.
-  - **Vehicle/enemy scale + rotation**: `setScale(baseScale * perspScale)`, `setOrigin(0.5, 1)`, `setAngle(-12 * (1 - perspScale))`, `setBodySize(frame.width, frame.height)` to preserve physics.
-  - **Player perspective**: `applyPlayerPerspective()` updates display size/scale on every hop and level-up teleport.
-  - **Animated road dashes**: Procedural `road_dashes` texture (128×4) tiled per road lane, scrolling at 40px/s alternating by direction.
-  - **Lane-aware bounds**: Enemies spawn/despawn at perspective lane edges, not full-width screen edges.
-  - Water shimmer deferred (no river lanes exist in current layout).
-  - All 989 Phaser tests pass. Build clean.
-
-#### ~~PG10 — [P0] NeoJump: falling off-screen doesn't kill player~~ RESOLVED (R76.2)
-- [x] (R76.2) Root cause: `checkGameOver()` set `isGameOver=true` before calling `playerDeath()`, which guards on `isGameOver`. Removed premature flag set — death sequence now fires correctly.
-
-#### ~~PG11 — [P1] NeoJump: can't restart after death~~ RESOLVED (R76.2)
-- [x] (R76.2) Auto-resolved by PG10 fix. GameOverScene transition now fires; R key and menu restart work.
-
-#### ~~PG12 — [P1] NeoJump: bomb sprites too large~~ RESOLVED (R76.3)
-- [x] (R76.3) Enemy texture reduced from 40×40 to 28×28 (~30%), display size matched.
-
-#### ~~PG13 — [P2] NeoJump: 5-layer parallax depth~~ RESOLVED (R76.9)
-- [x] **(R76.9)** 5-layer parallax implemented:
-  - **Rain** (depth -50): existing 3 rain sub-layers now set to `PARALLAX.RAIN_DEPTH`, `setScrollFactor(0)` unchanged.
-  - **3 building TileSprite layers** (depths -40, -30, -20): `skyline` (#004400, scrollFactor 0.3), `mid_buildings` (#006600, 0.5), `near_arches` (#00aa00, 0.7). Manual `tilePositionY = -camY * (1 - scrollFactor)` in update.
-  - **Platforms + player** at depth 0 (implicit 5th layer).
-  - **Procedural textures** in BootScene: building silhouettes, windowed mid-rises, rounded arch columns — all Matrix-green value-graded.
-  - Platforms unchanged. Jump mechanics unchanged. Pure rendering addition.
-  - All 73 NeoJump tests + build pass.
-
-#### ~~PG14 — [P0] AgentChase: wall-collision glitch (stutter into walls)~~ RESOLVED (R76.2)
-- [x] (R76.2) Implemented Pac-Man-style buffered turn + slide-along-wall. Post-advance turn check at tile boundaries, guarded progress advancement, clamped interpolation when blocked.
-
-#### ~~PG15 — [P1] AgentChase: add Matrix twist~~ RESOLVED (R76.3)
-- [x] (R76.3) Added "Bullet-time dot" mechanic: cyan collectibles spawn every 15s, freeze all agents for 2s with cyan overlay, 100 bonus points.
-
-#### ~~PG16 — [P1] AgentChase: sprites too small~~ RESOLVED (R76.3)
-- [x] (R76.3) Player/agent sprites increased from 18→28px. Physics hitboxes unchanged (use TILE_SIZE).
-
-#### ~~PG17 — [P1] RhythmHacker: BG music conflicts~~ RESOLVED (R76.2 — G2 fallout)
-- [x] (R76.2) Auto-resolved by G2 fix — global BGM now stops on game entry, so no overlap with RhythmHacker's own music.
-
-#### ~~PG18 — [P1] RhythmHacker: matrix chaos combo effects~~ RESOLVED (R76.3)
-- [x] (R76.3) Screen shake at 10/25/50 combos (scaling intensity), matrix rain burst of katakana, lane tint to cyan at 25+ combo.
-
-#### ~~PG19 — [P0] CloudJumper: cannot jump manually~~ RESOLVED (R76.2)
-- [x] (R76.2) Removed grounded check from `jump()` — game is Flappy Bird style, not platformer. Added 300ms cooldown to prevent spam. Guards for countdown and game-over states.
-
-#### ~~PG20 — [P1] CloudJumper: not enough clouds~~ RESOLVED (R76.3)
-- [x] (R76.3) Halved cloud spacing (60–120 from 100–200), reduced vertical range 150→100.
-
-#### ~~PG21 — [P1] CodeBreaker: numpad keys don't control paddle~~ RESOLVED (R76.3)
-- [x] (R76.3) Added NUMPAD_FOUR and NUMPAD_SIX bindings alongside arrow/A/D.
-
-#### ~~PG22 — [P1] CodeBreaker: level 1 lacks brick colour variety~~ RESOLVED (R76.3)
-- [x] (R76.3) Level 1 now cycles through all 3 brick types across 6 rows.
-
-### R76 — E2E Coverage for Menu-First Flow
-
-#### ~~E1 — [P0] Menu-first E2E flow support~~ RESOLVED (R76.4)
-- [x] (R76.4) Added `waitForCountdownComplete()` to test-utils. Updated playthrough runner to wait for countdown after GameScene ready. Updated CTRL-S World spec to handle command_prompt phase. Added `isCountingDown` to BaseScene's exposeTestState. Existing 12 playthrough specs now handle menu-first flow via the shared runner.
-
-#### ~~E2 — [P2] Regenerate visual baselines~~ RESOLVED (R76.4)
-- [x] (R76.4) All 14 visual tests pass against existing baselines. UI changes (card layout, button labels) within threshold — no baseline regeneration needed.
-
----
-
-### R76.7 — [P2] Archive completed R76 work to COMPLETED_WORK.md
-
-- [ ] **(R76.7)** After R76.6 + R76.8 land, move all closed `[x]` R76 task bodies (R76.1–R76.8) + the corrected `R76 Completion Report` + the `<details>`-wrapped historical R75 P1 analysis into `COMPLETED_WORK.md` under a new `## R76 — Final Polish Phase` section. In `IMPLEMENTATION_PLAN.md`, replace with a one-line back-reference: `R76 closed — see [COMPLETED_WORK.md § R76](COMPLETED_WORK.md#r76--final-polish-phase)`.
-- **Keep** in live plan: Status header, Reference Docs, Priority Legend, Architecture Notes, Test Coverage Status, Current Codebase Health, Phase 0a/0b/1/2/6/7 sections, Ralph Overnight Loop Protocol, R77 tasks, CTRL-S guardrail.
-- **Gate**: same battery. Archival is doc-only; runtime code unchanged.
+#### ~~R76.7 — [P2] Archive completed R76 work~~ RESOLVED (R76.9)
+- [x] (R76.9) Moved all closed R76 task bodies and completion report to COMPLETED_WORK.md.
 
 ---
 
@@ -364,94 +236,11 @@ The loop terminator now matches **either** R76 **or** R77 completion:
 
 Tom's 2026-04-14 playtest confirms: "Brilliant implementation so far, well done! We've made stellar progress, and it's just about tweaking now and getting the final gameplay on point." All controls respond in live browser across all 12 games. The R75 narrow-guard work shipped successfully.
 
-<details>
-<summary>Original R75 analysis (preserved for history)</summary>
-
-### P1 — Over-Broad update() Guards Freeze Game Logic (NEW R73)
-
-R72's cursor guards prevent crashes but are too aggressive — they block the **entire** `update()` method, not just input handling. During the ~500ms keyboard init window:
-
-| Game | Guard | What gets frozen |
-|------|-------|-----------------|
-| MatrixFrogger | `if (!this.cursors) return;` (line 207) | Enemy vehicle movement, obstacle spawning, countdown, lane collision, matrix rain |
-| NeoJump | `if (!this.cursors) return;` (line 189) | Platform generation, parallax rain, gravity, enemy spawning, camera follow |
-| AgentChase | `if (!this.cursors) return;` (line 159) | Ghost AI movement, dot collision, animation timer, power pellet timing |
-| VortexPong | `if (!this.upKey \|\| !this.downKey) return;` (line 110) | Ball physics, AI paddle, power-up spawning, scoring, impact effects |
-
-**Fix**: Narrow the guard to wrap only the input-reading call, not the full update. Everything else (physics, AI, rendering, scoring) should run immediately:
-
-```typescript
-update(time: number, delta: number): void {
-  if (this.isPaused) return;
-  // Game logic runs unconditionally
-  this.updateEnemies(delta);
-  this.updatePhysics(delta);
-  // Input only when keys are ready
-  if (this.cursors) {
-    this.handleInput(delta);
-  }
-}
-```
-
-**Files**: `MatrixFrogger/scenes/GameScene.ts:207`, `NeoJump/scenes/GameScene.ts:189`, `AgentChase/scenes/GameScene.ts:159`, `VortexPong/scenes/GameScene.ts:110`
-
-</details>
 
 ### ~~P0 — Unguarded Cursor Access in 3 Phaser Games~~ RESOLVED (R72)
 
 R72 added `if (!this.cursors) return;` guard after the `isPaused` check in MatrixFrogger, NeoJump, and AgentChase `update()` methods. Also refactored `BaseScene.waitForKeyboard` to take a per-callback `retries` parameter instead of using the shared `keyboardRetryCount` instance field, restoring the full 10-retry budget per callback. Lint, typecheck, and 1838/1838 unit tests all pass. **Superseded by R73 P1 (guards too broad) — see above.**
 
-<details>
-<summary>Original analysis (R69–R71)</summary>
-
-### P0 — Unguarded Cursor Access in 3 Phaser Games (R69, verified R70)
-
-**User report**: "Phaser games controls don't work — they play but controls don't work. Press enter freezes." Legacy (React canvas) games work fine.
-
-**Root cause**: `waitForKeyboard()` was added in R62 to delay key registration until `input.keyboard` is ready. However, the `handleInput()` methods in 3 games access the cursor/WASD keys **without null guards**. If `update()` fires before the callback completes, accessing `this.cursors.up` throws a silent `TypeError` that kills Phaser's update loop — the scene renders but all controls are dead.
-
-**R70 verification** — exact crash sites confirmed with line numbers:
-
-| Game | File | update() | handleInput() | Pattern |
-|------|------|----------|---------------|---------|
-| MatrixFrogger | `scenes/GameScene.ts` | Line 205: no guard, only `isPaused`+`isCountdown` | Line 569: `Phaser.Input.Keyboard.JustDown(this.cursors.up)` | `!` declaration, no guard |
-| NeoJump | `scenes/GameScene.ts` | Line 187: no guard, only `isPaused` | Line 407: `this.cursors.left.isDown` | `!` declaration, no guard |
-| AgentChase | `scenes/GameScene.ts` | Line 157: no guard, only `isPaused` | Line 362: `this.cursors.up.isDown` | `!` declaration, no guard |
-
-**VortexPong** declares keys as `?` optional (lines 72-76), uses `?.isDown` (lines 248-249) — no crash, but controls silently don't respond until callback fires. **CloudJumper** and **RhythmHacker** use event-driven `key.on('down', ...)` — immune.
-
-**Fix approach** (two-pronged):
-
-1. **Defensive guard in `update()`**: Add an early return guard before calling `handleInput()` in all 3 games:
-   ```typescript
-   update(time: number, delta: number): void {
-     if (this.isPaused) return;
-     if (!this.cursors) return;  // Wait for keyboard init
-     // ... rest of update
-   }
-   ```
-
-2. **Per-callback retry counter in BaseScene**: Currently `keyboardRetryCount` (line 31) is a single instance field shared across all `waitForKeyboard` calls. Each scene calls it twice (`setupInput` + `setupCommonInputs`), effectively halving the retry budget from 10 to ~5 per callback. Fix by passing a local counter through the recursive calls:
-   ```typescript
-   protected waitForKeyboard(callback: () => void, retries = 0): void {
-     if (this.input.keyboard) { callback(); return; }
-     if (retries < BaseScene.MAX_KEYBOARD_RETRIES) {
-       this.time.delayedCall(BaseScene.KEYBOARD_RETRY_MS, () => this.waitForKeyboard(callback, retries + 1));
-     } else {
-       this.events.once('update', () => { if (this.input.keyboard) callback(); });
-     }
-   }
-   ```
-
-3. **Optional: refactor to event-driven input** (like RhythmHacker/CloudJumper) to eliminate the race entirely. Lower priority — the guard in step 1 is sufficient.
-
-**Files to modify**:
-- `src/components/games/phaser/MatrixFrogger/scenes/GameScene.ts` — add `if (!this.cursors) return;` guard in `update()`
-- `src/components/games/phaser/NeoJump/scenes/GameScene.ts` — same guard
-- `src/components/games/phaser/AgentChase/scenes/GameScene.ts` — same guard
-- `src/lib/phaser/scenes/BaseScene.ts` — refactor `waitForKeyboard` to use per-callback counter (remove shared `keyboardRetryCount` field)
-
-</details>
 
 ### ~~P1 — VortexPong Controls Delayed Response~~ RESOLVED (R72)
 
