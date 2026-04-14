@@ -7,6 +7,8 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ## Status: R78 open — Phase 0b per-game asset deployment + Phase 6 infrastructure polish (R76 + R77 archived)
 
+> **R78.2 complete (2026-04-14)**: Per-game sprite deployment pass 1 — Snake Classic (upgraded head/body to pixel art, added wall borders, bomb, food variant, eyes), Matrix Cloud (city skyline background with green tint, ground tile), Metris (hologram UI panel backdrops for Hold/Next), Matrix Invaders (glowing laser bullet sprites replacing solid rectangles). 14 new sprite files across 4 games, BootScenes + GameScenes wired up.
+>
 > **R78.1 complete (2026-04-14)**: Audio deployed cross-game — Global SFX wired into all games except CTRL-S World (deferred) and Rhythm Hacker (5 dedicated tracks already in place). Matrix Frogger retains its full set.
 
 > **Last change (R78 planning, 2026-04-15)**: R77 retro-arcade scoreboard shipped overnight (`519edeb`, 10 iterations). R76 + R77 closed task bodies + completion reports moved to `COMPLETED_WORK.md § R76` and `§ R77`. Stale RESOLVED residue (R62-R75 duplicate items) also archived. Live plan slimmed from 991 → 551 lines. New phase R78 = **Phase 0b Asset Deployment + Phase 6 Infrastructure Polish** combined. Terminator: `R78 COMPLETE — assets + infra shipped`. CTRL-S remains fenced off for its own dedicated window (future phase).
@@ -121,7 +123,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ### R78 Task Ordering
 
 - [x] **R78.1 — [P1]** Phase 0b audio extraction sweep (biggest cross-cutting gap: only Matrix Frogger has deployed audio). Extract from `desiredassets/TheMatrixArcadeAssetsToADDANDSORT-WILL-BE-FUN-TASK/.../SoundEffects/` + `LongTracks/`, place per-game, wire BootScene loads.
-- [ ] **R78.2 — [P1]** Per-game sprite deployment pass 1 (Snake, Matrix Cloud, Metris, Invaders) — core gameplay sprites. Flip `[~]` → `[x]` in each game's `ASSETS_NEEDED.md` as sprites land.
+- [x] **R78.2 — [P1]** Per-game sprite deployment pass 1 (Snake, Matrix Cloud, Metris, Invaders) — core gameplay sprites. Flip `[~]` → `[x]` in each game's `ASSETS_NEEDED.md` as sprites land.
 - [ ] **R78.3 — [P1]** Per-game sprite deployment pass 2 (Cloud Jumper, Matrix Frogger, Code Breaker) — polish sprites.
 - [ ] **R78.4 — [P1]** Per-game sprite deployment pass 3 (Agent Chase, Neo Jump, Vortex Pong) — remaining items.
 - [ ] **R78.5 — [P2]** Visual regression baseline regen for all games post-deployment. Commit new `*-chromium-darwin.png` baselines separately with `R78.N-visual: baseline update` message.

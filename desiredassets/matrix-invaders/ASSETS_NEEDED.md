@@ -15,10 +15,10 @@
 ## Currently Available (in rebuildingoldgames/inspirationimagesandsprites/matrixinvaders/)
 
 - [x] Player ship sprite (player.png)
-- [x] Enemy sprites sheet (enemies.png)
+- [x] Enemy sprites sheet (enemies.png) — R78.2
 - [x] Player bullet (player bullet.png)
 - [x] Enemy bullet (enemy bullet.png)
-- [x] Backdrop background (backdrop.png)
+- [x] Backdrop background (backdrop.png) — R78.2
 - [x] Score bar UI (ScoreBar.png)
 - [x] UI buttons (play, quit)
 - [x] Screen overlays (title, dead, win)
@@ -34,7 +34,7 @@
 - [~] Player shield visual (when power-up active) — **SOURCE**: `DUMP/1. Free Hologram Interface Wenrexa/Progress Bar/`
 
 ### Enemies (5 types)
-- [x] Basic enemy sheet — available (may need splitting into individual types) — **SOURCE**: `INSPO/matrixinvaders/`
+- [x] Basic enemy sheet — available (may need splitting into individual types) — **SOURCE**: `INSPO/matrixinvaders/` — deployed as `enemy_sheet.png`, loaded in BootScene — R78.2
 - [~] Code enemy (1HP, green) — 2-frame idle animation, 32×32 — **SOURCE**: `DUMP/PixelWhale_SF_Project/`
 - [~] Agent enemy (2HP, red) — 2-frame idle animation, 32×32 — **SOURCE**: `DUMP/TopView_Robot_Asset_Pack/`
 - [~] Sentinel enemy (3HP, cyan) — 2-frame idle animation, 32×32 — **SOURCE**: `DUMP/PixelWhale_SF_Project/`
@@ -45,8 +45,8 @@
 ### Projectiles
 - [x] Player bullet — available — **SOURCE**: `INSPO/matrixinvaders/`
 - [x] Enemy bullet — available — **SOURCE**: `INSPO/matrixinvaders/`
-- [x] Player bullet glow sprite — green teardrop glow, display 8×20 — **SOURCE**: `DUMP/Sprites - Lasers Bullets #1/` (sprite 10)
-- [x] Enemy bullet glow sprite — magenta teardrop glow, display 6×14 (boss 8×18) — **SOURCE**: `DUMP/Sprites - Lasers Bullets #1/` (sprite 03)
+- [x] Player bullet glow sprite — green teardrop glow, display 8×20 — **SOURCE**: `DUMP/Sprites - Lasers Bullets #1/` (sprite 10) — deployed as `laser_green.png`, replaces solid rectangle procedural bullet — R78.2
+- [x] Enemy bullet glow sprite — magenta teardrop glow, display 6×14 (boss 8×18) — **SOURCE**: `DUMP/Sprites - Lasers Bullets #1/` (sprite 03) — deployed as `laser_red.png`, replaces solid rectangle procedural bullet — R78.2
 - [~] Boss special projectile — 16×16 — **SOURCE**: `DUMP/Sprites - Lasers Bullets #1/`
 
 ### Power-ups (currently scaffolded but not implemented)
@@ -58,7 +58,7 @@
 - [ ] Score multiplier icon — 24×24
 
 ### Environment
-- [x] Backdrop — available — **SOURCE**: `INSPO/matrixinvaders/`
+- [x] Backdrop — available — **SOURCE**: `INSPO/matrixinvaders/` — loaded in BootScene — R78.2
 - [~] Matrix-themed backdrop alternative (code rain, dark cityscape) — **SOURCE**: `DUMP/PixelWhale_SF_Project/`
 - [~] Star field / parallax particles (subtle, behind enemies) — **SOURCE**: `DUMP/Space Runner Assets/`
 

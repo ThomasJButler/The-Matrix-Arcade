@@ -7,7 +7,12 @@ const SPRITE_ASSETS = [
   { key: 'snake_sprite_body', path: 'assets/snake/body.png' },
   { key: 'snake_sprite_tail', path: 'assets/snake/tail.png' },
   { key: 'snake_sprite_dead', path: 'assets/snake/dead.png' },
+  { key: 'snake_sprite_eyes', path: 'assets/snake/eyes.png' },
   { key: 'food_sprite', path: 'assets/snake/apple.png' },
+  { key: 'food_green_sprite', path: 'assets/snake/apple_green.png' },
+  { key: 'wall_sprite', path: 'assets/snake/wall.png' },
+  { key: 'wall_alt_sprite', path: 'assets/snake/wall_alt.png' },
+  { key: 'bomb_sprite', path: 'assets/snake/bomb.png' },
 ];
 
 export class SnakeBootScene extends BootScene {

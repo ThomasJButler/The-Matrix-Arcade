@@ -11,6 +11,9 @@ export class MetrisBootScene extends BootScene {
     for (const t of TETROMINO_TYPES) {
       this.load.image(`tile_${t.toLowerCase()}`, `/assets/metris/tile_${t.toLowerCase()}.png`);
     }
+    this.load.image('panel_green', '/assets/metris/panel_green.png');
+    this.load.image('panel_tall', '/assets/metris/panel_tall.png');
+    this.load.image('panel_wide', '/assets/metris/panel_wide.png');
   }
 
   create(): void {

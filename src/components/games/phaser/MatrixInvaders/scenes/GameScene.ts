@@ -247,15 +247,18 @@ export class MatrixInvadersGameScene extends BaseScene {
 
     this.playSound(SOUND_KEYS.SHOOT);
 
-    const texKey = this._spriteMode ? 'sprite_bullet_player' : 'bullet_player';
+    const hasLaserGreen = this.textures?.exists('laser_green') ?? false;
+    const texKey = hasLaserGreen
+      ? 'laser_green'
+      : this._spriteMode ? 'sprite_bullet_player' : 'bullet_player';
     const img = this.add.image(
       this.player.x,
       this.player.y - GAME_CONFIG.PLAYER_HEIGHT / 2,
       texKey
     );
     img.setDisplaySize(
-      this._spriteMode ? 8 : GAME_CONFIG.PLAYER_BULLET_WIDTH,
-      this._spriteMode ? 20 : GAME_CONFIG.PLAYER_BULLET_HEIGHT
+      this._spriteMode || hasLaserGreen ? 8 : GAME_CONFIG.PLAYER_BULLET_WIDTH,
+      this._spriteMode || hasLaserGreen ? 20 : GAME_CONFIG.PLAYER_BULLET_HEIGHT
     );
     img.setDepth(5);
 
@@ -288,15 +291,18 @@ export class MatrixInvadersGameScene extends BaseScene {
 
     for (const enemy of this.enemies) {
       if (Math.random() < fireChance * dt) {
-        const texKey = this._spriteMode ? 'sprite_bullet_enemy' : 'bullet_enemy';
+        const hasLaserRed = this.textures?.exists('laser_red') ?? false;
+        const texKey = hasLaserRed
+          ? 'laser_red'
+          : this._spriteMode ? 'sprite_bullet_enemy' : 'bullet_enemy';
         const img = this.add.image(
           enemy.sprite.x,
           enemy.sprite.y + enemy.height / 2,
           texKey
         );
         img.setDisplaySize(
-          this._spriteMode ? 6 : GAME_CONFIG.ENEMY_BULLET_WIDTH,
-          this._spriteMode ? 14 : GAME_CONFIG.ENEMY_BULLET_HEIGHT
+          this._spriteMode || hasLaserRed ? 6 : GAME_CONFIG.ENEMY_BULLET_WIDTH,
+          this._spriteMode || hasLaserRed ? 14 : GAME_CONFIG.ENEMY_BULLET_HEIGHT
         );
         img.setDepth(5);
 
@@ -387,15 +393,18 @@ export class MatrixInvadersGameScene extends BaseScene {
     const fireChance = GAME_CONFIG.BOSS_FIRE_CHANCE * 60;
     for (const offset of this.boss.barrelOffsets) {
       if (Math.random() < fireChance * dt) {
-        const texKey = this._spriteMode ? 'sprite_bullet_enemy' : 'bullet_enemy';
+        const hasLaserRed = this.textures?.exists('laser_red') ?? false;
+        const texKey = hasLaserRed
+          ? 'laser_red'
+          : this._spriteMode ? 'sprite_bullet_enemy' : 'bullet_enemy';
         const img = this.add.image(
           this.boss.sprite.x + offset,
           this.boss.sprite.y + this.boss.height / 2,
           texKey
         );
         img.setDisplaySize(
-          this._spriteMode ? 8 : GAME_CONFIG.ENEMY_BULLET_WIDTH + 2,
-          this._spriteMode ? 18 : GAME_CONFIG.ENEMY_BULLET_HEIGHT + 2
+          this._spriteMode || hasLaserRed ? 8 : GAME_CONFIG.ENEMY_BULLET_WIDTH + 2,
+          this._spriteMode || hasLaserRed ? 18 : GAME_CONFIG.ENEMY_BULLET_HEIGHT + 2
         );
         img.setDepth(5);
 
