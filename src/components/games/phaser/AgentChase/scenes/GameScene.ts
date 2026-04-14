@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS } from '../../../../../lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '../../../../../lib/phaser/types';
 import { GAME_CONFIG, ACHIEVEMENTS, MAP_LAYOUTS, getLayoutForLevel, MapLayout } from '../config';
 
 /** Direction vectors */
@@ -44,6 +44,7 @@ export class AgentChaseGameScene extends BaseScene {
 
   // Game state
   private score = 0;
+  private highScore = 0;
   private lives = 3;
   private level = 1;
   private dotsCollected = 0;
@@ -126,6 +127,12 @@ export class AgentChaseGameScene extends BaseScene {
     this.mouthOpen = true;
     this.animTimer = 0;
     this.isInvulnerable = false;
+
+    const saveSystem = this.registry.get(REGISTRY_KEYS.SAVE_SYSTEM);
+    if (saveSystem) {
+      const saveData = saveSystem.getSaveData();
+      this.highScore = saveData?.games?.agentChase?.highScore ?? 0;
+    }
     this.invulnerabilityTimer = 0;
     this.bulletTimeActive = false;
     this.bulletTimeTimer = 0;
@@ -586,8 +593,9 @@ export class AgentChaseGameScene extends BaseScene {
     this.playSound('hit');
 
     if (this.lives <= 0) {
-      this.reportScore(this.score, this.score);
-      this.gameOver(this.score, `Level ${this.level}`, undefined, [
+      if (this.score > this.highScore) this.highScore = this.score;
+      this.reportScore(this.score, this.highScore);
+      this.gameOver(this.score, `Level ${this.level}`, this.highScore, [
         { label: 'Dots', value: `${this.dotsCollected}/${this.totalDots}` },
       ], this.level, this.getGameDuration());
     } else {

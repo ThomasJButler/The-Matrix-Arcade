@@ -11,7 +11,7 @@
 
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS } from '../../../../../lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '../../../../../lib/phaser/types';
 import { GAME_CONFIG, ACHIEVEMENTS } from '../config';
 
 /** Platform types */
@@ -50,6 +50,7 @@ export class NeoJumpGameScene extends BaseScene {
 
   // Game state — altitude is derived from highestY, no separate tracking needed
   private score = 0;
+  private highScore = 0;
   private enemiesKilled = 0;
   private bounceCombo = 0;
   private hasJumped = false;
@@ -139,6 +140,12 @@ export class NeoJumpGameScene extends BaseScene {
     this.collectiblesCollected = 0;
     this.jetpackFlame = null;
     this.shieldText = null;
+
+    const saveSystem = this.registry.get(REGISTRY_KEYS.SAVE_SYSTEM);
+    if (saveSystem) {
+      const saveData = saveSystem.getSaveData();
+      this.highScore = saveData?.games?.neoJump?.highScore ?? 0;
+    }
 
     // Create parallax layers (rain + buildings)
     this.createParallaxRain();
@@ -782,8 +789,9 @@ export class NeoJumpGameScene extends BaseScene {
       angle: 180,
       duration: 500,
       onComplete: () => {
-        this.reportScore(this.score, this.score);
-        this.gameOver(this.score, `Altitude: ${this.lastMaxAltitude}m`, undefined, [
+        if (this.score > this.highScore) this.highScore = this.score;
+        this.reportScore(this.score, this.highScore);
+        this.gameOver(this.score, `Altitude: ${this.lastMaxAltitude}m`, this.highScore, [
           { label: 'Enemies', value: this.enemiesKilled },
           { label: 'Collectibles', value: this.collectiblesCollected },
         ], Math.floor((this.lastMaxAltitude ?? 0) / 500), this.getGameDuration());

@@ -13,7 +13,7 @@
 
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS } from '../../../../../lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '../../../../../lib/phaser/types';
 import { GAME_CONFIG, ACHIEVEMENTS } from '../config';
 
 /** Enemy sprite with movement data */
@@ -49,6 +49,7 @@ export class FroggerGameScene extends BaseScene {
 
   // Game state
   private score = 0;
+  private highScore = 0;
   private maxDistance = 0;
   private nearMissCount = 0;
   private combo = 0;
@@ -156,6 +157,12 @@ export class FroggerGameScene extends BaseScene {
     this.lastKungFuTime = 0;
     this.playerCol = GAME_CONFIG.PLAYER.START_COL;
     this.playerRow = GAME_CONFIG.PLAYER.START_ROW;
+
+    const saveSystem = this.registry.get(REGISTRY_KEYS.SAVE_SYSTEM);
+    if (saveSystem) {
+      const saveData = saveSystem.getSaveData();
+      this.highScore = saveData?.games?.matrixFrogger?.highScore ?? 0;
+    }
 
     // Create object groups
     this.enemies = this.physics.add.group({
@@ -812,9 +819,10 @@ export class FroggerGameScene extends BaseScene {
       angle: 360,
       duration: 500,
       onComplete: () => {
-        this.reportScore(this.score, this.score);
+        if (this.score > this.highScore) this.highScore = this.score;
+        this.reportScore(this.score, this.highScore);
         const reason = enemy ? `Hit by ${enemy.enemyType.toUpperCase()}` : 'Game Over';
-        this.gameOver(this.score, reason, undefined, [
+        this.gameOver(this.score, reason, this.highScore, [
           { label: 'Level', value: this.level },
           { label: 'Near Misses', value: this.nearMissCount },
           { label: 'Kung Fu', value: this.kungFuTotalUsed },

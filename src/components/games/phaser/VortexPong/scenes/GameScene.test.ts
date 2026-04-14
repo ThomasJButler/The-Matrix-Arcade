@@ -465,7 +465,7 @@ describe('VortexPongGameScene', () => {
       scene.aiScore = GAME_CONFIG.WIN_SCORE - 1;
       createBall(scene, -10, 225, -420, 0);
       scene.checkGoals();
-      expect(scene.reportScore).toHaveBeenCalledWith(scene.playerScore);
+      expect(scene.reportScore).toHaveBeenCalledWith(scene.playerScore, expect.any(Number));
     });
   });
 
