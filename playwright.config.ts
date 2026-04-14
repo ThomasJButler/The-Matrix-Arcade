@@ -19,8 +19,9 @@ export default defineConfig({
   // Retry on CI only
   retries: process.env.CI ? 2 : 0,
 
-  // Limit workers on CI for stability
-  workers: process.env.CI ? 1 : undefined,
+  // CI: single worker for determinism. Local: cap at 4 to avoid overwhelming
+  // the Vite dev server (unlimited workers caused timeouts in Phaser games).
+  workers: process.env.CI ? 1 : 4,
 
   // Reporter configuration
   reporter: [

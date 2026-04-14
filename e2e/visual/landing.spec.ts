@@ -41,6 +41,8 @@ test.describe('Landing page', () => {
     const card = arcadePage.locator('[role="button"][aria-label^="Play "]').first();
     await card.focus();
     await expect(card).toBeFocused();
+    // Let the focus ring paint settle to avoid sub-pixel jitter between runs
+    await arcadePage.waitForTimeout(150);
     await expect(card).toHaveScreenshot('landing-card-focused.png');
   });
 
