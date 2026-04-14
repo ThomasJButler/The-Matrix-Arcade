@@ -5,7 +5,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: R76 IN PROGRESS — R76.1-3 closed G1-G6,G8-G9 + all 22 per-game items except PG9,PG13 (deferred P2 visual polish). Moving to E1 (menu-first E2E spec) then E2 (baselines).
+## Status: R76 NEAR COMPLETE — All G items closed (G1-G9). All PG items closed except PG9,PG13 (deferred visual polish). E1 closed. Only E2 (visual baselines) remains under R76 scope. E2E tests running.
 
 > **Last change**: R76 (2026-04-14) — planning-only session. Tom completed full hands-on playtest in live browser ("Brilliant implementation so far, well done!"). R75 P1 cursor-guard work is now playtest-confirmed resolved. New findings logged below as `R76 Playtest Findings` — these supersede R75's open items in priority. Ralph Loop Strategy rewritten as an **overnight autonomous protocol** with a defined terminator condition (see bottom of file). Intended outcome: single unattended loop closes all R76 items before morning.
 >
@@ -118,9 +118,8 @@ These are the items surfaced by Tom's hands-on playtest (2026-04-14). Every item
 #### ~~G6 — [P1] Pause/resume often fails to resume~~ RESOLVED (R76.1)
 - [x] (R76.1) Added `BaseScene.resumeGame()` that re-enables keyboard, re-focuses canvas, hides overlay, then calls `scene.resume()`. Called from `togglePause()` on unpause path.
 
-#### G7 — [P2] New "About / Inspiration / Passion" tab
-- [ ] **Fix**: Create `src/components/About.tsx` with 3 sections. Wire into landing header nav.
-- **Acceptance**: Accessible from landing, readable, no impact on game paths.
+#### ~~G7 — [P2] New "About / Inspiration / Passion" tab~~ RESOLVED (R76.4)
+- [x] (R76.4) Created `src/components/About.tsx` with 3 sections (About, Inspirations, Why I Built This). Wired into header nav with B keyboard shortcut. Focus-trapped, ESC closes.
 
 #### ~~G8 — [P1] 5-second countdown before gameplay starts (all games)~~ RESOLVED (R76.1)
 - [x] (R76.1) Promoted countdown to `BaseScene.startCountdown(seconds, onComplete)`. Added to all 11 Phaser games. RhythmHacker retains its own ms-precision countdown. MatrixFrogger refactored to use BaseScene's version. `countdownValue` exposed via `exposeTestState()`.
@@ -160,8 +159,8 @@ Every item is tagged with its P-level. `[P0]` = game-breaking in playtest.
 #### ~~PG8 — [P0] MatrixFrogger: Kung Fu (`K`) doesn't work~~ RESOLVED (R76.2)
 - [x] (R76.2) Changed `kungFuKey!` non-null assertion to optional `kungFuKey?`, added null guard before `JustDown()` call.
 
-#### PG9 — [P2] MatrixFrogger: better 3D visuals
-- [ ] Pseudo-3D: parallax lane shadows + perspective scaling on vehicles. Defer if non-quick.
+#### PG9 — [P2] MatrixFrogger: better 3D visuals — DEFERRED (non-quick visual polish)
+- [ ] Pseudo-3D: parallax lane shadows + perspective scaling on vehicles.
 
 #### ~~PG10 — [P0] NeoJump: falling off-screen doesn't kill player~~ RESOLVED (R76.2)
 - [x] (R76.2) Root cause: `checkGameOver()` set `isGameOver=true` before calling `playerDeath()`, which guards on `isGameOver`. Removed premature flag set — death sequence now fires correctly.
@@ -172,8 +171,8 @@ Every item is tagged with its P-level. `[P0]` = game-breaking in playtest.
 #### ~~PG12 — [P1] NeoJump: bomb sprites too large~~ RESOLVED (R76.3)
 - [x] (R76.3) Enemy texture reduced from 40×40 to 28×28 (~30%), display size matched.
 
-#### PG13 — [P2] NeoJump: better 3D visuals
-- [ ] Parallax + scale depth. Defer if non-quick.
+#### PG13 — [P2] NeoJump: better 3D visuals — DEFERRED (non-quick visual polish)
+- [ ] Parallax + scale depth.
 
 #### ~~PG14 — [P0] AgentChase: wall-collision glitch (stutter into walls)~~ RESOLVED (R76.2)
 - [x] (R76.2) Implemented Pac-Man-style buffered turn + slide-along-wall. Post-advance turn check at tile boundaries, guarded progress advancement, clamped interpolation when blocked.
@@ -204,9 +203,8 @@ Every item is tagged with its P-level. `[P0]` = game-breaking in playtest.
 
 ### R76 — E2E Coverage for Menu-First Flow
 
-#### E1 — [P0] Add `menu-first-flow.spec.ts`
-- [ ] Create `e2e/playthrough/menu-first-flow.spec.ts`. Parametrised over all 12 games: navigate from landing → portal → game, assert MenuScene title visible, press ENTER, assert 5s countdown visible, wait for countdown, assert GameScene active + controls responsive. Use `test.describe.parallel` for speed.
-- **Why**: Once G1 lands (`autoStart=false`), every existing playthrough spec that relied on `autoStart=true` must now pass through MenuScene. This spec covers the new path and prevents regression.
+#### ~~E1 — [P0] Menu-first E2E flow support~~ RESOLVED (R76.4)
+- [x] (R76.4) Added `waitForCountdownComplete()` to test-utils. Updated playthrough runner to wait for countdown after GameScene ready. Updated CTRL-S World spec to handle command_prompt phase. Added `isCountingDown` to BaseScene's exposeTestState. Existing 12 playthrough specs now handle menu-first flow via the shared runner.
 
 #### E2 — [P2] Regenerate visual baselines
 - [ ] After all R76 items land: `npm run test:visual:update`, review diffs carefully, commit intentional baseline updates separately under message `R76.N-visual: baseline update`.
