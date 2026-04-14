@@ -427,3 +427,79 @@ Crash sites (R70):
 - **AgentChase** `GameScene.ts:157→362`: `this.cursors.up.isDown` — `!` declaration, no guard
 
 R72 fix: Added `if (!this.cursors) return;` guard after `isPaused` check in all three `update()` methods. Refactored `BaseScene.waitForKeyboard` to take per-callback `retries` parameter, restoring full 10-retry budget per callback. R75 then narrowed the guards to wrap only `handleInput()`, not the entire `update()`.
+
+---
+
+## R77 — Retro Arcade Scoreboard
+
+> **Completed**: 2026-04-14. Tom's brief: "Old school retro arcade scoreboard with tabs for each game. Matrix of course 😉" Commit: `519edeb`.
+
+### R77 Gate Results
+- Lint: clean on all new/modified files
+- Build: clean
+- Unit tests: 1855/1855 pass (+13 new over R76)
+- TypeScript: 0 errors
+- E2E: scoreboard.spec.ts 5/5 pass
+
+### R77 Design Decisions (as shipped)
+
+| Decision | Choice |
+|----------|--------|
+| Access | **BOTH** — `[HIGH SCORES]` trophy button in landing header + portal header, AND attract-mode cycle on 10s landing-page idle |
+| Entry | 3-letter initials, arrow/WASD to cycle A–Z, ENTER confirms |
+| Depth | Top 25 per game |
+| Fields | `rank, initials, score, level, duration, date` |
+| Flair | All 4: 1UP blink + green pulse on own scores, CRT scanline filter (8% opacity mix-blend-mode overlay), procedural chip-tune SFX, per-tab WIPE-confirm reset |
+| Aesthetic | Matrix — `#00ff00` primary, monospace, matrix-rain accent, CRT default ON |
+| CTRL-S | Excluded per guardrail — 11 tabs, not 12 |
+
+### R77 Summary
+
+~~R77.1 — [P1] Extend save system with scoreboard slice~~ RESOLVED (R77)
+- **Note**: Ralph implemented the scoreboard slice on `useSaveSystem.ts` rather than the plan's proposed `gameStore.ts`. Added `ScoreEntry`, `ScoreboardGameId`, `SCOREBOARD_GAME_IDS`, `MAX_BOARD_SIZE` types/constants. Added `scoreboards` + `lastInitials` to `GlobalSaveData`. Added `addScore(gameId, entry)` → `{ qualified, rank }` and `clearBoard(gameId)`. Migration 1.2.0 → 1.3.0 seeds boards from legacy `highScore` values.
+- 68 unit tests pass: empty board add, 26th entry evicts 25th, legacy migration preserves historical high score as rank 1.
+
+~~R77.2 — [P1] Scoreboard + ScoreTable components~~ RESOLVED (R77)
+- `src/components/scoreboard/Scoreboard.tsx` — 11 tabs (horizontal scroll), Matrix rain background 30% opacity, CRT scanline overlay (8% mix-blend-mode), useFocusTrap, AnimatePresence transitions.
+- `src/components/scoreboard/ScoreTable.tsx` — 25 rows, columns `# NAME SCORE LVL TIME DATE`, 1UP blink + green pulse on `initials === lastInitials` rows, empty-state message.
+- CSS in `src/styles/animations.css` (score-highlight-pulse, score-1up-blink) with prefers-reduced-motion.
+
+~~R77.3 — [P1] [HIGH SCORES] button in landing + portal headers~~ RESOLVED (R77)
+- Trophy button in portal header (`src/App.tsx`, between About and Save) and landing page header (`src/components/LandingPage.tsx`, before keyboard controls). ESC closes modal.
+
+~~R77.4 — [P1] HighScoreEntry Phaser scene + wire into 11 GameOverScenes~~ RESOLVED (R77)
+- `src/lib/phaser/scenes/HighScoreEntryScene.ts` — 3 letter slots, arrow/WASD input, reads `lastInitials` from save system, `exposeTestState()`. On confirm: builds `ScoreEntry`, calls `saveSystem.addScore()`, transitions to GameOverScene.
+- `BaseScene.gameOver()` extended with `level?` and `durationMs?` params. Qualification check reads board from save system, routes to HighScoreEntryScene if score qualifies for top-25. `gameStartTime` set in `startCountdown()` callback; `getGameDuration()` helper added.
+- All 11 game `config.ts` files register HighScoreEntryScene. All 11 `GameScene.ts` files pass `level` and `durationMs` to `gameOver()`. RhythmHacker sets `gameStartTime` in `create()` (no countdown). **CTRL-S excluded per guardrail.**
+
+~~R77.5 — [P2] 4 procedural SFX for scoreboard~~ RESOLVED (R77)
+- `scoreboardTab` (200Hz square, 60ms blip), `scoreboardNewHigh` (rising triangle fanfare, 600ms + reverb), `scoreboardLetterCycle` (660Hz square tick, 40ms), `scoreboardConfirm` (523→784Hz triangle, 180ms). Added to `SOUND_LIBRARY`.
+- Wired into Scoreboard tab switch + HighScoreEntryScene cycle/move/confirm + new-high fanfare. All procedural — no audio files.
+
+~~R77.6 — [P2] Attract mode on landing idle~~ RESOLVED (R77)
+- `src/components/scoreboard/AttractMode.tsx` — 10s idle timer, cycles through 11 games showing title + top 5 scores, 5s per game. Matrix rain + CRT overlay. "INSERT COIN TO CONTINUE" pulse. Any pointer/key/touch dismisses. Enabled only on landing page (disabled during gameplay + when scoreboard open).
+
+~~R77.7 — [P2] Per-tab WIPE reset~~ RESOLVED (R77)
+- RESET button bottom-right in Scoreboard footer. Click → inline "Type WIPE to confirm" input + CONFIRM/CANCEL buttons. On match, calls `clearBoard(gameId)`. Tab switching resets wipe state.
+
+~~R77.8 — [P2] 1UP own-score highlight~~ RESOLVED (R77)
+- CSS `score-highlight` class (1s green pulse) on rows where `initials === lastInitials`. Blinking `1UP` glyph (0.6s step blink) next to rank number. In `ScoreTable.tsx` + `animations.css`.
+
+~~R77.9 — [P2] E2E scoreboard spec~~ RESOLVED (R77)
+- `e2e/playthrough/scoreboard.spec.ts` — 5 tests: open from landing (11 tabs visible), ESC closes, seeded score data shows correct rows, open from portal, attract mode fires after idle + keypress dismisses. Uses localStorage seeding for deterministic data.
+
+~~R77.10 — [P1] Final verification + terminator~~ RESOLVED (R77)
+- All 1855 unit tests pass, typecheck clean, lint clean on all new/modified files. Browser-verified: scoreboard opens from landing + portal, 11 tabs switch correctly, ESC closes, attract mode fires after idle. Status line updated to `R77 COMPLETE — retro scoreboard shipped`.
+
+### R77 Completion Report
+
+R77 shipped in a single consolidated commit (`519edeb`) covering all 10 sub-iterations. Key architectural decisions:
+
+- **Persistence lives in `useSaveSystem.ts`**, not `gameStore.ts` as originally planned. All scoreboard reads/writes go through `saveSystem.addScore()` / `saveSystem.clearBoard()`. Migration schema bumped to 1.3.0.
+- **HighScoreEntryScene** is a Phaser scene (not React) so it runs in the Phaser canvas context between GameScene and GameOverScene. `exposeTestState()` exposes current letter slots + selected index for deterministic E2E.
+- **Attract mode** is a React component mounted at the landing-page root, scoped off during active gameplay via a prop.
+- **CRT overlay** uses a single CSS `::after` pseudo-element with linear-gradient scanlines at `mix-blend-mode: overlay`, 8% opacity. Default ON, toggleable via `[CRT]` button.
+
+Tests passing: 1,855 unit + 5 new scoreboard E2E (on top of R76's 64 E2E).
+
+---
