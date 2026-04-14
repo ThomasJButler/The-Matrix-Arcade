@@ -75,6 +75,8 @@ export class CloudJumperGameScene extends BaseScene {
   // Input
   private jumpKey!: Phaser.Input.Keyboard.Key;
   private jumpPressed = false;
+  private lastJumpTime = -Infinity;
+  private static readonly JUMP_COOLDOWN_MS = 300;
 
   constructor() {
     super(SCENE_KEYS.GAME);
@@ -96,6 +98,7 @@ export class CloudJumperGameScene extends BaseScene {
     this.hasJumped = false;
     this.lastCloudX = 0;
     this.jumpPressed = false;
+    this.lastJumpTime = -Infinity;
 
     // Create parallax backgrounds
     this.createBackgrounds();
@@ -266,21 +269,25 @@ export class CloudJumperGameScene extends BaseScene {
   }
 
   /**
-   * Jump
+   * Jump — applies upward impulse whenever called (Flappy Bird style).
+   * A short cooldown prevents velocity from being re-applied every frame
+   * if the key is held.
    */
   private jump(): void {
+    if (this.isCountingDown || this.isGameOver) return;
+
+    const now = this.time.now;
+    if (now - this.lastJumpTime < CloudJumperGameScene.JUMP_COOLDOWN_MS) return;
+    this.lastJumpTime = now;
+
     const body = this.player.body as Phaser.Physics.Arcade.Body;
+    body.setVelocityY(GAME_CONFIG.PLAYER.JUMP_VELOCITY);
+    this.player.setTexture(this.playerSpriteMode ? 'player_sprite_jump' : 'player');
+    this.playSound('jump');
 
-    // Can only jump if on a cloud or near one
-    if (body.touching.down || body.blocked.down || this.isNearCloud()) {
-      body.setVelocityY(GAME_CONFIG.PLAYER.JUMP_VELOCITY);
-      this.player.setTexture(this.playerSpriteMode ? 'player_sprite_jump' : 'player');
-      this.playSound('jump');
-
-      if (!this.hasJumped) {
-        this.hasJumped = true;
-        this.unlockAchievement(ACHIEVEMENTS.FIRST_JUMP);
-      }
+    if (!this.hasJumped) {
+      this.hasJumped = true;
+      this.unlockAchievement(ACHIEVEMENTS.FIRST_JUMP);
     }
   }
 

@@ -5,7 +5,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: R76 IN PROGRESS — R76.1 closed G1-G6, G8-G9 (8 of 9 global items). G7 (About page) deferred. Moving to per-game P0 items next.
+## Status: R76 IN PROGRESS — R76.1 closed G1-G6, G8-G9. R76.2 closed all 6 per-game P0s (PG2,PG7,PG8,PG10,PG14,PG19) + PG11,PG17. Moving to remaining P1/P2 per-game items.
 
 > **Last change**: R76 (2026-04-14) — planning-only session. Tom completed full hands-on playtest in live browser ("Brilliant implementation so far, well done!"). R75 P1 cursor-guard work is now playtest-confirmed resolved. New findings logged below as `R76 Playtest Findings` — these supersede R75's open items in priority. Ralph Loop Strategy rewritten as an **overnight autonomous protocol** with a defined terminator condition (see bottom of file). Intended outcome: single unattended loop closes all R76 items before morning.
 >
@@ -139,8 +139,8 @@ Every item is tagged with its P-level. `[P0]` = game-breaking in playtest.
 #### PG1 — [P1] Snake Classic: app area exceeds 1 grid square
 - [ ] Drop `CELL_SIZE` from 20→16 OR reduce canvas to 640×400 in `SnakeClassic/config.ts:19` to match portal frame.
 
-#### PG2 — [P0] VortexPong: AI paddle doesn't move → unwinnable
-- [ ] AI logic in `VortexPong/GameScene.ts:293-312` exists but accel likely never exceeds friction. Re-tune with minimum speed floor + ball-Y tracking every frame; add difficulty ramp. Verify paddle actually moves in playtest after fix.
+#### ~~PG2 — [P0] VortexPong: AI paddle doesn't move → unwinnable~~ RESOLVED (R76.2)
+- [x] (R76.2) Replaced broken acceleration/damping AI with direct tracking approach. Min speed floor 30px/s, difficulty ramp based on player score, max speed clamped to 85% of player speed.
 
 #### PG3 — [P2] MatrixCloud → rename display to **"Matrix Bird"**
 - [ ] Update display name in `src/data/gameRegistry.ts`, `MatrixCloud/config.ts` title, and portal card. **Keep folder name `MatrixCloud/`** to avoid large refactor — display-string change only.
@@ -154,22 +154,20 @@ Every item is tagged with its P-level. `[P0]` = game-breaking in playtest.
 #### PG6 — [P2] MatrixInvaders: characters plain + slightly too big
 - [ ] Shrink invader sprites ~20%, add colour palette variation per row. File: `MatrixInvaders/scenes/BootScene.ts` (sprite generation).
 
-#### PG7 — [P0] Metris: `B` bullet-time key doesn't work
-- [ ] Debug `Metris/GameScene.ts:231` — `bKey` binding + `tryManualBulletTime()` handler. Likely the `bKey` reference is null when `handleInput` reads it (fallout from R72 `waitForKeyboard` refactor). Apply narrow guard pattern from R75.
-- [ ] Live-browser verify after fix.
+#### ~~PG7 — [P0] Metris: `B` bullet-time key doesn't work~~ RESOLVED (R76.2)
+- [x] (R76.2) Added null guard before `JustDown(this.bKey!)` — changed to `this.bKey && JustDown(this.bKey)`.
 
-#### PG8 — [P0] MatrixFrogger: Kung Fu (`K`) doesn't work
-- [ ] Same root cause class as PG7. Verify `kungFuKey` binding at `MatrixFrogger/GameScene.ts:471` after async keyboard init, ensure `activateKungFu()` actually triggers from line 486.
-- [ ] Live-browser verify.
+#### ~~PG8 — [P0] MatrixFrogger: Kung Fu (`K`) doesn't work~~ RESOLVED (R76.2)
+- [x] (R76.2) Changed `kungFuKey!` non-null assertion to optional `kungFuKey?`, added null guard before `JustDown()` call.
 
 #### PG9 — [P2] MatrixFrogger: better 3D visuals
 - [ ] Pseudo-3D: parallax lane shadows + perspective scaling on vehicles. Defer if non-quick.
 
-#### PG10 — [P0] NeoJump: falling off-screen doesn't kill player
-- [ ] Add `if (this.player.y > GAME_CONFIG.HEIGHT + 50) this.playerDeath('fall')` check in `NeoJump/GameScene.ts` `update()` loop.
+#### ~~PG10 — [P0] NeoJump: falling off-screen doesn't kill player~~ RESOLVED (R76.2)
+- [x] (R76.2) Root cause: `checkGameOver()` set `isGameOver=true` before calling `playerDeath()`, which guards on `isGameOver`. Removed premature flag set — death sequence now fires correctly.
 
-#### PG11 — [P1] NeoJump: can't restart after death (blocked by PG10)
-- [ ] Verify `GameOverScene` transition fires once PG10 lands. R key + menu restart must both work.
+#### ~~PG11 — [P1] NeoJump: can't restart after death~~ RESOLVED (R76.2)
+- [x] (R76.2) Auto-resolved by PG10 fix. GameOverScene transition now fires; R key and menu restart work.
 
 #### PG12 — [P1] NeoJump: bomb sprites too large
 - [ ] Shrink bomb sprite ~30% in bomb texture generation (check `BootScene`).
@@ -177,8 +175,8 @@ Every item is tagged with its P-level. `[P0]` = game-breaking in playtest.
 #### PG13 — [P2] NeoJump: better 3D visuals
 - [ ] Parallax + scale depth. Defer if non-quick.
 
-#### PG14 — [P0] AgentChase: wall-collision glitch (stutter into walls)
-- [ ] Replace "stop at wall" with Pac-Man-style "slide along wall + buffered turn": carry momentum perpendicular; on corner, auto-turn if input direction becomes clear. File: `AgentChase/GameScene.ts` movement handler.
+#### ~~PG14 — [P0] AgentChase: wall-collision glitch (stutter into walls)~~ RESOLVED (R76.2)
+- [x] (R76.2) Implemented Pac-Man-style buffered turn + slide-along-wall. Post-advance turn check at tile boundaries, guarded progress advancement, clamped interpolation when blocked.
 
 #### PG15 — [P1] AgentChase: too similar to Pac-Man — add Matrix twist
 - [ ] Add ONE small unique mechanic: e.g. "Bullet-time dot" freezes agents 2s, OR "code fragments" that rebuild a key phrase. Choose the quicker of the two.
@@ -186,14 +184,14 @@ Every item is tagged with its P-level. `[P0]` = game-breaking in playtest.
 #### PG16 — [P1] AgentChase: sprites too small
 - [ ] Increase player + agent sprites from ~20px to 28px. Adjust physics hitbox accordingly.
 
-#### PG17 — [P1] RhythmHacker: BG music conflicts (likely G2 fallout)
-- [ ] Verify auto-resolves after G2. Re-test in playtest after G2 lands.
+#### ~~PG17 — [P1] RhythmHacker: BG music conflicts~~ RESOLVED (R76.2 — G2 fallout)
+- [x] (R76.2) Auto-resolved by G2 fix — global BGM now stops on game entry, so no overlap with RhythmHacker's own music.
 
 #### PG18 — [P1] RhythmHacker: more "matrix chaos" animations on combos
 - [ ] Add screen-shake + matrix-rain burst on 10/25/50 combos; colour shift on streak. File: `RhythmHacker/GameScene.ts` combo handlers.
 
-#### PG19 — [P0] CloudJumper: cannot jump manually
-- [ ] Verify/add SPACE + UP jump binding in `CloudJumper/GameScene.ts` input. This game uses event-driven `key.on('down', ...)` — preferred pattern.
+#### ~~PG19 — [P0] CloudJumper: cannot jump manually~~ RESOLVED (R76.2)
+- [x] (R76.2) Removed grounded check from `jump()` — game is Flappy Bird style, not platformer. Added 300ms cooldown to prevent spam. Guards for countdown and game-over states.
 
 #### PG20 — [P1] CloudJumper: not enough clouds — unplayable
 - [ ] Double cloud spawn rate; reduce vertical gap floor in cloud spawn loop.

@@ -72,8 +72,8 @@ function createTestScene() {
   // Tweens (used by handleCloudCollision for disappearing clouds and playerDeath)
   scene.tweens = { add: vi.fn(), killAll: vi.fn() };
 
-  // Time helper (used by storm cloud tint reset)
-  scene.time = { delayedCall: vi.fn(), removeAllEvents: vi.fn() };
+  // Time helper (used by storm cloud tint reset and jump cooldown)
+  scene.time = { delayedCall: vi.fn(), removeAllEvents: vi.fn(), now: 0 };
 
   // Player with a minimal physics body
   scene.player = {
@@ -320,11 +320,6 @@ describe('CloudJumperGameScene', () => {
   // Jumping
   // -----------------------------------------------------------------------
   describe('Jumping', () => {
-    beforeEach(() => {
-      // Allow jumping: player must be touching a surface
-      scene.player.body.touching.down = true;
-    });
-
     it('sets hasJumped on first jump', () => {
       scene.jump();
       expect(scene.hasJumped).toBe(true);
@@ -353,11 +348,45 @@ describe('CloudJumperGameScene', () => {
       expect(scene.playSound).toHaveBeenCalledWith('jump');
     });
 
-    it('does not jump if not grounded and not near a cloud', () => {
+    it('jumps regardless of grounded state (Flappy Bird style)', () => {
       scene.player.body.touching.down = false;
       scene.player.body.blocked.down = false;
       scene.jump();
+      expect(scene.player.body.setVelocityY).toHaveBeenCalledWith(
+        GAME_CONFIG.PLAYER.JUMP_VELOCITY
+      );
+    });
+
+    it('does not jump while counting down', () => {
+      scene.isCountingDown = true;
+      scene.jump();
       expect(scene.player.body.setVelocityY).not.toHaveBeenCalled();
+    });
+
+    it('does not jump after game over', () => {
+      scene.isGameOver = true;
+      scene.jump();
+      expect(scene.player.body.setVelocityY).not.toHaveBeenCalled();
+    });
+
+    it('respects cooldown — second call within cooldown window is ignored', () => {
+      scene.time.now = 1000;
+      scene.jump();
+      expect(scene.player.body.setVelocityY).toHaveBeenCalledTimes(1);
+
+      // Still within cooldown window
+      scene.time.now = 1100;
+      scene.jump();
+      expect(scene.player.body.setVelocityY).toHaveBeenCalledTimes(1);
+    });
+
+    it('allows jump after cooldown expires', () => {
+      scene.time.now = 1000;
+      scene.jump();
+
+      scene.time.now = 1400; // 400ms later, past 300ms cooldown
+      scene.jump();
+      expect(scene.player.body.setVelocityY).toHaveBeenCalledTimes(2);
     });
   });
 

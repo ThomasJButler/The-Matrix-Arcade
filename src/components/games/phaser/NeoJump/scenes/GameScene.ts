@@ -1041,7 +1041,6 @@ export class NeoJumpGameScene extends BaseScene {
 
     // Player fell below bottom of screen — small buffer to avoid false triggers
     if (this.player.y > cameraBottom + 50) {
-      this.isGameOver = true;
       this.playerDeath();
     }
   }

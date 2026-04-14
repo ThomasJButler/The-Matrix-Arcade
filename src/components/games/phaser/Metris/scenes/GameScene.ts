@@ -744,7 +744,7 @@ export class MetrisGameScene extends BaseScene {
     if (Phaser.Input.Keyboard.JustDown(this.cKey!)) {
       this.holdCurrentPiece();
     }
-    if (Phaser.Input.Keyboard.JustDown(this.bKey!)) {
+    if (this.bKey && Phaser.Input.Keyboard.JustDown(this.bKey)) {
       this.tryManualBulletTime();
     }
   }

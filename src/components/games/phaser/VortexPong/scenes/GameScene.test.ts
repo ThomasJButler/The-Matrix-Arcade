@@ -600,19 +600,12 @@ describe('VortexPongGameScene', () => {
   // -----------------------------------------------------------------------
   describe('AI', () => {
     it('moves toward the closest ball', () => {
-      const origRandom = Math.random;
-      let call = 0;
-      // First call: error offset = 0; second call: no mistake
-      Math.random = () => { call++; return call === 1 ? 0.5 : 0.99; };
-      try {
-        createBall(scene, 600, 100, 200, 0);
-        scene.aiPaddle.y = 300;
-        scene.aiPaddleVelocity = 0;
-        scene.updateAI(0.1);
-        expect(scene.aiPaddleVelocity).toBeLessThan(0);
-      } finally {
-        Math.random = origRandom;
-      }
+      createBall(scene, 600, 100, 200, 0);
+      scene.aiPaddle.y = 300;
+      const initialY = scene.aiPaddle.y;
+      scene.updateAI(0.1);
+      // Ball is above paddle (y=100 < y=300), so paddle should move up
+      expect(scene.aiPaddle.y).toBeLessThan(initialY);
     });
 
     it('does nothing with no balls', () => {

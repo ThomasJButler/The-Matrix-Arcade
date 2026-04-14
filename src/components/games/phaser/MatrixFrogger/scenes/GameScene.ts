@@ -104,7 +104,7 @@ export class FroggerGameScene extends BaseScene {
   // Input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasdKeys!: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; S: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key };
-  private kungFuKey!: Phaser.Input.Keyboard.Key;
+  private kungFuKey?: Phaser.Input.Keyboard.Key;
 
   constructor() {
     super(SCENE_KEYS.GAME);
@@ -525,7 +525,7 @@ export class FroggerGameScene extends BaseScene {
     }
 
     // Kung Fu attack
-    if (Phaser.Input.Keyboard.JustDown(this.kungFuKey)) {
+    if (this.kungFuKey && Phaser.Input.Keyboard.JustDown(this.kungFuKey)) {
       this.useKungFu();
     }
   }
