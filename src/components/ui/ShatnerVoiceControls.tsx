@@ -78,6 +78,8 @@ export const ShatnerVoiceControls: React.FC<ShatnerVoiceControlsProps> = ({
                 : 'bg-gray-900/50 text-gray-500 hover:bg-gray-800/50'
             }`}
             title={config.enabled ? 'Disable Shatner Voice' : 'Enable Shatner Voice'}
+            aria-label={config.enabled ? 'Disable Shatner Voice' : 'Enable Shatner Voice'}
+            aria-pressed={config.enabled}
           >
             {config.enabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>
@@ -88,6 +90,7 @@ export const ShatnerVoiceControls: React.FC<ShatnerVoiceControlsProps> = ({
               onClick={stop}
               className="p-1.5 rounded bg-red-900/50 text-red-400 hover:bg-red-800/50 transition-colors"
               title="Stop Speaking"
+              aria-label="Stop Speaking"
             >
               <Square className="w-4 h-4" />
             </button>
@@ -99,6 +102,7 @@ export const ShatnerVoiceControls: React.FC<ShatnerVoiceControlsProps> = ({
             disabled={!config.enabled || isSpeaking}
             className="p-1.5 rounded bg-yellow-900/50 text-yellow-400 hover:bg-yellow-800/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="Test Shatner Voice"
+            aria-label="Test Shatner Voice"
           >
             <TestTube className="w-4 h-4" />
           </button>
@@ -109,6 +113,7 @@ export const ShatnerVoiceControls: React.FC<ShatnerVoiceControlsProps> = ({
               onClick={onToggleExpanded}
               className="p-1.5 rounded bg-blue-900/50 text-blue-400 hover:bg-blue-800/50 transition-colors"
               title="Voice Settings"
+              aria-label="Voice Settings"
             >
               <Settings className="w-4 h-4" />
             </button>

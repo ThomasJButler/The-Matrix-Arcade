@@ -300,6 +300,25 @@ describe('ShatnerVoiceControls', () => {
       expect(screen.getByText('Higher = More dramatic pauses')).toBeInTheDocument();
     });
   });
+
+  describe('Accessibility', () => {
+    it('toggle button has aria-label and aria-pressed', () => {
+      render(<ShatnerVoiceControls />);
+      const toggle = screen.getByRole('button', { name: 'Disable Shatner Voice' });
+      expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    it('test voice button has aria-label', () => {
+      render(<ShatnerVoiceControls />);
+      expect(screen.getByRole('button', { name: 'Test Shatner Voice' })).toBeInTheDocument();
+    });
+
+    it('settings button has aria-label', () => {
+      const onToggle = vi.fn();
+      render(<ShatnerVoiceControls onToggleExpanded={onToggle} />);
+      expect(screen.getByRole('button', { name: 'Voice Settings' })).toBeInTheDocument();
+    });
+  });
 });
 
 describe('ShatnerVoiceControls - Unsupported Browser', () => {

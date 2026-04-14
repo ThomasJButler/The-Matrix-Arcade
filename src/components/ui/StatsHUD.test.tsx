@@ -274,4 +274,18 @@ describe('StatsHUD', () => {
       expect(container.querySelectorAll('button').length).toBeGreaterThan(0);
     });
   });
+
+  describe('Accessibility', () => {
+    it('hide button has aria-label', () => {
+      renderWithProvider(<StatsHUD />);
+      expect(screen.getByRole('button', { name: 'Hide Stats (S)' })).toBeInTheDocument();
+    });
+
+    it('show button has aria-label when hidden', () => {
+      renderWithProvider(<StatsHUD />);
+      const hideBtn = screen.getByRole('button', { name: 'Hide Stats (S)' });
+      fireEvent.click(hideBtn);
+      expect(screen.getByRole('button', { name: 'Show Stats (S)' })).toBeInTheDocument();
+    });
+  });
 });

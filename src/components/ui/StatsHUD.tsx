@@ -147,6 +147,7 @@ export const StatsHUD: React.FC = () => {
         onClick={() => setIsVisible(true)}
         className="fixed top-4 right-4 z-40 p-2 bg-black/80 border border-green-500/50 rounded-lg backdrop-blur-sm hover:bg-green-900/50 transition-colors"
         title="Show Stats (S)"
+        aria-label="Show Stats (S)"
       >
         <Eye className="w-5 h-5 text-green-400" />
       </motion.button>
@@ -168,6 +169,7 @@ export const StatsHUD: React.FC = () => {
             onClick={() => setIsVisible(false)}
             className="p-1 bg-black/80 border border-green-500/50 rounded hover:bg-green-900/50 transition-colors text-green-400"
             title="Hide Stats (S)"
+            aria-label="Hide Stats (S)"
           >
             <EyeOff className="w-4 h-4" />
           </button>
