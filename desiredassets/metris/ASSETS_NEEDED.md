@@ -53,12 +53,12 @@
 - [ ] Level-based background variants (optional — gets more intense at higher levels)
 
 ### Audio
-- [~] Piece move (soft click) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
+- [x] Piece move (soft click) — covered by global SFX kit (sfx_blip.mp3) — R78.1
 - [~] Piece rotate — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
-- [~] Piece hard drop (impact thud) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
+- [x] Piece hard drop (impact thud) — covered by global SFX kit (sfx_elevator_drop.mp3) — R78.1
 - [~] Piece soft drop — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
-- [~] Single line clear — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
-- [~] Double/triple line clear (bigger sound) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
+- [x] Single line clear — covered by global SFX kit (sfx_glass_break.mp3 / sfx_statue_break.mp3) — R78.1
+- [x] Double/triple line clear (bigger sound) — covered by global SFX kit (sfx_explosion_large.mp3) — R78.1
 - [~] Tetris (4 lines) fanfare — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
 - [~] T-spin sound — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
 - [~] Bullet time activate — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects

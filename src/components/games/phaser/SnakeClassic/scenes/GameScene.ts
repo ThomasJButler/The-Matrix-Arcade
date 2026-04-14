@@ -1,5 +1,5 @@
 import { BaseScene } from '@/lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS } from '@/lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS } from '@/lib/phaser/types';
 import {
   GAME_CONFIG,
   ACHIEVEMENTS,
@@ -489,7 +489,7 @@ export class SnakeGameScene extends BaseScene {
 
   private collectPowerUp(type: PowerUpType): void {
     this.powerUpsCollected++;
-    this.playSound('powerup');
+    this.playSound(SOUND_KEYS.COLLECTIBLE);
     this.destroyFieldPowerUp();
     this.activatePowerUp(type);
   }
@@ -673,6 +673,7 @@ export class SnakeGameScene extends BaseScene {
     }
 
     this.playSound('hit');
+    this.playSound(SOUND_KEYS.POWER_DOWN);
     this.cameras.main.shake(200, 0.01);
 
     if (this.snakeSprites.length > 0) {

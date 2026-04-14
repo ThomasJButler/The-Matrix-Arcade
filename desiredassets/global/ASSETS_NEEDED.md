@@ -14,7 +14,7 @@
 | `MatrixArcadeIconsBackroundsShaders/background_set.zip` | Tileable backgrounds | Unzip, recolour to Matrix palette |
 | `MatrixArcadeIconsBackroundsShaders/scifi-strategy-art-assets.zip` | Sci-fi UI panels | Unzip, extract panel sprites |
 | `MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/chromed out (menu).mp3` | Menu ambient track | ✅ Copied to `public/assets/audio/music/menu-theme.mp3` |
-| `MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/WeirdoOnTheBus - The Matrix Trilogy (Sound Effects Kit).zip` | ALL global SFX (menu blips, whooshes, stings) | ✅ 20 game-relevant SFX extracted to `public/assets/audio/sfx/` |
+| `MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/WeirdoOnTheBus - The Matrix Trilogy (Sound Effects Kit).zip` | ALL global SFX (menu blips, whooshes, stings) | ✅ 34 game-relevant SFX extracted to `public/assets/audio/sfx/` (20 original + 14 new from R78.1) |
 | `MatrixArcadeTracksSoundEffectsVisualEffects/LongTracks/cruise control (game start).wav` | Game start whoosh / fanfare | Needs ffmpeg to convert WAV→OGG/MP3 |
 | `MatrixArcadeTracksSoundEffectsVisualEffects/LongTracks/a last embrace (credit roll).wav` | Victory/completion music | Needs ffmpeg to convert WAV→OGG/MP3 |
 | `MatrixArcadeTracksSoundEffectsVisualEffects/firework/` | Particle sprites (pink/purple/yellow) | ✅ All 21 frames copied to `public/assets/shared/particles/` |
@@ -68,6 +68,20 @@
 - [x] Burst — `public/assets/audio/sfx/sfx_burst.mp3` (deployed + active in useSoundSystem)
 - [x] Ambient beeps — `public/assets/audio/sfx/sfx_ambient_beeps.mp3` (deployed + active in useSoundSystem)
 - [x] Door open — `public/assets/audio/sfx/sfx_door_open.mp3` (deployed + active in useSoundSystem)
+- [x] Jacking in — `public/assets/audio/sfx/sfx_jacking_in.mp3` (R78.1 — wired to all 10 Phaser games)
+- [x] Power surge — `public/assets/audio/sfx/sfx_power_surge.mp3` (R78.1 — wired to all 10 Phaser games)
+- [x] Statue break — `public/assets/audio/sfx/sfx_statue_break.mp3` (R78.1 — wired to all 10 Phaser games)
+- [x] Ammo drop — `public/assets/audio/sfx/sfx_ammo_drop.mp3` (R78.1 — wired to all 10 Phaser games)
+- [x] Elevator drop — `public/assets/audio/sfx/sfx_elevator_drop.mp3` (R78.1 — wired to all 10 Phaser games)
+- [x] Explosion large — `public/assets/audio/sfx/sfx_explosion_large.mp3` (R78.1 — wired to all 10 Phaser games)
+- [x] Sentinel search — `public/assets/audio/sfx/sfx_sentinel_search.mp3` (R78.1 — wired to all 10 Phaser games)
+- [x] Sentinel swarm — `public/assets/audio/sfx/sfx_sentinel_swarm.mp3` (R78.1 — wired to all 10 Phaser games)
+- [x] Kung fu hit — `public/assets/audio/sfx/sfx_kung_fu_hit.mp3` (R78.1 — wired to all 10 Phaser games)
+- [x] Glass break — `public/assets/audio/sfx/sfx_glass_break.mp3` (R78.1 — wired to all 10 Phaser games)
+- [x] Power down — `public/assets/audio/sfx/sfx_power_down.mp3` (R78.1 — wired to all 10 Phaser games)
+- [x] Blip — `public/assets/audio/sfx/sfx_blip.mp3` (R78.1 — wired to all 10 Phaser games)
+- [x] Spoon bend — `public/assets/audio/sfx/sfx_spoon_bend.mp3` (R78.1 — wired to all 10 Phaser games)
+- [x] Unplug — `public/assets/audio/sfx/sfx_unplug.mp3` (R78.1 — wired to all 10 Phaser games)
 - [~] Achievement unlock fanfare — trim from `cruise control (game start).wav` (needs ffmpeg)
 - [~] High score celebration — trim from `a last embrace (credit roll).wav` (needs ffmpeg)
 

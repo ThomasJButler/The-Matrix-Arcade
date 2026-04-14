@@ -51,9 +51,9 @@
 - [ ] Combo text popup sprite (or render procedurally)
 
 ### Audio
-- [~] Ball hit paddle — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
+- [x] Ball hit paddle — covered by global SFX kit (sfx_kung_fu_hit.mp3 / sfx_impact_*.mp3 from original kit) — R78.1
 - [~] Ball hit wall — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
 - [~] Goal scored — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
-- [~] Power-up collect — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
+- [x] Power-up collect — covered by global SFX kit (sfx_ammo_drop.mp3 / sfx_spoon_bend.mp3) — R78.1
 - [~] Rally building tension (optional ambient) — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
 - [~] Match point dramatic sting — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`

@@ -64,12 +64,12 @@
 - [~] Lives/health indicator — SOURCE: INSPO/doodlejump/Doodle RPG/HUD
 
 ### Audio
-- [~] Jump sound (boing / spring) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
+- [x] Jump sound (boing / spring) — covered by global SFX kit (sfx_power_surge.mp3) — R78.1
 - [~] Land on platform — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
-- [~] Platform break / crumble — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
+- [x] Platform break / crumble — covered by global SFX kit (sfx_statue_break.mp3 / sfx_glass_break.mp3) — R78.1
 - [~] Jetpack ignite + thrust loop — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
 - [~] Enemy killed — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
 - [~] Player death (dramatic fall) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
-- [~] Collectible pickup — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
+- [x] Collectible pickup — covered by global SFX kit (sfx_blip.mp3 / sfx_ammo_drop.mp3) — R78.1
 - [~] New altitude milestone — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects
 - [~] Background music (airy, ascending feel, electronic, loopable) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/LongTracks

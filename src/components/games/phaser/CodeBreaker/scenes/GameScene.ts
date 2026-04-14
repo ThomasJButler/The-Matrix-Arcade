@@ -421,7 +421,7 @@ export class CodeBreakerGameScene extends BaseScene {
     this.bulletTimeActive = true;
     this.bulletTimeUses++;
     this.bulletTimeText.setVisible(true);
-    this.playSound(SOUND_KEYS.POWERUP);
+    this.playSound(SOUND_KEYS.SPECIAL_ABILITY);
 
     this.time.delayedCall(POWERUP_DEFS.bulletTime.duration, () => {
       this.bulletTimeActive = false;
@@ -855,6 +855,7 @@ export class CodeBreakerGameScene extends BaseScene {
     this.reportScore(this.score, this.highScore);
     this.playSound(SOUND_KEYS.SCORE);
 
+    this.playSound(SOUND_KEYS.GLASS_BREAK);
     this.spawnExplosion(x, y, BRICK_DEFS[brick.type].color);
     brick.sprite.destroy();
     this.bricks.splice(brickIndex, 1);
@@ -1004,6 +1005,7 @@ export class CodeBreakerGameScene extends BaseScene {
         this.portal = null;
       }
 
+      this.playSound(SOUND_KEYS.JACK_IN);
       this.loadLevel(this.level);
       this.isBallAttached = true;
       this.spawnBall(true);
@@ -1085,7 +1087,7 @@ export class CodeBreakerGameScene extends BaseScene {
   // -- Power-up activation --
 
   private activatePowerUp(type: PowerUpType): void {
-    this.playSound(SOUND_KEYS.POWERUP);
+    this.playSound(SOUND_KEYS.SPECIAL_ABILITY);
 
     switch (type) {
       case 'multiBall':

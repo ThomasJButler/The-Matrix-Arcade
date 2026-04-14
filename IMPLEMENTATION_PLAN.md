@@ -7,6 +7,8 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ## Status: R78 open — Phase 0b per-game asset deployment + Phase 6 infrastructure polish (R76 + R77 archived)
 
+> **R78.1 complete (2026-04-14)**: Audio deployed cross-game — Global SFX wired into all games except CTRL-S World (deferred) and Rhythm Hacker (5 dedicated tracks already in place). Matrix Frogger retains its full set.
+
 > **Last change (R78 planning, 2026-04-15)**: R77 retro-arcade scoreboard shipped overnight (`519edeb`, 10 iterations). R76 + R77 closed task bodies + completion reports moved to `COMPLETED_WORK.md § R76` and `§ R77`. Stale RESOLVED residue (R62-R75 duplicate items) also archived. Live plan slimmed from 991 → 551 lines. New phase R78 = **Phase 0b Asset Deployment + Phase 6 Infrastructure Polish** combined. Terminator: `R78 COMPLETE — assets + infra shipped`. CTRL-S remains fenced off for its own dedicated window (future phase).
 >
 > **R76 root-cause findings from pre-plan investigation**:
@@ -118,17 +120,27 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ### R78 Task Ordering
 
-1. **R78.1** — Phase 0b audio extraction sweep (biggest cross-cutting gap: only Matrix Frogger has deployed audio). Extract from `desiredassets/TheMatrixArcadeAssetsToADDANDSORT-WILL-BE-FUN-TASK/.../SoundEffects/` + `LongTracks/`, place per-game, wire BootScene loads.
-2. **R78.2** — Per-game sprite deployment pass 1 (Snake, Matrix Cloud, Metris, Invaders) — core gameplay sprites.
-3. **R78.3** — Per-game sprite deployment pass 2 (Cloud Jumper, Matrix Frogger, Code Breaker) — polish sprites.
-4. **R78.4** — Per-game sprite deployment pass 3 (Agent Chase, Neo Jump, Vortex Pong) — remaining items.
-5. **R78.5** — Visual regression baseline regen for all games post-deployment. Commit new `*-chromium-darwin.png` baselines.
-6. **R78.6** — **Phase 6: Docker baseline regen** — `docker compose -f docker-compose.playwright.yml run --rm e2e-tests npx playwright test --update-snapshots`, commit `*-chromium-linux.png` for CI parity.
-7. **R78.7** — **Phase 6: Multi-viewport matrix** — add mobile (375×667) + tablet (768×1024) projects to `playwright.config.ts`, generate baselines.
-8. **R78.8** — **Phase 6: Form input labels** (a11y) — audit all `<input>` / `<textarea>` for associated `<label>` / `aria-label`. Fix gaps.
-9. **R78.9** — **Phase 6: Rhythm Hacker BPM tuning** — hand-tune per-track BPM values after playtest confirmation. Current values are estimates.
-10. **R78.10** — **Phase 6: Flaky E2E stabilisation** — fix `landing.spec.ts:40` 1px drift, code-breaker/invaders/cloud-jumper timeouts under 5-worker parallel. Root cause: dev-server contention.
-11. **R78.11** — Final verification + Status update to `R78 COMPLETE — assets + infra shipped`.
+- [x] **R78.1 — [P1]** Phase 0b audio extraction sweep (biggest cross-cutting gap: only Matrix Frogger has deployed audio). Extract from `desiredassets/TheMatrixArcadeAssetsToADDANDSORT-WILL-BE-FUN-TASK/.../SoundEffects/` + `LongTracks/`, place per-game, wire BootScene loads.
+- [ ] **R78.2 — [P1]** Per-game sprite deployment pass 1 (Snake, Matrix Cloud, Metris, Invaders) — core gameplay sprites. Flip `[~]` → `[x]` in each game's `ASSETS_NEEDED.md` as sprites land.
+- [ ] **R78.3 — [P1]** Per-game sprite deployment pass 2 (Cloud Jumper, Matrix Frogger, Code Breaker) — polish sprites.
+- [ ] **R78.4 — [P1]** Per-game sprite deployment pass 3 (Agent Chase, Neo Jump, Vortex Pong) — remaining items.
+- [ ] **R78.5 — [P2]** Visual regression baseline regen for all games post-deployment. Commit new `*-chromium-darwin.png` baselines separately with `R78.N-visual: baseline update` message.
+- [ ] **R78.6 — [P2]** Phase 6: Docker baseline regen — `docker compose -f docker-compose.playwright.yml run --rm e2e-tests npx playwright test --update-snapshots`, commit `*-chromium-linux.png` for CI parity.
+- [ ] **R78.7 — [P2]** Phase 6: Multi-viewport matrix — add mobile (375×667) + tablet (768×1024) projects to `playwright.config.ts`, generate baselines.
+- [ ] **R78.8 — [P2]** Phase 6: Form input labels (a11y) — audit all `<input>` / `<textarea>` for associated `<label>` / `aria-label`. Fix gaps.
+- [ ] **R78.9 — [P2]** Phase 6: Rhythm Hacker BPM tuning — hand-tune per-track BPM values after playtest confirmation. Current values are estimates.
+- [ ] **R78.10 — [P2]** Phase 6: Flaky E2E stabilisation — fix `landing.spec.ts:40` 1px drift, code-breaker/invaders/cloud-jumper timeouts under 5-worker parallel. Root cause: dev-server contention.
+- [ ] **R78.11 — [P3]** Continuous-improvement sweep — after R78.1–R78.10 complete, each remaining loop iteration finds ONE discovered-work item and ships it. Examples: sprite polish on an under-deployed game, an a11y fix uncovered while doing R78.8, a perf micro-optimisation, a UX nit caught during visual regression review. Log each in a running `### R78 Discovered Work` sub-section under this task. This task is **intentionally never marked `[x]`** until Tom manually does so — Ralph keeps polishing until the `loop.sh` iteration cap is hit.
+
+### R78 Terminator Rule (IMPORTANT — differs from R76/R77)
+
+**R78.11 is a perpetual polish bucket, not a finish line.** Ralph MUST NOT write `R78 COMPLETE — assets + infra shipped` to the Status line automatically. The only way R78 terminates is:
+1. Tom manually edits Status to contain `R78 COMPLETE` and commits it, OR
+2. `loop.sh` hits its iteration cap (hard safety net).
+
+This is a deliberate deviation from the R76/R77 pattern. Reason: Tom wants "do it 30 times and keep improving", so an early self-terminator is a bug, not a feature.
+
+If Ralph finds R78.1–R78.10 genuinely complete but the iteration cap hasn't been hit, Ralph MUST continue with R78.11 continuous-improvement work. The goal is **do NOT exit early**; pick small polish items and ship them one per iteration.
 
 ### R78 Guardrails
 
@@ -154,20 +166,20 @@ Sprites/audio not yet deployed. CTRL-S World is intentionally deprioritised — 
 | Game | Deployed Files | Real Art? | Audio? | Biggest Gap |
 |------|---------------|-----------|--------|-------------|
 | Matrix Frogger | 11 sprites + 6 audio | Core complete | **Full set** | Enhancement sprites (Neo, agents, tiles) |
-| Vortex Pong | 10 sprites | Core complete | None | Power-up icons, audio |
-| Neo Jump | 15 sprites | All states + platforms | None | Backgrounds, 2 enemy types, UI |
-| Code Breaker | 14 sprites | Core + all 6 power-ups | None | Damage states, enemies, animations |
-| Agent Chase | 13 sprites | All characters | None | Death anim, dots, audio |
-| Metris | 7 sprites | Tetrominos only | None | Ghost piece, grid, backgrounds |
-| Matrix Invaders | 7 sprites | Core functional | None | Boss, power-ups, animations |
-| Cloud Jumper | 7 sprites | Player + 4 clouds | None | Backgrounds, collectibles, obstacles |
-| Matrix Cloud | 3 sprites | Bare minimum | None | Bosses, power-ups, parallax |
-| Snake Classic | 5 sprites | Minimal (no directions) | None | Directional variants, modes, boss |
+| Vortex Pong | 10 sprites | Core complete | Global SFX | Power-up icons, audio |
+| Neo Jump | 15 sprites | All states + platforms | Global SFX | Backgrounds, 2 enemy types, UI |
+| Code Breaker | 14 sprites | Core + all 6 power-ups | Global SFX | Damage states, enemies, animations |
+| Agent Chase | 13 sprites | All characters | Global SFX | Death anim, dots, audio |
+| Metris | 7 sprites | Tetrominos only | Global SFX | Ghost piece, grid, backgrounds |
+| Matrix Invaders | 7 sprites | Core functional | Global SFX | Boss, power-ups, animations |
+| Cloud Jumper | 7 sprites | Player + 4 clouds | Global SFX | Backgrounds, collectibles, obstacles |
+| Matrix Cloud | 3 sprites | Bare minimum | Global SFX | Bosses, power-ups, parallax |
+| Snake Classic | 5 sprites | Minimal (no directions) | Global SFX | Directional variants, modes, boss |
 | Rhythm Hacker | 5 audio tracks | 100% procedural visuals | 5 tracks | All visual assets, note charts |
 | CTRL-S World | 0 | Nothing | Nothing | Everything (defer to Phase 7) |
 
 **Critical gaps** (blocking for proper gameplay):
-- [ ] **Audio is the biggest cross-cutting gap**: Only Matrix Frogger has deployed audio. SFX kit and music tracks exist in the dump but none have been extracted per-game.
+- [x] **Audio is the biggest cross-cutting gap**: Only Matrix Frogger has deployed audio. SFX kit and music tracks exist in the dump but none have been extracted per-game.
 - [ ] **Rhythm Hacker**: 5 music tracks deployed but all visual assets are procedural. Note charts (timing data) are generated procedurally via `charts.ts` — works but could be improved with hand-authored charts.
 - [ ] **CTRL-S World**: Zero assets. Everything sourced but needs extraction. **Defer until Phase 7.**
 

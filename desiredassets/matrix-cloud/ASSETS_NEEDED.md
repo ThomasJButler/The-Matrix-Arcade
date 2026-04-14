@@ -62,11 +62,11 @@
 - [ ] Boss health bar frame
 
 ### Audio
-- [~] Flap sound (short, light) — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
-- [~] Pass through gap (satisfying score ding) — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
-- [~] Hit pipe (crunch / impact) — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
-- [~] Death fall — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
-- [~] Power-up collect — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
-- [~] Boss appear warning siren — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
-- [~] Boss defeated — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
+- [x] Flap sound (short, light) — covered by global SFX kit (sfx_blip.mp3) — R78.1
+- [x] Pass through gap (satisfying score ding) — covered by global SFX kit (sfx_blip.mp3 / sfx_spoon_bend.mp3) — R78.1
+- [~] Hit pipe (crunch / impact) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
+- [~] Death fall — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
+- [~] Power-up collect — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
+- [~] Boss appear warning siren — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
+- [~] Boss defeated — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
 - [~] Background music (tense, electronic, loopable) — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/LongTracks/`

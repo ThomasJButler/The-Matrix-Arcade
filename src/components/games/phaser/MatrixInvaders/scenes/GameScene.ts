@@ -46,6 +46,7 @@ export class MatrixInvadersGameScene extends BaseScene {
   private enemiesKilled = 0;
   private bulletTimeUses = 0;
   private waveDamageTaken = false;
+  private dangerWarningTriggered = false;
 
   private bulletTimeActive = false;
   private isGameOver = false;
@@ -361,6 +362,15 @@ export class MatrixInvadersGameScene extends BaseScene {
         enemy.sprite.y += GAME_CONFIG.ENEMY_DESCENT;
       }
     }
+
+    if (!this.dangerWarningTriggered) {
+      const dangerThreshold = GAME_CONFIG.HEIGHT * 0.6;
+      const inDanger = this.enemies.some(e => e.sprite.y > dangerThreshold);
+      if (inDanger) {
+        this.dangerWarningTriggered = true;
+        this.playSound(SOUND_KEYS.DANGER_WARNING);
+      }
+    }
   }
 
   private updateBoss(dt: number): void {
@@ -592,6 +602,7 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.boss = null;
     this.isBossWave = false;
 
+    this.playSound(SOUND_KEYS.BOSS_EXPLOSION);
     this.playSound(SOUND_KEYS.LEVEL_UP);
     this.tryUnlockAchievement(ACHIEVEMENTS.BOSS_DEFEAT);
   }
@@ -649,12 +660,15 @@ export class MatrixInvadersGameScene extends BaseScene {
 
   private spawnWave(): void {
     this.waveDamageTaken = false;
+    this.dangerWarningTriggered = false;
     this.enemyDirection = 1;
 
     if (this.wave % 5 === 0) {
       this.spawnBossWave();
       return;
     }
+
+    this.playSound(SOUND_KEYS.JACK_IN);
 
     for (let row = 0; row < GAME_CONFIG.WAVE_ROWS; row++) {
       for (let col = 0; col < GAME_CONFIG.WAVE_COLS; col++) {

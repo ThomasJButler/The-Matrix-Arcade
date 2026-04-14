@@ -63,11 +63,11 @@ Player (stick figure), 4 cloud types (ellipses), star/gem/coin collectibles, bir
 - [ ] Bounce streak counter
 
 ### Audio
-- [~] Jump / bounce sound — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
-- [~] Land on cloud — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
+- [x] Jump / bounce sound — covered by global SFX kit (sfx_power_surge.mp3) — R78.1
+- [x] Land on cloud — covered by global SFX kit (sfx_landing from original kit / sfx_hit_ground) — R78.1
 - [~] Cloud break / disappear — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
 - [~] Storm cloud damage — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
-- [~] Collectible pickup (3 variants for star/gem/coin) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
+- [x] Collectible pickup (3 variants for star/gem/coin) — covered by global SFX kit (sfx_blip.mp3, sfx_ammo_drop.mp3) — R78.1
 - [~] Bird/obstacle warning — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
 - [~] Player death fall — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
 - [~] Background music (airy, floating, electronic, loopable) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/LongTracks/

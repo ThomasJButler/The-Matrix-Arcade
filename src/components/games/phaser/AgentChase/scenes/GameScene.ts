@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS } from '../../../../../lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS } from '../../../../../lib/phaser/types';
 import { GAME_CONFIG, ACHIEVEMENTS, MAP_LAYOUTS, getLayoutForLevel, MapLayout } from '../config';
 
 /** Direction vectors */
@@ -163,6 +163,7 @@ export class AgentChaseGameScene extends BaseScene {
     this.setupCollisions();
 
     this.playBackgroundMusic('/assets/audio/music/boss-theme.mp3');
+    this.playSound(SOUND_KEYS.JACK_IN);
     this.startCountdown(5, () => {});
   }
 
@@ -517,7 +518,7 @@ export class AgentChaseGameScene extends BaseScene {
     dot.destroy();
     this.score += GAME_CONFIG.SCORING.DOT;
     this.dotsCollected++;
-    this.playSound('wakaWaka');
+    this.playSound(SOUND_KEYS.DOT_EAT);
 
     if (this.dotsCollected === 1) {
       this.unlockAchievement(ACHIEVEMENTS.FIRST_DOT);
@@ -746,6 +747,7 @@ export class AgentChaseGameScene extends BaseScene {
     }
 
     this.resetPositions();
+    this.playSound(SOUND_KEYS.JACK_IN);
   }
 
   private checkFruitSpawn(): void {
@@ -938,6 +940,7 @@ export class AgentChaseGameScene extends BaseScene {
         if (this.time.now >= agent.frightenedEndTime) {
           agent.state = this.scatterMode ? 'scatter' : 'chase';
           agent.setTexture(`agent_${agent.agentType}`);
+          this.playSound(SOUND_KEYS.ENEMY_ALERT);
         } else if (this.time.now >= agent.frightenedEndTime - GAME_CONFIG.AGENTS.FRIGHTENED_WARNING) {
           // Flash warning
           const flash = Math.floor((agent.frightenedEndTime - this.time.now) / 200) % 2 === 0;

@@ -322,7 +322,7 @@ describe('NeoJumpGameScene', () => {
       const platform = createMockPlatform('breakable');
       scene.handlePlatformCollision(platform);
 
-      expect(scene.playSound).toHaveBeenCalledWith('hit');
+      expect(scene.playSound).toHaveBeenCalledWith('platformBreak');
       expect(scene.tweens.add).toHaveBeenCalled();
     });
 
@@ -747,7 +747,7 @@ describe('NeoJumpGameScene', () => {
       const collectible = { collectibleType: 'fuel', destroy: vi.fn() };
       scene.handleCollectiblePickup(collectible);
 
-      expect(scene.playSound).toHaveBeenCalledWith('powerup');
+      expect(scene.playSound).toHaveBeenCalledWith('collectible');
     });
 
     it('destroys the collectible on pickup', () => {

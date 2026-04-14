@@ -63,9 +63,9 @@
 - [ ] Mode selector icons (Classic / Matrix / Hacker)
 
 ### Audio
-- [~] Eat food blip — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
-- [~] Power-up collect — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
-- [~] Death sound — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
+- [x] Eat food blip — covered by global SFX kit (sfx_blip.mp3) — R78.1
+- [x] Power-up collect — covered by global SFX kit (sfx_ammo_drop.mp3 / sfx_spoon_bend.mp3) — R78.1
+- [x] Death sound — covered by global SFX kit (sfx_power_down.mp3 / sfx_unplug.mp3) — R78.1
 - [~] Boss appear warning — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
 - [~] Boss defeated fanfare — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
 - [~] Level complete chime — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`

@@ -412,6 +412,7 @@ export class MetrisGameScene extends BaseScene {
       }
 
       if (linesCleared === 4) {
+        this.playSound(SOUND_KEYS.ACHIEVEMENT_UNLOCK);
         this.playSound(SOUND_KEYS.COMBO);
       } else {
         this.playSound(SOUND_KEYS.SCORE);
@@ -505,6 +506,7 @@ export class MetrisGameScene extends BaseScene {
     }
 
     this.cameras.main.shake(300, 0.01);
+    this.playSound(SOUND_KEYS.POWER_DOWN);
     this.time.delayedCall(600, () => {
       this.gameOver(this.score, 'Board filled', this.highScore, [
         { label: 'Level', value: this.level },
@@ -571,6 +573,7 @@ export class MetrisGameScene extends BaseScene {
     this.score += distance * C.HARD_DROP_POINTS_PER_CELL;
     this.currentPiece.y = ghostY;
     this.playSound(SOUND_KEYS.HIT);
+    this.playSound(SOUND_KEYS.KUNG_FU_HIT);
     this.lockCurrentPiece();
   }
 

@@ -555,7 +555,7 @@ describe('CodeBreakerGameScene', () => {
       (Phaser.Input.Keyboard as Record<string, unknown>).JustDown = vi.fn().mockReturnValue(true);
       scene.bulletTimeKey = { isDown: true };
       call(scene, 'handleBulletTime');
-      expect(scene.playSound).toHaveBeenCalledWith('powerup');
+      expect(scene.playSound).toHaveBeenCalledWith('specialAbility');
     });
 
     it('does not activate when already active', () => {
@@ -704,7 +704,7 @@ describe('CodeBreakerGameScene', () => {
 
     it('plays power-up sound on activation', () => {
       call(scene, 'activatePowerUp', 'multiBall');
-      expect(scene.playSound).toHaveBeenCalledWith('powerup');
+      expect(scene.playSound).toHaveBeenCalledWith('specialAbility');
     });
   });
 
