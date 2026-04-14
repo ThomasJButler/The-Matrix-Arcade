@@ -192,7 +192,7 @@ export class MetrisGameScene extends BaseScene {
   }
 
   private createHUD(): void {
-    const font = { fontFamily: "'Press Start 2P', monospace", fontSize: '8px', color: '#00ff00' };
+    const font = { fontFamily: "'Press Start 2P', monospace", fontSize: '8px', color: MATRIX_COLORS.PRIMARY_HEX };
     const valFont = { ...font, fontSize: '10px' };
 
     this.add.text(C.HOLD_X, C.HOLD_Y, 'HOLD [C]', font).setOrigin(0.5, 0);
@@ -206,11 +206,11 @@ export class MetrisGameScene extends BaseScene {
     this.comboText = this.add.text(C.HOLD_X, 295, '0', valFont).setOrigin(0.5, 0);
 
     this.meterLabel = this.add.text(C.HOLD_X, 330, 'BULLET TIME [B]', font).setOrigin(0.5, 0);
-    this.bulletTimeTimerText = this.add.text(C.HOLD_X, 370, '', { ...font, color: '#00ffff' }).setOrigin(0.5, 0);
+    this.bulletTimeTimerText = this.add.text(C.HOLD_X, 370, '', { ...font, color: MATRIX_COLORS.CYAN_HEX }).setOrigin(0.5, 0);
 
     this.add.text(C.NEXT_X, C.NEXT_Y, 'NEXT', font).setOrigin(0.5, 0);
     this.add.text(C.NEXT_X, 140, 'HIGH SCORE', font).setOrigin(0.5, 0);
-    this.highScoreText = this.add.text(C.NEXT_X, 158, String(this.highScore), { ...font, fontSize: '10px', color: '#ffff00' }).setOrigin(0.5, 0);
+    this.highScoreText = this.add.text(C.NEXT_X, 158, String(this.highScore), { ...font, fontSize: '10px', color: MATRIX_COLORS.YELLOW_HEX }).setOrigin(0.5, 0);
 
     const ctrlFont = { ...font, fontSize: '7px', color: '#005500' };
     const cx = C.NEXT_X;
@@ -914,7 +914,7 @@ export class MetrisGameScene extends BaseScene {
     g.strokeRect(barX, barY, barW, barH);
 
     const fillW = (this.bulletTimeMeter / C.BULLET_TIME_MAX_METER) * barW;
-    const fillColor = this.bulletTimeActive ? 0x00ffff : (this.bulletTimeMeter >= C.BULLET_TIME_MAX_METER ? 0xffff00 : 0x00ff00);
+    const fillColor = this.bulletTimeActive ? MATRIX_COLORS.CYAN : (this.bulletTimeMeter >= C.BULLET_TIME_MAX_METER ? MATRIX_COLORS.YELLOW : MATRIX_COLORS.PRIMARY);
     g.fillStyle(fillColor, 0.8);
     g.fillRect(barX + 1, barY + 1, fillW - 2, barH - 2);
   }
@@ -957,12 +957,12 @@ export class MetrisGameScene extends BaseScene {
     if (this.bulletTimeActive) {
       const remaining = Math.max(0, this.bulletTimeTimer / 1000);
       this.bulletTimeTimerText.setText(remaining.toFixed(1) + 's');
-      this.meterLabel.setColor('#00ffff');
+      this.meterLabel.setColor(MATRIX_COLORS.CYAN_HEX);
     } else {
       this.bulletTimeTimerText.setText(
         this.bulletTimeMeter >= C.BULLET_TIME_MAX_METER ? 'READY!' : '',
       );
-      this.meterLabel.setColor('#00ff00');
+      this.meterLabel.setColor(MATRIX_COLORS.PRIMARY_HEX);
     }
   }
 
