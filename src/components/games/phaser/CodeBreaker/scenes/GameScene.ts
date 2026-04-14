@@ -80,6 +80,13 @@ export class CodeBreakerGameScene extends BaseScene {
 
   create(): void {
     this.createMatrixBackground();
+    if (this.textures.exists('frame_bg')) {
+      const bg = this.add.image(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, 'frame_bg');
+      bg.setDisplaySize(GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT);
+      bg.setAlpha(0.15);
+      bg.setTint(0x00ff00);
+      bg.setDepth(-1);
+    }
     this.matrixRainGroup = this.addMatrixRain(8);
     this.resetState();
     this.createPaddle();

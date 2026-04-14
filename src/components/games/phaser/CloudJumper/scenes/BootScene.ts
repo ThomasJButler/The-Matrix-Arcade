@@ -19,6 +19,22 @@ const PLAYER_SPRITES = [
   { key: 'player_sprite_fall', path: 'assets/cloud-jumper/player-fall.png' },
 ];
 
+const COLLECTIBLE_SPRITES = [
+  { key: 'collectible_sprite_coin', path: 'assets/cloud-jumper/collectible-coin.png' },
+  { key: 'collectible_sprite_gem', path: 'assets/cloud-jumper/collectible-gem.png' },
+  { key: 'collectible_sprite_star', path: 'assets/cloud-jumper/collectible-star.png' },
+];
+
+const OBSTACLE_SPRITES = [
+  { key: 'obstacle_sprite_bird', path: 'assets/cloud-jumper/obstacle-bird.png' },
+  { key: 'obstacle_sprite_plane', path: 'assets/cloud-jumper/obstacle-plane.png' },
+];
+
+const BG_SPRITES = [
+  { key: 'bg_sprite_cloud1', path: 'assets/cloud-jumper/bg_cloud1.png' },
+  { key: 'bg_sprite_cloud2', path: 'assets/cloud-jumper/bg_cloud2.png' },
+];
+
 export class CloudJumperBootScene extends BootScene {
   constructor() {
     super({
@@ -35,6 +51,15 @@ export class CloudJumperBootScene extends BootScene {
     for (const { key, path } of PLAYER_SPRITES) {
       this.load.image(key, path);
     }
+    for (const { key, path } of COLLECTIBLE_SPRITES) {
+      this.load.image(key, path);
+    }
+    for (const { key, path } of OBSTACLE_SPRITES) {
+      this.load.image(key, path);
+    }
+    for (const { key, path } of BG_SPRITES) {
+      this.load.image(key, path);
+    }
   }
 
   create(): void {
@@ -44,13 +69,28 @@ export class CloudJumperBootScene extends BootScene {
     const playerSpritesLoaded = this.textures.exists('player_sprite_idle');
     this.game.registry.set('playerSpriteMode', playerSpritesLoaded);
 
+    const collectibleSpritesLoaded = this.textures.exists('collectible_sprite_coin');
+    this.game.registry.set('collectibleSpriteMode', collectibleSpritesLoaded);
+
+    const obstacleSpritesLoaded = this.textures.exists('obstacle_sprite_bird');
+    this.game.registry.set('obstacleSpriteMode', obstacleSpritesLoaded);
+
+    const bgSpritesLoaded = this.textures.exists('bg_sprite_cloud1');
+    this.game.registry.set('bgSpriteMode', bgSpritesLoaded);
+
     this.createPlayerTexture();
     if (!spritesLoaded) {
       this.createCloudTextures();
     }
-    this.createCollectibleTextures();
-    this.createObstacleTextures();
-    this.createBackgroundLayers();
+    if (!collectibleSpritesLoaded) {
+      this.createCollectibleTextures();
+    }
+    if (!obstacleSpritesLoaded) {
+      this.createObstacleTextures();
+    }
+    if (!bgSpritesLoaded) {
+      this.createBackgroundLayers();
+    }
 
     super.create();
   }

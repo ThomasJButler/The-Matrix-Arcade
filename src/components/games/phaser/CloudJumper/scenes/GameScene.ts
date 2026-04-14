@@ -185,21 +185,39 @@ export class CloudJumperGameScene extends BaseScene {
    */
   private createBackgrounds(): void {
     const { WIDTH, HEIGHT } = GAME_CONFIG;
+    const bgSpriteMode = this.game.registry.get('bgSpriteMode') === true;
 
-    // Far layer (slowest)
-    this.bgFar = this.add.tileSprite(WIDTH / 2, 75, WIDTH, 150, 'bg_far');
-    this.bgFar.setScrollFactor(0);
-    this.bgFar.setDepth(-3);
+    if (bgSpriteMode) {
+      this.bgFar = this.add.tileSprite(WIDTH / 2, 75, WIDTH, 176, 'bg_sprite_cloud1');
+      this.bgFar.setScrollFactor(0);
+      this.bgFar.setDepth(-3);
+      this.bgFar.setAlpha(0.3);
+      this.bgFar.setTint(0x00ff00);
 
-    // Mid layer
-    this.bgMid = this.add.tileSprite(WIDTH / 2, HEIGHT - 150, WIDTH, 100, 'bg_mid');
-    this.bgMid.setScrollFactor(0);
-    this.bgMid.setDepth(-2);
+      this.bgMid = this.add.tileSprite(WIDTH / 2, HEIGHT - 150, WIDTH, 176, 'bg_sprite_cloud2');
+      this.bgMid.setScrollFactor(0);
+      this.bgMid.setDepth(-2);
+      this.bgMid.setAlpha(0.4);
+      this.bgMid.setTint(0x00cc00);
 
-    // Near layer (fastest)
-    this.bgNear = this.add.tileSprite(WIDTH / 2, HEIGHT - 50, WIDTH, 60, 'bg_near');
-    this.bgNear.setScrollFactor(0);
-    this.bgNear.setDepth(-1);
+      this.bgNear = this.add.tileSprite(WIDTH / 2, HEIGHT - 50, WIDTH, 176, 'bg_sprite_cloud1');
+      this.bgNear.setScrollFactor(0);
+      this.bgNear.setDepth(-1);
+      this.bgNear.setAlpha(0.5);
+      this.bgNear.setTint(0x00aa00);
+    } else {
+      this.bgFar = this.add.tileSprite(WIDTH / 2, 75, WIDTH, 150, 'bg_far');
+      this.bgFar.setScrollFactor(0);
+      this.bgFar.setDepth(-3);
+
+      this.bgMid = this.add.tileSprite(WIDTH / 2, HEIGHT - 150, WIDTH, 100, 'bg_mid');
+      this.bgMid.setScrollFactor(0);
+      this.bgMid.setDepth(-2);
+
+      this.bgNear = this.add.tileSprite(WIDTH / 2, HEIGHT - 50, WIDTH, 60, 'bg_near');
+      this.bgNear.setScrollFactor(0);
+      this.bgNear.setDepth(-1);
+    }
   }
 
   /**
@@ -669,9 +687,18 @@ export class CloudJumperGameScene extends BaseScene {
   private spawnCollectible(x: number, y: number): void {
     const types = GAME_CONFIG.COLLECTIBLES.TYPES;
     const type = types[Phaser.Math.Between(0, types.length - 1)];
+    const collectibleSpriteMode = this.game.registry.get('collectibleSpriteMode') === true;
 
-    const item = this.collectibles.create(x, y, type) as Collectible;
+    const textureKey = collectibleSpriteMode
+      ? `collectible_sprite_${type}`
+      : type;
+
+    const item = this.collectibles.create(x, y, textureKey) as Collectible;
     item.collectType = type;
+    if (collectibleSpriteMode) {
+      item.setScale(1.5);
+      item.setTint(0x00ff00);
+    }
     item.setDepth(6);
 
     // Floating animation
@@ -696,10 +723,18 @@ export class CloudJumperGameScene extends BaseScene {
     const x = WIDTH + 50;
     const y = Phaser.Math.Between(50, HEIGHT - 100);
 
-    const obstacle = this.obstacles.create(x, y, type) as Obstacle;
+    const obstacleSpriteMode = this.game.registry.get('obstacleSpriteMode') === true;
+    const textureKey = obstacleSpriteMode
+      ? `obstacle_sprite_${type}`
+      : type;
+
+    const obstacle = this.obstacles.create(x, y, textureKey) as Obstacle;
     obstacle.obstacleType = type;
     obstacle.speed = Phaser.Math.Between(50, 150);
     obstacle.setDepth(8);
+    if (obstacleSpriteMode) {
+      obstacle.setTint(0xff3333);
+    }
 
     // Birds flap
     if (type === 'bird') {

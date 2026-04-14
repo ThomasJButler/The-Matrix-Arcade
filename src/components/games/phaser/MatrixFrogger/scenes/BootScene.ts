@@ -32,11 +32,28 @@ export class FroggerBootScene extends BootScene {
     for (const key of vehicleKeys) {
       this.load.image(key, `/assets/matrix-frogger/${key}.png`);
     }
+
+    // Load Neo player sprites (24x24 Cyberpunk pixel art)
+    this.load.image('neo_idle', '/assets/matrix-frogger/neo_idle.png');
+    this.load.image('neo_hop', '/assets/matrix-frogger/neo_hop.png');
+
+    // Load enemy sprites (64x64 robot pack — replaces procedural fallbacks)
+    this.load.image('enemy_agent', '/assets/matrix-frogger/agent_smith.png');
+    this.load.image('enemy_sentinel', '/assets/matrix-frogger/sentinel.png');
+
+    // Load power-up icons (hologram interface sprites)
+    this.load.image('powerup_icon_speed', '/assets/matrix-frogger/powerup_icon_speed.png');
+    this.load.image('powerup_icon_shield', '/assets/matrix-frogger/powerup_icon_shield.png');
+    this.load.image('powerup_icon_ghost', '/assets/matrix-frogger/powerup_icon_ghost.png');
+    this.load.image('powerup_icon_magnet', '/assets/matrix-frogger/powerup_icon_magnet.png');
   }
 
   create(): void {
     const frogSpritesLoaded = this.textures.exists('frog_idle') && this.textures.exists('frog_hop');
     this.game.registry.set('frogSpriteMode', frogSpritesLoaded);
+
+    const neoSpritesLoaded = this.textures.exists('neo_idle') && this.textures.exists('neo_hop');
+    this.game.registry.set('neoSpriteMode', neoSpritesLoaded);
 
     this.createPillTextures();
     this.createAbilityTextures();
