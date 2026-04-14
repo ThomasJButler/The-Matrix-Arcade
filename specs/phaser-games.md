@@ -118,7 +118,7 @@ These games replace the buggy React/Canvas implementations with proper Phaser 3 
 **Type**: Guitar Hero / rhythm game
 
 **Gameplay**:
-- 4 lanes (D, F, J, K keys)
+- 4 lanes (Q, W, O, P keys)
 - Notes fall from top, hit when they reach the line
 - Note types:
   - Normal: Single tap
@@ -134,7 +134,7 @@ These games replace the buggy React/Canvas implementations with proper Phaser 3 
 - Notes: Simple geometric shapes with glow effects
 
 **Controls**:
-- D, F, J, K: Hit notes in lanes 1-4
+- Q, W, O, P: Hit notes in lanes 1-4
 - P: Pause
 - M: Mute
 - ESC: Exit

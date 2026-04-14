@@ -9,9 +9,9 @@ test.describe('Rhythm Hacker', () => {
       hooks: {
         // Track-select screen → Enter to confirm → 5s countdown.
         beginPlay: async (p) => { await p.keyboard.press('Enter'); await p.waitForTimeout(500); await p.keyboard.press('Enter'); await p.waitForTimeout(5500); },
-        firstAction: async (p) => { await p.keyboard.press('d'); await p.waitForTimeout(150); },
+        firstAction: async (p) => { await p.keyboard.press('q'); await p.waitForTimeout(150); },
         scoreLoop: async (p) => {
-          for (const k of ['d', 'f', 'j', 'k']) {
+          for (const k of ['q', 'w', 'o', 'p']) {
             await p.keyboard.press(k);
             await p.waitForTimeout(180);
           }
