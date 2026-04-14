@@ -163,6 +163,9 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose 
 
           {/* Panel */}
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="inventory-panel-title"
             initial={{ x: -320 }}
             animate={{ x: 0 }}
             exit={{ x: -320 }}
@@ -173,13 +176,14 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose 
             <div className="bg-green-900/20 border-b border-green-500/50 p-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Package className="w-6 h-6 text-green-400" />
-                <h2 className="text-xl font-mono text-green-400 uppercase tracking-wider">
+                <h2 id="inventory-panel-title" className="text-xl font-mono text-green-400 uppercase tracking-wider">
                   Inventory
                 </h2>
               </div>
               <button
                 onClick={onClose}
                 className="p-1 hover:bg-red-900/50 rounded transition-colors text-red-400"
+                aria-label="Close inventory"
               >
                 <X className="w-6 h-6" />
               </button>

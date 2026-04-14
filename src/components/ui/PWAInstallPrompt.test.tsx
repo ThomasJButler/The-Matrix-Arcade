@@ -421,4 +421,23 @@ describe('PWAInstallPrompt', () => {
       expect(card).toBeTruthy();
     });
   });
+
+  describe('Accessibility', () => {
+    it('dismiss button has aria-label', () => {
+      render(<PWAInstallPrompt />);
+      const mockEvent = new Event('beforeinstallprompt');
+      Object.assign(mockEvent, {
+        preventDefault: vi.fn(),
+        prompt: vi.fn(),
+        userChoice: Promise.resolve({ outcome: 'dismissed' }),
+      });
+      act(() => {
+        eventListeners['beforeinstallprompt']?.(mockEvent);
+      });
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      expect(screen.getByRole('button', { name: 'Dismiss install prompt' })).toBeInTheDocument();
+    });
+  });
 });

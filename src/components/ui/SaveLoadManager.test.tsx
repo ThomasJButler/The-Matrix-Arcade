@@ -382,6 +382,26 @@ describe('SaveLoadManager', () => {
       expect(screen.getByTestId('settings-icon')).toBeInTheDocument();
     });
   });
+
+  describe('Accessibility', () => {
+    it('has role="dialog" and aria-modal on the modal wrapper', () => {
+      render(<SaveLoadManager {...defaultProps} />);
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toHaveAttribute('aria-modal', 'true');
+      expect(dialog).toHaveAttribute('aria-labelledby', 'save-data-manager-title');
+    });
+
+    it('close button has aria-label', () => {
+      render(<SaveLoadManager {...defaultProps} />);
+      expect(screen.getByRole('button', { name: 'Close save data manager' })).toBeInTheDocument();
+    });
+
+    it('heading has matching id for aria-labelledby', () => {
+      render(<SaveLoadManager {...defaultProps} />);
+      const heading = screen.getByText('SAVE DATA MANAGER');
+      expect(heading).toHaveAttribute('id', 'save-data-manager-title');
+    });
+  });
 });
 
 describe('SaveLoadManager - Loading State', () => {
