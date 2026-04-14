@@ -41,7 +41,7 @@ export class RhythmHackerMenuScene extends BaseScene {
 
     // Controls info
     this.createMatrixText(WIDTH / 2, HEIGHT - 100, 'Select difficulty and press ENTER to start', 12);
-    this.createMatrixText(WIDTH / 2, HEIGHT - 70, 'ESC: Exit  P: Pause  M: Mute', 10, MATRIX_COLORS.DARK_GREEN_HEX);
+    this.createMatrixText(WIDTH / 2, HEIGHT - 70, 'ESC: Exit  P: Pause  M: Mute', 10, MATRIX_COLORS.PRIMARY_HEX).setAlpha(0.3);
 
     // Keyboard input
     this.setupInput();
