@@ -240,7 +240,7 @@ For each game, the pipeline is:
   - [x] ~~Focus traps on modals~~ RESOLVED (R64) — new `useFocusTrap` hook applied to all 5 modals (GameOverModal, AchievementDisplay, PuzzleModal, SentientAIModal, CharacterConversationModal). Added `role="dialog"`, `aria-modal="true"`, `aria-labelledby`, Escape-to-close, Tab cycling, and focus restoration.
   - [ ] CTRL-S World `aria-live` on story text (will be addressed by Phase 7 rewrite)
   - [x] ~~Form input labels~~ RESOLVED (R78.8) — added `id`/`htmlFor` pairs to 13 inputs across AudioSettings, ShatnerVoiceControls, AdvancedVoiceControls, PuzzleModal, Scoreboard; added `aria-label` to AchievementDisplay search. CTRL-S World inputs deferred to Phase 7.
-- [ ] **Rhythm Hacker BPM tuning** — current values are estimates; tune per track after playtesting
+- [x] ~~**Rhythm Hacker BPM tuning**~~ RESOLVED (R78.9) — Resonance corrected from 150→110 BPM (FL Studio confirmed), Cyberpunkin' from 120→118 (algorithmic consensus). All 5 track durations corrected to match actual audio lengths. Cyberpsychotic (140) and Enhancements (160) left for manual playtest verification.
 - [x] ~~**`useAdvancedVoice` AudioContext** — never connected to speech output (always returns zeros). Either wire it up or delete the dead path.~~ RESOLVED (R64) — removed dead AudioContext, replaced with synthetic visualisation.
 
 #### Phase 6 — Playwright E2E residue (from R50 bulk-up)
@@ -248,20 +248,20 @@ For each game, the pipeline is:
 Baselines are committed as macOS `*-chromium-darwin.png`. Carried forward from [`PLAYWRIGHT_BULKUP.md`](PLAYWRIGHT_BULKUP.md):
 
 - [ ] **Docker baseline regen for CI parity** — run `docker compose -f docker-compose.playwright.yml run --rm e2e-tests npx playwright test --update-snapshots` and commit `*-chromium-linux.png` alongside the darwin ones so CI matches local.
-- [ ] **Multi-viewport matrix** — currently single 1280x800. Add mobile (e.g. 375x667) and tablet (e.g. 768x1024) projects to `playwright.config.ts` if we want responsive coverage.
+- [x] ~~**Multi-viewport matrix**~~ RESOLVED (R78.7) — added mobile (375×667) + tablet (768×1024) projects. Both hit the "DESKTOP REQUIRED" gate; dedicated responsive spec covers this.
 - [x] ~~**Per-game keyboard-only a11y playthroughs**~~ — done R58.
 - [x] ~~**Performance budgets**~~ — done R58.
-- [ ] **Flaky specs under full-suite parallelism** — `e2e/visual/landing.spec.ts:40` shows 1px height drift. `code-breaker`, `matrix-invaders`, `cloud-jumper` playthroughs occasionally time out under heavy parallel load. Root cause is dev-server contention under 5 workers.
+- [x] ~~**Flaky specs under full-suite parallelism**~~ RESOLVED (R78.10) — capped local workers at 4, increased game-over race timeout to 20s, bumped slow-game test timeouts to 90s, added focus-ring settle wait for landing card screenshot.
 
 ### Playtest Verification (from `rebuildingoldgames/bugs.md`)
 
-Items the user re-flagged after the R50 playtest. R54 code audit confirms most are working correctly — but live browser verification is blocked by the P0 keyboard bug.
+Items the user re-flagged after the R50 playtest. R54 code audit confirms most are working correctly. P0 keyboard bug was fixed in R72 (cursor guards + waitForKeyboard retry).
 
-- [ ] **Metris**: `B` bullet-time key — code-verified R54. **Needs live browser verification after P0 fix.**
-- [ ] **Matrix Cloud combo bug** — code-verified R54. **Needs live browser verification after P0 fix.**
-- [ ] **High Scores panel** — automated R58 via modals.spec.ts. **Still needs user clarification on what the original "broken" report meant.**
-- [ ] **Achievements panel redesign** — automated R58. **Still needs user input on specific desired changes.**
-- [ ] **Game card portal sizing** — code-verified R54. **P3 — cosmetic, defer until P0 is fixed.**
+- [ ] **Metris**: `B` bullet-time key — code-verified R54. **Needs live browser verification.**
+- [ ] **Matrix Cloud combo bug** — code-verified R54. **Needs live browser verification.**
+- [ ] **High Scores panel** — automated R58 via modals.spec.ts. **Needs user clarification on what the original "broken" report meant.**
+- [ ] **Achievements panel redesign** — automated R58. **Needs user input on specific desired changes.**
+- [ ] **Game card portal sizing** — code-verified R54. **P3 — cosmetic.**
 
 ---
 
