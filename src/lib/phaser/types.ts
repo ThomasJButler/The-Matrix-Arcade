@@ -75,6 +75,11 @@ export const SCENE_KEYS = {
   UI: 'UIScene',
 } as const;
 
+/** Matrix theme font families for Phaser text objects */
+export const MATRIX_FONTS = {
+  PRIMARY: '"Press Start 2P", monospace',
+} as const;
+
 /** Matrix theme colours */
 export const MATRIX_COLORS = {
   PRIMARY: 0x00ff00,

@@ -1,5 +1,5 @@
 import { BaseScene } from '@/lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '@/lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, MATRIX_FONTS, SOUND_KEYS, REGISTRY_KEYS } from '@/lib/phaser/types';
 import {
   GAME_CONFIG as C,
   ACHIEVEMENTS,
@@ -192,7 +192,7 @@ export class MetrisGameScene extends BaseScene {
   }
 
   private createHUD(): void {
-    const font = { fontFamily: "'Press Start 2P', monospace", fontSize: '8px', color: MATRIX_COLORS.PRIMARY_HEX };
+    const font = { fontFamily: MATRIX_FONTS.PRIMARY, fontSize: '8px', color: MATRIX_COLORS.PRIMARY_HEX };
     const valFont = { ...font, fontSize: '10px' };
 
     this.add.text(C.HOLD_X, C.HOLD_Y, 'HOLD [C]', font).setOrigin(0.5, 0);

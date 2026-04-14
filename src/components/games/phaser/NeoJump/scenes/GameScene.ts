@@ -11,7 +11,7 @@
 
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '../../../../../lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, MATRIX_FONTS, SOUND_KEYS, REGISTRY_KEYS } from '../../../../../lib/phaser/types';
 import { GAME_CONFIG, ACHIEVEMENTS } from '../config';
 
 /** Platform types */
@@ -377,7 +377,7 @@ export class NeoJumpGameScene extends BaseScene {
   private createUI(): void {
     // Altitude display
     this.altitudeText = this.add.text(10, 10, 'ALTITUDE: 0m', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '12px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
@@ -386,7 +386,7 @@ export class NeoJumpGameScene extends BaseScene {
 
     // Score display
     this.scoreText = this.add.text(10, 28, 'SCORE: 0', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '10px',
       color: MATRIX_COLORS.CYAN_HEX,
     });
@@ -407,7 +407,7 @@ export class NeoJumpGameScene extends BaseScene {
 
     // Fuel label
     this.fuelLabel = this.add.text(GAME_CONFIG.WIDTH - 110, 28, 'JETPACK', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '8px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
@@ -1183,7 +1183,7 @@ export class NeoJumpGameScene extends BaseScene {
     // Shield HUD indicator
     if (!this.shieldText) {
       this.shieldText = this.add.text(10, 44, '', {
-        fontFamily: '"Press Start 2P", monospace',
+        fontFamily: MATRIX_FONTS.PRIMARY,
         fontSize: '8px',
         color: '#ff00ff',
       });

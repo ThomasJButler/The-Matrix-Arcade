@@ -14,6 +14,7 @@ import {
   REGISTRY_KEYS,
   SCENE_KEYS,
   MATRIX_COLORS,
+  MATRIX_FONTS,
   type GameEvent,
   type GameOverStat,
 } from '../types';
@@ -161,7 +162,7 @@ export abstract class BaseScene extends Phaser.Scene {
 
     // PAUSED text
     this.pauseOverlayText = this.add.text(width / 2, height / 2 - 20, 'PAUSED', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '32px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
@@ -170,7 +171,7 @@ export abstract class BaseScene extends Phaser.Scene {
 
     // Hint text
     this.pauseOverlayHint = this.add.text(width / 2, height / 2 + 30, 'Press P to resume', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '12px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
@@ -208,7 +209,7 @@ export abstract class BaseScene extends Phaser.Scene {
     const height = Number(this.game.config.height);
 
     this.countdownText = this.add.text(width / 2, height / 2, String(this.countdownValue), {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '64px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
@@ -432,7 +433,7 @@ export abstract class BaseScene extends Phaser.Scene {
     color = MATRIX_COLORS.PRIMARY_HEX
   ): Phaser.GameObjects.Text {
     const textObj = this.add.text(x, y, text, {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: `${fontSize}px`,
       color,
       align: 'center',

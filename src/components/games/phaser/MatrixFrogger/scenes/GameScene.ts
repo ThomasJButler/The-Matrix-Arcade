@@ -13,7 +13,7 @@
 
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '../../../../../lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, MATRIX_FONTS, SOUND_KEYS, REGISTRY_KEYS } from '../../../../../lib/phaser/types';
 import { GAME_CONFIG, ACHIEVEMENTS } from '../config';
 
 /** Enemy sprite with movement data */
@@ -318,7 +318,7 @@ export class FroggerGameScene extends BaseScene {
     }
 
     const labelStyle = {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '8px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     };
@@ -463,7 +463,7 @@ export class FroggerGameScene extends BaseScene {
   private createUI(): void {
     // Score
     this.scoreText = this.add.text(10, 10, 'SCORE: 0', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '14px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
@@ -471,7 +471,7 @@ export class FroggerGameScene extends BaseScene {
 
     // Distance
     this.distanceText = this.add.text(10, 35, 'DISTANCE: 0', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '12px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
@@ -479,7 +479,7 @@ export class FroggerGameScene extends BaseScene {
 
     // Level
     this.levelText = this.add.text(GAME_CONFIG.WIDTH - 10, 35, 'LEVEL: 1', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '12px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
@@ -488,7 +488,7 @@ export class FroggerGameScene extends BaseScene {
 
     // Combo
     this.comboText = this.add.text(10, 55, '', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '10px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
@@ -509,7 +509,7 @@ export class FroggerGameScene extends BaseScene {
 
     // Label
     const label = this.add.text(baseX, baseY - 14, 'KUNG FU [K]', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '7px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
@@ -1204,7 +1204,7 @@ export class FroggerGameScene extends BaseScene {
       GAME_CONFIG.HEIGHT / 2,
       `LEVEL ${this.level}`,
       {
-        fontFamily: '"Press Start 2P", monospace',
+        fontFamily: MATRIX_FONTS.PRIMARY,
         fontSize: '32px',
         color: MATRIX_COLORS.CYAN_HEX,
       }

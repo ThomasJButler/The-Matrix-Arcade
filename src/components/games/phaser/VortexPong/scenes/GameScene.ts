@@ -8,7 +8,7 @@
 
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '../../../../../lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, MATRIX_FONTS, SOUND_KEYS, REGISTRY_KEYS } from '../../../../../lib/phaser/types';
 import {
   GAME_CONFIG,
   ACHIEVEMENTS,
@@ -793,7 +793,7 @@ export class VortexPongGameScene extends BaseScene {
         GAME_CONFIG.HEIGHT - 20 - idx * 18,
         def.label,
         {
-          fontFamily: '"Press Start 2P", monospace',
+          fontFamily: MATRIX_FONTS.PRIMARY,
           fontSize: '10px',
           color: `#${def.color.toString(16).padStart(6, '0')}`,
         },

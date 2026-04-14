@@ -23,6 +23,7 @@ export {
   REGISTRY_KEYS,
   SCENE_KEYS,
   MATRIX_COLORS,
+  MATRIX_FONTS,
   SOUND_KEYS,
   type AchievementManager,
   type PhaserGameProps,
