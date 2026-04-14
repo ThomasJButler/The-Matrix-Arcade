@@ -5,9 +5,9 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: R77 COMPLETE — retro scoreboard shipped.
+## Status: R78 open — Phase 0b per-game asset deployment + Phase 6 infrastructure polish (R76 + R77 archived)
 
-> **Last change**: R76 (2026-04-14) — planning-only session. Tom completed full hands-on playtest in live browser ("Brilliant implementation so far, well done!"). R75 P1 cursor-guard work is now playtest-confirmed resolved. New findings logged below as `R76 Playtest Findings` — these supersede R75's open items in priority. Ralph Loop Strategy rewritten as an **overnight autonomous protocol** with a defined terminator condition (see bottom of file). Intended outcome: single unattended loop closes all R76 items before morning.
+> **Last change (R78 planning, 2026-04-15)**: R77 retro-arcade scoreboard shipped overnight (`519edeb`, 10 iterations). R76 + R77 closed task bodies + completion reports moved to `COMPLETED_WORK.md § R76` and `§ R77`. Stale RESOLVED residue (R62-R75 duplicate items) also archived. Live plan slimmed from 991 → 551 lines. New phase R78 = **Phase 0b Asset Deployment + Phase 6 Infrastructure Polish** combined. Terminator: `R78 COMPLETE — assets + infra shipped`. CTRL-S remains fenced off for its own dedicated window (future phase).
 >
 > **R76 root-cause findings from pre-plan investigation**:
 > - **`autoStart={true}` hard-coded at `src/App.tsx:595,644`** — the one-line root cause of "no start menu on launch" across every game. Flipping to `false` unlocks MenuScene for all 12 games.
@@ -92,381 +92,52 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ## Open Work
 
----
+> **R76 + R77 fully shipped and archived.** See [`COMPLETED_WORK.md § R76`](COMPLETED_WORK.md#r76--final-polish-phase) and [`COMPLETED_WORK.md § R77`](COMPLETED_WORK.md#r77--retro-arcade-scoreboard). All R62–R75 resolved items also archived in the same doc.
 
-## R76 Playtest Findings (NEW — HIGH PRIORITY)
+### Tests + Gates Status (Post-R77)
 
-These are the items surfaced by Tom's hands-on playtest (2026-04-14). Every item has: severity, file paths, proposed fix, and acceptance criteria. Ralph's overnight loop walks this list top-to-bottom. Global items first; per-game second. **All R75 P1/P2 items are now either resolved in live browser or folded into `R75 P2 Cleanup Batch` below.**
-
-### R76 — Closed Items
-
-R76 work (G1–G9, PG1–PG22, E1–E2, R76.8, PG9, PG13) archived — see [COMPLETED_WORK.md § R76](COMPLETED_WORK.md#r76--final-polish-phase).
-
-#### ~~R76.7 — [P2] Archive completed R76 work~~ RESOLVED (R76.9)
-- [x] (R76.9) Moved all closed R76 task bodies and completion report to COMPLETED_WORK.md.
+- Unit tests: 1,855 / 1,855 pass
+- E2E: 69+ specs (R76 64 + R77 5) all pass
+- TypeScript: clean
+- Lint: clean on all changed files (20 pre-existing react-hooks warnings remain)
+- PWA + build: green
 
 ---
 
-## R77 — Retro Arcade Scoreboard (NEW — follows R76 closure)
-
-> **Tom's call (2026-04-14, post-R76.5)**: "The high scores are what we need — like an old school retro arcade scoreboard with tabs for each game. Matrix of course 😉"
-
-Achievements system stays UNTOUCHED this phase. This adds a new classic-arcade scoreboard surface on top of the existing high-score persistence.
-
-### R77 Design Decisions (locked in by Tom)
-
-| Decision | Choice |
-|----------|--------|
-| Access | **BOTH** — `[HIGH SCORES]` button in landing header **AND** attract-mode cycle when landing is idle ≥10s |
-| Entry | **3-letter initials**, arcade style: arrow keys cycle A–Z, ENTER confirms |
-| Depth | **Top 25** per game |
-| Fields | `rank, initials, score, level, duration, date` |
-| Flair | **All 4**: flashing 1UP-style highlight on own scores, CRT scanline filter, chip-tune SFX, per-tab reset with confirm |
-| Aesthetic | **Matrix** — `#00ff00` primary, monospace, matrix-rain accent, scanline CRT (default ON) |
-| CTRL-S | **Excluded** — story game, no score board. Scoreboard has **11 tabs**, not 12. |
-
-### Data Model — extend `src/store/gameStore.ts`
-
-```typescript
-interface ScoreEntry {
-  initials: string;       // 3 chars [A-Z]
-  score: number;
-  level: number;
-  durationMs: number;
-  date: string;           // ISO
-}
-
-interface ScoreboardState {
-  boards: Record<PhaserGameId, ScoreEntry[]>;   // top 25, sorted desc
-  lastInitials: string;
-  addScore(gameId: PhaserGameId, entry: ScoreEntry): { qualified: boolean; rank: number | null };
-  clearBoard(gameId: PhaserGameId): void;
-}
-```
-
-- `addScore` returns whether the entry made top-25 and its rank. Games use it to decide whether to show the initials-entry prompt.
-- **Migration**: on first mount after R77.1, migrate legacy single `highScores[game]` into `boards[game][0]` so nothing is lost.
-- **Persist** via existing Zustand persist middleware — no new storage layer.
-
-### Per-Game `level` field source
-
-| Game | level field |
-|------|-------------|
-| Snake Classic | snake length at death |
-| Vortex Pong | player goals scored |
-| Matrix Cloud | pipes passed |
-| Matrix Invaders | wave number |
-| Metris | config-driven level |
-| Matrix Frogger | lanes crossed (total rows advanced) |
-| Neo Jump | `Math.floor(maxHeight / 500)` |
-| Agent Chase | dots collected |
-| Rhythm Hacker | track number + streak tier |
-| Cloud Jumper | clouds reached |
-| Code Breaker | stage from config |
-
-**Duration**: every game emits `Date.now() - gameStartedAt` on game-over. Start anchor = end of `BaseScene.startCountdown()` callback (landed R76.5).
-
-### R77 Task List
-
-#### R77.1 — [P1] Extend gameStore with scoreboard slice ✅ RESOLVED
-- [x] Added `ScoreEntry`, `ScoreboardGameId`, `SCOREBOARD_GAME_IDS`, `MAX_BOARD_SIZE` types/constants to `src/hooks/useSaveSystem.ts`. Added `scoreboards` (Record<ScoreboardGameId, ScoreEntry[]>), `lastInitials` to `GlobalSaveData`. Added `addScore(gameId, entry)` → `{ qualified, rank }` and `clearBoard(gameId)` methods. Migration 1.2.0 → 1.3.0 seeds boards from legacy `highScore` values. 68 unit tests pass (including: empty board add, 26th entry evicts 25th, legacy migration preserves historical high score as rank 1).
-
-#### R77.2 — [P1] Build Scoreboard modal + ScoreTable components ✅ RESOLVED
-- [x] `src/components/scoreboard/Scoreboard.tsx` — 11 tabs (horizontal scroll), Matrix rain background 30% opacity, CRT scanline overlay (8% opacity, mix-blend-mode overlay), useFocusTrap, AnimatePresence animations.
-- [x] `src/components/scoreboard/ScoreTable.tsx` — 25 rows, columns `# NAME SCORE LVL TIME DATE`, 1UP blink + green pulse for own-score rows, empty-state message.
-- [x] CSS animations added to `src/styles/animations.css` (score-highlight-pulse, score-1up-blink) with prefers-reduced-motion support.
-
-#### R77.3 — [P1] Wire [HIGH SCORES] button into landing header ✅ RESOLVED
-- [x] Trophy button added to portal header in `src/App.tsx` (between About and Save buttons) and landing page header in `src/components/LandingPage.tsx` (before Keyboard controls). ESC key closes modal. Tested in browser: click → modal opens → tab switching works → ESC dismisses.
-
-#### R77.4 — [P1] Build HighScoreEntry Phaser scene + wire into all 11 GameOverScenes ✅ RESOLVED
-- [x] `src/lib/phaser/scenes/HighScoreEntryScene.ts` — 3 letter slots, arrow/WASD input, reads `lastInitials` from save system, `exposeTestState()`. On confirm: builds `ScoreEntry`, calls `saveSystem.addScore()`, transitions to GameOverScene.
-- [x] `BaseScene.gameOver()` extended with `level?` and `durationMs?` params. Qualification check reads board from save system, routes to HighScoreEntryScene if score qualifies for top-25. `gameStartTime` set in `startCountdown()` callback; `getGameDuration()` helper added.
-- [x] All 11 game `config.ts` files register HighScoreEntryScene. All 11 `GameScene.ts` files pass `level` and `durationMs` to `gameOver()`. RhythmHacker sets `gameStartTime` in `create()` (no countdown).
-- [x] All 1855 unit tests pass. **Excludes CTRL-S** — per guardrail.
-
-#### R77.5 — [P2] Add 4 procedural SFX to useSoundSystem ✅ RESOLVED
-- [x] Added `scoreboardTab` (200Hz square, 60ms blip), `scoreboardNewHigh` (rising triangle fanfare, 600ms + reverb), `scoreboardLetterCycle` (660Hz square tick, 40ms), `scoreboardConfirm` (523→784Hz triangle, 180ms) to `SOUND_LIBRARY`.
-- [x] Wired: Scoreboard tab switch plays `scoreboardTab` via `playSound` prop. HighScoreEntryScene plays `scoreboardNewHigh` on create, `scoreboardLetterCycle` on cycle/move, `scoreboardConfirm` on confirm. All purely procedural — no audio files.
-- [ ] Hook into `HighScoreEntry` (cycle + confirm) and `Scoreboard` (tab change + new-high fanfare).
-
-#### R77.6 — [P2] Attract mode on landing idle ✅ RESOLVED
-- [x] `src/components/scoreboard/AttractMode.tsx` — 10s idle timer, cycles through 11 games showing title + top 5 scores, 5s per game. Matrix rain + CRT scanline overlay. "INSERT COIN TO CONTINUE" pulse. Any pointer/key/touch event dismisses. Enabled only on landing page (disabled during gameplay, when scoreboard open). AnimatePresence transitions between games.
-
-#### R77.7 — [P2] Per-tab [RESET] with WIPE confirm friction ✅ RESOLVED
-- [x] RESET button bottom-right in Scoreboard footer. Click → inline "Type WIPE to confirm" input + CONFIRM/CANCEL buttons. On match, calls `clearBoard(gameId)`. Tab switching resets wipe state. Built into `Scoreboard.tsx`.
-
-#### R77.8 — [P2] 1UP-style own-score highlight ✅ RESOLVED
-- [x] CSS `score-highlight` class (1s green pulse) on rows where `initials === lastInitials`. Blinking `1UP` glyph (0.6s step blink) next to rank number. Both in `ScoreTable.tsx` + `animations.css`.
-
-#### R77.9 — [P2] E2E scoreboard spec ✅ RESOLVED
-- [x] `e2e/playthrough/scoreboard.spec.ts` — 5 tests: open from landing (11 tabs visible), ESC closes, seeded score data shows correct rows, open from portal, attract mode fires after idle + keypress dismisses. Uses localStorage seeding for deterministic data.
-
-#### R77.10 — [P1] Final verification + terminator ✅ RESOLVED
-- [x] All 1855 unit tests pass, typecheck clean, lint clean on all new/modified files. Browser-verified: scoreboard opens from landing + portal, 11 tabs switch correctly, ESC closes, attract mode fires after idle. Status line updated.
-
-### Terminator condition update
-
-The loop terminator now matches **either** R76 **or** R77 completion:
-- `R77 COMPLETE — retro scoreboard shipped` (primary, expected overnight outcome), OR
-- `R76 COMPLETE — final polish achieved` (fallback if R77 is deferred).
-
-`loop.sh:66-74` grep already matches both — no shell change needed.
-
----
-
-## CTRL-S Guardrail (applies to ALL R76.x and R77.x tasks)
-
-> **Tom's call (2026-04-14)**: "Leave the CTRL-S enhancements to the end as this is the flagship and genuinely needs its own window."
-
-**Ralph MUST NOT** touch anything under `src/components/games/ctrl-s/`, `src/components/games/CTRLSWorld.tsx`, or any CTRL-S story/save/achievement code during R76.x or R77.x iterations.
-
-**Specifically excluded from this overnight run**:
-- Phase 7 CTRL-S rewrite — already deferred, stays deferred.
-- CTRL-S pause/resume (works fine per playtest) — excluded from R76.8 audit.
-- R77.4 scoreboard hooks — **11 Phaser games only**. CTRL-S has no score board and no tab.
-- Achievement system in CTRL-S — 100% intact.
-
-**If a task seems to need CTRL-S changes**: tag the sub-task `DEFERRED-CTRLS-DEDICATED-PHASE`, continue to next task, do NOT mark `BLOCKED`. This is an intentional exclusion.
-
-**R78 (future, not now)**: dedicated CTRL-S window with fresh design input from Tom.
-
----
-
-### ~~P1 — Over-Broad update() Guards Freeze Game Logic (R73)~~ RESOLVED R76 (playtest-confirmed)
-
-Tom's 2026-04-14 playtest confirms: "Brilliant implementation so far, well done! We've made stellar progress, and it's just about tweaking now and getting the final gameplay on point." All controls respond in live browser across all 12 games. The R75 narrow-guard work shipped successfully.
-
-
-### ~~P0 — Unguarded Cursor Access in 3 Phaser Games~~ RESOLVED (R72)
-
-R72 added `if (!this.cursors) return;` guard after the `isPaused` check in MatrixFrogger, NeoJump, and AgentChase `update()` methods. Also refactored `BaseScene.waitForKeyboard` to take a per-callback `retries` parameter instead of using the shared `keyboardRetryCount` instance field, restoring the full 10-retry budget per callback. Lint, typecheck, and 1838/1838 unit tests all pass. **Superseded by R73 P1 (guards too broad) — see above.**
-
-
-### ~~P1 — VortexPong Controls Delayed Response~~ RESOLVED (R72)
-
-R72 added `if (!this.upKey || !this.downKey) return;` after the `isPaused` check in VortexPong's `update()`. Silent unresponsiveness is now a visibly brief waiting state, matching the other three games' behaviour.
-
-### P2 — E2E Tests Bypass MenuScene (NEW R75)
-
-All 12 playthrough E2E tests use `autoStart=true`, which skips `MenuScene` entirely. This means the user-reported "press ENTER to start doesn't work" bug is NOT caught by any test. After the P1 guard fix, add at least one E2E spec (or a parametrised test across all Phaser games) that tests the full `MenuScene → ENTER → GameScene` flow with `autoStart=false`.
-
-**How to test**: Navigate to a Phaser game via the portal, ensure MenuScene renders with title + "Press ENTER to start" text, press Enter, verify GameScene starts and controls respond.
-
-**Files**: `e2e/playthrough/` — add a new spec or extend an existing one.
-
-### P2 — Dead Cleanup Code in useSoundSystem (NEW R69)
-
-`useSoundSystem.ts:806-811` contains a `return () => { ... }` inside a `useCallback`. The return value of `useCallback` is ignored by React — this cleanup function is never called. It appears to be a copy-paste artefact from a `useEffect`. Either move the cleanup logic into a `useEffect` or remove the dead code.
-
-**File**: `src/hooks/useSoundSystem.ts:806-811`
-
-### P2 — Metris W Key Dead Code (NEW R73)
-
-`wKey` is declared at `Metris/scenes/GameScene.ts:80`, bound at line 228, but never read anywhere in `handleInput()` or any other method. The W key does nothing in Metris. Following WASD convention (W=up=rotate CW), it should map to clockwise rotation (same as UP arrow). Currently UP rotates CW, X rotates CW, Z/SHIFT rotate CCW — W should join the CW group.
-
-**File**: `src/components/games/phaser/Metris/scenes/GameScene.ts` — add `this.wKey?.isDown` check alongside `this.upKey?.isDown` for CW rotation.
-
-### P2 — Control Hints Nearly Invisible (NEW R73)
-
-`MenuScene.ts:55-61` renders "ESC: Exit  P: Pause  M: Mute" using `MATRIX_COLORS.DARK_GREEN_HEX` (#003300) — a colour almost indistinguishable from the #000000 background. Users who need to discover exit/pause/mute controls cannot read this text. Change to a mid-green with reduced alpha (e.g. `MATRIX_COLORS.PRIMARY_HEX` at `setAlpha(0.3)`).
-
-**File**: `src/lib/phaser/scenes/MenuScene.ts:55-61`
-
-### ~~P2 — Unguarded console.warn/error in Production~~ RESOLVED (R70 — already guarded)
-
-R69 reported 6 unguarded `console.warn`/`console.error` calls. **R70 code verification confirms all 6 are already properly wrapped in `if (import.meta.env.DEV)` guards.** The R69 report was incorrect. Specifically:
-- `useSoundSystem.ts` lines 541, 610, 678 — all guarded
-- `useShatnerVoice.ts` line 218 — guarded
-- `useAdvancedVoice.ts` line 338 — guarded
-- `useLifelineManager.ts` line 80 — guarded
-
----
-
-### ~~P0 — Keyboard Input Race Condition~~ PARTIALLY RESOLVED (R62, re-opened R69)
-
-**User report**: "Phaser games freeze when pressing Enter to start and controls don't work." Legacy games work fine.
-
-**Root cause analysis** (R59 deep investigation, R61 expanded — 7 contributing factors identified):
-
-#### Factor 1: Keyboard setup deferred 100ms when `input.keyboard` is null (CRITICAL)
-Every scene's `setupInput()` and `setupCommonInputs()` uses this guard:
-```typescript
-if (!this.input.keyboard) {
-  this.time.delayedCall(100, () => this.setupInput());
-  return;
-}
-```
-If Phaser's keyboard plugin hasn't initialised when `create()` fires, input setup is deferred 100ms via `delayedCall`. No max retry count, no timeout, no error logging. If the keyboard plugin never initialises (e.g. due to a focus issue), the game appears "frozen" — the scene renders but **no controls respond**. 16 locations across BaseScene, MenuScene, GameOverScene, and all 11 game GameScenes.
-
-**Files**: `src/lib/phaser/scenes/BaseScene.ts:41-43`, `src/lib/phaser/scenes/MenuScene.ts:135-137`, `src/lib/phaser/scenes/GameOverScene.ts:223-225`, all `GameScene.setupInput()` methods.
-
-#### Factor 2: "Click to play" overlay intercepts Enter/Space (HIGH)
-When the overlay appears (`hasEverFocused && !hasFocus && !isHovering`), its `onKeyDown` handler calls `e.preventDefault()` and `e.stopPropagation()` for Enter and Space keys (PhaserGame.tsx:270). If the overlay receives focus (it has `tabIndex={0}`), these keypresses never reach Phaser. The overlay sits at `z-index: 10` covering the entire game area, blocking all pointer events.
-
-**File**: `src/lib/phaser/PhaserGame.tsx:267-296`.
-
-#### Factor 3: autoStart={true} skips MenuScene — no "Enter to start" in Phaser (LOW)
-App.tsx always passes `autoStart={true}` (lines 593, 642). `BootScene.create()` reads this and jumps directly to `GameScene`, skipping `MenuScene` entirely. There is no Phaser-side "Press Enter to start" prompt — the carousel's Enter key is handled by App.tsx's React global handler, not by Phaser. This is by design but means the user's "Enter to start doesn't work" perception comes from the initialisation delay (Factor 1), not a missing handler. However, after game-over, `GameOverScene.goToMenu()` goes back to MenuScene which DOES require Enter — so players encounter the race condition on restart.
-
-**Files**: `src/App.tsx:593,642`, `src/lib/phaser/scenes/BootScene.ts:43-46`.
-
-#### Factor 4: Lazy loading adds initialisation delay (MEDIUM)
-Game components are lazy-loaded via `React.lazy()`. On first play, the chunk must download before `PhaserGame` can mount. This adds 100-500ms where the user sees "Loading..." but input is not being captured. Combined with Factor 1, total time from Enter-press to responsive game can exceed 1 second.
-
-**File**: `src/App.tsx:37-48`.
-
-#### Factor 5: `onExit` is never passed from App.tsx (LOW — functional but dead code)
-App.tsx renders `<GameComponent achievementManager={...} isMuted={...} autoStart={true} />` without `onExit`. Phaser's `BaseScene.handleExit()` calls `emitGameEvent({ type: 'exit' })` → `onExit?.()` → no-op. ESC works only because App.tsx has its own global `window.addEventListener('keydown')` that checks for ESC and sets `isPlaying = false`. The Phaser ESC path is completely dead code.
-
-**File**: `src/App.tsx:593,642`.
-
-#### Factor 6: App.tsx global `preventDefault` may block Phaser keyboard events (HIGH — NEW R61)
-App.tsx lines 301-327 add a global `keydown` listener that calls `e.preventDefault()` when `isPlaying` is true, unless the event target is inside `[data-phaser-game]`, or is an INPUT/TEXTAREA/CANVAS element. But since Phaser's keyboard plugin targets `window` (set in PhaserGame.tsx:138), keyboard events may have `document.body` as their target — not the canvas or game container. The guard logic does not account for `window`-targeted events, so `preventDefault()` fires, potentially interfering with Phaser's keyboard processing.
-
-**File**: `src/App.tsx:301-327`.
-
-#### Factor 7: Missing shutdown() in MenuScene and GameOverScene (HIGH — NEW R61)
-Neither `MenuScene` nor `GameOverScene` has a `shutdown()` method. Keyboard keys registered by these scenes (Enter, Space, ESC, P, M, R) are never cleaned up on scene transition. This causes ghost key handlers from previous scenes to linger during the new scene, leading to potential double-firing and memory leaks from accumulated key objects.
-
-**Files**: `src/lib/phaser/scenes/MenuScene.ts` (no shutdown), `src/lib/phaser/scenes/GameOverScene.ts` (no shutdown).
-
-**All 7 factors resolved in R62.** See R62 delta above for details. The "GET READY" overlay (item 6) was deferred as low-value — the polling fix eliminates the perceptible delay.
-
----
-
-### ~~P1 — Shutdown Cleanup Gaps~~ RESOLVED (R62)
-
-**R61 full audit**: 10 of 11 Phaser GameScenes are missing `super.shutdown()`. Six are missing `this.time.removeAllEvents()`. Five are missing `this.tweens.killAll()`. Only SnakeClassic calls `super.shutdown()`.
-
-**Note**: `BaseScene` does not currently define its own `shutdown()` method — `super.shutdown()` calls Phaser's native `Scene.shutdown()`. However, BaseScene creates pause overlay graphics/text that are only cleaned up in `hidePauseOverlay()`. If a scene shuts down while paused, these leak.
-
-| Game | Missing `time.removeAllEvents()` | Missing `tweens.killAll()` | Missing `super.shutdown()` | File |
-|------|----------------------------------|---------------------------|---------------------------|------|
-| MatrixInvaders | **Yes** | **Yes** | **Yes** | `GameScene.ts:1032` |
-| MatrixCloud | **Yes** | **Yes** | **Yes** | `GameScene.ts:906` |
-| NeoJump | **Yes** | Has killAll | **Yes** | `GameScene.ts:1224` |
-| CodeBreaker | **Yes** | **Yes** | **Yes** | `GameScene.ts:1246` |
-| VortexPong | **Yes** | **Yes** | **Yes** | `GameScene.ts:136` |
-| SnakeClassic | **Yes** | **Yes** | Has super.shutdown() | `GameScene.ts:99` |
-| AgentChase | Has removeAllEvents | Has killAll | **Yes** | `GameScene.ts:1026` |
-| CloudJumper | Has removeAllEvents | Has killAll | **Yes** | `GameScene.ts:777` |
-| MatrixFrogger | Has removeAllEvents | Has killAll | **Yes** | `GameScene.ts:1326` |
-| Metris | **Yes** | **Yes** | **Yes** | `GameScene.ts:1014` |
-| RhythmHacker | Has removeAllEvents | Has killAll | **Yes** | `GameScene.ts:1246` |
-
-**All resolved in R62.** BaseScene.shutdown() added. All 11 GameScenes now have complete cleanup (time.removeAllEvents, tweens.killAll, super.shutdown).
-
----
-
-### ~~P1 — Inaccurate Controls Descriptions in gameRegistry~~ RESOLVED (R62)
-
-**R61 full audit** revealed 8 games with mismatched controls descriptions. Three are high-severity (factually wrong), two medium (major feature omitted), three low (WASD alternatives omitted).
-
-| Game | Severity | Registry Says | Actual Behaviour | Fix |
-|------|----------|---------------|-----------------|-----|
-| AgentChase | **HIGH** | `'Arrow keys to move, SPACE to use power-up'` | Arrow keys/WASD move; **no SPACE handler exists**; power pellets activate on collection | Change to `'Arrow keys/WASD to move. Eat power pellets to frighten agents!'` |
-| NeoJump | **HIGH** | `'Arrow keys to move left/right, SPACE to jump'` | Left/Right + A/D move; **SPACE shoots** (not jump); UP/W for jetpack; jumping is automatic on platforms | Change to `'Left/Right/A/D to move, UP/W for jetpack, SPACE to shoot'` |
-| CloudJumper | **HIGH** | `'Arrow keys to move, SPACE to jump'` | **No horizontal movement exists**; SPACE/UP/W/click all jump | Change to `'SPACE/UP/W to jump between clouds'` |
-| MatrixFrogger | **MEDIUM** | `'Arrow keys to move between lanes'` | Arrow keys + full WASD; **K key for Kung Fu attack** (3 charges) | Change to `'Arrow keys/WASD to move, K to Kung Fu attack'` |
-| Metris | **MEDIUM** | `'Arrow keys to move, Z/X to rotate, SPACE to drop, B for bullet time'` | Also has UP rotate, **C for hold piece**, SHIFT rotate CCW, full WASD | Change to `'Arrows/WASD to move, Z/X to rotate, C to hold, SPACE to hard drop, B for bullet time'` |
-| MatrixInvaders | LOW | `'Arrow keys to move, SPACE to fire, B to activate bullet time'` | Also has A/D for lateral movement | Add WASD mention |
-| CodeBreaker | LOW | `'Arrow keys / Mouse: Move paddle \| SPACE: Launch ball \| B: Bullet time'` | Also has A/D for paddle | Add WASD mention |
-| MatrixCloud | LOW | `'SPACE/Click to flap...'` | Also has ENTER to flap | Minor — acceptable as-is |
-
-**All 5 HIGH/MEDIUM fixed in R62.** 3 LOW severity items (WASD mentions for Invaders/CodeBreaker/MatrixCloud) remain optional.
-
----
-
-### ~~P1 — Unguarded console.warn/error Calls~~ RESOLVED (R62 verified already guarded)
-
-**R60 incorrectly marked as fully resolved.** R61 audit found 4 remaining unguarded calls:
-
-| File | Line | Call |
-|------|------|------|
-| `src/hooks/useShatnerVoice.ts` | 218 | `console.warn('Speech synthesis error, continuing to next sentence')` |
-| `src/hooks/useAdvancedVoice.ts` | 213 | `console.warn('Audio context initialization failed:', error)` |
-| `src/hooks/useAdvancedVoice.ts` | 354 | `console.error('Speech synthesis error:', event)` |
-| `src/hooks/useLifelineManager.ts` | 80 | `console.warn('Failed to migrate legacy lifeline data:', error)` |
-
-The 5 calls in `useSoundSystem` and `useSaveSystem` are correctly guarded. These 4 were missed.
-
-All 4 already wrapped in `if (import.meta.env.DEV)` guards — R61 report was incorrect.
-
----
-
-### ~~P0 — GAME_CONFIG TDZ Crash~~ RESOLVED (commit `ee18028`)
-
-Three games (Rhythm Hacker, Matrix Cloud, Vortex Pong) were crashing with "Cannot access 'GAME_CONFIG' before initialization". Root cause: module-level `const` reads of `GAME_CONFIG` during circular import resolution hit the Temporal Dead Zone. Fix: moved all reads into method bodies or lazy singletons (`getTrackCharts()` for RhythmHacker).
-
-**Remaining risk**: The circular dependency (`config.ts` importing scene classes, scene classes importing from `config.ts`) still exists in all games. If anyone adds a new module-level `const` that reads `GAME_CONFIG` in any scene file, the crash returns. `charts.ts:211-212` documents this.
-
----
-
-### ~~P0 — Keyboard Controls Not Working In-Browser~~ VERIFIED (R57)
-
-**Fixed R55, verified R57**. Root cause: Phaser 3.90.0 defaulted keyboard input target to canvas element, not `window`. Fix: `input.keyboard.target: window` in PhaserGame.tsx:138.
-
----
-
-### ~~P1 — Commit Hygiene~~ RESOLVED
-
-### ~~P2 — setTimeout Memory Leaks~~ RESOLVED (R56)
-
-### ~~P2 — Unguarded console.\* Calls~~ ~~FULLY RESOLVED (R60)~~ RE-OPENED (R61) — see P1 above
-
-### ~~P2 — Unused Hooks Cleanup~~ RESOLVED (R56)
-
----
-
-### ~~P2 — Untracked setTimeout Calls~~ RESOLVED (R63)
-
-All 4 untracked setTimeout calls now properly tracked in refs and cleared on unmount:
-- **PuzzleModal.tsx**: Added to existing `timersRef.current.push()` pattern
-- **useAdvancedVoice.ts**: New `autoAdvanceTimerRef` cleared in cleanup effect
-- **PWAInstallPrompt.tsx**: New `promptTimerRef` cleared in useEffect cleanup
-- **AchievementNotification.tsx**: Inner dismiss timer tracked via `dismissTimerRef`
-
----
-
-### ~~P2 — Dead Types and Broken Registry Key~~ RESOLVED (R63)
-
-- Removed dead `BaseSceneHelpers` and `PhaserGameConfig` interfaces from `types.ts` (and unused `Phaser` type import)
-- Removed `PhaserGameConfig` re-export from `index.ts`
-- Fixed Metris `registry.get('SAVE_SYSTEM')` → `registry.get(REGISTRY_KEYS.SAVE_SYSTEM)` (3 call sites)
-- Wired up `REGISTRY_KEYS.SAVE_SYSTEM` in `PhaserGame.tsx` — save system now properly registered with `getSaveData()` and `updateGameSave()` methods, making Metris high scores, stats, and bullet-time persistence functional
-
----
-
-### ~~P2 — Spec Inconsistencies~~ RESOLVED (R63)
-
-Fixed cross-spec alignment between `game-architecture.md`, `phaser-games.md`, and `ux-guidelines.md`:
-- Added `autoStart` and `onExit` to architecture GameProps interface
-- Added `M` key (mute toggle) to architecture input table
-- Added `select` sound to architecture required sound events
-- Added Phaser file structure alongside React/Canvas structure in architecture spec
-- Added `R` key (restart) to phaser-games.md integration requirements
-- Added `onExit` to phaser-games.md GameProps
-
-Remaining gaps intentionally left open (too speculative to define without playtesting): difficulty progression values, per-game scoring tables, per-game achievement lists, touch/mobile controls, music track assignments.
-
----
-
-### ~~P1 — M Key Conflict in GameOverScene~~ RESOLVED (R68)
-
-Changed menu shortcut from M to Q in `GameOverScene.setupGameOverInput()`. M is now exclusively the mute toggle from BaseScene. All 11 Phaser games no longer double-fire on M keypress.
-
----
-
-### ~~P2 — High Score Not Loaded From Save~~ RESOLVED (R68)
-
-Added save system reads to `resetState()` in MatrixInvaders, MatrixCloud, and CodeBreaker. Follows the Metris pattern: `registry.get(REGISTRY_KEYS.SAVE_SYSTEM).getSaveData()`. High scores now persist across sessions correctly. Updated test mocks to include `scene.registry`.
-
----
-
-### ~~P2 — VortexPong R Key Bypasses Game Over Flow~~ RESOLVED (R68)
-
-Added `this.reportScore(this.playerScore)` before `this.scene.restart()` so the score is persisted to React before the scene resets. Phaser's scene lifecycle handles `shutdown()` cleanup automatically on restart.
+## R78 — Assets + Infrastructure (NEW — current overnight target)
+
+> **Tom's call (2026-04-15)**: Combined sweep of asset deployment and CI/infra polish. Ralph walks Phase 0b per-game asset items first (big grunt work), then Phase 6 residue. Terminator: `R78 COMPLETE — assets + infra shipped`.
+
+### R78 Scope Summary
+
+| Stream | Scope | Est. iters |
+|--------|-------|-----------|
+| Phase 0b — Asset Deployment | 10 games need sprite/audio deployment (CTRL-S excluded) | 8–15 |
+| Phase 6 — Infrastructure | Docker baseline, multi-viewport, form labels, BPM tuning, flaky specs | 3–5 |
+| **Total** | | **~12–20** |
+
+### R78 Task Ordering
+
+1. **R78.1** — Phase 0b audio extraction sweep (biggest cross-cutting gap: only Matrix Frogger has deployed audio). Extract from `desiredassets/TheMatrixArcadeAssetsToADDANDSORT-WILL-BE-FUN-TASK/.../SoundEffects/` + `LongTracks/`, place per-game, wire BootScene loads.
+2. **R78.2** — Per-game sprite deployment pass 1 (Snake, Matrix Cloud, Metris, Invaders) — core gameplay sprites.
+3. **R78.3** — Per-game sprite deployment pass 2 (Cloud Jumper, Matrix Frogger, Code Breaker) — polish sprites.
+4. **R78.4** — Per-game sprite deployment pass 3 (Agent Chase, Neo Jump, Vortex Pong) — remaining items.
+5. **R78.5** — Visual regression baseline regen for all games post-deployment. Commit new `*-chromium-darwin.png` baselines.
+6. **R78.6** — **Phase 6: Docker baseline regen** — `docker compose -f docker-compose.playwright.yml run --rm e2e-tests npx playwright test --update-snapshots`, commit `*-chromium-linux.png` for CI parity.
+7. **R78.7** — **Phase 6: Multi-viewport matrix** — add mobile (375×667) + tablet (768×1024) projects to `playwright.config.ts`, generate baselines.
+8. **R78.8** — **Phase 6: Form input labels** (a11y) — audit all `<input>` / `<textarea>` for associated `<label>` / `aria-label`. Fix gaps.
+9. **R78.9** — **Phase 6: Rhythm Hacker BPM tuning** — hand-tune per-track BPM values after playtest confirmation. Current values are estimates.
+10. **R78.10** — **Phase 6: Flaky E2E stabilisation** — fix `landing.spec.ts:40` 1px drift, code-breaker/invaders/cloud-jumper timeouts under 5-worker parallel. Root cause: dev-server contention.
+11. **R78.11** — Final verification + Status update to `R78 COMPLETE — assets + infra shipped`.
+
+### R78 Guardrails
+
+- **CTRL-S stays fenced off.** No CTRL-S asset deployment. Phase 7 CTRL-S rewrite stays deferred. Tag any CTRL-S-adjacent task `DEFERRED-CTRLS-DEDICATED-PHASE` and skip.
+- **No new features.** This phase is pure content + infra. If Ralph notices a gameplay bug, log it under `### R78 Discovered Work` for a future phase — do not fix.
+- **Asset pipeline discipline**: for each game, follow the existing pattern documented below (Phase 0b → Asset Integration Pattern, lines 147-153): extract → process → copy to `public/assets/[game]/` → update BootScene → flip `[~]` to `[x]` in `desiredassets/[game]/ASSETS_NEEDED.md`.
+- **Visual regression baselines**: intentional visual diffs from sprite swaps MUST be committed separately with `R78.N-visual: baseline update` message. Do not mix baseline updates with code changes.
+- **Docker parity**: after any visual baseline update, Ralph MUST also regen the Linux baselines for CI.
+- **Audio first**: audio is the biggest cross-cutting gap per the plan audit. Land R78.1 before sprite work to minimise cross-commit churn.
 
 ---
 
@@ -810,19 +481,25 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 
 ### TERMINATOR CONDITION (Ralph stops looping only when ALL of these are true)
 
-- Zero unchecked `[ ]` items under `R76 Global Items`, `R76 Per-Game Items`, `R76 E2E Coverage`.
-- Zero unchecked `[ ]` items under `R77` task list (retro scoreboard).
-- `npm run lint`, `npm run build`, `npm test`, `npm run test:e2e` ALL green on a clean run.
-- The `## Status` line contains the phrase **"R77 COMPLETE — retro scoreboard shipped"** (primary) OR **"R76 COMPLETE — final polish achieved"** (fallback, R77 deferred).
-- No `BLOCKED:` markers remain, OR every remaining blocker is tagged `BLOCKED-NEEDS-HUMAN` / `DEFERRED-CTRLS-DEDICATED-PHASE` (Ralph cannot resolve unaided, or intentional CTRL-S exclusion).
+- All R78.1–R78.11 tasks marked `[x]` with iteration tag.
+- All Phase 0b per-game `ASSETS_NEEDED.md` files have `[~]` items flipped to `[x]` where deployed (or `DEFERRED-CTRLS-DEDICATED-PHASE` for CTRL-S).
+- All Phase 6 residue items closed: Docker baselines present as `*-chromium-linux.png`, multi-viewport projects live in `playwright.config.ts`, form input labels audited, Rhythm Hacker BPM tuned, flaky specs stabilised.
+- `npm run lint`, `npm run build`, `npm test`, `npm run test:e2e`, `npm run test:visual` ALL green on a clean run.
+- The `## Status` line contains the phrase **"R78 COMPLETE — assets + infra shipped"**.
+- No `BLOCKED:` markers remain, OR every remaining blocker is tagged `BLOCKED-NEEDS-HUMAN` / `DEFERRED-CTRLS-DEDICATED-PHASE`.
 
 **Execution order for this overnight run**:
-1. R76.6 — unblock PG9 + PG13 (design params locked in).
-2. R76.8 — pause/resume regression (re-opened G6).
-3. R76.7 — archive R76 into `COMPLETED_WORK.md`.
-4. R77.1 → R77.10 — retro scoreboard build-out.
+1. R78.1 — Audio extraction sweep (biggest cross-cutting gap).
+2. R78.2 → R78.4 — Per-game sprite deployment passes (Snake/Cloud/Metris/Invaders → CloudJumper/Frogger/CodeBreaker → AgentChase/NeoJump/VortexPong).
+3. R78.5 — Visual regression baseline regen (darwin).
+4. R78.6 — Docker baseline regen (linux) for CI parity.
+5. R78.7 — Multi-viewport matrix in `playwright.config.ts`.
+6. R78.8 — Form input labels a11y audit.
+7. R78.9 — Rhythm Hacker BPM tuning.
+8. R78.10 — Flaky E2E stabilisation.
+9. R78.11 — Final verification + Status terminator.
 
-When terminator is reached, write a final summary under `## R77 Completion Report` listing: iterations run, tasks closed, tasks blocked (including any `DEFERRED-CTRLS-DEDICATED-PHASE` items), tests passing, discovered-work items deferred to R78. Then stop.
+When terminator is reached, write a final summary under `## R78 Completion Report` listing: iterations run, tasks closed, tasks blocked (including any `DEFERRED-CTRLS-DEDICATED-PHASE` items), tests passing, discovered-work items deferred to R79 (or CTRL-S phase). Then stop.
 
 ### Guardrails
 
@@ -915,27 +592,3 @@ The below was the R75 plan. Kept for Ralph's reference only. **Do not execute fr
 
 **Skill usage**: `/matrix-arcade-gamedev` for game code, `/phaser-gamedev` for Phaser scenes, `/playwright-testing` for E2E.
 Run `game-tester` agent after every code change. After any UI change, run `npm run test:visual` and commit updated baselines.
-
-## R76 Completion Report
-
-**Iterations run**: 5 (R76.1–R76.5)
-
-**Tasks closed (31)**:
-- **Global (9)**: G1 autoStart=false, G2 BGM overlap, G3 achievement modal overflow, G4 landing card height, G5 button labels & keyboard hints, G6 pause/resume consolidation, G7 About page, G8 BaseScene countdown, G9 dead code & cosmetics
-- **Per-game (20)**: PG1 Snake canvas size, PG2 VortexPong AI, PG3 Matrix Bird rename, PG4 MatrixCloud power-up spawn, PG5 pipe cap & spacing, PG6 Invaders sprite size & tinting, PG7 Metris B-key guard, PG8 Frogger K-key guard, PG10 NeoJump fall death, PG11 NeoJump death animation, PG12 NeoJump enemy size, PG14 AgentChase wall movement, PG15 AgentChase bullet-time dots, PG16 AgentChase sprite size, PG17 RhythmHacker countdown (kept native), PG18 RhythmHacker combo effects, PG19 CloudJumper jump mechanic, PG20 CloudJumper cloud spacing, PG21 CodeBreaker numpad, PG22 CodeBreaker level 1 layout
-- **E2E (2)**: E1 countdown-aware E2E helpers, E2 autoStart=false test coverage
-
-**Tasks blocked (2)**:
-- PG9 (Terminal Quest visual polish) — BLOCKED-NEEDS-HUMAN: requires design decision on art direction
-- PG13 (Matrix Frogger lane speed tuning) — BLOCKED-NEEDS-HUMAN: requires playtesting feel check
-
-**Tests passing**:
-- Unit: 1,842 (Vitest)
-- E2E: 64 passed, 1 skipped (Playwright)
-- TypeScript: clean (`tsc --noEmit` zero errors)
-
-**Discovered work deferred to R77**:
-- Visual snapshot baselines may need updating after countdown overlay changes
-- RhythmHacker combo effects (screen shake, rain burst, lane tint) could benefit from tuning
-- About page content could be enriched with game credits and version history
-- MenuScene could call `exposeTestState()` for better E2E observability
