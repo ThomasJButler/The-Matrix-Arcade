@@ -7,6 +7,8 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ## Status: R78 open — Phase 0b per-game asset deployment + Phase 6 infrastructure polish (R76 + R77 archived)
 
+> **R78.7 complete (2026-04-14)**: Multi-viewport Playwright matrix — added `mobile` (375×667) and `tablet` (768×1024) projects to `playwright.config.ts`. Both viewports trigger the app's "DESKTOP REQUIRED" gate (MobileWarning component), so created dedicated `e2e/responsive/mobile-gate.spec.ts` with 2 tests × 2 viewports = 4 baselines. Scoped via `testMatch: /responsive\//` so only responsive specs run on those projects. Fixed pre-existing lint error (`addScore` unused in App.tsx). All 4 responsive tests pass, all 6 desktop visual tests pass, build clean.
+>
 > **R78.5 complete (2026-04-14)**: Visual regression baselines regenerated — 86 darwin PNG baselines across 14 visual specs + 12 game playthroughs updated post-sprite deployment. All E2E spec files and playthrough fixtures force-added to source control (previously gitignored). Fixed attract mode `useCallback` dependency cycle that prevented overlay from staying visible. Fixed scoreboard E2E localStorage key mismatch (`matrix-arcade-save` → `matrix-arcade-save-data`). 69/69 E2E tests pass, build clean, TypeScript clean.
 >
 > **R78.4 complete (2026-04-14)**: Per-game sprite deployment pass 3 — Agent Chase (frightened warning ghost from PacMan sheet, floating eyeball eyes, glowing dot + power pellet sprites), Neo Jump (flying enemy from Legacy Fantasy Small Bee, projectile energy bolt), Vortex Pong (4 power-up icons from Hologram Interface tinted per-type, cyan multi-ball variant, board background overlay at 15% opacity). 11 new sprite files across 3 games, BootScenes + GameScenes wired with sprite-mode fallbacks.
@@ -134,7 +136,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 - [x] **R78.4 — [P1]** Per-game sprite deployment pass 3 (Agent Chase, Neo Jump, Vortex Pong) — remaining items.
 - [x] **R78.5 — [P2]** Visual regression baseline regen for all games post-deployment. Commit new `*-chromium-darwin.png` baselines separately with `R78.N-visual: baseline update` message.
 - [ ] **R78.6 — [P2]** Phase 6: Docker baseline regen — `docker compose -f docker-compose.playwright.yml run --rm e2e-tests npx playwright test --update-snapshots`, commit `*-chromium-linux.png` for CI parity.
-- [ ] **R78.7 — [P2]** Phase 6: Multi-viewport matrix — add mobile (375×667) + tablet (768×1024) projects to `playwright.config.ts`, generate baselines.
+- [x] **R78.7 — [P2]** Phase 6: Multi-viewport matrix — add mobile (375×667) + tablet (768×1024) projects to `playwright.config.ts`, generate baselines.
 - [x] **R78.8 — [P2]** Phase 6: Form input labels (a11y) — audit all `<input>` / `<textarea>` for associated `<label>` / `aria-label`. Fix gaps.
 - [ ] **R78.9 — [P2]** Phase 6: Rhythm Hacker BPM tuning — hand-tune per-track BPM values after playtest confirmation. Current values are estimates.
 - [ ] **R78.10 — [P2]** Phase 6: Flaky E2E stabilisation — fix `landing.spec.ts:40` 1px drift, code-breaker/invaders/cloud-jumper timeouts under 5-worker parallel. Root cause: dev-server contention.

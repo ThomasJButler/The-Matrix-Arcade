@@ -88,7 +88,7 @@ function App() {
   // Initialize sound system and achievement manager
   const { config: soundConfig, updateConfig: updateSoundConfig, playSFX, playBackgroundMP3, stopBackgroundMP3, toggleMute, isMuted } = useSoundSystem();
   const achievementManager = useAchievementManager();
-  const { saveData, updateGlobalStats, addScore, clearBoard } = useSaveSystem();
+  const { saveData, updateGlobalStats, addScore: _addScore, clearBoard } = useSaveSystem();
   const [showScoreboard, setShowScoreboard] = useState(false);
 
   // Mobile detection
