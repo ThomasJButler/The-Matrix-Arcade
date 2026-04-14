@@ -86,7 +86,7 @@ export const SaveLoadManager: React.FC<SaveLoadManagerProps> = ({ isOpen, onClos
     const names: Record<string, string> = {
       snakeClassic: 'Snake Classic',
       vortexPong: 'Vortex Pong',
-      matrixCloud: 'Matrix Cloud',
+      matrixCloud: 'Matrix Bird',
       ctrlSWorld: 'CTRL-S | The World',
       metris: 'Metris',
       matrixInvaders: 'Matrix Invaders'

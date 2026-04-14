@@ -33,9 +33,9 @@ export const GAME_CONFIG = {
     WIDTH_MIN: 80,
     WIDTH_MAX: 150,
     HEIGHT: 30,
-    SPACING_MIN: 100,
-    SPACING_MAX: 200,
-    VERTICAL_RANGE: 150, // Max vertical distance from center
+    SPACING_MIN: 60,
+    SPACING_MAX: 120,
+    VERTICAL_RANGE: 100, // Max vertical distance from center
   },
 
   /** Cloud types — Matrix green palette */

@@ -6,6 +6,7 @@ import {
   ACHIEVEMENTS,
   ENEMY_DEFS,
   POWERUP_DEFS,
+  ROW_TINTS,
   type EnemyState,
   type BossState,
   type BulletState,
@@ -667,6 +668,7 @@ export class MatrixInvadersGameScene extends BaseScene {
         const sprite = this.add.sprite(x, y, texKey);
         sprite.setDepth(3);
         if (this._spriteMode) sprite.setDisplaySize(GAME_CONFIG.ENEMY_WIDTH, GAME_CONFIG.ENEMY_HEIGHT);
+        sprite.setTint(ROW_TINTS[row % ROW_TINTS.length]);
 
         this.enemies.push({
           sprite,

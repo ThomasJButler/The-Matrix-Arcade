@@ -13,14 +13,14 @@ export interface Position {
 }
 
 export const GAME_CONFIG = {
-  WIDTH: 800,
-  HEIGHT: 450,
+  WIDTH: 640,
+  HEIGHT: 400,
 
-  CELL_SIZE: 20,
+  CELL_SIZE: 16,
   GRID_COLS: 20,
   GRID_ROWS: 20,
-  GRID_OFFSET_X: 200,
-  GRID_OFFSET_Y: 25,
+  GRID_OFFSET_X: 180,
+  GRID_OFFSET_Y: 20,
 
   INITIAL_SPEED: 150,
   SPEED_INCREMENT: 5,

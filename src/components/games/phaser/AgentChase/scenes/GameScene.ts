@@ -69,6 +69,13 @@ export class AgentChaseGameScene extends BaseScene {
   private fruit?: Phaser.Physics.Arcade.Sprite;
   private fruitSpawned = [false, false];
 
+  // Bullet-time
+  private bulletTimeDots!: Phaser.Physics.Arcade.StaticGroup;
+  private bulletTimeActive = false;
+  private bulletTimeTimer = 0;
+  private bulletTimeOverlay?: Phaser.GameObjects.Graphics;
+  private nextBulletTimeSpawn = 0;
+
   // UI
   private scoreText!: Phaser.GameObjects.Text;
   private livesText!: Phaser.GameObjects.Text;
@@ -120,6 +127,9 @@ export class AgentChaseGameScene extends BaseScene {
     this.animTimer = 0;
     this.isInvulnerable = false;
     this.invulnerabilityTimer = 0;
+    this.bulletTimeActive = false;
+    this.bulletTimeTimer = 0;
+    this.nextBulletTimeSpawn = 0;
     this.mazesPlayed = new Set();
 
     // Set initial layout
@@ -130,6 +140,7 @@ export class AgentChaseGameScene extends BaseScene {
     this.walls = this.physics.add.staticGroup();
     this.dots = this.physics.add.staticGroup();
     this.powerPellets = this.physics.add.staticGroup();
+    this.bulletTimeDots = this.physics.add.staticGroup();
     this.agents = this.physics.add.group();
 
     // Build maze
@@ -190,6 +201,9 @@ export class AgentChaseGameScene extends BaseScene {
 
     // Release agents
     this.releaseAgents(time);
+
+    // Update bullet-time
+    this.updateBulletTime(delta);
 
     // Update agents
     this.updateAgents(delta);
@@ -480,6 +494,15 @@ export class AgentChaseGameScene extends BaseScene {
       this
     );
 
+    // Player vs bullet-time dots
+    this.physics.add.overlap(
+      this.player,
+      this.bulletTimeDots,
+      (_player, dot) => this.collectBulletTimeDot(dot as Phaser.Physics.Arcade.Sprite),
+      undefined,
+      this
+    );
+
     // Player vs agents
     this.physics.add.overlap(
       this.player,
@@ -670,9 +693,15 @@ export class AgentChaseGameScene extends BaseScene {
   }
 
   private restartLevel(newLayout: MapLayout, layoutChanged: boolean): void {
-    // Clear existing dots and pellets
+    // Clear existing dots, pellets, and bullet-time dots
     this.dots.clear(true, true);
     this.powerPellets.clear(true, true);
+    this.bulletTimeDots.clear(true, true);
+    this.bulletTimeActive = false;
+    this.bulletTimeTimer = 0;
+    this.bulletTimeOverlay?.destroy();
+    this.bulletTimeOverlay = undefined;
+    this.nextBulletTimeSpawn = GAME_CONFIG.BULLET_TIME.SPAWN_INTERVAL;
     if (this.fruit) {
       this.fruit.destroy();
       this.fruit = undefined;
@@ -773,6 +802,91 @@ export class AgentChaseGameScene extends BaseScene {
     this.fruit = undefined;
   }
 
+  /** Spawn, collect, and manage bullet-time freeze mechanic */
+  private updateBulletTime(delta: number): void {
+    // Tick down active freeze
+    if (this.bulletTimeActive) {
+      this.bulletTimeTimer -= delta;
+      if (this.bulletTimeTimer <= 0) {
+        this.bulletTimeActive = false;
+        this.bulletTimeOverlay?.destroy();
+        this.bulletTimeOverlay = undefined;
+      }
+    }
+
+    // Periodically try to spawn a bullet-time dot
+    this.nextBulletTimeSpawn -= delta;
+    if (this.nextBulletTimeSpawn <= 0) {
+      this.nextBulletTimeSpawn = GAME_CONFIG.BULLET_TIME.SPAWN_INTERVAL;
+      if (
+        this.bulletTimeDots.getLength() < GAME_CONFIG.BULLET_TIME.MAX_ON_MAP &&
+        Math.random() < GAME_CONFIG.BULLET_TIME.SPAWN_CHANCE
+      ) {
+        this.spawnBulletTimeDot();
+      }
+    }
+  }
+
+  private spawnBulletTimeDot(): void {
+    const offsetX = (GAME_CONFIG.WIDTH - GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE) / 2;
+    const offsetY = 40;
+
+    // Collect all empty corridor tiles (tile === '2' positions that still have dots, or open '0' spaces)
+    const candidates: { x: number; y: number }[] = [];
+    for (let row = 0; row < this.currentLayout.grid.length; row++) {
+      for (let col = 0; col < this.currentLayout.grid[row].length; col++) {
+        const tile = this.currentLayout.grid[row][col];
+        if (tile === '0' || tile === '5') {
+          candidates.push({ x: col, y: row });
+        }
+      }
+    }
+
+    if (candidates.length === 0) return;
+
+    const spot = candidates[Phaser.Math.Between(0, candidates.length - 1)];
+    const x = offsetX + spot.x * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+    const y = offsetY + spot.y * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+
+    const dot = this.bulletTimeDots.create(x, y, 'dot') as Phaser.Physics.Arcade.Sprite;
+    dot.setTint(0x00ffff);
+    dot.setDepth(6);
+
+    // Pulsing animation
+    this.tweens.add({
+      targets: dot,
+      alpha: { from: 1, to: 0.3 },
+      scale: { from: 1.3, to: 0.8 },
+      duration: 400,
+      yoyo: true,
+      repeat: -1,
+    });
+
+    // Auto-despawn after 10 seconds
+    this.time.delayedCall(10000, () => {
+      if (dot.active) {
+        dot.destroy();
+      }
+    });
+  }
+
+  private collectBulletTimeDot(dot: Phaser.Physics.Arcade.Sprite): void {
+    dot.destroy();
+    this.score += GAME_CONFIG.SCORING.BULLET_TIME_DOT;
+    this.playSound('powerup');
+
+    // Activate bullet-time: freeze all agents
+    this.bulletTimeActive = true;
+    this.bulletTimeTimer = GAME_CONFIG.BULLET_TIME.FREEZE_DURATION;
+
+    // Cyan screen overlay
+    this.bulletTimeOverlay?.destroy();
+    this.bulletTimeOverlay = this.add.graphics();
+    this.bulletTimeOverlay.fillStyle(0x00ffff, 0.08);
+    this.bulletTimeOverlay.fillRect(0, 0, GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT);
+    this.bulletTimeOverlay.setDepth(50);
+  }
+
   private updateModes(delta: number): void {
     this.modeTimer += delta;
 
@@ -809,6 +923,15 @@ export class AgentChaseGameScene extends BaseScene {
     this.agents.getChildren().forEach((obj) => {
       const agent = obj as Agent;
       if (!agent.isReleased) return;
+
+      // Freeze agents during bullet-time (but still allow returning agents to move)
+      if (this.bulletTimeActive && agent.state !== 'returning') {
+        // Tint frozen agents cyan to show they are affected
+        agent.setTint(0x00ffff);
+        return;
+      } else if (!this.bulletTimeActive) {
+        agent.clearTint();
+      }
 
       // Check frightened state
       if (agent.state === 'frightened') {
@@ -1060,7 +1183,12 @@ export class AgentChaseGameScene extends BaseScene {
     this.walls.clear(true, true);
     this.dots.clear(true, true);
     this.powerPellets.clear(true, true);
+    this.bulletTimeDots.clear(true, true);
     this.agents.clear(true, true);
+
+    // Clean up bullet-time overlay
+    this.bulletTimeOverlay?.destroy();
+    this.bulletTimeOverlay = undefined;
 
     // Destroy fruit if exists
     if (this.fruit) {

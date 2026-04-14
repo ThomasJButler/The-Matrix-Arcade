@@ -56,7 +56,7 @@ export const GAME_REGISTRY: GameEntry[] = [
   },
   {
     id: 'matrix-cloud',
-    title: 'Matrix Cloud',
+    title: 'Matrix Bird',
     description: 'Navigate through gaps in the digital storm — one wrong move and you crash.',
     preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1737071594/matrixcloud_rw8hsa.png',
     category: 'Arcade',

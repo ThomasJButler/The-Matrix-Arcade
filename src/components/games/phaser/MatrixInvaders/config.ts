@@ -63,6 +63,19 @@ export const ENEMY_DEFS: Record<EnemyType, {
   virus:    { health: 1, value: 20,  speedMultiplier: 2.0, color: 0xff0000, splits: true },
 };
 
+/**
+ * Per-row tint colours for invader sprites.
+ * Row 0 = top row, Row 4 = bottom row.
+ * Uses Matrix palette: bright green → cyan → yellow shades.
+ */
+export const ROW_TINTS: readonly number[] = [
+  0x00ffff, // row 0 — cyan
+  0x00ff88, // row 1 — green-cyan
+  0x00ff00, // row 2 — matrix green
+  0xaaff00, // row 3 — yellow-green
+  0xffff00, // row 4 — yellow
+] as const;
+
 export const POWERUP_DEFS: Record<PowerUpType, { color: number; label: string; duration: number }> = {
   rapidFire:       { color: 0xffff00, label: 'RAPID',  duration: 8000 },
   shield:          { color: 0xff00ff, label: 'SHIELD', duration: 0 },
@@ -93,8 +106,8 @@ export const GAME_CONFIG = {
 
   WAVE_COLS: 8,
   WAVE_ROWS: 5,
-  ENEMY_WIDTH: 40,
-  ENEMY_HEIGHT: 30,
+  ENEMY_WIDTH: 32,
+  ENEMY_HEIGHT: 24,
   GRID_START_X: 60,
   GRID_START_Y: 35,
   GRID_COL_SPACING: 80,

@@ -86,6 +86,8 @@ export class RhythmHackerGameScene extends BaseScene {
   private hitLineGlow!: Phaser.GameObjects.Graphics;
   private gridGraphics!: Phaser.GameObjects.Graphics;
   private comboGlow!: Phaser.GameObjects.Graphics;
+  private matrixRainChars: Phaser.GameObjects.Text[] = [];
+  private laneCyanTinted = false;
 
   // Input
   private laneKeys: Phaser.Input.Keyboard.Key[] = [];
@@ -614,6 +616,11 @@ export class RhythmHackerGameScene extends BaseScene {
         this.health = Math.max(0, this.health - GAME_CONFIG.HEALTH.MISS_DAMAGE);
         this.combo = 0;
         this.playSound('rhythmMiss');
+        // Reset cyan tint on combo break
+        if (this.laneCyanTinted) {
+          this.laneCyanTinted = false;
+          this.laneBackgrounds.forEach(bg => bg.clearTint());
+        }
         break;
     }
 
@@ -622,9 +629,11 @@ export class RhythmHackerGameScene extends BaseScene {
       this.maxCombo = this.combo;
     }
 
-    // Combo milestone effects
-    if (this.combo > 0 && this.combo % 25 === 0) {
+    // Combo milestone effects — screen shake, matrix rain, colour shift
+    if (this.combo === 10 || this.combo === 25 || this.combo === 50 ||
+        (this.combo > 50 && this.combo % 25 === 0)) {
       this.showComboMilestone(this.combo);
+      this.triggerComboEffects(this.combo);
     }
 
     // Combo achievements
@@ -705,6 +714,66 @@ export class RhythmHackerGameScene extends BaseScene {
       ease: 'Power2',
       onComplete: () => milestoneText.destroy(),
     });
+  }
+
+  /**
+   * Trigger screen-shake, matrix-rain burst, and colour shift on combo milestones.
+   */
+  private triggerComboEffects(combo: number): void {
+    // Screen shake — intensity scales with milestone
+    const shakeIntensity = combo >= 50 ? 0.012 : combo >= 25 ? 0.008 : 0.005;
+    const shakeDuration = combo >= 50 ? 300 : combo >= 25 ? 200 : 150;
+    this.cameras.main.shake(shakeDuration, shakeIntensity);
+
+    // Matrix rain burst — spawn falling characters across the lane area
+    this.spawnMatrixRainBurst(combo);
+
+    // Colour shift — tint lane backgrounds cyan at 25+ combo
+    if (combo >= 25 && !this.laneCyanTinted) {
+      this.laneCyanTinted = true;
+      this.laneBackgrounds.forEach(bg => bg.setTint(MATRIX_COLORS.CYAN));
+    }
+  }
+
+  /**
+   * Spawn a burst of falling Matrix-style characters across the lane area.
+   * Count and speed scale with the combo milestone.
+   */
+  private spawnMatrixRainBurst(combo: number): void {
+    const { WIDTH, HEIGHT, LANES } = GAME_CONFIG;
+    const totalWidth = LANES.COUNT * LANES.WIDTH + (LANES.COUNT - 1) * LANES.SPACING;
+    const startX = (WIDTH - totalWidth) / 2;
+    const count = combo >= 50 ? 30 : combo >= 25 ? 20 : 12;
+    const matrixChars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789';
+
+    for (let i = 0; i < count; i++) {
+      const x = startX + Math.random() * totalWidth;
+      const char = matrixChars[Math.floor(Math.random() * matrixChars.length)];
+      const rainText = this.add.text(x, -20 - Math.random() * 100, char, {
+        fontFamily: 'monospace',
+        fontSize: `${12 + Math.random() * 10}px`,
+        color: combo >= 50 ? MATRIX_COLORS.CYAN_HEX : MATRIX_COLORS.PRIMARY_HEX,
+      });
+      rainText.setAlpha(0.4 + Math.random() * 0.5);
+      rainText.setDepth(45);
+      this.matrixRainChars.push(rainText);
+
+      const speed = 200 + Math.random() * 300;
+      const duration = (HEIGHT + 120) / speed * 1000;
+
+      this.tweens.add({
+        targets: rainText,
+        y: HEIGHT + 20,
+        alpha: 0,
+        duration,
+        delay: Math.random() * 300,
+        onComplete: () => {
+          const idx = this.matrixRainChars.indexOf(rainText);
+          if (idx !== -1) this.matrixRainChars.splice(idx, 1);
+          rainText.destroy();
+        },
+      });
+    }
   }
 
   /**
@@ -1258,6 +1327,8 @@ export class RhythmHackerGameScene extends BaseScene {
     this.laneKeys = [];
     this.activeNotes = [];
     this.laneFlashes = [];
+    this.matrixRainChars.forEach(c => c.destroy());
+    this.matrixRainChars = [];
     this.gridGraphics?.destroy();
     this.comboGlow?.destroy();
     this.input.keyboard?.removeAllKeys(true);

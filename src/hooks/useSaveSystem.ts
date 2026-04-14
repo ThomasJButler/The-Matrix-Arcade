@@ -249,14 +249,14 @@ export const GAME_ACHIEVEMENTS: Record<string, Achievement[]> = {
     { id: 'pong_power_master', name: 'Power Master', description: 'Collect 5 power-ups in one game', game: 'Vortex Pong' }
   ],
   matrixCloud: [
-    { id: 'cloud_first_flight', name: 'Digital Pilot', description: 'Complete your first flight', game: 'Matrix Cloud' },
-    { id: 'cloud_level_5', name: 'Matrix Navigator', description: 'Reach level 5', game: 'Matrix Cloud' },
-    { id: 'cloud_boss_slayer', name: 'Agent Destroyer', description: 'Defeat your first boss', game: 'Matrix Cloud' },
-    { id: 'cloud_power_collector', name: 'Power Seeker', description: 'Collect 20 power-ups', game: 'Matrix Cloud' },
-    { id: 'cloud_architect_defeat', name: 'Architect\'s Bane', description: 'Defeat the Architect', game: 'Matrix Cloud' },
-    { id: 'cloud_all_bosses', name: 'Boss Master', description: 'Defeat all three bosses', game: 'Matrix Cloud' },
-    { id: 'cloud_high_flyer', name: 'High Flyer', description: 'Reach altitude 1000', game: 'Matrix Cloud' },
-    { id: 'cloud_sentinel_defeat', name: 'Sentinel Slayer', description: 'Defeat the Sentinel', game: 'Matrix Cloud' }
+    { id: 'cloud_first_flight', name: 'Digital Pilot', description: 'Complete your first flight', game: 'Matrix Bird' },
+    { id: 'cloud_level_5', name: 'Matrix Navigator', description: 'Reach level 5', game: 'Matrix Bird' },
+    { id: 'cloud_boss_slayer', name: 'Agent Destroyer', description: 'Defeat your first boss', game: 'Matrix Bird' },
+    { id: 'cloud_power_collector', name: 'Power Seeker', description: 'Collect 20 power-ups', game: 'Matrix Bird' },
+    { id: 'cloud_architect_defeat', name: 'Architect\'s Bane', description: 'Defeat the Architect', game: 'Matrix Bird' },
+    { id: 'cloud_all_bosses', name: 'Boss Master', description: 'Defeat all three bosses', game: 'Matrix Bird' },
+    { id: 'cloud_high_flyer', name: 'High Flyer', description: 'Reach altitude 1000', game: 'Matrix Bird' },
+    { id: 'cloud_sentinel_defeat', name: 'Sentinel Slayer', description: 'Defeat the Sentinel', game: 'Matrix Bird' }
   ],
   matrixInvaders: [
     { id: 'invaders_first_kill', name: 'Code Breaker', description: 'Destroy your first invader', game: 'Matrix Invaders' },

@@ -108,7 +108,7 @@ const GAME_DISPLAY_TITLES: Record<GameId, string> = {
   'ctrl-s-world': 'CTRL-S | The World',
   'snake-classic': 'Snake Classic',
   'vortex-pong': 'Vortex Pong',
-  'matrix-cloud': 'Matrix Cloud',
+  'matrix-cloud': 'Matrix Bird',
   'matrix-invaders': 'Matrix Invaders',
   'metris': 'Metris',
   'matrix-frogger': 'Matrix Frogger',
