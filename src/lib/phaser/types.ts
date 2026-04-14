@@ -63,6 +63,7 @@ export const REGISTRY_KEYS = {
   SOUND_SYSTEM: 'soundSystem',
   SAVE_SYSTEM: 'saveSystem',
   GAME_ID: 'gameId',
+  AUTO_START: 'autoStart',
 } as const;
 
 /** Scene keys for consistent navigation */

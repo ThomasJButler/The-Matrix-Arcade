@@ -94,7 +94,7 @@ export class MatrixCloudGameScene extends BaseScene {
       bg.setDisplaySize(GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT);
       bg.setAlpha(0.15);
       bg.setDepth(0);
-      bg.setTint(0x00ff00);
+      bg.setTint(MATRIX_COLORS.PRIMARY);
     }
 
     // Sprite ground tile
@@ -173,7 +173,7 @@ export class MatrixCloudGameScene extends BaseScene {
       GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT / 2,
       GAME_CONFIG.WIDTH,
       GAME_CONFIG.GROUND_HEIGHT,
-      0x003300,
+      MATRIX_COLORS.DARK_GREEN,
     );
     this.groundRect.setStrokeStyle(2, MATRIX_COLORS.PRIMARY);
     this.groundRect.setDepth(5);
@@ -321,7 +321,7 @@ export class MatrixCloudGameScene extends BaseScene {
       if (this.isInvulnerable) {
         this.player.setTint(0xff4444);
       } else if (this.shieldActive) {
-        this.player.setTint(0xff00ff);
+        this.player.setTint(MATRIX_COLORS.MAGENTA);
       } else {
         this.player.clearTint();
       }
@@ -377,7 +377,7 @@ export class MatrixCloudGameScene extends BaseScene {
     if (this.game.registry.get('spriteMode') === true) {
       return this.add.tileSprite(x, y, width, height, 'pipe_sprite');
     }
-    const rect = this.add.rectangle(x, y, width, height, 0x003300);
+    const rect = this.add.rectangle(x, y, width, height, MATRIX_COLORS.DARK_GREEN);
     rect.setStrokeStyle(2, MATRIX_COLORS.PRIMARY);
     return rect;
   }

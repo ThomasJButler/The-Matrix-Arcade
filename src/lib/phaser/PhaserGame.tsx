@@ -173,7 +173,7 @@ export function PhaserGame({
     game.registry.set(REGISTRY_KEYS.SAVE_SYSTEM, saveSystem);
 
     // Store autoStart in registry for scenes to check
-    game.registry.set('autoStart', autoStart);
+    game.registry.set(REGISTRY_KEYS.AUTO_START, autoStart);
 
     // Expose game instance for E2E testing
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

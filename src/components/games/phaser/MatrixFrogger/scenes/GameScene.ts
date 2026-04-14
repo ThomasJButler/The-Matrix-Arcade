@@ -734,7 +734,7 @@ export class FroggerGameScene extends BaseScene {
     this.neoFlashTimer += delta;
     if (this.neoFlashTimer > 100) {
       this.neoFlashTimer = 0;
-      const colours = [MATRIX_COLORS.PRIMARY, MATRIX_COLORS.CYAN, 0xffffff, MATRIX_COLORS.YELLOW];
+      const colours = [MATRIX_COLORS.PRIMARY, MATRIX_COLORS.CYAN, MATRIX_COLORS.WHITE, MATRIX_COLORS.YELLOW];
       const colour = colours[Math.floor(Math.random() * colours.length)];
       this.player.setTint(colour);
     }
@@ -809,7 +809,7 @@ export class FroggerGameScene extends BaseScene {
     if (this.isGameOver) return;
     this.isGameOver = true;
 
-    this.player.setTint(0xff0000);
+    this.player.setTint(MATRIX_COLORS.RED);
     this.playSound(SOUND_KEYS.FROGGER_DEATH);
 
     this.tweens.add({
@@ -1030,7 +1030,7 @@ export class FroggerGameScene extends BaseScene {
       enemy.setTint(0xff3333);
     } else if (!useVehicle) {
       enemy.verticalSpeed = 0;
-      enemy.setTint(enemyType === 'agent' ? 0x00ff00 : 0xff6600);
+      enemy.setTint(enemyType === 'agent' ? MATRIX_COLORS.PRIMARY : 0xff6600);
     } else {
       enemy.verticalSpeed = 0;
     }

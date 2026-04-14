@@ -84,7 +84,7 @@ export class CodeBreakerGameScene extends BaseScene {
       const bg = this.add.image(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, 'frame_bg');
       bg.setDisplaySize(GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT);
       bg.setAlpha(0.15);
-      bg.setTint(0x00ff00);
+      bg.setTint(MATRIX_COLORS.PRIMARY);
       bg.setDepth(-1);
     }
     this.matrixRainGroup = this.addMatrixRain(8);
@@ -886,7 +886,7 @@ export class CodeBreakerGameScene extends BaseScene {
     this.boss.health -= damage;
     this.playSound(SOUND_KEYS.HIT);
 
-    this.boss.sprite.setFillStyle(0xffffff);
+    this.boss.sprite.setFillStyle(MATRIX_COLORS.WHITE);
     this.time.delayedCall(80, () => {
       if (this.boss?.sprite.active) this.boss.sprite.setFillStyle(0x880000);
     });

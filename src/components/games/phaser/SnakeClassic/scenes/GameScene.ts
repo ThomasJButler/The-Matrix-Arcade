@@ -716,7 +716,7 @@ export class SnakeGameScene extends BaseScene {
       if (this.spriteMode) {
         headSprite.setDisplaySize(GAME_CONFIG.CELL_SIZE, GAME_CONFIG.CELL_SIZE);
       }
-      headSprite.setTint(0xff0000);
+      headSprite.setTint(MATRIX_COLORS.RED);
     }
 
     this.time.delayedCall(600, () => {
