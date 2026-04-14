@@ -5,7 +5,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: R76 COMPLETE — final polish achieved
+## Status: R76 reopened (G6 pause/resume regression, PG9+PG13 unblocked) + R77 opened (retro scoreboard) — overnight loop target.
 
 > **Last change**: R76 (2026-04-14) — planning-only session. Tom completed full hands-on playtest in live browser ("Brilliant implementation so far, well done!"). R75 P1 cursor-guard work is now playtest-confirmed resolved. New findings logged below as `R76 Playtest Findings` — these supersede R75's open items in priority. Ralph Loop Strategy rewritten as an **overnight autonomous protocol** with a defined terminator condition (see bottom of file). Intended outcome: single unattended loop closes all R76 items before morning.
 >
@@ -115,8 +115,26 @@ These are the items surfaced by Tom's hands-on playtest (2026-04-14). Every item
 #### ~~G5 — [P1] Card layout — only PLAY button stands out~~ RESOLVED (R76.1)
 - [x] (R76.1) Bumped button contrast (bg-green-500/10, text-green-400), renamed buttons to "HOW TO PLAY" / "HIGH SCORE", improved keyboard hints formatting.
 
-#### ~~G6 — [P1] Pause/resume often fails to resume~~ RESOLVED (R76.1)
+#### ~~G6 — [P1] Pause/resume often fails to resume~~ RE-OPENED R76.8 (regression reported 2026-04-14 playtest)
 - [x] (R76.1) Added `BaseScene.resumeGame()` that re-enables keyboard, re-focuses canvas, hides overlay, then calls `scene.resume()`. Called from `togglePause()` on unpause path.
+- [ ] **(R76.8) REGRESSION**: Tom's 2026-04-14 playtest reports: "Most games don't restart when unpause." The R76.1 fix is either incomplete or has been shadowed by a subsequent change. Re-audit required.
+  - **Repro first**: start every Phaser game via `npm run dev`, press P-P on each, log which fail. Don't guess.
+  - **Likely root causes** (prioritised):
+    1. `scene.resume()` not actually called, or called on wrong scene key.
+    2. `BaseScene.isPaused` flag stays `true` on resume — every `update()` has `if (this.isPaused) return;` so logic stays frozen.
+    3. Keyboard plugin disabled on pause but not re-enabled on resume.
+    4. Game-specific `togglePause()` override that shadows `BaseScene` without calling `super`.
+  - **Correct order in resume path**:
+    ```typescript
+    this.hidePauseOverlay();
+    this.isPaused = false;              // flip flag BEFORE resume
+    if (this.input.keyboard) this.input.keyboard.enabled = true;
+    this.scene.resume();
+    this.events.emit('gamepause', { paused: false });
+    ```
+  - **Audit** each `GameScene.ts` for a `togglePause()` override without `super.togglePause()`.
+  - **New E2E**: `e2e/playthrough/pause-resume.spec.ts` parametrised over all 11 Phaser games. Press P → assert overlay visible + state frozen. Press P → assert overlay gone + state resumes within 500ms.
+  - **Files**: `src/lib/phaser/scenes/BaseScene.ts`, every `src/components/games/phaser/<Game>/scenes/GameScene.ts`.
 
 #### ~~G7 — [P2] New "About / Inspiration / Passion" tab~~ RESOLVED (R76.4)
 - [x] (R76.4) Created `src/components/About.tsx` with 3 sections (About, Inspirations, Why I Built This). Wired into header nav with B keyboard shortcut. Focus-trapped, ESC closes.
@@ -159,8 +177,27 @@ Every item is tagged with its P-level. `[P0]` = game-breaking in playtest.
 #### ~~PG8 — [P0] MatrixFrogger: Kung Fu (`K`) doesn't work~~ RESOLVED (R76.2)
 - [x] (R76.2) Changed `kungFuKey!` non-null assertion to optional `kungFuKey?`, added null guard before `JustDown()` call.
 
-#### PG9 — [P2] MatrixFrogger: better 3D visuals — BLOCKED-NEEDS-HUMAN (non-quick visual polish, requires design direction)
-- [ ] Pseudo-3D: parallax lane shadows + perspective scaling on vehicles.
+#### PG9 — [P2] MatrixFrogger: 3D tilt camera + perspective + lane textures (UNBLOCKED R76.6)
+- [ ] **(R76.6)** Implement the following per Tom's design direction (2026-04-14):
+  - **Camera tilt**: 25° forward tilt. Render lanes as trapezoids by adjusting Y-spacing + X-inset per row (no `camera.setRotation` — preserves Phaser hit-boxes).
+  - **Vehicle scale**: linearly interpolate `0.6×` (far lane) → `1.0×` (near lane) across lane index. `sprite.setScale(scale)`.
+  - **Vehicle rotation**: tilt sprites back proportionally to lane distance — `sprite.setAngle(ROTATION_DEG * (1 - scale))` where `ROTATION_DEG = -12`.
+  - **Origin**: `setOrigin(0.5, 1)` so scale pivots at lane baseline.
+  - **Hit-box safety**: `sprite.setScale(scale).setBodySize(ORIGINAL_W, ORIGINAL_H)` — keep physics body at original size so far-lane cars remain hittable/avoidable consistently.
+  - **Lane textures**: procedural `road_dashes` (TileSprite, animated at `LANE_DASH_SPEED = 40 px/s`, alternating direction per road lane) + `water_shimmer` (noise texture, `WATER_SHIMMER_SPEED = 15 px/s`).
+  - Config block in `MatrixFrogger/config.ts`:
+    ```typescript
+    PERSPECTIVE: {
+      TILT_DEGREES: 25,
+      VEHICLE_SCALE_MIN: 0.6,
+      VEHICLE_SCALE_MAX: 1.0,
+      VEHICLE_ROTATION_DEG: -12,
+      LANE_DASH_SPEED: 40,
+      WATER_SHIMMER_SPEED: 15,
+    }
+    ```
+- **Files**: `MatrixFrogger/config.ts`, `MatrixFrogger/scenes/GameScene.ts`, `MatrixFrogger/scenes/BootScene.ts` (procedural dash + shimmer textures).
+- **Perf budget**: ≥ 55fps p95 (existing perf spec).
 
 #### ~~PG10 — [P0] NeoJump: falling off-screen doesn't kill player~~ RESOLVED (R76.2)
 - [x] (R76.2) Root cause: `checkGameOver()` set `isGameOver=true` before calling `playerDeath()`, which guards on `isGameOver`. Removed premature flag set — death sequence now fires correctly.
@@ -171,8 +208,28 @@ Every item is tagged with its P-level. `[P0]` = game-breaking in playtest.
 #### ~~PG12 — [P1] NeoJump: bomb sprites too large~~ RESOLVED (R76.3)
 - [x] (R76.3) Enemy texture reduced from 40×40 to 28×28 (~30%), display size matched.
 
-#### PG13 — [P2] NeoJump: better 3D visuals — BLOCKED-NEEDS-HUMAN (non-quick visual polish, requires design direction)
-- [ ] Parallax + scale depth.
+#### PG13 — [P2] NeoJump: 5-layer parallax depth (UNBLOCKED R76.6)
+- [ ] **(R76.6)** Implement the following per Tom's design direction (2026-04-14):
+  - **5 parallax layers**, each a full-height `TileSprite` with `setScrollFactor(0)`, manually offset `tilePositionY` by `cameraY * (1 - scrollFactor)` in `update()`:
+    ```typescript
+    PARALLAX: {
+      LAYERS: [
+        { key: 'rain_deep',     scrollFactor: 0.1, depth: -50 },
+        { key: 'skyline',       scrollFactor: 0.3, depth: -40 },
+        { key: 'mid_buildings', scrollFactor: 0.5, depth: -30 },
+        { key: 'near_arches',   scrollFactor: 0.7, depth: -20 },
+        // platforms + player implicitly at 1.0, depth 0
+      ],
+    }
+    ```
+  - **Platforms stay uniform size** across all altitudes — hit-boxes UNCHANGED, jump mechanics UNCHANGED. Pure rendering-layer change.
+  - **Procedural textures** for the 3 new layers in `BootScene.ts`: rectangles for buildings, rounded arches, decreasing Matrix-green intensities (`#004400` far → `#00aa00` near) to reinforce depth via value contrast.
+  - **Existing rain** becomes the deepest layer (0.1×). Lift it into the new parallax manager rather than duplicating logic.
+- **Files**: `NeoJump/config.ts`, `NeoJump/scenes/GameScene.ts`, `NeoJump/scenes/BootScene.ts` (3 new procedural textures).
+- **Perf budget (critical)**: Ralph MUST run the perf E2E (`PLAYWRIGHT_PERF=1 npm run test:e2e -- performance`) and confirm ≥ 55fps p95. If it drops below:
+  1. Drop to 4 layers (merge skyline + mid_buildings).
+  2. Still fails → 3 layers.
+  3. Still fails → revert PG13 to pre-R76.6 state, mark `BLOCKED-NEEDS-PERF-WORK`, document regression under R77 `### Discovered Work`.
 
 #### ~~PG14 — [P0] AgentChase: wall-collision glitch (stutter into walls)~~ RESOLVED (R76.2)
 - [x] (R76.2) Implemented Pac-Man-style buffered turn + slide-along-wall. Post-advance turn check at tile boundaries, guarded progress advancement, clamped interpolation when blocked.
@@ -208,6 +265,139 @@ Every item is tagged with its P-level. `[P0]` = game-breaking in playtest.
 
 #### ~~E2 — [P2] Regenerate visual baselines~~ RESOLVED (R76.4)
 - [x] (R76.4) All 14 visual tests pass against existing baselines. UI changes (card layout, button labels) within threshold — no baseline regeneration needed.
+
+---
+
+### R76.7 — [P2] Archive completed R76 work to COMPLETED_WORK.md
+
+- [ ] **(R76.7)** After R76.6 + R76.8 land, move all closed `[x]` R76 task bodies (R76.1–R76.8) + the corrected `R76 Completion Report` + the `<details>`-wrapped historical R75 P1 analysis into `COMPLETED_WORK.md` under a new `## R76 — Final Polish Phase` section. In `IMPLEMENTATION_PLAN.md`, replace with a one-line back-reference: `R76 closed — see [COMPLETED_WORK.md § R76](COMPLETED_WORK.md#r76--final-polish-phase)`.
+- **Keep** in live plan: Status header, Reference Docs, Priority Legend, Architecture Notes, Test Coverage Status, Current Codebase Health, Phase 0a/0b/1/2/6/7 sections, Ralph Overnight Loop Protocol, R77 tasks, CTRL-S guardrail.
+- **Gate**: same battery. Archival is doc-only; runtime code unchanged.
+
+---
+
+## R77 — Retro Arcade Scoreboard (NEW — follows R76 closure)
+
+> **Tom's call (2026-04-14, post-R76.5)**: "The high scores are what we need — like an old school retro arcade scoreboard with tabs for each game. Matrix of course 😉"
+
+Achievements system stays UNTOUCHED this phase. This adds a new classic-arcade scoreboard surface on top of the existing high-score persistence.
+
+### R77 Design Decisions (locked in by Tom)
+
+| Decision | Choice |
+|----------|--------|
+| Access | **BOTH** — `[HIGH SCORES]` button in landing header **AND** attract-mode cycle when landing is idle ≥10s |
+| Entry | **3-letter initials**, arcade style: arrow keys cycle A–Z, ENTER confirms |
+| Depth | **Top 25** per game |
+| Fields | `rank, initials, score, level, duration, date` |
+| Flair | **All 4**: flashing 1UP-style highlight on own scores, CRT scanline filter, chip-tune SFX, per-tab reset with confirm |
+| Aesthetic | **Matrix** — `#00ff00` primary, monospace, matrix-rain accent, scanline CRT (default ON) |
+| CTRL-S | **Excluded** — story game, no score board. Scoreboard has **11 tabs**, not 12. |
+
+### Data Model — extend `src/store/gameStore.ts`
+
+```typescript
+interface ScoreEntry {
+  initials: string;       // 3 chars [A-Z]
+  score: number;
+  level: number;
+  durationMs: number;
+  date: string;           // ISO
+}
+
+interface ScoreboardState {
+  boards: Record<PhaserGameId, ScoreEntry[]>;   // top 25, sorted desc
+  lastInitials: string;
+  addScore(gameId: PhaserGameId, entry: ScoreEntry): { qualified: boolean; rank: number | null };
+  clearBoard(gameId: PhaserGameId): void;
+}
+```
+
+- `addScore` returns whether the entry made top-25 and its rank. Games use it to decide whether to show the initials-entry prompt.
+- **Migration**: on first mount after R77.1, migrate legacy single `highScores[game]` into `boards[game][0]` so nothing is lost.
+- **Persist** via existing Zustand persist middleware — no new storage layer.
+
+### Per-Game `level` field source
+
+| Game | level field |
+|------|-------------|
+| Snake Classic | snake length at death |
+| Vortex Pong | player goals scored |
+| Matrix Cloud | pipes passed |
+| Matrix Invaders | wave number |
+| Metris | config-driven level |
+| Matrix Frogger | lanes crossed (total rows advanced) |
+| Neo Jump | `Math.floor(maxHeight / 500)` |
+| Agent Chase | dots collected |
+| Rhythm Hacker | track number + streak tier |
+| Cloud Jumper | clouds reached |
+| Code Breaker | stage from config |
+
+**Duration**: every game emits `Date.now() - gameStartedAt` on game-over. Start anchor = end of `BaseScene.startCountdown()` callback (landed R76.5).
+
+### R77 Task List
+
+#### R77.1 — [P1] Extend gameStore with scoreboard slice
+- [ ] Add `boards`, `lastInitials`, `addScore`, `clearBoard` to `src/store/gameStore.ts`. Migrate legacy `highScores` on first load. Unit tests: empty board add, 26th entry evicts 25th, legacy migration preserves historical high score as rank 1.
+
+#### R77.2 — [P1] Build Scoreboard modal + ScoreTable components
+- [ ] New `src/components/scoreboard/Scoreboard.tsx` — 11 tabs (horizontal scroll on narrow viewports), Matrix rain background at 30% opacity, CRT overlay (linear-gradient scanlines, `mix-blend-mode: overlay`, 8% opacity, toggleable via `[CRT]` button, default ON).
+- [ ] New `src/components/scoreboard/ScoreTable.tsx` — 25 rows, columns `# NAME SCORE LVL TIME DATE`. Apply `useFocusTrap`.
+- [ ] Visual regression baselines committed.
+
+#### R77.3 — [P1] Wire [HIGH SCORES] button into landing header
+- [ ] Add button between `[ABOUT]` and `[ACHIEVEMENTS]` in `src/components/LandingPage.tsx` (and wherever header lives in `src/App.tsx`). E2E: click button → modal opens → tab switch works.
+
+#### R77.4 — [P1] Build HighScoreEntry Phaser scene + wire into all 11 GameOverScenes
+- [ ] New `src/lib/phaser/scenes/HighScoreEntryScene.ts` — 3 letter slots, arrow-up/down cycles A–Z, left/right moves slots, ENTER confirms. `exposeTestState()` for E2E.
+- [ ] In each game's `GameOverScene.ts`: on game-over, call `addScore()`. If `qualified`, push `HighScoreEntryScene` before showing normal game-over UI. Otherwise skip to game-over as today.
+- [ ] Each `GameScene.ts` emits `level` + `durationMs` fields in the game-over payload.
+- [ ] **Excludes CTRL-S** — per CTRL-S guardrail below.
+
+#### R77.5 — [P2] Add 4 procedural SFX to useSoundSystem
+- [ ] `scoreboard_tab` (~200Hz square, 60ms blip), `scoreboard_new_high` (rising major arpeggio, ~600ms fanfare), `scoreboard_letter_cycle` (tick), `scoreboard_confirm` (confirm blip). All Web Audio API, no audio files.
+- [ ] Hook into `HighScoreEntry` (cycle + confirm) and `Scoreboard` (tab change + new-high fanfare).
+
+#### R77.6 — [P2] Attract mode on landing idle
+- [ ] New `src/components/scoreboard/AttractMode.tsx`. 10s idle timer (reset on any pointer/key event). When fired: full-screen overlay, cycle through each of 11 games, show title + top 5, 5s per game, loop. Any input dismisses + resets idle. Matrix rain + CRT filter ON.
+
+#### R77.7 — [P2] Per-tab [RESET] with WIPE confirm friction
+- [ ] `[RESET]` button bottom-right in each ScoreTable. Click → inline prompt "Type WIPE to confirm". On confirm, call `clearBoard(gameId)`. No global reset.
+
+#### R77.8 — [P2] 1UP-style own-score highlight
+- [ ] CSS keyframe flash (1s cycle, Matrix-green pulse) triggered when row `initials === lastInitials`. Accompany with a blinking `1UP` glyph next to the rank number.
+
+#### R77.9 — [P2] E2E scoreboard spec
+- [ ] New `e2e/playthrough/scoreboard.spec.ts`: seed RNG via `?test=1`, play a game to game-over with a score that hits top-25, enter initials, reopen scoreboard, assert row present with correct fields. Separate test: idle on landing → attract mode fires → keypress dismisses.
+
+#### R77.10 — [P1] Final verification + terminator
+- [ ] All gates green. Update Status line to contain: **"R77 COMPLETE — retro scoreboard shipped"**.
+
+### Terminator condition update
+
+The loop terminator now matches **either** R76 **or** R77 completion:
+- `R77 COMPLETE — retro scoreboard shipped` (primary, expected overnight outcome), OR
+- `R76 COMPLETE — final polish achieved` (fallback if R77 is deferred).
+
+`loop.sh:66-74` grep already matches both — no shell change needed.
+
+---
+
+## CTRL-S Guardrail (applies to ALL R76.x and R77.x tasks)
+
+> **Tom's call (2026-04-14)**: "Leave the CTRL-S enhancements to the end as this is the flagship and genuinely needs its own window."
+
+**Ralph MUST NOT** touch anything under `src/components/games/ctrl-s/`, `src/components/games/CTRLSWorld.tsx`, or any CTRL-S story/save/achievement code during R76.x or R77.x iterations.
+
+**Specifically excluded from this overnight run**:
+- Phase 7 CTRL-S rewrite — already deferred, stays deferred.
+- CTRL-S pause/resume (works fine per playtest) — excluded from R76.8 audit.
+- R77.4 scoreboard hooks — **11 Phaser games only**. CTRL-S has no score board and no tab.
+- Achievement system in CTRL-S — 100% intact.
+
+**If a task seems to need CTRL-S changes**: tag the sub-task `DEFERRED-CTRLS-DEDICATED-PHASE`, continue to next task, do NOT mark `BLOCKED`. This is an intentional exclusion.
+
+**R78 (future, not now)**: dedicated CTRL-S window with fresh design input from Tom.
 
 ---
 
@@ -871,14 +1061,19 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 
 ### TERMINATOR CONDITION (Ralph stops looping only when ALL of these are true)
 
-- Zero unchecked `[ ]` items under `R76 Global Items`.
-- Zero unchecked `[ ]` items under `R76 Per-Game Items`.
-- Zero unchecked `[ ]` items under `R76 E2E Coverage`.
+- Zero unchecked `[ ]` items under `R76 Global Items`, `R76 Per-Game Items`, `R76 E2E Coverage`.
+- Zero unchecked `[ ]` items under `R77` task list (retro scoreboard).
 - `npm run lint`, `npm run build`, `npm test`, `npm run test:e2e` ALL green on a clean run.
-- The `## Status` line contains the phrase **"R76 COMPLETE — final polish achieved"**.
-- No `BLOCKED:` markers remain, OR every remaining blocker is tagged `BLOCKED-NEEDS-HUMAN` (Ralph cannot resolve unaided).
+- The `## Status` line contains the phrase **"R77 COMPLETE — retro scoreboard shipped"** (primary) OR **"R76 COMPLETE — final polish achieved"** (fallback, R77 deferred).
+- No `BLOCKED:` markers remain, OR every remaining blocker is tagged `BLOCKED-NEEDS-HUMAN` / `DEFERRED-CTRLS-DEDICATED-PHASE` (Ralph cannot resolve unaided, or intentional CTRL-S exclusion).
 
-When terminator is reached, write a final summary under a new top-level section `## R76 Completion Report` listing: iterations run, tasks closed, tasks blocked, tests passing, discovered-work items deferred to R77. Then stop.
+**Execution order for this overnight run**:
+1. R76.6 — unblock PG9 + PG13 (design params locked in).
+2. R76.8 — pause/resume regression (re-opened G6).
+3. R76.7 — archive R76 into `COMPLETED_WORK.md`.
+4. R77.1 → R77.10 — retro scoreboard build-out.
+
+When terminator is reached, write a final summary under `## R77 Completion Report` listing: iterations run, tasks closed, tasks blocked (including any `DEFERRED-CTRLS-DEDICATED-PHASE` items), tests passing, discovered-work items deferred to R78. Then stop.
 
 ### Guardrails
 
