@@ -1183,11 +1183,8 @@ export class AgentChaseGameScene extends BaseScene {
       this.input.keyboard.removeAllKeys(true);
     }
 
-    // Clear all tweens (including power pellet pulsing animations)
-    this.tweens.killAll();
-
-    // Clear all time events
-    this.time.removeAllEvents();
+    this.time?.removeAllEvents();
+    this.tweens?.killAll();
 
     // Destroy groups
     this.walls.clear(true, true);

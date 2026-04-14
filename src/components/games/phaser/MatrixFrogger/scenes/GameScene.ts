@@ -1358,14 +1358,14 @@ export class FroggerGameScene extends BaseScene {
 
   shutdown(): void {
     this.stopBackgroundMusic();
-    this.time.removeAllEvents();
+    this.time?.removeAllEvents();
 
     this.input.off('pointerdown');
     if (this.input.keyboard) {
       this.input.keyboard.removeAllKeys(true);
     }
 
-    this.tweens.killAll();
+    this.tweens?.killAll();
     this.activePowerUps = [];
     this.kungFuIcons = [];
 
