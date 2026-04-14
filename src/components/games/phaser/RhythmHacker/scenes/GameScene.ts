@@ -470,10 +470,10 @@ export class RhythmHackerGameScene extends BaseScene {
       if (!this.input.keyboard) return;
 
       const keyCodes = [
-        Phaser.Input.Keyboard.KeyCodes.D,
-        Phaser.Input.Keyboard.KeyCodes.F,
-        Phaser.Input.Keyboard.KeyCodes.J,
-        Phaser.Input.Keyboard.KeyCodes.K,
+        Phaser.Input.Keyboard.KeyCodes.Q,
+        Phaser.Input.Keyboard.KeyCodes.W,
+        Phaser.Input.Keyboard.KeyCodes.O,
+        Phaser.Input.Keyboard.KeyCodes.P,
       ];
 
       keyCodes.forEach((code, lane) => {

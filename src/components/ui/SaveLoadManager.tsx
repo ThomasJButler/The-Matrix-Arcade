@@ -249,7 +249,7 @@ export const SaveLoadManager: React.FC<SaveLoadManagerProps> = ({ isOpen, onClos
                         </div>
                         <div>
                           <div className="text-gray-400">Games Played</div>
-                          <div className="text-green-400 font-bold">{gameData.stats.gamesPlayed}</div>
+                          <div className="text-green-400 font-bold">{gameData.stats?.gamesPlayed ?? 0}</div>
                         </div>
                         <div>
                           <div className="text-gray-400">Achievements</div>

@@ -105,7 +105,7 @@ function createTestScene(trackIndex = 0) {
     }),
   };
 
-  // Input stubs (four lanes: D, F, J, K)
+  // Input stubs (four lanes: Q, W, O, P)
   scene.laneKeys = [
     { isDown: false },
     { isDown: false },
