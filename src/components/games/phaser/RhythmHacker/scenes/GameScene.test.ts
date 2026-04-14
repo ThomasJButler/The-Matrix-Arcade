@@ -185,43 +185,43 @@ describe('RhythmHackerGameScene', () => {
   // Track Initialisation
   // -----------------------------------------------------------------------
   describe('Track Initialisation', () => {
-    it('easy track: 100 BPM, 120s duration, beatInterval 600ms', () => {
+    it('easy track: 100 BPM, 228s duration, beatInterval 600ms', () => {
       const s = createTestScene(0);
       expect(s.trackBpm).toBe(100);
-      expect(s.trackDuration).toBe(120);
+      expect(s.trackDuration).toBe(228);
       expect(s.beatInterval).toBe(600);
       expect(s.difficulty).toBe('easy');
     });
 
-    it('normal track: 120 BPM, 150s duration, beatInterval 500ms', () => {
+    it('normal track: 118 BPM, 200s duration', () => {
       const s = createTestScene(1);
-      expect(s.trackBpm).toBe(120);
-      expect(s.trackDuration).toBe(150);
-      expect(s.beatInterval).toBe(500);
+      expect(s.trackBpm).toBe(118);
+      expect(s.trackDuration).toBe(200);
+      expect(s.beatInterval).toBeCloseTo(60000 / 118, 1);
       expect(s.difficulty).toBe('normal');
     });
 
-    it('hard track: 140 BPM, 150s duration', () => {
+    it('hard track: 140 BPM, 148s duration', () => {
       const s = createTestScene(2);
       expect(s.trackBpm).toBe(140);
-      expect(s.trackDuration).toBe(150);
+      expect(s.trackDuration).toBe(148);
       expect(s.beatInterval).toBeCloseTo(60000 / 140, 1);
       expect(s.difficulty).toBe('hard');
     });
 
-    it('insane track: 160 BPM, 200s duration', () => {
+    it('insane track: 160 BPM, 252s duration', () => {
       const s = createTestScene(3);
       expect(s.trackBpm).toBe(160);
-      expect(s.trackDuration).toBe(200);
+      expect(s.trackDuration).toBe(252);
       expect(s.beatInterval).toBeCloseTo(60000 / 160, 1);
       expect(s.difficulty).toBe('insane');
     });
 
-    it('bonus insane track: 150 BPM, 180s duration', () => {
+    it('bonus insane track: 110 BPM, 208s duration', () => {
       const s = createTestScene(4);
-      expect(s.trackBpm).toBe(150);
-      expect(s.trackDuration).toBe(180);
-      expect(s.beatInterval).toBe(400);
+      expect(s.trackBpm).toBe(110);
+      expect(s.trackDuration).toBe(208);
+      expect(s.beatInterval).toBeCloseTo(60000 / 110, 1);
       expect(s.difficulty).toBe('insane');
     });
 

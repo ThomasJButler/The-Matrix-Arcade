@@ -93,9 +93,9 @@ describe('RhythmHacker Charts', () => {
     });
 
     it('charts scale in note count with difficulty', () => {
-      const easy = TRACK_CHARTS[0]; // In The Moonlight (easy, 120s)
-      const normal = TRACK_CHARTS[1]; // Cyberpunkin' (normal, 150s)
-      const hard = TRACK_CHARTS[2]; // Cyberpsychotic (hard, 150s)
+      const easy = TRACK_CHARTS[0]; // In The Moonlight (easy, 228s)
+      const normal = TRACK_CHARTS[1]; // Cyberpunkin' (normal, 200s)
+      const hard = TRACK_CHARTS[2]; // Cyberpsychotic (hard, 148s)
 
       const easyRate = easy.length / GAME_CONFIG.TRACKS[0].duration;
       const normalRate = normal.length / GAME_CONFIG.TRACKS[1].duration;

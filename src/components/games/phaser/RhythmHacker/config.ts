@@ -69,13 +69,13 @@ export const GAME_CONFIG = {
     NOTES_START: 6000,
   },
 
-  /** Track settings */
+  /** Track settings — BPM verified via FL Studio project screenshots + multi-method onset detection */
   TRACKS: [
-    { name: 'IN THE MOONLIGHT', bpm: 100, duration: 120, difficulty: 'easy', audioUrl: '/assets/rhythm-hacker/tracks/in-the-moonlight.mp3' },
-    { name: "CYBERPUNKIN'", bpm: 120, duration: 150, difficulty: 'normal', audioUrl: '/assets/rhythm-hacker/tracks/cyberpunkin.mp3' },
-    { name: 'CYBERPSYCHOTIC', bpm: 140, duration: 150, difficulty: 'hard', audioUrl: '/assets/rhythm-hacker/tracks/cyberpsychotic.mp3' },
-    { name: 'ENHANCEMENTS', bpm: 160, duration: 200, difficulty: 'insane', audioUrl: '/assets/rhythm-hacker/tracks/enhancements.mp3' },
-    { name: 'RESONANCE', bpm: 150, duration: 180, difficulty: 'insane', audioUrl: '/assets/rhythm-hacker/tracks/ostcrunch2-resonance.mp3' },
+    { name: 'IN THE MOONLIGHT', bpm: 100, duration: 228, difficulty: 'easy', audioUrl: '/assets/rhythm-hacker/tracks/in-the-moonlight.mp3' },
+    { name: "CYBERPUNKIN'", bpm: 118, duration: 200, difficulty: 'normal', audioUrl: '/assets/rhythm-hacker/tracks/cyberpunkin.mp3' },
+    { name: 'CYBERPSYCHOTIC', bpm: 140, duration: 148, difficulty: 'hard', audioUrl: '/assets/rhythm-hacker/tracks/cyberpsychotic.mp3' },
+    { name: 'ENHANCEMENTS', bpm: 160, duration: 252, difficulty: 'insane', audioUrl: '/assets/rhythm-hacker/tracks/enhancements.mp3' },
+    { name: 'RESONANCE', bpm: 110, duration: 208, difficulty: 'insane', audioUrl: '/assets/rhythm-hacker/tracks/ostcrunch2-resonance.mp3' },
   ],
 } as const;
 
