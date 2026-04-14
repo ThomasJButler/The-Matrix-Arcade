@@ -5,7 +5,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: R79 open — closing R78 residue (Docker baseline + archive + straggler sweep)
+## Status: R79 COMPLETE — R78 residue closed
 
 > **R78.7 complete (2026-04-14)**: Multi-viewport Playwright matrix — added `mobile` (375×667) and `tablet` (768×1024) projects to `playwright.config.ts`. Both viewports trigger the app's "DESKTOP REQUIRED" gate (MobileWarning component), so created dedicated `e2e/responsive/mobile-gate.spec.ts` with 2 tests × 2 viewports = 4 baselines. Scoped via `testMatch: /responsive\//` so only responsive specs run on those projects. Fixed pre-existing lint error (`addScore` unused in App.tsx). All 4 responsive tests pass, all 6 desktop visual tests pass, build clean.
 >
@@ -145,6 +145,15 @@ This file is auto-generated and updated by Ralph during planning and building lo
 - Gates green: lint + build + test + e2e.
 
 Standard complete-and-exit pattern — NOT R78's continuous-improvement mode. If Ralph finishes all 3 tasks before the iteration cap, write the terminator phrase and stop cleanly.
+
+### R79 Completion Report
+
+- **Commits**: 2 (R79.1 Docker baselines, R79 closeout)
+- **R79.1**: 85 `*-chromium-linux.png` baselines generated via Docker Playwright v1.58.0. Fixed Vite `allowedHosts` for Docker DNS, fixed Playwright config to exclude responsive specs from chromium project (`testIgnore: /responsive\//`).
+- **R79.2**: R78 archived to COMPLETED_WORK.md (35 items: 10 task-list + 25 discovered-work). Live plan slimmed by ~136 lines.
+- **R79.3**: 14 lint warnings documented as intentional. Zero TODO/FIXME/HACK. Test stats updated. Legacy Ralph Notes collapsed from ~140 lines to 4.
+- **Final gate results**: lint 0 errors / 14 warnings, build clean (7.3s), 1,896 unit tests pass, 73 E2E pass + 1 skipped, 98 darwin + 85 linux baselines.
+- **Discovered fix**: chromium project was running `e2e/responsive/mobile-gate.spec.ts` (mobile-only viewport tests) and always failing. Added `testIgnore: /responsive\//` to chromium project config.
 
 ### R79 Tom Manual TODOs (NOT Ralph's work)
 
