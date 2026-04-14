@@ -7,7 +7,7 @@
 
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS, type GameOverStat } from '../types';
+import { SCENE_KEYS, MATRIX_COLORS, MATRIX_FONTS, type GameOverStat } from '../types';
 
 export interface GameOverSceneConfig {
   /** Scene key for this game over scene */
@@ -125,14 +125,14 @@ export class GameOverScene extends BaseScene {
       const y = startY + row * rowHeight;
 
       this.add.text(x - 8, y, stats[i].label.toUpperCase(), {
-        fontFamily: '"Press Start 2P", monospace',
+        fontFamily: MATRIX_FONTS.PRIMARY,
         fontSize: '8px',
         color: '#338833',
         align: 'right',
       }).setOrigin(1, 0.5);
 
       this.add.text(x + 8, y, String(stats[i].value), {
-        fontFamily: '"Press Start 2P", monospace',
+        fontFamily: MATRIX_FONTS.PRIMARY,
         fontSize: '10px',
         color: MATRIX_COLORS.PRIMARY_HEX,
         align: 'left',
@@ -160,7 +160,7 @@ export class GameOverScene extends BaseScene {
 
     // Button text
     const text = this.add.text(0, 0, label, {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '14px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });

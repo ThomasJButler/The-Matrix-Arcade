@@ -10,7 +10,7 @@
 
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '../../../../../lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, MATRIX_FONTS, SOUND_KEYS, REGISTRY_KEYS } from '../../../../../lib/phaser/types';
 import { GAME_CONFIG, ACHIEVEMENTS } from '../config';
 
 /** Cloud types */
@@ -255,7 +255,7 @@ export class CloudJumperGameScene extends BaseScene {
    */
   private createUI(): void {
     this.scoreText = this.add.text(20, 20, 'SCORE: 0', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '14px',
       color: MATRIX_COLORS.PRIMARY_HEX,
       stroke: '#000000',
@@ -265,7 +265,7 @@ export class CloudJumperGameScene extends BaseScene {
     this.scoreText.setDepth(100);
 
     this.distanceText = this.add.text(20, 45, 'DISTANCE: 0m', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '10px',
       color: MATRIX_COLORS.PRIMARY_HEX,
       stroke: '#000000',

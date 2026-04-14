@@ -7,7 +7,7 @@
 
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS } from '../types';
+import { SCENE_KEYS, MATRIX_COLORS, MATRIX_FONTS } from '../types';
 
 export interface BootSceneConfig {
   /** Scene key for this boot scene */
@@ -60,7 +60,7 @@ export class BootScene extends BaseScene {
 
     // Loading text
     const loadingText = this.add.text(centerX, centerY - 50, 'LOADING...', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '20px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
@@ -79,7 +79,7 @@ export class BootScene extends BaseScene {
 
     // Progress text
     const progressText = this.add.text(centerX, centerY + 50, '0%', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '14px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });

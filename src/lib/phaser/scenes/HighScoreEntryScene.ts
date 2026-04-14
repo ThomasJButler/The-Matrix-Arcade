@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS, REGISTRY_KEYS, type GameOverStat } from '../types';
+import { SCENE_KEYS, MATRIX_COLORS, MATRIX_FONTS, REGISTRY_KEYS, type GameOverStat } from '../types';
 import type { ScoreEntry, ScoreboardGameId } from '../../../hooks/useSaveSystem';
 
 export interface HighScoreEntryData {
@@ -64,21 +64,21 @@ export class HighScoreEntryScene extends BaseScene {
       const x = startX + i * slotWidth;
 
       const up = this.add.text(x, h * 0.38, '\u25B2', {
-        fontFamily: '"Press Start 2P", monospace',
+        fontFamily: MATRIX_FONTS.PRIMARY,
         fontSize: '14px',
         color: MATRIX_COLORS.PRIMARY_HEX,
       }).setOrigin(0.5);
       this.arrowUp.push(up);
 
       const letter = this.add.text(x, h * 0.48, this.getLetter(i), {
-        fontFamily: '"Press Start 2P", monospace',
+        fontFamily: MATRIX_FONTS.PRIMARY,
         fontSize: '28px',
         color: MATRIX_COLORS.PRIMARY_HEX,
       }).setOrigin(0.5);
       this.slotTexts.push(letter);
 
       const down = this.add.text(x, h * 0.58, '\u25BC', {
-        fontFamily: '"Press Start 2P", monospace',
+        fontFamily: MATRIX_FONTS.PRIMARY,
         fontSize: '14px',
         color: MATRIX_COLORS.PRIMARY_HEX,
       }).setOrigin(0.5);

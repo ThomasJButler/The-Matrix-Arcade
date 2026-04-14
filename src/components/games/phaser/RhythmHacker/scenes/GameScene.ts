@@ -10,7 +10,7 @@
 
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS, REGISTRY_KEYS } from '../../../../../lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, MATRIX_FONTS, REGISTRY_KEYS } from '../../../../../lib/phaser/types';
 import { GAME_CONFIG, NOTE_PROBABILITIES, ACHIEVEMENTS } from '../config';
 import { ChartNote, getTrackCharts } from '../charts';
 
@@ -244,7 +244,7 @@ export class RhythmHackerGameScene extends BaseScene {
     const { WIDTH, HEIGHT } = GAME_CONFIG;
 
     this.countdownText = this.add.text(WIDTH / 2, HEIGHT / 2 - 50, Math.ceil(GAME_CONFIG.COUNTDOWN.DURATION / 1000).toString(), {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '120px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
@@ -331,7 +331,7 @@ export class RhythmHackerGameScene extends BaseScene {
       this.keyIndicators.push(key);
 
       const label = this.add.text(x, NOTES.HIT_LINE_Y + 35, LANES.KEYS[i], {
-        fontFamily: '"Press Start 2P", monospace',
+        fontFamily: MATRIX_FONTS.PRIMARY,
         fontSize: '20px',
         color: '#ffffff',
       });
@@ -362,7 +362,7 @@ export class RhythmHackerGameScene extends BaseScene {
     scorePanel.setDepth(99);
 
     this.scoreText = this.add.text(20, 25, 'SCORE\n0', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '12px',
       color: MATRIX_COLORS.PRIMARY_HEX,
       lineSpacing: 8,
@@ -377,7 +377,7 @@ export class RhythmHackerGameScene extends BaseScene {
     timePanel.setDepth(99);
 
     this.timeText = this.add.text(20, 96, `TIME\n${this.trackDuration}s`, {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '10px',
       color: MATRIX_COLORS.CYAN_HEX,
       lineSpacing: 6,
@@ -387,7 +387,7 @@ export class RhythmHackerGameScene extends BaseScene {
     // Track name
     const track = GAME_CONFIG.TRACKS[this.trackIndex];
     const trackName = this.add.text(20, 160, track.name, {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '9px',
       color: MATRIX_COLORS.PRIMARY_HEX,
       wordWrap: { width: leftGutterRight - 20 },
@@ -402,7 +402,7 @@ export class RhythmHackerGameScene extends BaseScene {
       insane: MATRIX_COLORS.RED_HEX,
     };
     const diffText = this.add.text(20, 195, this.difficulty.toUpperCase(), {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '8px',
       color: diffColors[this.difficulty] ?? MATRIX_COLORS.PRIMARY_HEX,
     });
@@ -420,7 +420,7 @@ export class RhythmHackerGameScene extends BaseScene {
     healthPanel.setData('panelRef', true);
 
     const healthLabel = this.add.text(rightGutterLeft, 25, 'HEALTH', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '9px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
@@ -437,7 +437,7 @@ export class RhythmHackerGameScene extends BaseScene {
 
     // Combo
     this.comboText = this.add.text(rightGutterLeft, 90, '', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '16px',
       color: MATRIX_COLORS.CYAN_HEX,
       wordWrap: { width: WIDTH - rightGutterLeft - 10 },
@@ -446,7 +446,7 @@ export class RhythmHackerGameScene extends BaseScene {
 
     // Multiplier display
     this.multiplierText = this.add.text(rightGutterLeft, 145, '', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '10px',
       color: MATRIX_COLORS.YELLOW_HEX,
     });
@@ -454,7 +454,7 @@ export class RhythmHackerGameScene extends BaseScene {
 
     // Grade display
     this.gradeText = this.add.text(WIDTH / 2, 40, '', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '18px',
       color: '#ffffff',
     });
@@ -706,7 +706,7 @@ export class RhythmHackerGameScene extends BaseScene {
   private showComboMilestone(combo: number): void {
     const { WIDTH } = GAME_CONFIG;
     const milestoneText = this.add.text(WIDTH / 2, 300, `${combo} COMBO!`, {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '24px',
       color: MATRIX_COLORS.YELLOW_HEX,
     });
@@ -803,7 +803,7 @@ export class RhythmHackerGameScene extends BaseScene {
     };
 
     const gradeText = this.add.text(x, y, grade.toUpperCase(), {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: sizes[grade],
       color: colors[grade],
     });

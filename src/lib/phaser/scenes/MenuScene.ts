@@ -7,7 +7,7 @@
 
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS } from '../types';
+import { SCENE_KEYS, MATRIX_COLORS, MATRIX_FONTS } from '../types';
 
 export interface MenuSceneConfig {
   /** Scene key for this menu scene */
@@ -89,7 +89,7 @@ export class MenuScene extends BaseScene {
 
     // Button text
     const text = this.add.text(0, 0, 'START', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '18px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });

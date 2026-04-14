@@ -4,7 +4,7 @@
 
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS } from '../../../../../lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, MATRIX_FONTS } from '../../../../../lib/phaser/types';
 import { GAME_CONFIG } from '../config';
 
 export class RhythmHackerMenuScene extends BaseScene {
@@ -70,7 +70,7 @@ export class RhythmHackerMenuScene extends BaseScene {
 
     // Track name
     const text = this.add.text(0, -5, name, {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '16px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
@@ -79,7 +79,7 @@ export class RhythmHackerMenuScene extends BaseScene {
     // Track info
     const track = GAME_CONFIG.TRACKS[index];
     const info = this.add.text(0, 18, `${track.bpm} BPM | ${track.duration}s`, {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '10px',
       color: MATRIX_COLORS.CYAN_HEX,
     });

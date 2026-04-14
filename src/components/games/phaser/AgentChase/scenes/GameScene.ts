@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '../../../../../lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, MATRIX_FONTS, SOUND_KEYS, REGISTRY_KEYS } from '../../../../../lib/phaser/types';
 import { GAME_CONFIG, ACHIEVEMENTS, MAP_LAYOUTS, getLayoutForLevel, MapLayout } from '../config';
 
 /** Direction vectors */
@@ -342,28 +342,28 @@ export class AgentChaseGameScene extends BaseScene {
     this.mapText?.destroy();
 
     this.scoreText = this.add.text(10, 10, 'SCORE: 0', {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '14px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
     this.scoreText.setDepth(100);
 
     this.livesText = this.add.text(200, 10, `LIVES: ${this.lives}`, {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '14px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
     this.livesText.setDepth(100);
 
     this.levelText = this.add.text(400, 10, `LEVEL: ${this.level}`, {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '14px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
     this.levelText.setDepth(100);
 
     this.mapText = this.add.text(10, GAME_CONFIG.HEIGHT - 20, `MAP: ${this.currentLayout.name}`, {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '10px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
@@ -675,7 +675,7 @@ export class AgentChaseGameScene extends BaseScene {
           GAME_CONFIG.HEIGHT / 2,
           `MAP: ${newLayout.name}`,
           {
-            fontFamily: '"Press Start 2P", monospace',
+            fontFamily: MATRIX_FONTS.PRIMARY,
             fontSize: '18px',
             color: MATRIX_COLORS.PRIMARY_HEX,
           }

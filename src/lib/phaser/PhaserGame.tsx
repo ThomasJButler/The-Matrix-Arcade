@@ -14,6 +14,7 @@ import { useSoundSystem } from '../../hooks/useSoundSystem';
 import { useSaveSystem } from '../../hooks/useSaveSystem';
 import {
   REGISTRY_KEYS,
+  MATRIX_FONTS,
   type AchievementManager,
   type GameEvent,
   type ScoreEventData,
@@ -295,7 +296,7 @@ export function PhaserGame({
         >
           <span
             style={{
-              fontFamily: '"Press Start 2P", monospace',
+              fontFamily: MATRIX_FONTS.PRIMARY,
               fontSize: '16px',
               color: '#00ff00',
               textShadow: '0 0 10px #00ff00',
