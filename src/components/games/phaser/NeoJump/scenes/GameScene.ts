@@ -1255,14 +1255,11 @@ export class NeoJumpGameScene extends BaseScene {
 
   shutdown(): void {
     this.stopBackgroundMusic();
-    this.time?.removeAllEvents();
     // Remove input listeners
     this.input.off('pointerdown');
     if (this.input.keyboard) {
       this.input.keyboard.removeAllKeys(true);
     }
-
-    this.tweens?.killAll();
 
     // Clear parallax layers
     this.rainLayers.forEach((layer) => {

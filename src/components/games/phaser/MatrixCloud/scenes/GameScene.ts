@@ -986,8 +986,6 @@ export class MatrixCloudGameScene extends BaseScene {
       this.input.keyboard.removeAllKeys(true);
     }
     this.input.off('pointerdown');
-    this.time?.removeAllEvents();
-    this.tweens?.killAll();
     super.shutdown();
   }
 }

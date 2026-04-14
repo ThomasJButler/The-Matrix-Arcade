@@ -107,8 +107,6 @@ export class SnakeGameScene extends BaseScene {
 
   shutdown(): void {
     this.stopBackgroundMusic();
-    this.time?.removeAllEvents();
-    this.tweens?.killAll();
     this.destroyMoveTimer();
     this.destroyFieldPowerUp();
     this.destroyPowerUpTimers();

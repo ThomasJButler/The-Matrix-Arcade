@@ -199,10 +199,11 @@ export class HighScoreEntryScene extends BaseScene {
   }
 
   shutdown(): void {
+    this.rainGroup?.destroy(true);
+    this.rainGroup = undefined;
     this.slotTexts = [];
     this.arrowUp = [];
     this.arrowDown = [];
-    this.tweens?.killAll();
     if (this.input.keyboard) {
       this.input.keyboard.removeAllKeys(true);
     }

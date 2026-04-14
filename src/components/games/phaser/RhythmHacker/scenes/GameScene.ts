@@ -1329,8 +1329,6 @@ export class RhythmHackerGameScene extends BaseScene {
       this.trackAudio.src = '';
       this.trackAudio = null;
     }
-    this.time?.removeAllEvents();
-    this.tweens?.killAll();
     this.laneKeys.forEach(key => {
       key.removeAllListeners();
     });

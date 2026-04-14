@@ -1063,8 +1063,6 @@ export class MatrixInvadersGameScene extends BaseScene {
 
   shutdown(): void {
     this.stopBackgroundMusic();
-    this.time?.removeAllEvents();
-    this.tweens?.killAll();
     for (const e of this.enemies) e.sprite.destroy();
     this.enemies = [];
     for (const b of this.playerBullets) b.sprite.destroy();

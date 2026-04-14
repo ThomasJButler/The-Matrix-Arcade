@@ -1032,8 +1032,6 @@ export class MetrisGameScene extends BaseScene {
 
   shutdown(): void {
     this.stopBackgroundMusic();
-    this.time?.removeAllEvents();
-    this.tweens?.killAll();
     this.destroyDropTimer();
     this.particles = [];
     this.glowMap.clear();

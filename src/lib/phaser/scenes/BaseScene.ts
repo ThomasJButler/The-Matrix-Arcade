@@ -14,7 +14,6 @@ import {
   REGISTRY_KEYS,
   SCENE_KEYS,
   MATRIX_COLORS,
-  type AchievementManager,
   type GameEvent,
   type GameOverStat,
 } from '../types';
@@ -87,6 +86,13 @@ export abstract class BaseScene extends Phaser.Scene {
    * All subclass shutdown() methods should call super.shutdown().
    */
   shutdown(): void {
+    this.tweens?.killAll();
+    this.time?.removeAllEvents();
+    if (this.isPaused) {
+      if (this.physics?.world) this.physics.resume();
+      this.time.paused = false;
+    }
+    this.isPaused = false;
     this.pauseOverlayBg?.destroy();
     this.pauseOverlayText?.destroy();
     this.pauseOverlayHint?.destroy();
@@ -263,13 +269,6 @@ export abstract class BaseScene extends Phaser.Scene {
     const currentMuted = this.getIsMuted();
     this.registry.set(REGISTRY_KEYS.IS_MUTED, !currentMuted);
     this.emitGameEvent({ type: 'mute', data: { muted: !currentMuted } });
-  }
-
-  /**
-   * Get achievement manager from registry
-   */
-  protected getAchievementManager(): AchievementManager | undefined {
-    return this.registry.get(REGISTRY_KEYS.ACHIEVEMENT_MANAGER);
   }
 
   /**
