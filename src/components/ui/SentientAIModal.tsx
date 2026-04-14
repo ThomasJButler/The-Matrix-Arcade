@@ -83,7 +83,7 @@ export const SentientAIModal: React.FC<SentientAIModalProps> = ({
           ref={modalRef}
           role="dialog"
           aria-modal="true"
-          aria-label="Sentient AI response"
+          aria-labelledby="sentient-ai-title"
           initial={{ scale: 0.8, opacity: 0, y: 50 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.8, opacity: 0, y: 50 }}
@@ -107,7 +107,7 @@ export const SentientAIModal: React.FC<SentientAIModalProps> = ({
               >
                 <Cpu className="w-6 h-6 text-cyan-400" />
               </motion.div>
-              <h2 className="text-xl font-mono text-cyan-400 uppercase tracking-wider">
+              <h2 id="sentient-ai-title" className="text-xl font-mono text-cyan-400 uppercase tracking-wider">
                 🤖 Sentient AI
               </h2>
               {stage === 'revealing' && (
@@ -235,6 +235,7 @@ export const SentientAIModal: React.FC<SentientAIModalProps> = ({
               {stage === 'revealing' && (
                 <button
                   onClick={onClose}
+                  aria-label="Close Sentient AI response"
                   className="px-3 py-1 text-xs bg-cyan-900/50 hover:bg-cyan-800 border border-cyan-500/50 rounded text-cyan-400 font-mono transition-colors"
                 >
                   Close [X]

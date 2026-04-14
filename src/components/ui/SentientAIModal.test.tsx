@@ -286,6 +286,31 @@ describe('SentientAIModal', () => {
     });
   });
 
+  describe('Accessibility', () => {
+    it('has role="dialog" and aria-modal on the modal wrapper', () => {
+      render(<SentientAIModal {...defaultProps} />);
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toHaveAttribute('aria-modal', 'true');
+      expect(dialog).toHaveAttribute('aria-labelledby', 'sentient-ai-title');
+    });
+
+    it('heading has matching id for aria-labelledby', () => {
+      render(<SentientAIModal {...defaultProps} />);
+      const heading = screen.getByText(/Sentient AI/);
+      expect(heading).toHaveAttribute('id', 'sentient-ai-title');
+    });
+
+    it('close button has aria-label', () => {
+      render(<SentientAIModal {...defaultProps} />);
+
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      expect(screen.getByRole('button', { name: 'Close Sentient AI response' })).toBeInTheDocument();
+    });
+  });
+
   describe('Footer Animation', () => {
     it('displays animated dots in footer', () => {
       const { container } = render(<SentientAIModal {...defaultProps} />);
