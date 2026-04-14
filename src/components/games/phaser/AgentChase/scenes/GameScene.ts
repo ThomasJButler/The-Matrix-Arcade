@@ -858,7 +858,7 @@ export class AgentChaseGameScene extends BaseScene {
     const y = offsetY + spot.y * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
 
     const dot = this.bulletTimeDots.create(x, y, 'dot') as Phaser.Physics.Arcade.Sprite;
-    dot.setTint(0x00ffff);
+    dot.setTint(MATRIX_COLORS.CYAN);
     dot.setDepth(6);
 
     // Pulsing animation
@@ -891,7 +891,7 @@ export class AgentChaseGameScene extends BaseScene {
     // Cyan screen overlay
     this.bulletTimeOverlay?.destroy();
     this.bulletTimeOverlay = this.add.graphics();
-    this.bulletTimeOverlay.fillStyle(0x00ffff, 0.08);
+    this.bulletTimeOverlay.fillStyle(MATRIX_COLORS.CYAN, 0.08);
     this.bulletTimeOverlay.fillRect(0, 0, GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT);
     this.bulletTimeOverlay.setDepth(50);
   }
@@ -936,7 +936,7 @@ export class AgentChaseGameScene extends BaseScene {
       // Freeze agents during bullet-time (but still allow returning agents to move)
       if (this.bulletTimeActive && agent.state !== 'returning') {
         // Tint frozen agents cyan to show they are affected
-        agent.setTint(0x00ffff);
+        agent.setTint(MATRIX_COLORS.CYAN);
         return;
       } else if (!this.bulletTimeActive) {
         agent.clearTint();

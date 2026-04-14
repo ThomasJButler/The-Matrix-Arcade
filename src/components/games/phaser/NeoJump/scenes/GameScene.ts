@@ -780,7 +780,7 @@ export class NeoJumpGameScene extends BaseScene {
     if (this.playerSpriteMode) {
       this.updatePlayerTexture('death');
     }
-    this.player.setTint(0xff0000);
+    this.player.setTint(MATRIX_COLORS.RED);
 
     this.tweens.add({
       targets: this.player,
@@ -989,7 +989,7 @@ export class NeoJumpGameScene extends BaseScene {
 
     if (this.enemySpriteMode) {
       enemy.setDisplaySize(28, 28);
-      enemy.setTint(0xff0000);
+      enemy.setTint(MATRIX_COLORS.RED);
     }
   }
 
@@ -1185,7 +1185,7 @@ export class NeoJumpGameScene extends BaseScene {
       this.shieldText = this.add.text(10, 44, '', {
         fontFamily: MATRIX_FONTS.PRIMARY,
         fontSize: '8px',
-        color: '#ff00ff',
+        color: MATRIX_COLORS.MAGENTA_HEX,
       });
       this.shieldText.setScrollFactor(0);
       this.shieldText.setDepth(100);
@@ -1244,7 +1244,7 @@ export class NeoJumpGameScene extends BaseScene {
     // Color based on fuel level
     let color = MATRIX_COLORS.PRIMARY;
     if (fuelPercent < 0.3) {
-      color = 0xff0000;
+      color = MATRIX_COLORS.RED;
     } else if (fuelPercent < 0.6) {
       color = MATRIX_COLORS.YELLOW;
     }

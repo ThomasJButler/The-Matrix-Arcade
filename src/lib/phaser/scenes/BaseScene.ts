@@ -291,7 +291,7 @@ export abstract class BaseScene extends Phaser.Scene {
    * Check if auto-start is enabled
    */
   protected getAutoStart(): boolean {
-    return this.registry.get('autoStart') ?? false;
+    return this.registry.get(REGISTRY_KEYS.AUTO_START) ?? false;
   }
 
   /**

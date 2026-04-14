@@ -792,7 +792,7 @@ export class RhythmHackerGameScene extends BaseScene {
     const colors: Record<TimingGrade, string> = {
       perfect: MATRIX_COLORS.CYAN_HEX,
       great: MATRIX_COLORS.PRIMARY_HEX,
-      good: '#00aa00',
+      good: MATRIX_COLORS.DIM_GREEN_HEX,
       miss: '#660000',
     };
     const sizes: Record<TimingGrade, string> = {
@@ -831,8 +831,8 @@ export class RhythmHackerGameScene extends BaseScene {
    */
   private createHitEffect(x: number, y: number, grade: TimingGrade): void {
     const gradeTints: Record<TimingGrade, number> = {
-      perfect: 0x00ffff,
-      great: 0x00ff00,
+      perfect: MATRIX_COLORS.CYAN,
+      great: MATRIX_COLORS.PRIMARY,
       good: MATRIX_COLORS.DIM_GREEN,
       miss: 0x660000,
     };
@@ -1196,7 +1196,7 @@ export class RhythmHackerGameScene extends BaseScene {
     this.timeText.setText(`TIME\n${timeLeft}s`);
 
     if (timeLeft <= 10 && timeLeft > 0) {
-      this.timeText.setColor(Math.floor(this.gameTime / 200) % 2 === 0 ? '#005500' : '#00ff00');
+      this.timeText.setColor(Math.floor(this.gameTime / 200) % 2 === 0 ? '#005500' : MATRIX_COLORS.PRIMARY_HEX);
     }
 
     // Beat pulse — flash lane overlays and hit line on each beat

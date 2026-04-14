@@ -532,7 +532,7 @@ export class MatrixInvadersGameScene extends BaseScene {
       this.killEnemy(enemyIndex);
     } else {
       this.playSound(SOUND_KEYS.HIT);
-      enemy.sprite.setTint(0xffffff);
+      enemy.sprite.setTint(MATRIX_COLORS.WHITE);
       this.time.delayedCall(100, () => {
         if (enemy.sprite.active) enemy.sprite.clearTint();
       });
@@ -579,7 +579,7 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.boss.health -= damage;
     this.playSound(SOUND_KEYS.HIT);
 
-    this.boss.sprite.setTint(0xffffff);
+    this.boss.sprite.setTint(MATRIX_COLORS.WHITE);
     this.time.delayedCall(100, () => {
       if (this.boss?.sprite.active) this.boss.sprite.clearTint();
     });

@@ -776,7 +776,7 @@ export class MetrisGameScene extends BaseScene {
     g.fillRect(C.GRID_X, C.GRID_Y, C.COLS * C.CELL_SIZE, C.ROWS * C.CELL_SIZE);
 
     if (this.bulletTimeActive) {
-      g.fillStyle(0x00ff00, 0.03);
+      g.fillStyle(MATRIX_COLORS.PRIMARY, 0.03);
       g.fillRect(C.GRID_X, C.GRID_Y, C.COLS * C.CELL_SIZE, C.ROWS * C.CELL_SIZE);
     }
 
@@ -851,13 +851,13 @@ export class MetrisGameScene extends BaseScene {
         if (this.grid[row]?.[col]) {
           const px = C.GRID_X + col * C.CELL_SIZE;
           const py = C.GRID_Y + row * C.CELL_SIZE;
-          ov.fillStyle(0xffffff, glow * 0.3);
+          ov.fillStyle(MATRIX_COLORS.WHITE, glow * 0.3);
           ov.fillRect(px + 1, py + 1, C.CELL_SIZE - 2, C.CELL_SIZE - 2);
         }
       }
     }
 
-    ov.lineStyle(1, 0x003300, 0.5);
+    ov.lineStyle(1, MATRIX_COLORS.DARK_GREEN, 0.5);
     const gridW = C.COLS * C.CELL_SIZE;
     const gridH = C.ROWS * C.CELL_SIZE;
     for (let r = 0; r <= C.ROWS; r++) {
@@ -867,7 +867,7 @@ export class MetrisGameScene extends BaseScene {
       ov.lineBetween(C.GRID_X + c * C.CELL_SIZE, C.GRID_Y, C.GRID_X + c * C.CELL_SIZE, C.GRID_Y + gridH);
     }
 
-    ov.lineStyle(2, 0x00ff00, 0.6);
+    ov.lineStyle(2, MATRIX_COLORS.PRIMARY, 0.6);
     ov.strokeRect(C.GRID_X, C.GRID_Y, gridW, gridH);
   }
 
@@ -875,7 +875,7 @@ export class MetrisGameScene extends BaseScene {
     g.clear();
 
     const boxSize = 80;
-    g.lineStyle(1, 0x003300, 0.5);
+    g.lineStyle(1, MATRIX_COLORS.DARK_GREEN, 0.5);
     g.strokeRect(cx - boxSize / 2, cy, boxSize, boxSize);
 
     if (!type) return;
@@ -910,7 +910,7 @@ export class MetrisGameScene extends BaseScene {
     const barW = 120;
     const barH = 12;
 
-    g.lineStyle(1, 0x003300, 1);
+    g.lineStyle(1, MATRIX_COLORS.DARK_GREEN, 1);
     g.strokeRect(barX, barY, barW, barH);
 
     const fillW = (this.bulletTimeMeter / C.BULLET_TIME_MAX_METER) * barW;

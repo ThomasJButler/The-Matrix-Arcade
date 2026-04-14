@@ -199,7 +199,7 @@ export class CloudJumperGameScene extends BaseScene {
       this.bgFar.setScrollFactor(0);
       this.bgFar.setDepth(-3);
       this.bgFar.setAlpha(0.3);
-      this.bgFar.setTint(0x00ff00);
+      this.bgFar.setTint(MATRIX_COLORS.PRIMARY);
 
       this.bgMid = this.add.tileSprite(WIDTH / 2, HEIGHT - 150, WIDTH, 176, 'bg_sprite_cloud2');
       this.bgMid.setScrollFactor(0);
@@ -572,7 +572,7 @@ export class CloudJumperGameScene extends BaseScene {
    * Create a cloud
    */
   private static readonly CLOUD_TINTS: Record<CloudType, number> = {
-    normal: 0xffffff,
+    normal: MATRIX_COLORS.WHITE,
     moving: 0x66ffff,
     disappearing: 0xaaaaaa,
     storm: 0xff6666,
@@ -592,7 +592,7 @@ export class CloudJumperGameScene extends BaseScene {
     if (spriteMode) {
       cloud.setDisplaySize(width, GAME_CONFIG.CLOUDS.HEIGHT);
       const tint = CloudJumperGameScene.CLOUD_TINTS[type];
-      if (tint !== 0xffffff) cloud.setTint(tint);
+      if (tint !== MATRIX_COLORS.WHITE) cloud.setTint(tint);
       cloudBody.setSize(cloud.width, cloud.height);
     } else {
       cloud.setScale(width / 120, 1);
@@ -705,7 +705,7 @@ export class CloudJumperGameScene extends BaseScene {
     item.collectType = type;
     if (collectibleSpriteMode) {
       item.setScale(1.5);
-      item.setTint(0x00ff00);
+      item.setTint(MATRIX_COLORS.PRIMARY);
     }
     item.setDepth(6);
 
