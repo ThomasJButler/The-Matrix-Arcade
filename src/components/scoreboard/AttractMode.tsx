@@ -39,10 +39,8 @@ export const AttractMode: React.FC<AttractModeProps> = ({
   const cycleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const resetIdle = useCallback(() => {
-    if (active) {
-      setActive(false);
-      setGameIndex(0);
-    }
+    setActive(false);
+    setGameIndex(0);
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     if (cycleTimerRef.current) clearInterval(cycleTimerRef.current);
     cycleTimerRef.current = null;
@@ -52,7 +50,7 @@ export const AttractMode: React.FC<AttractModeProps> = ({
       setActive(true);
       setGameIndex(0);
     }, IDLE_TIMEOUT_MS);
-  }, [active, enabled]);
+  }, [enabled]);
 
   useEffect(() => {
     if (!enabled) {
