@@ -160,13 +160,41 @@ export class SnakeGameScene extends BaseScene {
   private drawGridBorder(): void {
     const { CELL_SIZE, GRID_COLS, GRID_ROWS, GRID_OFFSET_X, GRID_OFFSET_Y } = GAME_CONFIG;
     this.gridBorder = this.add.graphics();
-    this.gridBorder.lineStyle(2, MATRIX_COLORS.PRIMARY, 0.6);
-    this.gridBorder.strokeRect(
-      GRID_OFFSET_X - 1,
-      GRID_OFFSET_Y - 1,
-      GRID_COLS * CELL_SIZE + 2,
-      GRID_ROWS * CELL_SIZE + 2,
-    );
+
+    if (this.spriteMode && this.textures?.exists('wall_sprite')) {
+      // Helper: pixel center for a border tile at grid-space col/row (may be -1 or GRID_COLS/GRID_ROWS)
+      const tileCenter = (col: number, row: number) => ({
+        px: GRID_OFFSET_X + col * CELL_SIZE + CELL_SIZE / 2,
+        py: GRID_OFFSET_Y + row * CELL_SIZE + CELL_SIZE / 2,
+      });
+
+      const placeWall = (col: number, row: number, isCorner: boolean) => {
+        const { px, py } = tileCenter(col, row);
+        const key = isCorner ? 'wall_alt_sprite' : 'wall_sprite';
+        this.add.image(px, py, key).setDisplaySize(CELL_SIZE, CELL_SIZE).setDepth(0);
+      };
+
+      // Top and bottom edge (including corners)
+      for (let col = -1; col <= GRID_COLS; col++) {
+        const isCorner = col === -1 || col === GRID_COLS;
+        placeWall(col, -1, isCorner);         // top row
+        placeWall(col, GRID_ROWS, isCorner);  // bottom row
+      }
+
+      // Left and right edge (excluding corners already placed above)
+      for (let row = 0; row < GRID_ROWS; row++) {
+        placeWall(-1, row, false);         // left column
+        placeWall(GRID_COLS, row, false);  // right column
+      }
+    } else {
+      this.gridBorder.lineStyle(2, MATRIX_COLORS.PRIMARY, 0.6);
+      this.gridBorder.strokeRect(
+        GRID_OFFSET_X - 1,
+        GRID_OFFSET_Y - 1,
+        GRID_COLS * CELL_SIZE + 2,
+        GRID_ROWS * CELL_SIZE + 2,
+      );
+    }
   }
 
   // ─── HUD ───────────────────────────────────────────────

@@ -50,10 +50,10 @@
 
 ### Environment
 - [x] 9 backgrounds available — pick Matrix-appropriate ones or recolour — **SOURCE**: `INSPO/matrixcloud/`
-- [~] Parallax layer: far clouds (wide, scrolling) — **SOURCE**: `INSPO/matrixcloud/`
+- [x] Parallax layer: far clouds / city skyline (wide, scrolling) — deployed as bg_city (Background3.png), Matrix green tint at 15% alpha — R78.2
 - [~] Parallax layer: mid rain (matrix code falling) — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/firework/`
 - [~] Parallax layer: near particles (foreground depth) — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/firework/`
-- [~] Ground/floor tile (scrolling, for death reference) — **SOURCE**: `INSPO/matrixcloud/`
+- [x] Ground/floor tile (scrolling, for death reference) — deployed as ground_tile (SimpleStyle1.png), tileSprite at bottom — R78.2
 
 ### UI
 - [ ] Score counter position marker

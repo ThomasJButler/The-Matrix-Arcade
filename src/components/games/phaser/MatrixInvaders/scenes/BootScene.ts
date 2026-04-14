@@ -10,6 +10,9 @@ const SPRITE_ASSETS = [
   { key: 'sprite_enemy_virus', path: 'assets/matrix-invaders/enemy_virus.png' },
   { key: 'sprite_bullet_player', path: 'assets/matrix-invaders/bullet_player.png' },
   { key: 'sprite_bullet_enemy', path: 'assets/matrix-invaders/bullet_enemy.png' },
+  { key: 'laser_green', path: 'assets/matrix-invaders/laser_green.png' },
+  { key: 'laser_red', path: 'assets/matrix-invaders/laser_red.png' },
+  { key: 'backdrop', path: 'assets/matrix-invaders/backdrop.png' },
 ];
 
 export class MatrixInvadersBootScene extends BootScene {

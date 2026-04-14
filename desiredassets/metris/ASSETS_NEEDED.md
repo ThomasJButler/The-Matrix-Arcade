@@ -32,9 +32,9 @@
 - [ ] Grid top fade (pieces enter from above)
 
 ### UI Panels
-- [~] Hold piece panel background — ~128×128 — SOURCE: DUMP/1. Free Hologram Interface Wenrexa/Card X*
-- [~] Next piece preview panel — ~128×384 (shows 3 upcoming) — SOURCE: DUMP/1. Free Hologram Interface Wenrexa/Card X*
-- [~] Score panel background — SOURCE: DUMP/1. Free Hologram Interface Wenrexa/Card X*
+- [x] Hold piece panel background — panel_green.png + panel_tall.png (30% alpha backdrop) — loaded in BootScene — R78.2
+- [x] Next piece preview panel — panel_tall.png (30% alpha backdrop) — loaded in BootScene — R78.2
+- [x] Score panel background — panel_wide.png — loaded in BootScene — R78.2
 - [~] Level display panel — SOURCE: DUMP/1. Free Hologram Interface Wenrexa/Card X*
 - [ ] Combo counter popup
 - [ ] Bullet time meter bar (fill + frame)

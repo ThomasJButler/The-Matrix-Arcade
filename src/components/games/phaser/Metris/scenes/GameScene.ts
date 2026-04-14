@@ -143,6 +143,20 @@ export class MetrisGameScene extends BaseScene {
     this.nextGraphics = this.add.graphics();
     this.meterGraphics = this.add.graphics();
 
+    // Panel sprite backdrops for Hold and Next preview areas
+    if (this.textures?.exists('panel_tall')) {
+      this.add.image(C.HOLD_X, C.HOLD_Y + 40)
+        .setTexture('panel_tall')
+        .setDisplaySize(80, 80)
+        .setAlpha(0.3)
+        .setDepth(0);
+      this.add.image(C.NEXT_X, C.NEXT_Y + 120)
+        .setTexture('panel_tall')
+        .setDisplaySize(80, 240)
+        .setAlpha(0.3)
+        .setDepth(0);
+    }
+
     this.cellImages = [];
     for (let r = 0; r < C.ROWS; r++) {
       this.cellImages[r] = [];

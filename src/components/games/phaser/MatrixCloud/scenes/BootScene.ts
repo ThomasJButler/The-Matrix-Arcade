@@ -6,6 +6,8 @@ const SPRITE_ASSETS = [
   { key: 'bird_sprite', path: 'assets/matrix-cloud/bird.png', type: 'spritesheet' as const, frameWidth: 16, frameHeight: 16 },
   { key: 'pipe_sprite', path: 'assets/matrix-cloud/pipe.png', type: 'image' as const },
   { key: 'pipe_cap_sprite', path: 'assets/matrix-cloud/pipe-cap.png', type: 'image' as const },
+  { key: 'bg_city', path: 'assets/matrix-cloud/bg_city.png', type: 'image' as const },
+  { key: 'ground_tile', path: 'assets/matrix-cloud/ground_simple.png', type: 'image' as const },
 ];
 
 export class MatrixCloudBootScene extends BootScene {

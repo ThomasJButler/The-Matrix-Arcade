@@ -87,6 +87,28 @@ export class MatrixCloudGameScene extends BaseScene {
 
   create(): void {
     this.createMatrixBackground();
+
+    // Sprite background: city skyline
+    if (this.textures?.exists('bg_city')) {
+      const bg = this.add.image(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, 'bg_city');
+      bg.setDisplaySize(GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT);
+      bg.setAlpha(0.15);
+      bg.setDepth(0);
+      bg.setTint(0x00ff00);
+    }
+
+    // Sprite ground tile
+    if (this.textures?.exists('ground_tile')) {
+      const groundTile = this.add.tileSprite(
+        GAME_CONFIG.WIDTH / 2,
+        GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT / 2,
+        GAME_CONFIG.WIDTH,
+        GAME_CONFIG.GROUND_HEIGHT,
+        'ground_tile',
+      );
+      groundTile.setDepth(5);
+    }
+
     this.matrixRainGroup = this.addMatrixRain(10);
     this.resetState();
     this.createGround();
