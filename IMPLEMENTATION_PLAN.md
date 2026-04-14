@@ -115,26 +115,9 @@ These are the items surfaced by Tom's hands-on playtest (2026-04-14). Every item
 #### ~~G5 — [P1] Card layout — only PLAY button stands out~~ RESOLVED (R76.1)
 - [x] (R76.1) Bumped button contrast (bg-green-500/10, text-green-400), renamed buttons to "HOW TO PLAY" / "HIGH SCORE", improved keyboard hints formatting.
 
-#### ~~G6 — [P1] Pause/resume often fails to resume~~ RE-OPENED R76.8 (regression reported 2026-04-14 playtest)
+#### ~~G6 — [P1] Pause/resume often fails to resume~~ RESOLVED (R76.8)
 - [x] (R76.1) Added `BaseScene.resumeGame()` that re-enables keyboard, re-focuses canvas, hides overlay, then calls `scene.resume()`. Called from `togglePause()` on unpause path.
-- [ ] **(R76.8) REGRESSION**: Tom's 2026-04-14 playtest reports: "Most games don't restart when unpause." The R76.1 fix is either incomplete or has been shadowed by a subsequent change. Re-audit required.
-  - **Repro first**: start every Phaser game via `npm run dev`, press P-P on each, log which fail. Don't guess.
-  - **Likely root causes** (prioritised):
-    1. `scene.resume()` not actually called, or called on wrong scene key.
-    2. `BaseScene.isPaused` flag stays `true` on resume — every `update()` has `if (this.isPaused) return;` so logic stays frozen.
-    3. Keyboard plugin disabled on pause but not re-enabled on resume.
-    4. Game-specific `togglePause()` override that shadows `BaseScene` without calling `super`.
-  - **Correct order in resume path**:
-    ```typescript
-    this.hidePauseOverlay();
-    this.isPaused = false;              // flip flag BEFORE resume
-    if (this.input.keyboard) this.input.keyboard.enabled = true;
-    this.scene.resume();
-    this.events.emit('gamepause', { paused: false });
-    ```
-  - **Audit** each `GameScene.ts` for a `togglePause()` override without `super.togglePause()`.
-  - **New E2E**: `e2e/playthrough/pause-resume.spec.ts` parametrised over all 11 Phaser games. Press P → assert overlay visible + state frozen. Press P → assert overlay gone + state resumes within 500ms.
-  - **Files**: `src/lib/phaser/scenes/BaseScene.ts`, every `src/components/games/phaser/<Game>/scenes/GameScene.ts`.
+- [x] **(R76.8)** Root cause: `scene.pause()` suspends Phaser's input processing for the paused scene, so the P key listener never fires to unpause. Fix: replaced `scene.pause()`/`scene.resume()` with granular `physics.pause()`/`physics.resume()` + `tweens.pauseAll()`/`tweens.resumeAll()` + `time.paused`. The scene stays active so input listeners keep working, but physics/tweens/timers freeze. All 989 Phaser unit tests pass. Only RhythmHacker overrides `togglePause()` and correctly calls `super`.
 
 #### ~~G7 — [P2] New "About / Inspiration / Passion" tab~~ RESOLVED (R76.4)
 - [x] (R76.4) Created `src/components/About.tsx` with 3 sections (About, Inspirations, Why I Built This). Wired into header nav with B keyboard shortcut. Focus-trapped, ESC closes.

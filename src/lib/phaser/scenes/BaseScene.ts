@@ -119,7 +119,9 @@ export abstract class BaseScene extends Phaser.Scene {
     this.isPaused = !this.isPaused;
     if (this.isPaused) {
       this.showPauseOverlay();
-      this.scene.pause();
+      if (this.physics?.world) this.physics.pause();
+      this.tweens.pauseAll();
+      this.time.paused = true;
       this.emitGameEvent({ type: 'pause' });
     } else {
       this.resumeGame();
@@ -127,11 +129,11 @@ export abstract class BaseScene extends Phaser.Scene {
   }
 
   protected resumeGame(): void {
+    this.isPaused = false;
     this.hidePauseOverlay();
-    if (this.input.keyboard) {
-      this.input.keyboard.enabled = true;
-    }
-    this.scene.resume();
+    if (this.physics?.world) this.physics.resume();
+    this.tweens.resumeAll();
+    this.time.paused = false;
     this.game.canvas.focus();
     this.emitGameEvent({ type: 'resume' });
   }
