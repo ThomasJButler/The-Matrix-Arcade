@@ -1,6 +1,6 @@
-# Completed Work — The Matrix Arcade (R1–R61)
+# MAGIC DOC: [Completed Work — The Matrix Arcade (R1–R61)]
 
-Archived from `IMPLEMENTATION_PLAN.md` on 2026-04-13. This file is the durable record of everything Ralph completed across the planning/build loops. The live plan now tracks only open work.
+Archived from `IMPLEMENTATION_PLAN.md` on 2026-04-13. This file is the durable record of everything Ralph completed across the planning/build loops. The live plan now tracks only open work. Please reference this file and update this file with completed items, which in turn frees up context for the plan agent and build agents. They can easily referenece what was completed in more detail than git logs. 
 
 ---
 
