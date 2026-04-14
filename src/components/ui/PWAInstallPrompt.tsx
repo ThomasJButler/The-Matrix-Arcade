@@ -105,6 +105,7 @@ export const PWAInstallPrompt: React.FC = () => {
               <button
                 onClick={handleDismiss}
                 className="p-1 hover:bg-green-500/20 rounded transition-colors"
+                aria-label="Dismiss install prompt"
               >
                 <X className="w-5 h-5 text-green-500" />
               </button>

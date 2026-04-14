@@ -397,4 +397,11 @@ describe('AchievementDisplay', () => {
       expect(searchInput).not.toBeDisabled();
     });
   });
+
+  describe('Accessibility', () => {
+    it('close button has aria-label', () => {
+      render(<AchievementDisplay {...defaultProps} />);
+      expect(screen.getByRole('button', { name: 'Close achievements' })).toBeInTheDocument();
+    });
+  });
 });

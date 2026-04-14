@@ -106,6 +106,9 @@ export const SaveLoadManager: React.FC<SaveLoadManagerProps> = ({ isOpen, onClos
         onClick={onClose}
       >
         <motion.div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="save-data-manager-title"
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.8, opacity: 0 }}
@@ -116,11 +119,12 @@ export const SaveLoadManager: React.FC<SaveLoadManagerProps> = ({ isOpen, onClos
           <div className="flex items-center justify-between p-6 border-b border-green-500/30">
             <div className="flex items-center gap-3">
               <Save className="w-6 h-6 text-green-400" />
-              <h2 className="text-xl font-bold text-green-400">SAVE DATA MANAGER</h2>
+              <h2 id="save-data-manager-title" className="text-xl font-bold text-green-400">SAVE DATA MANAGER</h2>
             </div>
             <button
               onClick={onClose}
               className="p-2 hover:bg-green-900 rounded transition-colors"
+              aria-label="Close save data manager"
             >
               <X className="w-5 h-5 text-green-400" />
             </button>

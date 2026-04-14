@@ -114,6 +114,7 @@ export const AchievementDisplay: React.FC<AchievementDisplayProps> = ({
               <button
                 onClick={onClose}
                 className="p-2 hover:bg-green-500/20 rounded transition-colors"
+                aria-label="Close achievements"
               >
                 <X className="w-6 h-6 text-green-500" />
               </button>

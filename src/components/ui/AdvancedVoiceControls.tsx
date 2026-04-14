@@ -268,6 +268,7 @@ export const AdvancedVoiceControls: React.FC<AdvancedVoiceControlsProps> = ({
                   onClick={togglePause}
                   className="p-2 rounded bg-green-900/50 hover:bg-green-800/50 transition-colors"
                   title={isPaused ? 'Resume (Space)' : 'Pause (Space)'}
+                  aria-label={isPaused ? 'Resume (Space)' : 'Pause (Space)'}
                 >
                   {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
                 </button>
@@ -275,6 +276,7 @@ export const AdvancedVoiceControls: React.FC<AdvancedVoiceControlsProps> = ({
                   onClick={stop}
                   className="p-2 rounded bg-red-900/50 hover:bg-red-800/50 transition-colors"
                   title="Stop (Esc)"
+                  aria-label="Stop (Esc)"
                 >
                   <Square className="w-4 h-4" />
                 </button>
@@ -285,6 +287,7 @@ export const AdvancedVoiceControls: React.FC<AdvancedVoiceControlsProps> = ({
                 disabled={!config.enabled || !text}
                 className="p-2 rounded bg-green-900/50 hover:bg-green-800/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Play (Space)"
+                aria-label="Play (Space)"
               >
                 <Play className="w-4 h-4" />
               </button>
@@ -308,6 +311,7 @@ export const AdvancedVoiceControls: React.FC<AdvancedVoiceControlsProps> = ({
                   : 'bg-gray-900/50 text-gray-500 hover:bg-gray-800/50'
               }`}
               title={config.enabled ? 'Disable Voice (V)' : 'Enable Voice (V)'}
+              aria-label={config.enabled ? 'Disable Voice (V)' : 'Enable Voice (V)'}
             >
               {config.enabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </button>
@@ -317,6 +321,7 @@ export const AdvancedVoiceControls: React.FC<AdvancedVoiceControlsProps> = ({
               onClick={() => setIsExpanded(!isExpanded)}
               className="p-2 rounded bg-blue-900/50 hover:bg-blue-800/50 transition-colors"
               title="Settings (Ctrl+S)"
+              aria-label="Settings (Ctrl+S)"
             >
               <Settings className="w-4 h-4" />
             </button>

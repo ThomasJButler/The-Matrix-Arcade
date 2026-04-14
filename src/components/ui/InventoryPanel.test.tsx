@@ -237,4 +237,24 @@ describe('InventoryPanel', () => {
       expect(container.querySelectorAll('button').length).toBeGreaterThan(0);
     });
   });
+
+  describe('Accessibility', () => {
+    it('has role="dialog" and aria-modal on the panel', () => {
+      renderWithProvider(<InventoryPanel isOpen={true} onClose={mockOnClose} />);
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toHaveAttribute('aria-modal', 'true');
+      expect(dialog).toHaveAttribute('aria-labelledby', 'inventory-panel-title');
+    });
+
+    it('close button has aria-label', () => {
+      renderWithProvider(<InventoryPanel isOpen={true} onClose={mockOnClose} />);
+      expect(screen.getByRole('button', { name: 'Close inventory' })).toBeInTheDocument();
+    });
+
+    it('heading has matching id for aria-labelledby', () => {
+      renderWithProvider(<InventoryPanel isOpen={true} onClose={mockOnClose} />);
+      const heading = screen.getByText('Inventory');
+      expect(heading).toHaveAttribute('id', 'inventory-panel-title');
+    });
+  });
 });
