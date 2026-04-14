@@ -7,6 +7,8 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ## Status: R78 open — Phase 0b per-game asset deployment + Phase 6 infrastructure polish (R76 + R77 archived)
 
+> **R78.5 complete (2026-04-14)**: Visual regression baselines regenerated — 86 darwin PNG baselines across 14 visual specs + 12 game playthroughs updated post-sprite deployment. All E2E spec files and playthrough fixtures force-added to source control (previously gitignored). Fixed attract mode `useCallback` dependency cycle that prevented overlay from staying visible. Fixed scoreboard E2E localStorage key mismatch (`matrix-arcade-save` → `matrix-arcade-save-data`). 69/69 E2E tests pass, build clean, TypeScript clean.
+>
 > **R78.4 complete (2026-04-14)**: Per-game sprite deployment pass 3 — Agent Chase (frightened warning ghost from PacMan sheet, floating eyeball eyes, glowing dot + power pellet sprites), Neo Jump (flying enemy from Legacy Fantasy Small Bee, projectile energy bolt), Vortex Pong (4 power-up icons from Hologram Interface tinted per-type, cyan multi-ball variant, board background overlay at 15% opacity). 11 new sprite files across 3 games, BootScenes + GameScenes wired with sprite-mode fallbacks.
 >
 > **R78.3 complete (2026-04-14)**: Per-game sprite deployment pass 2 — Cloud Jumper (parallax background layers from cloud tileset, Treasure Hunters collectible sprites for coin/gem/star, Crabby + cannonball obstacle sprites), Matrix Frogger (Neo Cyberpunk player replacing frog, TopView Robot 64×64 agent + sentinel enemies replacing procedural fallbacks, hologram power-up icons), Code Breaker (breakout frame background overlay). 15 new sprite files across 3 games, BootScenes + GameScenes wired with sprite-mode fallbacks.
@@ -130,13 +132,19 @@ This file is auto-generated and updated by Ralph during planning and building lo
 - [x] **R78.2 — [P1]** Per-game sprite deployment pass 1 (Snake, Matrix Cloud, Metris, Invaders) — core gameplay sprites. Flip `[~]` → `[x]` in each game's `ASSETS_NEEDED.md` as sprites land.
 - [x] **R78.3 — [P1]** Per-game sprite deployment pass 2 (Cloud Jumper, Matrix Frogger, Code Breaker) — polish sprites.
 - [x] **R78.4 — [P1]** Per-game sprite deployment pass 3 (Agent Chase, Neo Jump, Vortex Pong) — remaining items.
-- [ ] **R78.5 — [P2]** Visual regression baseline regen for all games post-deployment. Commit new `*-chromium-darwin.png` baselines separately with `R78.N-visual: baseline update` message.
+- [x] **R78.5 — [P2]** Visual regression baseline regen for all games post-deployment. Commit new `*-chromium-darwin.png` baselines separately with `R78.N-visual: baseline update` message.
 - [ ] **R78.6 — [P2]** Phase 6: Docker baseline regen — `docker compose -f docker-compose.playwright.yml run --rm e2e-tests npx playwright test --update-snapshots`, commit `*-chromium-linux.png` for CI parity.
 - [ ] **R78.7 — [P2]** Phase 6: Multi-viewport matrix — add mobile (375×667) + tablet (768×1024) projects to `playwright.config.ts`, generate baselines.
 - [ ] **R78.8 — [P2]** Phase 6: Form input labels (a11y) — audit all `<input>` / `<textarea>` for associated `<label>` / `aria-label`. Fix gaps.
 - [ ] **R78.9 — [P2]** Phase 6: Rhythm Hacker BPM tuning — hand-tune per-track BPM values after playtest confirmation. Current values are estimates.
 - [ ] **R78.10 — [P2]** Phase 6: Flaky E2E stabilisation — fix `landing.spec.ts:40` 1px drift, code-breaker/invaders/cloud-jumper timeouts under 5-worker parallel. Root cause: dev-server contention.
 - [ ] **R78.11 — [P3]** Continuous-improvement sweep — after R78.1–R78.10 complete, each remaining loop iteration finds ONE discovered-work item and ships it. Examples: sprite polish on an under-deployed game, an a11y fix uncovered while doing R78.8, a perf micro-optimisation, a UX nit caught during visual regression review. Log each in a running `### R78 Discovered Work` sub-section under this task. This task is **intentionally never marked `[x]`** until Tom manually does so — Ralph keeps polishing until the `loop.sh` iteration cap is hit.
+
+### R78 Discovered Work
+
+- [x] **AttractMode useCallback cycle** (found during R78.5): `resetIdle` included `active` in its `useCallback` deps, causing the effect to immediately deactivate the attract overlay on every `active` state change. Fixed by removing `active` from deps.
+- [x] **Scoreboard E2E localStorage key mismatch** (found during R78.5): Tests seeded `matrix-arcade-save` but app reads `matrix-arcade-save-data`. Fixed key + added `version: '1.3.0'` to bypass migration. Also scoped `getByText('ACE')` → `getByRole('cell', { name: 'ACE' })` to avoid matching game card subtitles.
+- [x] **E2E specs/baselines not in source control** (found during R78.5): Only 4 of 108 e2e files were tracked (fixtures only). Force-added all spec files and baseline PNGs.
 
 ### R78 Terminator Rule (IMPORTANT — differs from R76/R77)
 
