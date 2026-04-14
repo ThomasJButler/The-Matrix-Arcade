@@ -111,7 +111,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 - Unit tests: 1,855 / 1,855 pass
 - E2E: 69+ specs (R76 64 + R77 5) all pass
 - TypeScript: clean
-- Lint: clean on all changed files (20 pre-existing react-hooks warnings remain)
+- Lint: clean on all changed files (14 pre-existing react-hooks warnings remain (6 in CTRL-S World, 8 intentional patterns))
 - PWA + build: green
 
 ---
@@ -150,6 +150,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 - **R78.6 blocked — Docker daemon not running** (found during R78.8): Docker CLI v29.2.1 installed but daemon socket not present. Docker baseline regen requires a running daemon. Deferred to next session with Docker available.
 - **CTRL-S World a11y inputs** `DEFERRED-CTRLS-DEDICATED-PHASE`: CtrlSWorld.tsx has 3 unlabelled inputs (terminal command, text speed select, font size select). Will be addressed in Phase 7 rewrite.
 - **Rhythm Hacker BPM/duration tuning needs manual verification** (found during R78.9): Cyberpsychotic (140 BPM) and Enhancements (160 BPM) could not be confirmed algorithmically — detection returned ambiguous results across multiple methods. These should be verified by ear during playtest. In The Moonlight (100 BPM) is likely correct. All five track durations were significantly wrong (some missing over 100s of audio).
+- [x] **Lint warning reduction (20→14)** (R78.11 continuous improvement): Fixed 6 lint warnings — 2 genuine ref-cleanup bugs in AudioSettings and PuzzleModal (`timersRef.current` captured in cleanup closures), 4 missing-dependency warnings in App.tsx resolved by memoising `games` array with `useMemo`. Remaining 14 warnings are all in CTRL-S World (fenced off) or intentional patterns (circular hooks deps, mount-only effects, onClose exclusions).
 
 ### R78 Terminator Rule (IMPORTANT — differs from R76/R77)
 

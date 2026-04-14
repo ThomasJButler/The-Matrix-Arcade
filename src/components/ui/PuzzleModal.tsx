@@ -62,7 +62,8 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
   useFocusTrap(modalRef, isOpen, onClose);
 
   useEffect(() => {
-    return () => { timersRef.current.forEach(clearTimeout); };
+    const timers = timersRef.current;
+    return () => { timers.forEach(clearTimeout); };
   }, []);
 
   // Lifeline system

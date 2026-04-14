@@ -5,7 +5,7 @@
  *              navigation, sound system, achievements, and PWA features.
  */
 
-import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './styles/theme.css';
 import './styles/animations.css';
@@ -103,6 +103,27 @@ function App() {
   const dedicatedCheckedRef = useRef(false);
   const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mp3TimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Runtime bindings keyed by game ID — prevents silent mismatch if registry order changes.
+  // Memoised so `games` is referentially stable across renders.
+  const games = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const bindings: Record<string, { component: React.ComponentType<any>; icon: React.ReactNode }> = {
+      'ctrl-s-world':    { component: CtrlSWorld,     icon: <Keyboard className="w-8 h-8" /> },
+      'snake-classic':   { component: SimpleSnake,    icon: <Gamepad2 className="w-8 h-8" /> },
+      'vortex-pong':     { component: VortexPong,     icon: <Disc3 className="w-8 h-8" /> },
+      'matrix-cloud':    { component: MatrixCloud,    icon: <Gamepad2 className="w-8 h-8" /> },
+      'matrix-invaders': { component: MatrixInvaders, icon: <Crosshair className="w-8 h-8" /> },
+      'metris':          { component: Metris,         icon: <Blocks className="w-8 h-8" /> },
+      'matrix-frogger':  { component: MatrixFrogger,  icon: <Footprints className="w-8 h-8" /> },
+      'neo-jump':        { component: NeoJump,        icon: <ArrowUp className="w-8 h-8" /> },
+      'agent-chase':     { component: AgentChase,     icon: <Circle className="w-8 h-8" /> },
+      'rhythm-hacker':   { component: RhythmHacker,   icon: <Music className="w-8 h-8" /> },
+      'cloud-jumper':    { component: CloudJumper,    icon: <Cloud className="w-8 h-8" /> },
+      'code-breaker':    { component: CodeBreaker,    icon: <Zap className="w-8 h-8" /> },
+    };
+    return GAME_REGISTRY.map(entry => ({ ...entry, ...bindings[entry.id] }));
+  }, []);
 
   /**
    * Check for Night Owl achievement (playing between midnight and 5am)
@@ -236,7 +257,7 @@ function App() {
         }
       }
     }
-  }, [selectedGame, achievementManager]);
+  }, [selectedGame, achievementManager, games]);
 
   /**
    * Track cross-game statistics and achievements
@@ -275,28 +296,6 @@ function App() {
       });
     }
   }, [saveData, achievementManager]);
-
-  // Runtime bindings keyed by game ID — prevents silent mismatch if registry order changes
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const GAME_BINDINGS: Record<string, { component: React.ComponentType<any>; icon: React.ReactNode }> = {
-    'ctrl-s-world':    { component: CtrlSWorld,     icon: <Keyboard className="w-8 h-8" /> },
-    'snake-classic':   { component: SimpleSnake,    icon: <Gamepad2 className="w-8 h-8" /> },
-    'vortex-pong':     { component: VortexPong,     icon: <Disc3 className="w-8 h-8" /> },
-    'matrix-cloud':    { component: MatrixCloud,    icon: <Gamepad2 className="w-8 h-8" /> },
-    'matrix-invaders': { component: MatrixInvaders, icon: <Crosshair className="w-8 h-8" /> },
-    'metris':          { component: Metris,         icon: <Blocks className="w-8 h-8" /> },
-    'matrix-frogger':  { component: MatrixFrogger,  icon: <Footprints className="w-8 h-8" /> },
-    'neo-jump':        { component: NeoJump,        icon: <ArrowUp className="w-8 h-8" /> },
-    'agent-chase':     { component: AgentChase,     icon: <Circle className="w-8 h-8" /> },
-    'rhythm-hacker':   { component: RhythmHacker,   icon: <Music className="w-8 h-8" /> },
-    'cloud-jumper':    { component: CloudJumper,    icon: <Cloud className="w-8 h-8" /> },
-    'code-breaker':   { component: CodeBreaker,   icon: <Zap className="w-8 h-8" /> },
-  };
-
-  const games = GAME_REGISTRY.map(entry => ({
-    ...entry,
-    ...GAME_BINDINGS[entry.id],
-  }));
 
 
   /**
@@ -353,11 +352,11 @@ function App() {
 
   const handlePrevious = useCallback(() => {
     selectGame(selectedGame === 0 ? games.length - 1 : selectedGame - 1);
-  }, [selectedGame, selectGame]);
+  }, [selectedGame, selectGame, games.length]);
 
   const handleNext = useCallback(() => {
     selectGame(selectedGame === games.length - 1 ? 0 : selectedGame + 1);
-  }, [selectedGame, selectGame]);
+  }, [selectedGame, selectGame, games.length]);
 
   /**
    * @listens isPlaying, achievementManager, playSFX, showMobileWarning, playBackgroundMP3, handlePrevious, handleNext, toggleMute
@@ -468,7 +467,7 @@ function App() {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isPlaying, achievementManager, playSFX, showMobileWarning, playBackgroundMP3, stopBackgroundMP3, handlePrevious, handleNext, toggleMute, trackPlayTime, checkNightOwlAchievement, checkDedicatedAchievement, selectedGame, showInstructions, showHighScores, showAbout, showScoreboard]);
+  }, [isPlaying, achievementManager, playSFX, showMobileWarning, playBackgroundMP3, stopBackgroundMP3, handlePrevious, handleNext, toggleMute, trackPlayTime, checkNightOwlAchievement, checkDedicatedAchievement, selectedGame, showInstructions, showHighScores, showAbout, showScoreboard, games]);
 
   const GameComponent = games[selectedGame].component;
 
