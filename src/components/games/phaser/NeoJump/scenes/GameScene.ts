@@ -96,6 +96,7 @@ export class NeoJumpGameScene extends BaseScene {
 
   // Matrix rain layers (parallax)
   private rainLayers: Phaser.GameObjects.Group[] = [];
+  private parallaxSprites: Phaser.GameObjects.TileSprite[] = [];
 
   // Input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -139,8 +140,9 @@ export class NeoJumpGameScene extends BaseScene {
     this.jetpackFlame = null;
     this.shieldText = null;
 
-    // Create parallax matrix rain
+    // Create parallax layers (rain + buildings)
     this.createParallaxRain();
+    this.createParallaxBuildings();
 
     // Create object groups
     this.platforms = this.physics.add.group({
@@ -190,8 +192,9 @@ export class NeoJumpGameScene extends BaseScene {
     if (!this.cursors) return;
     if (this.isCountingDown) return;
 
-    // Update parallax rain
+    // Update parallax layers
     this.updateParallaxRain(delta);
+    this.updateParallaxBuildings();
 
     // Handle input
     this.handleInput(delta);
@@ -242,14 +245,14 @@ export class NeoJumpGameScene extends BaseScene {
    * Create parallax matrix rain layers
    */
   private createParallaxRain(): void {
-    // Three layers with different speeds
     const layerConfigs = [
-      { density: 20, speed: 30, alpha: 0.2, size: 10 }, // Far
-      { density: 30, speed: 60, alpha: 0.3, size: 12 }, // Mid
-      { density: 15, speed: 100, alpha: 0.5, size: 14 }, // Near
+      { density: 20, speed: 30, alpha: 0.2, size: 10 },
+      { density: 30, speed: 60, alpha: 0.3, size: 12 },
+      { density: 15, speed: 100, alpha: 0.5, size: 14 },
     ];
 
     const chars = 'アイウエオカキクケコサシスセソ0123456789';
+    const rainDepth = GAME_CONFIG.PARALLAX.RAIN_DEPTH;
 
     layerConfigs.forEach((config) => {
       const layer = this.add.group();
@@ -267,7 +270,8 @@ export class NeoJumpGameScene extends BaseScene {
         text.setAlpha(config.alpha);
         text.setData('speed', config.speed);
         text.setData('chars', chars);
-        text.setScrollFactor(0); // Fixed to camera
+        text.setScrollFactor(0);
+        text.setDepth(rainDepth);
         layer.add(text);
       }
 
@@ -275,9 +279,17 @@ export class NeoJumpGameScene extends BaseScene {
     });
   }
 
-  /**
-   * Update parallax rain
-   */
+  private createParallaxBuildings(): void {
+    this.parallaxSprites = [];
+    for (const cfg of GAME_CONFIG.PARALLAX.LAYERS) {
+      const sprite = this.add.tileSprite(0, 0, GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT, cfg.key);
+      sprite.setOrigin(0, 0);
+      sprite.setScrollFactor(0);
+      sprite.setDepth(cfg.depth);
+      this.parallaxSprites.push(sprite);
+    }
+  }
+
   private updateParallaxRain(delta: number): void {
     this.rainLayers.forEach((layer) => {
       layer.getChildren().forEach((obj) => {
@@ -298,6 +310,14 @@ export class NeoJumpGameScene extends BaseScene {
         }
       });
     });
+  }
+
+  private updateParallaxBuildings(): void {
+    const camY = this.cameras.main.scrollY;
+    const layers = GAME_CONFIG.PARALLAX.LAYERS;
+    for (let i = 0; i < layers.length && i < this.parallaxSprites.length; i++) {
+      this.parallaxSprites[i].tilePositionY = -camY * (1 - layers[i].scrollFactor);
+    }
   }
 
   /**
@@ -1235,11 +1255,13 @@ export class NeoJumpGameScene extends BaseScene {
     // Clear tweens
     this.tweens.killAll();
 
-    // Clear parallax rain layers and animations
+    // Clear parallax layers
     this.rainLayers.forEach((layer) => {
       layer.clear(true, true);
     });
     this.rainLayers = [];
+    this.parallaxSprites.forEach((s) => s.destroy());
+    this.parallaxSprites = [];
 
     // Destroy groups
     this.platforms.clear(true, true);
