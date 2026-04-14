@@ -12,6 +12,7 @@ import { VortexPongBootScene } from './scenes/BootScene';
 import { VortexPongMenuScene } from './scenes/MenuScene';
 import { VortexPongGameScene } from './scenes/GameScene';
 import { VortexPongGameOverScene } from './scenes/GameOverScene';
+import { HighScoreEntryScene } from '../../../../lib/phaser/scenes/HighScoreEntryScene';
 
 export const GAME_CONFIG = {
   WIDTH: 800,
@@ -107,6 +108,7 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
     VortexPongMenuScene,
     VortexPongGameScene,
     VortexPongGameOverScene,
+    HighScoreEntryScene,
   ],
   render: {
     pixelArt: true,

@@ -57,6 +57,7 @@ function createTestScene(trackIndex = 0) {
   scene.unlockAchievement = vi.fn();
   scene.reportScore = vi.fn();
   scene.gameOver = vi.fn();
+  scene.getGameDuration = vi.fn().mockReturnValue(1000);
 
   // UI text / graphics objects
   scene.scoreText = { setText: vi.fn() };

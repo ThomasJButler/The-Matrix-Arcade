@@ -809,7 +809,7 @@ export class FroggerGameScene extends BaseScene {
           { label: 'Near Misses', value: this.nearMissCount },
           { label: 'Kung Fu', value: this.kungFuTotalUsed },
           { label: 'Shield Hits', value: this.shieldHits },
-        ]);
+        ], this.level, this.getGameDuration());
       },
     });
 

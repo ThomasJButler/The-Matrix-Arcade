@@ -1025,7 +1025,7 @@ export class CodeBreakerGameScene extends BaseScene {
       { label: 'Level', value: `${this.level}/10` },
       { label: 'Agents', value: this.agentsKilled },
       { label: 'Bullet Time', value: this.bulletTimeUses },
-    ]);
+    ], this.level, this.getGameDuration());
   }
 
   // -- Spawning --

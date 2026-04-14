@@ -10,6 +10,7 @@ import { CloudJumperBootScene } from './scenes/BootScene';
 import { CloudJumperMenuScene } from './scenes/MenuScene';
 import { CloudJumperGameScene } from './scenes/GameScene';
 import { CloudJumperGameOverScene } from './scenes/GameOverScene';
+import { HighScoreEntryScene } from '../../../../lib/phaser/scenes/HighScoreEntryScene';
 
 /** Game constants */
 export const GAME_CONFIG = {
@@ -100,7 +101,7 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [CloudJumperBootScene, CloudJumperMenuScene, CloudJumperGameScene, CloudJumperGameOverScene],
+  scene: [CloudJumperBootScene, CloudJumperMenuScene, CloudJumperGameScene, CloudJumperGameOverScene, HighScoreEntryScene],
   input: {
     keyboard: true,
   },

@@ -11,6 +11,7 @@ import { NeoJumpBootScene } from './scenes/BootScene';
 import { NeoJumpMenuScene } from './scenes/MenuScene';
 import { NeoJumpGameScene } from './scenes/GameScene';
 import { NeoJumpGameOverScene } from './scenes/GameOverScene';
+import { HighScoreEntryScene } from '../../../../lib/phaser/scenes/HighScoreEntryScene';
 
 /** Game constants */
 export const GAME_CONFIG = {
@@ -123,7 +124,7 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [NeoJumpBootScene, NeoJumpMenuScene, NeoJumpGameScene, NeoJumpGameOverScene],
+  scene: [NeoJumpBootScene, NeoJumpMenuScene, NeoJumpGameScene, NeoJumpGameOverScene, HighScoreEntryScene],
   input: {
     keyboard: true,
   },

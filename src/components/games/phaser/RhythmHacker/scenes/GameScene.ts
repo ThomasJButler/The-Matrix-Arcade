@@ -124,6 +124,7 @@ export class RhythmHackerGameScene extends BaseScene {
 
   create(): void {
     this.createMatrixBackground();
+    this.gameStartTime = Date.now();
 
     // Reset state
     this.score = 0;
@@ -508,7 +509,7 @@ export class RhythmHackerGameScene extends BaseScene {
       if (this.health <= 0) {
         this.stopTrackAudio();
         this.reportScore(this.score, this.score);
-        this.gameOver(this.score, 'Health depleted', undefined, this.buildEndStats());
+        this.gameOver(this.score, 'Health depleted', undefined, this.buildEndStats(), this.trackIndex + 1, this.getGameDuration());
       }
     }
   }
@@ -660,7 +661,7 @@ export class RhythmHackerGameScene extends BaseScene {
     if (this.health <= 0) {
       this.stopTrackAudio();
       this.reportScore(this.score, this.score);
-      this.gameOver(this.score, 'Health depleted', undefined, this.buildEndStats());
+      this.gameOver(this.score, 'Health depleted', undefined, this.buildEndStats(), this.trackIndex + 1, this.getGameDuration());
     }
   }
 
@@ -1123,7 +1124,7 @@ export class RhythmHackerGameScene extends BaseScene {
     }
 
     this.reportScore(this.score, this.score);
-    this.gameOver(this.score, `Max Combo: ${this.maxCombo}`, undefined, this.buildEndStats());
+    this.gameOver(this.score, `Max Combo: ${this.maxCombo}`, undefined, this.buildEndStats(), this.trackIndex + 1, this.getGameDuration());
   }
 
   private buildEndStats(): { label: string; value: string | number }[] {

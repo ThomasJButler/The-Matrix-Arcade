@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 
 // Lifeline data structure for CTRL-S World
 export interface LifelineData {
@@ -96,6 +96,31 @@ export const createDefaultCtrlSGameState = (): CtrlSGameState => ({
   lastSaved: new Date().toISOString()
 });
 
+// Scoreboard entry for high-score tables
+export interface ScoreEntry {
+  initials: string;       // 3 chars [A-Z]
+  score: number;
+  level: number;
+  durationMs: number;
+  date: string;           // ISO
+}
+
+// Game IDs eligible for scoreboard (excludes CTRL-S World — story game, no score)
+export type ScoreboardGameId =
+  | 'snakeClassic' | 'vortexPong' | 'matrixCloud'
+  | 'matrixInvaders' | 'metris' | 'matrixFrogger'
+  | 'neoJump' | 'agentChase' | 'rhythmHacker'
+  | 'cloudJumper' | 'codeBreaker';
+
+export const SCOREBOARD_GAME_IDS: ScoreboardGameId[] = [
+  'snakeClassic', 'vortexPong', 'matrixCloud',
+  'matrixInvaders', 'metris', 'matrixFrogger',
+  'neoJump', 'agentChase', 'rhythmHacker',
+  'cloudJumper', 'codeBreaker',
+];
+
+export const MAX_BOARD_SIZE = 25;
+
 // Save data structure for each game
 export interface GameSaveData {
   highScore: number;
@@ -148,6 +173,8 @@ export interface GlobalSaveData {
     lastBackupDate?: number;
     autoSave: boolean;
   };
+  scoreboards: Record<ScoreboardGameId, ScoreEntry[]>;
+  lastInitials: string;
 }
 
 // Default lifeline data for CTRL-S World
@@ -212,7 +239,9 @@ const createDefaultGlobalSave = (): GlobalSaveData => ({
   },
   settings: {
     autoSave: true
-  }
+  },
+  scoreboards: Object.fromEntries(SCOREBOARD_GAME_IDS.map(id => [id, []])) as Record<ScoreboardGameId, ScoreEntry[]>,
+  lastInitials: 'AAA',
 });
 
 // Achievement interface
@@ -375,7 +404,7 @@ export const GLOBAL_ACHIEVEMENTS: Achievement[] = [
 
 const STORAGE_KEY = 'matrix-arcade-save-data';
 const BACKUP_KEY = 'matrix-arcade-backup';
-const CURRENT_VERSION = '1.2.0';
+const CURRENT_VERSION = '1.3.0';
 
 /**
  * Migration functions for save data versions.
@@ -489,6 +518,33 @@ const migrations: Record<string, MigrationFunction> = {
 
     migratedData.version = '1.2.0';
     return migratedData;
+  },
+
+  '1.2.0': (data: GlobalSaveData): GlobalSaveData => {
+    const migratedData = { ...data };
+
+    const emptyBoards = Object.fromEntries(
+      SCOREBOARD_GAME_IDS.map(id => [id, []])
+    ) as Record<ScoreboardGameId, ScoreEntry[]>;
+
+    migratedData.scoreboards = emptyBoards;
+    migratedData.lastInitials = 'AAA';
+
+    for (const gameId of SCOREBOARD_GAME_IDS) {
+      const gameData = migratedData.games[gameId];
+      if (gameData && gameData.highScore > 0) {
+        migratedData.scoreboards[gameId] = [{
+          initials: '???',
+          score: gameData.highScore,
+          level: gameData.level ?? 1,
+          durationMs: 0,
+          date: new Date(gameData.lastPlayed || Date.now()).toISOString(),
+        }];
+      }
+    }
+
+    migratedData.version = '1.3.0';
+    return migratedData;
   }
 };
 
@@ -501,7 +557,7 @@ const migrations: Record<string, MigrationFunction> = {
  */
 export function migrateSaveData(data: GlobalSaveData): GlobalSaveData {
   let migratedData = { ...data };
-  const versionOrder = ['1.0.0', '1.1.0', '1.2.0'];
+  const versionOrder = ['1.0.0', '1.1.0', '1.2.0', '1.3.0'];
 
   // Handle legacy data without version (pre-1.0.0)
   if (!migratedData.version) {
@@ -534,6 +590,8 @@ export function migrateSaveData(data: GlobalSaveData): GlobalSaveData {
 
 export function useSaveSystem() {
   const [saveData, setSaveData] = useState<GlobalSaveData>(createDefaultGlobalSave);
+  const saveDataRef = useRef(saveData);
+  saveDataRef.current = saveData;
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -556,13 +614,17 @@ export function useSaveSystem() {
           parsed = migrateSaveData(parsed);
         }
 
-        // Merge with defaults to ensure all properties exist
+        const defaults = createDefaultGlobalSave();
         const mergedData = {
-          ...createDefaultGlobalSave(),
+          ...defaults,
           ...parsed,
           games: {
-            ...createDefaultGlobalSave().games,
+            ...defaults.games,
             ...parsed.games
+          },
+          scoreboards: {
+            ...defaults.scoreboards,
+            ...(parsed.scoreboards || {})
           }
         };
         
@@ -837,6 +899,45 @@ export function useSaveSystem() {
     return saveData.games[gameId].achievements.includes(achievementId);
   }, [saveData]);
 
+  const addScore = useCallback((gameId: ScoreboardGameId, entry: ScoreEntry): { qualified: boolean; rank: number | null } => {
+    const prev = saveDataRef.current;
+    const board = [...(prev.scoreboards[gameId] || []), entry]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, MAX_BOARD_SIZE);
+
+    const idx = board.findIndex(e => e === entry);
+    const qualified = idx !== -1;
+    const rank = qualified ? idx + 1 : null;
+
+    if (qualified) {
+      const newData: GlobalSaveData = {
+        ...prev,
+        scoreboards: { ...prev.scoreboards, [gameId]: board },
+        lastInitials: entry.initials,
+      };
+      saveDataRef.current = newData;
+      setSaveData(newData);
+      if (newData.settings.autoSave) {
+        saveToDisk(newData);
+      }
+    }
+
+    return { qualified, rank };
+  }, [saveToDisk]);
+
+  const clearBoard = useCallback((gameId: ScoreboardGameId) => {
+    setSaveData(prev => {
+      const newData: GlobalSaveData = {
+        ...prev,
+        scoreboards: { ...prev.scoreboards, [gameId]: [] },
+      };
+      if (newData.settings.autoSave) {
+        saveToDisk(newData);
+      }
+      return newData;
+    });
+  }, [saveToDisk]);
+
   // Load data on mount
   useEffect(() => {
     loadSaveData();
@@ -857,6 +958,8 @@ export function useSaveSystem() {
     saveNow,
     getGameAchievements,
     isAchievementUnlocked,
-    loadSaveData
+    loadSaveData,
+    addScore,
+    clearBoard
   };
 }

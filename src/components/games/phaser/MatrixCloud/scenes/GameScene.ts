@@ -635,7 +635,7 @@ export class MatrixCloudGameScene extends BaseScene {
         { label: 'Max Combo', value: `${this.combo.toFixed(1)}×` },
         { label: 'Bosses', value: this.bossesDefeated.size },
         { label: 'Power-ups', value: this.powerUpsCollected },
-      ]);
+      ], this.level, this.getGameDuration());
     });
   }
 

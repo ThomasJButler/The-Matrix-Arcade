@@ -132,11 +132,32 @@
   animation: phosphor-glow 4s ease-in-out infinite;
 }
 
+@keyframes score-highlight-pulse {
+  0%, 100% { color: rgba(0, 255, 0, 0.9); text-shadow: 0 0 4px rgba(0, 255, 0, 0.4); }
+  50% { color: rgba(0, 255, 0, 1); text-shadow: 0 0 8px rgba(0, 255, 0, 0.6), 0 0 16px rgba(0, 255, 0, 0.2); }
+}
+
+.score-highlight {
+  animation: score-highlight-pulse 1s ease-in-out infinite;
+}
+
+@keyframes score-1up-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.score-1up-blink {
+  animation: score-1up-blink 0.6s step-end infinite;
+  color: rgba(0, 255, 0, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .phosphor-glow,
   .transition-enhanced,
   .animate-pulse,
-  .animate-pulse-red {
+  .animate-pulse-red,
+  .score-highlight,
+  .score-1up-blink {
     animation: none;
   }
 

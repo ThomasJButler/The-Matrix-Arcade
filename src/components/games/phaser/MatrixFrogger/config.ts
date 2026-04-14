@@ -11,6 +11,7 @@ import { FroggerBootScene } from './scenes/BootScene';
 import { FroggerMenuScene } from './scenes/MenuScene';
 import { FroggerGameScene } from './scenes/GameScene';
 import { FroggerGameOverScene } from './scenes/GameOverScene';
+import { HighScoreEntryScene } from '../../../../lib/phaser/scenes/HighScoreEntryScene';
 
 /** Game constants */
 export const GAME_CONFIG = {
@@ -156,7 +157,7 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [FroggerBootScene, FroggerMenuScene, FroggerGameScene, FroggerGameOverScene],
+  scene: [FroggerBootScene, FroggerMenuScene, FroggerGameScene, FroggerGameOverScene, HighScoreEntryScene],
   input: {
     keyboard: true,
   },

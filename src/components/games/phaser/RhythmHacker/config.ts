@@ -10,6 +10,7 @@ import { RhythmHackerBootScene } from './scenes/BootScene';
 import { RhythmHackerMenuScene } from './scenes/MenuScene';
 import { RhythmHackerGameScene } from './scenes/GameScene';
 import { RhythmHackerGameOverScene } from './scenes/GameOverScene';
+import { HighScoreEntryScene } from '../../../../lib/phaser/scenes/HighScoreEntryScene';
 
 /** Game constants */
 export const GAME_CONFIG = {
@@ -112,7 +113,7 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [RhythmHackerBootScene, RhythmHackerMenuScene, RhythmHackerGameScene, RhythmHackerGameOverScene],
+  scene: [RhythmHackerBootScene, RhythmHackerMenuScene, RhythmHackerGameScene, RhythmHackerGameOverScene, HighScoreEntryScene],
   input: {
     keyboard: true,
   },

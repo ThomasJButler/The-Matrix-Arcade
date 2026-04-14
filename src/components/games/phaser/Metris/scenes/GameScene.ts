@@ -511,7 +511,7 @@ export class MetrisGameScene extends BaseScene {
         { label: 'Lines', value: this.lines },
         { label: 'T-Spins', value: this.tSpins },
         { label: 'Bullet Time', value: this.bulletTimeCount },
-      ]);
+      ], this.level, this.getGameDuration());
     });
   }
 

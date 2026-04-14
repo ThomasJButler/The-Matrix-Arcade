@@ -63,6 +63,8 @@ import { useMobileDetection } from './hooks/useMobileDetection';
 import { useSaveSystem } from './hooks/useSaveSystem';
 import { GameStateProvider } from './contexts/GameStateContext';
 import About from './components/About';
+import { Scoreboard } from './components/scoreboard/Scoreboard';
+import { AttractMode } from './components/scoreboard/AttractMode';
 import LandingPage from './components/LandingPage';
 import { GAME_REGISTRY } from './data/gameRegistry';
 import { GAME_TITLES } from './lib/asciiArt';
@@ -86,7 +88,8 @@ function App() {
   // Initialize sound system and achievement manager
   const { config: soundConfig, updateConfig: updateSoundConfig, playSFX, playBackgroundMP3, stopBackgroundMP3, toggleMute, isMuted } = useSoundSystem();
   const achievementManager = useAchievementManager();
-  const { saveData, updateGlobalStats } = useSaveSystem();
+  const { saveData, updateGlobalStats, addScore, clearBoard } = useSaveSystem();
+  const [showScoreboard, setShowScoreboard] = useState(false);
 
   // Mobile detection
   const { isMobile, isTablet } = useMobileDetection();
@@ -459,12 +462,13 @@ function App() {
         if (showInstructions) { setShowInstructions(false); e.preventDefault(); }
         if (showHighScores) { setShowHighScores(false); e.preventDefault(); }
         if (showAbout) { setShowAbout(false); e.preventDefault(); }
+        if (showScoreboard) { setShowScoreboard(false); e.preventDefault(); }
       }
     };
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isPlaying, achievementManager, playSFX, showMobileWarning, playBackgroundMP3, stopBackgroundMP3, handlePrevious, handleNext, toggleMute, trackPlayTime, checkNightOwlAchievement, checkDedicatedAchievement, selectedGame, showInstructions, showHighScores, showAbout]);
+  }, [isPlaying, achievementManager, playSFX, showMobileWarning, playBackgroundMP3, stopBackgroundMP3, handlePrevious, handleNext, toggleMute, trackPlayTime, checkNightOwlAchievement, checkDedicatedAchievement, selectedGame, showInstructions, showHighScores, showAbout, showScoreboard]);
 
   const GameComponent = games[selectedGame].component;
 
@@ -524,6 +528,14 @@ function App() {
               aria-label="About"
             >
               <BookOpen className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setShowScoreboard(!showScoreboard)}
+              className="p-2 bg-green-900/50 rounded hover:bg-green-800 transition-colors border border-green-500/30 backdrop-blur-sm"
+              title="High Scores"
+              aria-label="High Scores"
+            >
+              <Trophy className="w-5 h-5" />
             </button>
             <button
               onClick={() => setShowSaveManager(!showSaveManager)}
@@ -846,6 +858,7 @@ function App() {
               setShowLandingPage(false);
             }}
             onClose={() => setShowLandingPage(false)}
+            onShowScoreboard={() => setShowScoreboard(true)}
           />
         )}
       </AnimatePresence>
@@ -889,7 +902,24 @@ function App() {
 
       {/* About Page */}
       <About isOpen={showAbout} onClose={() => setShowAbout(false)} />
+
+      {/* Global Scoreboard */}
+      <Scoreboard
+        isOpen={showScoreboard}
+        onClose={() => setShowScoreboard(false)}
+        scoreboards={saveData.scoreboards}
+        lastInitials={saveData.lastInitials}
+        onClearBoard={clearBoard}
+        playSound={playSFX}
+      />
       
+      {/* Attract Mode — idle scoreboard cycle on landing page */}
+      <AttractMode
+        scoreboards={saveData.scoreboards}
+        lastInitials={saveData.lastInitials}
+        enabled={showLandingPage && !isPlaying && !showScoreboard}
+      />
+
       {/* Achievement System */}
       <AchievementQueue 
         achievements={achievementManager.notificationQueue}

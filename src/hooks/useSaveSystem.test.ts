@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useSaveSystem, GAME_ACHIEVEMENTS, GLOBAL_ACHIEVEMENTS, type GlobalSaveData, migrateSaveData } from './useSaveSystem';
+import { useSaveSystem, GAME_ACHIEVEMENTS, GLOBAL_ACHIEVEMENTS, type GlobalSaveData, type ScoreEntry, type ScoreboardGameId, SCOREBOARD_GAME_IDS, MAX_BOARD_SIZE, migrateSaveData } from './useSaveSystem';
 
 // Storage key constants matching the hook
 const STORAGE_KEY = 'matrix-arcade-save-data';
 const BACKUP_KEY = 'matrix-arcade-backup';
-const CURRENT_VERSION = '1.2.0';
+const CURRENT_VERSION = '1.3.0';
 
 describe('useSaveSystem', () => {
   beforeEach(() => {
@@ -848,7 +848,7 @@ describe('useSaveSystem', () => {
 
       const migrated = migrateSaveData(oldData);
 
-      expect(migrated.version).toBe('1.2.0');
+      expect(migrated.version).toBe('1.3.0');
       // Should preserve existing data
       expect(migrated.games.snakeClassic.highScore).toBe(100);
       expect(migrated.games.snakeClassic.achievements).toContain('snake_first_apple');
@@ -940,7 +940,7 @@ describe('useSaveSystem', () => {
 
       const migrated = migrateSaveData(oldData);
 
-      expect(migrated.version).toBe('1.2.0');
+      expect(migrated.version).toBe('1.3.0');
       expect(migrated.games.snakeClassic.highScore).toBe(50);
     });
 
@@ -961,14 +961,15 @@ describe('useSaveSystem', () => {
 
       const migrated = migrateSaveData(oldData);
 
-      expect(migrated.version).toBe('1.2.0');
+      expect(migrated.version).toBe('1.3.0');
       expect(migrated.games.snakeClassic.highScore).toBe(25);
     });
 
     it('does not modify data at current version', () => {
       const defaultGame = { highScore: 0, level: 1, achievements: [] as string[], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() };
+      const emptyBoards = Object.fromEntries(SCOREBOARD_GAME_IDS.map(id => [id, []])) as Record<ScoreboardGameId, ScoreEntry[]>;
       const currentData: GlobalSaveData = {
-        version: '1.2.0',
+        version: '1.3.0',
         games: {
           snakeClassic: { highScore: 200, level: 3, achievements: ['snake_first_apple', 'snake_score_100'], stats: { gamesPlayed: 10, totalScore: 1000, bestCombo: 5 }, lastPlayed: Date.now() },
           vortexPong: { ...defaultGame },
@@ -981,18 +982,21 @@ describe('useSaveSystem', () => {
           agentChase: { ...defaultGame },
           rhythmHacker: { ...defaultGame },
           cloudJumper: { ...defaultGame },
+          codeBreaker: { ...defaultGame },
           crossyRoad: { ...defaultGame },
           matrixAscension: { ...defaultGame },
           agentEscape: { ...defaultGame },
           jimmyMatrix: { ...defaultGame }
         },
         globalStats: { totalPlayTime: 5000, favoriteGame: 'snakeClassic', globalAchievements: ['global_first_game'], firstPlayDate: Date.now(), playDates: ['2026-01-26'] },
-        settings: { autoSave: true }
+        settings: { autoSave: true },
+        scoreboards: emptyBoards,
+        lastInitials: 'AAA',
       };
 
       const migrated = migrateSaveData(currentData);
 
-      expect(migrated.version).toBe('1.2.0');
+      expect(migrated.version).toBe('1.3.0');
       expect(migrated.games.snakeClassic.highScore).toBe(200);
       expect(migrated.globalStats.totalPlayTime).toBe(5000);
     });
@@ -1019,6 +1023,52 @@ describe('useSaveSystem', () => {
       expect(migrated.games.metris).toBeDefined();
     });
 
+    it('migrates from 1.2.0 to 1.3.0 with scoreboard', () => {
+      const defaultGame = { highScore: 0, level: 1, achievements: [] as string[], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() };
+      const oldData: GlobalSaveData = {
+        version: '1.2.0',
+        games: {
+          snakeClassic: { highScore: 500, level: 5, achievements: [], stats: { gamesPlayed: 10, totalScore: 2500 }, lastPlayed: 1700000000000 },
+          vortexPong: { ...defaultGame },
+          matrixCloud: { ...defaultGame },
+          ctrlSWorld: { ...defaultGame },
+          matrixInvaders: { ...defaultGame },
+          metris: { highScore: 3000, level: 8, achievements: [], stats: { gamesPlayed: 5, totalScore: 9000 }, lastPlayed: 1700000000000 },
+          matrixFrogger: { ...defaultGame },
+          neoJump: { ...defaultGame },
+          agentChase: { ...defaultGame },
+          rhythmHacker: { ...defaultGame },
+          cloudJumper: { ...defaultGame },
+          codeBreaker: { ...defaultGame },
+          crossyRoad: { ...defaultGame },
+          matrixAscension: { ...defaultGame },
+          agentEscape: { ...defaultGame },
+          jimmyMatrix: { ...defaultGame }
+        },
+        globalStats: { totalPlayTime: 0, favoriteGame: '', globalAchievements: [], firstPlayDate: Date.now(), playDates: [] },
+        settings: { autoSave: true },
+      } as unknown as GlobalSaveData;
+
+      const migrated = migrateSaveData(oldData);
+
+      expect(migrated.version).toBe('1.3.0');
+      expect(migrated.scoreboards).toBeDefined();
+      expect(migrated.lastInitials).toBe('AAA');
+
+      // Legacy highScore=500 migrated as rank 1 entry
+      expect(migrated.scoreboards.snakeClassic).toHaveLength(1);
+      expect(migrated.scoreboards.snakeClassic[0].score).toBe(500);
+      expect(migrated.scoreboards.snakeClassic[0].initials).toBe('???');
+      expect(migrated.scoreboards.snakeClassic[0].level).toBe(5);
+
+      // Metris highScore=3000 migrated
+      expect(migrated.scoreboards.metris).toHaveLength(1);
+      expect(migrated.scoreboards.metris[0].score).toBe(3000);
+
+      // Games with 0 highScore have empty boards
+      expect(migrated.scoreboards.vortexPong).toHaveLength(0);
+    });
+
     it('preserves achievements array during migration', () => {
       const oldData: GlobalSaveData = {
         version: '1.0.0',
@@ -1041,6 +1091,197 @@ describe('useSaveSystem', () => {
       expect(migrated.games.snakeClassic.achievements).toContain('snake_score_100');
       expect(migrated.games.snakeClassic.achievements).toContain('snake_score_500');
       expect(migrated.globalStats.globalAchievements).toHaveLength(2);
+    });
+  });
+
+  describe('Scoreboard — addScore', () => {
+    const makeEntry = (score: number, initials = 'NEO'): ScoreEntry => ({
+      initials,
+      score,
+      level: 1,
+      durationMs: 60000,
+      date: new Date().toISOString(),
+    });
+
+    it('adds a score to an empty board and returns rank 1', async () => {
+      const { result } = renderHook(() => useSaveSystem());
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      let res: { qualified: boolean; rank: number | null } = { qualified: false, rank: null };
+      act(() => {
+        res = result.current.addScore('snakeClassic', makeEntry(1000));
+      });
+
+      expect(res.qualified).toBe(true);
+      expect(res.rank).toBe(1);
+      expect(result.current.saveData.scoreboards.snakeClassic).toHaveLength(1);
+      expect(result.current.saveData.scoreboards.snakeClassic[0].score).toBe(1000);
+    });
+
+    it('sorts entries descending by score', async () => {
+      const { result } = renderHook(() => useSaveSystem());
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      act(() => {
+        result.current.addScore('snakeClassic', makeEntry(100));
+        result.current.addScore('snakeClassic', makeEntry(500));
+        result.current.addScore('snakeClassic', makeEntry(300));
+      });
+
+      const board = result.current.saveData.scoreboards.snakeClassic;
+      expect(board[0].score).toBe(500);
+      expect(board[1].score).toBe(300);
+      expect(board[2].score).toBe(100);
+    });
+
+    it('evicts 26th entry when board is full', async () => {
+      const { result } = renderHook(() => useSaveSystem());
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      // Fill board with 25 entries (scores 100..2500)
+      act(() => {
+        for (let i = 1; i <= MAX_BOARD_SIZE; i++) {
+          result.current.addScore('snakeClassic', makeEntry(i * 100));
+        }
+      });
+
+      expect(result.current.saveData.scoreboards.snakeClassic).toHaveLength(MAX_BOARD_SIZE);
+
+      // Add entry that beats lowest (100) but not highest (2500)
+      let res: { qualified: boolean; rank: number | null } = { qualified: false, rank: null };
+      act(() => {
+        res = result.current.addScore('snakeClassic', makeEntry(150));
+      });
+
+      expect(res.qualified).toBe(true);
+      expect(result.current.saveData.scoreboards.snakeClassic).toHaveLength(MAX_BOARD_SIZE);
+      // The 100-score entry should have been evicted
+      const scores = result.current.saveData.scoreboards.snakeClassic.map(e => e.score);
+      expect(scores).not.toContain(100);
+      expect(scores).toContain(150);
+    });
+
+    it('rejects entry that does not make top 25', async () => {
+      const { result } = renderHook(() => useSaveSystem());
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      // Fill board with 25 entries (scores 1000..25000)
+      act(() => {
+        for (let i = 1; i <= MAX_BOARD_SIZE; i++) {
+          result.current.addScore('snakeClassic', makeEntry(i * 1000));
+        }
+      });
+
+      // Add entry with score 0 — should not qualify
+      let res: { qualified: boolean; rank: number | null } = { qualified: false, rank: null };
+      act(() => {
+        res = result.current.addScore('snakeClassic', makeEntry(0));
+      });
+
+      expect(res.qualified).toBe(false);
+      expect(res.rank).toBeNull();
+    });
+
+    it('updates lastInitials on qualified score', async () => {
+      const { result } = renderHook(() => useSaveSystem());
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      expect(result.current.saveData.lastInitials).toBe('AAA');
+
+      act(() => {
+        result.current.addScore('snakeClassic', makeEntry(1000, 'TOM'));
+      });
+
+      expect(result.current.saveData.lastInitials).toBe('TOM');
+    });
+
+    it('persists scoreboard to localStorage', async () => {
+      const { result } = renderHook(() => useSaveSystem());
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      act(() => {
+        result.current.addScore('metris', makeEntry(5000));
+      });
+
+      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+      expect(stored.scoreboards.metris).toHaveLength(1);
+      expect(stored.scoreboards.metris[0].score).toBe(5000);
+    });
+  });
+
+  describe('Scoreboard — clearBoard', () => {
+    it('clears all entries for a game', async () => {
+      const { result } = renderHook(() => useSaveSystem());
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      act(() => {
+        result.current.addScore('snakeClassic', { initials: 'NEO', score: 1000, level: 1, durationMs: 60000, date: new Date().toISOString() });
+        result.current.addScore('snakeClassic', { initials: 'TRI', score: 500, level: 1, durationMs: 30000, date: new Date().toISOString() });
+      });
+
+      expect(result.current.saveData.scoreboards.snakeClassic.length).toBeGreaterThan(0);
+
+      act(() => {
+        result.current.clearBoard('snakeClassic');
+      });
+
+      expect(result.current.saveData.scoreboards.snakeClassic).toHaveLength(0);
+    });
+
+    it('does not affect other game boards', async () => {
+      const { result } = renderHook(() => useSaveSystem());
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      act(() => {
+        result.current.addScore('snakeClassic', { initials: 'NEO', score: 1000, level: 1, durationMs: 60000, date: new Date().toISOString() });
+        result.current.addScore('metris', { initials: 'NEO', score: 2000, level: 5, durationMs: 120000, date: new Date().toISOString() });
+      });
+
+      act(() => {
+        result.current.clearBoard('snakeClassic');
+      });
+
+      expect(result.current.saveData.scoreboards.snakeClassic).toHaveLength(0);
+      expect(result.current.saveData.scoreboards.metris).toHaveLength(1);
+    });
+
+    it('persists cleared board to localStorage', async () => {
+      const { result } = renderHook(() => useSaveSystem());
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      act(() => {
+        result.current.addScore('snakeClassic', { initials: 'NEO', score: 1000, level: 1, durationMs: 60000, date: new Date().toISOString() });
+      });
+
+      act(() => {
+        result.current.clearBoard('snakeClassic');
+      });
+
+      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+      expect(stored.scoreboards.snakeClassic).toHaveLength(0);
+    });
+  });
+
+  describe('Scoreboard — default state', () => {
+    it('initialises with empty boards for all 11 scoreboard games', async () => {
+      const { result } = renderHook(() => useSaveSystem());
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      for (const gameId of SCOREBOARD_GAME_IDS) {
+        expect(result.current.saveData.scoreboards[gameId]).toEqual([]);
+      }
+      expect(SCOREBOARD_GAME_IDS).toHaveLength(11);
+    });
+
+    it('does not include ctrlSWorld in scoreboard game IDs', () => {
+      expect(SCOREBOARD_GAME_IDS).not.toContain('ctrlSWorld');
+    });
+
+    it('defaults lastInitials to AAA', async () => {
+      const { result } = renderHook(() => useSaveSystem());
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      expect(result.current.saveData.lastInitials).toBe('AAA');
     });
   });
 });

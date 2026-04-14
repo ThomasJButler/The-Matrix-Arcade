@@ -1010,7 +1010,9 @@ describe('CodeBreakerGameScene', () => {
         expect.any(Number),
         expect.stringContaining('5'),
         expect.any(Number),
-        expect.any(Array)
+        expect.any(Array),
+        expect.any(Number),
+        expect.any(Number)
       );
     });
   });
