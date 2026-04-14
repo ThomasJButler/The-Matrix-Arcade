@@ -27,6 +27,7 @@ export class CodeBreakerBootScene extends BootScene {
     for (const { key, path } of SPRITE_ASSETS) {
       this.load.image(key, path);
     }
+    this.load.image('frame_bg', 'assets/code-breaker/frame_bg.png');
   }
 
   create(): void {

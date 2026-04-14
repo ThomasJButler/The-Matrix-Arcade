@@ -112,7 +112,17 @@ export class FroggerGameScene extends BaseScene {
   }
 
   private get frogSpriteMode(): boolean {
-    return this.game.registry.get('frogSpriteMode') === true;
+    return this.game.registry.get('frogSpriteMode') === true || this.game.registry.get('neoSpriteMode') === true;
+  }
+
+  private get playerIdleTexture(): string {
+    if (this.game.registry.get('neoSpriteMode') === true) return 'neo_idle';
+    return 'frog_idle';
+  }
+
+  private get playerHopTexture(): string {
+    if (this.game.registry.get('neoSpriteMode') === true) return 'neo_hop';
+    return 'frog_hop';
   }
 
   create(): void {
@@ -411,7 +421,7 @@ export class FroggerGameScene extends BaseScene {
     const y = this.rowToY(this.playerRow);
 
     if (this.frogSpriteMode) {
-      this.player = this.physics.add.sprite(x, y, 'frog_idle');
+      this.player = this.physics.add.sprite(x, y, this.playerIdleTexture);
       this.applyPlayerPerspective();
     } else {
       this.player = this.physics.add.sprite(x, y, 'player', 0);
@@ -582,7 +592,7 @@ export class FroggerGameScene extends BaseScene {
     const targetY = this.rowToY(row);
 
     if (this.frogSpriteMode) {
-      this.player.setTexture('frog_hop');
+      this.player.setTexture(this.playerHopTexture);
       this.setFrogDirection(col - prevCol, row - prevRow);
     } else {
       this.player.play('player_hop');
@@ -599,7 +609,7 @@ export class FroggerGameScene extends BaseScene {
         this.isMoving = false;
         this.applyPlayerPerspective();
         if (this.frogSpriteMode) {
-          this.player.setTexture('frog_idle');
+          this.player.setTexture(this.playerIdleTexture);
         } else {
           this.player.play('player_idle');
         }
