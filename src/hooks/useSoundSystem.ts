@@ -394,6 +394,57 @@ const SOUND_LIBRARY: Record<string, SoundEffect> = {
     filterType: 'bandpass',
     filterFreq: 1800,
     reverb: true
+  },
+
+  // Scoreboard sounds
+  scoreboardTab: {
+    type: 'scoreboardTab',
+    frequency: { start: 200, end: 200 },
+    oscillatorType: 'square',
+    duration: 0.06,
+    attack: 0.005,
+    decay: 0.02,
+    sustain: 0.15,
+    release: 0.03,
+    filterType: 'bandpass',
+    filterFreq: 600
+  },
+  scoreboardNewHigh: {
+    type: 'scoreboardNewHigh',
+    frequency: { start: 523, end: 1047 },
+    oscillatorType: 'triangle',
+    duration: 0.6,
+    attack: 0.02,
+    decay: 0.15,
+    sustain: 0.5,
+    release: 0.2,
+    filterType: 'bandpass',
+    filterFreq: 2000,
+    reverb: true
+  },
+  scoreboardLetterCycle: {
+    type: 'scoreboardLetterCycle',
+    frequency: { start: 660, end: 660 },
+    oscillatorType: 'square',
+    duration: 0.04,
+    attack: 0.003,
+    decay: 0.01,
+    sustain: 0.1,
+    release: 0.02,
+    filterType: 'highpass',
+    filterFreq: 500
+  },
+  scoreboardConfirm: {
+    type: 'scoreboardConfirm',
+    frequency: { start: 523, end: 784 },
+    oscillatorType: 'triangle',
+    duration: 0.18,
+    attack: 0.01,
+    decay: 0.06,
+    sustain: 0.35,
+    release: 0.08,
+    filterType: 'bandpass',
+    filterFreq: 1500
   }
 };
 

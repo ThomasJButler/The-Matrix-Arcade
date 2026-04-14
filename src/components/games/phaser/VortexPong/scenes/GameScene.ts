@@ -523,7 +523,7 @@ export class VortexPongGameScene extends BaseScene {
           { label: 'AI', value: this.aiScore },
           { label: 'Best Rally', value: this.maxRally },
           { label: 'Power-ups', value: this.powerUpsCollected },
-        ]);
+        ], this.playerScore, this.getGameDuration());
       });
       return true;
     }
@@ -540,7 +540,7 @@ export class VortexPongGameScene extends BaseScene {
           { label: 'AI', value: this.aiScore },
           { label: 'Best Rally', value: this.maxRally },
           { label: 'Power-ups', value: this.powerUpsCollected },
-        ]);
+        ], this.playerScore, this.getGameDuration());
       });
       return true;
     }

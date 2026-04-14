@@ -74,6 +74,13 @@ const mockSaveData = {
     firstPlayDate: Date.now(),
   },
   settings: { autoSave: true },
+  scoreboards: {
+    snakeClassic: [], vortexPong: [], matrixCloud: [],
+    matrixInvaders: [], metris: [], matrixFrogger: [],
+    neoJump: [], agentChase: [], rhythmHacker: [],
+    cloudJumper: [], codeBreaker: [],
+  },
+  lastInitials: 'AAA',
 };
 
 vi.mock('./hooks/useSaveSystem', () => ({
@@ -93,7 +100,16 @@ vi.mock('./hooks/useSaveSystem', () => ({
     getGameAchievements: vi.fn(() => []),
     isAchievementUnlocked: vi.fn(() => false),
     loadSaveData: vi.fn(),
+    addScore: vi.fn(() => ({ qualified: false, rank: null })),
+    clearBoard: vi.fn(),
   }),
+  SCOREBOARD_GAME_IDS: [
+    'snakeClassic', 'vortexPong', 'matrixCloud',
+    'matrixInvaders', 'metris', 'matrixFrogger',
+    'neoJump', 'agentChase', 'rhythmHacker',
+    'cloudJumper', 'codeBreaker',
+  ],
+  MAX_BOARD_SIZE: 25,
   createDefaultCtrlSGameState: () => ({
     currentChapter: 1,
     currentSection: 'intro',

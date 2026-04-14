@@ -953,7 +953,7 @@ describe('MatrixInvadersGameScene', () => {
     it('calls gameOver on health depletion', () => {
       scene.playerHealth = C.PLAYER_HIT_DAMAGE;
       call(scene, 'hitPlayer');
-      expect(scene.gameOver).toHaveBeenCalledWith(0, 'Ship destroyed', 0, expect.any(Array));
+      expect(scene.gameOver).toHaveBeenCalledWith(0, 'Ship destroyed', 0, expect.any(Array), expect.any(Number), expect.any(Number));
     });
 
     it('calls gameOver when enemy reaches player', () => {

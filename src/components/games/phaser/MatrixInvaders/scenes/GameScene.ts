@@ -814,7 +814,7 @@ export class MatrixInvadersGameScene extends BaseScene {
       { label: 'Enemies', value: this.enemiesKilled },
       { label: 'Max Combo', value: `${this.combo}×` },
       { label: 'Bullet Time', value: this.bulletTimeUses },
-    ]);
+    ], this.wave, this.getGameDuration());
   }
 
   // -- Power-ups --

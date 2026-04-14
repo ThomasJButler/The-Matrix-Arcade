@@ -3,6 +3,7 @@ import { MatrixCloudBootScene } from './scenes/BootScene';
 import { MatrixCloudMenuScene } from './scenes/MenuScene';
 import { MatrixCloudGameScene } from './scenes/GameScene';
 import { MatrixCloudGameOverScene } from './scenes/GameOverScene';
+import { HighScoreEntryScene } from '../../../../lib/phaser/scenes/HighScoreEntryScene';
 import { MATRIX_COLORS } from '@/lib/phaser/types';
 
 export type PowerUpType = 'shield' | 'timeSlow' | 'extraLife' | 'doublePoints';
@@ -136,5 +137,5 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [MatrixCloudBootScene, MatrixCloudMenuScene, MatrixCloudGameScene, MatrixCloudGameOverScene],
+  scene: [MatrixCloudBootScene, MatrixCloudMenuScene, MatrixCloudGameScene, MatrixCloudGameOverScene, HighScoreEntryScene],
 };

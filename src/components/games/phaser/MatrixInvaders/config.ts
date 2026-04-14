@@ -3,6 +3,7 @@ import { MatrixInvadersBootScene } from './scenes/BootScene';
 import { MatrixInvadersMenuScene } from './scenes/MenuScene';
 import { MatrixInvadersGameScene } from './scenes/GameScene';
 import { MatrixInvadersGameOverScene } from './scenes/GameOverScene';
+import { HighScoreEntryScene } from '../../../../lib/phaser/scenes/HighScoreEntryScene';
 
 export type EnemyType = 'code' | 'agent' | 'sentinel' | 'virus';
 export type PowerUpType = 'rapidFire' | 'shield' | 'scoreMultiplier' | 'bomb';
@@ -172,5 +173,6 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
     MatrixInvadersMenuScene,
     MatrixInvadersGameScene,
     MatrixInvadersGameOverScene,
+    HighScoreEntryScene,
   ],
 };

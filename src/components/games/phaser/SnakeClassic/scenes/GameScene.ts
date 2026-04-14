@@ -691,7 +691,7 @@ export class SnakeGameScene extends BaseScene {
         { label: 'Food', value: this.foodEaten },
         { label: 'Power-ups', value: this.powerUpsCollected },
         { label: 'Best Streak', value: this.consecutiveFood },
-      ]);
+      ], this.snake.length, this.getGameDuration());
     });
   }
 

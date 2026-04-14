@@ -3,6 +3,7 @@ import { CodeBreakerBootScene } from './scenes/BootScene';
 import { CodeBreakerMenuScene } from './scenes/MenuScene';
 import { CodeBreakerGameScene } from './scenes/GameScene';
 import { CodeBreakerGameOverScene } from './scenes/GameOverScene';
+import { HighScoreEntryScene } from '../../../../lib/phaser/scenes/HighScoreEntryScene';
 
 // -- Brick types --
 export type BrickType = 'code' | 'agent' | 'sentinel' | 'unbreakable';
@@ -322,6 +323,7 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
     CodeBreakerMenuScene,
     CodeBreakerGameScene,
     CodeBreakerGameOverScene,
+    HighScoreEntryScene,
   ],
   input: {
     keyboard: true,

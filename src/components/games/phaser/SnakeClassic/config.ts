@@ -3,6 +3,7 @@ import { SnakeBootScene } from './scenes/BootScene';
 import { SnakeMenuScene } from './scenes/MenuScene';
 import { SnakeGameScene } from './scenes/GameScene';
 import { SnakeGameOverScene } from './scenes/GameOverScene';
+import { HighScoreEntryScene } from '../../../../lib/phaser/scenes/HighScoreEntryScene';
 
 export type Direction = 'up' | 'down' | 'left' | 'right';
 export type PowerUpType = 'speed' | 'double' | 'shield' | 'ghost';
@@ -74,5 +75,5 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [SnakeBootScene, SnakeMenuScene, SnakeGameScene, SnakeGameOverScene],
+  scene: [SnakeBootScene, SnakeMenuScene, SnakeGameScene, SnakeGameOverScene, HighScoreEntryScene],
 };

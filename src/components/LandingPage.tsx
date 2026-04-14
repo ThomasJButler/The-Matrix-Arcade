@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Monitor, Keyboard } from 'lucide-react';
+import { Play, Monitor, Keyboard, Trophy } from 'lucide-react';
 import type { GameCategory } from '../types/game';
 import { GAME_REGISTRY, type GameEntry } from '../data/gameRegistry';
 
@@ -15,11 +15,12 @@ const GAME_DATA: GameEntry[] = GAME_REGISTRY;
 interface LandingPageProps {
   onSelectGame: (index: number) => void;
   onClose: () => void;
+  onShowScoreboard?: () => void;
 }
 
 const ALL_CATEGORIES: GameCategory[] = ['Arcade', 'Classic', 'Shooter', 'Puzzle', 'Story', 'Rhythm'];
 
-export default function LandingPage({ onSelectGame, onClose }: LandingPageProps) {
+export default function LandingPage({ onSelectGame, onClose, onShowScoreboard }: LandingPageProps) {
   const [activeCategory, setActiveCategory] = useState<GameCategory | 'All'>('All');
   const [showControls, setShowControls] = useState(false);
   const inTestMode = typeof window !== 'undefined' && window.__TEST__;
@@ -78,6 +79,15 @@ export default function LandingPage({ onSelectGame, onClose }: LandingPageProps)
             </h1>
           </div>
           <div className="flex items-center gap-3">
+            {onShowScoreboard && (
+              <button
+                onClick={onShowScoreboard}
+                className="p-2 border border-green-500/30 text-green-400/60 rounded hover:bg-green-500/10 hover:text-green-400 transition-colors"
+                aria-label="High Scores"
+              >
+                <Trophy className="w-4 h-4" />
+              </button>
+            )}
             <button
               onClick={() => setShowControls(!showControls)}
               className={`p-2 border rounded transition-colors ${

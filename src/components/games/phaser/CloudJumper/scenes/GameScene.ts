@@ -466,7 +466,7 @@ export class CloudJumperGameScene extends BaseScene {
           { label: 'Collectibles', value: this.collectiblesCount },
           { label: 'Bounce Streak', value: this.bounceStreak },
           { label: 'Storms', value: this.stormCloudsSurvived },
-        ]);
+        ], Math.floor(this.distance / 100), this.getGameDuration());
       },
     });
   }

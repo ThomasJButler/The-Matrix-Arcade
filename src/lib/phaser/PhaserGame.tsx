@@ -56,7 +56,7 @@ export function PhaserGame({
   const [isHovering, setIsHovering] = useState(false);
   const [hasEverFocused, setHasEverFocused] = useState(false);
   const { playSFX, playBackgroundMP3, stopBackgroundMP3, toggleMute } = useSoundSystem();
-  const { saveData, updateGameSave, unlockAchievement: unlockSaveAchievement } = useSaveSystem();
+  const { saveData, updateGameSave, unlockAchievement: unlockSaveAchievement, addScore } = useSaveSystem();
 
   // Sound wrapper that respects mute state
   const playSound = useCallback(
@@ -123,8 +123,9 @@ export function PhaserGame({
     () => ({
       getSaveData: () => saveDataRef.current,
       updateGameSave,
+      addScore,
     }),
-    [updateGameSave]
+    [updateGameSave, addScore]
   );
 
   // Initialize Phaser game on mount

@@ -38,6 +38,7 @@ function createTestScene() {
   scene.unlockAchievement = vi.fn();
   scene.reportScore = vi.fn();
   scene.gameOver = vi.fn();
+  scene.getGameDuration = vi.fn().mockReturnValue(1000);
 
   // Initialize state that create() would set
   scene.highestY = 500; // GAME_CONFIG.HEIGHT - 100
@@ -650,7 +651,7 @@ describe('NeoJumpGameScene', () => {
       tweenConfig.onComplete();
 
       expect(scene.reportScore).toHaveBeenCalledWith(250, 250);
-      expect(scene.gameOver).toHaveBeenCalledWith(250, 'Altitude: 42m', undefined, expect.any(Array));
+      expect(scene.gameOver).toHaveBeenCalledWith(250, 'Altitude: 42m', undefined, expect.any(Array), expect.any(Number), expect.any(Number));
     });
   });
 

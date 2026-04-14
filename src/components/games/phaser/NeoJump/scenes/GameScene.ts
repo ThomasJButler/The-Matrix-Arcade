@@ -785,7 +785,7 @@ export class NeoJumpGameScene extends BaseScene {
         this.gameOver(this.score, `Altitude: ${this.lastMaxAltitude}m`, undefined, [
           { label: 'Enemies', value: this.enemiesKilled },
           { label: 'Collectibles', value: this.collectiblesCollected },
-        ]);
+        ], Math.floor((this.lastMaxAltitude ?? 0) / 500), this.getGameDuration());
       },
     });
   }

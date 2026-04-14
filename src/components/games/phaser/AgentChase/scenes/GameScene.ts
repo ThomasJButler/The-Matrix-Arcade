@@ -589,7 +589,7 @@ export class AgentChaseGameScene extends BaseScene {
       this.reportScore(this.score, this.score);
       this.gameOver(this.score, `Level ${this.level}`, undefined, [
         { label: 'Dots', value: `${this.dotsCollected}/${this.totalDots}` },
-      ]);
+      ], this.level, this.getGameDuration());
     } else {
       // Reset positions and grant temporary invulnerability
       this.resetPositions();

@@ -3,6 +3,7 @@ import { MetrisBootScene } from './scenes/BootScene';
 import { MetrisMenuScene } from './scenes/MenuScene';
 import { MetrisGameScene } from './scenes/GameScene';
 import { MetrisGameOverScene } from './scenes/GameOverScene';
+import { HighScoreEntryScene } from '../../../../lib/phaser/scenes/HighScoreEntryScene';
 
 export const TETROMINO_TYPES = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'] as const;
 export type TetrominoType = (typeof TETROMINO_TYPES)[number];
@@ -138,5 +139,6 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
     MetrisMenuScene,
     MetrisGameScene,
     MetrisGameOverScene,
+    HighScoreEntryScene,
   ],
 };

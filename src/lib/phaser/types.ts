@@ -21,6 +21,7 @@ export type GameEventType =
   | 'score'
   | 'achievement'
   | 'gameOver'
+  | 'highScoreEntry'
   | 'pause'
   | 'resume'
   | 'mute'
@@ -70,6 +71,7 @@ export const SCENE_KEYS = {
   MENU: 'MenuScene',
   GAME: 'GameScene',
   GAME_OVER: 'GameOverScene',
+  HIGH_SCORE_ENTRY: 'HighScoreEntryScene',
   UI: 'UIScene',
 } as const;
 
@@ -119,4 +121,8 @@ export const SOUND_KEYS = {
   FROGGER_SCORE: 'froggerScore',
   FROGGER_PICKUP: 'froggerPickup',
   FROGGER_EXTRA_SCORE: 'froggerExtraScore',
+  SCOREBOARD_TAB: 'scoreboardTab',
+  SCOREBOARD_NEW_HIGH: 'scoreboardNewHigh',
+  SCOREBOARD_LETTER_CYCLE: 'scoreboardLetterCycle',
+  SCOREBOARD_CONFIRM: 'scoreboardConfirm',
 } as const;

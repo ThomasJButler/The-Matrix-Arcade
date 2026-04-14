@@ -12,6 +12,7 @@ import { AgentChaseBootScene } from './scenes/BootScene';
 import { AgentChaseMenuScene } from './scenes/MenuScene';
 import { AgentChaseGameScene } from './scenes/GameScene';
 import { AgentChaseGameOverScene } from './scenes/GameOverScene';
+import { HighScoreEntryScene } from '../../../../lib/phaser/scenes/HighScoreEntryScene';
 
 /** Game constants */
 export const GAME_CONFIG = {
@@ -94,7 +95,7 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [AgentChaseBootScene, AgentChaseMenuScene, AgentChaseGameScene, AgentChaseGameOverScene],
+  scene: [AgentChaseBootScene, AgentChaseMenuScene, AgentChaseGameScene, AgentChaseGameOverScene, HighScoreEntryScene],
   input: {
     keyboard: true,
   },

@@ -22,6 +22,7 @@ import {
 export abstract class BaseScene extends Phaser.Scene {
   protected isPaused = false;
   protected allowPause = true;
+  protected gameStartTime = 0;
   protected escKey?: Phaser.Input.Keyboard.Key;
   protected pauseKey?: Phaser.Input.Keyboard.Key;
   protected muteKey?: Phaser.Input.Keyboard.Key;
@@ -229,6 +230,7 @@ export abstract class BaseScene extends Phaser.Scene {
           this.countdownText = undefined;
           this.isCountingDown = false;
           this.allowPause = true;
+          this.gameStartTime = Date.now();
           onComplete();
         },
       });
@@ -379,15 +381,45 @@ export abstract class BaseScene extends Phaser.Scene {
   /**
    * Transition to game over scene
    */
-  protected gameOver(score: number, reason?: string, highScore?: number, stats?: GameOverStat[]): void {
+  protected getGameDuration(): number {
+    return this.gameStartTime > 0 ? Date.now() - this.gameStartTime : 0;
+  }
+
+  protected gameOver(
+    score: number,
+    reason?: string,
+    highScore?: number,
+    stats?: GameOverStat[],
+    level?: number,
+    durationMs?: number,
+  ): void {
     this.stopBackgroundMusic();
-    // Sound is played by PhaserGame.tsx when it receives the gameOver event —
-    // do NOT also play here, or the sound fires twice.
     this.emitGameEvent({
       type: 'gameOver',
       data: { score, reason },
     });
-    this.scene.start(SCENE_KEYS.GAME_OVER, { score, reason, highScore: highScore ?? score, stats });
+
+    const gameOverData = { score, reason, highScore: highScore ?? score, stats };
+
+    if (score > 0 && this.scene.manager.getScene(SCENE_KEYS.HIGH_SCORE_ENTRY)) {
+      const saveSystem = this.game.registry.get(REGISTRY_KEYS.SAVE_SYSTEM);
+      const gameId = this.game.registry.get(REGISTRY_KEYS.GAME_ID);
+      if (saveSystem && gameId) {
+        const saveData = saveSystem.getSaveData();
+        const board = saveData?.scoreboards?.[gameId] ?? [];
+        const qualifies = board.length < 25 || score > (board[board.length - 1]?.score ?? 0);
+        if (qualifies) {
+          this.scene.start(SCENE_KEYS.HIGH_SCORE_ENTRY, {
+            ...gameOverData,
+            level: level ?? 1,
+            durationMs: durationMs ?? 0,
+          });
+          return;
+        }
+      }
+    }
+
+    this.scene.start(SCENE_KEYS.GAME_OVER, gameOverData);
   }
 
   /**
