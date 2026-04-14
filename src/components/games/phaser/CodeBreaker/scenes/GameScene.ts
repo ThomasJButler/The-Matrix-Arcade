@@ -96,7 +96,7 @@ export class CodeBreakerGameScene extends BaseScene {
     this.loadLevel(this.level);
     this.spawnBall(true);
     this.playSound(SOUND_KEYS.MENU);
-    this.playBackgroundMusic('/assets/audio/music/ostcrunch2-epic.mp3');
+    this.playBackgroundMusic('/assets/rhythm-hacker/tracks/ostcrunch2-resonance.mp3');
     this.startCountdown(5, () => {});
   }
 
