@@ -3,7 +3,7 @@
  */
 
 import { BootScene } from '../../../../../lib/phaser/scenes/BootScene';
-import { SCENE_KEYS } from '../../../../../lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS } from '../../../../../lib/phaser/types';
 import { GAME_CONFIG } from '../config';
 
 const CLOUD_SPRITES = [
@@ -103,18 +103,18 @@ export class CloudJumperBootScene extends BootScene {
     const size = GAME_CONFIG.PLAYER.WIDTH;
 
     // Matrix-themed character — green figure
-    g.fillStyle(0x00cc00, 1);
+    g.fillStyle(MATRIX_COLORS.MEDIUM_GREEN, 1);
     // Body
     g.fillRoundedRect(8, 12, 16, 16, 4);
     // Head
-    g.fillStyle(0x00ff00, 1);
+    g.fillStyle(MATRIX_COLORS.PRIMARY, 1);
     g.fillCircle(16, 8, 6);
     // Legs
-    g.fillStyle(0x006600, 1);
+    g.fillStyle(MATRIX_COLORS.DEEP_GREEN, 1);
     g.fillRect(10, 26, 4, 6);
     g.fillRect(18, 26, 4, 6);
     // Arms (spread for flying pose)
-    g.fillStyle(0x00cc00, 1);
+    g.fillStyle(MATRIX_COLORS.MEDIUM_GREEN, 1);
     g.fillRect(2, 14, 8, 4);
     g.fillRect(22, 14, 8, 4);
 
@@ -123,15 +123,15 @@ export class CloudJumperBootScene extends BootScene {
 
     // Player falling texture
     const fg = this.add.graphics();
-    fg.fillStyle(0x00cc00, 1);
+    fg.fillStyle(MATRIX_COLORS.MEDIUM_GREEN, 1);
     fg.fillRoundedRect(8, 12, 16, 16, 4);
-    fg.fillStyle(0x00ff00, 1);
+    fg.fillStyle(MATRIX_COLORS.PRIMARY, 1);
     fg.fillCircle(16, 8, 6);
-    fg.fillStyle(0x006600, 1);
+    fg.fillStyle(MATRIX_COLORS.DEEP_GREEN, 1);
     fg.fillRect(10, 26, 4, 6);
     fg.fillRect(18, 26, 4, 6);
     // Arms up
-    fg.fillStyle(0x00cc00, 1);
+    fg.fillStyle(MATRIX_COLORS.MEDIUM_GREEN, 1);
     fg.fillRect(6, 4, 4, 10);
     fg.fillRect(22, 4, 4, 10);
     fg.generateTexture('player_fall', size, size);
@@ -145,7 +145,7 @@ export class CloudJumperBootScene extends BootScene {
     dg.fillRect(18, 14, 6, 6);
     dg.fillRect(10, 22, 10, 4);
     // Static noise fragments
-    dg.fillStyle(0x00ff00, 0.4);
+    dg.fillStyle(MATRIX_COLORS.PRIMARY, 0.4);
     dg.fillRect(4, 6, 4, 4);
     dg.fillRect(24, 8, 4, 4);
     dg.fillRect(14, 2, 4, 4);
@@ -168,7 +168,7 @@ export class CloudJumperBootScene extends BootScene {
   private createCloudTextures(): void {
     const types = ['normal', 'moving', 'disappearing', 'storm'];
     // Matrix palette: green, cyan, dim green (fragile), dark red (danger)
-    const colors = [0x00cc00, 0x00dddd, 0x338833, 0x663333];
+    const colors = [MATRIX_COLORS.MEDIUM_GREEN, 0x00dddd, 0x338833, 0x663333];
     const highlights = [0x00ff00, 0x00ffff, 0x66aa66, 0x442222];
 
     types.forEach((type, index) => {
@@ -223,18 +223,18 @@ export class CloudJumperBootScene extends BootScene {
     gg.lineTo(2, 10);
     gg.closePath();
     gg.fillPath();
-    gg.fillStyle(0x00ff00, 0.5);
+    gg.fillStyle(MATRIX_COLORS.PRIMARY, 0.5);
     gg.fillTriangle(12, 4, 8, 10, 12, 10);
     gg.generateTexture('gem', 24, 24);
     gg.destroy();
 
     // Coin — green data token
     const cg = this.add.graphics();
-    cg.fillStyle(0x00cc00, 1);
+    cg.fillStyle(MATRIX_COLORS.MEDIUM_GREEN, 1);
     cg.fillCircle(12, 12, 10);
-    cg.fillStyle(0x009900, 1);
+    cg.fillStyle(MATRIX_COLORS.FOREST_GREEN, 1);
     cg.fillCircle(12, 12, 7);
-    cg.fillStyle(0x00ff00, 1);
+    cg.fillStyle(MATRIX_COLORS.PRIMARY, 1);
     cg.fillCircle(12, 12, 5);
     cg.generateTexture('coin', 24, 24);
     cg.destroy();

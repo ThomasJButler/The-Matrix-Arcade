@@ -1,5 +1,5 @@
 import { BootScene } from '../../../../../lib/phaser/scenes/BootScene';
-import { SCENE_KEYS } from '../../../../../lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS } from '../../../../../lib/phaser/types';
 import { GAME_CONFIG, POWERUP_DEFS } from '../config';
 
 const SPRITE_ASSETS: Array<{ key: string; path: string }> = [
@@ -43,7 +43,7 @@ export class VortexPongBootScene extends BootScene {
       const pg = this.make.graphics({ x: 0, y: 0 });
       pg.fillStyle(0x00ff00, 1);
       pg.fillRoundedRect(0, 0, WIDTH, HEIGHT, 3);
-      pg.lineStyle(1, 0x00cc00, 0.6);
+      pg.lineStyle(1, MATRIX_COLORS.MEDIUM_GREEN, 0.6);
       pg.strokeRoundedRect(0, 0, WIDTH, HEIGHT, 3);
       pg.generateTexture('paddle_player', WIDTH, HEIGHT);
       pg.destroy();
@@ -53,7 +53,7 @@ export class VortexPongBootScene extends BootScene {
       const ag = this.make.graphics({ x: 0, y: 0 });
       ag.fillStyle(0x00bb00, 1);
       ag.fillRoundedRect(0, 0, WIDTH, HEIGHT, 3);
-      ag.lineStyle(1, 0x009900, 0.6);
+      ag.lineStyle(1, MATRIX_COLORS.FOREST_GREEN, 0.6);
       ag.strokeRoundedRect(0, 0, WIDTH, HEIGHT, 3);
       ag.generateTexture('paddle_ai', WIDTH, HEIGHT);
       ag.destroy();

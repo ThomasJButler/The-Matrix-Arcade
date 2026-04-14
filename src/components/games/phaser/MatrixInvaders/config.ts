@@ -4,6 +4,7 @@ import { MatrixInvadersMenuScene } from './scenes/MenuScene';
 import { MatrixInvadersGameScene } from './scenes/GameScene';
 import { MatrixInvadersGameOverScene } from './scenes/GameOverScene';
 import { HighScoreEntryScene } from '../../../../lib/phaser/scenes/HighScoreEntryScene';
+import { MATRIX_COLORS } from '../../../../lib/phaser/types';
 
 export type EnemyType = 'code' | 'agent' | 'sentinel' | 'virus';
 export type PowerUpType = 'rapidFire' | 'shield' | 'scoreMultiplier' | 'bomb';
@@ -58,10 +59,10 @@ export const ENEMY_DEFS: Record<EnemyType, {
   color: number;
   splits?: boolean;
 }> = {
-  code:     { health: 1, value: 10,  speedMultiplier: 1.0, color: 0x00ff00 },
-  agent:    { health: 2, value: 30,  speedMultiplier: 1.5, color: 0x00cc00 },
-  sentinel: { health: 3, value: 50,  speedMultiplier: 1.2, color: 0x009900 },
-  virus:    { health: 1, value: 20,  speedMultiplier: 2.0, color: 0xff0000, splits: true },
+  code:     { health: 1, value: 10,  speedMultiplier: 1.0, color: MATRIX_COLORS.PRIMARY },
+  agent:    { health: 2, value: 30,  speedMultiplier: 1.5, color: MATRIX_COLORS.MEDIUM_GREEN },
+  sentinel: { health: 3, value: 50,  speedMultiplier: 1.2, color: MATRIX_COLORS.FOREST_GREEN },
+  virus:    { health: 1, value: 20,  speedMultiplier: 2.0, color: MATRIX_COLORS.RED, splits: true },
 };
 
 /**

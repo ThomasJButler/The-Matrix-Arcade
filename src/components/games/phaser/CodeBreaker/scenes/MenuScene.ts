@@ -1,5 +1,5 @@
 import { MenuScene } from '@/lib/phaser/scenes/MenuScene';
-import { SCENE_KEYS } from '@/lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS } from '@/lib/phaser/types';
 
 export class CodeBreakerMenuScene extends MenuScene {
   constructor() {
@@ -29,7 +29,7 @@ export class CodeBreakerMenuScene extends MenuScene {
         startY + i * 20,
         text,
         i === 0 ? 10 : 8,
-        i === 0 ? '#00ffff' : '#00ff00'
+        i === 0 ? MATRIX_COLORS.CYAN_HEX : MATRIX_COLORS.PRIMARY_HEX
       );
     });
   }

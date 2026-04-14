@@ -53,7 +53,7 @@ export class MatrixCloudBootScene extends BootScene {
     const h = GAME_CONFIG.PLAYER_HEIGHT;
 
     const g = this.make.graphics({ x: 0, y: 0 });
-    g.fillStyle(0x00cc00, 1);
+    g.fillStyle(MATRIX_COLORS.MEDIUM_GREEN, 1);
     g.fillRoundedRect(2, 4, w - 4, h - 8, 4);
     g.fillStyle(MATRIX_COLORS.PRIMARY, 1);
     g.fillTriangle(w - 4, h * 0.3, w + 4, h * 0.5, w - 4, h * 0.7);
@@ -67,7 +67,7 @@ export class MatrixCloudBootScene extends BootScene {
     g.destroy();
 
     const sg = this.make.graphics({ x: 0, y: 0 });
-    sg.fillStyle(0x00cc00, 1);
+    sg.fillStyle(MATRIX_COLORS.MEDIUM_GREEN, 1);
     sg.fillRoundedRect(2, 4, w - 4, h - 8, 4);
     sg.fillStyle(MATRIX_COLORS.PRIMARY, 1);
     sg.fillTriangle(w - 4, h * 0.3, w + 4, h * 0.5, w - 4, h * 0.7);

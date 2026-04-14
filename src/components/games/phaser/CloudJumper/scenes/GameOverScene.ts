@@ -3,7 +3,7 @@
  */
 
 import { GameOverScene } from '../../../../../lib/phaser/scenes/GameOverScene';
-import { SCENE_KEYS } from '../../../../../lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS } from '../../../../../lib/phaser/types';
 
 export class CloudJumperGameOverScene extends GameOverScene {
   constructor() {
@@ -15,7 +15,7 @@ export class CloudJumperGameOverScene extends GameOverScene {
   }
 
   create(): void {
-    this.cameras.main.setBackgroundColor(0x0a1a0a);
+    this.cameras.main.setBackgroundColor(MATRIX_COLORS.NEAR_BLACK);
     super.create();
   }
 }

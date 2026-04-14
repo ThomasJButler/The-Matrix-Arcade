@@ -90,8 +90,8 @@ export const GAME_CONFIG = {
   PARALLAX: {
     LAYERS: [
       { key: 'skyline',       scrollFactor: 0.3, depth: -40, color: 0x004400 },
-      { key: 'mid_buildings', scrollFactor: 0.5, depth: -30, color: 0x006600 },
-      { key: 'near_arches',   scrollFactor: 0.7, depth: -20, color: 0x00aa00 },
+      { key: 'mid_buildings', scrollFactor: 0.5, depth: -30, color: MATRIX_COLORS.DEEP_GREEN },
+      { key: 'near_arches',   scrollFactor: 0.7, depth: -20, color: MATRIX_COLORS.DIM_GREEN },
     ],
     RAIN_DEPTH: -50,
   },

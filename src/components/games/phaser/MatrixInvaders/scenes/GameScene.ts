@@ -772,7 +772,7 @@ export class MatrixInvadersGameScene extends BaseScene {
     else if (healthPct < 0.5) color = MATRIX_COLORS.YELLOW;
 
     this.boss.healthBg.clear();
-    this.boss.healthBg.fillStyle(0x333333, 1);
+    this.boss.healthBg.fillStyle(MATRIX_COLORS.DARK_GREY, 1);
     this.boss.healthBg.fillRect(x, y, barWidth, barHeight);
 
     this.boss.healthBar.clear();
@@ -999,7 +999,7 @@ export class MatrixInvadersGameScene extends BaseScene {
     }
 
     this.healthBarBg.clear();
-    this.healthBarBg.fillStyle(0x333333, 1);
+    this.healthBarBg.fillStyle(MATRIX_COLORS.DARK_GREY, 1);
     this.healthBarBg.fillRect(barX, barY, barW, barH);
     this.healthBarBg.lineStyle(1, MATRIX_COLORS.PRIMARY, 0.5);
     this.healthBarBg.strokeRect(barX, barY, barW, barH);

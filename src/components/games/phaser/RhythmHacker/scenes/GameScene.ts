@@ -333,7 +333,7 @@ export class RhythmHackerGameScene extends BaseScene {
       const label = this.add.text(x, NOTES.HIT_LINE_Y + 35, LANES.KEYS[i], {
         fontFamily: MATRIX_FONTS.PRIMARY,
         fontSize: '20px',
-        color: '#ffffff',
+        color: MATRIX_COLORS.WHITE_HEX,
       });
       label.setOrigin(0.5);
       label.setDepth(11);
@@ -456,7 +456,7 @@ export class RhythmHackerGameScene extends BaseScene {
     this.gradeText = this.add.text(WIDTH / 2, 40, '', {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '18px',
-      color: '#ffffff',
+      color: MATRIX_COLORS.WHITE_HEX,
     });
     this.gradeText.setOrigin(0.5);
     this.gradeText.setDepth(100);
@@ -833,7 +833,7 @@ export class RhythmHackerGameScene extends BaseScene {
     const gradeTints: Record<TimingGrade, number> = {
       perfect: 0x00ffff,
       great: 0x00ff00,
-      good: 0x00aa00,
+      good: MATRIX_COLORS.DIM_GREEN,
       miss: 0x660000,
     };
     const tint = gradeTints[grade];
@@ -1186,7 +1186,7 @@ export class RhythmHackerGameScene extends BaseScene {
     if (healthPercent < 0.3) {
       healthColor = MATRIX_COLORS.RED;
     } else if (healthPercent < 0.6) {
-      healthColor = 0x00aa00;
+      healthColor = MATRIX_COLORS.DIM_GREEN;
     }
     this.healthBar.fillStyle(healthColor, 1);
     this.healthBar.fillRoundedRect(rightGutterLeft + 2, 47, (healthBarWidth - 4) * healthPercent, 12, 2);

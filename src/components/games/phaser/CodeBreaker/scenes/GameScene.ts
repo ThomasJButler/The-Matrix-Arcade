@@ -602,7 +602,7 @@ export class CodeBreakerGameScene extends BaseScene {
     else if (healthPct < 0.5) color = MATRIX_COLORS.YELLOW;
 
     this.boss.healthBg.clear();
-    this.boss.healthBg.fillStyle(0x333333, 1);
+    this.boss.healthBg.fillStyle(MATRIX_COLORS.DARK_GREY, 1);
     this.boss.healthBg.fillRect(x, y, barWidth, barHeight);
 
     this.boss.healthBar.clear();

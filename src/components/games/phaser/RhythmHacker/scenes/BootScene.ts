@@ -271,7 +271,7 @@ export class RhythmHackerBootScene extends BootScene {
    */
   private createEffectTextures(): void {
     const grades = ['perfect', 'great', 'good', 'miss'] as const;
-    const effectColors = [0x00ffff, 0x00ff00, 0x00aa00, 0x660000];
+    const effectColors = [0x00ffff, 0x00ff00, MATRIX_COLORS.DIM_GREEN, 0x660000];
 
     grades.forEach((name, index) => {
       const g = this.add.graphics();
