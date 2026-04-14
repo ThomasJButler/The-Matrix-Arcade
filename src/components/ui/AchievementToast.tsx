@@ -141,6 +141,7 @@ const AchievementCard: React.FC<{
           {/* Close button */}
           <button
             onClick={onClose}
+            aria-label="Dismiss achievement"
             className="flex-shrink-0 p-1 hover:bg-white/10 rounded transition-colors text-green-400/70 hover:text-green-400"
           >
             <X className="w-4 h-4" />
@@ -191,7 +192,7 @@ export const AchievementToastContainer: React.FC<AchievementToastProps> = ({
   const visibleToasts = queue.slice(0, maxVisible);
 
   return (
-    <div className="fixed top-20 right-4 z-50 space-y-3 pointer-events-none">
+    <div className="fixed top-20 right-4 z-50 space-y-3 pointer-events-none" role="status" aria-live="polite">
       <AnimatePresence mode="popLayout">
         {visibleToasts.map((item, index) => (
           <div

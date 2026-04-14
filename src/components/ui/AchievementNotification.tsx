@@ -45,6 +45,9 @@ export const AchievementNotification: React.FC<AchievementNotificationProps> = (
       {isVisible && (
         <motion.div
           className="fixed top-8 right-8 z-50 pointer-events-none"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
           initial={{ x: 400, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: 400, opacity: 0 }}
@@ -156,7 +159,7 @@ export const AchievementQueue: React.FC<AchievementQueueProps> = ({
   onDismiss
 }) => {
   return (
-    <div className="fixed top-8 right-8 z-50 space-y-4">
+    <div className="fixed top-8 right-8 z-50 space-y-4" role="status" aria-live="polite">
       {achievements.map((achievement, index) => (
         <motion.div
           key={`${achievement.id}-${index}`}

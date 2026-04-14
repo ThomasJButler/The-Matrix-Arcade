@@ -108,7 +108,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ### Tests + Gates Status (Post-R77)
 
-- Unit tests: 1,855 / 1,855 pass (44 test files)
+- Unit tests: 1,859 / 1,859 pass (44 test files)
 - E2E: 23 spec files, 87 darwin baselines — all pass
 - TypeScript: clean
 - Lint: clean on all changed files (14 pre-existing react-hooks warnings remain (6 in CTRL-S World, 8 intentional patterns))
@@ -162,6 +162,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 - [x] **SaveLoadManager crash on legacy saves** (R78.11): `SaveLoadManager.tsx:252` accessed `gameData.stats.gamesPlayed` without optional chaining. Legacy save data with missing `stats` object (e.g. pre-migration `crossyRoad` entries that survive shallow merge) would crash the panel on open. Added `?.` guard with `?? 0` fallback.
 - [x] **AudioSettings a11y + dead code cleanup** (R78.11): AudioSettings modal was the only modal missing `role="dialog"`, `aria-modal`, and `aria-labelledby` — all other 5 modals had them from R64. Added close button `aria-label`, replaced `title` with `aria-label` on compact icon buttons, added `aria-pressed` to all 4 toggle buttons (SFX/music in both compact and full modes), added `aria-label` to test-music button. Also removed dead `addScore: _addScore` destructuring from App.tsx (score addition handled inside Phaser scenes via game events).
 - [x] **Scene shutdown cleanup hardening** (R78.11): Lifted `tweens?.killAll()` and `time?.removeAllEvents()` into BaseScene.shutdown() so all 11 Phaser games inherit them — removed redundant copies from 10 game GameScenes. Added `rainGroup?.destroy(true)` to GameOverScene, MenuScene, HighScoreEntryScene, RhythmHacker MenuScene, VortexPong, and MatrixFrogger shutdown methods — previously only `.clear()` was called (or nothing), leaking the Group object across scene transitions. Added physics resume and `isPaused` reset to BaseScene.shutdown() for clean state on mid-pause teardown. Removed dead `getAchievementManager()` method and its unused `AchievementManager` type import from BaseScene.
+- [x] **Achievement toast a11y: aria-live + close button label** (R78.11): `AchievementNotification` and `AchievementToastContainer` had no `aria-live` region — screen readers never announced achievement unlocks. Added `role="status"` + `aria-live="polite"` to both components (plus `aria-atomic="true"` on the single-notification wrapper). Added `aria-label="Dismiss achievement"` to `AchievementToast` icon-only close button. 4 new tests covering the a11y attributes (1,859 total).
 
 ### R78 Terminator Rule (IMPORTANT — differs from R76/R77)
 
