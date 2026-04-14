@@ -108,8 +108,8 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ### Tests + Gates Status (Post-R77)
 
-- Unit tests: 1,855 / 1,855 pass
-- E2E: 69+ specs (R76 64 + R77 5) all pass
+- Unit tests: 1,855 / 1,855 pass (44 test files)
+- E2E: 23 spec files, 87 darwin baselines — all pass
 - TypeScript: clean
 - Lint: clean on all changed files (14 pre-existing react-hooks warnings remain (6 in CTRL-S World, 8 intentional patterns))
 - PWA + build: green
@@ -155,6 +155,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 - [x] **Dead collision library + stale plan cleanup** (R78.11): Removed `src/lib/collision.ts` — 67 lines of AABB/circle/grid collision utilities written for React canvas games, entirely unused since all 12 games migrated to Phaser (which has its own physics). Updated stale R71 test audit stats, struck through outdated R75 asset status, and annotated Phase 0b partial deployment items with R78.2–R78.4 progress.
 - [x] **P1 over-broad cursor guards in 4 games** (R78.11): MatrixFrogger, NeoJump, AgentChase, and VortexPong all had `if (!this.cursors) return` at the top of `update()`, blocking ALL game logic (physics, AI, rain, animations) during the ~500ms keyboard init window. Narrowed each guard to wrap only `handleInput()` — physics, AI, parallax, and visual effects now run unconditionally from the first frame. Originally flagged in R72, re-confirmed unfixed in R75.
 - [x] **P1 "always NEW HIGH SCORE!" on game-over in 7 games** (R78.11): CloudJumper, AgentChase, NeoJump, MatrixFrogger, VortexPong, RhythmHacker all passed `undefined` as `highScore` to `gameOver()`, causing `BaseScene` to fallback to `highScore ?? score` — a self-comparison always showing "NEW HIGH SCORE!". SnakeClassic had a `highScore` field but never loaded from persisted save data. Fixed all 7: load persisted high score from `saveSystem.getSaveData()` in `create()`, update before `gameOver()`, pass real value. Game-over screen now correctly distinguishes new records from normal scores.
+- [x] **Stale Open Gaps cleanup** (R78.11): 6 of 13 Open Gaps entries were stale — referencing bugs already resolved in R76.1, R78.1, or R78.11. Struck through with commit references. Updated test infrastructure stats from R71 snapshot (43 files, 1838 tests, 21 specs) to current R78 state (44 files, 1,855 tests, 23 specs, 87 baselines). Updated audio gap description to reflect R78.1 global SFX deployment.
 
 ### R78 Terminator Rule (IMPORTANT — differs from R76/R77)
 
@@ -447,7 +448,7 @@ Visual regression baselines exist for landing page and shared UI (modals, portal
 
 All Phaser games expose test state via `exposeTestState()`. E2E fixtures support both React and Phaser games. E2E uses `?test=1` URL param for deterministic `Math.random` (seeded mulberry32) and DOM ready markers.
 
-**Test infrastructure stats (R71)**: 43 unit test files (1838 tests), 21 E2E spec files, ~87 visual baselines. Categories: playthrough (12), visual (5), a11y (1), edge-cases (1), modals (1), performance (1). Last E2E run: all passed. 4 hollow tests in ShatnerVoiceControls.test.tsx. FPS budget test opt-in only (`PLAYWRIGHT_PERF=1`). All 12 games have E2E playthrough coverage; CTRL-S World missing dedicated exit-to-portal test.
+**Test infrastructure stats (R78)**: 44 unit test files (1,855 tests), 23 E2E spec files, 87 darwin visual baselines. Categories: playthrough (12), visual (6+), a11y (1), edge-cases (1), modals (1), performance (1), responsive (1). All E2E pass. FPS budget test opt-in only (`PLAYWRIGHT_PERF=1`). All 12 games have E2E playthrough coverage; CTRL-S World missing dedicated exit-to-portal test.
 
 ---
 
@@ -463,23 +464,23 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 - Single source of truth: GAME_REGISTRY in `src/data/gameRegistry.ts`
 - Code-split lazy loading for all game components
 - No orphaned legacy code (cleaned up in R15)
-- All 1838 unit tests passing, build clean
-- All E2E tests passing (12 playthroughs + 5 visual specs + keyboard-only a11y + performance budgets + modal shortcuts)
+- All 1,855 unit tests passing (44 test files), build clean
+- All E2E tests passing (23 spec files: 12 playthroughs + visual + a11y + performance + responsive + modal specs, 87 darwin baselines)
 - All 12 games have complete E2E playthrough coverage with 6-checkpoint visual baselines
 - GAME_CONFIG TDZ crash resolved (commit `ee18028`)
 
 ### Open Gaps
-- **P1 (R73, verified R74)**: Over-broad cursor guards in update() freeze ALL game logic for ~500ms (MatrixFrogger:207, NeoJump:189, AgentChase:159, VortexPong:110) — guards need narrowing to input-only. This is the root cause of "controls don't work / press ENTER freezes" reports.
-- **P2 (R73)**: Metris wKey dead code — W bound but never read in handleInput()
-- **P2 (R73)**: Control hints text (#003300) invisible against black background in MenuScene
-- **P2 (R69)**: Dead `return () => {}` cleanup in `useSoundSystem.ts:807-811` inside `useCallback` (never called)
-- **P2 (R71)**: Dead `enableTestMode` export in `e2e/fixtures/test-utils.ts` — unused since `?test=1` migration
-- **P2 (R71)**: 4 hollow test cases in `ShatnerVoiceControls.test.tsx` — mock setup with no assertions
-- **P2 (R71)**: E2E screenshot anomalies — Code Breaker ball never launches, Matrix Invaders never fires, Matrix Cloud instant death, Agent Chase never reaches end state. Likely test timing issues exacerbated by frozen game logic during keyboard init — re-check after guard narrowing.
+- ~~**P1 (R73)**: Over-broad cursor guards in update()~~ RESOLVED (R78.11, commit `2d27b09`) — guards narrowed to wrap only `handleInput()` in all 4 games.
+- ~~**P2 (R73)**: Metris wKey dead code~~ FALSE POSITIVE — wKey IS used at `GameScene.ts:752` as rotate-CW alias. Closed R78.11.
+- ~~**P2 (R73)**: Control hints text invisible in MenuScene~~ RESOLVED (R78.11, commit `05d94d7`) — changed to `PRIMARY_HEX` with `setAlpha(0.3)`.
+- ~~**P2 (R69)**: Dead `return () => {}` in `useSoundSystem.ts`~~ ALREADY RESOLVED — code no longer present. Closed R78.11.
+- ~~**P2 (R71)**: Dead `enableTestMode` in `e2e/fixtures/test-utils.ts`~~ ALREADY RESOLVED — symbol removed. Closed R78.11.
+- ~~**P2 (R71)**: 4 hollow test cases in `ShatnerVoiceControls.test.tsx`~~ RESOLVED (R76.1) — all 30+ tests now have real assertions.
+- **P2 (R71)**: E2E screenshot anomalies — Code Breaker ball never launches, Matrix Invaders never fires, Matrix Cloud instant death, Agent Chase never reaches end state. Now that cursor guards are narrowed (R78.11), these should be re-investigated as timing may have improved.
 - **E2E gap**: No test covers MenuScene "press ENTER to start" flow — all playthroughs use autoStart=true, bypassing the exact path users encounter
 - **CTRL-S World**: only DOM/React game; current implementation too complex for incremental fixes — Phase 7 rewrite deferred
-- Remaining sprite/audio assets per game (see Phase 0b). Audio is biggest cross-cutting gap — only Matrix Frogger has deployed audio (6 files). Rhythm Hacker has 5 music tracks.
-- Rhythm Hacker BPM values are estimates — needs live playtesting
+- Remaining sprite polish per game (see Phase 0b `[~]` items). ~~Audio is biggest cross-cutting gap~~ RESOLVED (R78.1) — global SFX deployed to all 11 non-CTRL-S games.
+- Rhythm Hacker BPM values partially verified (R78.9) — Cyberpsychotic (140) and Enhancements (160) still need manual playtest confirmation
 - No global `AssetManager` yet — each game owns its own asset loading
 - Circular dependency in all Phaser games (`config.ts` <-> scene files) — fragile but functional; documented in Architecture Notes
 
