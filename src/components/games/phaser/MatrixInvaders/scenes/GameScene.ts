@@ -88,6 +88,7 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.spawnWave();
     this.playSound(SOUND_KEYS.MENU);
     this.playBackgroundMusic('/assets/audio/music/ostcrunch2-epic.mp3');
+    this.startCountdown(5, () => {});
   }
 
   private resetState(): void {
@@ -182,6 +183,7 @@ export class MatrixInvadersGameScene extends BaseScene {
 
   update(time: number, delta: number): void {
     if (this.isPaused || this.isGameOver) return;
+    if (this.isCountingDown) return;
 
     this.updateMatrixRain(this.matrixRainGroup, delta);
 
@@ -1030,6 +1032,7 @@ export class MatrixInvadersGameScene extends BaseScene {
       enemyBulletCount: this.enemyBullets.length,
       fieldPowerUpCount: this.fieldPowerUps.length,
       waveTransitioning: this.waveTransitioning,
+      countdownValue: this.countdownValue,
     };
   }
 

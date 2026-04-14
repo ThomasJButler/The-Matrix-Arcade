@@ -223,6 +223,7 @@ export class RhythmHackerGameScene extends BaseScene {
       combo: this.combo,
       health: this.health,
       missCount: this.missCount,
+      countdownValue: this.countdownValue,
     });
   }
 

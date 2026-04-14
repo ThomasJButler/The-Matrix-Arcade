@@ -196,7 +196,7 @@ export default function LandingPage({ onSelectGame, onClose }: LandingPageProps)
               role="button"
               tabIndex={0}
               aria-label={`Play ${game.title}`}
-              className="group cursor-pointer border border-green-500/25 rounded-lg bg-green-500/[0.03] hover:bg-green-500/10 hover:border-green-500/50 focus:outline-none focus:ring-2 focus:ring-green-500/60 transition-all duration-300 overflow-hidden"
+              className="group cursor-pointer border border-green-500/25 rounded-lg bg-green-500/[0.03] hover:bg-green-500/10 hover:border-green-500/50 focus:outline-none focus:ring-2 focus:ring-green-500/60 transition-all duration-300 overflow-hidden flex flex-col h-full"
             >
               {/* Preview image with play overlay */}
               <div className="relative h-44 overflow-hidden bg-black">
@@ -220,11 +220,11 @@ export default function LandingPage({ onSelectGame, onClose }: LandingPageProps)
                 </span>
               </div>
 
-              <div className="p-3">
+              <div className="p-3 flex flex-col flex-1">
                 <h3 className="text-green-400 font-mono text-sm mb-1.5 group-hover:text-green-300 transition-colors truncate">
                   {game.title}
                 </h3>
-                <p className="text-green-500/70 font-mono text-[11px] leading-relaxed line-clamp-2 mb-2">
+                <p className="text-green-500/70 font-mono text-[11px] leading-relaxed line-clamp-2 mb-2 flex-1">
                   {game.description}
                 </p>
                 <p className="text-green-500/60 font-mono text-[10px] truncate">

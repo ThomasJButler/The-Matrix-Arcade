@@ -84,10 +84,12 @@ export class SnakeGameScene extends BaseScene {
     this.startMoveTimer();
     this.playSound('menu');
     this.playBackgroundMusic('/assets/audio/music/cruise-control.mp3');
+    this.startCountdown(5, () => {});
   }
 
   update(_time: number, delta: number): void {
     if (this.isPaused || this.isGameOver) return;
+    if (this.isCountingDown) return;
 
     this.updateMatrixRain(this.matrixRainGroup, delta);
     this.gameTimer += delta;
@@ -300,6 +302,7 @@ export class SnakeGameScene extends BaseScene {
 
   private tick(): void {
     if (this.isPaused || this.isGameOver) return;
+    if (this.isCountingDown) return;
 
     if (this.nextDirection) {
       this.direction = this.nextDirection;
@@ -755,6 +758,7 @@ export class SnakeGameScene extends BaseScene {
       snakeLength: this.snake.length,
       fieldPowerUp: this.fieldPowerUp ? { ...this.fieldPowerUp } : null,
       gameTimer: this.gameTimer,
+      countdownValue: this.countdownValue,
     };
   }
 }

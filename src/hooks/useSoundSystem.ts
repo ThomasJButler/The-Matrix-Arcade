@@ -803,12 +803,6 @@ export function useSoundSystem() {
       }
     });
 
-    // Update volume when config changes
-    return () => {
-      if (backgroundMusicRef.current) {
-        backgroundMusicRef.current.volume = config.masterVolume * config.musicVolume;
-      }
-    };
   }, [config.music, config.masterVolume, config.musicVolume]);
 
   // Stop MP3 background music

@@ -96,6 +96,7 @@ export class MatrixCloudGameScene extends BaseScene {
     this.setupCommonInputs();
     this.playSound(SOUND_KEYS.MENU);
     this.playBackgroundMusic('/assets/audio/music/a-last-embrace.mp3');
+    this.startCountdown(5, () => {});
   }
 
   private resetState(): void {
@@ -237,6 +238,7 @@ export class MatrixCloudGameScene extends BaseScene {
 
   update(_time: number, delta: number): void {
     if (this.isPaused || this.isGameOver) return;
+    if (this.isCountingDown) return;
 
     this.updateMatrixRain(this.matrixRainGroup, delta);
 
@@ -902,6 +904,7 @@ export class MatrixCloudGameScene extends BaseScene {
       bossesDefeated: [...this.bossesDefeated],
       pipeCount: this.pipes.length,
       fieldPowerUpCount: this.fieldPowerUps.length,
+      countdownValue: this.countdownValue,
     };
   }
 

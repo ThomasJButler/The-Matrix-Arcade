@@ -89,9 +89,12 @@ export abstract class BaseScene extends Phaser.Scene {
     this.pauseOverlayBg?.destroy();
     this.pauseOverlayText?.destroy();
     this.pauseOverlayHint?.destroy();
+    this.countdownText?.destroy();
     this.pauseOverlayBg = undefined;
     this.pauseOverlayText = undefined;
     this.pauseOverlayHint = undefined;
+    this.countdownText = undefined;
+    this.isCountingDown = false;
     if (this.input?.keyboard) {
       this.escKey?.destroy();
       this.pauseKey?.destroy();
@@ -119,10 +122,18 @@ export abstract class BaseScene extends Phaser.Scene {
       this.scene.pause();
       this.emitGameEvent({ type: 'pause' });
     } else {
-      this.hidePauseOverlay();
-      this.scene.resume();
-      this.emitGameEvent({ type: 'resume' });
+      this.resumeGame();
     }
+  }
+
+  protected resumeGame(): void {
+    this.hidePauseOverlay();
+    if (this.input.keyboard) {
+      this.input.keyboard.enabled = true;
+    }
+    this.scene.resume();
+    this.game.canvas.focus();
+    this.emitGameEvent({ type: 'resume' });
   }
 
   /**
@@ -169,6 +180,76 @@ export abstract class BaseScene extends Phaser.Scene {
     this.pauseOverlayBg = undefined;
     this.pauseOverlayText = undefined;
     this.pauseOverlayHint = undefined;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Countdown overlay — 5-4-3-2-1-GO before gameplay
+  // ---------------------------------------------------------------------------
+
+  protected isCountingDown = false;
+  protected countdownValue = 0;
+  private countdownText?: Phaser.GameObjects.Text;
+
+  protected startCountdown(seconds: number, onComplete: () => void): void {
+    this.isCountingDown = true;
+    this.countdownValue = seconds;
+    this.allowPause = false;
+
+    const width = Number(this.game.config.width);
+    const height = Number(this.game.config.height);
+
+    this.countdownText = this.add.text(width / 2, height / 2, String(this.countdownValue), {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '64px',
+      color: MATRIX_COLORS.PRIMARY_HEX,
+    });
+    this.countdownText.setOrigin(0.5);
+    this.countdownText.setDepth(200);
+
+    this.tickCountdownStep(onComplete);
+  }
+
+  private tickCountdownStep(onComplete: () => void): void {
+    if (this.countdownValue <= 0) {
+      if (this.countdownText) {
+        this.countdownText.setText('GO!');
+        this.countdownText.setColor('#00ffff');
+      }
+      this.playSound('levelUp');
+
+      this.tweens.add({
+        targets: this.countdownText,
+        alpha: 0,
+        scale: 2,
+        duration: 500,
+        onComplete: () => {
+          this.countdownText?.destroy();
+          this.countdownText = undefined;
+          this.isCountingDown = false;
+          this.allowPause = true;
+          onComplete();
+        },
+      });
+      return;
+    }
+
+    if (this.countdownText) {
+      this.countdownText.setText(String(this.countdownValue));
+      this.countdownText.setScale(1);
+      this.countdownText.setAlpha(1);
+    }
+    this.playSound('hit');
+
+    this.tweens.add({
+      targets: this.countdownText,
+      scale: 0.6,
+      alpha: 0.5,
+      duration: 800,
+      ease: 'Quad.easeIn',
+    });
+
+    this.countdownValue--;
+    this.time.delayedCall(1000, () => this.tickCountdownStep(onComplete));
   }
 
   /**
