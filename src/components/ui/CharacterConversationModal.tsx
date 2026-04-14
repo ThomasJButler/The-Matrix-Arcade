@@ -156,7 +156,7 @@ export const CharacterConversationModal: React.FC<CharacterConversationModalProp
           ref={modalRef}
           role="dialog"
           aria-modal="true"
-          aria-label="Team conversation"
+          aria-labelledby="character-conversation-title"
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
@@ -176,7 +176,7 @@ export const CharacterConversationModal: React.FC<CharacterConversationModalProp
               >
                 <Radio className="w-6 h-6 text-green-400" />
               </motion.div>
-              <h2 className="text-xl font-mono text-green-400 uppercase tracking-wider">
+              <h2 id="character-conversation-title" className="text-xl font-mono text-green-400 uppercase tracking-wider">
                 📡 Intercepted Team Communication
               </h2>
             </div>
@@ -324,6 +324,7 @@ export const CharacterConversationModal: React.FC<CharacterConversationModalProp
                       </motion.div>
                       <button
                         onClick={onClose}
+                        aria-label="Close team conversation"
                         className="px-3 py-1 text-xs bg-green-900/50 hover:bg-green-800 border border-green-500/50 rounded text-green-400 font-mono transition-colors"
                       >
                         Close [X]

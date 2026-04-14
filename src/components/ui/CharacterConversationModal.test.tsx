@@ -389,6 +389,49 @@ describe('CharacterConversationModal', () => {
     });
   });
 
+  describe('Accessibility', () => {
+    it('has role="dialog" and aria-modal on the modal wrapper', () => {
+      render(
+        <CharacterConversationModal
+          isOpen={true}
+          puzzle={createPuzzle()}
+          onClose={vi.fn()}
+        />
+      );
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toHaveAttribute('aria-modal', 'true');
+      expect(dialog).toHaveAttribute('aria-labelledby', 'character-conversation-title');
+    });
+
+    it('heading has matching id for aria-labelledby', () => {
+      render(
+        <CharacterConversationModal
+          isOpen={true}
+          puzzle={createPuzzle()}
+          onClose={vi.fn()}
+        />
+      );
+      const heading = screen.getByText(/Intercepted Team Communication/);
+      expect(heading).toHaveAttribute('id', 'character-conversation-title');
+    });
+
+    it('close button has aria-label', () => {
+      render(
+        <CharacterConversationModal
+          isOpen={true}
+          puzzle={createPuzzle()}
+          onClose={vi.fn()}
+        />
+      );
+
+      act(() => {
+        vi.advanceTimersByTime(1500 + 3600 + 1000);
+      });
+
+      expect(screen.getByRole('button', { name: 'Close team conversation' })).toBeInTheDocument();
+    });
+  });
+
   describe('Styling', () => {
     it('has backdrop blur effect', () => {
       const { container } = render(
