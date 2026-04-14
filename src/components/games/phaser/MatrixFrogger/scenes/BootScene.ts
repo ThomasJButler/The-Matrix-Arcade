@@ -42,6 +42,7 @@ export class FroggerBootScene extends BootScene {
     this.createAbilityTextures();
     this.createVehicleTextures();
     this.createEnemyTextures();
+    this.createRoadDashTexture();
     super.create();
   }
 
@@ -154,6 +155,16 @@ export class FroggerBootScene extends BootScene {
     neoIcon.strokeRoundedRect(0, 0, 32, 32, 4);
     neoIcon.generateTexture('powerup_neo_mode', 32, 32);
     neoIcon.destroy();
+  }
+
+  private createRoadDashTexture(): void {
+    const g = this.add.graphics();
+    g.fillStyle(0x003300, 0.8);
+    for (let x = 0; x < 128; x += 40) {
+      g.fillRect(x, 0, 20, 4);
+    }
+    g.generateTexture('road_dashes', 128, 4);
+    g.destroy();
   }
 
   /**
