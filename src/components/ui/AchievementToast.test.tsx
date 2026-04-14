@@ -285,4 +285,22 @@ describe('AchievementToastContainer', () => {
       expect(container).toBeTruthy();
     });
   });
+
+  describe('Accessibility', () => {
+    it('container has aria-live region for screen reader announcements', () => {
+      const achievement = createAchievement();
+      render(<AchievementToastContainer achievements={[achievement]} />);
+
+      const liveRegion = screen.getByRole('status');
+      expect(liveRegion).toHaveAttribute('aria-live', 'polite');
+    });
+
+    it('close button has accessible label', () => {
+      const achievement = createAchievement();
+      render(<AchievementToastContainer achievements={[achievement]} />);
+
+      const closeButton = screen.getByLabelText('Dismiss achievement');
+      expect(closeButton).toBeInTheDocument();
+    });
+  });
 });

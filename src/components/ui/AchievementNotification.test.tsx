@@ -340,4 +340,24 @@ describe('AchievementQueue', () => {
       expect(third).toBeInTheDocument();
     });
   });
+
+  describe('Accessibility', () => {
+    it('has aria-live region for screen reader announcements', () => {
+      const achievement = createAchievement();
+      render(<AchievementNotification achievement={achievement} onDismiss={vi.fn()} />);
+
+      const liveRegion = screen.getByRole('status');
+      expect(liveRegion).toHaveAttribute('aria-live', 'polite');
+      expect(liveRegion).toHaveAttribute('aria-atomic', 'true');
+    });
+
+    it('AchievementQueue has aria-live region', () => {
+      const achievements = [createAchievement()];
+      render(<AchievementQueue achievements={achievements} onDismiss={vi.fn()} />);
+
+      const liveRegions = screen.getAllByRole('status');
+      const queueRegion = liveRegions.find(el => el.classList.contains('space-y-4'));
+      expect(queueRegion).toHaveAttribute('aria-live', 'polite');
+    });
+  });
 });
