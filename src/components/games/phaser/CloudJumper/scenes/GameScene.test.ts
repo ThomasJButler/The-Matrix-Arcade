@@ -518,7 +518,7 @@ describe('CloudJumperGameScene', () => {
       const tweenConfig = scene.tweens.add.mock.calls[0][0];
       tweenConfig.onComplete();
 
-      expect(scene.gameOver).toHaveBeenCalledWith(50, 'Distance: 123m', undefined, expect.any(Array), expect.any(Number), expect.any(Number));
+      expect(scene.gameOver).toHaveBeenCalledWith(50, 'Distance: 123m', expect.any(Number), expect.any(Array), expect.any(Number), expect.any(Number));
     });
   });
 

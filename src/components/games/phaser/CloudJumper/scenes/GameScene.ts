@@ -10,7 +10,7 @@
 
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS } from '../../../../../lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '../../../../../lib/phaser/types';
 import { GAME_CONFIG, ACHIEVEMENTS } from '../config';
 
 /** Cloud types */
@@ -48,6 +48,7 @@ export class CloudJumperGameScene extends BaseScene {
   // Game state
   private distance = 0;
   private score = 0;
+  private highScore = 0;
   private collectiblesCount = 0;
   private bounceStreak = 0;
   private scrollSpeed = GAME_CONFIG.SCROLL.SPEED_BASE;
@@ -99,6 +100,12 @@ export class CloudJumperGameScene extends BaseScene {
     this.lastCloudX = 0;
     this.jumpPressed = false;
     this.lastJumpTime = -Infinity;
+
+    const saveSystem = this.registry.get(REGISTRY_KEYS.SAVE_SYSTEM);
+    if (saveSystem) {
+      const saveData = saveSystem.getSaveData();
+      this.highScore = saveData?.games?.cloudJumper?.highScore ?? 0;
+    }
 
     // Create parallax backgrounds
     this.createBackgrounds();
@@ -480,8 +487,9 @@ export class CloudJumperGameScene extends BaseScene {
       y: this.player.y + 100,
       duration: 600,
       onComplete: () => {
-        this.reportScore(this.score, this.score);
-        this.gameOver(this.score, `Distance: ${Math.floor(this.distance)}m`, undefined, [
+        if (this.score > this.highScore) this.highScore = this.score;
+        this.reportScore(this.score, this.highScore);
+        this.gameOver(this.score, `Distance: ${Math.floor(this.distance)}m`, this.highScore, [
           { label: 'Collectibles', value: this.collectiblesCount },
           { label: 'Bounce Streak', value: this.bounceStreak },
           { label: 'Storms', value: this.stormCloudsSurvived },

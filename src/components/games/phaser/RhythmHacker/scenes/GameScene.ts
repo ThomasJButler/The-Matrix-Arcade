@@ -10,7 +10,7 @@
 
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS } from '../../../../../lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, REGISTRY_KEYS } from '../../../../../lib/phaser/types';
 import { GAME_CONFIG, NOTE_PROBABILITIES, ACHIEVEMENTS } from '../config';
 import { ChartNote, getTrackCharts } from '../charts';
 
@@ -45,6 +45,7 @@ export class RhythmHackerGameScene extends BaseScene {
 
   // Game state
   private score = 0;
+  private highScore = 0;
   private combo = 0;
   private maxCombo = 0;
   private health = GAME_CONFIG.HEALTH.MAX;
@@ -144,6 +145,12 @@ export class RhythmHackerGameScene extends BaseScene {
     this.isCountdown = true;
     this.countdownTime = 0;
     this.laneBackgrounds = [];
+
+    const saveSystem = this.registry.get(REGISTRY_KEYS.SAVE_SYSTEM);
+    if (saveSystem) {
+      const saveData = saveSystem.getSaveData();
+      this.highScore = saveData?.games?.rhythmHacker?.highScore ?? 0;
+    }
     this.keyIndicators = [];
     this.laneFlashes = [];
     this.recentLanes = [];
@@ -508,8 +515,9 @@ export class RhythmHackerGameScene extends BaseScene {
 
       if (this.health <= 0) {
         this.stopTrackAudio();
-        this.reportScore(this.score, this.score);
-        this.gameOver(this.score, 'Health depleted', undefined, this.buildEndStats(), this.trackIndex + 1, this.getGameDuration());
+        if (this.score > this.highScore) this.highScore = this.score;
+        this.reportScore(this.score, this.highScore);
+        this.gameOver(this.score, 'Health depleted', this.highScore, this.buildEndStats(), this.trackIndex + 1, this.getGameDuration());
       }
     }
   }
@@ -1123,8 +1131,9 @@ export class RhythmHackerGameScene extends BaseScene {
         break;
     }
 
-    this.reportScore(this.score, this.score);
-    this.gameOver(this.score, `Max Combo: ${this.maxCombo}`, undefined, this.buildEndStats(), this.trackIndex + 1, this.getGameDuration());
+    if (this.score > this.highScore) this.highScore = this.score;
+    this.reportScore(this.score, this.highScore);
+    this.gameOver(this.score, `Max Combo: ${this.maxCombo}`, this.highScore, this.buildEndStats(), this.trackIndex + 1, this.getGameDuration());
   }
 
   private buildEndStats(): { label: string; value: string | number }[] {

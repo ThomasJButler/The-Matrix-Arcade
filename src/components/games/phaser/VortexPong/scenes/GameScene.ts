@@ -8,7 +8,7 @@
 
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS } from '../../../../../lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '../../../../../lib/phaser/types';
 import {
   GAME_CONFIG,
   ACHIEVEMENTS,
@@ -52,6 +52,7 @@ export class VortexPongGameScene extends BaseScene {
 
   // State
   private playerScore = 0;
+  private highScore = 0;
   private aiScore = 0;
   private combo = 0;
   private rallyCount = 0;
@@ -100,6 +101,13 @@ export class VortexPongGameScene extends BaseScene {
     this.rainGroup = this.addMatrixRain(15);
 
     this.resetState();
+
+    const saveSystem = this.registry.get(REGISTRY_KEYS.SAVE_SYSTEM);
+    if (saveSystem) {
+      const saveData = saveSystem.getSaveData();
+      this.highScore = saveData?.games?.vortexPong?.highScore ?? 0;
+    }
+
     this.drawCenterLine();
     this.createPaddles();
     this.spawnBall();
@@ -238,7 +246,8 @@ export class VortexPongGameScene extends BaseScene {
       this.sKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
       this.rKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
       this.rKey.on('down', () => {
-        this.reportScore(this.playerScore);
+        if (this.playerScore > this.highScore) this.highScore = this.playerScore;
+        this.reportScore(this.playerScore, this.highScore);
         this.scene.restart();
       });
     });
@@ -523,9 +532,10 @@ export class VortexPongGameScene extends BaseScene {
       this.playSound('levelUp');
       this.playSound(SOUND_KEYS.ACHIEVEMENT_UNLOCK);
       this.cameras.main.shake(GAME_CONFIG.SHAKE.GAME_OVER.duration, GAME_CONFIG.SHAKE.GAME_OVER.intensity);
-      this.reportScore(this.playerScore);
+      if (this.playerScore > this.highScore) this.highScore = this.playerScore;
+      this.reportScore(this.playerScore, this.highScore);
       this.time.delayedCall(600, () => {
-        this.gameOver(this.playerScore, 'YOU WIN!', undefined, [
+        this.gameOver(this.playerScore, 'YOU WIN!', this.highScore, [
           { label: 'You', value: this.playerScore },
           { label: 'AI', value: this.aiScore },
           { label: 'Best Rally', value: this.maxRally },
@@ -540,9 +550,10 @@ export class VortexPongGameScene extends BaseScene {
         this.unlockAchievement(ACHIEVEMENTS.MULTI_BALL);
       }
       this.cameras.main.shake(GAME_CONFIG.SHAKE.GAME_OVER.duration, GAME_CONFIG.SHAKE.GAME_OVER.intensity);
-      this.reportScore(this.playerScore);
+      if (this.playerScore > this.highScore) this.highScore = this.playerScore;
+      this.reportScore(this.playerScore, this.highScore);
       this.time.delayedCall(600, () => {
-        this.gameOver(this.playerScore, 'AI WINS', undefined, [
+        this.gameOver(this.playerScore, 'AI WINS', this.highScore, [
           { label: 'You', value: this.playerScore },
           { label: 'AI', value: this.aiScore },
           { label: 'Best Rally', value: this.maxRally },

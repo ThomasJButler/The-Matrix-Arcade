@@ -1,5 +1,5 @@
 import { BaseScene } from '@/lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS } from '@/lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '@/lib/phaser/types';
 import {
   GAME_CONFIG,
   ACHIEVEMENTS,
@@ -74,6 +74,13 @@ export class SnakeGameScene extends BaseScene {
     this.createMatrixBackground();
     this.matrixRainGroup = this.addMatrixRain(10);
     this.resetState();
+
+    const saveSystem = this.registry.get(REGISTRY_KEYS.SAVE_SYSTEM);
+    if (saveSystem) {
+      const saveData = saveSystem.getSaveData();
+      this.highScore = saveData?.games?.snakeClassic?.highScore ?? 0;
+    }
+
     this.drawGrid();
     this.drawGridBorder();
     this.createHUD();
