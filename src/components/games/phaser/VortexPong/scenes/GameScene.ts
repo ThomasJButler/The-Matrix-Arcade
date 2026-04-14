@@ -113,7 +113,6 @@ export class VortexPongGameScene extends BaseScene {
 
   update(_time: number, delta: number): void {
     if (this.isPaused) return;
-    if (!this.upKey || !this.downKey) return;
     if (this.isCountingDown) return;
     if (this.rainGroup) this.updateMatrixRain(this.rainGroup, delta);
 

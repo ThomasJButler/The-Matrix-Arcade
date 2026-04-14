@@ -169,7 +169,6 @@ export class AgentChaseGameScene extends BaseScene {
 
   update(time: number, delta: number): void {
     if (this.isPaused) return;
-    if (!this.cursors) return;
     if (this.isCountingDown) return;
 
     // Update animation
@@ -183,7 +182,6 @@ export class AgentChaseGameScene extends BaseScene {
     // Update invulnerability timer
     if (this.isInvulnerable) {
       this.invulnerabilityTimer -= delta;
-      // Blink the player sprite to indicate invulnerability
       this.player.setAlpha(Math.sin(this.invulnerabilityTimer * 0.01) > 0 ? 1 : 0.3);
       if (this.invulnerabilityTimer <= 0) {
         this.isInvulnerable = false;
@@ -191,8 +189,9 @@ export class AgentChaseGameScene extends BaseScene {
       }
     }
 
-    // Handle input
-    this.handleInput();
+    if (this.cursors) {
+      this.handleInput();
+    }
 
     // Move player
     this.movePlayer(delta);
