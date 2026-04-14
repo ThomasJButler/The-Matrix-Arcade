@@ -474,6 +474,26 @@ const AUDIO_FILE_MAP: Record<string, string> = {
   froggerScore: '/assets/matrix-frogger/audio/score.mp3',
   froggerPickup: '/assets/matrix-frogger/audio/frog_pick_up.mp3',
   froggerExtraScore: '/assets/matrix-frogger/audio/extra_score.mp3',
+
+  // Extended SFX — Matrix Trilogy kit
+  jackIn: '/assets/audio/sfx/sfx_jacking_in.mp3',
+  achievementUnlock: '/assets/audio/sfx/sfx_power_surge.mp3',
+  platformBreak: '/assets/audio/sfx/sfx_statue_break.mp3',
+  collectible: '/assets/audio/sfx/sfx_ammo_drop.mp3',
+  fall: '/assets/audio/sfx/sfx_elevator_drop.mp3',
+  bossExplosion: '/assets/audio/sfx/sfx_explosion_large.mp3',
+  enemyAlert: '/assets/audio/sfx/sfx_sentinel_search.mp3',
+  dangerWarning: '/assets/audio/sfx/sfx_sentinel_swarm.mp3',
+  kungFuHit: '/assets/audio/sfx/sfx_kung_fu_hit.mp3',
+  glassBreak: '/assets/audio/sfx/sfx_glass_break.mp3',
+  powerDown: '/assets/audio/sfx/sfx_power_down.mp3',
+  dotEat: '/assets/audio/sfx/sfx_blip.mp3',
+  specialAbility: '/assets/audio/sfx/sfx_spoon_bend.mp3',
+  unplug: '/assets/audio/sfx/sfx_unplug.mp3',
+  laserGun2: '/assets/audio/sfx/sfx_laser_gun_2.mp3',
+  bulletsDrop: '/assets/audio/sfx/sfx_bullets_drop.mp3',
+  doorOpen: '/assets/audio/sfx/sfx_door_open.mp3',
+  hitGround: '/assets/audio/sfx/sfx_hit_ground.mp3',
 };
 
 // Background music sequences using Web Audio synthesis

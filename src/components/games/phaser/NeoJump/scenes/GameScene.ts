@@ -11,7 +11,7 @@
 
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS } from '../../../../../lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS } from '../../../../../lib/phaser/types';
 import { GAME_CONFIG, ACHIEVEMENTS } from '../config';
 
 /** Platform types */
@@ -658,7 +658,7 @@ export class NeoJumpGameScene extends BaseScene {
 
       case 'breakable':
         // Platform breaks, no bounce
-        this.playSound('hit');
+        this.playSound(SOUND_KEYS.PLATFORM_BREAK);
         this.tweens.add({
           targets: platform,
           y: platform.y + 100,
@@ -1061,6 +1061,7 @@ export class NeoJumpGameScene extends BaseScene {
 
     // Player fell below bottom of screen — small buffer to avoid false triggers
     if (this.player.y > cameraBottom + 50) {
+      this.playSound(SOUND_KEYS.FALL);
       this.playerDeath();
     }
   }
@@ -1100,7 +1101,7 @@ export class NeoJumpGameScene extends BaseScene {
     collectible.destroy();
     this.collectiblesCollected++;
 
-    this.playSound('powerup');
+    this.playSound(SOUND_KEYS.COLLECTIBLE);
 
     switch (type) {
       case 'fuel':

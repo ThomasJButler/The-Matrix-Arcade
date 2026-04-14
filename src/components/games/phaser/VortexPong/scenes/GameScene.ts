@@ -8,7 +8,7 @@
 
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS } from '../../../../../lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS } from '../../../../../lib/phaser/types';
 import {
   GAME_CONFIG,
   ACHIEVEMENTS,
@@ -515,6 +515,7 @@ export class VortexPongGameScene extends BaseScene {
         this.unlockAchievement(ACHIEVEMENTS.MULTI_BALL);
       }
       this.playSound('levelUp');
+      this.playSound(SOUND_KEYS.ACHIEVEMENT_UNLOCK);
       this.cameras.main.shake(GAME_CONFIG.SHAKE.GAME_OVER.duration, GAME_CONFIG.SHAKE.GAME_OVER.intensity);
       this.reportScore(this.playerScore);
       this.time.delayedCall(600, () => {
@@ -624,7 +625,7 @@ export class VortexPongGameScene extends BaseScene {
     this.tweens.killTweensOf(pu.sprite);
     pu.sprite.destroy();
 
-    this.playSound('powerup');
+    this.playSound(SOUND_KEYS.SPECIAL_ABILITY);
     this.powerUpsCollected++;
     this.activatePowerUp(pu.type);
 

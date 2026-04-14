@@ -412,7 +412,7 @@ describe('MatrixCloudGameScene', () => {
     it('plays powerUp sound', () => {
       const pu: any = { sprite: createMockSprite(), type: 'shield', x: 0, y: 0 };
       call(scene, 'collectPowerUp', pu);
-      expect(scene.playSound).toHaveBeenCalledWith('powerup');
+      expect(scene.playSound).toHaveBeenCalledWith('collectible');
     });
   });
 

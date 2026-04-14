@@ -632,7 +632,7 @@ describe('VortexPongGameScene', () => {
       scene.fieldPowerUps = [{ sprite: mockSprite, type: 'bigger_paddle' as const }];
       scene.checkPowerUpCollisions();
       expect(scene.fieldPowerUps.length).toBe(0);
-      expect(scene.playSound).toHaveBeenCalledWith('powerup');
+      expect(scene.playSound).toHaveBeenCalledWith('specialAbility');
     });
 
     it('does not collect distant power-up', () => {

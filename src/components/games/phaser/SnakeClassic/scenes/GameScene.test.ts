@@ -467,7 +467,7 @@ describe('SnakeGameScene', () => {
       (scene as any).powerUpSprite = createMockImage();
       call('tick');
       expect(s('powerUpsCollected')).toBe(1);
-      expect(s('playSound')).toHaveBeenCalledWith('powerup');
+      expect(s('playSound')).toHaveBeenCalledWith('collectible');
     });
 
     it('should activate shield on collection', () => {

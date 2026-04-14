@@ -71,12 +71,12 @@
 - [ ] Combo counter popup
 
 ### Audio
-- [~] Player shoot — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
-- [~] Enemy shoot — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
-- [~] Enemy destroyed — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
-- [~] Boss destroyed (bigger explosion) — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
-- [~] Power-up collect — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
-- [~] Bullet time activate (slow-mo whoosh) — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
-- [~] Bullet time deactivate — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
-- [~] Wave complete fanfare — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/`
+- [x] Player shoot — covered by global SFX kit (sfx_laser_gun_*.mp3 from original kit) — R78.1
+- [x] Enemy shoot — covered by global SFX kit (sfx_laser_gun_*.mp3 from original kit) — R78.1
+- [x] Enemy destroyed — covered by global SFX kit (sfx_explosion_large.mp3 / sfx_glass_break.mp3) — R78.1
+- [~] Boss destroyed (bigger explosion) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
+- [x] Power-up collect — covered by global SFX kit (sfx_ammo_drop.mp3) — R78.1
+- [~] Bullet time activate (slow-mo whoosh) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
+- [~] Bullet time deactivate — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
+- [~] Wave complete fanfare — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
 - [~] Background music (intense, electronic, increases with wave number) — **SOURCE**: `DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/`

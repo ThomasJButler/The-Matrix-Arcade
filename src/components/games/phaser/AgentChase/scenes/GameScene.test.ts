@@ -219,7 +219,7 @@ describe('AgentChaseGameScene', () => {
 
       scene.collectDot(makeMockSprite());
 
-      expect(scene.playSound).toHaveBeenCalledWith('wakaWaka');
+      expect(scene.playSound).toHaveBeenCalledWith('dotEat');
     });
 
     it('should unlock FIRST_DOT on the first collection', () => {

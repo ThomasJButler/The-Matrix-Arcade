@@ -526,7 +526,7 @@ export class MatrixCloudGameScene extends BaseScene {
 
   private collectPowerUp(pu: FieldPowerUp): void {
     this.powerUpsCollected++;
-    this.playSound(SOUND_KEYS.POWERUP);
+    this.playSound(SOUND_KEYS.COLLECTIBLE);
     this.activatePowerUp(pu.type);
   }
 
@@ -623,6 +623,7 @@ export class MatrixCloudGameScene extends BaseScene {
 
   private handleGameOver(): void {
     this.isGameOver = true;
+    this.playSound(SOUND_KEYS.FALL);
 
     if (this.score > this.highScore) {
       this.highScore = this.score;
@@ -686,7 +687,7 @@ export class MatrixCloudGameScene extends BaseScene {
       ease: 'Power2',
     });
 
-    this.playSound(SOUND_KEYS.HIT);
+    this.playSound(SOUND_KEYS.DANGER_WARNING);
     this.cameras.main.shake(300, 0.01);
 
     const bossText = this.createMatrixText(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, `${type.replace('_', ' ').toUpperCase()}`, 14, MATRIX_COLORS.RED_HEX);

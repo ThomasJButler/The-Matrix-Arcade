@@ -10,7 +10,7 @@
 
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS } from '../../../../../lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS } from '../../../../../lib/phaser/types';
 import { GAME_CONFIG, ACHIEVEMENTS } from '../config';
 
 /** Cloud types */
@@ -388,6 +388,7 @@ export class CloudJumperGameScene extends BaseScene {
         this.playSound('jump');
         if (!cloud.isUsed) {
           cloud.isUsed = true;
+          this.playSound(SOUND_KEYS.PLATFORM_BREAK);
           this.tweens.add({
             targets: cloud,
             alpha: 0,
@@ -420,7 +421,7 @@ export class CloudJumperGameScene extends BaseScene {
   private collectItem(item: Collectible): void {
     this.collectiblesCount++;
     this.score += GAME_CONFIG.SCORING.COLLECTIBLE;
-    this.playSound('score');
+    this.playSound(SOUND_KEYS.COLLECTIBLE);
 
     // Visual effect
     this.tweens.add({
@@ -747,6 +748,7 @@ export class CloudJumperGameScene extends BaseScene {
   private checkGameOver(): void {
     // Fell off bottom
     if (this.player.y > GAME_CONFIG.HEIGHT + 50) {
+      this.playSound(SOUND_KEYS.FALL);
       this.playerDeath();
     }
   }

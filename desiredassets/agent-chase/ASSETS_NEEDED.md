@@ -62,10 +62,10 @@
 - [ ] Ready/Start text overlay
 
 ### Audio
-- [~] Dot eat (wakka wakka — classic, fast) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
-- [~] Power pellet eat (dramatic shift) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
-- [~] Agent eaten (score popup sound) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
-- [~] Fruit eat — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
+- [x] Dot eat (wakka wakka — classic, fast) — covered by global SFX kit (sfx_blip.mp3) — R78.1
+- [x] Power pellet eat (dramatic shift) — covered by global SFX kit (sfx_power_surge.mp3) — R78.1
+- [x] Agent eaten (score popup sound) — covered by global SFX kit (sfx_kung_fu_hit.mp3) — R78.1
+- [x] Fruit eat — covered by global SFX kit (sfx_blip.mp3) — R78.1
 - [~] Death jingle — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
 - [~] Level start jingle — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/SoundEffects/
 - [~] Intermission music (between levels) — SOURCE: DUMP/MatrixArcadeTracksSoundEffectsVisualEffects/LongTracks/

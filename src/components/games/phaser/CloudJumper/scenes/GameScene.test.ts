@@ -293,7 +293,7 @@ describe('CloudJumperGameScene', () => {
 
     it('plays score sound on collection', () => {
       scene.collectItem(createMockItem());
-      expect(scene.playSound).toHaveBeenCalledWith('score');
+      expect(scene.playSound).toHaveBeenCalledWith('collectible');
     });
 
     it('unlocks COLLECT_10 at 10 items', () => {
