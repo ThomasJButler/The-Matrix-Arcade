@@ -1,4 +1,4 @@
-# MAGIC DOC: [Completed Work — The Matrix Arcade (R1–R61)]
+# MAGIC DOC: [Completed Work — The Matrix Arcade (R1–R78)]
 
 Archived from `IMPLEMENTATION_PLAN.md` on 2026-04-13. This file is the durable record of everything Ralph completed across the planning/build loops. The live plan now tracks only open work. Please reference this file and update this file with completed items, which in turn frees up context for the plan agent and build agents. They can easily referenece what was completed in more detail than git logs. 
 
@@ -501,5 +501,71 @@ R77 shipped in a single consolidated commit (`519edeb`) covering all 10 sub-iter
 - **CRT overlay** uses a single CSS `::after` pseudo-element with linear-gradient scanlines at `mix-blend-mode: overlay`, 8% opacity. Default ON, toggleable via `[CRT]` button.
 
 Tests passing: 1,855 unit + 5 new scoreboard E2E (on top of R76's 64 E2E).
+
+---
+
+## R78 — Assets + Infrastructure
+
+> **Tom's call (2026-04-15)**: Combined sweep of asset deployment and CI/infra polish. Ralph walks Phase 0b per-game asset items first (big grunt work), then Phase 6 residue. Terminator: `R78 COMPLETE — assets + infra shipped`.
+
+### R78 Scope Summary
+
+| Stream | Scope | Est. iters |
+|--------|-------|-----------|
+| Phase 0b — Asset Deployment | 10 games need sprite/audio deployment (CTRL-S excluded) | 8–15 |
+| Phase 6 — Infrastructure | Docker baseline, multi-viewport, form labels, BPM tuning, flaky specs | 3–5 |
+| **Total** | | **~12–20** |
+
+### R78 Task List
+
+- [x] **R78.1 — [P1]** Phase 0b audio extraction sweep (biggest cross-cutting gap: only Matrix Frogger has deployed audio). Extract from `desiredassets/TheMatrixArcadeAssetsToADDANDSORT-WILL-BE-FUN-TASK/.../SoundEffects/` + `LongTracks/`, place per-game, wire BootScene loads.
+- [x] **R78.2 — [P1]** Per-game sprite deployment pass 1 (Snake, Matrix Cloud, Metris, Invaders) — core gameplay sprites. Flip `[~]` → `[x]` in each game's `ASSETS_NEEDED.md` as sprites land.
+- [x] **R78.3 — [P1]** Per-game sprite deployment pass 2 (Cloud Jumper, Matrix Frogger, Code Breaker) — polish sprites.
+- [x] **R78.4 — [P1]** Per-game sprite deployment pass 3 (Agent Chase, Neo Jump, Vortex Pong) — remaining items.
+- [x] **R78.5 — [P2]** Visual regression baseline regen for all games post-deployment. Commit new `*-chromium-darwin.png` baselines separately with `R78.N-visual: baseline update` message.
+- [ ] **R78.6 — [P2]** Phase 6: Docker baseline regen — deferred to R79.1 (Docker daemon not running during R78).
+- [x] **R78.7 — [P2]** Phase 6: Multi-viewport matrix — add mobile (375×667) + tablet (768×1024) projects to `playwright.config.ts`, generate baselines.
+- [x] **R78.8 — [P2]** Phase 6: Form input labels (a11y) — audit all `<input>` / `<textarea>` for associated `<label>` / `aria-label`. Fix gaps.
+- [x] **R78.9 — [P2]** Phase 6: Rhythm Hacker BPM tuning — hand-tune per-track BPM values after playtest confirmation.
+- [x] **R78.10 — [P2]** Phase 6: Flaky E2E stabilisation — fix `landing.spec.ts:40` 1px drift, code-breaker/invaders/cloud-jumper timeouts under 5-worker parallel.
+- [x] **R78.11 — [P3]** Continuous-improvement sweep — 25 discovered-work items shipped (see below).
+
+### R78 Discovered Work (25 items — all shipped)
+
+1. [x] **AttractMode useCallback cycle** (R78.5): `resetIdle` included `active` in deps, causing attract overlay to immediately deactivate. Fixed by removing `active` from deps.
+2. [x] **Scoreboard E2E localStorage key mismatch** (R78.5): Tests seeded `matrix-arcade-save` but app reads `matrix-arcade-save-data`. Fixed key + added `version: '1.3.0'` to bypass migration.
+3. [x] **E2E specs/baselines not in source control** (R78.5): Only 4 of 108 e2e files were tracked. Force-added all spec files and baseline PNGs.
+4. [x] **Lint warning reduction (20→14)** (R78.11): Fixed 6 lint warnings — 2 genuine ref-cleanup bugs in AudioSettings and PuzzleModal, 4 missing-dependency warnings in App.tsx resolved by memoising `games` array.
+5. [x] **RhythmHacker control hints invisible** (R78.11): Changed from `DARK_GREEN_HEX` to `PRIMARY_HEX` with `setAlpha(0.3)`.
+6. [x] **Dead collision library + stale plan cleanup** (R78.11): Removed `src/lib/collision.ts` — 67 lines entirely unused since Phaser migration.
+7. [x] **P1 over-broad cursor guards in 4 games** (R78.11): Narrowed each guard to wrap only `handleInput()` — physics, AI, parallax, and visual effects now run unconditionally from frame 1.
+8. [x] **P1 "always NEW HIGH SCORE!" on game-over in 7 games** (R78.11): All 7 games passed `undefined` as `highScore` to `gameOver()`. Fixed all to load persisted high score from save data.
+9. [x] **Stale Open Gaps cleanup** (R78.11): 6 of 13 Open Gaps entries were stale. Updated test infrastructure stats to current state.
+10. [x] **Shutdown optional chaining** (R78.11): AgentChase, NeoJump, MatrixFrogger — added `?.` optional chaining in `shutdown()` for safe teardown.
+11. [x] **Deduplicate BGM + fix NeoJump lobby music** (R78.11): All 10 non-Rhythm games now have unique BGM. Removed 2 orphaned files.
+12. [x] **Rhythm Hacker lane keys D/F/J/K → Q/W/O/P** (R78.11): Per Tom's playtest notes — wider split for better hand positioning.
+13. [x] **SaveLoadManager crash on legacy saves** (R78.11): Added `?.` guard with `?? 0` fallback for `gameData.stats.gamesPlayed`.
+14. [x] **AudioSettings a11y + dead code cleanup** (R78.11): Added `role="dialog"`, `aria-modal`, `aria-labelledby`, `aria-pressed` on toggles. Removed dead `addScore` destructuring from App.tsx.
+15. [x] **Scene shutdown cleanup hardening** (R78.11): Lifted `tweens?.killAll()` and `time?.removeAllEvents()` into BaseScene.shutdown(). Added `rainGroup?.destroy(true)` to 6 scenes. Removed dead `getAchievementManager()` from BaseScene.
+16. [x] **Achievement toast a11y** (R78.11): Added `role="status"` + `aria-live="polite"` to notification components. 4 new tests.
+17. [x] **Icon-only button and modal a11y sweep** (R78.11): 5 components fixed — SaveLoadManager, InventoryPanel, AchievementDisplay, PWAInstallPrompt, AdvancedVoiceControls. 8 new tests.
+18. [x] **Replace hardcoded colour literals with MATRIX_COLORS** (R78.11): 12 replacements in Metris, MatrixFrogger, VortexPong, RhythmHacker.
+19. [x] **Extract MATRIX_FONTS constant** (R78.11): Replaced 48 raw font family strings across 14 Phaser files with `MATRIX_FONTS.PRIMARY`.
+20. [x] **Expand MATRIX_COLORS with 6 new constants** (R78.11): Added MEDIUM_GREEN, DIM_GREEN, DEEP_GREEN, FOREST_GREEN, DARK_GREY, NEAR_BLACK. ~50 hex literal replacements across 23 files.
+21. [x] **Modal + icon-button a11y sweep pass 2** (R78.11): GameHighScores and GameInstructions — added `role="dialog"`, `aria-modal`, `aria-labelledby`, `useFocusTrap`. 13 new tests.
+22. [x] **Complete _HEX variants + magic constants** (R78.11): Added 6 `_HEX` counterparts + `MUTED_GREEN`. Replaced `MAX_BOARD_SIZE` bare `25` literal with shared constant.
+23. [x] **A11y sweep pass 3** (R78.11): GameErrorBoundary, MobileWarning, PowerUpIndicator — added ARIA roles and live regions. 10 new tests.
+24. [x] **Final MATRIX_COLORS sweep + AUTO_START registry key** (R78.11): ~35 remaining hex literals replaced. Added `AUTO_START` to `REGISTRY_KEYS`.
+25. [x] **SentientAIModal + CharacterConversationModal a11y parity** (R78.11): Last 2 modals upgraded to `aria-labelledby` pattern. 6 new tests. All modals now follow identical dialog a11y pattern.
+
+### R78 Completion Report
+
+R78 ran 35 commits across ~30 iterations. Phase pattern: continuous-improvement (R78.11 perpetual polish bucket — deliberate deviation from the usual complete-and-exit approach).
+
+**Shipped**: 10 task-list items (R78.1–R78.5, R78.7–R78.11) + 25 discovered-work items.
+**Blocked**: R78.6 (Docker baseline regen) — Docker daemon not running during R78. Promoted to R79.1.
+**Deferred**: CTRL-S World inputs (`DEFERRED-CTRLS-DEDICATED-PHASE`). Rhythm Hacker BPM manual verification (Tom's ear needed).
+**Tests**: 1,859 unit (44 files), 69+ E2E (23 specs, 87 darwin baselines). All green.
+**Key outcomes**: Global SFX across all 11 games, sprite deployment passes 1–4 (Snake through Vortex Pong), visual regression baselines regen, multi-viewport Playwright matrix, comprehensive a11y sweep (all modals + icon buttons + live regions), MATRIX_COLORS/MATRIX_FONTS constant extraction, scene shutdown hardening, high score persistence fix, BGM deduplication.
 
 ---
