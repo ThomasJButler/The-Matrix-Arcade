@@ -361,6 +361,7 @@ export abstract class BaseScene extends Phaser.Scene {
       (window as any).__PHASER_GAME_STATE__ = {
         scene: this.scene.key,
         isPaused: this.isPaused,
+        isCountingDown: this.isCountingDown,
         ...state,
       };
       // E2E ready marker — surfaced as a DOM attribute so Playwright can poll

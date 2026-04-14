@@ -62,6 +62,7 @@ import { useAchievementManager } from './hooks/useAchievementManager';
 import { useMobileDetection } from './hooks/useMobileDetection';
 import { useSaveSystem } from './hooks/useSaveSystem';
 import { GameStateProvider } from './contexts/GameStateContext';
+import About from './components/About';
 import LandingPage from './components/LandingPage';
 import { GAME_REGISTRY } from './data/gameRegistry';
 import { GAME_TITLES } from './lib/asciiArt';
@@ -75,6 +76,7 @@ function App() {
   const [showLandingPage, setShowLandingPage] = useState(true);
   const [showInstructions, setShowInstructions] = useState(false);
   const [showHighScores, setShowHighScores] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [transitionDirection, setTransitionDirection] = useState<
     'left' | 'right'
@@ -443,16 +445,26 @@ function App() {
         setShowInstructions(false);
       }
 
+      // B key for about page
+      if (e.key.toLowerCase() === 'b' && !isPlaying &&
+          e.target instanceof HTMLElement &&
+          e.target.tagName !== 'INPUT' &&
+          e.target.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        setShowAbout(prev => !prev);
+      }
+
       // ESC also closes modals
       if (e.key === 'Escape' && !isPlaying) {
         if (showInstructions) { setShowInstructions(false); e.preventDefault(); }
         if (showHighScores) { setShowHighScores(false); e.preventDefault(); }
+        if (showAbout) { setShowAbout(false); e.preventDefault(); }
       }
     };
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isPlaying, achievementManager, playSFX, showMobileWarning, playBackgroundMP3, stopBackgroundMP3, handlePrevious, handleNext, toggleMute, trackPlayTime, checkNightOwlAchievement, checkDedicatedAchievement, selectedGame, showInstructions, showHighScores]);
+  }, [isPlaying, achievementManager, playSFX, showMobileWarning, playBackgroundMP3, stopBackgroundMP3, handlePrevious, handleNext, toggleMute, trackPlayTime, checkNightOwlAchievement, checkDedicatedAchievement, selectedGame, showInstructions, showHighScores, showAbout]);
 
   const GameComponent = games[selectedGame].component;
 
@@ -505,6 +517,14 @@ function App() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowAbout(!showAbout)}
+              className="p-2 bg-green-900/50 rounded hover:bg-green-800 transition-colors border border-green-500/30 backdrop-blur-sm"
+              title="About (B)"
+              aria-label="About"
+            >
+              <BookOpen className="w-5 h-5" />
+            </button>
             <button
               onClick={() => setShowSaveManager(!showSaveManager)}
               className="p-2 bg-green-900/50 rounded hover:bg-green-800 transition-colors border border-green-500/30 backdrop-blur-sm"
@@ -776,7 +796,7 @@ function App() {
                 {/* Keyboard Hints */}
                 <div className="mt-3 text-xs lg:text-sm text-green-400/60 text-center space-y-1 font-mono">
                   <p className="text-green-500/70">← → NAVIGATE • ENTER PLAY • ESC EXIT</p>
-                  <p className="text-green-500/50">I Instructions • H Scores • A Achievements • V Mute</p>
+                  <p className="text-green-500/50">I Instructions • H Scores • A Achievements • B About • V Mute</p>
                 </div>
               </div>
           </div>
@@ -862,10 +882,13 @@ function App() {
       />
       
       {/* Save/Load Manager Modal */}
-      <SaveLoadManager 
-        isOpen={showSaveManager} 
-        onClose={() => setShowSaveManager(false)} 
+      <SaveLoadManager
+        isOpen={showSaveManager}
+        onClose={() => setShowSaveManager(false)}
       />
+
+      {/* About Page */}
+      <About isOpen={showAbout} onClose={() => setShowAbout(false)} />
       
       {/* Achievement System */}
       <AchievementQueue 

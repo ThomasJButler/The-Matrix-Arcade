@@ -54,6 +54,17 @@ export async function waitForScore(page: Page, minScore: number, timeout = 20000
   );
 }
 
+export async function waitForCountdownComplete(page: Page, timeout = 15000): Promise<void> {
+  await page.waitForFunction(
+    () => {
+      const state = (window as unknown as { __PHASER_GAME_STATE__?: { isCountingDown?: boolean } }).__PHASER_GAME_STATE__;
+      return state && state.isCountingDown === false;
+    },
+    undefined,
+    { timeout }
+  );
+}
+
 export async function waitForGameOver(page: Page, timeout = 30000): Promise<void> {
   await page.waitForFunction(
     () => {
