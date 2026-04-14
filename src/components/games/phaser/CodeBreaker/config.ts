@@ -105,10 +105,13 @@ const BRICK_MAP: Record<number, BrickType | null> = {
 };
 
 export const LEVELS: number[][][] = [
-  // Level 1: Simple rows
+  // Level 1: Simple rows with colour variety (code=1 green, agent=2 gold, sentinel=3 red)
   [
+    [3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+    [3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
   ],
   // Level 2: Mixed with agents

@@ -281,7 +281,7 @@ describe('App Component', () => {
       'CTRL-S | The World',
       'Snake Classic',
       'Vortex Pong',
-      'Matrix Cloud',
+      'Matrix Bird',
       'Matrix Invaders',
       'Metris'
     ];

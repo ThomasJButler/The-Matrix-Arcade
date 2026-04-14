@@ -344,7 +344,7 @@ export class MatrixCloudGameScene extends BaseScene {
       }
     }
 
-    if (this.pipes.length === 0 || this.lastPipeX - (pipeSpeed * dt) <= GAME_CONFIG.WIDTH - GAME_CONFIG.PIPE_SPACING) {
+    if (this.pipes.length === 0 || this.lastPipeX - (pipeSpeed * dt) <= GAME_CONFIG.WIDTH - this.getEffectivePipeSpacing()) {
       this.spawnPipe();
     } else {
       this.lastPipeX -= pipeSpeed * dt;
@@ -360,7 +360,19 @@ export class MatrixCloudGameScene extends BaseScene {
     return rect;
   }
 
+  private getEffectivePipeSpacing(): number {
+    // Spacing starts wide (easy) and narrows as the player's score increases,
+    // bottoming out at the minimum spacing once the ramp score is reached.
+    const t = Math.min(this.score / GAME_CONFIG.PIPE_SPACING_RAMP_SCORE, 1);
+    return Math.round(
+      GAME_CONFIG.PIPE_SPACING_INITIAL + t * (GAME_CONFIG.PIPE_SPACING_MIN - GAME_CONFIG.PIPE_SPACING_INITIAL),
+    );
+  }
+
   private spawnPipe(): void {
+    // Cap the number of simultaneously active pipe pairs for balance.
+    if (this.pipes.length >= GAME_CONFIG.PIPE_MAX_ACTIVE) return;
+
     const playableHeight = GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT;
     const maxGapY = playableHeight - GAME_CONFIG.PIPE_GAP - GAME_CONFIG.PIPE_MIN_HEIGHT;
     const gapY = GAME_CONFIG.PIPE_MIN_HEIGHT + Math.random() * (maxGapY - GAME_CONFIG.PIPE_MIN_HEIGHT);
@@ -450,10 +462,22 @@ export class MatrixCloudGameScene extends BaseScene {
 
   // --- POWER-UPS ---
 
-  private spawnPowerUp(x: number): void {
+  private spawnPowerUp(pipeX: number): void {
     const types: PowerUpType[] = ['shield', 'timeSlow', 'extraLife', 'doublePoints'];
     const type = types[Math.floor(Math.random() * types.length)];
     const y = 80 + Math.random() * (GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT - 160);
+
+    // Place the power-up in the safe gap between the newly spawned pipe and the next
+    // one, ensuring it is at least POWERUP_MIN_PIPE_DISTANCE px from any pipe edge.
+    const minDist = GAME_CONFIG.POWERUP_MIN_PIPE_DISTANCE;
+    const safeStart = pipeX + GAME_CONFIG.PIPE_WIDTH + minDist;
+    const spacing = this.getEffectivePipeSpacing();
+    const safeEnd = pipeX + spacing - minDist;
+    // If the safe window is too narrow (can happen at high speed / minimum spacing),
+    // fall back to centring between pipes.
+    const x = safeEnd > safeStart
+      ? safeStart + Math.random() * (safeEnd - safeStart)
+      : pipeX + spacing / 2;
 
     const sprite = this.add.sprite(x, y, `powerup_${type}`);
     sprite.setDepth(4);

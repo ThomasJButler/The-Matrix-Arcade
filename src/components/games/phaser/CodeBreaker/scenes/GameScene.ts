@@ -68,6 +68,8 @@ export class CodeBreakerGameScene extends BaseScene {
   private spaceKey!: Phaser.Input.Keyboard.Key;
   private wasdA!: Phaser.Input.Keyboard.Key;
   private wasdD!: Phaser.Input.Keyboard.Key;
+  private numpadLeft!: Phaser.Input.Keyboard.Key;
+  private numpadRight!: Phaser.Input.Keyboard.Key;
   private bulletTimeKey!: Phaser.Input.Keyboard.Key;
 
   private matrixRainGroup!: Phaser.GameObjects.Group;
@@ -326,6 +328,8 @@ export class CodeBreakerGameScene extends BaseScene {
       this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
       this.wasdA = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
       this.wasdD = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+      this.numpadLeft = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_FOUR);
+      this.numpadRight = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_SIX);
       this.bulletTimeKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
     });
   }
@@ -377,8 +381,8 @@ export class CodeBreakerGameScene extends BaseScene {
     const speed = GAME_CONFIG.PADDLE_SPEED * dt;
     let dx = 0;
 
-    if (this.cursors?.left.isDown || this.wasdA?.isDown) dx -= speed;
-    if (this.cursors?.right.isDown || this.wasdD?.isDown) dx += speed;
+    if (this.cursors?.left.isDown || this.wasdA?.isDown || this.numpadLeft?.isDown) dx -= speed;
+    if (this.cursors?.right.isDown || this.wasdD?.isDown || this.numpadRight?.isDown) dx += speed;
 
     const pointer = this.input.activePointer;
     if (pointer.isDown || pointer.x !== this.paddle.x) {

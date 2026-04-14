@@ -66,6 +66,15 @@ function createTestScene(trackIndex = 0) {
   scene.timeText = { setText: vi.fn(), setColor: vi.fn() };
   scene.multiplierText = { setText: vi.fn(), setVisible: vi.fn() };
   scene.laneFlashes = [];
+  scene.laneBackgrounds = [
+    { setTint: vi.fn(), clearTint: vi.fn() },
+    { setTint: vi.fn(), clearTint: vi.fn() },
+    { setTint: vi.fn(), clearTint: vi.fn() },
+    { setTint: vi.fn(), clearTint: vi.fn() },
+  ];
+  scene.matrixRainChars = [];
+  scene.laneCyanTinted = false;
+  scene.cameras = { main: { shake: vi.fn() } };
   scene.useParticleSprites = false;
   scene.useUiSprites = false;
 
@@ -75,6 +84,7 @@ function createTestScene(trackIndex = 0) {
     text: vi.fn().mockReturnValue({
       setOrigin: vi.fn(),
       setDepth: vi.fn(),
+      setAlpha: vi.fn(),
       setShadow: vi.fn(),
       setScale: vi.fn(),
       destroy: vi.fn(),

@@ -203,19 +203,19 @@ export class NeoJumpBootScene extends BootScene {
 
     const g = this.add.graphics();
     g.fillStyle(0xff0000, 1);
-    g.fillCircle(20, 20, 18);
+    g.fillCircle(14, 14, 12);
     g.lineStyle(2, 0x880000, 1);
-    g.strokeCircle(20, 20, 18);
+    g.strokeCircle(14, 14, 12);
     g.fillStyle(0xffffff, 1);
-    g.fillCircle(14, 16, 4);
-    g.fillCircle(26, 16, 4);
+    g.fillCircle(9, 11, 3);
+    g.fillCircle(19, 11, 3);
     g.fillStyle(0x000000, 1);
-    g.fillCircle(14, 16, 2);
-    g.fillCircle(26, 16, 2);
+    g.fillCircle(9, 11, 1);
+    g.fillCircle(19, 11, 1);
     g.lineStyle(2, 0x000000, 1);
-    g.lineBetween(10, 10, 18, 13);
-    g.lineBetween(30, 10, 22, 13);
-    g.generateTexture('enemy', 40, 40);
+    g.lineBetween(7, 7, 12, 9);
+    g.lineBetween(21, 7, 16, 9);
+    g.generateTexture('enemy', 28, 28);
     g.destroy();
   }
 }

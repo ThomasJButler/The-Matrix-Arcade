@@ -23,7 +23,7 @@ export const GAME_CONFIG = {
 
   PLAYER: {
     SPEED: 150,
-    SIZE: 18,
+    SIZE: 28,
   },
 
   AGENTS: {
@@ -48,9 +48,17 @@ export const GAME_CONFIG = {
   SCORING: {
     DOT: 10,
     POWER_PELLET: 50,
+    BULLET_TIME_DOT: 100,
     GHOST_BASE: 200,
     FRUIT: [100, 200, 300, 500, 700, 1000],
     LEVEL_BONUS: 1000,
+  },
+
+  BULLET_TIME: {
+    FREEZE_DURATION: 2000,  // ms agents stay frozen
+    SPAWN_INTERVAL: 15000,  // ms between spawn attempts
+    SPAWN_CHANCE: 0.5,      // 50% chance per attempt
+    MAX_ON_MAP: 1,          // max bullet-time dots on the map
   },
 
   FRUIT: {

@@ -5,7 +5,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: R76 IN PROGRESS — R76.1 closed G1-G6, G8-G9. R76.2 closed all 6 per-game P0s (PG2,PG7,PG8,PG10,PG14,PG19) + PG11,PG17. Moving to remaining P1/P2 per-game items.
+## Status: R76 IN PROGRESS — R76.1-3 closed G1-G6,G8-G9 + all 22 per-game items except PG9,PG13 (deferred P2 visual polish). Moving to E1 (menu-first E2E spec) then E2 (baselines).
 
 > **Last change**: R76 (2026-04-14) — planning-only session. Tom completed full hands-on playtest in live browser ("Brilliant implementation so far, well done!"). R75 P1 cursor-guard work is now playtest-confirmed resolved. New findings logged below as `R76 Playtest Findings` — these supersede R75's open items in priority. Ralph Loop Strategy rewritten as an **overnight autonomous protocol** with a defined terminator condition (see bottom of file). Intended outcome: single unattended loop closes all R76 items before morning.
 >
@@ -136,23 +136,23 @@ These are the items surfaced by Tom's hands-on playtest (2026-04-14). Every item
 
 Every item is tagged with its P-level. `[P0]` = game-breaking in playtest.
 
-#### PG1 — [P1] Snake Classic: app area exceeds 1 grid square
-- [ ] Drop `CELL_SIZE` from 20→16 OR reduce canvas to 640×400 in `SnakeClassic/config.ts:19` to match portal frame.
+#### ~~PG1 — [P1] Snake Classic: app area exceeds 1 grid square~~ RESOLVED (R76.3)
+- [x] (R76.3) Reduced canvas to 640×400, CELL_SIZE 20→16. Grid remains 20×20.
 
 #### ~~PG2 — [P0] VortexPong: AI paddle doesn't move → unwinnable~~ RESOLVED (R76.2)
 - [x] (R76.2) Replaced broken acceleration/damping AI with direct tracking approach. Min speed floor 30px/s, difficulty ramp based on player score, max speed clamped to 85% of player speed.
 
-#### PG3 — [P2] MatrixCloud → rename display to **"Matrix Bird"**
-- [ ] Update display name in `src/data/gameRegistry.ts`, `MatrixCloud/config.ts` title, and portal card. **Keep folder name `MatrixCloud/`** to avoid large refactor — display-string change only.
+#### ~~PG3 — [P2] MatrixCloud → renamed to "Matrix Bird"~~ RESOLVED (R76.3)
+- [x] (R76.3) Updated display name in gameRegistry, useSaveSystem, SaveLoadManager, App.test, E2E fixtures. Folder remains `MatrixCloud/`.
 
-#### PG4 — [P1] MatrixCloud: power-ups spawn too close to pipes
-- [ ] In `MatrixCloud/GameScene.ts` power-up spawn logic, enforce minimum X-distance from nearest pipe (≥ 80px).
+#### ~~PG4 — [P1] Matrix Bird: power-ups spawn too close to pipes~~ RESOLVED (R76.3)
+- [x] (R76.3) Power-ups now spawn within safe window 80px clear of both neighbouring pipes.
 
-#### PG5 — [P2] MatrixCloud: "trolls need fine tuning" (obstacle balance pass)
-- [ ] Reduce spawn frequency, cap simultaneous count at a reasonable number. File: `MatrixCloud/GameScene.ts`.
+#### ~~PG5 — [P2] Matrix Bird: obstacle balance~~ RESOLVED (R76.3)
+- [x] (R76.3) Active pipe cap of 4, dynamic spacing ramp from 320→240 based on score, gentler early game.
 
-#### PG6 — [P2] MatrixInvaders: characters plain + slightly too big
-- [ ] Shrink invader sprites ~20%, add colour palette variation per row. File: `MatrixInvaders/scenes/BootScene.ts` (sprite generation).
+#### ~~PG6 — [P2] MatrixInvaders: characters plain + slightly too big~~ RESOLVED (R76.3)
+- [x] (R76.3) Enemy sprites reduced 40×30→32×24 (~20%). Per-row tinting added (cyan→green→yellow palette).
 
 #### ~~PG7 — [P0] Metris: `B` bullet-time key doesn't work~~ RESOLVED (R76.2)
 - [x] (R76.2) Added null guard before `JustDown(this.bKey!)` — changed to `this.bKey && JustDown(this.bKey)`.
@@ -169,8 +169,8 @@ Every item is tagged with its P-level. `[P0]` = game-breaking in playtest.
 #### ~~PG11 — [P1] NeoJump: can't restart after death~~ RESOLVED (R76.2)
 - [x] (R76.2) Auto-resolved by PG10 fix. GameOverScene transition now fires; R key and menu restart work.
 
-#### PG12 — [P1] NeoJump: bomb sprites too large
-- [ ] Shrink bomb sprite ~30% in bomb texture generation (check `BootScene`).
+#### ~~PG12 — [P1] NeoJump: bomb sprites too large~~ RESOLVED (R76.3)
+- [x] (R76.3) Enemy texture reduced from 40×40 to 28×28 (~30%), display size matched.
 
 #### PG13 — [P2] NeoJump: better 3D visuals
 - [ ] Parallax + scale depth. Defer if non-quick.
@@ -178,29 +178,29 @@ Every item is tagged with its P-level. `[P0]` = game-breaking in playtest.
 #### ~~PG14 — [P0] AgentChase: wall-collision glitch (stutter into walls)~~ RESOLVED (R76.2)
 - [x] (R76.2) Implemented Pac-Man-style buffered turn + slide-along-wall. Post-advance turn check at tile boundaries, guarded progress advancement, clamped interpolation when blocked.
 
-#### PG15 — [P1] AgentChase: too similar to Pac-Man — add Matrix twist
-- [ ] Add ONE small unique mechanic: e.g. "Bullet-time dot" freezes agents 2s, OR "code fragments" that rebuild a key phrase. Choose the quicker of the two.
+#### ~~PG15 — [P1] AgentChase: add Matrix twist~~ RESOLVED (R76.3)
+- [x] (R76.3) Added "Bullet-time dot" mechanic: cyan collectibles spawn every 15s, freeze all agents for 2s with cyan overlay, 100 bonus points.
 
-#### PG16 — [P1] AgentChase: sprites too small
-- [ ] Increase player + agent sprites from ~20px to 28px. Adjust physics hitbox accordingly.
+#### ~~PG16 — [P1] AgentChase: sprites too small~~ RESOLVED (R76.3)
+- [x] (R76.3) Player/agent sprites increased from 18→28px. Physics hitboxes unchanged (use TILE_SIZE).
 
 #### ~~PG17 — [P1] RhythmHacker: BG music conflicts~~ RESOLVED (R76.2 — G2 fallout)
 - [x] (R76.2) Auto-resolved by G2 fix — global BGM now stops on game entry, so no overlap with RhythmHacker's own music.
 
-#### PG18 — [P1] RhythmHacker: more "matrix chaos" animations on combos
-- [ ] Add screen-shake + matrix-rain burst on 10/25/50 combos; colour shift on streak. File: `RhythmHacker/GameScene.ts` combo handlers.
+#### ~~PG18 — [P1] RhythmHacker: matrix chaos combo effects~~ RESOLVED (R76.3)
+- [x] (R76.3) Screen shake at 10/25/50 combos (scaling intensity), matrix rain burst of katakana, lane tint to cyan at 25+ combo.
 
 #### ~~PG19 — [P0] CloudJumper: cannot jump manually~~ RESOLVED (R76.2)
 - [x] (R76.2) Removed grounded check from `jump()` — game is Flappy Bird style, not platformer. Added 300ms cooldown to prevent spam. Guards for countdown and game-over states.
 
-#### PG20 — [P1] CloudJumper: not enough clouds — unplayable
-- [ ] Double cloud spawn rate; reduce vertical gap floor in cloud spawn loop.
+#### ~~PG20 — [P1] CloudJumper: not enough clouds~~ RESOLVED (R76.3)
+- [x] (R76.3) Halved cloud spacing (60–120 from 100–200), reduced vertical range 150→100.
 
-#### PG21 — [P1] CodeBreaker: numpad keys don't control paddle
-- [ ] Add numpad 4/6 bindings alongside arrow + A/D. File: `CodeBreaker/GameScene.ts` input setup.
+#### ~~PG21 — [P1] CodeBreaker: numpad keys don't control paddle~~ RESOLVED (R76.3)
+- [x] (R76.3) Added NUMPAD_FOUR and NUMPAD_SIX bindings alongside arrow/A/D.
 
-#### PG22 — [P1] CodeBreaker: level 1 lacks brick colour variety
-- [ ] Use all 6 colours on level 1 (row-by-row) instead of 2. File: `CodeBreaker/config.ts` or level gen.
+#### ~~PG22 — [P1] CodeBreaker: level 1 lacks brick colour variety~~ RESOLVED (R76.3)
+- [x] (R76.3) Level 1 now cycles through all 3 brick types across 6 rows.
 
 ### R76 — E2E Coverage for Menu-First Flow
 

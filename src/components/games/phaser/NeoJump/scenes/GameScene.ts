@@ -959,7 +959,7 @@ export class NeoJumpGameScene extends BaseScene {
     enemy.setDepth(8);
 
     if (this.enemySpriteMode) {
-      enemy.setDisplaySize(40, 40);
+      enemy.setDisplaySize(28, 28);
       enemy.setTint(0xff0000);
     }
   }
