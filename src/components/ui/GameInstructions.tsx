@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Gamepad2, Info, Sparkles } from 'lucide-react';
 import type { GameEntry } from '../../data/gameRegistry';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface GameInstructionsProps {
   isOpen: boolean;
@@ -16,6 +17,9 @@ export const GameInstructions: React.FC<GameInstructionsProps> = ({
   game,
   icon,
 }) => {
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, isOpen, onClose);
+
   if (!isOpen) return null;
 
   return (
@@ -28,6 +32,10 @@ export const GameInstructions: React.FC<GameInstructionsProps> = ({
         onClick={onClose}
       >
         <motion.div
+          ref={modalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="game-instructions-title"
           className="relative w-full max-w-lg bg-gray-900 border border-green-500 rounded-xl shadow-[0_0_30px_rgba(0,255,0,0.2)] overflow-hidden"
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -38,7 +46,7 @@ export const GameInstructions: React.FC<GameInstructionsProps> = ({
           <div className="flex items-center justify-between p-4 border-b border-green-500/30">
             <div className="flex items-center gap-3">
               <div className="text-green-400">{icon}</div>
-              <h2 className="text-green-400 font-mono text-lg">{game.title}</h2>
+              <h2 id="game-instructions-title" className="text-green-400 font-mono text-lg">{game.title}</h2>
             </div>
             <button
               onClick={onClose}

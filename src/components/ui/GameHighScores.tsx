@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trophy, BarChart3, Clock, Target, Lock } from 'lucide-react';
 import type { GameEntry } from '../../data/gameRegistry';
 import type { GameSaveData, GlobalSaveData } from '../../hooks/useSaveSystem';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 const REGISTRY_TO_SAVE_KEY: Record<string, keyof GlobalSaveData['games']> = {
   'ctrl-s-world': 'ctrlSWorld',
@@ -68,6 +69,9 @@ export const GameHighScores: React.FC<GameHighScoresProps> = ({
 
   const unlockedCount = gameAchievements.filter(a => a.unlocked).length;
 
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, isOpen, onClose);
+
   if (!isOpen) return null;
 
   return (
@@ -80,6 +84,10 @@ export const GameHighScores: React.FC<GameHighScoresProps> = ({
         onClick={onClose}
       >
         <motion.div
+          ref={modalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="game-highscores-title"
           className="relative w-full max-w-lg bg-gray-900 border border-green-500 rounded-xl shadow-[0_0_30px_rgba(0,255,0,0.2)] overflow-hidden"
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -90,7 +98,7 @@ export const GameHighScores: React.FC<GameHighScoresProps> = ({
           <div className="flex items-center justify-between p-4 border-b border-green-500/30">
             <div className="flex items-center gap-3">
               <div className="text-green-400">{icon}</div>
-              <h2 className="text-green-400 font-mono text-lg">{game.title}</h2>
+              <h2 id="game-highscores-title" className="text-green-400 font-mono text-lg">{game.title}</h2>
             </div>
             <button
               onClick={onClose}
