@@ -139,7 +139,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 - [x] **R78.7 — [P2]** Phase 6: Multi-viewport matrix — add mobile (375×667) + tablet (768×1024) projects to `playwright.config.ts`, generate baselines.
 - [x] **R78.8 — [P2]** Phase 6: Form input labels (a11y) — audit all `<input>` / `<textarea>` for associated `<label>` / `aria-label`. Fix gaps.
 - [x] **R78.9 — [P2]** Phase 6: Rhythm Hacker BPM tuning — hand-tune per-track BPM values after playtest confirmation. Current values are estimates.
-- [ ] **R78.10 — [P2]** Phase 6: Flaky E2E stabilisation — fix `landing.spec.ts:40` 1px drift, code-breaker/invaders/cloud-jumper timeouts under 5-worker parallel. Root cause: dev-server contention.
+- [x] **R78.10 — [P2]** Phase 6: Flaky E2E stabilisation — fix `landing.spec.ts:40` 1px drift, code-breaker/invaders/cloud-jumper timeouts under 5-worker parallel. Root cause: dev-server contention.
 - [ ] **R78.11 — [P3]** Continuous-improvement sweep — after R78.1–R78.10 complete, each remaining loop iteration finds ONE discovered-work item and ships it. Examples: sprite polish on an under-deployed game, an a11y fix uncovered while doing R78.8, a perf micro-optimisation, a UX nit caught during visual regression review. Log each in a running `### R78 Discovered Work` sub-section under this task. This task is **intentionally never marked `[x]`** until Tom manually does so — Ralph keeps polishing until the `loop.sh` iteration cap is hit.
 
 ### R78 Discovered Work

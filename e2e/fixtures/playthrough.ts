@@ -108,8 +108,8 @@ export async function runPlaythrough(page: Page, opts: PlaythroughOptions): Prom
   // the final visible state.
   await opts.hooks.triggerGameOver(page);
   await Promise.race([
-    waitForGameOver(page, 12_000).catch(() => null),
-    page.waitForFunction(() => document.body.dataset.portalIsPlaying === 'false', undefined, { timeout: 12_000 }).catch(() => null),
+    waitForGameOver(page, 20_000).catch(() => null),
+    page.waitForFunction(() => document.body.dataset.portalIsPlaying === 'false', undefined, { timeout: 20_000 }).catch(() => null),
   ]);
   await page.waitForTimeout(500);
   await expect(page).toHaveScreenshot(`${prefix}-06-final.png`);

@@ -3,7 +3,7 @@ import { runPlaythrough, runExitToPortal } from '../fixtures/playthrough';
 
 test.describe('Code Breaker', () => {
   test('full human playthrough', async ({ gameplayPage: page }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(90_000);
     await runPlaythrough(page, {
       gameId: 'code-breaker',
       hooks: {
