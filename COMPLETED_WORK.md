@@ -267,3 +267,163 @@ The `desiredassets/` folder contains a complete asset inventory with source mapp
 | cloud-jumper | 3 | 23 | 7 | 33 | Cloudy Pack (190+ files) covers most cloud needs |
 | code-breaker | 14 | 41 | 5 | 60 | Strongest [x] base, almost pipeline-ready |
 | **TOTALS** | **~82** | **~301** | **~106** | **~489** | 62% sourced, 21% scratch, 17% ready |
+
+---
+
+## R76 — Final Polish Phase
+
+> **Completed**: 2026-04-14. Tom's full playtest confirmed R75 work; R76 closed all remaining polish items.
+
+### R76 Gate Results
+- Lint: 0 errors, 20 warnings (all pre-existing react-hooks/exhaustive-deps)
+- Build: clean (7s)
+- Unit tests: 1842/1842 pass
+- TypeScript: 0 errors
+
+### R76 Summary
+
+#### Global Items (G1–G9)
+
+~~G1 — [P0] No start menu on launch (all 12 games)~~ RESOLVED (R76.1)
+- Changed `autoStart={true}` → `autoStart={false}` at both App.tsx GameComponent sites.
+
+~~G2 — [P0] Global BGM (`matrixarcaderetrobeat.mp3`) overlaps per-game music~~ RESOLVED (R76.1)
+- Replaced `playBackgroundMP3` on game entry with `stopBackgroundMP3`. Added `playBackgroundMP3` resume on all exit paths (ESC, exit button, onExit callback).
+
+~~G3 — [P0] Achievements modal "crushes the page"~~ RESOLVED (R76.1)
+- Changed `h-[90vh]` → `max-h-[90vh]`, added `flex flex-col` to modal container, `shrink-0` to header, `flex-1 min-h-0` to scrollable grid area.
+
+~~G4 — [P1] Landing page grid card sizes inconsistent~~ RESOLVED (R76.1)
+- Added `flex flex-col h-full` to card container, `flex-1` to description paragraph so all cards stretch to equal height.
+
+~~G5 — [P1] Card layout — only PLAY button stands out~~ RESOLVED (R76.1)
+- Bumped button contrast (bg-green-500/10, text-green-400), renamed buttons to "HOW TO PLAY" / "HIGH SCORE", improved keyboard hints formatting.
+
+~~G6 — [P1] Pause/resume often fails to resume~~ RESOLVED (R76.8)
+- Added `BaseScene.resumeGame()` that re-enables keyboard, re-focuses canvas, hides overlay, then calls `scene.resume()`.
+- Root cause: `scene.pause()` suspends Phaser's input processing. Fix: replaced `scene.pause()`/`scene.resume()` with granular `physics.pause()`/`physics.resume()` + `tweens.pauseAll()`/`tweens.resumeAll()` + `time.paused`. Scene stays active so input listeners keep working.
+
+~~G7 — [P2] New "About / Inspiration / Passion" tab~~ RESOLVED (R76.4)
+- Created `src/components/About.tsx` with 3 sections (About, Inspirations, Why I Built This). Wired into header nav with B keyboard shortcut. Focus-trapped, ESC closes.
+
+~~G8 — [P1] 5-second countdown before gameplay starts (all games)~~ RESOLVED (R76.1)
+- Promoted countdown to `BaseScene.startCountdown(seconds, onComplete)`. Added to all 11 Phaser games. RhythmHacker retains its own ms-precision countdown. MatrixFrogger refactored to use BaseScene's version.
+
+~~G9 — [P2] R75 P2 Cleanup Batch~~ RESOLVED (R76.1)
+- Metris `wKey` wired to CW rotation. MenuScene control hints changed to `PRIMARY_HEX` at `setAlpha(0.3)`. Dead `return () => {}` removed from `useSoundSystem.ts`. Dead `enableTestMode` export removed from `test-utils.ts`. 4 hollow test cases in `ShatnerVoiceControls.test.tsx` given real assertions.
+
+#### Per-Game Items (PG1–PG22)
+
+~~PG1 — [P1] Snake Classic: app area exceeds 1 grid square~~ RESOLVED (R76.3)
+- Reduced canvas to 640×400, CELL_SIZE 20→16. Grid remains 20×20.
+
+~~PG2 — [P0] VortexPong: AI paddle doesn't move → unwinnable~~ RESOLVED (R76.2)
+- Replaced broken acceleration/damping AI with direct tracking. Min speed floor 30px/s, difficulty ramp based on player score, max speed clamped to 85% of player speed.
+
+~~PG3 — [P2] MatrixCloud → renamed to "Matrix Bird"~~ RESOLVED (R76.3)
+- Updated display name in gameRegistry, useSaveSystem, SaveLoadManager, App.test, E2E fixtures. Folder remains `MatrixCloud/`.
+
+~~PG4 — [P1] Matrix Bird: power-ups spawn too close to pipes~~ RESOLVED (R76.3)
+- Power-ups now spawn within safe window 80px clear of both neighbouring pipes.
+
+~~PG5 — [P2] Matrix Bird: obstacle balance~~ RESOLVED (R76.3)
+- Active pipe cap of 4, dynamic spacing ramp from 320→240 based on score, gentler early game.
+
+~~PG6 — [P2] MatrixInvaders: characters plain + slightly too big~~ RESOLVED (R76.3)
+- Enemy sprites reduced 40×30→32×24 (~20%). Per-row tinting added (cyan→green→yellow palette).
+
+~~PG7 — [P0] Metris: `B` bullet-time key doesn't work~~ RESOLVED (R76.2)
+- Added null guard before `JustDown(this.bKey!)` — changed to `this.bKey && JustDown(this.bKey)`.
+
+~~PG8 — [P0] MatrixFrogger: Kung Fu (`K`) doesn't work~~ RESOLVED (R76.2)
+- Changed `kungFuKey!` non-null assertion to optional `kungFuKey?`, added null guard before `JustDown()` call.
+
+~~PG9 — [P2] MatrixFrogger: 3D tilt camera + perspective + lane textures~~ RESOLVED (R76.9)
+- Full pseudo-3D perspective: precomputed variable lane heights via `computeLaneLayout()`, X convergence with `colToX(col, row)`, trapezoid lane backgrounds via Graphics path API, vehicle/entity scale+rotation by perspective depth, animated road dashes (128×4 texture, 40px/s), lane-aware spawn/despawn bounds.
+
+~~PG10 — [P0] NeoJump: falling off-screen doesn't kill player~~ RESOLVED (R76.2)
+- Root cause: `checkGameOver()` set `isGameOver=true` before `playerDeath()` (which guards on that flag). Removed premature flag set — death sequence fires correctly.
+
+~~PG11 — [P1] NeoJump: can't restart after death~~ RESOLVED (R76.2)
+- Auto-resolved by PG10 fix. GameOverScene transition now fires; R key and menu restart work.
+
+~~PG12 — [P1] NeoJump: bomb sprites too large~~ RESOLVED (R76.3)
+- Enemy texture reduced from 40×40 to 28×28 (~30%), display size matched.
+
+~~PG13 — [P2] NeoJump: 5-layer parallax depth~~ RESOLVED (R76.9)
+- 5-layer parallax: rain at depth -50, 3 procedural building TileSprite layers (depths -40/-30/-20, scrollFactors 0.3/0.5/0.7), platforms+player at depth 0. Procedural textures in BootScene: building silhouettes, windowed mid-rises, rounded arch columns — all Matrix-green value-graded.
+
+~~PG14 — [P0] AgentChase: wall-collision glitch (stutter into walls)~~ RESOLVED (R76.2)
+- Implemented Pac-Man-style buffered turn + slide-along-wall. Post-advance turn check at tile boundaries, guarded progress advancement, clamped interpolation when blocked.
+
+~~PG15 — [P1] AgentChase: add Matrix twist~~ RESOLVED (R76.3)
+- Added "Bullet-time dot" mechanic: cyan collectibles spawn every 15s, freeze all agents for 2s with cyan overlay, 100 bonus points.
+
+~~PG16 — [P1] AgentChase: sprites too small~~ RESOLVED (R76.3)
+- Player/agent sprites increased from 18→28px. Physics hitboxes unchanged (use TILE_SIZE).
+
+~~PG17 — [P1] RhythmHacker: BG music conflicts~~ RESOLVED (R76.2 — G2 fallout)
+- Auto-resolved by G2 fix — global BGM now stops on game entry.
+
+~~PG18 — [P1] RhythmHacker: matrix chaos combo effects~~ RESOLVED (R76.3)
+- Screen shake at 10/25/50 combos (scaling intensity), matrix rain burst of katakana, lane tint to cyan at 25+ combo.
+
+~~PG19 — [P0] CloudJumper: cannot jump manually~~ RESOLVED (R76.2)
+- Removed grounded check from `jump()` — game is Flappy Bird style, not platformer. Added 300ms cooldown to prevent spam.
+
+~~PG20 — [P1] CloudJumper: not enough clouds~~ RESOLVED (R76.3)
+- Halved cloud spacing (60–120 from 100–200), reduced vertical range 150→100.
+
+~~PG21 — [P1] CodeBreaker: numpad keys don't control paddle~~ RESOLVED (R76.3)
+- Added NUMPAD_FOUR and NUMPAD_SIX bindings alongside arrow/A/D.
+
+~~PG22 — [P1] CodeBreaker: level 1 lacks brick colour variety~~ RESOLVED (R76.3)
+- Level 1 now cycles through all 3 brick types across 6 rows.
+
+#### E2E Coverage Items (E1–E2)
+
+~~E1 — [P0] Menu-first E2E flow support~~ RESOLVED (R76.4)
+- Added `waitForCountdownComplete()` to test-utils. Updated playthrough runner to wait for countdown after GameScene ready. Updated CTRL-S World spec to handle command_prompt phase. Added `isCountingDown` to BaseScene's exposeTestState.
+
+~~E2 — [P2] Regenerate visual baselines~~ RESOLVED (R76.4)
+- All 14 visual tests pass against existing baselines. UI changes (card layout, button labels) within threshold — no baseline regeneration needed.
+
+### R76 Completion Report
+
+All R76 playtest findings resolved:
+- G1-G9: autoStart=false, BGM scoping, achievements modal, card layout, pause/resume, countdown, About page, P2 cleanup
+- PG1-PG22: Per-game fixes across all 11 Phaser games + CTRL-S excluded per guardrail
+- E1-E2: Menu-first E2E flow, visual baselines verified
+- R76.8: Pause/resume regression fixed by removing scene.pause() in favour of granular physics/tweens/time pause
+- PG9: MatrixFrogger pseudo-3D perspective with trapezoid lanes, entity scaling, animated road dashes
+- PG13: NeoJump 5-layer parallax with 3 procedural building textures
+
+---
+
+### Historical Analysis (preserved from IMPLEMENTATION_PLAN.md)
+
+#### Original R75 Analysis — Over-Broad update() Guards
+
+R72's cursor guards prevent crashes but are too aggressive — they block the entire `update()` method, not just input handling. During the ~500ms keyboard init window:
+
+| Game | Guard | What gets frozen |
+|------|-------|-----------------|
+| MatrixFrogger | `if (!this.cursors) return;` (line 207) | Enemy vehicle movement, obstacle spawning, countdown, lane collision, matrix rain |
+| NeoJump | `if (!this.cursors) return;` (line 189) | Platform generation, parallax rain, gravity, enemy spawning, camera follow |
+| AgentChase | `if (!this.cursors) return;` (line 159) | Ghost AI movement, dot collision, animation timer, power pellet timing |
+| VortexPong | `if (!this.upKey \|\| !this.downKey) return;` (line 110) | Ball physics, AI paddle, power-up spawning, scoring, impact effects |
+
+Fix (shipped R75): Narrow the guard to wrap only the input-reading call. Everything else (physics, AI, rendering, scoring) runs unconditionally.
+
+Tom's 2026-04-14 playtest confirmed this resolved: "Brilliant implementation so far, well done! We've made stellar progress, and it's just about tweaking now and getting the final gameplay on point."
+
+#### Original Analysis (R69–R71) — Unguarded Cursor Access
+
+Root cause: `waitForKeyboard()` defers key registration asynchronously. Three games accessed cursor fields without null guards in `update()`, causing silent TypeErrors that killed Phaser's update loop — the scene rendered but all controls were dead.
+
+Crash sites (R70):
+- **MatrixFrogger** `GameScene.ts:205→569`: `Phaser.Input.Keyboard.JustDown(this.cursors.up)` — `!` declaration, no guard
+- **NeoJump** `GameScene.ts:187→407`: `this.cursors.left.isDown` — `!` declaration, no guard
+- **AgentChase** `GameScene.ts:157→362`: `this.cursors.up.isDown` — `!` declaration, no guard
+
+R72 fix: Added `if (!this.cursors) return;` guard after `isPaused` check in all three `update()` methods. Refactored `BaseScene.waitForKeyboard` to take per-callback `retries` parameter, restoring full 10-retry budget per callback. R75 then narrowed the guards to wrap only `handleInput()`, not the entire `update()`.
