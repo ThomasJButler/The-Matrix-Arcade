@@ -29,9 +29,9 @@ export class GameErrorBoundary extends React.Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="w-full h-full flex items-center justify-center bg-black text-green-500 font-mono p-8">
+        <div role="alert" aria-live="assertive" className="w-full h-full flex items-center justify-center bg-black text-green-500 font-mono p-8">
           <div className="text-center max-w-md space-y-4">
-            <div className="text-2xl font-bold text-red-500">SYSTEM ERROR</div>
+            <div id="error-title" className="text-2xl font-bold text-red-500">SYSTEM ERROR</div>
             <div className="text-sm opacity-70">
               {this.props.gameName ? `${this.props.gameName} crashed` : 'Game crashed'}
             </div>
@@ -42,6 +42,7 @@ export class GameErrorBoundary extends React.Component<Props, State> {
             )}
             <button
               onClick={this.handleReset}
+              aria-label="Restart game"
               className="px-4 py-2 bg-green-900/50 hover:bg-green-800 border border-green-500/30 rounded transition-colors"
             >
               Restart Game
