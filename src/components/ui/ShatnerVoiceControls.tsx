@@ -130,11 +130,12 @@ export const ShatnerVoiceControls: React.FC<ShatnerVoiceControlsProps> = ({
               <div className="grid grid-cols-1 gap-4">
                 {/* Rate Control */}
                 <div className="space-y-2">
-                  <label className="text-xs text-green-400 flex items-center justify-between">
+                  <label htmlFor="shatner-speech-rate" className="text-xs text-green-400 flex items-center justify-between">
                     <span>Speech Rate (Shatner Pace)</span>
                     <span className="text-green-300">{config.rate.toFixed(2)}x</span>
                   </label>
                   <input
+                    id="shatner-speech-rate"
                     type="range"
                     min="0.3"
                     max="1.5"
@@ -148,11 +149,12 @@ export const ShatnerVoiceControls: React.FC<ShatnerVoiceControlsProps> = ({
 
                 {/* Pitch Control */}
                 <div className="space-y-2">
-                  <label className="text-xs text-green-400 flex items-center justify-between">
+                  <label htmlFor="shatner-voice-pitch" className="text-xs text-green-400 flex items-center justify-between">
                     <span>Voice Pitch</span>
                     <span className="text-green-300">{config.pitch.toFixed(2)}</span>
                   </label>
                   <input
+                    id="shatner-voice-pitch"
                     type="range"
                     min="0.5"
                     max="1.5"
@@ -166,11 +168,12 @@ export const ShatnerVoiceControls: React.FC<ShatnerVoiceControlsProps> = ({
 
                 {/* Volume Control */}
                 <div className="space-y-2">
-                  <label className="text-xs text-green-400 flex items-center justify-between">
+                  <label htmlFor="shatner-volume" className="text-xs text-green-400 flex items-center justify-between">
                     <span>Volume</span>
                     <span className="text-green-300">{Math.round(config.volume * 100)}%</span>
                   </label>
                   <input
+                    id="shatner-volume"
                     type="range"
                     min="0.1"
                     max="1.0"
@@ -183,11 +186,12 @@ export const ShatnerVoiceControls: React.FC<ShatnerVoiceControlsProps> = ({
 
                 {/* Pause Multiplier */}
                 <div className="space-y-2">
-                  <label className="text-xs text-green-400 flex items-center justify-between">
+                  <label htmlFor="shatner-pause-multiplier" className="text-xs text-green-400 flex items-center justify-between">
                     <span>Dramatic Pauses</span>
                     <span className="text-green-300">{config.pauseMultiplier.toFixed(1)}x</span>
                   </label>
                   <input
+                    id="shatner-pause-multiplier"
                     type="range"
                     min="1.0"
                     max="4.0"

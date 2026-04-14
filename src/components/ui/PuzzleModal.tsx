@@ -403,10 +403,11 @@ export const PuzzleModal: React.FC<PuzzleModalProps> = ({
               <div className="space-y-4">
                 {/* Answer Input - Always show for text entry */}
                 <div className="space-y-2">
-                  <label className="block text-green-400 font-mono text-sm">
+                  <label htmlFor="puzzle-answer" className="block text-green-400 font-mono text-sm">
                     Your Answer:
                   </label>
                   <input
+                    id="puzzle-answer"
                     ref={inputRef}
                     type="text"
                     value={userAnswer}
