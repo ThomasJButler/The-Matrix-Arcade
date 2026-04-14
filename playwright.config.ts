@@ -48,6 +48,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      testIgnore: /responsive\//,
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1280, height: 800 },
