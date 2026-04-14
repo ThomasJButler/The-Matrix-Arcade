@@ -724,8 +724,8 @@ export class VortexPongGameScene extends BaseScene {
       oldest.glow.destroy();
     }
 
-    const ring = this.add.circle(x, y, intensity, 0x00ff00, 0);
-    ring.setStrokeStyle(2, 0x00ff00, 1);
+    const ring = this.add.circle(x, y, intensity, MATRIX_COLORS.PRIMARY, 0);
+    ring.setStrokeStyle(2, MATRIX_COLORS.PRIMARY, 1);
 
     const glow = this.add.circle(x, y, intensity * 0.5, 0xffffff, 0.4);
 

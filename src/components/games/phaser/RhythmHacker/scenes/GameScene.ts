@@ -790,8 +790,8 @@ export class RhythmHackerGameScene extends BaseScene {
    */
   private showGrade(grade: TimingGrade, x: number, y: number): void {
     const colors: Record<TimingGrade, string> = {
-      perfect: '#00ffff',
-      great: '#00ff00',
+      perfect: MATRIX_COLORS.CYAN_HEX,
+      great: MATRIX_COLORS.PRIMARY_HEX,
       good: '#00aa00',
       miss: '#660000',
     };

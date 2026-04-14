@@ -323,7 +323,7 @@ export class FroggerGameScene extends BaseScene {
       color: MATRIX_COLORS.PRIMARY_HEX,
     };
 
-    const finishLabel = this.add.text(width / 2, this.laneYPos[0] + 6, 'FINISH', { ...labelStyle, color: '#00ff00' });
+    const finishLabel = this.add.text(width / 2, this.laneYPos[0] + 6, 'FINISH', { ...labelStyle, color: MATRIX_COLORS.PRIMARY_HEX });
     finishLabel.setOrigin(0.5, 0);
     finishLabel.setAlpha(0.5);
     finishLabel.setDepth(2);
@@ -1206,7 +1206,7 @@ export class FroggerGameScene extends BaseScene {
       {
         fontFamily: '"Press Start 2P", monospace',
         fontSize: '32px',
-        color: '#00ffff',
+        color: MATRIX_COLORS.CYAN_HEX,
       }
     );
     text.setOrigin(0.5);
