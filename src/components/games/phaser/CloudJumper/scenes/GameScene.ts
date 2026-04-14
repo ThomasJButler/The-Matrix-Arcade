@@ -139,7 +139,7 @@ export class CloudJumperGameScene extends BaseScene {
     // Setup collisions
     this.setupCollisions();
 
-    this.playBackgroundMusic('/assets/audio/music/a-last-embrace.mp3');
+    this.playBackgroundMusic('/assets/rhythm-hacker/tracks/in-the-moonlight.mp3');
     this.startCountdown(5, () => {});
   }
 

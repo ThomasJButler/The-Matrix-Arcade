@@ -190,7 +190,7 @@ export class NeoJumpGameScene extends BaseScene {
     // Setup camera
     this.setupCamera();
 
-    this.playBackgroundMusic('/assets/audio/music/menu-theme.mp3');
+    this.playBackgroundMusic('/assets/rhythm-hacker/tracks/enhancements.mp3');
     this.startCountdown(5, () => {});
   }
 
