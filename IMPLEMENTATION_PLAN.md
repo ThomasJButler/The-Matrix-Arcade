@@ -5,7 +5,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: R78 open — Phase 0b per-game asset deployment + Phase 6 infrastructure polish (R76 + R77 archived)
+## Status: R79 open — closing R78 residue (Docker baseline + archive + straggler sweep)
 
 > **R78.7 complete (2026-04-14)**: Multi-viewport Playwright matrix — added `mobile` (375×667) and `tablet` (768×1024) projects to `playwright.config.ts`. Both viewports trigger the app's "DESKTOP REQUIRED" gate (MobileWarning component), so created dedicated `e2e/responsive/mobile-gate.spec.ts` with 2 tests × 2 viewports = 4 baselines. Scoped via `testMatch: /responsive\//` so only responsive specs run on those projects. Fixed pre-existing lint error (`addScore` unused in App.tsx). All 4 responsive tests pass, all 6 desktop visual tests pass, build clean.
 >
@@ -113,6 +113,39 @@ This file is auto-generated and updated by Ralph during planning and building lo
 - TypeScript: clean
 - Lint: clean on all changed files (14 pre-existing react-hooks warnings remain (6 in CTRL-S World, 8 intentional patterns))
 - PWA + build: green
+
+---
+
+## R79 — Close R78 Residue (SMALL — 3 loops)
+
+> **Tom's call (2026-04-15, post-R78 review)**: R78 shipped 35 commits of real value (sprites, audio, a11y, constants, bug fixes). Two items remained uncloseable last night: Docker baseline (needs Docker Desktop running) + Rhythm BPM verification (needs Tom's ear). R79 is a tight 3-loop sweep to close out R78 residue, archive R78 to `COMPLETED_WORK.md`, and handle any final stragglers.
+
+### R79 Task List
+
+- [ ] **R79.1 — [P2]** Docker baseline regen for CI parity. **Prerequisite**: Tom must start Docker Desktop before kicking off the loop. Run `docker compose -f docker-compose.playwright.yml run --rm e2e-tests npx playwright test --update-snapshots`, review generated `*-chromium-linux.png` files for sanity (they should visually match the darwin baselines), commit with message `R79.1: Docker linux baseline regen for CI parity`. If Docker still isn't running when Ralph starts, tag `BLOCKED-NEEDS-DOCKER` and skip to R79.2.
+- [ ] **R79.2 — [P1]** Archive R78 to `COMPLETED_WORK.md`. Move R78 Scope Summary + Task List + Discovered Work (all 25 items) into a new `## R78 — Assets + Infrastructure` section in `COMPLETED_WORK.md`, preserving iteration tags. Replace in-plan content with a one-line back-reference: `R78 closed — see [COMPLETED_WORK.md § R78](COMPLETED_WORK.md#r78--assets--infrastructure)`. Keep R79 Terminator Rule + Guardrails evergreen note. Preserves the "pattern" knowledge that R78 was a continuous-improvement phase. ~1 iteration, doc-only.
+- [ ] **R79.3 — [P2]** Straggler sweep. Audit for any loose ends:
+  - Remaining 14 lint warnings — document in plan which are intentional (CTRL-S fenced, circular hook deps, etc.) vs fixable. Fix any fixable ones.
+  - TODO/FIXME/HACK comments in `src/` — grep and triage.
+  - Orphan test files or fixtures no longer referenced.
+  - Stale entries in `Open Gaps` / `Test Coverage Status` / `Current Codebase Health`.
+  - Any `[~]` items in `desiredassets/*/ASSETS_NEEDED.md` that are actually deployed but not flipped.
+  Log findings, fix what's quick, document what's intentional.
+
+### R79 Terminator
+
+- Status line contains: **"R79 COMPLETE — R78 residue closed"**
+- All 3 tasks `[x]`, OR any remaining `[ ]` tagged `BLOCKED-NEEDS-DOCKER` (if Docker still not running when Ralph reaches R79.1).
+- Gates green: lint + build + test + e2e.
+
+Standard complete-and-exit pattern — NOT R78's continuous-improvement mode. If Ralph finishes all 3 tasks before the iteration cap, write the terminator phrase and stop cleanly.
+
+### R79 Tom Manual TODOs (NOT Ralph's work)
+
+These need Tom's direct attention, not an autonomous loop:
+
+- **Rhythm Hacker BPM verification**: playtest `Cyberpsychotic` (140 BPM) and `Enhancements` (160 BPM) by ear. `In The Moonlight` (100 BPM) is likely correct. If any are off, update `src/components/games/phaser/RhythmHacker/config.ts`. Ralph's algorithmic detection was ambiguous — only your ear can confirm.
+- **R78 browser playtest**: open the arcade fresh, verify all 11 games still feel right after the sprite deployment + BGM reshuffle. Any new bugs → log for R80.
 
 ---
 
@@ -535,23 +568,17 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 
 ### TERMINATOR CONDITION (Ralph stops looping only when ALL of these are true)
 
-- All R78.1–R78.11 tasks marked `[x]` with iteration tag.
-- All Phase 0b per-game `ASSETS_NEEDED.md` files have `[~]` items flipped to `[x]` where deployed (or `DEFERRED-CTRLS-DEDICATED-PHASE` for CTRL-S).
-- All Phase 6 residue items closed: Docker baselines present as `*-chromium-linux.png`, multi-viewport projects live in `playwright.config.ts`, form input labels audited, Rhythm Hacker BPM tuned, flaky specs stabilised.
-- `npm run lint`, `npm run build`, `npm test`, `npm run test:e2e`, `npm run test:visual` ALL green on a clean run.
-- The `## Status` line contains the phrase **"R78 COMPLETE — assets + infra shipped"**.
-- No `BLOCKED:` markers remain, OR every remaining blocker is tagged `BLOCKED-NEEDS-HUMAN` / `DEFERRED-CTRLS-DEDICATED-PHASE`.
+- All R79.1, R79.2, R79.3 tasks marked `[x]` (or `BLOCKED-NEEDS-DOCKER` for R79.1 if Docker daemon unavailable).
+- `npm run lint`, `npm run build`, `npm test`, `npm run test:e2e` ALL green on a clean run.
+- The `## Status` line contains the phrase **"R79 COMPLETE — R78 residue closed"**.
+- `### R79 Completion Report` written under the R79 section with iterations/closed/blocked summary.
 
-**Execution order for this overnight run**:
-1. R78.1 — Audio extraction sweep (biggest cross-cutting gap).
-2. R78.2 → R78.4 — Per-game sprite deployment passes (Snake/Cloud/Metris/Invaders → CloudJumper/Frogger/CodeBreaker → AgentChase/NeoJump/VortexPong).
-3. R78.5 — Visual regression baseline regen (darwin).
-4. R78.6 — Docker baseline regen (linux) for CI parity.
-5. R78.7 — Multi-viewport matrix in `playwright.config.ts`.
-6. R78.8 — Form input labels a11y audit.
-7. R78.9 — Rhythm Hacker BPM tuning.
-8. R78.10 — Flaky E2E stabilisation.
-9. R78.11 — Final verification + Status terminator.
+**Execution order for this run** (3-loop cap):
+1. R79.1 — Docker linux baseline regen (skip with BLOCKED-NEEDS-DOCKER if daemon not running).
+2. R79.2 — Archive R78 content (task list + 25 discovered-work items) to `COMPLETED_WORK.md`, replace in-plan with back-reference.
+3. R79.3 — Straggler sweep (lint warnings audit, TODO/FIXME triage, stale plan entries, `[~]`→`[x]` in ASSETS_NEEDED.md).
+
+**Pattern difference from R78**: R79 uses standard complete-and-exit (like R76/R77). Ralph SHOULD auto-write the terminator phrase when all 3 are `[x]`. This is the opposite of R78's "never auto-terminate" rule.
 
 When terminator is reached, write a final summary under `## R78 Completion Report` listing: iterations run, tasks closed, tasks blocked (including any `DEFERRED-CTRLS-DEDICATED-PHASE` items), tests passing, discovered-work items deferred to R79 (or CTRL-S phase). Then stop.
 
