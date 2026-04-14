@@ -18,6 +18,7 @@ import {
   type GameEvent,
   type GameOverStat,
 } from '../types';
+import { MAX_BOARD_SIZE } from '../../../hooks/useSaveSystem';
 
 export abstract class BaseScene extends Phaser.Scene {
   protected isPaused = false;
@@ -223,7 +224,7 @@ export abstract class BaseScene extends Phaser.Scene {
     if (this.countdownValue <= 0) {
       if (this.countdownText) {
         this.countdownText.setText('GO!');
-        this.countdownText.setColor('#00ffff');
+        this.countdownText.setColor(MATRIX_COLORS.CYAN_HEX);
       }
       this.playSound('levelUp');
 
@@ -407,7 +408,7 @@ export abstract class BaseScene extends Phaser.Scene {
       if (saveSystem && gameId) {
         const saveData = saveSystem.getSaveData();
         const board = saveData?.scoreboards?.[gameId] ?? [];
-        const qualifies = board.length < 25 || score > (board[board.length - 1]?.score ?? 0);
+        const qualifies = board.length < MAX_BOARD_SIZE || score > (board[board.length - 1]?.score ?? 0);
         if (qualifies) {
           this.scene.start(SCENE_KEYS.HIGH_SCORE_ENTRY, {
             ...gameOverData,
