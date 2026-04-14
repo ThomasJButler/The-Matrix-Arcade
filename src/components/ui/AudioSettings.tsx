@@ -51,8 +51,9 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
+    const timers = timersRef.current;
     return () => {
-      timersRef.current.forEach(clearTimeout);
+      timers.forEach(clearTimeout);
     };
   }, []);
 
