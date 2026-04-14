@@ -96,23 +96,25 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
         <button
           onClick={() => handleToggle('sfx')}
           className={`p-2 rounded transition-colors ${
-            config.sfx 
-              ? 'bg-green-900 text-green-400 hover:bg-green-800' 
+            config.sfx
+              ? 'bg-green-900 text-green-400 hover:bg-green-800'
               : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
           }`}
-          title="Toggle Sound Effects"
+          aria-label={config.sfx ? 'Disable sound effects' : 'Enable sound effects'}
+          aria-pressed={config.sfx as boolean}
         >
           {config.sfx ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
         </button>
-        
+
         <button
           onClick={() => handleToggle('music')}
           className={`p-2 rounded transition-colors ${
-            config.music 
-              ? 'bg-green-900 text-green-400 hover:bg-green-800' 
+            config.music
+              ? 'bg-green-900 text-green-400 hover:bg-green-800'
               : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
           }`}
-          title="Toggle Music"
+          aria-label={config.music ? 'Disable music' : 'Enable music'}
+          aria-pressed={config.music as boolean}
         >
           <Music className={`w-4 h-4 ${config.music ? 'text-green-400' : 'text-gray-400'}`} />
         </button>
@@ -136,16 +138,20 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
             exit={{ scale: 0.8, opacity: 0 }}
             className="bg-black border-2 border-green-500 rounded-lg p-6 max-w-md w-full font-mono"
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="audio-settings-title"
           >
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 <Settings className="w-5 h-5 text-green-400" />
-                <h2 className="text-lg font-bold text-green-400">AUDIO SETTINGS</h2>
+                <h2 id="audio-settings-title" className="text-lg font-bold text-green-400">AUDIO SETTINGS</h2>
               </div>
               <button
                 onClick={onClose}
                 className="p-2 hover:bg-green-900 rounded transition-colors"
+                aria-label="Close audio settings"
               >
                 <X className="w-5 h-5 text-green-400" />
               </button>
@@ -204,17 +210,19 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
                   <button
                     onClick={testMusic}
                     className="p-1 hover:bg-green-900 rounded transition-colors"
-                    title="Test Music"
+                    aria-label="Test music"
                   >
                     <Play className="w-3 h-3 text-green-400" />
                   </button>
                   <button
                     onClick={() => handleToggle('music')}
                     className={`px-3 py-1 rounded text-xs transition-colors ${
-                      config.music 
-                        ? 'bg-green-600 text-white' 
+                      config.music
+                        ? 'bg-green-600 text-white'
                         : 'bg-gray-600 text-gray-300'
                     }`}
+                    aria-label={config.music ? 'Disable music' : 'Enable music'}
+                    aria-pressed={config.music as boolean}
                   >
                     {config.music ? 'ON' : 'OFF'}
                   </button>
@@ -246,10 +254,12 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
                 <button
                   onClick={() => handleToggle('sfx')}
                   className={`px-3 py-1 rounded text-xs transition-colors ${
-                    config.sfx 
-                      ? 'bg-green-600 text-white' 
+                    config.sfx
+                      ? 'bg-green-600 text-white'
                       : 'bg-gray-600 text-gray-300'
                   }`}
+                  aria-label={config.sfx ? 'Disable sound effects' : 'Enable sound effects'}
+                  aria-pressed={config.sfx as boolean}
                 >
                   {config.sfx ? 'ON' : 'OFF'}
                 </button>
