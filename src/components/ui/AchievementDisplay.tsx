@@ -151,6 +151,7 @@ export const AchievementDisplay: React.FC<AchievementDisplayProps> = ({
                 <input
                   type="text"
                   placeholder="Search achievements..."
+                  aria-label="Search achievements"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-black/50 border border-green-500/30 

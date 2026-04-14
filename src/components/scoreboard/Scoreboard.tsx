@@ -151,8 +151,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({
               <div className="flex items-center justify-end gap-2 p-3 border-t border-green-500/20">
                 {confirmWipe === activeTab ? (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-red-400">Type WIPE to confirm:</span>
+                    <label htmlFor="wipe-confirm" className="text-xs font-mono text-red-400">Type WIPE to confirm:</label>
                     <input
+                      id="wipe-confirm"
                       value={wipeInput}
                       onChange={(e) => setWipeInput(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') handleResetClick(activeTab); }}

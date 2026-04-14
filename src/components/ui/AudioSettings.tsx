@@ -174,13 +174,14 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
             {/* Master Volume */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
-                <label className="text-green-400 flex items-center gap-2">
+                <label htmlFor="master-volume" className="text-green-400 flex items-center gap-2">
                   <Volume1 className="w-4 h-4" />
                   MASTER VOLUME
                 </label>
                 <span className="text-white">{Math.round(config.masterVolume * 100)}%</span>
               </div>
               <input
+                id="master-volume"
                 type="range"
                 min="0"
                 max="1"
@@ -194,7 +195,7 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
             {/* Music Settings */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
-                <label className="text-green-400 flex items-center gap-2">
+                <label htmlFor="music-volume" className="text-green-400 flex items-center gap-2">
                   <Music className="w-4 h-4" />
                   BACKGROUND MUSIC
                 </label>
@@ -219,6 +220,7 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
                 </div>
               </div>
               <input
+                id="music-volume"
                 type="range"
                 min="0"
                 max="1"
@@ -236,7 +238,7 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
             {/* SFX Settings */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
-                <label className="text-green-400 flex items-center gap-2">
+                <label htmlFor="sfx-volume" className="text-green-400 flex items-center gap-2">
                   <Volume2 className="w-4 h-4" />
                   SOUND EFFECTS
                 </label>
@@ -252,6 +254,7 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
                 </button>
               </div>
               <input
+                id="sfx-volume"
                 type="range"
                 min="0"
                 max="1"

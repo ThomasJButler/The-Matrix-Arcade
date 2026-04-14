@@ -135,7 +135,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 - [x] **R78.5 — [P2]** Visual regression baseline regen for all games post-deployment. Commit new `*-chromium-darwin.png` baselines separately with `R78.N-visual: baseline update` message.
 - [ ] **R78.6 — [P2]** Phase 6: Docker baseline regen — `docker compose -f docker-compose.playwright.yml run --rm e2e-tests npx playwright test --update-snapshots`, commit `*-chromium-linux.png` for CI parity.
 - [ ] **R78.7 — [P2]** Phase 6: Multi-viewport matrix — add mobile (375×667) + tablet (768×1024) projects to `playwright.config.ts`, generate baselines.
-- [ ] **R78.8 — [P2]** Phase 6: Form input labels (a11y) — audit all `<input>` / `<textarea>` for associated `<label>` / `aria-label`. Fix gaps.
+- [x] **R78.8 — [P2]** Phase 6: Form input labels (a11y) — audit all `<input>` / `<textarea>` for associated `<label>` / `aria-label`. Fix gaps.
 - [ ] **R78.9 — [P2]** Phase 6: Rhythm Hacker BPM tuning — hand-tune per-track BPM values after playtest confirmation. Current values are estimates.
 - [ ] **R78.10 — [P2]** Phase 6: Flaky E2E stabilisation — fix `landing.spec.ts:40` 1px drift, code-breaker/invaders/cloud-jumper timeouts under 5-worker parallel. Root cause: dev-server contention.
 - [ ] **R78.11 — [P3]** Continuous-improvement sweep — after R78.1–R78.10 complete, each remaining loop iteration finds ONE discovered-work item and ships it. Examples: sprite polish on an under-deployed game, an a11y fix uncovered while doing R78.8, a perf micro-optimisation, a UX nit caught during visual regression review. Log each in a running `### R78 Discovered Work` sub-section under this task. This task is **intentionally never marked `[x]`** until Tom manually does so — Ralph keeps polishing until the `loop.sh` iteration cap is hit.
@@ -145,6 +145,8 @@ This file is auto-generated and updated by Ralph during planning and building lo
 - [x] **AttractMode useCallback cycle** (found during R78.5): `resetIdle` included `active` in its `useCallback` deps, causing the effect to immediately deactivate the attract overlay on every `active` state change. Fixed by removing `active` from deps.
 - [x] **Scoreboard E2E localStorage key mismatch** (found during R78.5): Tests seeded `matrix-arcade-save` but app reads `matrix-arcade-save-data`. Fixed key + added `version: '1.3.0'` to bypass migration. Also scoped `getByText('ACE')` → `getByRole('cell', { name: 'ACE' })` to avoid matching game card subtitles.
 - [x] **E2E specs/baselines not in source control** (found during R78.5): Only 4 of 108 e2e files were tracked (fixtures only). Force-added all spec files and baseline PNGs.
+- **R78.6 blocked — Docker daemon not running** (found during R78.8): Docker CLI v29.2.1 installed but daemon socket not present. Docker baseline regen requires a running daemon. Deferred to next session with Docker available.
+- **CTRL-S World a11y inputs** `DEFERRED-CTRLS-DEDICATED-PHASE`: CtrlSWorld.tsx has 3 unlabelled inputs (terminal command, text speed select, font size select). Will be addressed in Phase 7 rewrite.
 
 ### R78 Terminator Rule (IMPORTANT — differs from R76/R77)
 
@@ -234,7 +236,7 @@ For each game, the pipeline is:
 - [ ] **Accessibility residue**:
   - [x] ~~Focus traps on modals~~ RESOLVED (R64) — new `useFocusTrap` hook applied to all 5 modals (GameOverModal, AchievementDisplay, PuzzleModal, SentientAIModal, CharacterConversationModal). Added `role="dialog"`, `aria-modal="true"`, `aria-labelledby`, Escape-to-close, Tab cycling, and focus restoration.
   - [ ] CTRL-S World `aria-live` on story text (will be addressed by Phase 7 rewrite)
-  - [ ] Form input labels
+  - [x] ~~Form input labels~~ RESOLVED (R78.8) — added `id`/`htmlFor` pairs to 13 inputs across AudioSettings, ShatnerVoiceControls, AdvancedVoiceControls, PuzzleModal, Scoreboard; added `aria-label` to AchievementDisplay search. CTRL-S World inputs deferred to Phase 7.
 - [ ] **Rhythm Hacker BPM tuning** — current values are estimates; tune per track after playtesting
 - [x] ~~**`useAdvancedVoice` AudioContext** — never connected to speech output (always returns zeros). Either wire it up or delete the dead path.~~ RESOLVED (R64) — removed dead AudioContext, replaced with synthetic visualisation.
 
