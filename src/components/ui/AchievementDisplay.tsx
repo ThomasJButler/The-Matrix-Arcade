@@ -90,8 +90,8 @@ export const AchievementDisplay: React.FC<AchievementDisplayProps> = ({
           role="dialog"
           aria-modal="true"
           aria-labelledby="achievements-title"
-          className="relative w-full max-w-6xl h-[90vh] bg-black/95 border-2 border-green-500
-                     rounded-lg shadow-[0_0_50px_rgba(0,255,0,0.3)] overflow-hidden"
+          className="relative w-full max-w-6xl max-h-[90vh] bg-black/95 border-2 border-green-500
+                     rounded-lg shadow-[0_0_50px_rgba(0,255,0,0.3)] overflow-hidden flex flex-col"
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
@@ -103,7 +103,7 @@ export const AchievementDisplay: React.FC<AchievementDisplayProps> = ({
           </div>
 
           {/* Header */}
-          <div className="relative z-10 bg-black/80 border-b-2 border-green-500/50 p-6">
+          <div className="relative z-10 bg-black/80 border-b-2 border-green-500/50 p-6 shrink-0">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-4">
                 <Trophy className="w-8 h-8 text-green-500" />
@@ -189,7 +189,7 @@ export const AchievementDisplay: React.FC<AchievementDisplayProps> = ({
           </div>
 
           {/* Achievements grid */}
-          <div className="relative z-10 overflow-y-auto h-[calc(100%-280px)] p-6">
+          <div className="relative z-10 overflow-y-auto flex-1 min-h-0 p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredAchievements.map((achievement, index) => (
                 <motion.div

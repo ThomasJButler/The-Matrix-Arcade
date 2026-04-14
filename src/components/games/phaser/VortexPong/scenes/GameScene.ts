@@ -103,11 +103,13 @@ export class VortexPongGameScene extends BaseScene {
     this.setupCommonInputs();
     this.startPowerUpTimer();
     this.playBackgroundMusic('/assets/audio/music/stage-theme.mp3');
+    this.startCountdown(5, () => {});
   }
 
   update(_time: number, delta: number): void {
     if (this.isPaused) return;
     if (!this.upKey || !this.downKey) return;
+    if (this.isCountingDown) return;
     if (this.rainGroup) this.updateMatrixRain(this.rainGroup, delta);
 
     const dt = delta / 1000;
@@ -131,6 +133,7 @@ export class VortexPongGameScene extends BaseScene {
       aiDifficulty: this.aiDifficulty,
       powerUpsCollected: this.powerUpsCollected,
       activePowerUps: Array.from(this.activePowerUps.keys()),
+      countdownValue: this.countdownValue,
     });
   }
 

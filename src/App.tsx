@@ -369,12 +369,13 @@ function App() {
         achievementManager.toggleDisplay();
       }
       
-      // ESC key to exit games (music keeps playing)
+      // ESC key to exit games — resume landing BGM
       if (e.key === 'Escape' && isPlaying) {
         e.preventDefault();
         setIsPlaying(false);
         playSFX('menu');
         trackPlayTime();
+        playBackgroundMP3('/matrixarcaderetrobeat.mp3');
       }
       
       // Arrow keys for game navigation (when not playing)
@@ -393,7 +394,7 @@ function App() {
         setIsPlaying(true);
         playSFX('score');
         if (mp3TimerRef.current) clearTimeout(mp3TimerRef.current);
-        mp3TimerRef.current = setTimeout(() => playBackgroundMP3('/matrixarcaderetrobeat.mp3'), 500);
+        stopBackgroundMP3();
 
         // Track game played and check achievements (same as button click)
         const gameName = games[selectedGame].title;
@@ -451,7 +452,7 @@ function App() {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isPlaying, achievementManager, playSFX, showMobileWarning, playBackgroundMP3, handlePrevious, handleNext, toggleMute, trackPlayTime, checkNightOwlAchievement, checkDedicatedAchievement, selectedGame, showInstructions, showHighScores]);
+  }, [isPlaying, achievementManager, playSFX, showMobileWarning, playBackgroundMP3, stopBackgroundMP3, handlePrevious, handleNext, toggleMute, trackPlayTime, checkNightOwlAchievement, checkDedicatedAchievement, selectedGame, showInstructions, showHighScores]);
 
   const GameComponent = games[selectedGame].component;
 
@@ -592,7 +593,7 @@ function App() {
           <div className="relative w-full h-full">
             <GameErrorBoundary gameName={games[selectedGame].title} onReset={() => setIsPlaying(false)}>
               <Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-black text-green-500 font-mono">Loading...</div>}>
-                <GameComponent achievementManager={achievementManager} isMuted={isMuted} autoStart={true} onExit={() => { setIsPlaying(false); playSFX('menu'); trackPlayTime(); }} />
+                <GameComponent achievementManager={achievementManager} isMuted={isMuted} autoStart={false} onExit={() => { setIsPlaying(false); playSFX('menu'); trackPlayTime(); playBackgroundMP3('/matrixarcaderetrobeat.mp3'); }} />
               </Suspense>
             </GameErrorBoundary>
 
@@ -610,6 +611,7 @@ function App() {
                 setIsPlaying(false);
                 playSFX('menu');
                 trackPlayTime();
+                playBackgroundMP3('/matrixarcaderetrobeat.mp3');
               }}
               className="absolute top-4 right-4 z-50 p-3 bg-red-900/90 hover:bg-red-700 rounded-lg border-2 border-red-500/80 backdrop-blur-sm transition-all group shadow-lg hover:shadow-red-500/50 hover:scale-110"
               title="Exit Game (ESC)"
@@ -641,7 +643,7 @@ function App() {
                       {isPlaying && GameComponent ? (
                         <GameErrorBoundary gameName={games[selectedGame].title} onReset={() => setIsPlaying(false)}>
                           <Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-black text-green-500 font-mono">Loading...</div>}>
-                            <GameComponent achievementManager={achievementManager} isMuted={isMuted} autoStart={true} onExit={() => { setIsPlaying(false); playSFX('menu'); trackPlayTime(); }} />
+                            <GameComponent achievementManager={achievementManager} isMuted={isMuted} autoStart={false} onExit={() => { setIsPlaying(false); playSFX('menu'); trackPlayTime(); playBackgroundMP3('/matrixarcaderetrobeat.mp3'); }} />
                           </Suspense>
                         </GameErrorBoundary>
                       ) : (
@@ -696,7 +698,7 @@ function App() {
                           playSFX(isPlaying ? 'menu' : 'score');
                           if (!isPlaying) {
                             if (mp3TimerRef.current) clearTimeout(mp3TimerRef.current);
-                            mp3TimerRef.current = setTimeout(() => playBackgroundMP3('/matrixarcaderetrobeat.mp3'), 500);
+                            stopBackgroundMP3();
 
                             // Track game played
                             const gameName = games[selectedGame].title;
@@ -755,26 +757,26 @@ function App() {
                 <div className="mt-3 flex items-center justify-center gap-3">
                   <button
                     onClick={() => { setShowInstructions(true); setShowHighScores(false); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-green-500/30 bg-green-500/5 hover:bg-green-500/15 hover:border-green-500/50 rounded-lg transition-colors font-mono text-xs text-green-400/80 hover:text-green-400"
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-green-500/40 bg-green-500/10 hover:bg-green-500/20 hover:border-green-500/60 rounded-lg transition-colors font-mono text-xs text-green-400 hover:text-green-300"
                     aria-label="View instructions"
                   >
                     <BookOpen className="w-3.5 h-3.5" />
-                    Instructions
+                    HOW TO PLAY
                   </button>
                   <button
                     onClick={() => { setShowHighScores(true); setShowInstructions(false); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-green-500/30 bg-green-500/5 hover:bg-green-500/15 hover:border-green-500/50 rounded-lg transition-colors font-mono text-xs text-green-400/80 hover:text-green-400"
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-green-500/40 bg-green-500/10 hover:bg-green-500/20 hover:border-green-500/60 rounded-lg transition-colors font-mono text-xs text-green-400 hover:text-green-300"
                     aria-label="View high scores"
                   >
                     <Trophy className="w-3.5 h-3.5" />
-                    High Scores
+                    HIGH SCORE
                   </button>
                 </div>
 
                 {/* Keyboard Hints */}
-                <div className="mt-3 text-xs lg:text-sm text-green-400/70 text-center space-y-1">
-                  <p>← → Navigate Games • Enter to Play • ESC to Exit</p>
-                  <p>I Instructions • H High Scores • A Achievements • V Mute</p>
+                <div className="mt-3 text-xs lg:text-sm text-green-400/60 text-center space-y-1 font-mono">
+                  <p className="text-green-500/70">← → NAVIGATE • ENTER PLAY • ESC EXIT</p>
+                  <p className="text-green-500/50">I Instructions • H Scores • A Achievements • V Mute</p>
                 </div>
               </div>
           </div>

@@ -57,8 +57,8 @@ export class MenuScene extends BaseScene {
       height * 0.85,
       'ESC: Exit  P: Pause  M: Mute',
       10,
-      MATRIX_COLORS.DARK_GREEN_HEX
-    );
+      MATRIX_COLORS.PRIMARY_HEX
+    ).setAlpha(0.3);
 
     // Keyboard input
     this.setupMenuInput();

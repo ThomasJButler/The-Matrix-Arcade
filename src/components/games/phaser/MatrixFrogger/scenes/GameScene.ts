@@ -58,11 +58,6 @@ export class FroggerGameScene extends BaseScene {
   private level = 1;
   private neoDestroyCount = 0;
 
-  // Countdown
-  private isCountdown = true;
-  private countdownValue = GAME_CONFIG.COUNTDOWN.DURATION;
-  private countdownText!: Phaser.GameObjects.Text;
-
   // Kung Fu
   private kungFuCharges = GAME_CONFIG.KUNG_FU.MAX_CHARGES;
   private kungFuTotalUsed = 0;
@@ -194,9 +189,7 @@ export class FroggerGameScene extends BaseScene {
     });
 
     // Start countdown
-    this.isCountdown = true;
-    this.countdownValue = GAME_CONFIG.COUNTDOWN.DURATION;
-    this.startCountdown();
+    this.startCountdown(GAME_CONFIG.COUNTDOWN.DURATION, () => {});
 
     // Background music
     this.playBackgroundMusic('/assets/matrix-frogger/audio/soundtrack.mp3');
@@ -210,7 +203,7 @@ export class FroggerGameScene extends BaseScene {
     this.updateMatrixRain(this.rainGroup, delta);
 
     // During countdown, don't process gameplay
-    if (this.isCountdown) return;
+    if (this.isCountingDown) return;
 
     // Process input
     this.handleInput();
@@ -241,64 +234,6 @@ export class FroggerGameScene extends BaseScene {
       level: this.level,
       kungFuCharges: this.kungFuCharges,
     });
-  }
-
-  // ---------------------------------------------------------------------------
-  // Countdown
-  // ---------------------------------------------------------------------------
-
-  private startCountdown(): void {
-    this.countdownText = this.add.text(
-      GAME_CONFIG.WIDTH / 2,
-      GAME_CONFIG.HEIGHT / 2,
-      String(this.countdownValue),
-      {
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: '64px',
-        color: MATRIX_COLORS.PRIMARY_HEX,
-      }
-    );
-    this.countdownText.setOrigin(0.5);
-    this.countdownText.setDepth(200);
-
-    this.tickCountdown();
-  }
-
-  private tickCountdown(): void {
-    if (this.countdownValue <= 0) {
-      this.countdownText.setText('GO!');
-      this.countdownText.setColor('#00ffff');
-      this.playSound('levelUp');
-
-      this.tweens.add({
-        targets: this.countdownText,
-        alpha: 0,
-        scale: 2,
-        duration: 500,
-        onComplete: () => {
-          this.countdownText.destroy();
-          this.isCountdown = false;
-        },
-      });
-      return;
-    }
-
-    this.countdownText.setText(String(this.countdownValue));
-    this.countdownText.setScale(1);
-    this.countdownText.setAlpha(1);
-    this.playSound('hit');
-
-    this.tweens.add({
-      targets: this.countdownText,
-      scale: 0.6,
-      alpha: 0.5,
-      duration: 800,
-      ease: 'Quad.easeIn',
-    });
-
-    this.countdownValue--;
-
-    this.time.delayedCall(1000, () => this.tickCountdown());
   }
 
   // ---------------------------------------------------------------------------

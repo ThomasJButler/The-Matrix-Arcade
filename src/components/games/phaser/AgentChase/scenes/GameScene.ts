@@ -152,11 +152,13 @@ export class AgentChaseGameScene extends BaseScene {
     this.setupCollisions();
 
     this.playBackgroundMusic('/assets/audio/music/boss-theme.mp3');
+    this.startCountdown(5, () => {});
   }
 
   update(time: number, delta: number): void {
     if (this.isPaused) return;
     if (!this.cursors) return;
+    if (this.isCountingDown) return;
 
     // Update animation
     this.animTimer += delta;
@@ -206,6 +208,7 @@ export class AgentChaseGameScene extends BaseScene {
       dotsCollected: this.dotsCollected,
       mapName: this.currentLayout.name,
       mazesPlayed: this.mazesPlayed.size,
+      countdownValue: this.countdownValue,
     });
   }
 

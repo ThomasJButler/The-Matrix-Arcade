@@ -61,7 +61,7 @@ function createTestScene(): any {
     kungFuTotalUsed: 0,
     lastKungFuTime: 0,
     kungFuIcons: [],
-    isCountdown: true,
+    isCountingDown: true,
     countdownValue: GAME_CONFIG.COUNTDOWN.DURATION,
   };
 
@@ -221,7 +221,7 @@ describe('FroggerGameScene', () => {
     });
 
     it('should start in countdown mode', () => {
-      expect(scene.isCountdown).toBe(true);
+      expect(scene.isCountingDown).toBe(true);
     });
   });
 

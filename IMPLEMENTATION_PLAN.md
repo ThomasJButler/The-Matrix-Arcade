@@ -5,7 +5,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: R76 OPEN — User playtest (2026-04-14) surfaced 8 global + 22 per-game items across 12 games. R75 P1 guards confirmed resolved in live browser. Next phase = final polish loop (overnight Ralph run).
+## Status: R76 IN PROGRESS — R76.1 closed G1-G6, G8-G9 (8 of 9 global items). G7 (About page) deferred. Moving to per-game P0 items next.
 
 > **Last change**: R76 (2026-04-14) — planning-only session. Tom completed full hands-on playtest in live browser ("Brilliant implementation so far, well done!"). R75 P1 cursor-guard work is now playtest-confirmed resolved. New findings logged below as `R76 Playtest Findings` — these supersede R75's open items in priority. Ralph Loop Strategy rewritten as an **overnight autonomous protocol** with a defined terminator condition (see bottom of file). Intended outcome: single unattended loop closes all R76 items before morning.
 >
@@ -100,51 +100,37 @@ These are the items surfaced by Tom's hands-on playtest (2026-04-14). Every item
 
 ### R76 — Global Items
 
-#### G1 — [P0] No start menu on launch (all 12 games)
-- [ ] **Fix**: Change `autoStart={true}` → `autoStart={false}` at `src/App.tsx:595` and `src/App.tsx:644`.
-- **Why**: Currently every game boots straight into `GameScene`, skipping `MenuScene`. User expects to manually press START.
-- **Cascading impact**: Breaks 12 playthrough E2E specs that rely on `autoStart=true` — address via new menu-first spec (see Section R76 E2E below).
-- **Acceptance**: Launch any game via portal → MenuScene visible with title + "Press ENTER" hint. ENTER transitions into countdown (G8), then gameplay.
+#### ~~G1 — [P0] No start menu on launch (all 12 games)~~ RESOLVED (R76.1)
+- [x] (R76.1) Changed `autoStart={true}` → `autoStart={false}` at both App.tsx GameComponent sites.
 
-#### G2 — [P0] Global BGM (`matrixarcaderetrobeat.mp3`) overlaps per-game music
-- [ ] **Fix**: Scope `playBackgroundMP3()` so it only plays when (a) on landing page or (b) inside CTRL-S World. Stop it on entry to ANY Phaser game; resume only when the user is back on the landing page.
-- **Files**: `src/App.tsx:396` (mount play), `src/App.tsx:699` (resume-on-exit), `src/hooks/useSoundSystem.ts:774-812` (playback logic).
-- **Acceptance**: Snake Classic, Rhythm Hacker, etc. play only their own track — no overlap. CTRL-S retains retrobeat. Landing page retains retrobeat.
+#### ~~G2 — [P0] Global BGM (`matrixarcaderetrobeat.mp3`) overlaps per-game music~~ RESOLVED (R76.1)
+- [x] (R76.1) Replaced `playBackgroundMP3` on game entry with `stopBackgroundMP3`. Added `playBackgroundMP3` resume on all exit paths (ESC, exit button, onExit callback).
 
-#### G3 — [P0] Achievements modal "crushes the page"
-- [ ] **Fix**: Audit grid overflow at 1280×800 and 375×667. Likely culprit: `h-[90vh]` + nested scroll + focus trap interaction. Constrain modal to `max-h-[90vh] overflow-hidden` with inner scroller only. Add visual regression baselines for open-achievements state.
-- **File**: `src/components/ui/AchievementDisplay.tsx` (currently `fixed inset-0 z-50 max-w-6xl h-[90vh] overflow-y-auto`, grid `md:grid-cols-2 lg:grid-cols-3` at line 193).
-- **Acceptance**: Open achievements on landing + post-game — layout stable, no layout shift on open/close, no overlap with surrounding UI.
+#### ~~G3 — [P0] Achievements modal "crushes the page"~~ RESOLVED (R76.1)
+- [x] (R76.1) Changed `h-[90vh]` → `max-h-[90vh]`, added `flex flex-col` to modal container, `shrink-0` to header, `flex-1 min-h-0` to scrollable grid area.
 
-#### G4 — [P1] Landing page grid card sizes inconsistent
-- [ ] **Fix**: Set each card to `aspect-[4/3] h-full` within the grid; equalise content-area heights with `min-h-[Npx]` for title + description blocks so cards of different text lengths still bound-box identically.
-- **File**: `src/components/LandingPage.tsx:187` (grid: `grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5`) + the card component it renders.
-- **Acceptance**: All cards in grid identical bounding box at every breakpoint.
+#### ~~G4 — [P1] Landing page grid card sizes inconsistent~~ RESOLVED (R76.1)
+- [x] (R76.1) Added `flex flex-col h-full` to card container, `flex-1` to description paragraph so all cards stretch to equal height.
 
-#### G5 — [P1] Card layout — only PLAY button stands out; instructions/high scores/nav hard to see
-- [ ] **Fix**: In the carousel (portal view in `src/App.tsx`) + card components, add consistent section headers ("HOW TO PLAY", "HIGH SCORE", "NAVIGATE"), bump contrast on secondary text to Matrix green at alpha 0.7, keep PLAY as the only solid-filled button. PLAY remains the single clear CTA.
-- **Acceptance**: Visual hierarchy: PLAY most prominent; instructions/scores/nav readable in <1s glance.
+#### ~~G5 — [P1] Card layout — only PLAY button stands out~~ RESOLVED (R76.1)
+- [x] (R76.1) Bumped button contrast (bg-green-500/10, text-green-400), renamed buttons to "HOW TO PLAY" / "HIGH SCORE", improved keyboard hints formatting.
 
-#### G6 — [P1] Pause/resume often fails to resume (all Phaser games; CTRL-S fine)
-- [ ] **Fix**: Promote a `BaseScene.resumeGame()` that (1) destroys the pause overlay via existing `hidePauseOverlay()`, (2) sets `this.input.keyboard.enabled = true`, (3) re-asserts focus on the Phaser canvas, (4) calls `this.scene.resume()`. Replace 11 ad-hoc pKey toggle bodies with a single call to this helper.
-- **Files**: `src/lib/phaser/scenes/BaseScene.ts:115-172` (existing `togglePause` + `hidePauseOverlay`), every `GameScene.ts` pKey handler.
-- **Acceptance**: Press P-P across all games — instant resume, all controls live. Covered by new E2E spec.
+#### ~~G6 — [P1] Pause/resume often fails to resume~~ RESOLVED (R76.1)
+- [x] (R76.1) Added `BaseScene.resumeGame()` that re-enables keyboard, re-focuses canvas, hides overlay, then calls `scene.resume()`. Called from `togglePause()` on unpause path.
 
 #### G7 — [P2] New "About / Inspiration / Passion" tab
-- [ ] **Fix**: Create `src/components/About.tsx` with 3 sections: "About the Arcade", "Game Inspirations" (one short blurb per game with reference image from `rebuildingoldgames/inspirationimagesandsprites/`), "Why I Built This" (personal note from Tom — leave placeholder for him to fill). Wire into landing header nav. Keyboard accessible. ESC returns to landing.
-- **Acceptance**: Accessible from landing, readable, no impact on game paths, passes keyboard-only a11y test.
+- [ ] **Fix**: Create `src/components/About.tsx` with 3 sections. Wire into landing header nav.
+- **Acceptance**: Accessible from landing, readable, no impact on game paths.
 
-#### G8 — [P1] 5-second countdown before gameplay starts (all games)
-- [ ] **Fix**: Promote the pattern from `MatrixFrogger/config.ts:76-79` + `GameScene.ts:63,196-212` into `BaseScene.startCountdown(seconds: number, onComplete: () => void)`. Call from every `GameScene.create()` after MenuScene hands off. Expose `countdownValue` via `exposeTestState()` for E2E.
-- **Dependency**: Lands after G1.
-- **Acceptance**: Unified 5-4-3-2-1-GO overlay on all 12 games. Input during countdown does NOT affect gameplay. Test exposes countdown value.
+#### ~~G8 — [P1] 5-second countdown before gameplay starts (all games)~~ RESOLVED (R76.1)
+- [x] (R76.1) Promoted countdown to `BaseScene.startCountdown(seconds, onComplete)`. Added to all 11 Phaser games. RhythmHacker retains its own ms-precision countdown. MatrixFrogger refactored to use BaseScene's version. `countdownValue` exposed via `exposeTestState()`.
 
-#### G9 — [P2] R75 P2 Cleanup Batch (swept up during overnight loop)
-- [ ] Metris `wKey` dead code — wire W to CW rotation in `Metris/scenes/GameScene.ts:80,228` alongside UP/X.
-- [ ] Control hints nearly invisible — change `MenuScene.ts:55-61` from `MATRIX_COLORS.DARK_GREEN_HEX` to `MATRIX_COLORS.PRIMARY_HEX` at `setAlpha(0.3)`.
-- [ ] Dead cleanup in `useSoundSystem.ts:806-811` — remove the `return () => {}` inside the `useCallback`.
-- [ ] Dead `enableTestMode` export in `e2e/fixtures/test-utils.ts`.
-- [ ] 4 hollow test cases in `ShatnerVoiceControls.test.tsx` (lines 131, 333, 356, 372).
+#### ~~G9 — [P2] R75 P2 Cleanup Batch~~ RESOLVED (R76.1)
+- [x] (R76.1) Metris `wKey` wired to CW rotation.
+- [x] (R76.1) MenuScene control hints changed to `PRIMARY_HEX` at `setAlpha(0.3)`.
+- [x] (R76.1) Dead `return () => {}` removed from `useSoundSystem.ts`.
+- [x] (R76.1) Dead `enableTestMode` export removed from `test-utils.ts`.
+- [x] (R76.1) 4 hollow test cases in `ShatnerVoiceControls.test.tsx` given real assertions.
 
 ### R76 — Per-Game Items
 

@@ -1,14 +1,5 @@
 import { Page } from '@playwright/test';
 
-/**
- * Legacy stub — test mode is now activated by the `?test=1` query param via
- * src/lib/test-mode.ts. Tests no longer need to opt-in explicitly. Kept as a
- * no-op so older specs continue to compile until they are migrated.
- */
-export async function enableTestMode(_page: Page): Promise<void> {
-  /* no-op */
-}
-
 /** Returns the per-frame Phaser state written by BaseScene.exposeTestState(). */
 export async function getPhaserState(page: Page): Promise<Record<string, unknown> | null> {
   return page.evaluate(() => (window as unknown as { __PHASER_GAME_STATE__?: Record<string, unknown> }).__PHASER_GAME_STATE__ ?? null);

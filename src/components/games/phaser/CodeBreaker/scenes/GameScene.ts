@@ -88,6 +88,7 @@ export class CodeBreakerGameScene extends BaseScene {
     this.spawnBall(true);
     this.playSound(SOUND_KEYS.MENU);
     this.playBackgroundMusic('/assets/audio/music/ostcrunch2-epic.mp3');
+    this.startCountdown(5, () => {});
   }
 
   private resetState(): void {
@@ -333,6 +334,7 @@ export class CodeBreakerGameScene extends BaseScene {
 
   update(time: number, delta: number): void {
     if (this.isPaused || this.isGameOver || this.isLevelComplete) return;
+    if (this.isCountingDown) return;
 
     this.updateMatrixRain(this.matrixRainGroup, delta);
 
@@ -1242,6 +1244,7 @@ export class CodeBreakerGameScene extends BaseScene {
       fieldPowerUpCount: this.fieldPowerUps.length,
       bossHealth: this.boss?.health ?? null,
       hasPortal: this.portal !== null,
+      countdownValue: this.countdownValue,
     };
   }
 

@@ -94,6 +94,7 @@ export class MetrisGameScene extends BaseScene {
     this.startDropTimer();
     this.playSound(SOUND_KEYS.MENU);
     this.playBackgroundMusic('/assets/audio/music/brothers-and-sisters.mp3');
+    this.startCountdown(5, () => {});
   }
 
   private resetState(): void {
@@ -731,7 +732,7 @@ export class MetrisGameScene extends BaseScene {
       this.restartDropTimer();
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.upKey!) || Phaser.Input.Keyboard.JustDown(this.xKey!)) {
+    if (Phaser.Input.Keyboard.JustDown(this.upKey!) || Phaser.Input.Keyboard.JustDown(this.wKey!) || Phaser.Input.Keyboard.JustDown(this.xKey!)) {
       this.rotatePieceCW();
     }
     if (Phaser.Input.Keyboard.JustDown(this.zKey!) || Phaser.Input.Keyboard.JustDown(this.shiftKey!)) {
@@ -955,6 +956,7 @@ export class MetrisGameScene extends BaseScene {
       this.exposeTestState(this.getTestState());
       return;
     }
+    if (this.isCountingDown) return;
 
     if (this.matrixRainGroup) {
       this.updateMatrixRain(this.matrixRainGroup, delta);
@@ -1007,6 +1009,7 @@ export class MetrisGameScene extends BaseScene {
       ghostY: this.currentPiece ? this.getGhostY() : null,
       pieceBagSize: this.pieceBag.length,
       particleCount: this.particles.length,
+      countdownValue: this.countdownValue,
     };
   }
 

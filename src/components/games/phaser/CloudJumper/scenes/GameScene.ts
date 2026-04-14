@@ -130,10 +130,12 @@ export class CloudJumperGameScene extends BaseScene {
     this.setupCollisions();
 
     this.playBackgroundMusic('/assets/audio/music/a-last-embrace.mp3');
+    this.startCountdown(5, () => {});
   }
 
   update(time: number, delta: number): void {
     if (this.isPaused) return;
+    if (this.isCountingDown) return;
 
     // Update scroll speed
     this.updateScrollSpeed(delta);
@@ -171,6 +173,7 @@ export class CloudJumperGameScene extends BaseScene {
       score: this.score,
       distance: this.distance,
       bounceStreak: this.bounceStreak,
+      countdownValue: this.countdownValue,
     });
   }
 

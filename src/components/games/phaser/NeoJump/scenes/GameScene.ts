@@ -182,11 +182,13 @@ export class NeoJumpGameScene extends BaseScene {
     this.setupCamera();
 
     this.playBackgroundMusic('/assets/audio/music/menu-theme.mp3');
+    this.startCountdown(5, () => {});
   }
 
   update(time: number, delta: number): void {
     if (this.isPaused) return;
     if (!this.cursors) return;
+    if (this.isCountingDown) return;
 
     // Update parallax rain
     this.updateParallaxRain(delta);
@@ -232,6 +234,7 @@ export class NeoJumpGameScene extends BaseScene {
       jetpackFuel: this.jetpackFuel,
       shieldActive: this.shieldActive,
       collectiblesCollected: this.collectiblesCollected,
+      countdownValue: this.countdownValue,
     });
   }
 
