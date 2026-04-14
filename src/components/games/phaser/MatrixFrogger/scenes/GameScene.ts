@@ -210,7 +210,6 @@ export class FroggerGameScene extends BaseScene {
 
   update(time: number, delta: number): void {
     if (this.isPaused) return;
-    if (!this.cursors) return;
 
     // Update matrix rain
     this.updateMatrixRain(this.rainGroup, delta);
@@ -223,8 +222,9 @@ export class FroggerGameScene extends BaseScene {
     // During countdown, don't process gameplay
     if (this.isCountingDown) return;
 
-    // Process input
-    this.handleInput();
+    if (this.cursors) {
+      this.handleInput();
+    }
 
     // Update enemies
     this.updateEnemies(delta);
