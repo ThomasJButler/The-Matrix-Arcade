@@ -55,7 +55,7 @@ export class HighScoreEntryScene extends BaseScene {
     this.playSound('scoreboardNewHigh');
     this.createMatrixText(cx, h * 0.10, 'NEW HIGH SCORE!', 18, MATRIX_COLORS.YELLOW_HEX);
     this.createMatrixText(cx, h * 0.20, this.scoreData.score.toLocaleString(), 24);
-    this.createMatrixText(cx, h * 0.30, 'ENTER YOUR INITIALS', 10, '#338833');
+    this.createMatrixText(cx, h * 0.30, 'ENTER YOUR INITIALS', 10, MATRIX_COLORS.MUTED_GREEN_HEX);
 
     const slotWidth = 40;
     const startX = cx - slotWidth;
@@ -87,7 +87,7 @@ export class HighScoreEntryScene extends BaseScene {
 
     this.updateSlotHighlight();
 
-    this.createMatrixText(cx, h * 0.72, 'ARROWS: SELECT    ENTER: CONFIRM', 7, '#338833');
+    this.createMatrixText(cx, h * 0.72, 'ARROWS: SELECT    ENTER: CONFIRM', 7, MATRIX_COLORS.MUTED_GREEN_HEX);
 
     this.setupInput();
     this.setupCommonInputs();

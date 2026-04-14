@@ -127,7 +127,7 @@ export class GameOverScene extends BaseScene {
       this.add.text(x - 8, y, stats[i].label.toUpperCase(), {
         fontFamily: MATRIX_FONTS.PRIMARY,
         fontSize: '8px',
-        color: '#338833',
+        color: MATRIX_COLORS.MUTED_GREEN_HEX,
         align: 'right',
       }).setOrigin(1, 0.5);
 
