@@ -234,4 +234,13 @@ describe('PowerUpIndicator', () => {
       expect(screen.getByText('SLOW BALL')).toBeInTheDocument();
     });
   });
+
+  describe('Accessibility', () => {
+    it('has role="status" and aria-live="polite" on container', () => {
+      render(<PowerUpIndicator activePowerUps={{ bigger_paddle: true }} />);
+      const status = screen.getByRole('status');
+      expect(status).toHaveAttribute('aria-live', 'polite');
+      expect(status).toHaveAttribute('aria-label', 'Active power-ups');
+    });
+  });
 });

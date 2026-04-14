@@ -124,4 +124,18 @@ describe('MobileWarning', () => {
     expect(contentBox).toBeInTheDocument();
     expect(contentBox).toHaveClass('w-full');
   });
+
+  it('has role="dialog" and aria-modal on overlay', () => {
+    render(<MobileWarning />);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(dialog).toHaveAttribute('aria-labelledby', 'mobile-warning-title');
+  });
+
+  it('dismiss button has aria-label', () => {
+    const mockDismiss = vi.fn();
+    render(<MobileWarning onDismiss={mockDismiss} />);
+    const button = screen.getByRole('button', { name: /dismiss desktop requirement warning/i });
+    expect(button).toBeInTheDocument();
+  });
 });

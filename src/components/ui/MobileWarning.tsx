@@ -9,6 +9,9 @@ interface MobileWarningProps {
 export const MobileWarning: React.FC<MobileWarningProps> = ({ onDismiss }) => {
   return (
     <motion.div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="mobile-warning-title"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -45,7 +48,7 @@ export const MobileWarning: React.FC<MobileWarningProps> = ({ onDismiss }) => {
           </div>
 
           {/* Title */}
-          <h2 className="text-2xl font-mono text-green-400 mb-4">
+          <h2 id="mobile-warning-title" className="text-2xl font-mono text-green-400 mb-4">
             DESKTOP REQUIRED
           </h2>
 
@@ -69,6 +72,7 @@ export const MobileWarning: React.FC<MobileWarningProps> = ({ onDismiss }) => {
           {onDismiss && (
             <button
               onClick={onDismiss}
+              aria-label="Dismiss desktop requirement warning"
               className="px-6 py-2 bg-green-500 text-black font-mono rounded hover:bg-green-400 transition-colors"
             >
               I UNDERSTAND

@@ -16,7 +16,7 @@ const getPowerUpDisplay = (type: string) => {
 
 export const PowerUpIndicator = ({ activePowerUps }: PowerUpIndicatorProps) => {
   return (
-    <div className="w-full flex flex-wrap justify-center gap-2 md:gap-4">
+    <div role="status" aria-live="polite" aria-label="Active power-ups" className="w-full flex flex-wrap justify-center gap-2 md:gap-4">
       {Object.entries(activePowerUps).map(([type, active]) => {
         if (!active) return null;
         
