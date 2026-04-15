@@ -206,6 +206,54 @@
   min-height: 3rem;
 }
 
+/* ===== iPod Playing State ===== */
+.ipod-body--playing {
+  padding: 0.75rem;
+}
+
+.ipod-body--playing .ipod-screen {
+  border-radius: 0.5rem;
+}
+
+.ipod-screen--playing {
+  aspect-ratio: 16 / 9;
+  min-height: 50vh;
+  max-height: 70vh;
+}
+
+@media (min-width: 1024px) {
+  .ipod-screen--playing {
+    min-height: 55vh;
+    max-height: 75vh;
+  }
+}
+
+.ipod-body--playing .ipod-clickwheel-region {
+  min-height: auto;
+}
+
+.ipod-clickwheel--compact {
+  width: 140px !important;
+  height: 140px !important;
+}
+
+@media (min-width: 1024px) {
+  .ipod-clickwheel--compact {
+    width: 160px !important;
+    height: 160px !important;
+  }
+}
+
+.ipod-body--playing .clickwheel-zone span,
+.ipod-body--playing .clickwheel-centre {
+  font-size: 0.65rem;
+}
+
+/* Dim disabled nav buttons during play */
+.ipod-body--playing .clickwheel-zone:disabled span {
+  opacity: 0.3;
+}
+
 /* ===== iPod Clickwheel ===== */
 .ipod-clickwheel {
   position: relative;

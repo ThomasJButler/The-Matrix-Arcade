@@ -5,7 +5,7 @@
  *              navigation, sound system, achievements, and PWA features.
  */
 
-import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import './styles/theme.css';
 import './styles/animations.css';
@@ -18,8 +18,6 @@ import {
   Settings,
   Save,
   Crosshair,
-  X,
-  VolumeX,
   Blocks,
   Footprints,
   ArrowUp,
@@ -50,7 +48,6 @@ import { AchievementDisplay } from './components/ui/AchievementDisplay';
 import { PWAInstallPrompt } from './components/ui/PWAInstallPrompt';
 import { PWAUpdatePrompt } from './components/ui/PWAUpdatePrompt';
 import { MobileWarning } from './components/ui/MobileWarning';
-import { GameErrorBoundary } from './components/ui/GameErrorBoundary';
 import { GameInstructions } from './components/ui/GameInstructions';
 import { GameHighScores } from './components/ui/GameHighScores';
 import { MatrixRainCanvas } from './components/ui/MatrixRainCanvas';
@@ -387,6 +384,13 @@ function App() {
     }
   }, [playSFX, stopBackgroundMP3, games, selectedGame, checkNightOwlAchievement, checkDedicatedAchievement, achievementManager]);
 
+  const handleExitGame = useCallback(() => {
+    setIsPlaying(false);
+    playSFX('menu');
+    trackPlayTime();
+    playBackgroundMP3('/matrixarcaderetrobeat.mp3');
+  }, [playSFX, trackPlayTime, playBackgroundMP3]);
+
   /**
    * @listens isPlaying, achievementManager, playSFX, showMobileWarning, playBackgroundMP3, handlePrevious, handleNext, toggleMute
    * Global keyboard shortcuts: ESC (exit), Arrow keys (navigate), Enter (play), A (achievements), V (mute)
@@ -405,10 +409,7 @@ function App() {
       // ESC key to exit games — resume landing BGM
       if (e.key === 'Escape' && isPlaying) {
         e.preventDefault();
-        setIsPlaying(false);
-        playSFX('menu');
-        trackPlayTime();
-        playBackgroundMP3('/matrixarcaderetrobeat.mp3');
+        handleExitGame();
       }
       
       // Arrow keys for game navigation (when not playing)
@@ -496,9 +497,7 @@ function App() {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isPlaying, achievementManager, playSFX, showMobileWarning, playBackgroundMP3, stopBackgroundMP3, handlePrevious, handleNext, toggleMute, trackPlayTime, checkNightOwlAchievement, checkDedicatedAchievement, selectedGame, showInstructions, showHighScores, showAbout, showScoreboard, games]);
-
-  const GameComponent = games[selectedGame].component;
+  }, [isPlaying, achievementManager, playSFX, showMobileWarning, playBackgroundMP3, stopBackgroundMP3, handlePrevious, handleNext, toggleMute, trackPlayTime, checkNightOwlAchievement, checkDedicatedAchievement, selectedGame, showInstructions, showHighScores, showAbout, showScoreboard, games, handleExitGame]);
 
   // E2E ready markers — let Playwright wait on these instead of arbitrary settle delays.
   useEffect(() => {
@@ -648,40 +647,6 @@ function App() {
         {isMuted ? 'Audio muted' : 'Audio unmuted'}
       </div>
       <main id="main-content" className="flex-1 overflow-hidden flex items-center justify-center p-2 lg:p-4">
-        {/* Fullscreen Game View */}
-        {isPlaying && GameComponent ? (
-          <div className="relative w-full h-full">
-            <GameErrorBoundary gameName={games[selectedGame].title} onReset={() => setIsPlaying(false)}>
-              <Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-black text-green-500 font-mono">Loading...</div>}>
-                <GameComponent achievementManager={achievementManager} isMuted={isMuted} autoStart={false} onExit={() => { setIsPlaying(false); playSFX('menu'); trackPlayTime(); playBackgroundMP3('/matrixarcaderetrobeat.mp3'); }} />
-              </Suspense>
-            </GameErrorBoundary>
-
-            {/* Floating Mute Indicator - More Visible */}
-            {isMuted && (
-              <div className="absolute top-4 left-4 z-50 flex items-center gap-2 px-4 py-2 bg-red-600/90 border-2 border-red-400 rounded-lg animate-pulse-red pointer-events-none shadow-lg shadow-red-500/50">
-                <VolumeX className="w-5 h-5 text-white" />
-                <span className="text-white font-mono text-sm font-bold">MUTED</span>
-              </div>
-            )}
-
-            {/* Floating Exit Button */}
-            <button
-              onClick={() => {
-                setIsPlaying(false);
-                playSFX('menu');
-                trackPlayTime();
-                playBackgroundMP3('/matrixarcaderetrobeat.mp3');
-              }}
-              className="absolute top-4 right-4 z-50 p-3 bg-red-900/90 hover:bg-red-700 rounded-lg border-2 border-red-500/80 backdrop-blur-sm transition-all group shadow-lg hover:shadow-red-500/50 hover:scale-110"
-              title="Exit Game (ESC)"
-              aria-label="Exit Game"
-            >
-              <X className="w-6 h-6 group-hover:rotate-90 transition-transform" />
-              <span className="absolute -bottom-6 right-0 text-xs text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">ESC</span>
-            </button>
-          </div>
-        ) : (
           <GamePortal
             games={games}
             selectedGame={selectedGame}
@@ -691,11 +656,14 @@ function App() {
             onPrev={handlePrevious}
             onNext={handleNext}
             onPlay={handlePlayFromPortal}
+            onExit={handleExitGame}
             onShowInstructions={() => { setShowInstructions(true); setShowHighScores(false); }}
             onShowHighScores={() => { setShowHighScores(true); setShowInstructions(false); }}
             isPlayDisabled={showMobileWarning}
+            isPlaying={isPlaying}
+            isMuted={isMuted}
+            achievementManager={achievementManager}
           />
-        )}
       </main>
 
       {/* Enhanced Footer */}
