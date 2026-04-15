@@ -5,7 +5,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: R80 COMPLETE — CTRL-S flagship rewrite shipped
+## Status: R81 open — arcade-wide juice polish sweep + repo trim (14 tasks, 15-loop cap, CTRL-S excluded for Tom's iteration work)
 
 > **R78.7 complete (2026-04-14)**: Multi-viewport Playwright matrix — added `mobile` (375×667) and `tablet` (768×1024) projects to `playwright.config.ts`. Both viewports trigger the app's "DESKTOP REQUIRED" gate (MobileWarning component), so created dedicated `e2e/responsive/mobile-gate.spec.ts` with 2 tests × 2 viewports = 4 baselines. Scoped via `testMatch: /responsive\//` so only responsive specs run on those projects. Fixed pre-existing lint error (`addScore` unused in App.tsx). All 4 responsive tests pass, all 6 desktop visual tests pass, build clean.
 >
@@ -114,6 +114,67 @@ This file is auto-generated and updated by Ralph during planning and building lo
 - Lint: 0 errors, 14 intentional warnings (6 in CTRL-S `DEFERRED-CTRLS-DEDICATED-PHASE`, rest in circular hook deps / mount-only effects / context colocation)
 - PWA + build: green
 - Docker linux baselines: shipped R79.1 (daemon now available)
+
+---
+
+## R81 — Arcade-wide Juice Polish + Repo Trim (MEDIUM — 14 tasks, 15-loop cap)
+
+> **Tom's call (2026-04-17, post-R80 playtest)**: *"I have many improvements to make to CTRL-S, but I want to do the overnight loop for the other games. Juice clearly picked up good stuff in R80.24, and the other 11 games were built without it — may add extra sauce we didn't think of due to having to focus on so much at once."*
+
+**Scope**: Apply `juice:juice-audit` + `juice:juice-recipe` pattern (proven on CTRL-S R80.24 — shipped 5 concrete polish fixes) to all **11 non-CTRL-S** Phaser games. CTRL-S is EXCLUDED this run — Tom is iterating on it separately tomorrow. Repo trim + R80 archive bundled for efficiency.
+
+### R81 Guardrails (IMPORTANT — differs from R80)
+
+- **CTRL-S guardrail is RE-ARMED.** Ralph MUST NOT touch `src/components/games/phaser/CtrlSWorld/` or any CTRL-S files. Tom is iterating on CTRL-S separately. Tag any CTRL-S-adjacent work `DEFERRED-TO-TOM-CTRLS-ITERATION` and skip. The R80 work is complete but Tom wants hands-off while he plays + plans improvements.
+- **Juice is subjective.** If a game already has rich juice (e.g. Rhythm Hacker from R76.3), focus on ADDITIONS that complement existing feedback, don't overhaul. When in doubt, err on the side of less (over-juice nauseates).
+- **Feel over spec.** Each juice pass should ship concrete improvements — not research docs. Pattern per game: audit → recipe → implement → commit in one iteration.
+- **Visual baselines**: regen per game AFTER the juice lands. Commit baselines separately with `R81.N-visual: baseline update` message.
+
+### R81 Task List (14 tasks)
+
+- [ ] **R81.1 — [P2]** Archive R80 to `COMPLETED_WORK.md § R80 — CTRL-S Flagship Rewrite`. Move R80 task list + completion report + discovered work. Replace in-plan with one-line back-reference. Doc-only, ~1 iteration.
+- [ ] **R81.2 — [P2]** Repo trim: audit `rebuildingoldgames/plans/*.md` (149 open boxes, 0 ticked, mostly stale since R76–R80 shipped ~60-80% of items). Write resolved-items summary into `COMPLETED_WORK.md § Rebuildingoldgames Archive (R81)`. Then `git rm -r rebuildingoldgames/` (68K, tracked). Update `IMPLEMENTATION_PLAN.md` Reference Docs section — prune dead paths to `rebuildingoldgames/plans/*.md` and `rebuildingoldgames/inspirationimagesandsprites/`.
+- [ ] **R81.3 — [P2]** Juice sweep: **Snake Classic** (`SnakeClassic/`). Key moments: food pickup (punch, particle burst, chomp SFX), speed-up tier transitions (screen flash, audio cue), death (shake + slow-mo + distort), combo eating (escalating feedback).
+- [ ] **R81.4 — [P2]** Juice sweep: **Vortex Pong** (`VortexPong/`). Key moments: paddle hit (shake + particle trail on ball), goal (score pop + screen flash + cheer stinger), power-up collect (brief slow-mo + colour shift), crowd-style reaction audio.
+- [ ] **R81.5 — [P2]** Juice sweep: **Matrix Bird** (`MatrixCloud/` — renamed display to Matrix Bird in R76.3). Key moments: pipe pass (score pop + wing-flap SFX variation), power-up collect (particle shower), death (shake + rewind wipe), score milestone achieved (stinger).
+- [ ] **R81.6 — [P2]** Juice sweep: **Matrix Invaders** (`MatrixInvaders/`). Key moments: enemy hit (shatter particles + chomp SFX), player fire (muzzle flash + shell eject), bullet-time enter/exit (desaturate + audio filter sweep), wave clear (fanfare + screen pulse).
+- [ ] **R81.7 — [P2]** Juice sweep: **Metris** (`Metris/`). Key moments: line clear (cascade particles per row + satisfying crunch), hard drop (impact shake + dust), bullet-time activation (UI charge flash + audio stinger), level-up (colour shift + rank-up fanfare), game-over (flash white → fade).
+- [ ] **R81.8 — [P2]** Juice sweep: **Matrix Frogger** (`MatrixFrogger/`). Key moments: row advance (score pop + whoosh), kung-fu hit (hitstop + screen shake + impact flash), finish line reach (victory cascade), death (squash + crunch SFX). Be subtle — R76.9 added 3D tilt + lane textures already.
+- [ ] **R81.9 — [P2]** Juice sweep: **Neo Jump** (`NeoJump/`). Key moments: jump (anticipation squash + release puff), platform land (dust + bounce ease), enemy kill (particle splat + pop SFX), fall-death (descending pitch + impact shake), altitude milestone (celebratory chime + UI pulse). Respect R76.9 5-layer parallax — don't over-particle.
+- [ ] **R81.10 — [P2]** Juice sweep: **Agent Chase** (`AgentChase/`). Key moments: dot collect (tick-up + micro-pop), bullet-time dot freeze (time-freeze VFX + agents stutter-slow audio), agent caught (shake + game-over build), power pellet (colour shift + escalating drone).
+- [ ] **R81.11 — [P2]** Juice sweep: **Rhythm Hacker** (`RhythmHacker/`). Key moments: perfect hit (brighter flash + crisp SFX), miss punctuation (screen darken + dull thud), combo milestone (already strong from R76.3 — dial up celebration at 50/100). Be conservative — game is already juicy.
+- [ ] **R81.12 — [P2]** Juice sweep: **Cloud Jumper** (`CloudJumper/`). Key moments: jump (wind whoosh + arc trail), cloud land (fluffy bounce + puff particle), fall-death (descending pitch + shake), height milestone (crescendo cue).
+- [ ] **R81.13 — [P2]** Juice sweep: **Code Breaker** (`CodeBreaker/`). Key moments: brick hit (shake intensity scales with power-up streak, particle colour matches brick), ball launch (ready pulse + woosh), paddle bounce (subtle spring anim), power-up collect (chime + colour shift), level clear (cascade).
+- [ ] **R81.14 — [P1]** Final verification + terminator. Run gates: lint + build + test + e2e + visual. Write `### R81 Completion Report` listing iterations run, games polished, visual baselines regenerated. Update Status line to `R81 COMPLETE — arcade-wide juice polish + repo trim shipped`.
+
+### R81 Terminator
+
+- All R81.1–R81.14 marked `[x]`.
+- Gates green: lint + build + test + e2e + visual.
+- `rebuildingoldgames/` deleted from git.
+- `COMPLETED_WORK.md` contains R80 archive + rebuildingoldgames summary.
+- CTRL-S files untouched (verified via `git diff --stat HEAD~14 -- src/components/games/phaser/CtrlSWorld/` returns empty).
+- Status line: `R81 COMPLETE — arcade-wide juice polish + repo trim shipped`.
+
+Standard complete-and-exit pattern. Recommended cap: **15 loops** (1-iteration buffer over 14 tasks).
+
+### R81 Shared Effect Helpers (reuse across games)
+
+If Ralph finds the same juice idiom being repeated across ≥3 games, extract into `src/lib/phaser/scenes/BaseScene.ts` as a reusable method:
+- `emitJuiceBurst(x, y, config?)` — particle pop at coords
+- `juicyHitstop(durationMs)` — brief time-freeze on impact
+- `screenShakeImpact(intensity)` — preset durations/intensities
+- `chromaticPulse()` — Matrix-green edge pulse
+
+Common patterns from R77 scoreboard + R80 narrative (both proven):
+- Screen shake: `this.cameras.main.shake(80, 0.008)` for "satisfying hit" — don't exceed 200ms / 0.015 intensity (nausea threshold).
+- Particle bursts: `lifespan: 400, scale: { start: 0.6, end: 0, ease: 'Quad.easeOut' }` for clean fade.
+- Audio stingers: procedural via `useSoundSystem` `playSFX(key)`. Keep < 200ms so they don't layer harshly.
+- Hitstop: `this.time.timeScale = 0.1` for 50-80ms, then restore — use sparingly.
+
+### R81 Discovered Work
+
+_(Ralph appends findings here. Anything that's out of scope for this loop — e.g. CTRL-S feedback ideas uncovered while juicing other games — goes here for Tom's triage.)_
 
 ---
 
@@ -696,31 +757,22 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 
 ### TERMINATOR CONDITION (Ralph stops looping only when ALL of these are true)
 
-- All R80.1 through R80.26 tasks marked `[x]`.
+- All R81.1 through R81.14 tasks marked `[x]`.
 - `npm run lint`, `npm run build`, `npm test`, `npm run test:e2e`, `npm run test:visual` ALL green on a clean run.
-- Old `src/components/games/CtrlSWorld.tsx` + `CtrlSWorld.test.tsx` deleted (verified via R80.25 cut-over).
-- `public/assets/ctrl-s/` populated with sourced assets (R80.9).
-- `specs/ctrls-golden-path-trim-plan.md` exists (R80.26 output for Tom's R81 review).
-- The `## Status` line contains the phrase **"R80 COMPLETE — CTRL-S flagship rewrite shipped"**.
-- `### R80 Completion Report` written under the R80 section with iterations/closed/discovered-work summary.
+- `rebuildingoldgames/` folder deleted from git (R81.2 cut).
+- `COMPLETED_WORK.md` contains new `## R80 — CTRL-S Flagship Rewrite` section (R81.1 archive).
+- **CTRL-S files untouched** — `git diff --stat HEAD~14 -- src/components/games/phaser/CtrlSWorld/` returns empty.
+- The `## Status` line contains the phrase **"R81 COMPLETE — arcade-wide juice polish + repo trim shipped"**.
+- `### R81 Completion Report` written under the R81 section.
 
-**Execution order for this run** (30-loop cap, 26 tasks — follow R80.1 → R80.26 strictly, dependencies exist):
-1. R80.1 Content map (audit + spec) → 2. R80.2 Phaser scaffold → 3. R80.3 Typewriter engine → 4. R80.4 Story format + prologue
-2. R80.5–7 Content ports (ch1-2, ch3-4, ch5)
-3. R80.8 Choice UI
-4. **R80.9 Asset sourcing from dump** (NEW — all visual/audio tasks depend on this)
-5. R80.10–11 Visual systems (portraits, backgrounds)
-6. R80.12–14 Overlay scenes (puzzle, inventory, chapter hub)
-7. R80.15 Save integration (fix `gameData.stats` crash)
-8. R80.16–18 Audio (Shatner TTS, ambient, character SFX)
-9. R80.19 MenuScene polish (ASCII size)
-10. R80.20 Achievement expansion
-11. R80.21–22 E2E test + visual baselines
-12. R80.23–24 Juice audit + recipe pass (use `juice:juice-audit` / `juice:juice-recipe` skills)
-13. R80.25 Cut-over (delete old React version)
-14. R80.26 Golden-path trim spec + terminator
+**Execution order for this run** (15-loop cap, 14 tasks):
+1. R81.1 Archive R80 (doc-only, cheap) → 2. R81.2 Repo trim (doc + git rm, cheap)
+2. R81.3–R81.13 Juice sweep per game (independent, any order). Suggested: fast arcade feel first (Snake, Pong, Invaders), then build-up games (Metris, Frogger, NeoJump), then rhythm-adjacent (Rhythm Hacker — be conservative, already polished)
+3. R81.14 Final verification + terminator
 
-**Pattern**: R80 uses standard complete-and-exit (like R76/R77/R79). Auto-terminator is correct. Do NOT use R78's never-terminate pattern.
+**Pattern**: R81 uses standard complete-and-exit (like R76/R77/R79/R80). Auto-terminator is correct. Do NOT use R78's never-terminate pattern.
+
+**CTRL-S guardrail is RE-ARMED** — unlike R80 (which touched CTRL-S freely), R81 must NOT touch any CTRL-S file. Tom is iterating on CTRL-S separately after the R80 playtest.
 
 **Stick-with-plan rule**: Don't invent new tasks. Discovered items → `### R80 Discovered Work` for Tom's R81+ triage, NOT into the active task list.
 

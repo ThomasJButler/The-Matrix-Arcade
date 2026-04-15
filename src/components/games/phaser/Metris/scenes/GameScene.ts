@@ -93,7 +93,7 @@ export class MetrisGameScene extends BaseScene {
     this.setupCommonInputs();
     this.startDropTimer();
     this.playSound(SOUND_KEYS.MENU);
-    this.playBackgroundMusic('/assets/audio/music/brothers-and-sisters.mp3');
+    this.playBackgroundMusic('/assets/audio/music/menu-theme.mp3');
     this.startCountdown(5, () => {});
   }
 
