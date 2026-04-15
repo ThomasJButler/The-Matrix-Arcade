@@ -316,6 +316,17 @@ export class CtrlSNarrativeScene extends BaseScene {
   resumeAfterPuzzle(): void {
     this.waitingForPuzzle = false;
     this.promptText?.setText('Press SPACE or ENTER to advance');
+    this.playSound(STINGER_KEYS.REVEAL);
+
+    if (this.bodyText) {
+      this.bodyText.setAlpha(0);
+      this.tweens.add({
+        targets: this.bodyText,
+        alpha: 1,
+        duration: 300,
+        ease: 'Power2',
+      });
+    }
   }
 
   private promoteCompletedParagraph(): void {
@@ -378,8 +389,11 @@ export class CtrlSNarrativeScene extends BaseScene {
       data: { action: 'chapterComplete', chapterIndex: this.chapterIndex },
     });
 
-    this.time.delayedCall(1500, () => {
-      this.scene.start(CTRLS_SCENE_KEYS.CHAPTER_HUB);
+    this.time.delayedCall(1200, () => {
+      this.cameras.main.fadeOut(600, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        this.scene.start(CTRLS_SCENE_KEYS.CHAPTER_HUB);
+      });
     });
   }
 
@@ -414,6 +428,18 @@ export class CtrlSNarrativeScene extends BaseScene {
 
   private handleAdvance(): void {
     if (this.isPaused || this.waitingForPuzzle || this.waitingForChoice || this.waitingForInventory) return;
+
+    this.playSound('menu');
+    if (this.cursorBlink && this.cursorBlink.visible) {
+      this.tweens.add({
+        targets: this.cursorBlink,
+        scaleX: 1.4,
+        scaleY: 1.4,
+        duration: 60,
+        yoyo: true,
+        ease: 'Quad.easeOut',
+      });
+    }
 
     if (this.chapterAscii && this.engine.paragraphIndex === 0 && this.engine.state === 'IDLE') {
       this.tweens.add({
@@ -455,7 +481,6 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.choiceButtons = [];
 
     this.choiceContainer = this.add.container(0, 0);
-    this.choiceContainer.setAlpha(0);
 
     if (prompt) {
       const promptLabel = this.add.text(width / 2, startY - 20, prompt, {
@@ -464,24 +489,37 @@ export class CtrlSNarrativeScene extends BaseScene {
         color: MATRIX_COLORS.DIM_GREEN_HEX,
       });
       promptLabel.setOrigin(0.5);
+      promptLabel.setAlpha(0);
       this.choiceContainer.add(promptLabel);
+      this.tweens.add({
+        targets: promptLabel,
+        alpha: 1,
+        duration: CHOICE_FADE_DURATION,
+        ease: 'Power2',
+      });
     }
+
+    const STAGGER_MS = 80;
 
     choices.forEach((choice, i) => {
       const buttonY = startY + i * (CHOICE_BUTTON_HEIGHT + CHOICE_BUTTON_GAP);
       const button = this.createChoiceButton(choice.label, width / 2, buttonY, i);
+      button.setAlpha(0);
+      button.y += 12;
       this.choiceButtons.push(button);
       this.choiceContainer!.add(button);
+
+      this.tweens.add({
+        targets: button,
+        alpha: 1,
+        y: buttonY,
+        duration: CHOICE_FADE_DURATION,
+        delay: i * STAGGER_MS,
+        ease: 'Back.easeOut',
+      });
     });
 
     this.highlightChoice(0);
-
-    this.tweens.add({
-      targets: this.choiceContainer,
-      alpha: 1,
-      duration: CHOICE_FADE_DURATION,
-      ease: 'Power2',
-    });
   }
 
   private createChoiceButton(
