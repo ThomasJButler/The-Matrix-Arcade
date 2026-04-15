@@ -447,6 +447,19 @@ export class MatrixCloudGameScene extends BaseScene {
 
     this.playSound(SOUND_KEYS.SCORE);
 
+    const popText = this.createMatrixText(this.player.x + 40, this.player.y - 20, `+${points}`, 10, MATRIX_COLORS.PRIMARY_HEX);
+    this.tweens.add({
+      targets: popText,
+      y: popText.y - 25,
+      alpha: 0,
+      duration: 400,
+      onComplete: () => popText.destroy(),
+    });
+
+    if (this.combo >= 2.0 && Math.floor((this.combo - GAME_CONFIG.COMBO_INCREMENT) * 10) < Math.floor(this.combo * 10) && this.combo % 1.0 < GAME_CONFIG.COMBO_INCREMENT + 0.01) {
+      this.playSound(SOUND_KEYS.COMBO);
+    }
+
     const prevLevel = this.level;
     this.level = Math.floor(this.score / GAME_CONFIG.LEVEL_THRESHOLD) + 1;
 
@@ -460,6 +473,7 @@ export class MatrixCloudGameScene extends BaseScene {
   private onLevelUp(_prevLevel: number): void {
     this.playSound(SOUND_KEYS.LEVEL_UP);
     this.cameras.main.shake(200, 0.005);
+    this.cameras.main.flash(150, 0, 255, 0, false, undefined, undefined, 0.15);
 
     const levelText = this.createMatrixText(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, `LEVEL ${this.level}`, 16, MATRIX_COLORS.CYAN_HEX);
     this.tweens.add({
@@ -645,7 +659,9 @@ export class MatrixCloudGameScene extends BaseScene {
 
   private handleGameOver(): void {
     this.isGameOver = true;
-    this.playSound(SOUND_KEYS.FALL);
+    this.playSound(SOUND_KEYS.GAME_OVER);
+    this.cameras.main.shake(180, 0.012);
+    this.cameras.main.flash(120, 255, 0, 0, false, undefined, undefined, 0.25);
 
     if (this.score > this.highScore) {
       this.highScore = this.score;

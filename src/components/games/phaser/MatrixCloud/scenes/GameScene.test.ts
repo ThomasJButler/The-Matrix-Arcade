@@ -110,7 +110,7 @@ function createTestScene(): any {
   scene.setupCommonInputs = vi.fn();
   scene.exposeTestState = vi.fn();
 
-  scene.cameras = { main: { shake: vi.fn(), setBackgroundColor: vi.fn() } };
+  scene.cameras = { main: { shake: vi.fn(), flash: vi.fn(), setBackgroundColor: vi.fn() } };
   scene.tweens = { add: vi.fn().mockReturnValue({ destroy: vi.fn() }), killTweensOf: vi.fn(), killAll: vi.fn() };
   scene.time = {
     addEvent: vi.fn().mockReturnValue({ destroy: vi.fn(), delay: 0 }),
