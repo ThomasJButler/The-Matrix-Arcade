@@ -5,7 +5,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: R80 open — CTRL-S flagship Phaser rewrite (26 tasks, 30-loop cap recommended, Tom collaborative design locked in 2026-04-16)
+## Status: R80 COMPLETE — CTRL-S flagship rewrite shipped
 
 > **R78.7 complete (2026-04-14)**: Multi-viewport Playwright matrix — added `mobile` (375×667) and `tablet` (768×1024) projects to `playwright.config.ts`. Both viewports trigger the app's "DESKTOP REQUIRED" gate (MobileWarning component), so created dedicated `e2e/responsive/mobile-gate.spec.ts` with 2 tests × 2 viewports = 4 baselines. Scoped via `testMatch: /responsive\//` so only responsive specs run on those projects. Fixed pre-existing lint error (`addScore` unused in App.tsx). All 4 responsive tests pass, all 6 desktop visual tests pass, build clean.
 >
@@ -180,7 +180,7 @@ src/components/games/phaser/CtrlSWorld/
 - [x] **R80.23 — [P2]** `juice-audit` pass on narrative transitions. Diagnosed 5 flat moments: (1) onAllComplete hard-cuts to hub with no camera fade, (2) resumeAfterPuzzle is completely silent/flat, (3) handleAdvance gives zero input feedback, (4) hub launchChapter uses generic 'menu' instead of CHAPTER_START stinger, (5) choice buttons lack stagger entrance. Findings logged below for R80.24 juice-recipe pass.
 - [x] **R80.24 — [P2]** `juice-recipe` pass on flagged moments. All 5 fixes from R80.23 audit shipped: (1) camera fadeOut(600ms) on chapter complete in NarrativeScene, (2) REVEAL stinger + text fade-in on resumeAfterPuzzle, (3) advance click plays 'menu' SFX + cursor scale-punch, (4) hub launchChapter uses STINGER_KEYS.CHAPTER_START instead of generic 'menu', (5) choice buttons stagger entrance with 80ms offset + Back.easeOut slide-up per button.
 - [x] **R80.25 — [P1]** Cut-over. Deleted old `src/components/games/CtrlSWorld.tsx` + `CtrlSWorld.test.tsx` (88 KB + 10 KB removed). Simplified `src/App.tsx` routing: removed `?phaser-ctrls` feature flag conditional, Phaser version is now the canonical import. Cleaned E2E test URLs (removed stale flag param). All 2073 tests pass, bundle dropped 2 precache entries.
-- [ ] **R80.26 — [P1]** Golden-path trim design doc + terminator. Produce `specs/ctrls-golden-path-trim-plan.md` — concrete scene-by-scene recommendation for which to drop/merge to hit a ~20-30 min first-playthrough target. Includes estimated time per scene, narrative dependencies, trim vs preserve rationale. **This is a spec, not code** — Tom reviews + signs off content choices in R81. Also write `### R80 Completion Report`, update Status line to `R80 COMPLETE — CTRL-S flagship rewrite shipped`, run all gates.
+- [x] **R80.26 — [P1]** Golden-path trim design doc + terminator. Wrote `specs/ctrls-golden-path-trim-plan.md` — per-paragraph KEEP/CUT/MERGE verdicts for all 6 chapters, reducing 164→89 paragraphs (46% cut) and 19→8 puzzles (58% cut) to hit ~25–30 min target. Includes essential puzzle chain, dropped puzzle inventory, implementation notes for R81, and 5 open questions for Tom. Updated status line, ran all gates, wrote completion report.
 
 ### R80 Terminator
 
@@ -206,11 +206,53 @@ Standard complete-and-exit pattern (like R76/R77/R79). Auto-terminator is correc
 
 ### R80 Discovered Work
 
-- **Juice: onAllComplete needs camera fadeOut** — chapter complete → hub has no transition, just a hard scene.start after 1500ms delay. Add cameras.main.fadeOut(600ms) before the scene switch.
-- **Juice: resumeAfterPuzzle is dead** — no audio stinger, no visual re-entry. Add REVEAL stinger + text fade-in (300ms).
-- **Juice: handleAdvance zero feedback** — no click sound, no cursor animation. Add a soft tick + cursor scale-punch.
-- **Juice: hub launch uses wrong stinger** — launchChapter plays 'menu' instead of CHAPTER_START.
-- **Juice: choice buttons lack stagger** — all buttons fade in simultaneously. Add 80ms offset per button.
+All discovered items were shipped in R80.24 (juice-recipe pass):
+
+- ~~**Juice: onAllComplete needs camera fadeOut**~~ — Shipped: camera fadeOut(600ms) before scene switch.
+- ~~**Juice: resumeAfterPuzzle is dead**~~ — Shipped: REVEAL stinger + text fade-in (300ms).
+- ~~**Juice: handleAdvance zero feedback**~~ — Shipped: 'menu' click SFX + cursor scale-punch.
+- ~~**Juice: hub launch uses wrong stinger**~~ — Shipped: STINGER_KEYS.CHAPTER_START.
+- ~~**Juice: choice buttons lack stagger**~~ — Shipped: 80ms offset per button + Back.easeOut.
+
+### R80 Completion Report
+
+**Phase**: R80 — CTRL-S World flagship Phaser rewrite
+**Duration**: 26 tasks (R80.1–R80.26)
+**Branch**: `developmentv3.0-UX`
+
+#### What shipped
+
+Complete Phaser 3 rewrite of the CTRL-S World narrative game, replacing the React canvas implementation:
+
+- **5 Phaser scenes**: BootScene, MenuScene (ASCII art title), ChapterHubScene (Citizen Sleeper-inspired grid), NarrativeScene (typewriter engine), GameOverScene
+- **TypewriterEngine**: Delta-based character reveal state machine (IDLE→TYPING→WAITING→DONE) with callbacks for char ticks, paragraph start/complete, and all-complete
+- **6 chapters of content**: 164 paragraphs, 19 puzzle triggers, 2 inline ASCII panels, choice triggers, speaker maps, per-chapter backgrounds + particle themes
+- **Audio**: 4 procedural typewriter tick sounds (character-specific), 8 stinger SFX, 8 music tracks (per-chapter + menu/credits), character voice via useShatnerVoice
+- **Save system**: Bi-directional GameStateContext ↔ Phaser registry bridge for chapter progress, puzzle completion, inventory
+- **React overlays**: PuzzleModal + InventoryPanel wired to Phaser NarrativeScene via emitGameEvent
+- **Achievements**: 11 achievements including per-chapter completion, puzzle master, no-hints, completionist
+- **Visual polish**: Environmental backgrounds + parallax, stagger animations, camera fades, choice button entrances
+- **Testing**: 70 unit tests (config, scenes, engine, puzzles, music, SFX), E2E smoke test, 4 visual regression baselines
+
+#### What was cut over
+
+- Deleted `src/components/games/CtrlSWorld.tsx` (88 KB) and `CtrlSWorld.test.tsx` (10 KB)
+- Removed `?phaser-ctrls` feature flag from App.tsx routing
+- Phaser version is now the canonical CTRL-S World implementation
+
+#### Test coverage
+
+- 2073 unit/integration tests passing (49 test files)
+- E2E playthrough spec: landing → portal → menu → hub → prologue → advances
+- 4 visual regression baselines (menu, hub, prologue, mid-story)
+- Build clean (no lint errors, no type errors)
+
+#### What's next (R81)
+
+- Tom reviews `specs/ctrls-golden-path-trim-plan.md` and signs off content trim decisions
+- Implement approved trims: paragraph merges, puzzle drops, speaker re-indexing
+- Consider bonus/challenge mode for dropped puzzles
+- Lower PUZZLE_MASTER threshold if trim reduces puzzle count below 10
 
 ---
 
