@@ -6,7 +6,7 @@
  * can instantiate and that config wiring is correct.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { PHASER_CONFIG, CTRLS_SCENE_KEYS, GAME_CONFIG, ACHIEVEMENTS } from '../config';
 import { CtrlSBootScene } from './BootScene';
 import { CtrlSMenuScene } from './MenuScene';
