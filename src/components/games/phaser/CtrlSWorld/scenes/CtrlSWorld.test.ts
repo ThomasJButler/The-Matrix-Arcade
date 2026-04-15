@@ -8,6 +8,8 @@
 
 import { describe, it, expect } from 'vitest';
 import { PHASER_CONFIG, CTRLS_SCENE_KEYS, GAME_CONFIG, ACHIEVEMENTS, CHARACTERS, PORTRAIT_CONFIG } from '../config';
+import { getPuzzleById } from '../../../../../data/puzzles';
+import { getChapter, getPuzzleTriggersForParagraph } from '../../../../../data/ctrlsChapters';
 import { CtrlSBootScene } from './BootScene';
 import { CtrlSMenuScene } from './MenuScene';
 import { CtrlSChapterHubScene } from './ChapterHubScene';
@@ -132,5 +134,59 @@ describe('CTRL-S World Phaser — Scene Key Consistency', () => {
     expect(sceneClasses).toContain(CtrlSChapterHubScene);
     expect(sceneClasses).toContain(CtrlSNarrativeScene);
     expect(sceneClasses).toContain(CtrlSGameOverScene);
+  });
+});
+
+describe('CTRL-S World Phaser — Puzzle Overlay Integration', () => {
+  it('every puzzle trigger in story data resolves to a valid puzzle', () => {
+    for (let chapterIdx = 0; chapterIdx < GAME_CONFIG.CHAPTERS.TOTAL; chapterIdx++) {
+      const chapter = getChapter(chapterIdx);
+      if (!chapter?.puzzleTriggers) continue;
+
+      for (const trigger of chapter.puzzleTriggers) {
+        const puzzle = getPuzzleById(trigger.puzzleId);
+        expect(puzzle, `Puzzle "${trigger.puzzleId}" in chapter ${chapterIdx} not found in puzzles.ts`).toBeDefined();
+        expect(puzzle!.question).toBeTruthy();
+        expect(puzzle!.answer).toBeTruthy();
+      }
+    }
+  });
+
+  it('puzzle triggers fire at valid paragraph indices', () => {
+    for (let chapterIdx = 0; chapterIdx < GAME_CONFIG.CHAPTERS.TOTAL; chapterIdx++) {
+      const chapter = getChapter(chapterIdx);
+      if (!chapter?.puzzleTriggers) continue;
+
+      for (const trigger of chapter.puzzleTriggers) {
+        expect(
+          trigger.afterParagraphIndex,
+          `Trigger for "${trigger.puzzleId}" has index out of bounds`,
+        ).toBeLessThan(chapter.paragraphs.length);
+        expect(trigger.afterParagraphIndex).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+
+  it('getPuzzleTriggersForParagraph returns correct trigger', () => {
+    const prologue = getChapter(0)!;
+    const trigger = getPuzzleTriggersForParagraph(prologue, 4);
+    expect(trigger).toBeDefined();
+    expect(trigger!.puzzleId).toBe('prologue_first_command');
+  });
+
+  it('getPuzzleTriggersForParagraph returns undefined for non-trigger paragraphs', () => {
+    const prologue = getChapter(0)!;
+    expect(getPuzzleTriggersForParagraph(prologue, 0)).toBeUndefined();
+    expect(getPuzzleTriggersForParagraph(prologue, 1)).toBeUndefined();
+  });
+
+  it('NarrativeScene prototype has resumeAfterPuzzle method', () => {
+    expect(typeof CtrlSNarrativeScene.prototype.resumeAfterPuzzle).toBe('function');
+  });
+
+  it('CTRLS_SCENE_KEYS.NARRATIVE matches the scene key used in config', () => {
+    const sceneClasses = PHASER_CONFIG.scene as Array<new () => Phaser.Scene>;
+    expect(sceneClasses).toContain(CtrlSNarrativeScene);
+    expect(CTRLS_SCENE_KEYS.NARRATIVE).toBe('CtrlSNarrativeScene');
   });
 });
