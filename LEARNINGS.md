@@ -293,9 +293,46 @@ Applied `juice:juice-audit` + `juice:juice-recipe` plugin patterns to all 11 non
 - **Over-juice nauseates**. Screen shake > 200ms / 0.015 intensity is the nausea threshold. Respect the ceiling
 - **Juice compounds**. A game with five small polish moments feels 10x better than one with five separate features
 
-### R82 — iPod Classic card redesign (in progress as I write this)
+### R82 — iPod Classic redesign + the "card ambiguity" bump (April 18)
 
-Current phase. 12 tasks. Using `frontend-design:frontend-design` skill explicitly for production-grade visuals, avoiding generic AI aesthetics. Goal: landing page cards become iPod Classic device visuals with clickwheel navigation.
+Current phase. Started with a first attempt that hit a **really useful kind of failure** — one I'd never have predicted but in retrospect was obvious.
+
+**The bump**: I asked Ralph to redesign "the game cards" as iPod Classic devices. Ralph extracted `GameCard.tsx` from `LandingPage.tsx` and started styling the 12-tile grid on the landing page. I caught it 15 minutes in, during a quick check-in before bed. That was NOT what I wanted — I meant the **big single-game portal/carousel view** (the thing you see after clicking a game card — with preview image, title, PLAY button, prev/next arrows). Totally different UI element, same colloquial name.
+
+**The facts**:
+- I said "card" meaning the portal view
+- Claude (the assistant helping plan) said "card" meaning the grid tiles
+- Ralph picked one interpretation (the grid) because it matched "card" more literally
+- 1 commit landed before I stopped the loop (R82.2 — clean extraction, wrong target)
+- Damage: minimal. Reverted. Plan corrected. Relaunched.
+
+**The real learning**: the same word can mean different UI elements to different people. **Prompt specificity matters more than model capability.** Ralph executed the task correctly — the component extraction was clean, the "iPod body" comment was in the right spirit, the clickwheel placeholder was reserved correctly. The work was good; the target was wrong. That's a planning failure, not an execution failure.
+
+**The fix I wrote into the corrected R82 plan**:
+1. **Explicit file paths + line numbers** — not "the card" but "the portal view in `src/App.tsx:660-800+`"
+2. **ASCII diagram** showing the iPod anatomy overlaid on current JSX, so the mapping is visual
+3. **IN SCOPE / OUT OF SCOPE file lists** — named `LandingPage.tsx` + `GameCard.tsx` as off-limits explicitly
+4. **Sentinel task** (R82.9) — verify `git diff --stat HEAD~8 -- <off-limits-path>` is empty. Catches drift before the terminator fires
+5. **PROMPT_build.md TARGET GUARDRAIL** — read every iteration, with a closing line: *"If Ralph is tempted to edit LandingPage.tsx — STOP. That's the wrong target."*
+
+**The meta-learning (worth its own slot)**: **defence in depth for autonomous loops**. I shouldn't just describe what Ralph should do — I should also describe what to do if Ralph drifts off-target. Two layers:
+- Layer 1: prompt tells Ralph what's in/out of scope.
+- Layer 2: a sentinel task late in the phase actively checks that off-limits paths weren't touched, and rolls back if they were.
+
+Either layer would have caught this solo. Both layers is belt + braces.
+
+**The supervision lesson**: I almost went to sleep and let the loop run for 15 iterations before checking. I stayed up for 15 minutes to eyeball the first iteration. That 15 minutes of supervised autonomy saved ~14 wasted iterations AND the cognitive cost of debugging the wrong thing the next morning. **First iteration of any loop is worth watching live**. If it picks up the wrong thing, you lose 15 minutes. If it picks up the right thing, you've earned the right to sleep.
+
+**The git cleanup lesson**: After the target correction, I tried to revert the wrong commit manually and got tangled in a revert-of-a-revert conflict. The fix: abort, hard-reset to a clean pre-mess commit, re-apply the good changes cleanly, force-push. On a solo feature branch, force-push is the right cleanup tool — the alternative (preserving history through reverts of reverts) leaves ugly churn. Clean history beats preserved history when the preserved history documents nothing but confusion.
+
+**What made this a good kind of failure**:
+- Caught early (1 commit, not 30)
+- Clean revert (single commit, no cascading)
+- Refined the prompt + plan — future iterations won't hit this
+- Produced a genuinely useful meta-learning about ambiguity and defence-in-depth
+- Got a new pitfall for the Ralph loop template (Pitfall #11: Colloquial terminology ambiguity)
+
+The arcade's no worse off. The template is better. I'm a better prompter. Net positive.
 
 ---
 
