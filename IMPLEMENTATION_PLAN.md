@@ -5,7 +5,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: R79 COMPLETE — R78 residue closed
+## Status: R80 open — CTRL-S flagship Phaser rewrite (26 tasks, 30-loop cap recommended, Tom collaborative design locked in 2026-04-16)
 
 > **R78.7 complete (2026-04-14)**: Multi-viewport Playwright matrix — added `mobile` (375×667) and `tablet` (768×1024) projects to `playwright.config.ts`. Both viewports trigger the app's "DESKTOP REQUIRED" gate (MobileWarning component), so created dedicated `e2e/responsive/mobile-gate.spec.ts` with 2 tests × 2 viewports = 4 baselines. Scoped via `testMatch: /responsive\//` so only responsive specs run on those projects. Fixed pre-existing lint error (`addScore` unused in App.tsx). All 4 responsive tests pass, all 6 desktop visual tests pass, build clean.
 >
@@ -104,21 +104,115 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ## Open Work
 
-> **R76 + R77 fully shipped and archived.** See [`COMPLETED_WORK.md § R76`](COMPLETED_WORK.md#r76--final-polish-phase) and [`COMPLETED_WORK.md § R77`](COMPLETED_WORK.md#r77--retro-arcade-scoreboard). All R62–R75 resolved items also archived in the same doc.
+> **R76, R77, R78, R79 fully shipped and archived.** See [`COMPLETED_WORK.md § R76`](COMPLETED_WORK.md#r76--final-polish-phase), [`§ R77`](COMPLETED_WORK.md#r77--retro-arcade-scoreboard), [`§ R78`](COMPLETED_WORK.md#r78--assets--infrastructure), and [`§ R79`](COMPLETED_WORK.md#r79--r78-residue-closeout). All R62–R75 resolved items also archived.
 
-### Tests + Gates Status (Post-R77)
+### Tests + Gates Status (Post-R79)
 
-- Unit tests: 47 test files — all pass
-- E2E: 23 spec files, 98 darwin + 85 linux baselines — all pass
+- Unit tests: **1,896 pass** (up from 1,867 at end of R78)
+- E2E: **73 specs pass** (up from 69)
 - TypeScript: clean
-- Lint: 0 errors, 14 warnings — all intentional:
-  - 6 in `CtrlSWorld.tsx` — `DEFERRED-CTRLS-DEDICATED-PHASE`
-  - 3 in CTRL-S modal components (`CharacterConversationModal`, `PuzzleModal`, `SentientAIModal`) — `onClose`/`handleSubmit` excluded to prevent infinite render loops
-  - 2 in `useSoundSystem.ts` — circular hook deps (`preloadAudioFiles`/`playAudioBuffer`), intentional
-  - 1 in `useAdvancedVoice.ts` — `speak` dep would cause infinite re-creation
-  - 1 in `PhaserGame.tsx` — mount-only effect, empty deps intentional to avoid re-creating Phaser game
-  - 1 in `GameStateContext.tsx` — `react-refresh/only-export-components`, can't split without breaking context colocation
+- Lint: 0 errors, 14 intentional warnings (6 in CTRL-S `DEFERRED-CTRLS-DEDICATED-PHASE`, rest in circular hook deps / mount-only effects / context colocation)
 - PWA + build: green
+- Docker linux baselines: shipped R79.1 (daemon now available)
+
+---
+
+## R80 — CTRL-S World: Flagship Phaser Rewrite (HEAVY — 26 tasks, 30-loop cap)
+
+> **Tom's call (2026-04-16)**: *"It makes more sense to complete the games and do testing together (and unit testing), as I am nearing the end of this project. It's almost perfect and once ctrl-s is done, the rest of the work will be performance and getting the games perfect."*
+
+**CTRL-S is the flagship story-driven game.** Current implementation is a 1,845-line React DOM component with known UX problems: save crash (`gameData.stats` undefined), ASCII title too small, glitchy story screen, "too rushed, hard to get into flow state." This phase rewrites it in Phaser, consistent with the other 11 games, while preserving all existing story content.
+
+### R80 Design Decisions (locked in 2026-04-16)
+
+| Decision | Choice | Implication |
+|----------|--------|-------------|
+| **Stack** | Phaser 3 | Full rewrite under `src/components/games/phaser/CtrlSWorld/`. Reuses `BaseScene`, countdown, pause, scoreboard hooks (or skipped — narrative game has no score), save system, `useFocusTrap`. |
+| **Content scope** | Port everything as-is, THEN plan golden-path trim separately | R80 = migration (code-heavy, Ralph-friendly). Content trim = later phase with Tom's editorial judgement. |
+| **Pacing** | Full user control — click/SPACE/ENTER to advance each beat | Fixes the "rushed" bug directly. Citizen Sleeper-style. No auto-advance. Pause still available via P. |
+| **Audio** | Full soundscape — ambient bed + Shatner TTS narration + character SFX | Rich experience. Reuses existing `useShatnerVoice` hook. Character-specific typewriter ticks. |
+| **Visual target** | Citizen Sleeper | Reference images at `rebuildingoldgames/inspirationimagesandsprites/ctrlscitizensleeperimageinspiration/`. Character portrait panels, environmental backgrounds, smooth transitions. |
+
+### R80 Architecture
+
+```
+src/components/games/phaser/CtrlSWorld/
+├── index.tsx                # React wrapper (PhaserGame)
+├── config.ts                # Phaser config + constants + achievement IDs
+├── data/
+│   ├── chapters.ts          # TS const story data (ported from CtrlSWorld.tsx)
+│   ├── puzzles.ts           # Existing puzzle data ported
+│   └── inventory.ts         # Item definitions
+└── scenes/
+    ├── BootScene.ts         # Load fonts, portraits, backgrounds, BGM
+    ├── MenuScene.ts         # Matrix-themed title with proper-sized ASCII
+    ├── ChapterHubScene.ts   # Visual chapter select (Citizen Sleeper-style)
+    ├── NarrativeScene.ts    # Core story engine — typewriter, choices, portraits
+    ├── PuzzleScene.ts       # Overlay on top of NarrativeScene
+    ├── InventoryScene.ts    # Overlay
+    └── GameOverScene.ts     # Completion screen
+```
+
+### R80 Task List (25 iterations)
+
+- [x] **R80.1 — [P1]** Story audit + content map. Read `CtrlSWorld.tsx` end-to-end. Produced `specs/ctrls-content-map.md` (163 paragraphs, 19 triggered puzzles, 7 orphaned puzzles, 18 items, 9 characters catalogued) and `specs/ctrls-golden-path.md` (ESSENTIAL/OPTIONAL classification per segment, estimated ~46 min current playtime, ~25 min trim target). Key findings: story is 100% linear (no branching choices despite design intent), Chapter 4 is biggest trim target at 48 paragraphs, 6 items never awarded in gameplay, 7 puzzles have no story trigger.
+- [ ] **R80.2 — [P1]** Phaser scaffold. Create `src/components/games/phaser/CtrlSWorld/` dir. BootScene + MenuScene + GameOverScene skeletons. Register via PhaserGame wrapper. Wire into landing page with a feature flag (new Phaser version alongside old React version until R80.25 cut-over). Unit test coverage for new scenes.
+- [ ] **R80.3 — [P1]** Typewriter text engine. Build in `NarrativeScene`. Paragraph-by-paragraph reveal, blinking cursor, SPACE/ENTER/click advance. No auto-advance. Expose pacing via `exposeTestState()`. Unit tests for advance, skip-to-end-of-paragraph, pause handling.
+- [ ] **R80.4 — [P1]** Story data format + prologue port. Design `data/chapters.ts` TS const schema (scenes, paragraphs, choices with branch routing, puzzle triggers, portrait assignments per line, background per scene). Port prologue as reference implementation. Render in NarrativeScene, verify feel.
+- [ ] **R80.5 — [P1]** Chapter 1 + Chapter 2 content port. Every paragraph, choice, branch, item reward preserved. Unit tests.
+- [ ] **R80.6 — [P1]** Chapter 3 + Chapter 4 content port.
+- [ ] **R80.7 — [P1]** Chapter 5 content port + cross-chapter continuity check (items persist across chapters, flags honoured, alt paths reach correct end states).
+- [ ] **R80.8 — [P2]** Choice UI system. Buttons with hover/select states, keyboard navigation (↑↓ + ENTER), particle FX on selection, smooth transitions. `juice-recipe` this moment for maximum feel.
+- [ ] **R80.9 — [P1]** Asset sourcing from dump — **NEW TASK added 2026-04-16**. Ralph reads `desiredassets/ctrl-s-world/ASSETS_NEEDED.md` (40+ items, each with `DUMP/<path>` source mapping), then walks `desiredassets/TheMatrixArcadeAssetsToADDANDSORT-WILL-BE-FUN-TASK/` (638 MB, gitignored) to select the best-matching asset per item. Processing pipeline per asset:
+  - Pick the best candidate from the source path (e.g. for "Protagonist portrait" from `DUMP/FREE Mana Seed Character Base Demo 2` — pick the Neo-archetype variant).
+  - Recolour to Matrix green where appropriate (backgrounds, UI frames, icons).
+  - Resize to target dimensions in ASSETS_NEEDED.md.
+  - Copy final files to `public/assets/ctrl-s/<category>/` (tracked).
+  - Flip `[~]` → `[x]` in `ASSETS_NEEDED.md` with a short note on which source file was chosen.
+  Scope: portraits (8), backgrounds (8), UI frames (~10), inventory icons (~10), puzzle assets (5), transitions (1), audio (5 music tracks + SFX). If any item genuinely has no good match, tag `BLOCKED-ART-NEEDED` with a note and move on — Tom can source custom art later. **This runs BEFORE all visual-dependent tasks** (R80.10 portraits, R80.11 backgrounds, R80.12 puzzle, R80.13 inventory, R80.14 chapter hub, R80.17-18 audio) — they depend on it.
+- [ ] **R80.10 — [P2]** Character portrait panel system. Left/right slots per NarrativeScene, per-line character assignment, fade transitions between speakers. Load portraits from `public/assets/ctrl-s/portraits/` (sourced in R80.9).
+- [ ] **R80.11 — [P2]** Environmental backgrounds + parallax. Per-scene BG with 2-3 parallax layers. Subtle particle effects (dust motes, data streams) per scene's theme. Backgrounds sourced in R80.9.
+- [ ] **R80.12 — [P2]** PuzzleScene overlay. Launched parallel to NarrativeScene on puzzle trigger. Reuse existing puzzle logic/data from current CtrlSWorld. Return to NarrativeScene with item reward on completion.
+- [ ] **R80.13 — [P2]** InventoryScene overlay. Item grid, descriptions, acquisition tracking. Accessible via I key during NarrativeScene.
+- [ ] **R80.14 — [P2]** ChapterHubScene visual select. Grid of chapter tiles showing completion state (locked/in-progress/complete), replay support, smooth enter/exit transitions. Citizen Sleeper-inspired layout. Uses hub background + node icons sourced in R80.9.
+- [ ] **R80.15 — [P1]** Save system integration. Fix `gameData.stats` undefined crash root cause. Migrate save format if needed. Chapter-based save points. Integrate with `useSaveSystem` following R77 scoreboard pattern.
+- [ ] **R80.16 — [P2]** Shatner TTS integration. Wire `useShatnerVoice` hook through React bridge. Sync with typewriter pacing (voice starts on paragraph reveal, user can skip). Mute toggle in pause menu.
+- [ ] **R80.17 — [P2]** Ambient music bed. Per-chapter track (5 tracks from R80.9 sourcing). Fade between chapters. Independent volume control.
+- [ ] **R80.18 — [P2]** Character SFX. Distinct typewriter tick per speaker (bass = antagonist, treble = protagonist, etc.). Environmental stingers for key reveals (item unlock, puzzle solve, chapter transition). SFX sourced in R80.9.
+- [ ] **R80.19 — [P2]** ASCII title + MenuScene polish. Fix ASCII size (known bug — "too small"). Matrix rain behind title. Citizen Sleeper-inspired menu treatment. `juice-audit` on the menu entrance.
+- [ ] **R80.20 — [P3]** Achievement expansion. Current: 3 achievements. Target: 8+. Add per-chapter completion, secret-branch discovery, puzzle-without-hints, completionist.
+- [ ] **R80.21 — [P1]** E2E smoke test. New `e2e/playthrough/ctrl-s-world-phaser.spec.ts`. Navigate landing → menu → prologue first choice → chapter 1 first scene. Keep existing React version's test for comparison until R80.25 cut-over.
+- [ ] **R80.22 — [P2]** Visual regression baselines. Generate darwin + linux baselines for new NarrativeScene, ChapterHubScene, MenuScene, and 2-3 mid-story checkpoints.
+- [ ] **R80.23 — [P2]** `juice-audit` pass on narrative transitions. Use the `juice:juice-audit` skill to diagnose any flatness between paragraph advances, choice selections, chapter transitions, puzzle launches. Log findings in `### R80 Discovered Work`.
+- [ ] **R80.24 — [P2]** `juice-recipe` pass on flagged moments. Use `juice:juice-recipe` for each item flagged in R80.23 — ship specific feedback improvements (screen shake, particle burst, audio stinger, animation polish).
+- [ ] **R80.25 — [P1]** Cut-over. Delete old `src/components/games/CtrlSWorld.tsx` + `CtrlSWorld.test.tsx`. Remove React version from `src/App.tsx` routing. Update landing page / game registry to use Phaser version only. Remove the feature flag.
+- [ ] **R80.26 — [P1]** Golden-path trim design doc + terminator. Produce `specs/ctrls-golden-path-trim-plan.md` — concrete scene-by-scene recommendation for which to drop/merge to hit a ~20-30 min first-playthrough target. Includes estimated time per scene, narrative dependencies, trim vs preserve rationale. **This is a spec, not code** — Tom reviews + signs off content choices in R81. Also write `### R80 Completion Report`, update Status line to `R80 COMPLETE — CTRL-S flagship rewrite shipped`, run all gates.
+
+### R80 Terminator
+
+- All R80.1–R80.26 tasks `[x]`.
+- Gates green: lint + build + test + e2e + visual.
+- Old `CtrlSWorld.tsx` + `CtrlSWorld.test.tsx` deleted (R80.25 cut-over).
+- `public/assets/ctrl-s/` populated with sourced assets (R80.9).
+- Status line contains: **"R80 COMPLETE — CTRL-S flagship rewrite shipped"**.
+- `specs/ctrls-golden-path-trim-plan.md` written for Tom's R81 review.
+
+Standard complete-and-exit pattern (like R76/R77/R79). Auto-terminator is correct here.
+
+### R80 Guardrails
+
+- **Preserve all content**. Ralph does NOT drop scenes, paragraphs, choices, branches, or puzzles. If content seems broken, preserve it and flag in R80.1 content map.
+- **No editorial edits**. Ralph does NOT rewrite dialogue, change character names, or "improve" story beats. Migration only. Content decisions = Tom's call in R81.
+- **Feature-flag until cut-over**. Old React version stays live until R80.25 so Tom can A/B compare during development.
+- **Reuse existing modal components** where feasible — `PuzzleModal`, `CharacterConversationModal`, `SentientAIModal` all have `useFocusTrap` + `aria-labelledby` from R64/R78.11. Can be kept as React overlays if the hybrid is cleaner than porting them to Phaser. Phaser scenes can emit events to trigger React modals.
+- **CTRL-S guardrail is LIFTED for this phase only**. R76–R79 all fenced CTRL-S off; R80 is the dedicated window.
+- **Test coverage must not drop**. Every iteration commits passing tests. Cut-over (R80.25) must keep E2E green.
+- **Asset-sourcing discipline (R80.9)**. Ralph picks from the dump but does NOT commit the dump — only the chosen processed files under `public/assets/ctrl-s/`. Tom will delete the dump folder locally after R80 completes (it's gitignored, so no commit needed).
+- **If asset has no match**: tag the item `BLOCKED-ART-NEEDED` in `ASSETS_NEEDED.md` and continue. Ralph does NOT attempt to generate art, and does NOT use placeholder ASCII or rectangles in final deliverables (OK during scaffolding, but must be replaced before cut-over).
+
+### R80 Discovered Work
+
+_(Ralph appends findings here during R80.23 juice-audit + any other discovered items during iterations)_
 
 ---
 
@@ -285,6 +379,60 @@ Items the user re-flagged after the R50 playtest. R54 code audit confirms most a
 6. [ ] **Accessibility** — rebuild satisfies the Phase 6 `aria-live` story-text requirement; do not reintroduce that gap.
 7. [ ] **Tests** — unit tests for the story engine + a Playwright E2E smoke that walks the main arc end-to-end, matching coverage style of the other games.
 8. [ ] **Cut-over** — remove the old DOM `CTRLSWorld.tsx` and its tests only once the new implementation passes E2E and is wired into the landing page.
+
+---
+
+## Deferred / Future Phases (NOT for R80)
+
+These phases are designed + scoped but NOT scheduled. Ralph does NOT touch them during R80.
+
+### R81 — CTRL-S Golden-Path Content Trim (SMALL, collaborative with Tom)
+
+**Why**: R80 ports all 5 chapters + prologue as-is (migration only). Tom's call: *"The current game would take a long time to complete and test. It needs to be shortened."* R81 is the editorial pass where Tom + Ralph collaboratively trim to the golden path.
+
+**Input**: `specs/ctrls-golden-path-trim-plan.md` (produced by R80.25).
+
+**Expected shape**:
+- Tom reviews trim plan, flags keep/cut/merge per scene
+- Ralph ships trim commits per chapter (~5 iterations)
+- Playtest after each chapter trim
+- Target playtime: ~20-30 minutes first playthrough
+
+### R82 — Retro iPod Classic Game-Card Redesign (MEDIUM — frontend-design heavy)
+
+**Why**: Tom's 2026-04-16 note: *"Add that to future to plan out however it would be retro as fuuuuuck (and its what the windows are designed off in the first place and can be improved)"* — with a hand-drawn sketch showing game title overlaid on preview image, below an iPod Classic-style device body with clickwheel.
+
+**Design brief**:
+- Each portal game card becomes an **iPod Classic device visual** (rounded rectangle silhouette, metal body aesthetic in Matrix-green instead of chrome)
+- **Screen area**: game preview image, with game title **overlaid on the image** (not in a separate band below) — confirmed by Tom's arrows pointing at the image-with-title
+- **Clickwheel**: rendered below the screen with MENU (top), next (right), prev (left), play/pause (bottom), centre-select button. Tapping wheel segments navigates the carousel / enters the game.
+- **Size reduction**: current cards are "too big" per Tom's feedback — e.g. see `e2e/playthrough/cloud-jumper.spec.ts-snapshots/cloud-jumper-01-portal-chromium-linux.png`. Target smaller footprint so grid density improves.
+- **Aesthetic commitment**: *"retro as fuuuuuck"* — full iPod homage. Matrix green replaces chrome/white. Play/pause symbols in ASCII style. Clickwheel highlight uses Matrix pulse animation.
+- **Imagery**: Tom will generate new/improved game preview images before R82 starts. Ralph does NOT attempt to create art; wait for Tom's image drop.
+
+**Reference material**:
+- Tom's sketch: shared 2026-04-16 (hand-drawn, iPod aesthetic)
+- iPod Classic product shot: shared 2026-04-16 (for silhouette + clickwheel proportions)
+- `frontend-design:frontend-design` skill — well-suited for this high-polish visual work
+
+**Prerequisite**: Tom signs off on silhouette mockup before Ralph implements. Likely a `skill:frontend-design` mockup session first, then build.
+
+**Acceptance**:
+- All 12 game cards render as iPod devices on landing page
+- Title overlays preview image as sketch specifies
+- Clickwheel is interactive (keyboard + pointer) for carousel nav
+- Current card size reduced by ~30%+
+- Visual regression baselines regenerated
+- Lighthouse a11y score maintained
+
+**NOT in scope**:
+- Changing game mechanics or content
+- Touching the portal carousel logic (only the card visual)
+- Mobile responsive reflow (desktop-first, noted for R83 if needed)
+
+### R83+ (TBD)
+
+Tom's note: *"the rest of the work will be performance and getting the games perfect"* — after CTRL-S + trim + card redesign, focus shifts to performance profiling, final polish sweeps, and ship-readiness. Planning deferred until R80/R81/R82 are closed.
 
 ---
 
@@ -508,19 +656,35 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 
 ### TERMINATOR CONDITION (Ralph stops looping only when ALL of these are true)
 
-- All R79.1, R79.2, R79.3 tasks marked `[x]` (or `BLOCKED-NEEDS-DOCKER` for R79.1 if Docker daemon unavailable).
-- `npm run lint`, `npm run build`, `npm test`, `npm run test:e2e` ALL green on a clean run.
-- The `## Status` line contains the phrase **"R79 COMPLETE — R78 residue closed"**.
-- `### R79 Completion Report` written under the R79 section with iterations/closed/blocked summary.
+- All R80.1 through R80.26 tasks marked `[x]`.
+- `npm run lint`, `npm run build`, `npm test`, `npm run test:e2e`, `npm run test:visual` ALL green on a clean run.
+- Old `src/components/games/CtrlSWorld.tsx` + `CtrlSWorld.test.tsx` deleted (verified via R80.25 cut-over).
+- `public/assets/ctrl-s/` populated with sourced assets (R80.9).
+- `specs/ctrls-golden-path-trim-plan.md` exists (R80.26 output for Tom's R81 review).
+- The `## Status` line contains the phrase **"R80 COMPLETE — CTRL-S flagship rewrite shipped"**.
+- `### R80 Completion Report` written under the R80 section with iterations/closed/discovered-work summary.
 
-**Execution order for this run** (3-loop cap):
-1. R79.1 — Docker linux baseline regen (skip with BLOCKED-NEEDS-DOCKER if daemon not running).
-2. R79.2 — Archive R78 content (task list + 25 discovered-work items) to `COMPLETED_WORK.md`, replace in-plan with back-reference.
-3. R79.3 — Straggler sweep (lint warnings audit, TODO/FIXME triage, stale plan entries, `[~]`→`[x]` in ASSETS_NEEDED.md).
+**Execution order for this run** (30-loop cap, 26 tasks — follow R80.1 → R80.26 strictly, dependencies exist):
+1. R80.1 Content map (audit + spec) → 2. R80.2 Phaser scaffold → 3. R80.3 Typewriter engine → 4. R80.4 Story format + prologue
+2. R80.5–7 Content ports (ch1-2, ch3-4, ch5)
+3. R80.8 Choice UI
+4. **R80.9 Asset sourcing from dump** (NEW — all visual/audio tasks depend on this)
+5. R80.10–11 Visual systems (portraits, backgrounds)
+6. R80.12–14 Overlay scenes (puzzle, inventory, chapter hub)
+7. R80.15 Save integration (fix `gameData.stats` crash)
+8. R80.16–18 Audio (Shatner TTS, ambient, character SFX)
+9. R80.19 MenuScene polish (ASCII size)
+10. R80.20 Achievement expansion
+11. R80.21–22 E2E test + visual baselines
+12. R80.23–24 Juice audit + recipe pass (use `juice:juice-audit` / `juice:juice-recipe` skills)
+13. R80.25 Cut-over (delete old React version)
+14. R80.26 Golden-path trim spec + terminator
 
-**Pattern difference from R78**: R79 uses standard complete-and-exit (like R76/R77). Ralph SHOULD auto-write the terminator phrase when all 3 are `[x]`. This is the opposite of R78's "never auto-terminate" rule.
+**Pattern**: R80 uses standard complete-and-exit (like R76/R77/R79). Auto-terminator is correct. Do NOT use R78's never-terminate pattern.
 
-When terminator is reached, write a final summary under `## R78 Completion Report` listing: iterations run, tasks closed, tasks blocked (including any `DEFERRED-CTRLS-DEDICATED-PHASE` items), tests passing, discovered-work items deferred to R79 (or CTRL-S phase). Then stop.
+**Stick-with-plan rule**: Don't invent new tasks. Discovered items → `### R80 Discovered Work` for Tom's R81+ triage, NOT into the active task list.
+
+When terminator is reached, write `## R80 Completion Report` listing: iterations run, tasks closed, discovered-work items deferred to R81/R82, tests passing, lines of code shipped, and the verdict on whether the "rushed pacing" + "glitchy story screen" bugs are resolved in the new implementation. Then stop.
 
 ### Guardrails
 
