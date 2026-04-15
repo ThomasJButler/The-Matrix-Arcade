@@ -144,9 +144,12 @@ export async function navigateToGame(page: Page, gameId: GameId): Promise<void> 
  * its menu screen — use waitForGameReady to wait for a specific scene).
  */
 export async function startGame(page: Page): Promise<void> {
-  const playButton = page.locator('button[aria-label*="Start" i], button:has-text("PLAY")').first();
-  if (await playButton.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await playButton.click();
+  // Clickwheel zones use clip-path so direct clicks hit the wrong target.
+  // Focus the toolbar and press ArrowDown (mapped to play).
+  const wheel = page.locator('[role="toolbar"][aria-label="Game navigation wheel"]');
+  if (await wheel.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await wheel.focus();
+    await page.keyboard.press('ArrowDown');
   } else {
     await page.keyboard.press('Enter');
   }
