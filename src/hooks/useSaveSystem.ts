@@ -302,11 +302,15 @@ export const GAME_ACHIEVEMENTS: Record<string, Achievement[]> = {
   ctrlSWorld: [
     { id: 'ctrl_first_puzzle', name: 'First Steps', description: 'Complete your first puzzle', game: 'CTRL-S World' },
     { id: 'ctrl_no_hints', name: 'Quick Thinker', description: 'Complete a puzzle without hints or lifelines', game: 'CTRL-S World' },
-    { id: 'ctrl_chapter_1', name: 'Chapter One', description: 'Complete chapter 1', game: 'CTRL-S World' },
-    { id: 'ctrl_chapter_3', name: 'Midway There', description: 'Complete chapter 3', game: 'CTRL-S World' },
+    { id: 'ctrl_chapter_1', name: 'Chapter One', description: 'Complete Chapter 1', game: 'CTRL-S World' },
+    { id: 'ctrl_chapter_2', name: 'Silicon Seeker', description: 'Complete Chapter 2', game: 'CTRL-S World' },
+    { id: 'ctrl_chapter_3', name: 'Midway There', description: 'Complete Chapter 3', game: 'CTRL-S World' },
+    { id: 'ctrl_chapter_4', name: 'Time Bender', description: 'Complete Chapter 4', game: 'CTRL-S World' },
+    { id: 'ctrl_chapter_5', name: 'Dawn Breaker', description: 'Complete Chapter 5', game: 'CTRL-S World' },
     { id: 'ctrl_story_complete', name: 'Epic Journey', description: 'Complete the main storyline', game: 'CTRL-S World' },
     { id: 'ctrl_speed_reader', name: 'Speed Reader', description: 'Complete in under 30 minutes', game: 'CTRL-S World' },
-    { id: 'ctrl_puzzle_master', name: 'Puzzle Master', description: 'Complete 10 or more puzzles', game: 'CTRL-S World' }
+    { id: 'ctrl_puzzle_master', name: 'Puzzle Master', description: 'Complete 10 or more puzzles', game: 'CTRL-S World' },
+    { id: 'ctrl_completionist', name: 'Completionist', description: 'Complete every chapter and solve every puzzle', game: 'CTRL-S World' }
   ],
   metris: [
     { id: 'first_line', name: 'First Steps', description: 'Clear your first line', game: 'Metris' },
