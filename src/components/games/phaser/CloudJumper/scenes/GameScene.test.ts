@@ -69,6 +69,9 @@ function createTestScene() {
   scene.scoreText = { setText: vi.fn() };
   scene.distanceText = { setText: vi.fn() };
 
+  // Camera effects
+  scene.cameras = { main: { shake: vi.fn(), flash: vi.fn() } };
+
   // Tweens (used by handleCloudCollision for disappearing clouds and playerDeath)
   scene.tweens = { add: vi.fn(), killAll: vi.fn() };
 

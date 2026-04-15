@@ -86,7 +86,7 @@ function createTestScene() {
 
   // Cameras
   scene.cameras = {
-    main: { scrollY: 0, setDeadzone: vi.fn(), startFollow: vi.fn(), setBounds: vi.fn() },
+    main: { scrollY: 0, setDeadzone: vi.fn(), startFollow: vi.fn(), setBounds: vi.fn(), shake: vi.fn(), flash: vi.fn() },
   };
 
   // Projectiles group — needed by shoot()

@@ -515,6 +515,7 @@ export class RhythmHackerGameScene extends BaseScene {
 
       if (this.health <= 0) {
         this.stopTrackAudio();
+        this.cameras.main.flash(150, 255, 0, 0, false, undefined, undefined, 0.2);
         if (this.score > this.highScore) this.highScore = this.score;
         this.reportScore(this.score, this.highScore);
         this.gameOver(this.score, 'Health depleted', this.highScore, this.buildEndStats(), this.trackIndex + 1, this.getGameDuration());
@@ -668,6 +669,7 @@ export class RhythmHackerGameScene extends BaseScene {
     // Check health
     if (this.health <= 0) {
       this.stopTrackAudio();
+      this.cameras.main.flash(150, 255, 0, 0, false, undefined, undefined, 0.2);
       this.reportScore(this.score, this.score);
       this.gameOver(this.score, 'Health depleted', undefined, this.buildEndStats(), this.trackIndex + 1, this.getGameDuration());
     }

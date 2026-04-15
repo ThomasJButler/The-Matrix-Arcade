@@ -75,7 +75,7 @@ function createTestScene(trackIndex = 0) {
   ];
   scene.matrixRainChars = [];
   scene.laneCyanTinted = false;
-  scene.cameras = { main: { shake: vi.fn() } };
+  scene.cameras = { main: { shake: vi.fn(), flash: vi.fn() } };
   scene.useParticleSprites = false;
   scene.useUiSprites = false;
 
