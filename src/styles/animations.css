@@ -151,6 +151,51 @@
   color: rgba(0, 255, 0, 1);
 }
 
+/* ===== iPod Classic Device Shell ===== */
+.ipod-body {
+  background: linear-gradient(
+    160deg,
+    #0a2a0a 0%,
+    #041a04 25%,
+    #001a00 50%,
+    #021e02 75%,
+    #0a2a0a 100%
+  );
+  border-radius: 2rem;
+  padding: 1.25rem;
+  box-shadow:
+    0 0 30px rgba(0, 255, 0, 0.15),
+    0 8px 32px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(0, 255, 0, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(0, 255, 0, 0.2);
+  position: relative;
+}
+
+.ipod-body::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: calc(2rem - 3px);
+  border: 1px solid rgba(0, 255, 0, 0.06);
+  pointer-events: none;
+}
+
+.ipod-screen {
+  background: #0a0a0a;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.8),
+    inset 0 0 2px rgba(0, 0, 0, 0.6),
+    0 1px 0 rgba(0, 255, 0, 0.08);
+  border: 1px solid rgba(0, 255, 0, 0.15);
+}
+
+.ipod-clickwheel-region {
+  min-height: 3rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .phosphor-glow,
   .transition-enhanced,
