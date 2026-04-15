@@ -105,7 +105,7 @@ function createTestScene(): any {
   scene.tweens = { add: vi.fn() };
 
   // Cameras (screen shake on death)
-  scene.cameras = { main: { shake: vi.fn() } };
+  scene.cameras = { main: { shake: vi.fn(), flash: vi.fn() } };
 
   // Scene manager (used by gameOver -> scene.start)
   scene.scene = { start: vi.fn() };
