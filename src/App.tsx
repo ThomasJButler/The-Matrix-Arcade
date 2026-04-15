@@ -659,6 +659,7 @@ function App() {
             onExit={handleExitGame}
             onShowInstructions={() => { setShowInstructions(true); setShowHighScores(false); }}
             onShowHighScores={() => { setShowHighScores(true); setShowInstructions(false); }}
+            onJumpToGame={(index: number) => setSelectedGame(index)}
             isPlayDisabled={showMobileWarning}
             isPlaying={isPlaying}
             isMuted={isMuted}

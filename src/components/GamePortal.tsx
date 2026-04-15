@@ -24,6 +24,7 @@ export interface GamePortalProps {
   onExit: () => void;
   onShowInstructions: () => void;
   onShowHighScores: () => void;
+  onJumpToGame: (index: number) => void;
   isPlayDisabled: boolean;
   isPlaying: boolean;
   isMuted: boolean;
@@ -43,6 +44,7 @@ export function GamePortal({
   onExit,
   onShowInstructions,
   onShowHighScores,
+  onJumpToGame,
   isPlayDisabled,
   isPlaying,
   isMuted,
@@ -102,8 +104,26 @@ export function GamePortal({
       e.stopPropagation();
       zoneRefs.current[mapping.index]?.focus();
       mapping.action();
+      return;
     }
-  }, [onShowInstructions, onNext, onPrev, handleBottomClick, onShowHighScores, isPlaying, onExit, triggerRotation, playClick, playConfirm]);
+
+    if (e.key === 'Home') {
+      e.preventDefault();
+      playClick();
+      onJumpToGame(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      playClick();
+      onJumpToGame(games.length - 1);
+    } else if (e.key >= '1' && e.key <= '9') {
+      const idx = parseInt(e.key, 10) - 1;
+      if (idx < games.length) {
+        e.preventDefault();
+        playClick();
+        onJumpToGame(idx);
+      }
+    }
+  }, [onShowInstructions, onNext, onPrev, handleBottomClick, onShowHighScores, isPlaying, onExit, triggerRotation, playClick, playConfirm, onJumpToGame, games.length]);
 
   return (
     <div className={`relative w-full mx-auto flex flex-col justify-center h-full game-portal-container px-4 transition-all duration-300 ${isPlaying ? 'max-w-5xl' : 'max-w-2xl'}`}>
@@ -273,7 +293,7 @@ export function GamePortal({
             {!isPlaying && (
               <div className="mt-3 text-xs lg:text-sm text-green-400/60 text-center space-y-1 font-mono">
                 <p className="text-green-500/70">&larr;&rarr; NAVIGATE &bull; &uarr; MENU &bull; &darr; PLAY &bull; ENTER SCORES &bull; ESC EXIT</p>
-                <p className="text-green-500/50">I Instructions &bull; H Scores &bull; A Achievements &bull; B About &bull; V Mute</p>
+                <p className="text-green-500/50">1-{Math.min(9, games.length)} JUMP &bull; HOME/END &bull; I Instructions &bull; H Scores &bull; A Achievements</p>
               </div>
             )}
           </div>
