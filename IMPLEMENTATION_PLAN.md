@@ -197,7 +197,8 @@ The portal view becomes a rendered iPod Classic:
   - **Accessibility refinements** — `prefers-reduced-motion` media query to disable wheel animations, screen-reader announcements on game change, focus-visible polish
   - ~~**Touch/gesture support** — swipe left/right on clickwheel area for prev/next (desktop Safari trackpad + touch), while preserving button taps~~ ✅ Shipped 2026-04-15: native touchstart/touchend listeners, 40px threshold, 500ms max, horizontal-dominant detection, audio+rotation feedback
   - **Visual detailing** — screen bezel inner shadow, device body metallic gradient refinement, title typography (letter-spacing, shadow layering), category badge polish
-  - **State-specific polish** — loading state inside screen (when game chunk downloading), paused state indicator, game-over state visual on screen
+  - ~~**State-specific polish (loading)** — loading state inside screen when game chunk downloading~~ ✅ Shipped 2026-04-15: themed Suspense fallback with game title, staggered LOADING pulse, scanline effect, INITIALISING MATRIX status — CSS-only, respects prefers-reduced-motion
+  - **State-specific polish (paused/game-over)** — paused state indicator, game-over state visual on screen (requires event plumbing from games)
   - **Perf micro-optimisations** — `will-change: transform` on clickwheel segments, `contain: layout` where safe, avoid layout thrashing in animations
   - **Integration polish** — ensure iPod frame animates smoothly on game switch (crossfade? slide?), preserve existing scene transitions
   - **Empty/edge states** — what does the portal look like if `games[selectedGame]` is somehow undefined? Defensive rendering
