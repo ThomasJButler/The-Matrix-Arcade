@@ -41,3 +41,6 @@ package-lock.json
 # Large binary asset dumps (not for git — back up separately)
 desiredassets/TheMatrixArcadeAssetsToADDANDSORT-WILL-BE-FUN-TASK/
 desiredassets/unused-assets-backup/
+
+# Private learning reference (personal codebase guide)
+CODEBASE_GUIDE.md
