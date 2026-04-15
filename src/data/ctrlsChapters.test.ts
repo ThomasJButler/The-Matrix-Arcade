@@ -7,6 +7,8 @@ import {
   getChapterTitle,
   getPuzzleTriggersForParagraph,
   getAsciiPanelForParagraph,
+  getChoiceTriggerForParagraph,
+  type Chapter,
 } from './ctrlsChapters';
 
 describe('ctrlsChapters', () => {
@@ -691,6 +693,82 @@ describe('ctrlsChapters', () => {
         const paragraphs = getChapterParagraphs(i);
         expect(paragraphs.length).toBeGreaterThan(0);
       }
+    });
+
+    it('choice trigger indices are within paragraph bounds', () => {
+      CHAPTERS.forEach((ch) => {
+        ch.choiceTriggers?.forEach((trigger) => {
+          expect(trigger.afterParagraphIndex).toBeGreaterThanOrEqual(0);
+          expect(trigger.afterParagraphIndex).toBeLessThan(
+            ch.paragraphs.length,
+          );
+        });
+      });
+    });
+
+    it('choice triggers have at least two options', () => {
+      CHAPTERS.forEach((ch) => {
+        ch.choiceTriggers?.forEach((trigger) => {
+          expect(trigger.choices.length).toBeGreaterThanOrEqual(2);
+        });
+      });
+    });
+  });
+
+  describe('getChoiceTriggerForParagraph', () => {
+    const testChapter: Chapter = {
+      id: 'test',
+      index: 99,
+      title: 'Test Chapter',
+      shortTitle: 'Test',
+      paragraphs: ['Para 1', 'Para 2', 'Para 3', 'Para 4'],
+      choiceTriggers: [
+        {
+          afterParagraphIndex: 1,
+          prompt: 'What do you do?',
+          choices: [
+            { label: 'Option A', choiceId: 'test_a' },
+            { label: 'Option B', choiceId: 'test_b', nextParagraphIndex: 3 },
+          ],
+        },
+      ],
+    };
+
+    it('returns choice trigger at the correct paragraph index', () => {
+      const trigger = getChoiceTriggerForParagraph(testChapter, 1);
+      expect(trigger).toBeDefined();
+      expect(trigger!.prompt).toBe('What do you do?');
+      expect(trigger!.choices).toHaveLength(2);
+    });
+
+    it('returns undefined for paragraphs without choice triggers', () => {
+      expect(getChoiceTriggerForParagraph(testChapter, 0)).toBeUndefined();
+      expect(getChoiceTriggerForParagraph(testChapter, 2)).toBeUndefined();
+    });
+
+    it('choice options have required fields', () => {
+      const trigger = getChoiceTriggerForParagraph(testChapter, 1)!;
+      trigger.choices.forEach((choice) => {
+        expect(choice.label.length).toBeGreaterThan(0);
+        expect(choice.choiceId.length).toBeGreaterThan(0);
+      });
+    });
+
+    it('nextParagraphIndex is optional', () => {
+      const trigger = getChoiceTriggerForParagraph(testChapter, 1)!;
+      expect(trigger.choices[0].nextParagraphIndex).toBeUndefined();
+      expect(trigger.choices[1].nextParagraphIndex).toBe(3);
+    });
+
+    it('returns undefined for chapters without choice triggers', () => {
+      const noChoiceChapter: Chapter = {
+        id: 'bare',
+        index: 98,
+        title: 'Bare',
+        shortTitle: 'Bare',
+        paragraphs: ['Hello'],
+      };
+      expect(getChoiceTriggerForParagraph(noChoiceChapter, 0)).toBeUndefined();
     });
   });
 });
