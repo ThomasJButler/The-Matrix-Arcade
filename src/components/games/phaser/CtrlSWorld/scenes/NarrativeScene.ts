@@ -42,6 +42,7 @@ export class CtrlSNarrativeScene extends BaseScene {
   private cursorTween?: Phaser.Tweens.Tween;
   private waitingForPuzzle = false;
   private waitingForChoice = false;
+  private waitingForInventory = false;
   private choiceContainer?: Phaser.GameObjects.Container;
   private choiceButtons: Phaser.GameObjects.Container[] = [];
   private activeChoices: ChoiceOption[] = [];
@@ -70,6 +71,7 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.startFromParagraph = data.startFromParagraph ?? 0;
     this.chapter = getChapter(this.chapterIndex);
     this.waitingForPuzzle = false;
+    this.waitingForInventory = false;
 
     this.engine.setSpeed(GAME_CONFIG.TEXT.TYPEWRITER_SPEED_MEDIUM);
     this.engine.setCallbacks({
@@ -185,7 +187,7 @@ export class CtrlSNarrativeScene extends BaseScene {
       this.updateMatrixRain(this.rainGroup, delta);
     }
 
-    if (!this.waitingForPuzzle && !this.waitingForChoice) {
+    if (!this.waitingForPuzzle && !this.waitingForChoice && !this.waitingForInventory) {
       this.engine.update(delta);
     }
     this.renderCurrentText();
@@ -378,7 +380,7 @@ export class CtrlSNarrativeScene extends BaseScene {
   }
 
   private handleAdvance(): void {
-    if (this.isPaused || this.waitingForPuzzle || this.waitingForChoice) return;
+    if (this.isPaused || this.waitingForPuzzle || this.waitingForChoice || this.waitingForInventory) return;
 
     if (this.chapterAscii && this.engine.paragraphIndex === 0 && this.engine.state === 'IDLE') {
       this.tweens.add({
@@ -397,7 +399,12 @@ export class CtrlSNarrativeScene extends BaseScene {
   }
 
   private toggleInventory(): void {
+    this.waitingForInventory = true;
     this.emitGameEvent({ type: 'pause', data: { action: 'openInventory' } });
+  }
+
+  resumeAfterInventory(): void {
+    this.waitingForInventory = false;
   }
 
   private showChoiceUI(choices: ChoiceOption[], prompt?: string): void {
@@ -866,6 +873,7 @@ export class CtrlSNarrativeScene extends BaseScene {
       phase: 'narrative',
       waitingForPuzzle: this.waitingForPuzzle,
       waitingForChoice: this.waitingForChoice,
+      waitingForInventory: this.waitingForInventory,
       activeChoices: this.activeChoices.map((c) => c.label),
       selectedChoiceIndex: this.selectedChoiceIndex,
       currentSpeaker: this.currentSpeakerId ?? null,
@@ -908,6 +916,7 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.currentSpeakerId = undefined;
     this.waitingForPuzzle = false;
     this.waitingForChoice = false;
+    this.waitingForInventory = false;
     this.upKey?.destroy();
     this.downKey?.destroy();
     this.upKey = undefined;
