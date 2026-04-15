@@ -11,7 +11,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import Phaser from 'phaser';
 import { PhaserGame } from '../../../../lib/phaser/PhaserGame';
-import { PHASER_CONFIG, CTRLS_SCENE_KEYS, CTRLS_REGISTRY_KEYS } from './config';
+import { PHASER_CONFIG, CTRLS_SCENE_KEYS, CTRLS_REGISTRY_KEYS, ACHIEVEMENTS, CHAPTER_ACHIEVEMENTS, GAME_CONFIG } from './config';
 import type { GameEvent } from '../../../../lib/phaser/types';
 import { PuzzleModal, type PuzzleData } from '../../../ui/PuzzleModal';
 import { InventoryPanel } from '../../../ui/InventoryPanel';
@@ -107,6 +107,22 @@ export default function CtrlSWorldPhaser({
       setInventoryOpen(true);
     } else if (data.action === 'chapterComplete' && data.chapterIndex !== undefined) {
       gameState.completeChapter(data.chapterIndex);
+
+      const chapterAchievement = CHAPTER_ACHIEVEMENTS[data.chapterIndex];
+      if (chapterAchievement) {
+        achievementManager?.unlockAchievement('ctrlSWorld', chapterAchievement);
+      }
+
+      if (data.chapterIndex === GAME_CONFIG.CHAPTERS.TOTAL - 1) {
+        achievementManager?.unlockAchievement('ctrlSWorld', ACHIEVEMENTS.STORY_COMPLETE);
+      }
+
+      const completedChapters = [...(gameState.state.completedChapters ?? []), data.chapterIndex];
+      const completedPuzzles = gameState.state.completedPuzzles ?? [];
+      if (completedChapters.length >= GAME_CONFIG.CHAPTERS.TOTAL && completedPuzzles.length >= 10) {
+        achievementManager?.unlockAchievement('ctrlSWorld', ACHIEVEMENTS.COMPLETIONIST);
+      }
+
       gameState.saveGame();
     } else if (data.action === 'chapterLaunch' && data.chapterIndex !== undefined) {
       gameState.setChapter(data.chapterIndex);
@@ -136,14 +152,23 @@ export default function CtrlSWorldPhaser({
     resumeNarrative();
   }, [resumeNarrative]);
 
-  const handlePuzzleComplete = useCallback((success: boolean, _hintsUsed: number, _lifelinesUsed: number) => {
+  const handlePuzzleComplete = useCallback((success: boolean, hintsUsed: number, lifelinesUsed: number) => {
     if (!isMuted) {
       playSFX(success ? 'ctrlsPuzzleSolved' : 'ctrlsPuzzleFailed');
     }
     if (success && activePuzzle) {
-      achievementManager?.unlockAchievement('ctrlSWorld', 'ctrl_first_puzzle');
+      achievementManager?.unlockAchievement('ctrlSWorld', ACHIEVEMENTS.FIRST_PUZZLE);
+
+      if (hintsUsed === 0 && lifelinesUsed === 0) {
+        achievementManager?.unlockAchievement('ctrlSWorld', ACHIEVEMENTS.NO_HINTS);
+      }
 
       gameState.completePuzzle(activePuzzle.puzzleId);
+
+      const completedPuzzles = [...(gameState.state.completedPuzzles ?? []), activePuzzle.puzzleId];
+      if (completedPuzzles.length >= 10) {
+        achievementManager?.unlockAchievement('ctrlSWorld', ACHIEVEMENTS.PUZZLE_MASTER);
+      }
 
       const rewardIds = getItemRewardsForPuzzle(activePuzzle.puzzleId);
       for (const itemId of rewardIds) {
