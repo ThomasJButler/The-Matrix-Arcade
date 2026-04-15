@@ -59,7 +59,7 @@ function createTestScene() {
 
   // Phaser camera
   scene.cameras = {
-    main: { shake: vi.fn(), setBackgroundColor: vi.fn() },
+    main: { shake: vi.fn(), flash: vi.fn(), setBackgroundColor: vi.fn() },
   };
 
   // Tweens
@@ -265,14 +265,14 @@ describe('VortexPongGameScene', () => {
       const ball = createBall(scene, 400, 2, 0, -420);
       scene.updateBalls(0.016);
       expect(ball.vy).toBeGreaterThan(0);
-      expect(scene.playSound).toHaveBeenCalledWith('pongBounce');
+      expect(scene.playSound).toHaveBeenCalledWith('hit');
     });
 
     it('bounces off bottom wall', () => {
       const ball = createBall(scene, 400, GAME_CONFIG.HEIGHT - 2, 0, 420);
       scene.updateBalls(0.016);
       expect(ball.vy).toBeLessThan(0);
-      expect(scene.playSound).toHaveBeenCalledWith('pongBounce');
+      expect(scene.playSound).toHaveBeenCalledWith('hit');
     });
   });
 
@@ -285,7 +285,7 @@ describe('VortexPongGameScene', () => {
       const ball = createBall(scene, paddleRight, scene.playerPaddle.y, -420, 0);
       scene.checkPaddleCollisions();
       expect(ball.vx).toBeGreaterThan(0);
-      expect(scene.playSound).toHaveBeenCalledWith('pongBounce');
+      expect(scene.playSound).toHaveBeenCalledWith('hit');
     });
 
     it('increments combo on player hit', () => {

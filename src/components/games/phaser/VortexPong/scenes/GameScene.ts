@@ -376,13 +376,15 @@ export class VortexPongGameScene extends BaseScene {
       if (ball.sprite.y - GAME_CONFIG.BALL.RADIUS <= 0) {
         ball.sprite.y = GAME_CONFIG.BALL.RADIUS;
         ball.vy = Math.abs(ball.vy);
-        this.playSound('pongBounce');
+        this.playSound(SOUND_KEYS.HIT);
         this.cameras.main.shake(GAME_CONFIG.SHAKE.WALL.duration, GAME_CONFIG.SHAKE.WALL.intensity);
+        this.addImpactEffect(ball.sprite.x, 0, 6);
       } else if (ball.sprite.y + GAME_CONFIG.BALL.RADIUS >= GAME_CONFIG.HEIGHT) {
         ball.sprite.y = GAME_CONFIG.HEIGHT - GAME_CONFIG.BALL.RADIUS;
         ball.vy = -Math.abs(ball.vy);
-        this.playSound('pongBounce');
+        this.playSound(SOUND_KEYS.HIT);
         this.cameras.main.shake(GAME_CONFIG.SHAKE.WALL.duration, GAME_CONFIG.SHAKE.WALL.intensity);
+        this.addImpactEffect(ball.sprite.x, GAME_CONFIG.HEIGHT, 6);
       }
     }
   }
@@ -438,7 +440,7 @@ export class VortexPongGameScene extends BaseScene {
     this.rallyCount++;
     this.maxRally = Math.max(this.maxRally, this.rallyCount);
 
-    this.playSound('pongBounce');
+    this.playSound(SOUND_KEYS.HIT);
     this.cameras.main.shake(GAME_CONFIG.SHAKE.PLAYER_HIT.duration, GAME_CONFIG.SHAKE.PLAYER_HIT.intensity);
     this.addImpactEffect(ball.sprite.x, ball.sprite.y, 10);
 
@@ -461,7 +463,7 @@ export class VortexPongGameScene extends BaseScene {
 
     this.lastPaddleHit = 'ai';
 
-    this.playSound('pongBounce');
+    this.playSound(SOUND_KEYS.HIT);
     this.cameras.main.shake(GAME_CONFIG.SHAKE.AI_HIT.duration, GAME_CONFIG.SHAKE.AI_HIT.intensity);
     this.addImpactEffect(ball.sprite.x, ball.sprite.y, 8);
   }
@@ -477,6 +479,8 @@ export class VortexPongGameScene extends BaseScene {
         this.aiScore += this.scoreMultiplier;
         this.playSound('hit');
         this.addImpactEffect(0, ball.sprite.y, 20);
+        this.cameras.main.flash(100, 255, 0, 0, false, undefined, undefined, 0.15);
+        this.popScoreText(this.aiScoreText);
         toRemove.push(ball);
       } else if (ball.sprite.x - GAME_CONFIG.BALL.RADIUS > GAME_CONFIG.WIDTH) {
         // Ball exits right — Player scores
@@ -486,6 +490,8 @@ export class VortexPongGameScene extends BaseScene {
         if (comboBonus > 0) this.playSound('combo');
         this.playSound('score');
         this.addImpactEffect(GAME_CONFIG.WIDTH, ball.sprite.y, 20);
+        this.cameras.main.flash(100, 0, 255, 0, false, undefined, undefined, 0.15);
+        this.popScoreText(this.playerScoreText);
 
         if (!this.hasFirstPoint) {
           this.hasFirstPoint = true;
@@ -532,6 +538,7 @@ export class VortexPongGameScene extends BaseScene {
       this.playSound('levelUp');
       this.playSound(SOUND_KEYS.ACHIEVEMENT_UNLOCK);
       this.cameras.main.shake(GAME_CONFIG.SHAKE.GAME_OVER.duration, GAME_CONFIG.SHAKE.GAME_OVER.intensity);
+      this.cameras.main.flash(200, 0, 255, 0, false, undefined, undefined, 0.3);
       if (this.playerScore > this.highScore) this.highScore = this.playerScore;
       this.reportScore(this.playerScore, this.highScore);
       this.time.delayedCall(600, () => {
@@ -549,7 +556,9 @@ export class VortexPongGameScene extends BaseScene {
       if (ballCountBeforeRemoval >= 3) {
         this.unlockAchievement(ACHIEVEMENTS.MULTI_BALL);
       }
+      this.playSound(SOUND_KEYS.GAME_OVER);
       this.cameras.main.shake(GAME_CONFIG.SHAKE.GAME_OVER.duration, GAME_CONFIG.SHAKE.GAME_OVER.intensity);
+      this.cameras.main.flash(150, 255, 0, 0, false, undefined, undefined, 0.25);
       if (this.playerScore > this.highScore) this.highScore = this.playerScore;
       this.reportScore(this.playerScore, this.highScore);
       this.time.delayedCall(600, () => {
@@ -686,6 +695,7 @@ export class VortexPongGameScene extends BaseScene {
 
   private deactivatePowerUp(type: PowerUpType): void {
     this.activePowerUps.delete(type);
+    this.playSound(SOUND_KEYS.POWER_DOWN);
 
     switch (type) {
       case 'bigger_paddle':
@@ -779,6 +789,15 @@ export class VortexPongGameScene extends BaseScene {
     } else {
       this.comboText.setAlpha(0);
     }
+  }
+
+  private popScoreText(text: Phaser.GameObjects.Text): void {
+    this.tweens.add({
+      targets: text,
+      scale: { from: 1.4, to: 1 },
+      duration: 250,
+      ease: 'Back.easeOut',
+    });
   }
 
   private updatePowerUpIndicators(): void {
