@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GAME_TITLES } from '../lib/asciiArt';
 import type { GameEntry } from '../data/gameRegistry';
@@ -38,6 +38,26 @@ export function GamePortal({
 }: GamePortalProps) {
   const game = games[selectedGame];
   const hasComponent = typeof game.component !== 'undefined';
+  const zoneRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const handleWheelKeyDown = useCallback((e: React.KeyboardEvent) => {
+    const actionMap: Record<string, { index: number; action: () => void }> = {
+      ArrowUp:    { index: 0, action: onShowInstructions },
+      ArrowRight: { index: 1, action: onNext },
+      ArrowDown:  { index: 2, action: () => { if (!isPlayDisabled && hasComponent) onPlay(); } },
+      ArrowLeft:  { index: 3, action: onPrev },
+      Enter:      { index: 4, action: onShowHighScores },
+      ' ':        { index: 4, action: onShowHighScores },
+    };
+
+    const mapping = actionMap[e.key];
+    if (mapping) {
+      e.preventDefault();
+      e.stopPropagation();
+      zoneRefs.current[mapping.index]?.focus();
+      mapping.action();
+    }
+  }, [onShowInstructions, onNext, onPrev, onPlay, onShowHighScores, isPlayDisabled, hasComponent]);
 
   return (
     <div className="relative w-full max-w-2xl mx-auto flex flex-col justify-center h-full game-portal-container px-4">
@@ -96,47 +116,63 @@ export function GamePortal({
             </div>
 
             {/* iPod Clickwheel */}
-            <div className="ipod-clickwheel" role="group" aria-label="Game navigation wheel">
+            <div
+              className="ipod-clickwheel"
+              role="toolbar"
+              aria-label="Game navigation wheel"
+              tabIndex={0}
+              onKeyDown={handleWheelKeyDown}
+            >
               <button
+                ref={(el) => { zoneRefs.current[0] = el; }}
                 className="clickwheel-zone clickwheel-top"
                 onClick={onShowInstructions}
+                tabIndex={-1}
                 aria-label="How to play"
               >
                 <span>MENU</span>
               </button>
 
               <button
+                ref={(el) => { zoneRefs.current[3] = el; }}
                 className="clickwheel-zone clickwheel-left"
                 onClick={onPrev}
                 data-testid="carousel-prev"
+                tabIndex={-1}
                 aria-label="Previous game"
               >
                 <span>◄◄</span>
               </button>
 
               <button
+                ref={(el) => { zoneRefs.current[1] = el; }}
                 className="clickwheel-zone clickwheel-right"
                 onClick={onNext}
                 data-testid="carousel-next"
+                tabIndex={-1}
                 aria-label="Next game"
               >
                 <span>►►</span>
               </button>
 
               <button
+                ref={(el) => { zoneRefs.current[2] = el; }}
                 className="clickwheel-zone clickwheel-bottom"
                 onClick={() => {
                   if (!isPlayDisabled && hasComponent) onPlay();
                 }}
                 disabled={isPlayDisabled || !hasComponent}
+                tabIndex={-1}
                 aria-label="Play game"
               >
                 <span>▶❚❚</span>
               </button>
 
               <button
+                ref={(el) => { zoneRefs.current[4] = el; }}
                 className="clickwheel-centre"
                 onClick={onShowHighScores}
+                tabIndex={-1}
                 aria-label="View high scores"
               >
                 ●
@@ -145,7 +181,7 @@ export function GamePortal({
 
             {/* Keyboard hints */}
             <div className="mt-3 text-xs lg:text-sm text-green-400/60 text-center space-y-1 font-mono">
-              <p className="text-green-500/70">&larr; &rarr; NAVIGATE &bull; ENTER PLAY &bull; ESC EXIT</p>
+              <p className="text-green-500/70">&larr;&rarr; NAVIGATE &bull; &uarr; MENU &bull; &darr; PLAY &bull; ENTER SCORES &bull; ESC EXIT</p>
               <p className="text-green-500/50">I Instructions &bull; H Scores &bull; A Achievements &bull; B About &bull; V Mute</p>
             </div>
           </div>

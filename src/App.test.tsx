@@ -269,7 +269,7 @@ describe('App Component', () => {
   it('shows correct keyboard hints', () => {
     render(<App />);
     
-    expect(screen.getByText('← → NAVIGATE • ENTER PLAY • ESC EXIT')).toBeInTheDocument();
+    expect(screen.getByText('←→ NAVIGATE • ↑ MENU • ↓ PLAY • ENTER SCORES • ESC EXIT')).toBeInTheDocument();
     expect(screen.getByText('I Instructions • H Scores • A Achievements • B About • V Mute')).toBeInTheDocument();
   });
 
