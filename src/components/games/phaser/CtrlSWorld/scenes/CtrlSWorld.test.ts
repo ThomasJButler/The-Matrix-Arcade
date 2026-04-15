@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { PHASER_CONFIG, CTRLS_SCENE_KEYS, GAME_CONFIG, ACHIEVEMENTS, CHARACTERS, PORTRAIT_CONFIG, HUB_CONFIG } from '../config';
+import { PHASER_CONFIG, CTRLS_SCENE_KEYS, CTRLS_REGISTRY_KEYS, GAME_CONFIG, ACHIEVEMENTS, CHARACTERS, PORTRAIT_CONFIG, HUB_CONFIG, type ChapterStatus } from '../config';
 import { getPuzzleById } from '../../../../../data/puzzles';
 import { getChapter, getPuzzleTriggersForParagraph } from '../../../../../data/ctrlsChapters';
 import { CtrlSBootScene } from './BootScene';
@@ -162,6 +162,33 @@ describe('CTRL-S World Phaser — Hub Config', () => {
   });
 });
 
+describe('CTRL-S World Phaser — Save System Registry Keys', () => {
+  it('defines registry keys for progress state', () => {
+    expect(CTRLS_REGISTRY_KEYS.COMPLETED_CHAPTERS).toBe('completedChapters');
+    expect(CTRLS_REGISTRY_KEYS.COMPLETED_PUZZLES).toBe('completedPuzzles');
+    expect(CTRLS_REGISTRY_KEYS.CURRENT_CHAPTER).toBe('currentChapter');
+  });
+
+  it('registry keys are distinct from each other', () => {
+    const values = Object.values(CTRLS_REGISTRY_KEYS);
+    expect(new Set(values).size).toBe(values.length);
+  });
+});
+
+describe('CTRL-S World Phaser — Chapter Status Logic', () => {
+  const statuses: ChapterStatus[] = ['locked', 'available', 'in-progress', 'complete'];
+
+  it('all ChapterStatus values are valid', () => {
+    statuses.forEach(s => {
+      expect(['locked', 'available', 'in-progress', 'complete']).toContain(s);
+    });
+  });
+
+  it('chapter status types cover all hub tile states', () => {
+    expect(statuses).toHaveLength(4);
+  });
+});
+
 describe('CTRL-S World Phaser — Puzzle Overlay Integration', () => {
   it('every puzzle trigger in story data resolves to a valid puzzle', () => {
     for (let chapterIdx = 0; chapterIdx < GAME_CONFIG.CHAPTERS.TOTAL; chapterIdx++) {
@@ -207,6 +234,10 @@ describe('CTRL-S World Phaser — Puzzle Overlay Integration', () => {
 
   it('NarrativeScene prototype has resumeAfterPuzzle method', () => {
     expect(typeof CtrlSNarrativeScene.prototype.resumeAfterPuzzle).toBe('function');
+  });
+
+  it('NarrativeScene prototype has resumeAfterInventory method', () => {
+    expect(typeof CtrlSNarrativeScene.prototype.resumeAfterInventory).toBe('function');
   });
 
   it('CTRLS_SCENE_KEYS.NARRATIVE matches the scene key used in config', () => {

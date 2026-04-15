@@ -114,6 +114,12 @@ export const CHARACTERS: Record<string, CharacterDef> = {
 
 export type ChapterStatus = 'locked' | 'available' | 'in-progress' | 'complete';
 
+export const CTRLS_REGISTRY_KEYS = {
+  COMPLETED_CHAPTERS: 'completedChapters',
+  COMPLETED_PUZZLES: 'completedPuzzles',
+  CURRENT_CHAPTER: 'currentChapter',
+} as const;
+
 export const HUB_CONFIG = {
   COLS: 2,
   TILE_W: 340,

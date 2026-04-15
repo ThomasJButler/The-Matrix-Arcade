@@ -345,6 +345,11 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.playSound('levelUp');
     this.promptText?.setText('Chapter complete');
 
+    this.emitGameEvent({
+      type: 'pause',
+      data: { action: 'chapterComplete', chapterIndex: this.chapterIndex },
+    });
+
     this.time.delayedCall(1500, () => {
       this.scene.start(CTRLS_SCENE_KEYS.CHAPTER_HUB);
     });
