@@ -170,6 +170,7 @@
     inset 0 -1px 0 rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(0, 255, 0, 0.2);
   position: relative;
+  contain: layout style;
 }
 
 .ipod-body::before {
@@ -190,6 +191,7 @@
     inset 0 0 2px rgba(0, 0, 0, 0.6),
     0 1px 0 rgba(0, 255, 0, 0.08);
   border: 1px solid rgba(0, 255, 0, 0.15);
+  contain: layout style paint;
 }
 
 .ipod-title-overlay {
@@ -269,6 +271,8 @@
   border: 1px solid rgba(0, 255, 0, 0.12);
   margin: 0 auto;
   user-select: none;
+  contain: layout style;
+  will-change: transform;
 }
 
 @media (min-width: 1024px) {
@@ -385,6 +389,7 @@
   z-index: 2;
   transition: color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
   -webkit-tap-highlight-color: transparent;
+  will-change: transform;
 }
 
 .clickwheel-centre:hover,
@@ -460,6 +465,11 @@
 
   .clickwheel-centre:active {
     transform: translate(-50%, -50%);
+  }
+
+  .ipod-clickwheel,
+  .clickwheel-centre {
+    will-change: auto;
   }
 
   .crt-effect::before {
