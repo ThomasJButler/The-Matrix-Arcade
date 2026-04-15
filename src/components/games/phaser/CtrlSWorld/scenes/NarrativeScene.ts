@@ -1,13 +1,14 @@
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
 import { MATRIX_COLORS, MATRIX_FONTS } from '../../../../../lib/phaser/types';
-import { CTRLS_SCENE_KEYS, GAME_CONFIG } from '../config';
+import { CTRLS_SCENE_KEYS, GAME_CONFIG, CHARACTERS, PORTRAIT_CONFIG, type CharacterDef } from '../config';
 import { TypewriterEngine } from '../engine/TypewriterEngine';
 import {
   getChapter,
   getPuzzleTriggersForParagraph,
   getAsciiPanelForParagraph,
   getChoiceTriggerForParagraph,
+  getSpeakerForParagraph,
   type Chapter,
   type ChoiceOption,
 } from '../../../../../data/ctrlsChapters';
@@ -47,6 +48,12 @@ export class CtrlSNarrativeScene extends BaseScene {
   private upKey?: Phaser.Input.Keyboard.Key;
   private downKey?: Phaser.Input.Keyboard.Key;
   private startFromParagraph = 0;
+  private portraitContainer?: Phaser.GameObjects.Container;
+  private portraitImage?: Phaser.GameObjects.Image;
+  private portraitMonogram?: Phaser.GameObjects.Text;
+  private portraitBorder?: Phaser.GameObjects.Graphics;
+  private portraitName?: Phaser.GameObjects.Text;
+  private currentSpeakerId?: string;
 
   constructor() {
     super(CTRLS_SCENE_KEYS.NARRATIVE);
@@ -151,8 +158,10 @@ export class CtrlSNarrativeScene extends BaseScene {
 
     if (this.startFromParagraph > 0) {
       this.engine.startFromParagraph(this.startFromParagraph);
+      this.updatePortraitForParagraph(this.startFromParagraph);
     } else {
       this.engine.start();
+      this.updatePortraitForParagraph(0);
     }
   }
 
@@ -196,6 +205,11 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.promoteCompletedParagraph();
 
     if (!this.chapter) return;
+
+    const nextIndex = paragraphIndex + 1;
+    if (nextIndex < this.chapter.paragraphs.length) {
+      this.updatePortraitForParagraph(nextIndex);
+    }
 
     const asciiPanel = getAsciiPanelForParagraph(this.chapter, paragraphIndex);
     if (asciiPanel) {
@@ -308,9 +322,11 @@ export class CtrlSNarrativeScene extends BaseScene {
       }
     }
 
+    const textX = this.currentSpeakerId ? PORTRAIT_CONFIG.TEXT_INDENT : GAME_CONFIG.TEXT.MARGIN_X;
     if (this.bodyText) {
-      this.bodyText.setPosition(GAME_CONFIG.TEXT.MARGIN_X, y);
+      this.bodyText.setPosition(textX, y);
     }
+    this.syncPortraitY();
   }
 
   private onAllComplete(): void {
@@ -577,6 +593,120 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.selectedChoiceIndex = 0;
   }
 
+  private updatePortraitForParagraph(paragraphIndex: number): void {
+    if (!this.chapter) return;
+
+    const speakerId = getSpeakerForParagraph(this.chapter, paragraphIndex);
+    if (speakerId === this.currentSpeakerId) return;
+
+    const character = speakerId ? CHARACTERS[speakerId] : undefined;
+
+    if (!character) {
+      this.hidePortrait();
+      this.currentSpeakerId = undefined;
+      return;
+    }
+
+    this.currentSpeakerId = speakerId;
+    this.showPortrait(character);
+  }
+
+  private showPortrait(character: CharacterDef): void {
+    const margin = GAME_CONFIG.TEXT.MARGIN_X;
+    const size = PORTRAIT_CONFIG.SIZE;
+    const panelX = margin;
+    const panelY = this.bodyText?.y ?? GAME_CONFIG.TEXT.MARGIN_Y;
+
+    if (!this.portraitContainer) {
+      this.portraitContainer = this.add.container(panelX, panelY);
+      this.portraitContainer.setAlpha(0);
+    }
+
+    this.portraitContainer.removeAll(true);
+    this.portraitImage = undefined;
+    this.portraitMonogram = undefined;
+    this.portraitBorder = undefined;
+    this.portraitName = undefined;
+
+    this.portraitBorder = this.add.graphics();
+    this.portraitBorder.lineStyle(2, character.colour, 0.8);
+    this.portraitBorder.fillStyle(MATRIX_COLORS.BACKGROUND, 0.9);
+    this.portraitBorder.fillRect(0, 0, size, size);
+    this.portraitBorder.strokeRect(0, 0, size, size);
+    this.portraitContainer.add(this.portraitBorder);
+
+    if (character.portraitKey && this.textures.exists(character.portraitKey)) {
+      this.portraitImage = this.add.image(size / 2, size / 2, character.portraitKey);
+      this.portraitImage.setDisplaySize(size - 4, size - 4);
+      this.portraitContainer.add(this.portraitImage);
+    } else {
+      this.portraitMonogram = this.add.text(size / 2, size / 2, character.initial, {
+        fontFamily: MATRIX_FONTS.PRIMARY,
+        fontSize: '28px',
+        color: character.colourHex,
+      });
+      this.portraitMonogram.setOrigin(0.5);
+      this.portraitContainer.add(this.portraitMonogram);
+    }
+
+    this.portraitName = this.add.text(size / 2, size + PORTRAIT_CONFIG.NAME_OFFSET_Y, character.name, {
+      fontFamily: MATRIX_FONTS.PRIMARY,
+      fontSize: '7px',
+      color: character.colourHex,
+    });
+    this.portraitName.setOrigin(0.5, 0);
+    this.portraitContainer.add(this.portraitName);
+
+    this.portraitContainer.setPosition(panelX, panelY);
+
+    this.tweens.add({
+      targets: this.portraitContainer,
+      alpha: 1,
+      duration: PORTRAIT_CONFIG.FADE_DURATION,
+      ease: 'Power2',
+    });
+
+    this.indentTextForPortrait(true);
+  }
+
+  private hidePortrait(): void {
+    if (!this.portraitContainer) return;
+
+    this.tweens.add({
+      targets: this.portraitContainer,
+      alpha: 0,
+      duration: PORTRAIT_CONFIG.FADE_DURATION,
+      ease: 'Power2',
+    });
+
+    this.indentTextForPortrait(false);
+  }
+
+  private indentTextForPortrait(indented: boolean): void {
+    if (!this.bodyText) return;
+
+    const width = Number(this.game.config.width);
+    const targetX = indented ? PORTRAIT_CONFIG.TEXT_INDENT : GAME_CONFIG.TEXT.MARGIN_X;
+    const targetWidth = width - targetX - GAME_CONFIG.TEXT.MARGIN_X;
+
+    this.tweens.add({
+      targets: this.bodyText,
+      x: targetX,
+      duration: PORTRAIT_CONFIG.FADE_DURATION,
+      ease: 'Power2',
+      onUpdate: () => {
+        this.bodyText?.setWordWrapWidth(targetWidth);
+      },
+    });
+  }
+
+  private syncPortraitY(): void {
+    if (!this.portraitContainer || !this.bodyText) return;
+    if (this.portraitContainer.alpha <= 0) return;
+
+    this.portraitContainer.setY(this.bodyText.y);
+  }
+
   protected handleExit(): void {
     this.scene.start(CTRLS_SCENE_KEYS.CHAPTER_HUB);
   }
@@ -591,6 +721,8 @@ export class CtrlSNarrativeScene extends BaseScene {
       waitingForChoice: this.waitingForChoice,
       activeChoices: this.activeChoices.map((c) => c.label),
       selectedChoiceIndex: this.selectedChoiceIndex,
+      currentSpeaker: this.currentSpeakerId ?? null,
+      portraitVisible: (this.portraitContainer?.alpha ?? 0) > 0,
       typewriter: snapshot,
     };
   }
@@ -614,6 +746,13 @@ export class CtrlSNarrativeScene extends BaseScene {
     }
     this.asciiPanels = [];
     this.destroyChoiceUI();
+    this.portraitContainer?.destroy(true);
+    this.portraitContainer = undefined;
+    this.portraitImage = undefined;
+    this.portraitMonogram = undefined;
+    this.portraitBorder = undefined;
+    this.portraitName = undefined;
+    this.currentSpeakerId = undefined;
     this.waitingForPuzzle = false;
     this.waitingForChoice = false;
     this.upKey?.destroy();

@@ -8,6 +8,7 @@ import {
   getPuzzleTriggersForParagraph,
   getAsciiPanelForParagraph,
   getChoiceTriggerForParagraph,
+  getSpeakerForParagraph,
   type Chapter,
 } from './ctrlsChapters';
 
@@ -769,6 +770,99 @@ describe('ctrlsChapters', () => {
         paragraphs: ['Hello'],
       };
       expect(getChoiceTriggerForParagraph(noChoiceChapter, 0)).toBeUndefined();
+    });
+  });
+
+  describe('getSpeakerForParagraph', () => {
+    it('returns speaker ID for a tagged paragraph', () => {
+      const prologue = CHAPTERS[0];
+      expect(getSpeakerForParagraph(prologue, 12)).toBe('averag');
+    });
+
+    it('returns undefined for narrator paragraphs', () => {
+      const prologue = CHAPTERS[0];
+      expect(getSpeakerForParagraph(prologue, 0)).toBeUndefined();
+      expect(getSpeakerForParagraph(prologue, 5)).toBeUndefined();
+    });
+
+    it('returns undefined for chapters without speakers', () => {
+      const bare: Chapter = {
+        id: 'bare',
+        index: 98,
+        title: 'Bare',
+        shortTitle: 'Bare',
+        paragraphs: ['Hello'],
+      };
+      expect(getSpeakerForParagraph(bare, 0)).toBeUndefined();
+    });
+
+    it('chapter 1 has correct speaker assignments', () => {
+      const ch1 = CHAPTERS[1];
+      expect(getSpeakerForParagraph(ch1, 4)).toBe('senora');
+      expect(getSpeakerForParagraph(ch1, 8)).toBe('averag');
+      expect(getSpeakerForParagraph(ch1, 11)).toBe('elon');
+      expect(getSpeakerForParagraph(ch1, 13)).toBe('steve');
+      expect(getSpeakerForParagraph(ch1, 24)).toBe('billiam');
+    });
+
+    it('chapter 3 has Samuel as speaker', () => {
+      const ch3 = CHAPTERS[3];
+      expect(getSpeakerForParagraph(ch3, 4)).toBe('samuel');
+      expect(getSpeakerForParagraph(ch3, 9)).toBe('samuel');
+    });
+
+    it('chapter 5 has all six characters as speakers', () => {
+      const ch5 = CHAPTERS[5];
+      const speakerIds = new Set(
+        Object.values(ch5.speakers ?? {}),
+      );
+      expect(speakerIds).toContain('averag');
+      expect(speakerIds).toContain('billiam');
+      expect(speakerIds).toContain('steve');
+      expect(speakerIds).toContain('elon');
+      expect(speakerIds).toContain('senora');
+      expect(speakerIds).toContain('samuel');
+    });
+  });
+
+  describe('speaker data integrity', () => {
+    const validCharacterIds = [
+      'averag', 'senora', 'elon', 'steve',
+      'billiam', 'samuel', 'protector',
+    ];
+
+    it('all speaker IDs reference valid characters', () => {
+      CHAPTERS.forEach((ch) => {
+        if (!ch.speakers) return;
+        Object.values(ch.speakers).forEach((id) => {
+          expect(validCharacterIds).toContain(id);
+        });
+      });
+    });
+
+    it('speaker indices are within paragraph bounds', () => {
+      CHAPTERS.forEach((ch) => {
+        if (!ch.speakers) return;
+        Object.keys(ch.speakers).forEach((key) => {
+          const idx = Number(key);
+          expect(idx).toBeGreaterThanOrEqual(0);
+          expect(idx).toBeLessThan(ch.paragraphs.length);
+        });
+      });
+    });
+
+    it('every chapter has speaker annotations', () => {
+      CHAPTERS.forEach((ch) => {
+        expect(ch.speakers).toBeDefined();
+        expect(Object.keys(ch.speakers!).length).toBeGreaterThan(0);
+      });
+    });
+
+    it('averag appears as speaker in at least 3 chapters', () => {
+      const chaptersWithAverag = CHAPTERS.filter((ch) =>
+        Object.values(ch.speakers ?? {}).includes('averag'),
+      );
+      expect(chaptersWithAverag.length).toBeGreaterThanOrEqual(3);
     });
   });
 });
