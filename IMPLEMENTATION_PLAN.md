@@ -5,7 +5,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: R82 open — iPod Classic card redesign + CSS polish (12 tasks, 15-loop cap, CTRL-S excluded)
+## Status: R82 open — iPod Classic redesign for PORTAL/CAROUSEL VIEW (NOT landing grid — target corrected 2026-04-18 after first attempt misfired)
 
 > **R78.7 complete (2026-04-14)**: Multi-viewport Playwright matrix — added `mobile` (375×667) and `tablet` (768×1024) projects to `playwright.config.ts`. Both viewports trigger the app's "DESKTOP REQUIRED" gate (MobileWarning component), so created dedicated `e2e/responsive/mobile-gate.spec.ts` with 2 tests × 2 viewports = 4 baselines. Scoped via `testMatch: /responsive\//` so only responsive specs run on those projects. Fixed pre-existing lint error (`addScore` unused in App.tsx). All 4 responsive tests pass, all 6 desktop visual tests pass, build clean.
 >
@@ -116,13 +116,53 @@ This file is auto-generated and updated by Ralph during planning and building lo
 
 ---
 
-## R82 — Retro iPod Classic Game-Card Redesign (MEDIUM — 12 tasks, 15-loop cap)
+## R82 — Retro iPod Classic Redesign — **PORTAL/CAROUSEL VIEW** (MEDIUM — 12 tasks, 15-loop cap)
 
-> **Tom's call (2026-04-18)**: *"Unblock the loop and do the CSS improvements for the Ipod Touch design. This would be another good one for the loop to give a go."*
+> **Tom's call (2026-04-18, target corrected after first attempt)**: The iPod redesign targets the **big single-game carousel view** (the "portal" — visible when you click into a game from the landing page), NOT the 12-tile grid on the landing page. First attempt incorrectly targeted `src/components/LandingPage.tsx` grid and was discarded in the 2026-04-18 cleanup. The grid tiles look fine already; the portal view is the one that needs the iPod Classic treatment.
 
-**Scope**: Rebuild the landing page game cards as iPod Classic device visuals (per Tom's sketch + iPod reference). Device silhouette, screen area with game preview + title overlay, clickwheel with MENU/prev/next/play/centre. Matrix green aesthetic replaces chrome. ~30% smaller than current cards so grid density improves. Existing game preview images used; Tom will swap in better imagery later.
+### ⚠️ CRITICAL TARGET CLARIFICATION
 
-### R82 Design Decisions (locked in from prior session 2026-04-16)
+**IN SCOPE — the big portal/carousel view**:
+- Lives in `src/App.tsx` lines **~660-800+** (inline JSX, NOT a separate component yet)
+- Shown when user clicks a game card on landing page → carousel view opens
+- Contains: game preview image (16:9), ASCII title, category badge, description, PLAY button, HOW TO PLAY + HIGH SCORE buttons, prev/next arrows
+- Outer wrapper: `<div className="relative bg-gray-900 rounded-xl p-3 lg:p-4 border border-green-500 shadow-[0_0_20px_rgba(0,255,0,0.3)] w-full mx-auto">` at `App.tsx:666`
+- This is what becomes the iPod Classic device
+
+**OUT OF SCOPE — the landing page grid tiles**:
+- Lives in `src/components/LandingPage.tsx`
+- 12 small cards in a 4-column grid
+- **DO NOT TOUCH `src/components/LandingPage.tsx`** unless explicitly directed by a future phase
+- **DO NOT CREATE `src/components/ui/GameCard.tsx`** — the extraction from LandingPage was the wrong target
+- Grid tiles already look good per Tom's review
+
+### Visual target (what we're building)
+
+The portal view becomes a rendered iPod Classic:
+
+```
+┌─────────────────────────────────────┐
+│    ┌─────────────────────────┐       │   ← iPod device body
+│    │                         │       │     (rounded rect, Matrix green
+│    │      [game preview]     │       │      body instead of chrome)
+│    │                         │       │
+│    │    ╔═ VORTEX PONG ═╗   │       │   ← Title OVERLAID on screen
+│    │    ║    Classic    ║   │       │     (not in separate band below)
+│    │                         │       │
+│    └─────────────────────────┘       │   ← Screen (bezel)
+│                                      │
+│         ▄▀▀▀▀▀▀▀▄                    │
+│        █  MENU   █                   │   ← Clickwheel
+│       █           █                  │
+│      █  ◄   ●   ►  █                 │     Top:    MENU (→ HOW TO PLAY or return to grid)
+│       █           █                  │     Left:   ◄ prev game (replaces ChevronLeft)
+│        █  ▶/❚❚  █                   │     Right:  ► next game (replaces ChevronRight)
+│         ▀▄▄▄▄▄▄▄▀                    │     Bottom: ▶ play/pause (replaces PLAY button)
+│                                      │     Centre: ● select (confirm / HIGH SCORE toggle)
+└──────────────────────────────────────┘
+```
+
+### R82 Design Decisions (locked in 2026-04-16, target corrected 2026-04-18)
 
 | Decision | Choice |
 |----------|--------|
@@ -137,20 +177,26 @@ This file is auto-generated and updated by Ralph during planning and building lo
 ### R82 Task List (12 tasks)
 
 - [x] **R82.1 — [P2]** Archive R81 to `COMPLETED_WORK.md § R81 — Arcade-wide Juice Polish`. Moved 14-task list + completion report + shared effect helpers + discovered work. Replaced in-plan with one-line back-reference. Plan slimmed by ~85 lines.
-- [ ] **R82.2 — [P1]** Extract a new `GameCard.tsx` component from `LandingPage.tsx` (currently 257 lines, cards inline). Shared component, props `game: GameRegistryEntry`, `onPlay: () => void`. Establishes the boundary for iPod redesign work.
-- [ ] **R82.3 — [P1]** iPod Classic device silhouette — pure CSS (rounded-rect body with metallic Matrix-green gradient, screen inset with subtle bezel, shadow for depth). No clickwheel yet. Target size ~280×380 (roughly 30% smaller than current card footprint).
-- [ ] **R82.4 — [P1]** Screen area: game preview image rendered inside the device screen. Game title overlaid on preview (top area, semi-transparent Matrix green bar OR text-shadow directly on image). Per Tom's sketch arrows.
-- [ ] **R82.5 — [P1]** Clickwheel below screen — pure CSS radial gradient, 5 hit zones: MENU top, prev left, next right, play/pause bottom, centre-select. ASCII-style icons (▶ ❚❚ ◄ ► MENU) for true retro feel.
+- [ ] **R82.2 — [P1]** Extract the portal/carousel view from `src/App.tsx:~660-800+` into a new component `src/components/GamePortal.tsx`. Props: `games`, `selectedGame`, `isPlaying`, `onPrev`, `onNext`, `onPlay`, `onShowInstructions`, `onShowHighScores`, plus the live game children slot. App.tsx keeps state orchestration; GamePortal owns the visual rendering. **DO NOT extract `GameCard.tsx` from `LandingPage.tsx`** — that was the wrong target in the first attempt.
+- [ ] **R82.3 — [P1]** iPod Classic **device body** wrapping the GamePortal — pure CSS. Replaces the current `<div className="bg-gray-900 rounded-xl p-3 lg:p-4 border border-green-500...">` outer wrapper at App.tsx:666 with an iPod-silhouette rounded-rect. Matrix-green metallic body gradient (not chrome). Screen inset with subtle bezel. Shadow for depth. No clickwheel yet — that's R82.5. Retain 16:9 aspect for the screen area.
+- [ ] **R82.4 — [P1]** **Title overlaid on screen** (per Tom's sketch arrows). Currently the ASCII game title at `App.tsx:706-712` lives in a separate band BELOW the preview image — move it into the top portion of the game preview `<div>` (inside the screen bezel), using a semi-transparent Matrix-green bar with text-shadow. Keep existing ASCII art from `GAME_TITLES[game.id]`. Hides during live play, shows when preview image is visible.
+- [ ] **R82.5 — [P1]** **Clickwheel replaces current button cluster** at `App.tsx:691-790`. Pure CSS radial-gradient ring with 5 hit zones:
+  - **Top (MENU)** → toggles HOW TO PLAY modal (replaces current "HOW TO PLAY" button)
+  - **Left (◄ prev)** → `handlePrevious` — replaces current `ChevronLeft` button at line 693
+  - **Right (► next)** → `handleNext` — replaces current `ChevronRight` button at line 776
+  - **Bottom (▶/❚❚ play/pause)** → toggles `isPlaying` — replaces current PLAY button at line 723
+  - **Centre (● select)** → toggles HIGH SCORE modal (replaces current "HIGH SCORE" button)
+  Use ASCII-style glyphs. 5 existing buttons become 5 clickwheel zones — functionality 1:1.
 - [ ] **R82.6 — [P1]** Clickwheel interactivity:
-  - Pointer: click hit zones → prev/next cycles carousel, play launches game, MENU returns to grid, centre confirms.
-  - Keyboard: Tab focuses a card; ↑=MENU, ↓=play, ←=prev, →=next, Enter=centre-select.
+  - Pointer: click hit zones.
+  - Keyboard: Tab focuses the wheel; ↑=MENU, ↓=play, ←=prev, →=next, Enter=centre-select.
   - ARIA: role="group" for the wheel, role="button" + aria-label per zone.
-- [ ] **R82.7 — [P2]** Animations: clickwheel segment pulses Matrix green on hover/focus. Click → subtle depression animation (transform scale 0.97 for 80ms). Wheel rotation micro-animation on prev/next (slight rotate + settle).
-- [ ] **R82.8 — [P2]** Landing page grid rework — apply new `GameCard` across all 12 game entries. Tighten grid gap to match new card size. Verify responsive: 3 cols at wide, 2 cols at medium, 1 col at narrow (before MobileWarning kicks in).
-- [ ] **R82.9 — [P2]** CTRL-S card styling — apply iPod treatment but PRESERVE CTRL-S card fully (don't touch game directory). CTRL-S gets same card look with its own preview image + title. Tom can iterate on preview image later.
-- [ ] **R82.10 — [P2]** Visual regression baseline regen for landing page + portal carousel. Commit baselines separately with `R82.N-visual: baseline update` message.
-- [ ] **R82.11 — [P2]** E2E test update — current playthrough specs use selectors like `[role="button"][aria-label*="Play"]` which should still work since the play zone on the clickwheel gets that aria-label. Verify all 12 playthrough specs still pass. Update `e2e/fixtures/arcade.fixture.ts` if selector needs refinement.
-- [ ] **R82.12 — [P1]** Final verification + terminator. Run gates: lint + build + test + e2e + visual. Write `### R82 Completion Report`. Update Status to `R82 COMPLETE — iPod Classic card redesign shipped`.
+- [ ] **R82.7 — [P2]** Animations: clickwheel segment pulses Matrix green on hover/focus. Click → subtle depression (transform scale 0.97 for 80ms). Wheel rotation micro-animation on prev/next. Use existing `animations.css` patterns.
+- [ ] **R82.8 — [P2]** Play state visual feedback — when `isPlaying === true`, the device screen shows the live game (current behaviour preserved, just inside the iPod frame). Bottom clickwheel button switches glyph `▶` → `❚❚`. When not playing, shows preview image + title overlay.
+- [ ] **R82.9 — [P2]** **Landing page grid is OUT OF SCOPE** — sentinel task. Do NOT touch `src/components/LandingPage.tsx`. Do NOT create `src/components/ui/GameCard.tsx`. Verify via `git diff --stat HEAD~8 -- src/components/LandingPage.tsx src/components/ui/` returns empty. If not, roll back. Mark `[x]` when verified untouched.
+- [ ] **R82.10 — [P2]** Visual regression baseline regen — focus on portal/carousel views (2-3 representative games: Snake Classic, Vortex Pong, CTRL-S). Commit baselines separately with `R82.N-visual: baseline update` message. Landing page baselines should NOT change.
+- [ ] **R82.11 — [P2]** E2E test update — specs click `[data-testid="carousel-prev"]`, `[data-testid="carousel-next"]`, and the PLAY button. After R82.5, these become clickwheel zones — PRESERVE the `data-testid` attributes on the new clickwheel hit areas. Verify all 12 playthrough + a11y specs still pass.
+- [ ] **R82.12 — [P1]** Final verification + terminator. Run gates: lint + build + test + e2e + visual. Write `### R82 Completion Report`. Update Status to `R82 COMPLETE — iPod Classic portal redesign shipped` (note: *portal* not *card*).
 
 ### R82 Terminator
 
@@ -158,7 +204,8 @@ This file is auto-generated and updated by Ralph during planning and building lo
 - Gates green: lint + build + test + e2e + visual.
 - `COMPLETED_WORK.md` contains new `## R81 —` section (R82.1 archive).
 - CTRL-S game files untouched — `git diff --stat HEAD~12 -- src/components/games/phaser/CtrlSWorld/` returns empty. (CTRL-S landing-page card styling is OK to update; game code is off-limits.)
-- Status line: `R82 COMPLETE — iPod Classic card redesign shipped`.
+- Status line: `R82 COMPLETE — iPod Classic portal redesign shipped` (note: *portal* not *card* — reflects corrected target).
+- LandingPage.tsx + GameCard.tsx — **MUST remain untouched**. If `git diff --stat HEAD~N -- src/components/LandingPage.tsx src/components/ui/` returns anything, ROLL BACK.
 
 ### R82 Guardrails
 

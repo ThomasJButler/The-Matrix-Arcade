@@ -44,3 +44,6 @@ desiredassets/unused-assets-backup/
 
 # Private learning reference (personal codebase guide)
 CODEBASE_GUIDE.md
+
+# Ralph loop template (portable — copy to other projects)
+RALPH_LOOP_TEMPLATE.md
