@@ -36,8 +36,7 @@ import {
 // Lazy-loaded game components for code-splitting
 const SimpleSnake = React.lazy(() => import('./components/games/phaser/SnakeClassic'));
 const VortexPong = React.lazy(() => import('./components/games/phaser/VortexPong'));
-const CtrlSWorld = React.lazy(() => import('./components/games/CtrlSWorld'));
-const CtrlSWorldPhaser = React.lazy(() => import('./components/games/phaser/CtrlSWorld'));
+const CtrlSWorld = React.lazy(() => import('./components/games/phaser/CtrlSWorld'));
 const MatrixCloud = React.lazy(() => import('./components/games/phaser/MatrixCloud'));
 const MatrixInvaders = React.lazy(() => import('./components/games/phaser/MatrixInvaders'));
 const Metris = React.lazy(() => import('./components/games/phaser/Metris'));
@@ -110,7 +109,7 @@ function App() {
   const games = useMemo(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const bindings: Record<string, { component: React.ComponentType<any>; icon: React.ReactNode }> = {
-      'ctrl-s-world':    { component: new URLSearchParams(window.location.search).has('phaser-ctrls') ? CtrlSWorldPhaser : CtrlSWorld, icon: <Keyboard className="w-8 h-8" /> },
+      'ctrl-s-world':    { component: CtrlSWorld,         icon: <Keyboard className="w-8 h-8" /> },
       'snake-classic':   { component: SimpleSnake,    icon: <Gamepad2 className="w-8 h-8" /> },
       'vortex-pong':     { component: VortexPong,     icon: <Disc3 className="w-8 h-8" /> },
       'matrix-cloud':    { component: MatrixCloud,    icon: <Gamepad2 className="w-8 h-8" /> },

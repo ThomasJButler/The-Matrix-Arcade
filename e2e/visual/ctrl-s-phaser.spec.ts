@@ -5,12 +5,11 @@ import { test, expect } from '../fixtures/arcade.fixture';
  * Captures MenuScene, ChapterHubScene, NarrativeScene (prologue start),
  * and a mid-story checkpoint for pixel-stable comparison.
  *
- * Uses ?phaser-ctrls flag to load the Phaser rewrite.
  * Test mode (?test=1&seed=42) disables animated rain for determinism.
  */
 test.describe('CTRL-S Phaser — visual baselines', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/?test=1&seed=42&phaser-ctrls');
+    await page.goto('/?test=1&seed=42');
     await page.waitForSelector('body[data-landing-ready="true"]', { timeout: 15_000 });
 
     const card = page.locator('[role="button"][aria-label="Play CTRL-S | The World"]');

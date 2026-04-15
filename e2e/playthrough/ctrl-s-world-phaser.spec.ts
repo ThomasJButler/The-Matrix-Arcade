@@ -10,7 +10,7 @@ test.describe('CTRL-S World (Phaser)', () => {
   test('smoke: menu → hub → prologue first paragraphs', async ({ page }) => {
     test.setTimeout(60_000);
 
-    await page.goto('/?test=1&seed=42&phaser-ctrls');
+    await page.goto('/?test=1&seed=42');
     await page.waitForSelector('body[data-landing-ready="true"]', { timeout: 15_000 });
 
     const card = page.locator('[role="button"][aria-label="Play CTRL-S | The World"]');
