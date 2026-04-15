@@ -340,8 +340,357 @@ describe('ctrlsChapters', () => {
       expect(getChapterTitle(2)).toBe('Ch2: Heart of Silicon Valley');
     });
 
+    it('returns chapter 3 short title for index 3', () => {
+      expect(getChapterTitle(3)).toBe('Ch3: Echoes from the Past');
+    });
+
+    it('returns chapter 4 short title for index 4', () => {
+      expect(getChapterTitle(4)).toBe('Ch4: A Glitch in Time');
+    });
+
+    it('returns chapter 5 short title for index 5', () => {
+      expect(getChapterTitle(5)).toBe('Ch5: The New Dawn');
+    });
+
     it('returns fallback for missing chapter', () => {
       expect(getChapterTitle(99)).toBe('Chapter 99');
+    });
+  });
+
+  describe('chapter 3 content integrity', () => {
+    const ch3 = CHAPTERS[3];
+
+    it('exists with correct id and index', () => {
+      expect(ch3).toBeDefined();
+      expect(ch3.id).toBe('chapter3');
+      expect(ch3.index).toBe(3);
+    });
+
+    it('has 23 paragraphs matching original React version', () => {
+      expect(ch3.paragraphs).toHaveLength(23);
+    });
+
+    it('starts with the correct opening line', () => {
+      expect(ch3.paragraphs[0]).toContain(
+        'In the aftermath of their daring raid',
+      );
+    });
+
+    it('ends with the correct closing line', () => {
+      expect(ch3.paragraphs[22]).toContain(
+        'last barrier before their journey through time',
+      );
+    });
+
+    it('has chapter header ASCII art with TIME PARADOX', () => {
+      expect(ch3.ascii).toBeDefined();
+      expect(ch3.ascii!.length).toBe(8);
+      expect(ch3.ascii![1]).toContain('TIME  PARADOX');
+    });
+
+    it('preserves Samuel Alt Commandman name', () => {
+      const hasSamuel = ch3.paragraphs.some((p) =>
+        p.includes('Samuel Alt Commandman'),
+      );
+      expect(hasSamuel).toBe(true);
+    });
+
+    it('has no inline ASCII panels', () => {
+      expect(ch3.inlineAscii).toBeUndefined();
+    });
+  });
+
+  describe('chapter 3 puzzle triggers', () => {
+    const ch3 = CHAPTERS[3];
+
+    it('has three puzzle triggers', () => {
+      expect(ch3.puzzleTriggers).toHaveLength(3);
+    });
+
+    it('triggers ch3_ada_language after paragraph 10', () => {
+      const trigger = getPuzzleTriggersForParagraph(ch3, 10);
+      expect(trigger).toBeDefined();
+      expect(trigger!.puzzleId).toBe('ch3_ada_language');
+    });
+
+    it('triggers ch3_fibonacci after paragraph 14', () => {
+      const trigger = getPuzzleTriggersForParagraph(ch3, 14);
+      expect(trigger).toBeDefined();
+      expect(trigger!.puzzleId).toBe('ch3_fibonacci');
+    });
+
+    it('triggers ch3_fire_riddle after paragraph 21', () => {
+      const trigger = getPuzzleTriggersForParagraph(ch3, 21);
+      expect(trigger).toBeDefined();
+      expect(trigger!.puzzleId).toBe('ch3_fire_riddle');
+    });
+  });
+
+  describe('chapter 4 content integrity', () => {
+    const ch4 = CHAPTERS[4];
+
+    it('exists with correct id and index', () => {
+      expect(ch4).toBeDefined();
+      expect(ch4.id).toBe('chapter4');
+      expect(ch4.index).toBe(4);
+    });
+
+    it('has the expected paragraph count', () => {
+      expect(ch4.paragraphs.length).toBeGreaterThanOrEqual(45);
+    });
+
+    it('starts with the correct opening line', () => {
+      expect(ch4.paragraphs[0]).toContain(
+        'The journey back through the timestream',
+      );
+    });
+
+    it('has chapter header ASCII art with WORLD REBORN', () => {
+      expect(ch4.ascii).toBeDefined();
+      expect(ch4.ascii!.length).toBe(8);
+      expect(ch4.ascii![1]).toContain('WORLD REBORN');
+    });
+
+    it('preserves Aver-Ag Engi Neer name', () => {
+      const hasAverag = ch4.paragraphs.some((p) =>
+        p.includes('Aver-Ag Engi Neer'),
+      );
+      expect(hasAverag).toBe(true);
+    });
+
+    it('preserves Señora Engi Neer name', () => {
+      const hasSenora = ch4.paragraphs.some((p) =>
+        p.includes('Señora Engi Neer'),
+      );
+      expect(hasSenora).toBe(true);
+    });
+
+    it('has no inline ASCII panels', () => {
+      expect(ch4.inlineAscii).toBeUndefined();
+    });
+  });
+
+  describe('chapter 4 puzzle triggers', () => {
+    const ch4 = CHAPTERS[4];
+
+    it('has six puzzle triggers', () => {
+      expect(ch4.puzzleTriggers).toHaveLength(6);
+    });
+
+    it('triggers ch4_world_assessment after paragraph 11', () => {
+      const trigger = getPuzzleTriggersForParagraph(ch4, 11);
+      expect(trigger).toBeDefined();
+      expect(trigger!.puzzleId).toBe('ch4_world_assessment');
+    });
+
+    it('triggers ch4_pattern_recognition after paragraph 20', () => {
+      const trigger = getPuzzleTriggersForParagraph(ch4, 20);
+      expect(trigger).toBeDefined();
+      expect(trigger!.puzzleId).toBe('ch4_pattern_recognition');
+    });
+
+    it('triggers ch4_code_analysis after paragraph 35', () => {
+      const trigger = getPuzzleTriggersForParagraph(ch4, 35);
+      expect(trigger).toBeDefined();
+      expect(trigger!.puzzleId).toBe('ch4_code_analysis');
+    });
+  });
+
+  describe('chapter 5 content integrity', () => {
+    const ch5 = CHAPTERS[5];
+
+    it('exists with correct id and index', () => {
+      expect(ch5).toBeDefined();
+      expect(ch5.id).toBe('chapter5');
+      expect(ch5.index).toBe(5);
+    });
+
+    it('has 26 paragraphs matching original React version', () => {
+      expect(ch5.paragraphs).toHaveLength(26);
+    });
+
+    it('starts with the correct opening line', () => {
+      expect(ch5.paragraphs[0]).toContain(
+        'The resolution of the glitch',
+      );
+    });
+
+    it('ends with the correct closing line', () => {
+      expect(ch5.paragraphs[25]).toContain(
+        'the indomitable spirit of those willing to stand in the breach',
+      );
+    });
+
+    it('has chapter header ASCII art with NEW DAWN', () => {
+      expect(ch5.ascii).toBeDefined();
+      expect(ch5.ascii!.length).toBe(8);
+      expect(ch5.ascii![1]).toContain('NEW   DAWN');
+    });
+
+    it('preserves Billiam Bindows Bates name', () => {
+      const hasBilliam = ch5.paragraphs.some((p) =>
+        p.includes('Billiam Bindows Bates'),
+      );
+      expect(hasBilliam).toBe(true);
+    });
+
+    it('preserves Steve Theytuk Ourjerbs name', () => {
+      const hasSteve = ch5.paragraphs.some((p) =>
+        p.includes('Steve Theytuk Ourjerbs'),
+      );
+      expect(hasSteve).toBe(true);
+    });
+
+    it('preserves Elon-gated Tusk name', () => {
+      const hasElon = ch5.paragraphs.some((p) =>
+        p.includes('Elon-gated Tusk'),
+      );
+      expect(hasElon).toBe(true);
+    });
+
+    it('preserves Señora Engi Neer name', () => {
+      const hasSenora = ch5.paragraphs.some((p) =>
+        p.includes('Señora Engi Neer'),
+      );
+      expect(hasSenora).toBe(true);
+    });
+
+    it('preserves Samuel Alt Commandman name', () => {
+      const hasSamuel = ch5.paragraphs.some((p) =>
+        p.includes('Samuel Alt Commandman'),
+      );
+      expect(hasSamuel).toBe(true);
+    });
+
+    it('preserves Aver-Ag character name', () => {
+      const hasAverag = ch5.paragraphs.some((p) => p.includes('Aver-Ag'));
+      expect(hasAverag).toBe(true);
+    });
+
+    it('has no inline ASCII panels', () => {
+      expect(ch5.inlineAscii).toBeUndefined();
+    });
+  });
+
+  describe('chapter 5 puzzle triggers', () => {
+    const ch5 = CHAPTERS[5];
+
+    it('has one puzzle trigger', () => {
+      expect(ch5.puzzleTriggers).toHaveLength(1);
+    });
+
+    it('triggers ch5_final_wisdom after paragraph 15', () => {
+      const trigger = getPuzzleTriggersForParagraph(ch5, 15);
+      expect(trigger).toBeDefined();
+      expect(trigger!.puzzleId).toBe('ch5_final_wisdom');
+    });
+
+    it('returns undefined for non-trigger indices', () => {
+      expect(getPuzzleTriggersForParagraph(ch5, 0)).toBeUndefined();
+      expect(getPuzzleTriggersForParagraph(ch5, 14)).toBeUndefined();
+      expect(getPuzzleTriggersForParagraph(ch5, 16)).toBeUndefined();
+    });
+  });
+
+  describe('cross-chapter continuity', () => {
+    it('all TOTAL_CHAPTERS chapters are present', () => {
+      expect(CHAPTERS).toHaveLength(TOTAL_CHAPTERS);
+    });
+
+    it('chapter indices are sequential from 0 to TOTAL_CHAPTERS-1', () => {
+      CHAPTERS.forEach((ch, i) => {
+        expect(ch.index).toBe(i);
+      });
+    });
+
+    it('chapter IDs follow the expected naming convention', () => {
+      expect(CHAPTERS[0].id).toBe('prologue');
+      for (let i = 1; i < CHAPTERS.length; i++) {
+        expect(CHAPTERS[i].id).toBe(`chapter${i}`);
+      }
+    });
+
+    it('every chapter has a non-empty title and shortTitle', () => {
+      CHAPTERS.forEach((ch) => {
+        expect(ch.title.length).toBeGreaterThan(0);
+        expect(ch.shortTitle.length).toBeGreaterThan(0);
+      });
+    });
+
+    it('every chapter has at least one paragraph', () => {
+      CHAPTERS.forEach((ch) => {
+        expect(ch.paragraphs.length).toBeGreaterThan(0);
+      });
+    });
+
+    it('no chapter has empty paragraphs', () => {
+      CHAPTERS.forEach((ch) => {
+        ch.paragraphs.forEach((p) => {
+          expect(p.trim().length).toBeGreaterThan(0);
+        });
+      });
+    });
+
+    it('puzzle trigger indices are within paragraph bounds', () => {
+      CHAPTERS.forEach((ch) => {
+        ch.puzzleTriggers?.forEach((trigger) => {
+          expect(trigger.afterParagraphIndex).toBeGreaterThanOrEqual(0);
+          expect(trigger.afterParagraphIndex).toBeLessThan(
+            ch.paragraphs.length,
+          );
+        });
+      });
+    });
+
+    it('inline ASCII panel indices are within paragraph bounds', () => {
+      CHAPTERS.forEach((ch) => {
+        ch.inlineAscii?.forEach((panel) => {
+          expect(panel.afterParagraphIndex).toBeGreaterThanOrEqual(0);
+          expect(panel.afterParagraphIndex).toBeLessThan(
+            ch.paragraphs.length,
+          );
+        });
+      });
+    });
+
+    it('puzzle trigger IDs are unique within each chapter', () => {
+      CHAPTERS.forEach((ch) => {
+        const ids = ch.puzzleTriggers?.map((t) => t.puzzleId) ?? [];
+        expect(new Set(ids).size).toBe(ids.length);
+      });
+    });
+
+    it('all recurring characters appear across multiple chapters', () => {
+      const characters = [
+        'Aver-Ag',
+        'Señora Engi Neer',
+        'Elon-gated Tusk',
+        'Steve Theytuk Ourjerbs',
+        'Billiam Bindows Bates',
+        'Samuel Alt Commandman',
+      ];
+
+      characters.forEach((name) => {
+        const chaptersWithChar = CHAPTERS.filter((ch) =>
+          ch.paragraphs.some((p) => p.includes(name)),
+        );
+        expect(chaptersWithChar.length).toBeGreaterThanOrEqual(2);
+      });
+    });
+
+    it('getChapter returns valid data for all indices', () => {
+      for (let i = 0; i < TOTAL_CHAPTERS; i++) {
+        const ch = getChapter(i);
+        expect(ch).toBeDefined();
+        expect(ch!.index).toBe(i);
+      }
+    });
+
+    it('getChapterParagraphs returns non-empty arrays for all chapters', () => {
+      for (let i = 0; i < TOTAL_CHAPTERS; i++) {
+        const paragraphs = getChapterParagraphs(i);
+        expect(paragraphs.length).toBeGreaterThan(0);
+      }
     });
   });
 });
