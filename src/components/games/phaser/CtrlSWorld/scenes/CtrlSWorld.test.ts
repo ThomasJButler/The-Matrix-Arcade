@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { PHASER_CONFIG, CTRLS_SCENE_KEYS, CTRLS_REGISTRY_KEYS, GAME_CONFIG, ACHIEVEMENTS, CHARACTERS, PORTRAIT_CONFIG, HUB_CONFIG, type ChapterStatus } from '../config';
+import { PHASER_CONFIG, CTRLS_SCENE_KEYS, CTRLS_REGISTRY_KEYS, GAME_CONFIG, ACHIEVEMENTS, CHARACTERS, PORTRAIT_CONFIG, HUB_CONFIG, MUSIC_TRACKS, type ChapterStatus } from '../config';
 import { getPuzzleById } from '../../../../../data/puzzles';
 import { getChapter, getPuzzleTriggersForParagraph } from '../../../../../data/ctrlsChapters';
 import { CtrlSBootScene } from './BootScene';
@@ -244,5 +244,44 @@ describe('CTRL-S World Phaser — Puzzle Overlay Integration', () => {
     const sceneClasses = PHASER_CONFIG.scene as Array<new () => Phaser.Scene>;
     expect(sceneClasses).toContain(CtrlSNarrativeScene);
     expect(CTRLS_SCENE_KEYS.NARRATIVE).toBe('CtrlSNarrativeScene');
+  });
+});
+
+describe('CTRL-S World Phaser — Music Tracks', () => {
+  it('defines all 8 music tracks', () => {
+    expect(Object.keys(MUSIC_TRACKS)).toHaveLength(8);
+    expect(MUSIC_TRACKS.MENU).toMatch(/\.mp3$/);
+    expect(MUSIC_TRACKS.PROLOGUE).toMatch(/\.mp3$/);
+    expect(MUSIC_TRACKS.CH1).toMatch(/\.mp3$/);
+    expect(MUSIC_TRACKS.CH2).toMatch(/\.mp3$/);
+    expect(MUSIC_TRACKS.CH3).toMatch(/\.mp3$/);
+    expect(MUSIC_TRACKS.CH4).toMatch(/\.mp3$/);
+    expect(MUSIC_TRACKS.CH5).toMatch(/\.mp3$/);
+    expect(MUSIC_TRACKS.CREDITS).toMatch(/\.mp3$/);
+  });
+
+  it('each chapter has a musicTrack assigned', () => {
+    for (let i = 0; i < 6; i++) {
+      const ch = getChapter(i);
+      expect(ch).toBeDefined();
+      expect(ch!.musicTrack).toBeDefined();
+      expect(ch!.musicTrack).toMatch(/\.mp3$/);
+    }
+  });
+
+  it('each chapter has a unique music track', () => {
+    const tracks = new Set<string>();
+    for (let i = 0; i < 6; i++) {
+      const ch = getChapter(i)!;
+      expect(tracks.has(ch.musicTrack!)).toBe(false);
+      tracks.add(ch.musicTrack!);
+    }
+  });
+
+  it('all track paths are under /assets/ctrl-s/audio/music/', () => {
+    const values = Object.values(MUSIC_TRACKS);
+    for (const track of values) {
+      expect(track).toMatch(/^\/assets\/ctrl-s\/audio\/music\//);
+    }
   });
 });
