@@ -1,6 +1,63 @@
-# MAGIC DOC: [Completed Work — The Matrix Arcade (R1–R80)]
+# MAGIC DOC: [Completed Work — The Matrix Arcade (R1–R81)]
 
 Archived from `IMPLEMENTATION_PLAN.md` on 2026-04-13. This file is the durable record of everything Ralph completed across the planning/build loops. The live plan now tracks only open work. Please reference this file and update this file with completed items, which in turn frees up context for the plan agent and build agents. They can easily referenece what was completed in more detail than git logs. 
+
+---
+
+## R81 — Arcade-wide Juice Polish + Repo Trim (2026-04-15)
+
+> **Tom's call (2026-04-17, post-R80 playtest)**: *"I have many improvements to make to CTRL-S, but I want to do the overnight loop for the other games. Juice clearly picked up good stuff in R80.24, and the other 11 games were built without it — may add extra sauce we didn't think of due to having to focus on so much at once."*
+
+**Scope**: Applied `juice:juice-audit` + `juice:juice-recipe` pattern (proven on CTRL-S R80.24) to all 11 non-CTRL-S Phaser games. CTRL-S excluded — Tom iterating separately. Repo trim + R80 archive bundled.
+
+### R81 Task List (14 tasks)
+
+- [x] **R81.1 — [P2]** Archive R80 to `COMPLETED_WORK.md § R80 — CTRL-S Flagship Rewrite`. Moved 26-task list + completion report + design decisions + architecture. Replaced in-plan with one-line back-reference. Plan slimmed by ~135 lines.
+- [x] **R81.2 — [P2]** Repo trim: audited all 13 files (136 open items, 0 ticked — all resolved by R76–R80 rebuilds). Summary archived in `COMPLETED_WORK.md § Rebuildingoldgames Archive`. `git rm -r rebuildingoldgames/` (68K, 13 files). Reference Docs section pruned.
+- [x] **R81.3 — [P2]** Juice sweep: **Snake Classic**. Added: `snakeEat` SFX replacing generic `score`, particle bursts on food eat + shield break + power-up collect, micro-shake on eat, camera flash on combo milestones (every 5), level-up text scale-punch + flash, per-type power-up SFX (ghost/shield/bulletTime/magnet), `glassBreak` SFX for shield break, `gameOver` SFX + red flash on death, food spawn pop-in tween.
+- [x] **R81.4 — [P2]** Juice sweep: **Vortex Pong**. Fixed silent `pongBounce` bug (key didn't exist → replaced with `SOUND_KEYS.HIT`). Added: wall bounce impact rings, score text scale-punch on goals, green flash on player goal / red flash on AI goal, `GAME_OVER` SFX + red flash on AI win, green flash on player win, `POWER_DOWN` SFX on power-up expiry.
+- [x] **R81.5 — [P2]** Juice sweep: **Matrix Bird**. Added: score popup text on pipe pass (+points float-up), combo SFX on whole-number combo milestones, `GAME_OVER` SFX + shake + red flash on death (was only `FALL`), green flash on level-up.
+- [x] **R81.6 — [P2]** Juice sweep: **Matrix Invaders**. Added: `GAME_OVER` SFX + shake + red flash on death (was completely silent), wave clear shake + green flash, micro-shake on enemy kill.
+- [x] **R81.7 — [P2]** Juice sweep: **Metris**. Added: `GAME_OVER` SFX + red flash on death (was `POWER_DOWN`), line clear shake (intensity scales with lines cleared), tetris (4-line) shake + green flash, hard drop shake, level-up green flash.
+- [x] **R81.8 — [P2]** Juice sweep: **Matrix Frogger**. Added: red flash on death (alongside existing shake), green flash on finish line cross, kung-fu hit shake + upgraded SFX from `'hit'` to `KUNG_FU_HIT`. Subtle additions — R76.9 3D tilt + lane textures untouched.
+- [x] **R81.9 — [P2]** Juice sweep: **Neo Jump**. Added: `GAME_OVER` SFX + shake (200ms/0.012) + red flash on death. Death was previously silent with no camera feedback.
+- [x] **R81.10 — [P2]** Juice sweep: **Agent Chase**. Added: shake on all deaths (150ms/0.008), `GAME_OVER` SFX + red flash on final life loss. Death was previously feedback-free.
+- [x] **R81.11 — [P2]** Juice sweep: **Rhythm Hacker**. Added: red camera flash on health-depleted game over (2 death paths). Conservative — game already has strong combo feedback from R76.3.
+- [x] **R81.12 — [P2]** Juice sweep: **Cloud Jumper**. Added: `GAME_OVER` SFX + shake (200ms/0.012) + red flash on death. Death was previously silent with no camera effects.
+- [x] **R81.13 — [P2]** Juice sweep: **Code Breaker**. Added: `GAME_OVER` SFX + red flash on game over, micro-shake on brick destroy (50ms/0.003). Already had shake on life loss.
+- [x] **R81.14 — [P1]** Final verification + terminator. Gates: TypeScript clean, 2073/2073 tests pass, build clean (7.3s), ESLint 0 errors (10 pre-existing warnings in PhaserGame.tsx). CTRL-S untouched — last commit R80.24. Status updated.
+
+### R81 Completion Report
+
+**Completed**: 2026-04-15 | **Iterations used**: ~10 (well within 15-loop cap)
+
+**Summary**: Applied juice polish across all 11 non-CTRL-S Phaser games + archived R80 + deleted `rebuildingoldgames/`.
+
+| Game | Changes |
+|------|---------|
+| Snake Classic | `snakeEat` SFX, eat particle bursts, combo flash, per-type power-up SFX, shield break VFX, food pop-in, game-over SFX+shake+flash |
+| Vortex Pong | Fixed silent `pongBounce` bug → `SOUND_KEYS.HIT`, wall impact rings, score punch, goal flashes, game-over SFX, power-down SFX |
+| Matrix Bird | Score popup float-up, combo SFX, game-over SFX+shake+flash, level-up flash |
+| Matrix Invaders | Game-over SFX+shake+flash, wave clear shake+flash, micro-shake on kill |
+| Metris | Game-over SFX+flash, scaled line-clear shake, tetris flash, hard-drop shake, level-up flash |
+| Matrix Frogger | Death red flash, finish-line green flash, kung-fu hit SFX+shake |
+| Neo Jump | Game-over SFX+shake+flash on death |
+| Agent Chase | Shake on all deaths, game-over SFX+flash on final life |
+| Rhythm Hacker | Red flash on health-depleted game over (2 paths) |
+| Cloud Jumper | Game-over SFX+shake+flash on death |
+| Code Breaker | Game-over SFX+flash, micro-shake on brick destroy |
+
+**Gates**: TypeScript clean, 2073/2073 tests pass, build clean, CTRL-S untouched.
+
+### R81 Shared Effect Helpers (reuse across games)
+
+Documented patterns for future extraction into `BaseScene.ts`:
+- `emitJuiceBurst(x, y, config?)` — particle pop at coords
+- `juicyHitstop(durationMs)` — brief time-freeze on impact
+- `screenShakeImpact(intensity)` — preset durations/intensities
+- `chromaticPulse()` — Matrix-green edge pulse
+
+Common patterns: shake `80ms/0.008`, particle `lifespan: 400`, audio stingers `<200ms`, hitstop `50-80ms at 0.1 timeScale`.
 
 ---
 
