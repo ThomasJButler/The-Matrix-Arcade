@@ -34,6 +34,7 @@ export class CtrlSChapterHubScene extends BaseScene {
 
   create(): void {
     this.createMatrixBackground();
+    this.createHubBackground();
     this.rainGroup = this.addMatrixRain(20);
     this.tiles = [];
 
@@ -245,6 +246,18 @@ export class CtrlSChapterHubScene extends BaseScene {
         this.playSound('menu');
       });
     });
+  }
+
+  private createHubBackground(): void {
+    if (!this.textures.exists('bg-hub-node')) return;
+
+    const width = Number(this.game.config.width);
+    const height = Number(this.game.config.height);
+
+    const bg = this.add.image(width / 2, height / 2, 'bg-hub-node');
+    bg.setDisplaySize(width, height);
+    bg.setAlpha(0.08);
+    bg.setTint(0x003300);
   }
 
   private launchChapter(chapterIndex: number): void {

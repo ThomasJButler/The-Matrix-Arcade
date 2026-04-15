@@ -38,12 +38,12 @@ This is the most art-heavy rebuild. The vision is a Citizen Sleeper-style narrat
 
 - [x] Chapter Hub — orbital/network view, nodes connected by green lines, Matrix digital space, 800×600 — SOURCE: DUMP/Matrix-Icons/Green-Verde/HOST-NODO_1.png + HOST-NODO_3.png → `public/assets/ctrl-s/backgrounds/hub-node-1.png`, `hub-node-2.png` (resized to 800×600)
 - [x] Chapter 1 background — inside the Matrix, city at night — SOURCE: DUMP/Cyberpunk/menu background/frame1.png → `public/assets/ctrl-s/backgrounds/cyberpunk-city-1.png` (resized to 800×600)
-- [~] Prologue background — Matrix code rain, terminal screen aesthetic — BLOCKED-ART-NEEDED: No pure code rain background in dump. Procedural Matrix rain via Phaser is already implemented in NarrativeScene and is the preferred approach.
-- [~] Chapter 2 background — Zion / real world / ship interior — BLOCKED-ART-NEEDED: No ship interior asset in dump. Closest: PixelWhale_SF_Project bg01.png (712×172 panoramic strip, wrong aspect ratio)
-- [~] Chapter 3 background — digital construct / white room — BLOCKED-ART-NEEDED: No white room asset. Matrix-Icons/IC-GELO_* could work as overlay elements but need art direction
-- [~] Chapter 4 background — Machine city / Source — SOURCE: DUMP/Cyberpunk/menu background/frame9.png → `public/assets/ctrl-s/backgrounds/cyberpunk-city-mid.png` (resized to 800×600, different frame of the same cyberpunk animation for variety)
-- [~] Chapter 5 background — Final confrontation, Matrix collapsing — BLOCKED-ART-NEEDED: No collapse/destruction asset available
-- [~] Game complete background — sunrise / new beginning — BLOCKED-ART-NEEDED: No sunrise background in dump
+- [x] Prologue background — digital construct/abstract cyberspace — SOURCE: DUMP/Cyberpunk/menu background/frame5.png → `public/assets/ctrl-s/backgrounds/digital-construct.png` (resized to 800×600, tinted dark green in-game). Also used for Ch3 temporal lab with blue tint.
+- [x] Chapter 2 background — dystopian streets/AI-dominated Silicon Valley — SOURCE: DUMP/Cyberpunk/menu background/frame10.png → `public/assets/ctrl-s/backgrounds/dystopian-streets.png` (resized to 800×600, tinted deep green in-game)
+- [x] Chapter 3 background — temporal lab / digital construct — Reuses `digital-construct.png` with blue tint (0x001144) for otherworldly temporal feel
+- [x] Chapter 4 background — Machine city / Source — SOURCE: DUMP/Cyberpunk/menu background/frame9.png → `public/assets/ctrl-s/backgrounds/cyberpunk-city-mid.png` (resized to 800×600)
+- [x] Chapter 5 background — new dawn / sunrise — SOURCE: DUMP/PixelWhale_SF_Project/Background/red_cloud_noon.png → `public/assets/ctrl-s/backgrounds/new-dawn.png` (pixel art upscaled to 800×600, tinted green-gold in-game for sunrise harmony feel)
+- [~] Game complete background — sunrise / new beginning — Reuses `new-dawn.png` or procedural (GameOverScene is a thin wrapper)
 
 **Style**: Painted/illustrated, wide format, atmospheric. Dark with accent lighting in Matrix green and cyan.
 
