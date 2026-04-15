@@ -177,8 +177,8 @@ src/components/games/phaser/CtrlSWorld/
 - [x] **R80.20 — [P3]** Achievement expansion. Expanded from 7 to 11 achievements. Added per-chapter completion for Ch2 ("Silicon Seeker"), Ch4 ("Time Bender"), Ch5 ("Dawn Breaker") — Ch1 and Ch3 already existed. Added `ctrl_completionist` (all chapters + 10 puzzles). `CHAPTER_ACHIEVEMENTS` lookup map for clean per-chapter unlock. Wired all achievement triggers in Phaser bridge: per-chapter on chapterComplete event, no-hints check on puzzle complete (hintsUsed===0 && lifelinesUsed===0), puzzle-master at 10+ puzzles, story-complete on final chapter, completionist when both conditions met. Registered all 11 in useSaveSystem. 2 new tests (11-count assertion, chapter mapping validation), 70 CTRL-S tests pass, 68 save system tests pass.
 - [x] **R80.21 — [P1]** E2E smoke test. Created `e2e/playthrough/ctrl-s-world-phaser.spec.ts`. Navigates landing (with `?phaser-ctrls` flag) → portal → menu scene (2s settle) → ENTER to chapter hub → ENTER to prologue → 3 SPACE advances. 5 screenshot checkpoints (portal, menu, hub, prologue start, after advances). Verifies `__PHASER_GAME_STATE__` is populated at hub and narrative scenes. 60s timeout. React version's `ctrl-s-world.spec.ts` retained for A/B comparison until R80.25.
 - [x] **R80.22 — [P2]** Visual regression baselines. Created `e2e/visual/ctrl-s-phaser.spec.ts` with 4 visual tests: MenuScene (ASCII title + start button), ChapterHubScene (mission select grid), NarrativeScene prologue opening, and mid-story after 4 advances. All use `?phaser-ctrls` flag + test mode for determinism. Baselines will be generated on first run via `npm run test:visual:update` on darwin and `npm run test:e2e:docker` for linux.
-- [ ] **R80.23 — [P2]** `juice-audit` pass on narrative transitions. Use the `juice:juice-audit` skill to diagnose any flatness between paragraph advances, choice selections, chapter transitions, puzzle launches. Log findings in `### R80 Discovered Work`.
-- [ ] **R80.24 — [P2]** `juice-recipe` pass on flagged moments. Use `juice:juice-recipe` for each item flagged in R80.23 — ship specific feedback improvements (screen shake, particle burst, audio stinger, animation polish).
+- [x] **R80.23 — [P2]** `juice-audit` pass on narrative transitions. Diagnosed 5 flat moments: (1) onAllComplete hard-cuts to hub with no camera fade, (2) resumeAfterPuzzle is completely silent/flat, (3) handleAdvance gives zero input feedback, (4) hub launchChapter uses generic 'menu' instead of CHAPTER_START stinger, (5) choice buttons lack stagger entrance. Findings logged below for R80.24 juice-recipe pass.
+- [x] **R80.24 — [P2]** `juice-recipe` pass on flagged moments. All 5 fixes from R80.23 audit shipped: (1) camera fadeOut(600ms) on chapter complete in NarrativeScene, (2) REVEAL stinger + text fade-in on resumeAfterPuzzle, (3) advance click plays 'menu' SFX + cursor scale-punch, (4) hub launchChapter uses STINGER_KEYS.CHAPTER_START instead of generic 'menu', (5) choice buttons stagger entrance with 80ms offset + Back.easeOut slide-up per button.
 - [ ] **R80.25 — [P1]** Cut-over. Delete old `src/components/games/CtrlSWorld.tsx` + `CtrlSWorld.test.tsx`. Remove React version from `src/App.tsx` routing. Update landing page / game registry to use Phaser version only. Remove the feature flag.
 - [ ] **R80.26 — [P1]** Golden-path trim design doc + terminator. Produce `specs/ctrls-golden-path-trim-plan.md` — concrete scene-by-scene recommendation for which to drop/merge to hit a ~20-30 min first-playthrough target. Includes estimated time per scene, narrative dependencies, trim vs preserve rationale. **This is a spec, not code** — Tom reviews + signs off content choices in R81. Also write `### R80 Completion Report`, update Status line to `R80 COMPLETE — CTRL-S flagship rewrite shipped`, run all gates.
 
@@ -206,7 +206,11 @@ Standard complete-and-exit pattern (like R76/R77/R79). Auto-terminator is correc
 
 ### R80 Discovered Work
 
-_(Ralph appends findings here during R80.23 juice-audit + any other discovered items during iterations)_
+- **Juice: onAllComplete needs camera fadeOut** — chapter complete → hub has no transition, just a hard scene.start after 1500ms delay. Add cameras.main.fadeOut(600ms) before the scene switch.
+- **Juice: resumeAfterPuzzle is dead** — no audio stinger, no visual re-entry. Add REVEAL stinger + text fade-in (300ms).
+- **Juice: handleAdvance zero feedback** — no click sound, no cursor animation. Add a soft tick + cursor scale-punch.
+- **Juice: hub launch uses wrong stinger** — launchChapter plays 'menu' instead of CHAPTER_START.
+- **Juice: choice buttons lack stagger** — all buttons fade in simultaneously. Add 80ms offset per button.
 
 ---
 

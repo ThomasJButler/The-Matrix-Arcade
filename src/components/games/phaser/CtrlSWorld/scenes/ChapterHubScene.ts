@@ -9,7 +9,7 @@
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
 import { MATRIX_COLORS, MATRIX_FONTS } from '../../../../../lib/phaser/types';
-import { CTRLS_SCENE_KEYS, CTRLS_REGISTRY_KEYS, HUB_CONFIG, MUSIC_TRACKS, type ChapterStatus } from '../config';
+import { CTRLS_SCENE_KEYS, CTRLS_REGISTRY_KEYS, HUB_CONFIG, MUSIC_TRACKS, STINGER_KEYS, type ChapterStatus } from '../config';
 import { getChapterTitle, getChapterPuzzleCount, TOTAL_CHAPTERS } from '../../../../../data/ctrlsChapters';
 
 interface ChapterTile {
@@ -459,7 +459,7 @@ export class CtrlSChapterHubScene extends BaseScene {
   private launchChapter(chapterIndex: number): void {
     if (this.isLaunching) return;
     this.isLaunching = true;
-    this.playSound('menu');
+    this.playSound(STINGER_KEYS.CHAPTER_START);
 
     this.registry.set(CTRLS_REGISTRY_KEYS.CURRENT_CHAPTER, chapterIndex);
     this.emitGameEvent({
