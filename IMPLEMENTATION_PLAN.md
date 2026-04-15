@@ -195,7 +195,7 @@ The portal view becomes a rendered iPod Classic:
   - **Keyboard shortcuts** — number keys 1-9 jump to game N, Home key returns to first, End jumps to last
   - **Audio feedback** — reuse R77's `scoreboardTab` blip (200Hz square, 60ms) for clickwheel segment presses; `scoreboardConfirm` for centre-select; procedural only
   - **Accessibility refinements** — `prefers-reduced-motion` media query to disable wheel animations, screen-reader announcements on game change, focus-visible polish
-  - **Touch/gesture support** — swipe left/right on clickwheel area for prev/next (desktop Safari trackpad + touch), while preserving button taps
+  - ~~**Touch/gesture support** — swipe left/right on clickwheel area for prev/next (desktop Safari trackpad + touch), while preserving button taps~~ ✅ Shipped 2026-04-15: native touchstart/touchend listeners, 40px threshold, 500ms max, horizontal-dominant detection, audio+rotation feedback
   - **Visual detailing** — screen bezel inner shadow, device body metallic gradient refinement, title typography (letter-spacing, shadow layering), category badge polish
   - **State-specific polish** — loading state inside screen (when game chunk downloading), paused state indicator, game-over state visual on screen
   - **Perf micro-optimisations** — `will-change: transform` on clickwheel segments, `contain: layout` where safe, avoid layout thrashing in animations
