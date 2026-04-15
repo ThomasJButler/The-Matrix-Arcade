@@ -112,6 +112,17 @@ export const CHARACTERS: Record<string, CharacterDef> = {
   },
 } as const;
 
+export const PARALLAX_CONFIG = {
+  BG_ALPHA: 0.12,
+  BG_DRIFT_SPEED: 4,
+  BG_DRIFT_AMPLITUDE: 15,
+  PARTICLE_COUNT: 20,
+  PARTICLE_MIN_SPEED: 8,
+  PARTICLE_MAX_SPEED: 30,
+  PARTICLE_MIN_ALPHA: 0.1,
+  PARTICLE_MAX_ALPHA: 0.4,
+} as const;
+
 export const PORTRAIT_CONFIG = {
   SIZE: 70,
   PANEL_WIDTH: 100,

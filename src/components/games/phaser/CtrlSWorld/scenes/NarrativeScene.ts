@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
 import { MATRIX_COLORS, MATRIX_FONTS } from '../../../../../lib/phaser/types';
-import { CTRLS_SCENE_KEYS, GAME_CONFIG, CHARACTERS, PORTRAIT_CONFIG, type CharacterDef } from '../config';
+import { CTRLS_SCENE_KEYS, GAME_CONFIG, CHARACTERS, PORTRAIT_CONFIG, PARALLAX_CONFIG, type CharacterDef } from '../config';
 import { TypewriterEngine } from '../engine/TypewriterEngine';
 import {
   getChapter,
@@ -11,6 +11,7 @@ import {
   getSpeakerForParagraph,
   type Chapter,
   type ChoiceOption,
+  type ParticleTheme,
 } from '../../../../../data/ctrlsChapters';
 
 export interface NarrativeSceneData {
@@ -54,6 +55,10 @@ export class CtrlSNarrativeScene extends BaseScene {
   private portraitBorder?: Phaser.GameObjects.Graphics;
   private portraitName?: Phaser.GameObjects.Text;
   private currentSpeakerId?: string;
+  private bgImage?: Phaser.GameObjects.Image;
+  private bgBaseX = 0;
+  private bgElapsed = 0;
+  private themeParticles: Phaser.GameObjects.Text[] = [];
 
   constructor() {
     super(CTRLS_SCENE_KEYS.NARRATIVE);
@@ -82,6 +87,8 @@ export class CtrlSNarrativeScene extends BaseScene {
 
   create(): void {
     this.createMatrixBackground();
+    this.createParallaxBackground();
+    this.createThemeParticles();
     this.rainGroup = this.addMatrixRain(15);
 
     const width = Number(this.game.config.width);
@@ -170,6 +177,9 @@ export class CtrlSNarrativeScene extends BaseScene {
       this.exposeTestState(this.buildTestState());
       return;
     }
+
+    this.updateParallaxBackground(delta);
+    this.updateThemeParticles(delta);
 
     if (this.rainGroup) {
       this.updateMatrixRain(this.rainGroup, delta);
@@ -707,6 +717,143 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.portraitContainer.setY(this.bodyText.y);
   }
 
+  private createParallaxBackground(): void {
+    if (!this.chapter?.backgroundKey) return;
+    if (!this.textures.exists(this.chapter.backgroundKey)) return;
+
+    const width = Number(this.game.config.width);
+    const height = Number(this.game.config.height);
+
+    this.bgImage = this.add.image(width / 2, height / 2, this.chapter.backgroundKey);
+    this.bgImage.setDisplaySize(width + PARALLAX_CONFIG.BG_DRIFT_AMPLITUDE * 2, height + 10);
+    this.bgImage.setAlpha(PARALLAX_CONFIG.BG_ALPHA);
+
+    if (this.chapter.backgroundTint) {
+      this.bgImage.setTint(this.chapter.backgroundTint);
+    }
+
+    this.bgBaseX = width / 2;
+    this.bgElapsed = 0;
+  }
+
+  private updateParallaxBackground(delta: number): void {
+    if (!this.bgImage) return;
+
+    this.bgElapsed += delta;
+    const drift = Math.sin(this.bgElapsed / 1000 * PARALLAX_CONFIG.BG_DRIFT_SPEED * 0.1) * PARALLAX_CONFIG.BG_DRIFT_AMPLITUDE;
+    this.bgImage.setX(this.bgBaseX + drift);
+  }
+
+  private createThemeParticles(): void {
+    const theme = this.chapter?.particleTheme;
+    if (!theme) return;
+
+    const width = Number(this.game.config.width);
+    const height = Number(this.game.config.height);
+    const count = PARALLAX_CONFIG.PARTICLE_COUNT;
+    const chars = this.getParticleChars(theme);
+
+    for (let i = 0; i < count; i++) {
+      const x = Phaser.Math.Between(0, width);
+      const y = Phaser.Math.Between(0, height);
+      const char = chars[Phaser.Math.Between(0, chars.length - 1)];
+
+      const particle = this.add.text(x, y, char, {
+        fontFamily: 'monospace',
+        fontSize: this.getParticleFontSize(theme),
+        color: this.getParticleColour(theme),
+      });
+      particle.setAlpha(Phaser.Math.FloatBetween(PARALLAX_CONFIG.PARTICLE_MIN_ALPHA, PARALLAX_CONFIG.PARTICLE_MAX_ALPHA));
+      particle.setData('speedX', this.getParticleSpeedX(theme));
+      particle.setData('speedY', this.getParticleSpeedY(theme));
+      particle.setData('theme', theme);
+
+      this.themeParticles.push(particle);
+    }
+  }
+
+  private updateThemeParticles(delta: number): void {
+    const width = Number(this.game.config.width);
+    const height = Number(this.game.config.height);
+    const dt = delta / 1000;
+
+    for (const p of this.themeParticles) {
+      const speedX = p.getData('speedX') as number;
+      const speedY = p.getData('speedY') as number;
+      const theme = p.getData('theme') as ParticleTheme;
+
+      p.x += speedX * dt;
+      p.y += speedY * dt;
+
+      if (theme === 'temporal') {
+        p.setAlpha(0.15 + Math.sin(p.x * 0.05 + p.y * 0.03) * 0.15);
+      }
+
+      if (p.y > height + 10) {
+        p.y = -10;
+        p.x = Phaser.Math.Between(0, width);
+      } else if (p.y < -10) {
+        p.y = height + 10;
+        p.x = Phaser.Math.Between(0, width);
+      }
+      if (p.x > width + 10) {
+        p.x = -10;
+      } else if (p.x < -10) {
+        p.x = width + 10;
+      }
+    }
+  }
+
+  private getParticleChars(theme: ParticleTheme): string[] {
+    switch (theme) {
+      case 'binary': return ['0', '1', '0', '1', '0', '1'];
+      case 'scanlines': return ['─', '═', '─', '━'];
+      case 'datastreams': return ['>', '>>', '→', '▶', '»'];
+      case 'temporal': return ['◊', '✦', '·', '○', '◈'];
+      case 'organic': return ['✿', '❋', '·', '°', '○'];
+      case 'rising-light': return ['✧', '·', '°', '☀', '✦'];
+    }
+  }
+
+  private getParticleColour(theme: ParticleTheme): string {
+    switch (theme) {
+      case 'binary': return MATRIX_COLORS.DIM_GREEN_HEX;
+      case 'scanlines': return MATRIX_COLORS.DARK_GREEN_HEX;
+      case 'datastreams': return MATRIX_COLORS.MEDIUM_GREEN_HEX;
+      case 'temporal': return MATRIX_COLORS.CYAN_HEX;
+      case 'organic': return MATRIX_COLORS.FOREST_GREEN_HEX;
+      case 'rising-light': return MATRIX_COLORS.YELLOW_HEX;
+    }
+  }
+
+  private getParticleFontSize(theme: ParticleTheme): string {
+    switch (theme) {
+      case 'scanlines': return '4px';
+      case 'datastreams': return '8px';
+      default: return '6px';
+    }
+  }
+
+  private getParticleSpeedX(theme: ParticleTheme): number {
+    switch (theme) {
+      case 'datastreams': return Phaser.Math.FloatBetween(30, 80);
+      case 'temporal': return Phaser.Math.FloatBetween(-15, 15);
+      case 'scanlines': return Phaser.Math.FloatBetween(-2, 2);
+      default: return Phaser.Math.FloatBetween(-5, 5);
+    }
+  }
+
+  private getParticleSpeedY(theme: ParticleTheme): number {
+    switch (theme) {
+      case 'binary': return Phaser.Math.FloatBetween(10, 25);
+      case 'scanlines': return Phaser.Math.FloatBetween(3, 8);
+      case 'datastreams': return Phaser.Math.FloatBetween(-3, 3);
+      case 'temporal': return Phaser.Math.FloatBetween(-10, 10);
+      case 'organic': return Phaser.Math.FloatBetween(-8, -2);
+      case 'rising-light': return Phaser.Math.FloatBetween(-20, -8);
+    }
+  }
+
   protected handleExit(): void {
     this.scene.start(CTRLS_SCENE_KEYS.CHAPTER_HUB);
   }
@@ -728,6 +875,12 @@ export class CtrlSNarrativeScene extends BaseScene {
   }
 
   shutdown(): void {
+    this.bgImage?.destroy();
+    this.bgImage = undefined;
+    for (const p of this.themeParticles) {
+      p.destroy();
+    }
+    this.themeParticles = [];
     this.rainGroup?.destroy(true);
     this.rainGroup = undefined;
     this.chapterTitle?.destroy();

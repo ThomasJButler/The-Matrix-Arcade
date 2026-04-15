@@ -21,6 +21,8 @@ export interface ChoiceTrigger {
   choices: ChoiceOption[];
 }
 
+export type ParticleTheme = 'binary' | 'scanlines' | 'datastreams' | 'temporal' | 'organic' | 'rising-light';
+
 export interface Chapter {
   id: string;
   index: number;
@@ -32,6 +34,9 @@ export interface Chapter {
   puzzleTriggers?: PuzzleTrigger[];
   choiceTriggers?: ChoiceTrigger[];
   speakers?: Record<number, string>;
+  backgroundKey?: string;
+  backgroundTint?: number;
+  particleTheme?: ParticleTheme;
 }
 
 export function getChapter(index: number): Chapter | undefined {
@@ -86,6 +91,9 @@ export const CHAPTERS: Chapter[] = [
     id: 'prologue',
     index: 0,
     title: 'Prologue: The Digital Dawn',
+    backgroundKey: 'bg-digital-construct',
+    backgroundTint: 0x004400,
+    particleTheme: 'binary',
     shortTitle: 'Prologue: The Digital Dawn',
     ascii: [
       '   _____________________________   ',
@@ -185,6 +193,9 @@ export const CHAPTERS: Chapter[] = [
   // ===================== CHAPTER 1 =====================
   {
     id: 'chapter1',
+    backgroundKey: 'bg-cyberpunk-city',
+    backgroundTint: 0x003300,
+    particleTheme: 'scanlines',
     index: 1,
     title: 'Chapter 1: Assemble the Unlikely Heroes',
     shortTitle: 'Ch1: Assemble the Heroes',
@@ -255,6 +266,9 @@ export const CHAPTERS: Chapter[] = [
   // ===================== CHAPTER 2 =====================
   {
     id: 'chapter2',
+    backgroundKey: 'bg-dystopian-streets',
+    backgroundTint: 0x002200,
+    particleTheme: 'datastreams',
     index: 2,
     title: 'Chapter 2: The Heart of Silicon Valley',
     shortTitle: 'Ch2: Heart of Silicon Valley',
@@ -313,6 +327,9 @@ export const CHAPTERS: Chapter[] = [
   // ===================== CHAPTER 3 =====================
   {
     id: 'chapter3',
+    backgroundKey: 'bg-digital-construct',
+    backgroundTint: 0x001144,
+    particleTheme: 'temporal',
     index: 3,
     title: 'Chapter 3: Echoes from the Past',
     shortTitle: 'Ch3: Echoes from the Past',
@@ -369,6 +386,9 @@ export const CHAPTERS: Chapter[] = [
   // ===================== CHAPTER 4 =====================
   {
     id: 'chapter4',
+    backgroundKey: 'bg-cyberpunk-city-mid',
+    backgroundTint: 0x003300,
+    particleTheme: 'organic',
     index: 4,
     title: 'Chapter 4: A Glitch in Time',
     shortTitle: 'Ch4: A Glitch in Time',
@@ -463,6 +483,9 @@ export const CHAPTERS: Chapter[] = [
   // ===================== CHAPTER 5 =====================
   {
     id: 'chapter5',
+    backgroundKey: 'bg-new-dawn',
+    backgroundTint: 0x113300,
+    particleTheme: 'rising-light',
     index: 5,
     title: 'Chapter 5: The New Dawn',
     shortTitle: 'Ch5: The New Dawn',
