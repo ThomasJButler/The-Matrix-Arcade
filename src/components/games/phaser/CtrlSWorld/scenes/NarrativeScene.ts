@@ -3,24 +3,37 @@ import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
 import { MATRIX_COLORS, MATRIX_FONTS } from '../../../../../lib/phaser/types';
 import { CTRLS_SCENE_KEYS, GAME_CONFIG } from '../config';
 import { TypewriterEngine } from '../engine/TypewriterEngine';
+import {
+  getChapter,
+  getPuzzleTriggersForParagraph,
+  getAsciiPanelForParagraph,
+  type Chapter,
+} from '../../../../../data/ctrlsChapters';
 
-interface NarrativeSceneData {
+export interface NarrativeSceneData {
   chapterIndex: number;
-  paragraphs?: string[];
+  startFromParagraph?: number;
 }
 
 const MAX_VISIBLE_COMPLETED = 4;
+const ASCII_FONT_SIZE = '7px';
+const ASCII_LINE_HEIGHT = 9;
 
 export class CtrlSNarrativeScene extends BaseScene {
   private chapterIndex = 0;
+  private chapter?: Chapter;
   private chapterTitle?: Phaser.GameObjects.Text;
+  private chapterAscii?: Phaser.GameObjects.Text;
   private bodyText?: Phaser.GameObjects.Text;
   private completedTexts: Phaser.GameObjects.Text[] = [];
+  private asciiPanels: Phaser.GameObjects.Text[] = [];
   private cursorBlink?: Phaser.GameObjects.Text;
   private promptText?: Phaser.GameObjects.Text;
   private rainGroup?: Phaser.GameObjects.Group;
   private engine: TypewriterEngine;
   private cursorTween?: Phaser.Tweens.Tween;
+  private waitingForPuzzle = false;
+  private startFromParagraph = 0;
 
   constructor() {
     super(CTRLS_SCENE_KEYS.NARRATIVE);
@@ -29,14 +42,17 @@ export class CtrlSNarrativeScene extends BaseScene {
 
   init(data: NarrativeSceneData): void {
     this.chapterIndex = data.chapterIndex ?? 0;
+    this.startFromParagraph = data.startFromParagraph ?? 0;
+    this.chapter = getChapter(this.chapterIndex);
+    this.waitingForPuzzle = false;
 
     this.engine.setSpeed(GAME_CONFIG.TEXT.TYPEWRITER_SPEED_MEDIUM);
     this.engine.setCallbacks({
-      onParagraphComplete: () => this.onParagraphComplete(),
+      onParagraphComplete: (idx: number) => this.onParagraphComplete(idx),
       onAllComplete: () => this.onAllComplete(),
     });
 
-    const paragraphs = data.paragraphs ?? [
+    const paragraphs = this.chapter?.paragraphs ?? [
       'Story content will render here.',
       'The typewriter engine reveals text character by character with user-controlled pacing.',
       'Press SPACE, ENTER, or click to advance.',
@@ -52,13 +68,37 @@ export class CtrlSNarrativeScene extends BaseScene {
     const height = Number(this.game.config.height);
     const margin = GAME_CONFIG.TEXT.MARGIN_X;
 
-    this.chapterTitle = this.add.text(margin, 30, `Chapter ${this.chapterIndex}`, {
+    const title = this.chapter?.title ?? `Chapter ${this.chapterIndex}`;
+    this.chapterTitle = this.add.text(margin, 20, title, {
       fontFamily: MATRIX_FONTS.PRIMARY,
-      fontSize: '16px',
+      fontSize: '14px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
 
-    this.bodyText = this.add.text(margin, GAME_CONFIG.TEXT.MARGIN_Y, '', {
+    let contentStartY = GAME_CONFIG.TEXT.MARGIN_Y;
+
+    if (this.chapter?.ascii && this.startFromParagraph === 0) {
+      const asciiText = this.chapter.ascii.join('\n');
+      this.chapterAscii = this.add.text(margin, 45, asciiText, {
+        fontFamily: MATRIX_FONTS.MONO,
+        fontSize: ASCII_FONT_SIZE,
+        color: MATRIX_COLORS.DIM_GREEN_HEX,
+        lineSpacing: 1,
+      });
+      this.chapterAscii.setAlpha(0.7);
+
+      const asciiHeight = this.chapter.ascii.length * ASCII_LINE_HEIGHT;
+      contentStartY = 45 + asciiHeight + 15;
+
+      this.tweens.add({
+        targets: this.chapterAscii,
+        alpha: { from: 0, to: 0.7 },
+        duration: 1500,
+        ease: 'Power2',
+      });
+    }
+
+    this.bodyText = this.add.text(margin, contentStartY, '', {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '12px',
       color: MATRIX_COLORS.DIM_GREEN_HEX,
@@ -66,7 +106,7 @@ export class CtrlSNarrativeScene extends BaseScene {
       lineSpacing: 8,
     });
 
-    this.cursorBlink = this.add.text(margin, GAME_CONFIG.TEXT.MARGIN_Y, '█', {
+    this.cursorBlink = this.add.text(margin, contentStartY, '█', {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '12px',
       color: MATRIX_COLORS.PRIMARY_HEX,
@@ -96,7 +136,11 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.setupNarrativeInput();
     this.setupCommonInputs();
 
-    this.engine.start();
+    if (this.startFromParagraph > 0) {
+      this.engine.startFromParagraph(this.startFromParagraph);
+    } else {
+      this.engine.start();
+    }
   }
 
   update(_time: number, delta: number): void {
@@ -109,7 +153,9 @@ export class CtrlSNarrativeScene extends BaseScene {
       this.updateMatrixRain(this.rainGroup, delta);
     }
 
-    this.engine.update(delta);
+    if (!this.waitingForPuzzle) {
+      this.engine.update(delta);
+    }
     this.renderCurrentText();
     this.exposeTestState(this.buildTestState());
   }
@@ -132,9 +178,66 @@ export class CtrlSNarrativeScene extends BaseScene {
     }
   }
 
-  private onParagraphComplete(): void {
+  private onParagraphComplete(paragraphIndex: number): void {
     this.playSound('menu');
     this.promoteCompletedParagraph();
+
+    if (!this.chapter) return;
+
+    const asciiPanel = getAsciiPanelForParagraph(this.chapter, paragraphIndex);
+    if (asciiPanel) {
+      this.showInlineAscii(asciiPanel.art);
+    }
+
+    const puzzleTrigger = getPuzzleTriggersForParagraph(this.chapter, paragraphIndex);
+    if (puzzleTrigger) {
+      this.waitingForPuzzle = true;
+      this.promptText?.setText('Puzzle incoming...');
+      this.playSound('powerUp');
+
+      this.time.delayedCall(800, () => {
+        this.emitGameEvent({
+          type: 'pause',
+          data: {
+            action: 'openPuzzle',
+            puzzleId: puzzleTrigger.puzzleId,
+            chapterIndex: this.chapterIndex,
+            paragraphIndex,
+          },
+        });
+      });
+    }
+  }
+
+  private showInlineAscii(art: string[]): void {
+    if (!this.bodyText) return;
+
+    const margin = GAME_CONFIG.TEXT.MARGIN_X;
+    const currentY = this.bodyText.y;
+
+    const asciiText = this.add.text(margin, currentY, art.join('\n'), {
+      fontFamily: MATRIX_FONTS.MONO,
+      fontSize: ASCII_FONT_SIZE,
+      color: MATRIX_COLORS.MEDIUM_GREEN_HEX,
+      lineSpacing: 1,
+    });
+    asciiText.setAlpha(0);
+    this.asciiPanels.push(asciiText);
+
+    this.tweens.add({
+      targets: asciiText,
+      alpha: { from: 0, to: 0.8 },
+      duration: 800,
+      ease: 'Power2',
+    });
+
+    const asciiHeight = art.length * ASCII_LINE_HEIGHT + 10;
+    this.bodyText.setY(currentY + asciiHeight);
+  }
+
+  resumeAfterPuzzle(): void {
+    this.waitingForPuzzle = false;
+    this.promptText?.setText('Press SPACE or ENTER to advance');
   }
 
   private promoteCompletedParagraph(): void {
@@ -163,10 +266,24 @@ export class CtrlSNarrativeScene extends BaseScene {
 
   private layoutCompletedTexts(): void {
     let y = GAME_CONFIG.TEXT.MARGIN_Y;
+
+    if (this.chapterAscii) {
+      const asciiHeight = this.chapterAscii.height;
+      y = 45 + asciiHeight + 15;
+    }
+
     for (const text of this.completedTexts) {
       text.setPosition(GAME_CONFIG.TEXT.MARGIN_X, y);
       y += text.height + GAME_CONFIG.TEXT.LINE_HEIGHT;
     }
+
+    for (const ascii of this.asciiPanels) {
+      if (ascii.active) {
+        ascii.setPosition(GAME_CONFIG.TEXT.MARGIN_X, y);
+        y += ascii.height + 10;
+      }
+    }
+
     if (this.bodyText) {
       this.bodyText.setPosition(GAME_CONFIG.TEXT.MARGIN_X, y);
     }
@@ -199,7 +316,21 @@ export class CtrlSNarrativeScene extends BaseScene {
   }
 
   private handleAdvance(): void {
-    if (this.isPaused) return;
+    if (this.isPaused || this.waitingForPuzzle) return;
+
+    if (this.chapterAscii && this.engine.paragraphIndex === 0 && this.engine.state === 'IDLE') {
+      this.tweens.add({
+        targets: this.chapterAscii,
+        alpha: 0,
+        duration: 500,
+        onComplete: () => {
+          this.chapterAscii?.destroy();
+          this.chapterAscii = undefined;
+          this.layoutCompletedTexts();
+        },
+      });
+    }
+
     this.engine.advance();
   }
 
@@ -215,7 +346,9 @@ export class CtrlSNarrativeScene extends BaseScene {
     const snapshot = this.engine.getSnapshot();
     return {
       chapterIndex: this.chapterIndex,
+      chapterId: this.chapter?.id,
       phase: 'narrative',
+      waitingForPuzzle: this.waitingForPuzzle,
       typewriter: snapshot,
     };
   }
@@ -224,6 +357,8 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.rainGroup?.destroy(true);
     this.rainGroup = undefined;
     this.chapterTitle?.destroy();
+    this.chapterAscii?.destroy();
+    this.chapterAscii = undefined;
     this.bodyText?.destroy();
     this.cursorBlink?.destroy();
     this.cursorTween?.destroy();
@@ -232,6 +367,11 @@ export class CtrlSNarrativeScene extends BaseScene {
       text.destroy();
     }
     this.completedTexts = [];
+    for (const ascii of this.asciiPanels) {
+      ascii.destroy();
+    }
+    this.asciiPanels = [];
+    this.waitingForPuzzle = false;
     if (this.input.keyboard) {
       this.input.keyboard.removeAllKeys(true);
     }
