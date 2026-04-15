@@ -591,8 +591,11 @@ export class AgentChaseGameScene extends BaseScene {
     this.lives = Math.max(0, this.lives - 1);
     this.diedThisLevel = true;
     this.playSound('hit');
+    this.cameras.main.shake(150, 0.008);
 
     if (this.lives <= 0) {
+      this.playSound(SOUND_KEYS.GAME_OVER);
+      this.cameras.main.flash(120, 255, 0, 0, false, undefined, undefined, 0.25);
       if (this.score > this.highScore) this.highScore = this.score;
       this.reportScore(this.score, this.highScore);
       this.gameOver(this.score, `Level ${this.level}`, this.highScore, [

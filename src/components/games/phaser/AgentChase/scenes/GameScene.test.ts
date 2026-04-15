@@ -115,6 +115,7 @@ function createTestScene() {
   const mockTextObj = { setOrigin: vi.fn(), setDepth: vi.fn(), destroy: vi.fn() };
   scene.add = { text: vi.fn().mockReturnValue(mockTextObj) };
   scene.tweens = { add: vi.fn() };
+  scene.cameras = { main: { shake: vi.fn(), flash: vi.fn() } };
 
   // --- Sub-methods that dive into Phaser internals ---
   scene.resetPositions = vi.fn();

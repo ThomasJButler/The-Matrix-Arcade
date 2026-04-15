@@ -777,6 +777,10 @@ export class NeoJumpGameScene extends BaseScene {
     if (this.isGameOver) return;
     this.isGameOver = true;
 
+    this.playSound(SOUND_KEYS.GAME_OVER);
+    this.cameras.main.shake(200, 0.012);
+    this.cameras.main.flash(120, 255, 0, 0, false, undefined, undefined, 0.25);
+
     if (this.playerSpriteMode) {
       this.updatePlayerTexture('death');
     }

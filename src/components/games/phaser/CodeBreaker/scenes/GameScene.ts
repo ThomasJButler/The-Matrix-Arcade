@@ -863,6 +863,7 @@ export class CodeBreakerGameScene extends BaseScene {
     this.playSound(SOUND_KEYS.SCORE);
 
     this.playSound(SOUND_KEYS.GLASS_BREAK);
+    this.cameras.main.shake(50, 0.003);
     this.spawnExplosion(x, y, BRICK_DEFS[brick.type].color);
     brick.sprite.destroy();
     this.bricks.splice(brickIndex, 1);
@@ -1025,6 +1026,9 @@ export class CodeBreakerGameScene extends BaseScene {
   private handleGameOver(reason?: string): void {
     if (this.isGameOver) return;
     this.isGameOver = true;
+
+    this.playSound(SOUND_KEYS.GAME_OVER);
+    this.cameras.main.flash(120, 255, 0, 0, false, undefined, undefined, 0.25);
 
     const message = reason === 'escaped'
       ? `Escaped the simulation at level ${this.level}`
