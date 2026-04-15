@@ -193,7 +193,18 @@ export function GamePortal({
             <div className={`relative overflow-hidden ${isPlaying ? 'ipod-screen--playing' : 'aspect-[16/9]'}`}>
               {isPlaying && GameComponent ? (
                 <GameErrorBoundary gameName={game.title} onReset={onExit}>
-                  <Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-black text-green-500 font-mono">Loading...</div>}>
+                  <Suspense fallback={
+                    <div className="ipod-loading-screen">
+                      <div className="ipod-loading-scanline" />
+                      <div className="ipod-loading-title">{game.title}</div>
+                      <div className="ipod-loading-chars">
+                        {'LOADING'.split('').map((ch, i) => (
+                          <span key={i} className="ipod-loading-char">{ch}</span>
+                        ))}
+                      </div>
+                      <div className="ipod-loading-status">INITIALISING MATRIX</div>
+                    </div>
+                  }>
                     <GameComponent
                       achievementManager={achievementManager}
                       isMuted={isMuted}
