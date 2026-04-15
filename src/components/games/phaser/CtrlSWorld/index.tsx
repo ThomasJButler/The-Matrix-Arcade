@@ -5,12 +5,13 @@
  * Feature-flagged alongside the old React version until R80.25 cut-over.
  *
  * Renders PuzzleModal and InventoryPanel as React overlays when NarrativeScene triggers them.
+ * Bridges GameStateContext ↔ Phaser registry for save/load persistence.
  */
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import Phaser from 'phaser';
 import { PhaserGame } from '../../../../lib/phaser/PhaserGame';
-import { PHASER_CONFIG, CTRLS_SCENE_KEYS } from './config';
+import { PHASER_CONFIG, CTRLS_SCENE_KEYS, CTRLS_REGISTRY_KEYS } from './config';
 import type { GameEvent } from '../../../../lib/phaser/types';
 import { PuzzleModal, type PuzzleData } from '../../../ui/PuzzleModal';
 import { InventoryPanel } from '../../../ui/InventoryPanel';
@@ -54,10 +55,31 @@ export default function CtrlSWorldPhaser({
     gameInstanceRef.current = game;
   }, []);
 
+  // Sync GameStateContext → Phaser registry so scenes read live progress
+  useEffect(() => {
+    const game = gameInstanceRef.current;
+    if (!game) return;
+
+    game.registry.set(CTRLS_REGISTRY_KEYS.COMPLETED_CHAPTERS, gameState.state.completedChapters);
+    game.registry.set(CTRLS_REGISTRY_KEYS.COMPLETED_PUZZLES, gameState.state.completedPuzzles);
+    game.registry.set(CTRLS_REGISTRY_KEYS.CURRENT_CHAPTER, gameState.state.currentChapter);
+  }, [
+    gameState.state.completedChapters,
+    gameState.state.completedPuzzles,
+    gameState.state.currentChapter,
+  ]);
+
   const handleGameEvent = useCallback((event: GameEvent) => {
     if (event.type !== 'pause') return;
 
-    const data = event.data as { action?: string; puzzleId?: string; chapterIndex?: number; paragraphIndex?: number } | undefined;
+    const data = event.data as {
+      action?: string;
+      puzzleId?: string;
+      chapterIndex?: number;
+      paragraphIndex?: number;
+      choiceId?: string;
+      label?: string;
+    } | undefined;
     if (!data?.action) return;
 
     if (data.action === 'openPuzzle' && data.puzzleId) {
@@ -72,8 +94,17 @@ export default function CtrlSWorldPhaser({
       });
     } else if (data.action === 'openInventory') {
       setInventoryOpen(true);
+    } else if (data.action === 'chapterComplete' && data.chapterIndex !== undefined) {
+      gameState.completeChapter(data.chapterIndex);
+      gameState.saveGame();
+    } else if (data.action === 'chapterLaunch' && data.chapterIndex !== undefined) {
+      gameState.setChapter(data.chapterIndex);
+      gameState.saveGame();
+    } else if (data.action === 'choice' && data.choiceId && data.label) {
+      gameState.makeChoice(data.choiceId, data.label);
+      gameState.saveGame();
     }
-  }, []);
+  }, [gameState]);
 
   const resumeNarrative = useCallback(() => {
     const game = gameInstanceRef.current;
@@ -92,6 +123,8 @@ export default function CtrlSWorldPhaser({
     if (success && activePuzzle) {
       achievementManager?.unlockAchievement('ctrlSWorld', 'ctrl_first_puzzle');
 
+      gameState.completePuzzle(activePuzzle.puzzleId);
+
       const rewardIds = getItemRewardsForPuzzle(activePuzzle.puzzleId);
       for (const itemId of rewardIds) {
         const itemData = getItemById(itemId);
@@ -99,6 +132,8 @@ export default function CtrlSWorldPhaser({
           gameState.addItem({ ...itemData, quantity: 1, acquiredAt: new Date().toISOString() });
         }
       }
+
+      gameState.saveGame();
     }
     setActivePuzzle(null);
     resumeNarrative();

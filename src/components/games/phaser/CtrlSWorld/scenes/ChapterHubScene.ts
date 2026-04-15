@@ -9,7 +9,7 @@
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
 import { MATRIX_COLORS, MATRIX_FONTS } from '../../../../../lib/phaser/types';
-import { CTRLS_SCENE_KEYS, HUB_CONFIG, type ChapterStatus } from '../config';
+import { CTRLS_SCENE_KEYS, CTRLS_REGISTRY_KEYS, HUB_CONFIG, type ChapterStatus } from '../config';
 import { getChapterTitle, getChapterPuzzleCount, TOTAL_CHAPTERS } from '../../../../../data/ctrlsChapters';
 
 interface ChapterTile {
@@ -113,9 +113,9 @@ export class CtrlSChapterHubScene extends BaseScene {
   }
 
   private getChapterProgress(): ChapterProgress[] {
-    const completedChapters: number[] = this.registry.get('completedChapters') ?? [];
-    const completedPuzzles: string[] = this.registry.get('completedPuzzles') ?? [];
-    const currentChapter: number = this.registry.get('currentChapter') ?? 0;
+    const completedChapters: number[] = this.registry.get(CTRLS_REGISTRY_KEYS.COMPLETED_CHAPTERS) ?? [];
+    const completedPuzzles: string[] = this.registry.get(CTRLS_REGISTRY_KEYS.COMPLETED_PUZZLES) ?? [];
+    const currentChapter: number = this.registry.get(CTRLS_REGISTRY_KEYS.CURRENT_CHAPTER) ?? 0;
 
     return Array.from({ length: TOTAL_CHAPTERS }, (_, i) => {
       const puzzlesTotal = getChapterPuzzleCount(i);
@@ -132,7 +132,7 @@ export class CtrlSChapterHubScene extends BaseScene {
       } else if (i <= currentChapter) {
         status = 'available';
       } else {
-        status = 'available';
+        status = 'locked';
       }
 
       return { status, puzzlesCompleted, puzzlesTotal };
@@ -459,6 +459,12 @@ export class CtrlSChapterHubScene extends BaseScene {
     if (this.isLaunching) return;
     this.isLaunching = true;
     this.playSound('menu');
+
+    this.registry.set(CTRLS_REGISTRY_KEYS.CURRENT_CHAPTER, chapterIndex);
+    this.emitGameEvent({
+      type: 'pause',
+      data: { action: 'chapterLaunch', chapterIndex },
+    });
 
     const tile = this.tiles[chapterIndex];
     if (!tile) {
