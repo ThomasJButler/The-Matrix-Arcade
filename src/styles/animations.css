@@ -249,7 +249,7 @@
   color: rgba(0, 255, 0, 0.45);
   font-family: 'Press Start 2P', monospace;
   font-size: 0.5rem;
-  transition: color 0.15s ease, background-color 0.15s ease;
+  transition: color 0.15s ease, background-color 0.15s ease, transform 80ms ease-out;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -257,11 +257,14 @@
 .clickwheel-zone:focus-visible {
   color: rgba(0, 255, 0, 0.9);
   background: rgba(0, 255, 0, 0.06);
+  animation: clickwheel-pulse 1.6s ease-in-out infinite;
 }
 
 .clickwheel-zone:active {
   background: rgba(0, 255, 0, 0.12);
   color: rgba(0, 255, 0, 1);
+  transform: scale(0.97);
+  animation: none;
 }
 
 .clickwheel-zone:focus-visible {
@@ -343,16 +346,50 @@
   box-shadow:
     inset 0 1px 3px rgba(0, 0, 0, 0.5),
     0 0 12px rgba(0, 255, 0, 0.1);
+  animation: clickwheel-pulse-centre 1.6s ease-in-out infinite;
 }
 
 .clickwheel-centre:active {
   transform: translate(-50%, -50%) scale(0.95);
   color: rgba(0, 255, 0, 1);
+  animation: none;
 }
 
 .clickwheel-centre:focus-visible {
   outline: 2px solid rgba(0, 255, 0, 0.6);
   outline-offset: 2px;
+}
+
+/* Clickwheel segment hover pulse */
+@keyframes clickwheel-pulse {
+  0%, 100% { background: rgba(0, 255, 0, 0.06); }
+  50% { background: rgba(0, 255, 0, 0.12); }
+}
+
+@keyframes clickwheel-pulse-centre {
+  0%, 100% { box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 12px rgba(0, 255, 0, 0.1); }
+  50% { box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 18px rgba(0, 255, 0, 0.2); }
+}
+
+/* Wheel rotation micro-animation on prev/next navigation */
+@keyframes clickwheel-rotate-left {
+  0% { transform: rotate(0deg); }
+  40% { transform: rotate(-3deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes clickwheel-rotate-right {
+  0% { transform: rotate(0deg); }
+  40% { transform: rotate(3deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.ipod-clickwheel.rotating-left {
+  animation: clickwheel-rotate-left 250ms ease-out;
+}
+
+.ipod-clickwheel.rotating-right {
+  animation: clickwheel-rotate-right 250ms ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -361,8 +398,20 @@
   .animate-pulse,
   .animate-pulse-red,
   .score-highlight,
-  .score-1up-blink {
-    animation: none;
+  .score-1up-blink,
+  .clickwheel-zone,
+  .clickwheel-centre,
+  .ipod-clickwheel.rotating-left,
+  .ipod-clickwheel.rotating-right {
+    animation: none !important;
+  }
+
+  .clickwheel-zone:active {
+    transform: none;
+  }
+
+  .clickwheel-centre:active {
+    transform: translate(-50%, -50%);
   }
 
   .crt-effect::before {
