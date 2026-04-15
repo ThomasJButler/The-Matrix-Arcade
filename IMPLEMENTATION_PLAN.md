@@ -5,7 +5,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: R81 COMPLETE — arcade-wide juice polish + repo trim shipped (14/14 tasks, CTRL-S excluded)
+## Status: R82 open — iPod Classic card redesign + CSS polish (12 tasks, 15-loop cap, CTRL-S excluded)
 
 > **R78.7 complete (2026-04-14)**: Multi-viewport Playwright matrix — added `mobile` (375×667) and `tablet` (768×1024) projects to `playwright.config.ts`. Both viewports trigger the app's "DESKTOP REQUIRED" gate (MobileWarning component), so created dedicated `e2e/responsive/mobile-gate.spec.ts` with 2 tests × 2 viewports = 4 baselines. Scoped via `testMatch: /responsive\//` so only responsive specs run on those projects. Fixed pre-existing lint error (`addScore` unused in App.tsx). All 4 responsive tests pass, all 6 desktop visual tests pass, build clean.
 >
@@ -112,6 +112,79 @@ This file is auto-generated and updated by Ralph during planning and building lo
 - Lint: 0 errors, 14 intentional warnings (6 in CTRL-S `DEFERRED-CTRLS-DEDICATED-PHASE`, rest in circular hook deps / mount-only effects / context colocation)
 - PWA + build: green
 - Docker linux baselines: shipped R79.1 (daemon now available)
+- Manual testing aid: see `MANUAL_TESTING_CHECKLIST.md` for per-game hand-run QA — NOT for Ralph loop, Tom's personal tool
+
+---
+
+## R82 — Retro iPod Classic Game-Card Redesign (MEDIUM — 12 tasks, 15-loop cap)
+
+> **Tom's call (2026-04-18)**: *"Unblock the loop and do the CSS improvements for the Ipod Touch design. This would be another good one for the loop to give a go."*
+
+**Scope**: Rebuild the landing page game cards as iPod Classic device visuals (per Tom's sketch + iPod reference). Device silhouette, screen area with game preview + title overlay, clickwheel with MENU/prev/next/play/centre. Matrix green aesthetic replaces chrome. ~30% smaller than current cards so grid density improves. Existing game preview images used; Tom will swap in better imagery later.
+
+### R82 Design Decisions (locked in from prior session 2026-04-16)
+
+| Decision | Choice |
+|----------|--------|
+| Device aesthetic | iPod Classic silhouette, Matrix green body (no chrome) |
+| Title placement | **Overlaid on preview image** (not in separate band below) — per Tom's arrows on the sketch |
+| Clickwheel | Rendered below screen — MENU (top), play/pause (bottom), prev (left), next (right), centre-select |
+| Clickwheel interactivity | Keyboard + pointer both work. Wheel highlight uses Matrix pulse animation on active segment. |
+| Size | Reduce footprint ~30% vs current cards |
+| Imagery | Use existing game preview images for now — Tom swaps in better shots later |
+| Accessibility | Full keyboard nav (Tab to card, arrow keys = clickwheel), ARIA roles, focus visible |
+
+### R82 Task List (12 tasks)
+
+- [ ] **R82.1 — [P2]** Archive R81 to `COMPLETED_WORK.md § R81 — Arcade-wide Juice Polish`. Move R81 task list + completion report + discovered work. Replace in-plan with one-line back-reference. Doc-only, ~1 iteration.
+- [ ] **R82.2 — [P1]** Extract a new `GameCard.tsx` component from `LandingPage.tsx` (currently 257 lines, cards inline). Shared component, props `game: GameRegistryEntry`, `onPlay: () => void`. Establishes the boundary for iPod redesign work.
+- [ ] **R82.3 — [P1]** iPod Classic device silhouette — pure CSS (rounded-rect body with metallic Matrix-green gradient, screen inset with subtle bezel, shadow for depth). No clickwheel yet. Target size ~280×380 (roughly 30% smaller than current card footprint).
+- [ ] **R82.4 — [P1]** Screen area: game preview image rendered inside the device screen. Game title overlaid on preview (top area, semi-transparent Matrix green bar OR text-shadow directly on image). Per Tom's sketch arrows.
+- [ ] **R82.5 — [P1]** Clickwheel below screen — pure CSS radial gradient, 5 hit zones: MENU top, prev left, next right, play/pause bottom, centre-select. ASCII-style icons (▶ ❚❚ ◄ ► MENU) for true retro feel.
+- [ ] **R82.6 — [P1]** Clickwheel interactivity:
+  - Pointer: click hit zones → prev/next cycles carousel, play launches game, MENU returns to grid, centre confirms.
+  - Keyboard: Tab focuses a card; ↑=MENU, ↓=play, ←=prev, →=next, Enter=centre-select.
+  - ARIA: role="group" for the wheel, role="button" + aria-label per zone.
+- [ ] **R82.7 — [P2]** Animations: clickwheel segment pulses Matrix green on hover/focus. Click → subtle depression animation (transform scale 0.97 for 80ms). Wheel rotation micro-animation on prev/next (slight rotate + settle).
+- [ ] **R82.8 — [P2]** Landing page grid rework — apply new `GameCard` across all 12 game entries. Tighten grid gap to match new card size. Verify responsive: 3 cols at wide, 2 cols at medium, 1 col at narrow (before MobileWarning kicks in).
+- [ ] **R82.9 — [P2]** CTRL-S card styling — apply iPod treatment but PRESERVE CTRL-S card fully (don't touch game directory). CTRL-S gets same card look with its own preview image + title. Tom can iterate on preview image later.
+- [ ] **R82.10 — [P2]** Visual regression baseline regen for landing page + portal carousel. Commit baselines separately with `R82.N-visual: baseline update` message.
+- [ ] **R82.11 — [P2]** E2E test update — current playthrough specs use selectors like `[role="button"][aria-label*="Play"]` which should still work since the play zone on the clickwheel gets that aria-label. Verify all 12 playthrough specs still pass. Update `e2e/fixtures/arcade.fixture.ts` if selector needs refinement.
+- [ ] **R82.12 — [P1]** Final verification + terminator. Run gates: lint + build + test + e2e + visual. Write `### R82 Completion Report`. Update Status to `R82 COMPLETE — iPod Classic card redesign shipped`.
+
+### R82 Terminator
+
+- All R82.1–R82.12 marked `[x]`.
+- Gates green: lint + build + test + e2e + visual.
+- `COMPLETED_WORK.md` contains new `## R81 —` section (R82.1 archive).
+- CTRL-S game files untouched — `git diff --stat HEAD~12 -- src/components/games/phaser/CtrlSWorld/` returns empty. (CTRL-S landing-page card styling is OK to update; game code is off-limits.)
+- Status line: `R82 COMPLETE — iPod Classic card redesign shipped`.
+
+### R82 Guardrails
+
+- **CTRL-S game files off-limits.** `src/components/games/phaser/CtrlSWorld/` untouchable. The CTRL-S card on the landing page CAN be styled (it's in `LandingPage.tsx`), but don't touch anything inside the CTRL-S Phaser directory.
+- **Reuse existing imagery.** Don't try to generate art. Use whatever game preview images currently live in `public/` or are referenced in `gameRegistry.ts`. Tom swaps in better imagery in a future phase.
+- **No new dependencies.** Pure CSS + existing Tailwind + Framer Motion (already in repo for `AnimatePresence`). No new UI library.
+- **Accessibility is not optional.** Every clickwheel button needs `aria-label`, keyboard focus visible, Tab order sensible. Matches R78.11 a11y sweep standard.
+- **No gameplay changes.** R82 is a landing-page visual polish phase. Nothing inside `src/components/games/phaser/**/scenes/` should change.
+- **`frontend-design` skill available** — invoke `frontend-design:frontend-design` during R82.3–R82.7 for maximum visual quality. That's the plugin explicitly for "production-grade frontend with high design quality, avoids generic AI aesthetics".
+
+### R82 Discovered Work
+
+_(Ralph appends findings here. If scope creep suggests wider landing-page/carousel redesign, log rather than execute.)_
+
+---
+
+## Future Asset Strategy (Tom's note, 2026-04-18)
+
+> *"I will be adding a custom game asset pack in the future (purchased). Like a mega pack for consistency across games. Free ones are cool for now and I went a bit over the top. When publishing final version I'll source a sound effects pack, sprite pack, possibly a background pack. For future development, be a true professional — also it's a pain finding free stuff and hoping I can use it without referencing. I'll try to create my own music track and images for custom aspect, but this is my playground and I love trying new things and breaking things."*
+
+**Implications for future phases (NOT R82)**:
+- When Tom sources a licensed mega-pack, a new phase will replace per-game sprites/SFX/BGM with the consistent set. Estimated ~1 iteration per game asset-swap (11 games = 11 iterations).
+- Existing `public/assets/<game>/` structure is ready for this — just replace files, re-run visual baselines.
+- Current assets (deployed R78 + R80) are from the 638 MB free dump. Licensing-fine for playground use; pack swap happens before any public launch.
+- Tom may also create custom music + imagery per game — these layer on top of the pack. No blocker for purchased pack work.
+- **When the time comes**: new phase (R8X or similar), full `ASSETS_NEEDED.md` refresh per game with licensed pack paths, 1-iteration-per-game swap. Not a planning priority now.
 
 ---
 
@@ -642,26 +715,29 @@ All Phaser games expose test state via `exposeTestState()`. E2E fixtures support
 
 ### TERMINATOR CONDITION (Ralph stops looping only when ALL of these are true)
 
-- All R81.1 through R81.14 tasks marked `[x]`.
+- All R82.1 through R82.12 tasks marked `[x]`.
 - `npm run lint`, `npm run build`, `npm test`, `npm run test:e2e`, `npm run test:visual` ALL green on a clean run.
-- `rebuildingoldgames/` folder deleted from git (R81.2 cut).
-- `COMPLETED_WORK.md` contains new `## R80 — CTRL-S Flagship Rewrite` section (R81.1 archive).
-- **CTRL-S files untouched** — `git diff --stat HEAD~14 -- src/components/games/phaser/CtrlSWorld/` returns empty.
-- The `## Status` line contains the phrase **"R81 COMPLETE — arcade-wide juice polish + repo trim shipped"**.
-- `### R81 Completion Report` written under the R81 section.
+- `COMPLETED_WORK.md` contains new `## R81 — Arcade-wide Juice Polish` section (R82.1 archive).
+- **CTRL-S game files untouched** — `git diff --stat HEAD~12 -- src/components/games/phaser/CtrlSWorld/` returns empty. (CTRL-S card styling in LandingPage.tsx IS permitted.)
+- The `## Status` line contains the phrase **"R82 COMPLETE — iPod Classic card redesign shipped"**.
+- `### R82 Completion Report` written under the R82 section.
 
-**Execution order for this run** (15-loop cap, 14 tasks):
-1. R81.1 Archive R80 (doc-only, cheap) → 2. R81.2 Repo trim (doc + git rm, cheap)
-2. R81.3–R81.13 Juice sweep per game (independent, any order). Suggested: fast arcade feel first (Snake, Pong, Invaders), then build-up games (Metris, Frogger, NeoJump), then rhythm-adjacent (Rhythm Hacker — be conservative, already polished)
-3. R81.14 Final verification + terminator
+**Execution order for this run** (15-loop cap, 12 tasks):
+1. R82.1 Archive R81 (doc-only, cheap)
+2. R82.2 Extract GameCard component (prerequisite for all visual work)
+3. R82.3–R82.7 Build card visuals + clickwheel incrementally (device silhouette → screen + title → clickwheel → interactivity → animations)
+4. R82.8 Apply across all 12 games
+5. R82.9 CTRL-S card styling (card only, NOT Phaser game code)
+6. R82.10–R82.11 Visual baselines + E2E spec update
+7. R82.12 Final verification + terminator
 
-**Pattern**: R81 uses standard complete-and-exit (like R76/R77/R79/R80). Auto-terminator is correct. Do NOT use R78's never-terminate pattern.
+**Pattern**: R82 uses standard complete-and-exit (like R76/R77/R79/R80/R81). Auto-terminator is correct.
 
-**CTRL-S guardrail is RE-ARMED** — unlike R80 (which touched CTRL-S freely), R81 must NOT touch any CTRL-S file. Tom is iterating on CTRL-S separately after the R80 playtest.
+**CTRL-S GAME directory is RE-ARMED off-limits** — only the CTRL-S card styling on the landing page is in scope. Phaser scene code for CTRL-S is untouchable.
 
-**Stick-with-plan rule**: Don't invent new tasks. Discovered items → `### R80 Discovered Work` for Tom's R81+ triage, NOT into the active task list.
+**Stick-with-plan rule**: Don't invent new tasks. Discovered scope expansion (e.g. carousel overhaul, header redesign) → `### R82 Discovered Work` for triage, NOT into the active task list.
 
-When terminator is reached, write `## R80 Completion Report` listing: iterations run, tasks closed, discovered-work items deferred to R81/R82, tests passing, lines of code shipped, and the verdict on whether the "rushed pacing" + "glitchy story screen" bugs are resolved in the new implementation. Then stop.
+When terminator is reached, write `### R82 Completion Report` listing: iterations run, components created/refactored, visual baselines regenerated, any discovered items deferred to R83+, tests passing, accessibility verification. Then stop.
 
 ### Guardrails
 
