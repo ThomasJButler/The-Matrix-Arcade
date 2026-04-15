@@ -553,6 +553,7 @@ export class MatrixInvadersGameScene extends BaseScene {
     if (this.score > this.highScore) this.highScore = this.score;
     this.reportScore(this.score, this.highScore);
     this.playSound(SOUND_KEYS.SCORE);
+    this.cameras.main.shake(50, 0.003);
 
     this.spawnExplosion(x, y, def.color);
 
@@ -798,6 +799,8 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.waveCompleteText.setText('WAVE COMPLETE\nHEALTH RESTORED!');
     this.waveCompleteText.setVisible(true);
     this.playSound(SOUND_KEYS.LEVEL_UP);
+    this.cameras.main.shake(150, 0.006);
+    this.cameras.main.flash(150, 0, 255, 0, false, undefined, undefined, 0.15);
 
     this.playerHealth = GAME_CONFIG.PLAYER_MAX_HEALTH;
     this.clearAllBullets();
@@ -830,6 +833,10 @@ export class MatrixInvadersGameScene extends BaseScene {
     if (this.combo >= 10) this.tryUnlockAchievement(ACHIEVEMENTS.COMBO_10);
     if (this.bulletTimeUses >= 5) this.tryUnlockAchievement(ACHIEVEMENTS.BULLET_TIME);
     if (this.score >= 10000) this.tryUnlockAchievement(ACHIEVEMENTS.HIGH_SCORE);
+
+    this.playSound(SOUND_KEYS.GAME_OVER);
+    this.cameras.main.shake(180, 0.012);
+    this.cameras.main.flash(120, 255, 0, 0, false, undefined, undefined, 0.25);
 
     const reason = this.playerHealth <= 0 ? 'Ship destroyed' : 'Enemies reached your position';
     this.gameOver(this.score, reason, this.highScore, [

@@ -774,7 +774,8 @@ export class FroggerGameScene extends BaseScene {
     (nearest as Enemy).setActive(false);
     (nearest as Enemy).setVisible(false);
 
-    this.playSound('hit');
+    this.playSound(SOUND_KEYS.KUNG_FU_HIT);
+    this.cameras.main.shake(80, 0.006);
     this.addScore(50);
     this.updateKungFuDisplay();
 
@@ -831,7 +832,8 @@ export class FroggerGameScene extends BaseScene {
       },
     });
 
-    this.cameras.main.shake(300, 0.01);
+    this.cameras.main.shake(200, 0.012);
+    this.cameras.main.flash(120, 255, 0, 0, false, undefined, undefined, 0.25);
   }
 
   // ---------------------------------------------------------------------------
@@ -1160,6 +1162,7 @@ export class FroggerGameScene extends BaseScene {
       this.level++;
       this.addScore(GAME_CONFIG.SCORING.CROSS_BONUS);
       this.playSound(SOUND_KEYS.FROGGER_SCORE);
+      this.cameras.main.flash(150, 0, 255, 0, false, undefined, undefined, 0.15);
 
       // Show level text
       this.showLevelUpText();

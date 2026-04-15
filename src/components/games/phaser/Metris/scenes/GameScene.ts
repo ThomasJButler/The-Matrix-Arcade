@@ -413,6 +413,7 @@ export class MetrisGameScene extends BaseScene {
       if (newLevel > this.level) {
         this.level = newLevel;
         this.playSound(SOUND_KEYS.LEVEL_UP);
+        this.cameras.main.flash(150, 0, 255, 0, false, undefined, undefined, 0.15);
         this.restartDropTimer();
       }
 
@@ -428,8 +429,11 @@ export class MetrisGameScene extends BaseScene {
       if (linesCleared === 4) {
         this.playSound(SOUND_KEYS.ACHIEVEMENT_UNLOCK);
         this.playSound(SOUND_KEYS.COMBO);
+        this.cameras.main.shake(150, 0.008);
+        this.cameras.main.flash(120, 0, 255, 0, false, undefined, undefined, 0.2);
       } else {
         this.playSound(SOUND_KEYS.SCORE);
+        this.cameras.main.shake(60, 0.003 * linesCleared);
       }
 
       this.checkScoringAchievements(linesCleared);
@@ -519,8 +523,9 @@ export class MetrisGameScene extends BaseScene {
       });
     }
 
-    this.cameras.main.shake(300, 0.01);
-    this.playSound(SOUND_KEYS.POWER_DOWN);
+    this.cameras.main.shake(200, 0.012);
+    this.cameras.main.flash(120, 255, 0, 0, false, undefined, undefined, 0.25);
+    this.playSound(SOUND_KEYS.GAME_OVER);
     this.time.delayedCall(600, () => {
       this.gameOver(this.score, 'Board filled', this.highScore, [
         { label: 'Level', value: this.level },
@@ -588,6 +593,7 @@ export class MetrisGameScene extends BaseScene {
     this.currentPiece.y = ghostY;
     this.playSound(SOUND_KEYS.HIT);
     this.playSound(SOUND_KEYS.KUNG_FU_HIT);
+    this.cameras.main.shake(80, 0.005);
     this.lockCurrentPiece();
   }
 
