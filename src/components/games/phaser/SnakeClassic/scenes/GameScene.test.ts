@@ -31,6 +31,7 @@ function createMockImage() {
   img.setAlpha = vi.fn(self);
   img.clearTint = vi.fn(self);
   img.setDisplaySize = vi.fn(self);
+  img.setScale = vi.fn(self);
   img.destroy = vi.fn();
   img.x = 0;
   img.y = 0;
@@ -91,7 +92,7 @@ function createTestScene(): SnakeGameScene {
   scene.setupCommonInputs = vi.fn();
 
   // Phaser APIs
-  scene.cameras = { main: { shake: vi.fn(), setBackgroundColor: vi.fn() } };
+  scene.cameras = { main: { shake: vi.fn(), flash: vi.fn(), setBackgroundColor: vi.fn() } };
   scene.tweens = { add: vi.fn(() => ({ destroy: vi.fn() })), killTweensOf: vi.fn(), killAll: vi.fn() };
   scene.time = {
     addEvent: vi.fn(() => createMockTimer()),
@@ -357,7 +358,7 @@ describe('SnakeGameScene', () => {
       call('tick');
       expect(s('isGameOver')).toBe(false);
       expect(s('shieldActive')).toBe(false);
-      expect(s('playSound')).toHaveBeenCalledWith('hit');
+      expect(s('playSound')).toHaveBeenCalledWith('glassBreak');
     });
 
     it('should not protect against self collision', () => {
@@ -417,7 +418,7 @@ describe('SnakeGameScene', () => {
       (scene as any).food = { x: 15, y: 10 };
       (scene as any).direction = 'right';
       call('tick');
-      expect(s('playSound')).toHaveBeenCalledWith('score');
+      expect(s('playSound')).toHaveBeenCalledWith('snakeEat');
     });
 
     it('should double score when double power-up active', () => {
@@ -467,7 +468,7 @@ describe('SnakeGameScene', () => {
       (scene as any).powerUpSprite = createMockImage();
       call('tick');
       expect(s('powerUpsCollected')).toBe(1);
-      expect(s('playSound')).toHaveBeenCalledWith('collectible');
+      expect(s('playSound')).toHaveBeenCalledWith('powerupShield');
     });
 
     it('should activate shield on collection', () => {
@@ -719,9 +720,9 @@ describe('SnakeGameScene', () => {
       expect(s('moveTimer')).toBeNull();
     });
 
-    it('should play hit sound', () => {
+    it('should play game over sound', () => {
       call('handleGameOver');
-      expect(s('playSound')).toHaveBeenCalledWith('hit');
+      expect(s('playSound')).toHaveBeenCalledWith('gameOver');
     });
 
     it('should shake camera', () => {

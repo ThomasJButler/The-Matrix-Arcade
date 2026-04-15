@@ -355,7 +355,8 @@ export class SnakeGameScene extends BaseScene {
     if (wallCollision && this.shieldActive) {
       this.shieldActive = false;
       nextPos = { ...head };
-      this.playSound('hit');
+      this.playSound(SOUND_KEYS.GLASS_BREAK);
+      this.cameras.main.shake(120, 0.008);
       this.createShieldBreakEffect(head);
     } else if (wallCollision || selfCollision) {
       this.handleGameOver();
@@ -428,6 +429,13 @@ export class SnakeGameScene extends BaseScene {
     this.food = this.getRandomEmptyCell();
     const { x, y } = this.gridToPixel(this.food.x, this.food.y);
     this.foodSprite.setPosition(x, y);
+    this.foodSprite.setScale(0);
+    this.tweens.add({
+      targets: this.foodSprite,
+      scale: 1,
+      duration: 200,
+      ease: 'Back.easeOut',
+    });
   }
 
   private eatFood(): void {
@@ -442,8 +450,15 @@ export class SnakeGameScene extends BaseScene {
     }
     this.score += points;
 
-    this.playSound('score');
+    this.playSound('snakeEat');
     this.createScorePopup(this.food, points);
+    this.createEatBurst(this.food);
+    this.cameras.main.shake(60, 0.004);
+
+    if (this.consecutiveFood > 0 && this.consecutiveFood % 5 === 0) {
+      this.playSound(SOUND_KEYS.COMBO);
+      this.cameras.main.flash(100, 0, 255, 0, false, undefined, undefined, 0.15);
+    }
 
     if (prevFoodEaten === 0) {
       this.tryUnlockAchievement(ACHIEVEMENTS.FIRST_APPLE);
@@ -455,6 +470,13 @@ export class SnakeGameScene extends BaseScene {
         this.currentSpeed = newSpeed;
         this.restartMoveTimer();
         this.playSound('levelUp');
+        this.cameras.main.flash(150, 0, 255, 0, false, undefined, undefined, 0.2);
+        this.tweens.add({
+          targets: this.levelText,
+          scale: { from: 1.5, to: 1 },
+          duration: 300,
+          ease: 'Back.easeOut',
+        });
       }
     }
 
@@ -522,7 +544,21 @@ export class SnakeGameScene extends BaseScene {
 
   private collectPowerUp(type: PowerUpType): void {
     this.powerUpsCollected++;
-    this.playSound(SOUND_KEYS.COLLECTIBLE);
+
+    const sfxMap: Record<PowerUpType, string> = {
+      speed: SOUND_KEYS.POWERUP_BULLET_TIME,
+      double: SOUND_KEYS.POWERUP_MAGNET,
+      shield: SOUND_KEYS.POWERUP_SHIELD,
+      ghost: SOUND_KEYS.POWERUP_GHOST,
+    };
+    this.playSound(sfxMap[type] ?? SOUND_KEYS.COLLECTIBLE);
+
+    if (this.fieldPowerUp) {
+      const { x, y } = this.gridToPixel(this.fieldPowerUp.position.x, this.fieldPowerUp.position.y);
+      this.createParticleBurst(x, y, MATRIX_COLORS.CYAN, 10);
+    }
+    this.cameras.main.flash(80, 0, 255, 255, false, undefined, undefined, 0.12);
+
     this.destroyFieldPowerUp();
     this.activatePowerUp(type);
   }
@@ -690,6 +726,29 @@ export class SnakeGameScene extends BaseScene {
       duration: 400,
       onComplete: () => ring.destroy(),
     });
+    this.createParticleBurst(x, y, MATRIX_COLORS.MAGENTA, 8);
+  }
+
+  private createEatBurst(pos: Position): void {
+    const { x, y } = this.gridToPixel(pos.x, pos.y);
+    this.createParticleBurst(x, y, MATRIX_COLORS.PRIMARY, 6);
+  }
+
+  private createParticleBurst(x: number, y: number, colour: number, count: number): void {
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count;
+      const particle = this.add.circle(x, y, 3, colour, 0.9);
+      this.tweens.add({
+        targets: particle,
+        x: x + Math.cos(angle) * 25,
+        y: y + Math.sin(angle) * 25,
+        alpha: 0,
+        scale: { from: 0.8, to: 0 },
+        duration: 350,
+        ease: 'Quad.easeOut',
+        onComplete: () => particle.destroy(),
+      });
+    }
   }
 
   // ─── Game Over ─────────────────────────────────────────
@@ -705,9 +764,10 @@ export class SnakeGameScene extends BaseScene {
       this.tryUnlockAchievement(ACHIEVEMENTS.SPEED_DEMON);
     }
 
-    this.playSound('hit');
+    this.playSound(SOUND_KEYS.GAME_OVER);
     this.playSound(SOUND_KEYS.POWER_DOWN);
-    this.cameras.main.shake(200, 0.01);
+    this.cameras.main.shake(180, 0.012);
+    this.cameras.main.flash(120, 255, 0, 0, false, undefined, undefined, 0.3);
 
     if (this.snakeSprites.length > 0) {
       const headSprite = this.snakeSprites[0];
