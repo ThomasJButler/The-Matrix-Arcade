@@ -155,20 +155,23 @@
 .ipod-body {
   background: linear-gradient(
     160deg,
-    #0a2a0a 0%,
-    #041a04 25%,
-    #001a00 50%,
-    #021e02 75%,
-    #0a2a0a 100%
+    #0e2e0e 0%,
+    #061e06 15%,
+    #021a02 40%,
+    #001400 60%,
+    #021a02 80%,
+    #0e2e0e 100%
   );
   border-radius: 2rem;
   padding: 1.25rem;
   box-shadow:
-    0 0 30px rgba(0, 255, 0, 0.15),
-    0 8px 32px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(0, 255, 0, 0.1),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(0, 255, 0, 0.2);
+    0 0 40px rgba(0, 255, 0, 0.12),
+    0 12px 40px rgba(0, 0, 0, 0.7),
+    0 2px 8px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(0, 255, 0, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    inset 0 60px 60px -40px rgba(0, 255, 0, 0.03);
+  border: 1px solid rgba(0, 255, 0, 0.18);
   position: relative;
   contain: layout style;
 }
@@ -176,32 +179,37 @@
 .ipod-body::before {
   content: '';
   position: absolute;
-  inset: 3px;
-  border-radius: calc(2rem - 3px);
+  inset: 2px;
+  border-radius: calc(2rem - 2px);
   border: 1px solid rgba(0, 255, 0, 0.06);
+  background: linear-gradient(180deg, rgba(0, 255, 0, 0.02) 0%, transparent 30%);
   pointer-events: none;
 }
 
 .ipod-screen {
-  background: #0a0a0a;
+  background: #080808;
   border-radius: 0.75rem;
   overflow: hidden;
   box-shadow:
-    inset 0 2px 8px rgba(0, 0, 0, 0.8),
-    inset 0 0 2px rgba(0, 0, 0, 0.6),
-    0 1px 0 rgba(0, 255, 0, 0.08);
-  border: 1px solid rgba(0, 255, 0, 0.15);
+    inset 0 3px 12px rgba(0, 0, 0, 0.9),
+    inset 0 1px 3px rgba(0, 0, 0, 0.7),
+    inset 0 -1px 4px rgba(0, 0, 0, 0.5),
+    inset 0 0 20px rgba(0, 0, 0, 0.3),
+    0 1px 0 rgba(0, 255, 0, 0.06),
+    0 -1px 0 rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(0, 255, 0, 0.12);
   contain: layout style paint;
 }
 
 .ipod-title-overlay {
   background: linear-gradient(
     to bottom,
-    rgba(0, 10, 0, 0.85) 0%,
-    rgba(0, 10, 0, 0.6) 60%,
+    rgba(0, 8, 0, 0.9) 0%,
+    rgba(0, 8, 0, 0.65) 50%,
     transparent 100%
   );
   z-index: 10;
+  letter-spacing: 0.05em;
 }
 
 .ipod-clickwheel-region {
