@@ -61,7 +61,7 @@ export function GamePortal({
     setWheelRotation(null);
     requestAnimationFrame(() => {
       setWheelRotation(direction);
-      rotationTimer.current = setTimeout(() => setWheelRotation(null), 260);
+      rotationTimer.current = setTimeout(() => setWheelRotation(null), 320);
     });
   }, []);
 
