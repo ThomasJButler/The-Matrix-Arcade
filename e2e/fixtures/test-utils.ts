@@ -93,7 +93,7 @@ export async function getReactScore(page: Page): Promise<number | null> {
 export async function ensurePhaserFocus(page: Page): Promise<void> {
   const container = page.locator('[data-phaser-game="true"]');
   if (await container.isVisible().catch(() => false)) {
-    await container.click({ position: { x: 10, y: 10 } });
+    await container.click({ position: { x: 10, y: 10 }, force: true });
   }
 }
 

@@ -97,12 +97,12 @@ test.describe('modal focus restoration', () => {
   test('closing achievements restores focus to a non-body element', async ({ arcadePage: page }) => {
     await navigateToGame(page, 'snake-classic');
 
-    // Focus a known button first — the prev-arrow — then open + close the
-    // modal and see if focus comes back to anything meaningful.
-    const prev = page.getByTestId('carousel-prev');
-    await prev.focus();
+    // Focus the clickwheel toolbar, then open + close the modal and see if
+    // focus comes back to anything meaningful.
+    const wheel = page.locator('[role="toolbar"][aria-label="Game navigation wheel"]');
+    await wheel.focus();
     const beforeTag = await page.evaluate(() => document.activeElement?.tagName);
-    expect(beforeTag).toBe('BUTTON');
+    expect(beforeTag).toBe('DIV');
 
     await page.keyboard.press('a');
     await expect(page.getByRole('heading', { name: /achievements/i })).toBeVisible();

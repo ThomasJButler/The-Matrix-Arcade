@@ -22,9 +22,10 @@ test.describe('CTRL-S World (Phaser)', () => {
     );
     await expect(page).toHaveScreenshot('ctrl-s-phaser-01-portal.png');
 
-    const playButton = page.locator('button[aria-label*="Start" i], button:has-text("PLAY")').first();
-    if (await playButton.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await playButton.click();
+    const wheel = page.locator('[role="toolbar"][aria-label="Game navigation wheel"]');
+    if (await wheel.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await wheel.focus();
+      await page.keyboard.press('ArrowDown');
     } else {
       await page.keyboard.press('Enter');
     }
