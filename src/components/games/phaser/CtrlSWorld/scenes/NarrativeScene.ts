@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
 import { MATRIX_COLORS, MATRIX_FONTS } from '../../../../../lib/phaser/types';
-import { CTRLS_SCENE_KEYS, GAME_CONFIG, CHARACTERS, PORTRAIT_CONFIG, PARALLAX_CONFIG, type CharacterDef } from '../config';
+import { CTRLS_SCENE_KEYS, GAME_CONFIG, CHARACTERS, PORTRAIT_CONFIG, PARALLAX_CONFIG, CHARACTER_TICK_MAP, NARRATOR_TICK, STINGER_KEYS, type CharacterDef } from '../config';
 import { TypewriterEngine } from '../engine/TypewriterEngine';
 import {
   getChapter,
@@ -60,6 +60,7 @@ export class CtrlSNarrativeScene extends BaseScene {
   private bgBaseX = 0;
   private bgElapsed = 0;
   private themeParticles: Phaser.GameObjects.Text[] = [];
+  private tickCounter = 0;
 
   constructor() {
     super(CTRLS_SCENE_KEYS.NARRATIVE);
@@ -74,7 +75,9 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.waitingForInventory = false;
 
     this.engine.setSpeed(GAME_CONFIG.TEXT.TYPEWRITER_SPEED_MEDIUM);
+    this.tickCounter = 0;
     this.engine.setCallbacks({
+      onCharRevealed: () => this.onCharTick(),
       onParagraphStart: (_idx: number, text: string) => this.onParagraphStart(text),
       onParagraphComplete: (idx: number) => this.onParagraphComplete(idx),
       onAllComplete: () => this.onAllComplete(),
@@ -96,6 +99,9 @@ export class CtrlSNarrativeScene extends BaseScene {
 
     if (this.chapter?.musicTrack) {
       this.playBackgroundMusic(this.chapter.musicTrack);
+    }
+    if (this.startFromParagraph === 0) {
+      this.playSound(STINGER_KEYS.CHAPTER_START);
     }
 
     const width = Number(this.game.config.width);
@@ -217,6 +223,16 @@ export class CtrlSNarrativeScene extends BaseScene {
     }
   }
 
+  private onCharTick(): void {
+    this.tickCounter++;
+    if (this.tickCounter % 3 !== 0) return;
+
+    const tickKey = this.currentSpeakerId
+      ? (CHARACTER_TICK_MAP[this.currentSpeakerId] ?? NARRATOR_TICK)
+      : NARRATOR_TICK;
+    this.playSound(tickKey);
+  }
+
   private onParagraphStart(text: string): void {
     this.emitGameEvent({
       type: 'pause',
@@ -225,7 +241,7 @@ export class CtrlSNarrativeScene extends BaseScene {
   }
 
   private onParagraphComplete(paragraphIndex: number): void {
-    this.playSound('menu');
+    this.tickCounter = 0;
     this.promoteCompletedParagraph();
 
     if (!this.chapter) return;
@@ -244,7 +260,7 @@ export class CtrlSNarrativeScene extends BaseScene {
     if (puzzleTrigger) {
       this.waitingForPuzzle = true;
       this.promptText?.setText('Puzzle incoming...');
-      this.playSound('powerUp');
+      this.playSound(STINGER_KEYS.PUZZLE_APPEAR);
 
       this.time.delayedCall(800, () => {
         this.emitGameEvent({
@@ -264,7 +280,7 @@ export class CtrlSNarrativeScene extends BaseScene {
     if (choiceTrigger) {
       this.waitingForChoice = true;
       this.promptText?.setText('Use ↑↓ and ENTER to choose');
-      this.playSound('powerUp');
+      this.playSound(STINGER_KEYS.REVEAL);
       this.time.delayedCall(300, () => {
         this.showChoiceUI(choiceTrigger.choices, choiceTrigger.prompt);
       });
@@ -354,7 +370,7 @@ export class CtrlSNarrativeScene extends BaseScene {
   }
 
   private onAllComplete(): void {
-    this.playSound('levelUp');
+    this.playSound(STINGER_KEYS.CHAPTER_COMPLETE);
     this.promptText?.setText('Chapter complete');
 
     this.emitGameEvent({

@@ -157,6 +157,29 @@ export const PORTRAIT_CONFIG = {
   TEXT_INDENT: 130,
 } as const;
 
+export const CHARACTER_TICK_MAP: Record<string, string> = {
+  averag: 'ctrlsTickProtagonist',
+  senora: 'ctrlsTickNpc',
+  elon: 'ctrlsTickAntagonist',
+  steve: 'ctrlsTickAntagonist',
+  billiam: 'ctrlsTickAntagonist',
+  samuel: 'ctrlsTickNpc',
+  protector: 'ctrlsTickAntagonist',
+} as const;
+
+export const NARRATOR_TICK = 'ctrlsTickNarrator';
+
+export const STINGER_KEYS = {
+  PUZZLE_APPEAR: 'ctrlsPuzzleAppear',
+  PUZZLE_SOLVED: 'ctrlsPuzzleSolved',
+  PUZZLE_FAILED: 'ctrlsPuzzleFailed',
+  CHAPTER_START: 'ctrlsChapterStart',
+  CHAPTER_COMPLETE: 'ctrlsChapterComplete',
+  DRAMATIC_STING: 'ctrlsDramaticSting',
+  REVEAL: 'ctrlsReveal',
+  TRANSITION: 'ctrlsTransition',
+} as const;
+
 export const MUSIC_TRACKS = {
   MENU: '/assets/ctrl-s/audio/music/menu-theme.mp3',
   PROLOGUE: '/assets/ctrl-s/audio/music/prologue-brothers.mp3',

@@ -137,6 +137,9 @@ export default function CtrlSWorldPhaser({
   }, [resumeNarrative]);
 
   const handlePuzzleComplete = useCallback((success: boolean, _hintsUsed: number, _lifelinesUsed: number) => {
+    if (!isMuted) {
+      playSFX(success ? 'ctrlsPuzzleSolved' : 'ctrlsPuzzleFailed');
+    }
     if (success && activePuzzle) {
       achievementManager?.unlockAchievement('ctrlSWorld', 'ctrl_first_puzzle');
 
