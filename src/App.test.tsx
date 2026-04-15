@@ -170,9 +170,9 @@ describe('App Component', () => {
 
   it('renders game carousel navigation', () => {
     render(<App />);
-    // Check for game navigation elements
-    const prevButton = screen.getByTitle('Previous game');
-    const nextButton = screen.getByTitle('Next game');
+    // Check for clickwheel navigation zones
+    const prevButton = screen.getByRole('button', { name: 'Previous game' });
+    const nextButton = screen.getByRole('button', { name: 'Next game' });
     expect(prevButton).toBeInTheDocument();
     expect(nextButton).toBeInTheDocument();
   });
@@ -227,15 +227,15 @@ describe('App Component', () => {
   it('handles ESC key to exit game', () => {
     render(<App />);
     
-    // Start a game
-    const playButton = screen.getByText('PLAY');
+    // Start a game via clickwheel play zone
+    const playButton = screen.getByRole('button', { name: 'Play game' });
     fireEvent.click(playButton);
-    
+
     // Press ESC
     fireEvent.keyDown(window, { key: 'Escape' });
-    
-    // Should return to game selection
-    expect(screen.getByText('PLAY')).toBeInTheDocument();
+
+    // Should return to game selection — clickwheel play zone visible again
+    expect(screen.getByRole('button', { name: 'Play game' })).toBeInTheDocument();
   });
 
   it('handles Enter key to start game', () => {
@@ -244,8 +244,8 @@ describe('App Component', () => {
     // Press Enter
     fireEvent.keyDown(window, { key: 'Enter' });
     
-    // Should start the game
-    expect(screen.queryByText('PLAY')).not.toBeInTheDocument();
+    // Should start the game — clickwheel play zone disappears
+    expect(screen.queryByRole('button', { name: 'Play game' })).not.toBeInTheDocument();
   });
 
   it('toggles mute state with V key', () => {
@@ -315,7 +315,7 @@ describe('App Component', () => {
     render(<App />);
     
     // Make sure we're not playing (we should be in menu by default)
-    expect(screen.getByText('PLAY')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Play game' })).toBeInTheDocument();
     
     // Fire keydown on document.body to ensure proper target
     fireEvent.keyDown(document.body, { 
