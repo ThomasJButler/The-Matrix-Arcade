@@ -60,7 +60,7 @@ export function GamePortal({
           {/* Screen Bezel */}
           <div className="ipod-screen">
             {/* Game Display */}
-            <div className="relative aspect-[16/9]">
+            <div className="relative aspect-[16/9] overflow-hidden">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={selectedGame}
@@ -73,6 +73,18 @@ export function GamePortal({
                   />
                 </motion.div>
               </AnimatePresence>
+
+              {/* Title overlay on screen */}
+              <div className="absolute top-0 left-0 right-0 ipod-title-overlay pointer-events-none">
+                <h2 className="sr-only">{game.title}</h2>
+                <pre
+                  className="text-green-500 font-mono text-[6px] lg:text-[8px] xl:text-[9px] leading-none text-center select-none overflow-hidden mx-auto py-1.5 lg:py-2"
+                  aria-hidden="true"
+                  style={{ textShadow: '0 0 8px rgba(0,255,0,0.8), 0 0 20px rgba(0,255,0,0.3)' }}
+                >
+                  {GAME_TITLES[game.id] || game.title}
+                </pre>
+              </div>
             </div>
           </div>
 
@@ -90,16 +102,6 @@ export function GamePortal({
               </button>
 
               <div className="flex-1 text-center">
-                <div className="mb-2">
-                  <h2 className="sr-only">{game.title}</h2>
-                  <pre
-                    className="text-green-500 font-mono text-[7px] lg:text-[9px] xl:text-[10px] leading-none text-center select-none overflow-hidden mx-auto"
-                    aria-hidden="true"
-                    style={{ textShadow: '0 0 8px rgba(0,255,0,0.6), 0 0 20px rgba(0,255,0,0.15)' }}
-                  >
-                    {GAME_TITLES[game.id] || game.title}
-                  </pre>
-                </div>
                 {game.category && (
                   <span className="inline-block text-green-500/60 font-mono text-xs border border-green-500/30 px-2 py-0.5 rounded-full mb-2">
                     {game.category}
