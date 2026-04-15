@@ -196,29 +196,61 @@ The portal view becomes a rendered iPod Classic:
 - [ ] **R82.9 — [P2]** **Landing page grid is OUT OF SCOPE** — sentinel task. Do NOT touch `src/components/LandingPage.tsx`. Do NOT create `src/components/ui/GameCard.tsx`. Verify via `git diff --stat HEAD~8 -- src/components/LandingPage.tsx src/components/ui/` returns empty. If not, roll back. Mark `[x]` when verified untouched.
 - [ ] **R82.10 — [P2]** Visual regression baseline regen — focus on portal/carousel views (2-3 representative games: Snake Classic, Vortex Pong, CTRL-S). Commit baselines separately with `R82.N-visual: baseline update` message. Landing page baselines should NOT change.
 - [ ] **R82.11 — [P2]** E2E test update — specs click `[data-testid="carousel-prev"]`, `[data-testid="carousel-next"]`, and the PLAY button. After R82.5, these become clickwheel zones — PRESERVE the `data-testid` attributes on the new clickwheel hit areas. Verify all 12 playthrough + a11y specs still pass.
-- [ ] **R82.12 — [P1]** Final verification + terminator. Run gates: lint + build + test + e2e + visual. Write `### R82 Completion Report`. Update Status to `R82 COMPLETE — iPod Classic portal redesign shipped` (note: *portal* not *card*).
+- [ ] **R82.12 — [P1]** Integration verification. Run gates: lint + build + test + e2e + visual. Fix any regressions. Confirm CTRL-S game dir + LandingPage.tsx untouched. **Do NOT write the terminator phrase yet** — that comes in R82.13. This task confirms the core redesign landed correctly.
+- [ ] **R82.13 — [P3] ★ CONTINUOUS-IMPROVEMENT (never auto-checked)** — after R82.1–R82.12 complete, each remaining loop iteration picks ONE micro-improvement from the priority list below and ships it. This task is **intentionally never marked `[x]`** — Tom manually ticks it when he's happy with the final result. Ralph MUST NOT write the terminator phrase to Status; the `loop.sh` iteration cap is the stop signal. Tom's call (2026-04-18): *"fuck it we can make it the best version we possibly can"* — 15 iterations committed to, use them all if there's meaningful polish available.
 
-### R82 Terminator
+  **R82.13 micro-improvement priority list** (pick one per iteration, commit as `R82.13: <improvement summary>`):
+  - **Clickwheel animation polish** — easing curve refinements, press-depression feedback tuning, hover-glow intensity calibration, wheel-rotation micro-animations on prev/next
+  - **Keyboard shortcuts** — number keys 1-9 jump to game N, Home key returns to first, End jumps to last
+  - **Audio feedback** — reuse R77's `scoreboardTab` blip (200Hz square, 60ms) for clickwheel segment presses; `scoreboardConfirm` for centre-select; procedural only
+  - **Accessibility refinements** — `prefers-reduced-motion` media query to disable wheel animations, screen-reader announcements on game change, focus-visible polish
+  - **Touch/gesture support** — swipe left/right on clickwheel area for prev/next (desktop Safari trackpad + touch), while preserving button taps
+  - **Visual detailing** — screen bezel inner shadow, device body metallic gradient refinement, title typography (letter-spacing, shadow layering), category badge polish
+  - **State-specific polish** — loading state inside screen (when game chunk downloading), paused state indicator, game-over state visual on screen
+  - **Perf micro-optimisations** — `will-change: transform` on clickwheel segments, `contain: layout` where safe, avoid layout thrashing in animations
+  - **Integration polish** — ensure iPod frame animates smoothly on game switch (crossfade? slide?), preserve existing scene transitions
+  - **Empty/edge states** — what does the portal look like if `games[selectedGame]` is somehow undefined? Defensive rendering
+  - **Documentation** — if a shared clickwheel component or helper emerges across iterations, document its API in a JSDoc block
 
-- All R82.1–R82.12 marked `[x]`.
-- Gates green: lint + build + test + e2e + visual.
-- `COMPLETED_WORK.md` contains new `## R81 —` section (R82.1 archive).
-- CTRL-S game files untouched — `git diff --stat HEAD~12 -- src/components/games/phaser/CtrlSWorld/` returns empty. (CTRL-S landing-page card styling is OK to update; game code is off-limits.)
-- Status line: `R82 COMPLETE — iPod Classic portal redesign shipped` (note: *portal* not *card* — reflects corrected target).
-- LandingPage.tsx + GameCard.tsx — **MUST remain untouched**. If `git diff --stat HEAD~N -- src/components/LandingPage.tsx src/components/ui/` returns anything, ROLL BACK.
+  **R82.13 rules**:
+  - Scope each improvement to ONE iteration. Land it, commit, move on.
+  - If you find a bigger issue, log under `### R82 Discovered Work` — don't expand scope mid-iteration.
+  - Don't invent items outside the priority list. If running dry, prioritise accessibility + perf + audio (the three most underrated).
+  - **NEVER write `R82 COMPLETE` to Status line**. That's Tom's call, post-review. Exiting on loop cap is CORRECT behaviour.
+
+### R82 Terminator (continuous-improvement pattern — read carefully)
+
+**Unlike R76/R77/R79/R80/R81 which auto-terminate**, R82 uses R78's continuous-improvement pattern. Ralph MUST NOT auto-write the terminator phrase.
+
+The loop stops when ONE of:
+1. **`loop.sh` iteration cap (15) is reached** — the primary stop signal for R82
+2. **Tom manually edits Status line** to contain `R82 COMPLETE — iPod Classic portal redesign shipped`
+
+Required for Tom's manual sign-off (checklist he'll verify before writing terminator):
+- [ ] All R82.1–R82.12 marked `[x]` (R82.13 stays `[ ]` — never checked)
+- [ ] Gates green: lint + build + test + e2e + visual
+- [ ] `COMPLETED_WORK.md` contains new `## R81 —` section (R82.1 archive)
+- [ ] CTRL-S game files untouched — `git diff --stat <pre-R82-commit>..HEAD -- src/components/games/phaser/CtrlSWorld/` returns empty
+- [ ] LandingPage.tsx + GameCard.tsx paths untouched — `git diff --stat <pre-R82-commit>..HEAD -- src/components/LandingPage.tsx src/components/ui/` returns empty
+- [ ] Tom has played the portal in live browser and is happy with feel
+
+**If Ralph thinks "R82.1–R82.12 are done, time to write terminator"** — STOP. Read this section again. R82.13 is perpetual. Terminator is Tom's call.
 
 ### R82 Guardrails
 
-- **CTRL-S game files off-limits.** `src/components/games/phaser/CtrlSWorld/` untouchable. The CTRL-S card on the landing page CAN be styled (it's in `LandingPage.tsx`), but don't touch anything inside the CTRL-S Phaser directory.
-- **Reuse existing imagery.** Don't try to generate art. Use whatever game preview images currently live in `public/` or are referenced in `gameRegistry.ts`. Tom swaps in better imagery in a future phase.
-- **No new dependencies.** Pure CSS + existing Tailwind + Framer Motion (already in repo for `AnimatePresence`). No new UI library.
-- **Accessibility is not optional.** Every clickwheel button needs `aria-label`, keyboard focus visible, Tab order sensible. Matches R78.11 a11y sweep standard.
-- **No gameplay changes.** R82 is a landing-page visual polish phase. Nothing inside `src/components/games/phaser/**/scenes/` should change.
-- **`frontend-design` skill available** — invoke `frontend-design:frontend-design` during R82.3–R82.7 for maximum visual quality. That's the plugin explicitly for "production-grade frontend with high design quality, avoids generic AI aesthetics".
+- **CTRL-S game files off-limits.** `src/components/games/phaser/CtrlSWorld/` untouchable.
+- **LandingPage.tsx + ui/ subdirectory off-limits.** Grid stays as-is.
+- **Reuse existing imagery.** Don't try to generate art.
+- **No new dependencies.** Pure CSS + existing Tailwind + Framer Motion.
+- **Accessibility is not optional.** Every clickwheel button needs `aria-label`, keyboard focus visible, Tab order sensible.
+- **No gameplay changes.** Nothing inside `src/components/games/phaser/**/scenes/` should change.
+- **`frontend-design` skill available** — invoke `frontend-design:frontend-design` during R82.3–R82.7 for maximum visual quality.
+- **Continuous-improvement discipline**: R82.13 iterations should each produce a SHIPPABLE commit with a clear improvement. "Minor refactor for readability" doesn't count — land a real feel/perf/a11y improvement.
+- **Never auto-terminate.** Exiting on the `loop.sh` cap is the expected stop condition.
 
 ### R82 Discovered Work
 
-_(Ralph appends findings here. If scope creep suggests wider landing-page/carousel redesign, log rather than execute.)_
+_(Ralph appends findings here. If scope creep suggests wider changes, log rather than execute. Items here inform R83+ planning.)_
 
 ---
 
