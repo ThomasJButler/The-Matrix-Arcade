@@ -6,15 +6,12 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import './styles/theme.css';
 import './styles/animations.css';
 import {
   Monitor,
   Gamepad2,
-  ChevronLeft,
-  ChevronRight,
-  Play,
   Disc3,
   Keyboard,
   LucideClipboardSignature,
@@ -67,7 +64,7 @@ import { Scoreboard } from './components/scoreboard/Scoreboard';
 import { AttractMode } from './components/scoreboard/AttractMode';
 import LandingPage from './components/LandingPage';
 import { GAME_REGISTRY } from './data/gameRegistry';
-import { GAME_TITLES } from './lib/asciiArt';
+import { GamePortal } from './components/GamePortal';
 
 function App() {
   const [selectedGame, setSelectedGame] = useState<number>(0);
@@ -357,6 +354,38 @@ function App() {
   const handleNext = useCallback(() => {
     selectGame(selectedGame === games.length - 1 ? 0 : selectedGame + 1);
   }, [selectedGame, selectGame, games.length]);
+
+  const handlePlayFromPortal = useCallback(() => {
+    setIsPlaying(true);
+    playSFX('score');
+    if (mp3TimerRef.current) clearTimeout(mp3TimerRef.current);
+    stopBackgroundMP3();
+
+    const gameName = games[selectedGame].title;
+    gamesPlayed.current.add(gameName);
+    playStartTime.current = Date.now();
+
+    checkNightOwlAchievement();
+    checkDedicatedAchievement();
+
+    if (gamesPlayed.current.size === 1) {
+      const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
+      if (!currentGlobalAchievements.includes('global_first_game')) {
+        achievementManager.updateGlobalStats({
+          globalAchievements: [...currentGlobalAchievements, 'global_first_game']
+        });
+      }
+    }
+
+    if (gamesPlayed.current.size === games.length) {
+      const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
+      if (!currentGlobalAchievements.includes('global_all_games')) {
+        achievementManager.updateGlobalStats({
+          globalAchievements: [...currentGlobalAchievements, 'global_all_games']
+        });
+      }
+    }
+  }, [playSFX, stopBackgroundMP3, games, selectedGame, checkNightOwlAchievement, checkDedicatedAchievement, achievementManager]);
 
   /**
    * @listens isPlaying, achievementManager, playSFX, showMobileWarning, playBackgroundMP3, handlePrevious, handleNext, toggleMute
@@ -653,165 +682,19 @@ function App() {
             </button>
           </div>
         ) : (
-          <div className="relative w-full max-w-2xl mx-auto flex flex-col justify-center h-full game-portal-container px-4">
-          {/* Digital Transformation Container */}
-          <div
-            ref={containerRef}
-            className={`
-              digital-container game-portal-wrapper
-              ${isTransitioning ? `transition-${transitionDirection}` : ''}
-            `}
-          >
-            {/* Game Portal */}
-            <div className="relative bg-gray-900 rounded-xl p-3 lg:p-4 border border-green-500 shadow-[0_0_20px_rgba(0,255,0,0.3)] w-full mx-auto">
-                {/* Game Display */}
-                <div className="relative aspect-[16/9] mb-2 lg:mb-3 rounded-lg overflow-hidden border border-green-500">
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={selectedGame}
-                      className="w-full h-full transition-enhanced"
-                    >
-                      {isPlaying && GameComponent ? (
-                        <GameErrorBoundary gameName={games[selectedGame].title} onReset={() => setIsPlaying(false)}>
-                          <Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-black text-green-500 font-mono">Loading...</div>}>
-                            <GameComponent achievementManager={achievementManager} isMuted={isMuted} autoStart={false} onExit={() => { setIsPlaying(false); playSFX('menu'); trackPlayTime(); playBackgroundMP3('/matrixarcaderetrobeat.mp3'); }} />
-                          </Suspense>
-                        </GameErrorBoundary>
-                      ) : (
-                        <img
-                          src={games[selectedGame].preview}
-                          alt={games[selectedGame].title}
-                          className="w-full h-full object-cover"
-                        />
-                      )}
-                    </motion.div>
-                  </AnimatePresence>
-                </div>
-
-                {/* Controls */}
-                <div className="game-controls-enhanced">
-                  <button
-                    data-testid="carousel-prev"
-                    onClick={handlePrevious}
-                    className="p-1.5 lg:p-2 border border-green-500/30 bg-green-500/5 hover:bg-green-900 hover:border-green-500/60 rounded-full transition-colors transform hover:scale-110"
-                    title="Previous game"
-                    aria-label="Previous game"
-                  >
-                    <ChevronLeft className="w-6 h-6" />
-                  </button>
-
-                  <div className="flex-1 text-center">
-                    <div className="mb-2">
-                      <h2 className="sr-only">{games[selectedGame].title}</h2>
-                      <pre
-                        className="text-green-500 font-mono text-[7px] lg:text-[9px] xl:text-[10px] leading-none text-center select-none overflow-hidden mx-auto"
-                        aria-hidden="true"
-                        style={{ textShadow: '0 0 8px rgba(0,255,0,0.6), 0 0 20px rgba(0,255,0,0.15)' }}
-                      >
-                        {GAME_TITLES[games[selectedGame].id] || games[selectedGame].title}
-                      </pre>
-                    </div>
-                    {games[selectedGame].category && (
-                      <span className="inline-block text-green-500/60 font-mono text-xs border border-green-500/30 px-2 py-0.5 rounded-full mb-2">
-                        {games[selectedGame].category}
-                      </span>
-                    )}
-                    <p className="text-green-400 font-mono text-xs lg:text-sm mb-3 lg:mb-4">
-                      {games[selectedGame].description}
-                    </p>
-                    {typeof GameComponent !== 'undefined' && (
-                      <button
-                        onClick={() => {
-                          // Don't allow playing on mobile
-                          if (showMobileWarning) return;
-
-                          setIsPlaying(!isPlaying);
-                          playSFX(isPlaying ? 'menu' : 'score');
-                          if (!isPlaying) {
-                            if (mp3TimerRef.current) clearTimeout(mp3TimerRef.current);
-                            stopBackgroundMP3();
-
-                            // Track game played
-                            const gameName = games[selectedGame].title;
-                            gamesPlayed.current.add(gameName);
-                            playStartTime.current = Date.now();
-
-                            // Check time-based global achievements
-                            checkNightOwlAchievement();
-                            checkDedicatedAchievement();
-
-                            // Check global achievements
-                            if (gamesPlayed.current.size === 1) {
-                              // First game achievement
-                              const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
-                              if (!currentGlobalAchievements.includes('global_first_game')) {
-                                achievementManager.updateGlobalStats({
-                                  globalAchievements: [...currentGlobalAchievements, 'global_first_game']
-                                });
-                              }
-                            }
-
-                            if (gamesPlayed.current.size === games.length) {
-                              // All games played achievement
-                              const currentGlobalAchievements = achievementManager.getSaveData()?.globalStats.globalAchievements || [];
-                              if (!currentGlobalAchievements.includes('global_all_games')) {
-                                achievementManager.updateGlobalStats({
-                                  globalAchievements: [...currentGlobalAchievements, 'global_all_games']
-                                });
-                              }
-                            }
-                          } else {
-                            trackPlayTime();
-                          }
-                        }}
-                        className="px-4 py-2 lg:px-6 lg:py-2.5 bg-green-500 text-black font-mono rounded-full hover:bg-green-400 transition-colors flex items-center gap-2 mx-auto transform hover:scale-105 text-sm lg:text-base font-bold"
-                        aria-label={isPlaying ? 'Stop game' : 'Play game'}
-                      >
-                        <Play className="w-4 h-4" />
-                        {isPlaying ? 'STOP' : 'PLAY'}
-                      </button>
-                    )}
-                  </div>
-
-                  <button
-                    data-testid="carousel-next"
-                    onClick={handleNext}
-                    className="p-1.5 lg:p-2 border border-green-500/30 bg-green-500/5 hover:bg-green-900 hover:border-green-500/60 rounded-full transition-colors transform hover:scale-110"
-                    title="Next game"
-                    aria-label="Next game"
-                  >
-                    <ChevronRight className="w-6 h-6" />
-                  </button>
-                </div>
-                
-                {/* Instructions & High Scores Buttons */}
-                <div className="mt-3 flex items-center justify-center gap-3">
-                  <button
-                    onClick={() => { setShowInstructions(true); setShowHighScores(false); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-green-500/40 bg-green-500/10 hover:bg-green-500/20 hover:border-green-500/60 rounded-lg transition-colors font-mono text-xs text-green-400 hover:text-green-300"
-                    aria-label="View instructions"
-                  >
-                    <BookOpen className="w-3.5 h-3.5" />
-                    HOW TO PLAY
-                  </button>
-                  <button
-                    onClick={() => { setShowHighScores(true); setShowInstructions(false); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-green-500/40 bg-green-500/10 hover:bg-green-500/20 hover:border-green-500/60 rounded-lg transition-colors font-mono text-xs text-green-400 hover:text-green-300"
-                    aria-label="View high scores"
-                  >
-                    <Trophy className="w-3.5 h-3.5" />
-                    HIGH SCORE
-                  </button>
-                </div>
-
-                {/* Keyboard Hints */}
-                <div className="mt-3 text-xs lg:text-sm text-green-400/60 text-center space-y-1 font-mono">
-                  <p className="text-green-500/70">← → NAVIGATE • ENTER PLAY • ESC EXIT</p>
-                  <p className="text-green-500/50">I Instructions • H Scores • A Achievements • B About • V Mute</p>
-                </div>
-              </div>
-          </div>
-        </div>
+          <GamePortal
+            games={games}
+            selectedGame={selectedGame}
+            isTransitioning={isTransitioning}
+            transitionDirection={transitionDirection}
+            containerRef={containerRef}
+            onPrev={handlePrevious}
+            onNext={handleNext}
+            onPlay={handlePlayFromPortal}
+            onShowInstructions={() => { setShowInstructions(true); setShowHighScores(false); }}
+            onShowHighScores={() => { setShowHighScores(true); setShowInstructions(false); }}
+            isPlayDisabled={showMobileWarning}
+          />
         )}
       </main>
 
