@@ -5,6 +5,7 @@ import {
   getChapter,
   getChapterParagraphs,
   getChapterTitle,
+  getChapterPuzzleCount,
   getPuzzleTriggersForParagraph,
   getAsciiPanelForParagraph,
   getChoiceTriggerForParagraph,
@@ -863,6 +864,26 @@ describe('ctrlsChapters', () => {
         Object.values(ch.speakers ?? {}).includes('averag'),
       );
       expect(chaptersWithAverag.length).toBeGreaterThanOrEqual(3);
+    });
+  });
+
+  describe('getChapterPuzzleCount', () => {
+    it('returns correct puzzle count for prologue (1 puzzle)', () => {
+      expect(getChapterPuzzleCount(0)).toBe(1);
+    });
+
+    it('returns correct puzzle count for chapter 2 (6 puzzles)', () => {
+      expect(getChapterPuzzleCount(2)).toBe(6);
+    });
+
+    it('returns 0 for out-of-bounds index', () => {
+      expect(getChapterPuzzleCount(99)).toBe(0);
+    });
+
+    it('matches puzzleTriggers length for every chapter', () => {
+      CHAPTERS.forEach((ch, i) => {
+        expect(getChapterPuzzleCount(i)).toBe(ch.puzzleTriggers?.length ?? 0);
+      });
     });
   });
 });

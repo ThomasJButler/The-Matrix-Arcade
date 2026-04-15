@@ -3,6 +3,7 @@ import { CTRLS_SCENE_KEYS } from '../config';
 
 const PORTRAIT_BASE = 'assets/ctrl-s/portraits';
 const BG_BASE = 'assets/ctrl-s/backgrounds';
+const ICON_BASE = 'assets/ctrl-s/icons';
 
 const PORTRAIT_ASSETS: { key: string; path: string }[] = [
   { key: 'portrait-protagonist', path: `${PORTRAIT_BASE}/protagonist-idle.png` },
@@ -20,6 +21,12 @@ const BACKGROUND_ASSETS: { key: string; path: string }[] = [
   { key: 'bg-hub-node', path: `${BG_BASE}/hub-node-1.png` },
 ];
 
+const ICON_ASSETS: { key: string; path: string }[] = [
+  { key: 'icon-checkmark', path: `${ICON_BASE}/checkmark.png` },
+  { key: 'icon-star', path: `${ICON_BASE}/star.png` },
+  { key: 'icon-network-node', path: `${ICON_BASE}/network-node.png` },
+];
+
 export class CtrlSBootScene extends BootScene {
   constructor() {
     super({
@@ -33,6 +40,9 @@ export class CtrlSBootScene extends BootScene {
       this.load.image(asset.key, asset.path);
     }
     for (const asset of BACKGROUND_ASSETS) {
+      this.load.image(asset.key, asset.path);
+    }
+    for (const asset of ICON_ASSETS) {
       this.load.image(asset.key, asset.path);
     }
   }
