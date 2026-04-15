@@ -157,7 +157,7 @@ export function GamePortal({
                     <pre
                       className="text-green-500 font-mono text-[6px] lg:text-[8px] xl:text-[9px] leading-none text-center select-none overflow-hidden mx-auto py-1.5 lg:py-2"
                       aria-hidden="true"
-                      style={{ textShadow: '0 0 8px rgba(0,255,0,0.8), 0 0 20px rgba(0,255,0,0.3)' }}
+                      style={{ textShadow: '0 0 6px rgba(0,255,0,0.9), 0 0 16px rgba(0,255,0,0.4), 0 0 30px rgba(0,255,0,0.15), 0 1px 2px rgba(0,0,0,0.8)' }}
                     >
                       {GAME_TITLES[game.id] || game.title}
                     </pre>
@@ -192,7 +192,10 @@ export function GamePortal({
             {!isPlaying && (
               <div className="text-center mb-3 lg:mb-4">
                 {game.category && (
-                  <span className="inline-block text-green-500/60 font-mono text-xs border border-green-500/30 px-2 py-0.5 rounded-full mb-2">
+                  <span
+                    className="inline-block text-green-500/70 font-mono text-[10px] tracking-widest uppercase border border-green-500/25 px-3 py-0.5 rounded-full mb-2"
+                    style={{ textShadow: '0 0 6px rgba(0,255,0,0.3)', boxShadow: 'inset 0 0 8px rgba(0,255,0,0.05), 0 0 6px rgba(0,255,0,0.05)' }}
+                  >
                     {game.category}
                   </span>
                 )}
