@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GAME_TITLES } from '../lib/asciiArt';
 import type { GameEntry } from '../data/gameRegistry';
@@ -39,13 +39,24 @@ export function GamePortal({
   const game = games[selectedGame];
   const hasComponent = typeof game.component !== 'undefined';
   const zoneRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [wheelRotation, setWheelRotation] = useState<'left' | 'right' | null>(null);
+  const rotationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const triggerRotation = useCallback((direction: 'left' | 'right') => {
+    if (rotationTimer.current) clearTimeout(rotationTimer.current);
+    setWheelRotation(null);
+    requestAnimationFrame(() => {
+      setWheelRotation(direction);
+      rotationTimer.current = setTimeout(() => setWheelRotation(null), 260);
+    });
+  }, []);
 
   const handleWheelKeyDown = useCallback((e: React.KeyboardEvent) => {
     const actionMap: Record<string, { index: number; action: () => void }> = {
       ArrowUp:    { index: 0, action: onShowInstructions },
-      ArrowRight: { index: 1, action: onNext },
+      ArrowRight: { index: 1, action: () => { triggerRotation('right'); onNext(); } },
       ArrowDown:  { index: 2, action: () => { if (!isPlayDisabled && hasComponent) onPlay(); } },
-      ArrowLeft:  { index: 3, action: onPrev },
+      ArrowLeft:  { index: 3, action: () => { triggerRotation('left'); onPrev(); } },
       Enter:      { index: 4, action: onShowHighScores },
       ' ':        { index: 4, action: onShowHighScores },
     };
@@ -57,7 +68,7 @@ export function GamePortal({
       zoneRefs.current[mapping.index]?.focus();
       mapping.action();
     }
-  }, [onShowInstructions, onNext, onPrev, onPlay, onShowHighScores, isPlayDisabled, hasComponent]);
+  }, [onShowInstructions, onNext, onPrev, onPlay, onShowHighScores, isPlayDisabled, hasComponent, triggerRotation]);
 
   return (
     <div className="relative w-full max-w-2xl mx-auto flex flex-col justify-center h-full game-portal-container px-4">
@@ -117,7 +128,7 @@ export function GamePortal({
 
             {/* iPod Clickwheel */}
             <div
-              className="ipod-clickwheel"
+              className={`ipod-clickwheel${wheelRotation ? ` rotating-${wheelRotation}` : ''}`}
               role="toolbar"
               aria-label="Game navigation wheel"
               tabIndex={0}
@@ -136,7 +147,7 @@ export function GamePortal({
               <button
                 ref={(el) => { zoneRefs.current[3] = el; }}
                 className="clickwheel-zone clickwheel-left"
-                onClick={onPrev}
+                onClick={() => { triggerRotation('left'); onPrev(); }}
                 data-testid="carousel-prev"
                 tabIndex={-1}
                 aria-label="Previous game"
@@ -147,7 +158,7 @@ export function GamePortal({
               <button
                 ref={(el) => { zoneRefs.current[1] = el; }}
                 className="clickwheel-zone clickwheel-right"
-                onClick={onNext}
+                onClick={() => { triggerRotation('right'); onNext(); }}
                 data-testid="carousel-next"
                 tabIndex={-1}
                 aria-label="Next game"
