@@ -36,6 +36,10 @@ export interface PhaserGameWrapperProps {
   onExit?: () => void;
   /** Additional class names for the container */
   className?: string;
+  /** Callback for all game events (called alongside internal handling) */
+  onGameEvent?: (event: GameEvent) => void;
+  /** Ref callback to access the Phaser.Game instance */
+  gameRef?: (game: Phaser.Game | null) => void;
 }
 
 /**
@@ -50,6 +54,8 @@ export function PhaserGame({
   autoStart = false,
   onExit,
   className = '',
+  onGameEvent: onGameEventProp,
+  gameRef: gameRefProp,
 }: PhaserGameWrapperProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
@@ -72,6 +78,8 @@ export function PhaserGame({
   // Handle game events from Phaser scenes
   const handleGameEvent = useCallback(
     (event: GameEvent) => {
+      onGameEventProp?.(event);
+
       switch (event.type) {
         case 'score': {
           const data = event.data as ScoreEventData;
@@ -93,17 +101,15 @@ export function PhaserGame({
           break;
         }
         case 'mute': {
-          // Sync Phaser's mute toggle back to React state
           toggleMute();
           break;
         }
         case 'pause':
         case 'resume':
-          // These are handled by the scene internally
           break;
       }
     },
-    [gameId, achievementManager, unlockSaveAchievement, updateGameSave, playSound, toggleMute, onExit]
+    [gameId, achievementManager, unlockSaveAchievement, updateGameSave, playSound, toggleMute, onExit, onGameEventProp]
   );
 
   // Create sound system interface for Phaser
@@ -163,6 +169,7 @@ export function PhaserGame({
 
     const game = new Phaser.Game(gameConfig);
     gameRef.current = game;
+    gameRefProp?.(game);
 
     // Set up registry with React props/callbacks
     game.registry.set(REGISTRY_KEYS.GAME_ID, gameId);
@@ -202,6 +209,7 @@ export function PhaserGame({
       if (gameRef.current) {
         gameRef.current.destroy(true);
         gameRef.current = null;
+        gameRefProp?.(null);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if (typeof window !== 'undefined' && (window as any).__PHASER_GAME__) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
