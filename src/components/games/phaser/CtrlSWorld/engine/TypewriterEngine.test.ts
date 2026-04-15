@@ -221,6 +221,50 @@ describe('TypewriterEngine', () => {
     });
   });
 
+  describe('onParagraphStart callback', () => {
+    it('fires when engine starts on paragraph 0', () => {
+      const onParagraphStart = vi.fn();
+      const engine = createEngine(['Hello', 'World'], 5);
+      engine.setCallbacks({ onParagraphStart });
+      engine.start();
+      expect(onParagraphStart).toHaveBeenCalledWith(0, 'Hello');
+    });
+
+    it('fires when advancing to the next paragraph', () => {
+      const onParagraphStart = vi.fn();
+      const engine = createEngine(['Hi', 'There'], 5);
+      engine.setCallbacks({ onParagraphStart });
+      engine.start();
+      onParagraphStart.mockClear();
+
+      engine.update(500);
+      engine.advance();
+
+      expect(onParagraphStart).toHaveBeenCalledWith(1, 'There');
+    });
+
+    it('fires when using startFromParagraph', () => {
+      const onParagraphStart = vi.fn();
+      const engine = createEngine(['A', 'B', 'C'], 5);
+      engine.setCallbacks({ onParagraphStart });
+      engine.startFromParagraph(2);
+      expect(onParagraphStart).toHaveBeenCalledWith(2, 'C');
+    });
+
+    it('does not fire when all paragraphs are complete', () => {
+      const onParagraphStart = vi.fn();
+      const engine = createEngine(['Only'], 5);
+      engine.setCallbacks({ onParagraphStart });
+      engine.start();
+      onParagraphStart.mockClear();
+
+      engine.update(500);
+      engine.advance();
+
+      expect(onParagraphStart).not.toHaveBeenCalled();
+    });
+  });
+
   describe('onStateChange callback', () => {
     it('fires on every state transition', () => {
       const onStateChange = vi.fn();

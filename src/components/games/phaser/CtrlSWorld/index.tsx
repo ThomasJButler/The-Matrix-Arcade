@@ -20,6 +20,8 @@ import { getItemRewardsForPuzzle, getItemById } from '../../../../data/items';
 import { useGameState } from '../../../../contexts/GameStateContext';
 import { CtrlSNarrativeScene } from './scenes/NarrativeScene';
 import { useSoundSystem } from '../../../../hooks/useSoundSystem';
+import { useShatnerVoice } from '../../../../hooks/useShatnerVoice';
+import { ShatnerVoiceControls } from '../../../ui/ShatnerVoiceControls';
 
 interface AchievementManager {
   unlockAchievement(gameId: string, achievementId: string): void;
@@ -47,13 +49,21 @@ export default function CtrlSWorldPhaser({
 }: CtrlSWorldPhaserProps) {
   const [activePuzzle, setActivePuzzle] = useState<PuzzleOverlayState | null>(null);
   const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [voiceSettingsOpen, setVoiceSettingsOpen] = useState(false);
   const gameInstanceRef = useRef<Phaser.Game | null>(null);
   const { playSFX } = useSoundSystem();
+  const shatnerVoice = useShatnerVoice();
   const gameState = useGameState();
 
   const handleGameRef = useCallback((game: Phaser.Game | null) => {
     gameInstanceRef.current = game;
   }, []);
+
+  useEffect(() => {
+    if (isMuted) {
+      shatnerVoice.stop();
+    }
+  }, [isMuted, shatnerVoice]);
 
   // Sync GameStateContext → Phaser registry so scenes read live progress
   useEffect(() => {
@@ -79,6 +89,7 @@ export default function CtrlSWorldPhaser({
       paragraphIndex?: number;
       choiceId?: string;
       label?: string;
+      text?: string;
     } | undefined;
     if (!data?.action) return;
 
@@ -103,8 +114,14 @@ export default function CtrlSWorldPhaser({
     } else if (data.action === 'choice' && data.choiceId && data.label) {
       gameState.makeChoice(data.choiceId, data.label);
       gameState.saveGame();
+    } else if (data.action === 'voiceStart' && data.text) {
+      if (!isMuted) {
+        shatnerVoice.speak(data.text as string);
+      }
+    } else if (data.action === 'voiceStop') {
+      shatnerVoice.stop();
     }
-  }, [gameState]);
+  }, [gameState, isMuted, shatnerVoice]);
 
   const resumeNarrative = useCallback(() => {
     const game = gameInstanceRef.current;
@@ -174,6 +191,12 @@ export default function CtrlSWorldPhaser({
         isOpen={inventoryOpen}
         onClose={handleInventoryClose}
       />
+      <div className="absolute top-2 right-2 z-10 max-w-xs">
+        <ShatnerVoiceControls
+          isExpanded={voiceSettingsOpen}
+          onToggleExpanded={() => setVoiceSettingsOpen(prev => !prev)}
+        />
+      </div>
     </div>
   );
 }

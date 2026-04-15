@@ -75,6 +75,7 @@ export class CtrlSNarrativeScene extends BaseScene {
 
     this.engine.setSpeed(GAME_CONFIG.TEXT.TYPEWRITER_SPEED_MEDIUM);
     this.engine.setCallbacks({
+      onParagraphStart: (_idx: number, text: string) => this.onParagraphStart(text),
       onParagraphComplete: (idx: number) => this.onParagraphComplete(idx),
       onAllComplete: () => this.onAllComplete(),
     });
@@ -210,6 +211,13 @@ export class CtrlSNarrativeScene extends BaseScene {
         this.cursorBlink.setPosition(bounds.right + 2, bounds.bottom - 14);
       }
     }
+  }
+
+  private onParagraphStart(text: string): void {
+    this.emitGameEvent({
+      type: 'pause',
+      data: { action: 'voiceStart', text },
+    });
   }
 
   private onParagraphComplete(paragraphIndex: number): void {
@@ -398,6 +406,10 @@ export class CtrlSNarrativeScene extends BaseScene {
           this.layoutCompletedTexts();
         },
       });
+    }
+
+    if (this.engine.state === 'TYPING') {
+      this.emitGameEvent({ type: 'pause', data: { action: 'voiceStop' } });
     }
 
     this.engine.advance();
@@ -888,6 +900,7 @@ export class CtrlSNarrativeScene extends BaseScene {
   }
 
   shutdown(): void {
+    this.emitGameEvent({ type: 'pause', data: { action: 'voiceStop' } });
     this.bgImage?.destroy();
     this.bgImage = undefined;
     for (const p of this.themeParticles) {

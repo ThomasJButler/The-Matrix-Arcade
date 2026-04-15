@@ -2,6 +2,7 @@ export type TypewriterState = 'IDLE' | 'TYPING' | 'WAITING' | 'DONE';
 
 export interface TypewriterCallbacks {
   onCharRevealed?: (char: string, charIndex: number) => void;
+  onParagraphStart?: (paragraphIndex: number, text: string) => void;
   onParagraphComplete?: (paragraphIndex: number, text: string) => void;
   onAllComplete?: () => void;
   onStateChange?: (state: TypewriterState) => void;
@@ -76,6 +77,7 @@ export class TypewriterEngine {
     this.elapsed = 0;
     this.completedParagraphs = [];
     this.setState('TYPING');
+    this.callbacks.onParagraphStart?.(0, this.paragraphs[0]);
   }
 
   startFromParagraph(index: number): void {
@@ -85,6 +87,7 @@ export class TypewriterEngine {
     this.elapsed = 0;
     this.completedParagraphs = [];
     this.setState('TYPING');
+    this.callbacks.onParagraphStart?.(index, this.paragraphs[index]);
   }
 
   update(deltaMs: number): void {
@@ -147,6 +150,7 @@ export class TypewriterEngine {
     this.currentCharIndex = 0;
     this.elapsed = 0;
     this.setState('TYPING');
+    this.callbacks.onParagraphStart?.(this.currentParagraphIndex, this.paragraphs[this.currentParagraphIndex]);
   }
 
   private setState(state: TypewriterState): void {
