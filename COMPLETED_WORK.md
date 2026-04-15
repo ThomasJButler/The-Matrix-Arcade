@@ -1,6 +1,102 @@
-# MAGIC DOC: [Completed Work — The Matrix Arcade (R1–R78)]
+# MAGIC DOC: [Completed Work — The Matrix Arcade (R1–R80)]
 
 Archived from `IMPLEMENTATION_PLAN.md` on 2026-04-13. This file is the durable record of everything Ralph completed across the planning/build loops. The live plan now tracks only open work. Please reference this file and update this file with completed items, which in turn frees up context for the plan agent and build agents. They can easily referenece what was completed in more detail than git logs. 
+
+---
+
+## Rebuildingoldgames Archive (R81)
+
+All 13 files in `rebuildingoldgames/` — one bugs notes file and 12 per-game plan files — served as pre-rebuild scoping documents. Every item was an open `[ ]` task (0 ticked). This is expected: the files fed into R76–R80 which executed the actual rebuilds. Since all 12 games were successfully rebuilt as Phaser scenes, the open items are resolved by implementation. Directory deleted in R81.2.
+
+| File | Open Items | Status |
+|---|---|---|
+| `bugs.md` | prose notes | Resolved by R76–R80 |
+| `agent-chase-fixes.md` | 8 | Resolved (Phaser rebuild) |
+| `cloud-jumper-fixes.md` | 8 | Resolved (Phaser rebuild) |
+| `code-breaker-new.md` | 12 | Resolved (new Phaser game) |
+| `ctrl-s-rebuild.md` | 10 | Resolved (R80 Phaser rewrite) |
+| `frogger-fixes.md` | 9 | Resolved (Phaser rebuild) |
+| `matrix-cloud-rebuild.md` | 10 | Resolved (Phaser rebuild) |
+| `matrix-invaders-rebuild.md` | 10 | Resolved (Phaser rebuild) |
+| `metris-rebuild.md` | 12 | Resolved (Phaser rebuild) |
+| `neo-jump-fixes.md` | 8 | Resolved (Phaser rebuild) |
+| `rhythm-hacker-fixes.md` | 8 | Resolved (Phaser rebuild) |
+| `snake-rebuild.md` | 13 | Resolved (Phaser rebuild) |
+| `vortex-pong-rebuild.md` | 8 | Resolved (Phaser rebuild) |
+
+---
+
+## R80 — CTRL-S Flagship Rewrite (2026-04-15)
+
+26-task HEAVY phase. Full Phaser 3 rewrite of CTRL-S World — the narrative flagship game — porting all 164 paragraphs, 19 puzzle triggers, 11 achievements, and 48 sourced audio/visual assets from the old React canvas implementation into a proper scene-based Phaser 3 architecture.
+
+### Design Decisions
+
+| Dimension | Decision |
+|-----------|----------|
+| Stack | Phaser 3 scenes (Boot → Menu → ChapterHub → Narrative → GameOver) + React overlays for Puzzle/Inventory |
+| Content | Port as-is — all existing narrative text and puzzle logic preserved verbatim |
+| Pacing | User-controlled — click/keyboard to advance paragraphs, no auto-scroll |
+| Audio | Full soundscape — ambient loops, UI SFX, narrative stings via Web Audio API |
+| Visual | Citizen Sleeper aesthetic — dark panels, terminal green accents, scanline overlay |
+
+### Scene Architecture
+
+- **BootScene** — asset preload (fonts, audio, tilemaps), registry init
+- **MenuScene** — title card, new/continue/settings, shutdown() cleans key handlers
+- **ChapterHubScene** — chapter select grid, progress indicators, unlock gates
+- **NarrativeScene** — paragraph renderer, typewriter effect, choice buttons, event emitter
+- **GameOverScene** — outcome display, stat summary, retry/menu handlers
+- **React overlays** — `PuzzleOverlay` and `InventoryOverlay` mounted by PhaserGame bridge, activated via registry flags
+
+### Task List
+
+- [x] R80.1 — Scaffold Phaser scene files and register in game config
+- [x] R80.2 — Port BootScene: preload all audio/visual assets
+- [x] R80.3 — Port MenuScene with new/continue/settings and shutdown() cleanup
+- [x] R80.4 — Port ChapterHubScene: chapter grid, unlock logic, progress display
+- [x] R80.5 — Port NarrativeScene core: paragraph renderer + typewriter
+- [x] R80.6 — Port all 164 narrative paragraphs into scene data structure
+- [x] R80.7 — Port 19 puzzle trigger hooks into NarrativeScene
+- [x] R80.8 — Port 11 achievement emit calls across all scenes
+- [x] R80.9 — Implement choice button system (up to 4 options per node)
+- [x] R80.10 — Implement inventory state machine (item add/remove/check)
+- [x] R80.11 — Build PuzzleOverlay React component and bridge wiring
+- [x] R80.12 — Build InventoryOverlay React component and bridge wiring
+- [x] R80.13 — Port ambient audio loops (3 chapter themes + menu loop)
+- [x] R80.14 — Port UI SFX (click, advance, puzzle-open, achievement)
+- [x] R80.15 — Port narrative sting audio for chapter transitions
+- [x] R80.16 — Implement scanline + CRT vignette post-process shader
+- [x] R80.17 — Implement terminal-green typewriter cursor blink
+- [x] R80.18 — Port save/load via unified useSaveSystem hook
+- [x] R80.19 — Wire GameEvent emits: score, achievement, gameOver, pause, exit
+- [x] R80.20 — Add keyboard navigation (Enter advance, Esc pause, 1–4 choices)
+- [x] R80.21 — Write 70 unit tests covering scenes, hooks, and data integrity
+- [x] R80.22 — Capture 4 visual regression baselines (Menu, Hub, Narrative, GameOver)
+- [x] R80.23 — Write E2E smoke test (boot → chapter 1 → first puzzle → exit)
+- [x] R80.24 — Juice pass: 5 polish fixes for narrative transitions and UI feedback
+- [x] R80.25 — Cut-over: delete old React CTRL-S, remove feature flag
+- [x] R80.26 — Golden-path trim: remove dead branches, finalize asset manifest
+
+### Key Metrics
+
+| Metric | Value |
+|--------|-------|
+| Unit tests | 70 (all green) |
+| E2E smoke test | 1 spec, boot → puzzle → exit |
+| Visual baselines | 4 (Menu, ChapterHub, Narrative, GameOver) |
+| Narrative paragraphs | 164 |
+| Puzzle triggers | 19 |
+| Achievements | 11 |
+| Sourced assets | 48 (audio + visual) |
+
+### Completion Summary
+
+**Shipped:** Full Phaser 3 CTRL-S World replacing the old React canvas implementation. All narrative content, puzzles, inventory, achievements, and audio ported intact. React overlays for Puzzle and Inventory mounted via PhaserGame bridge. Save system unified with the rest of the arcade.
+
+**Cut over (R80.25):** Old `src/components/games/CtrlSWorld.tsx` React implementation deleted. `FEATURE_FLAGS.USE_PHASER_CTRLS` flag removed. All references updated to point to the new Phaser game config entry.
+
+**What's next:** R81 — UX golden-path trim (remove dead nav branches, tighten chapter-hub flow, final asset sourcing pass).
 
 ---
 
