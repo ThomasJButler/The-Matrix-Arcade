@@ -1,7 +1,10 @@
-import React, { useRef, useCallback, useState } from 'react';
+import React, { useRef, useCallback, useState, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { X, VolumeX } from 'lucide-react';
 import { GAME_TITLES } from '../lib/asciiArt';
+import { GameErrorBoundary } from './ui/GameErrorBoundary';
 import type { GameEntry } from '../data/gameRegistry';
+import type { AchievementManager } from '../lib/phaser/types';
 
 interface GameWithRuntime extends GameEntry {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -18,9 +21,13 @@ export interface GamePortalProps {
   onPrev: () => void;
   onNext: () => void;
   onPlay: () => void;
+  onExit: () => void;
   onShowInstructions: () => void;
   onShowHighScores: () => void;
   isPlayDisabled: boolean;
+  isPlaying: boolean;
+  isMuted: boolean;
+  achievementManager: AchievementManager | null;
 }
 
 export function GamePortal({
@@ -32,15 +39,20 @@ export function GamePortal({
   onPrev,
   onNext,
   onPlay,
+  onExit,
   onShowInstructions,
   onShowHighScores,
   isPlayDisabled,
+  isPlaying,
+  isMuted,
+  achievementManager,
 }: GamePortalProps) {
   const game = games[selectedGame];
   const hasComponent = typeof game.component !== 'undefined';
   const zoneRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [wheelRotation, setWheelRotation] = useState<'left' | 'right' | null>(null);
   const rotationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const GameComponent = game.component;
 
   const triggerRotation = useCallback((direction: 'left' | 'right') => {
     if (rotationTimer.current) clearTimeout(rotationTimer.current);
@@ -51,11 +63,27 @@ export function GamePortal({
     });
   }, []);
 
+  const handleBottomClick = useCallback(() => {
+    if (isPlaying) {
+      onExit();
+    } else if (!isPlayDisabled && hasComponent) {
+      onPlay();
+    }
+  }, [isPlaying, onExit, isPlayDisabled, hasComponent, onPlay]);
+
   const handleWheelKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (isPlaying) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onExit();
+      }
+      return;
+    }
+
     const actionMap: Record<string, { index: number; action: () => void }> = {
       ArrowUp:    { index: 0, action: onShowInstructions },
       ArrowRight: { index: 1, action: () => { triggerRotation('right'); onNext(); } },
-      ArrowDown:  { index: 2, action: () => { if (!isPlayDisabled && hasComponent) onPlay(); } },
+      ArrowDown:  { index: 2, action: handleBottomClick },
       ArrowLeft:  { index: 3, action: () => { triggerRotation('left'); onPrev(); } },
       Enter:      { index: 4, action: onShowHighScores },
       ' ':        { index: 4, action: onShowHighScores },
@@ -68,10 +96,10 @@ export function GamePortal({
       zoneRefs.current[mapping.index]?.focus();
       mapping.action();
     }
-  }, [onShowInstructions, onNext, onPrev, onPlay, onShowHighScores, isPlayDisabled, hasComponent, triggerRotation]);
+  }, [onShowInstructions, onNext, onPrev, handleBottomClick, onShowHighScores, isPlaying, onExit, triggerRotation]);
 
   return (
-    <div className="relative w-full max-w-2xl mx-auto flex flex-col justify-center h-full game-portal-container px-4">
+    <div className={`relative w-full mx-auto flex flex-col justify-center h-full game-portal-container px-4 transition-all duration-300 ${isPlaying ? 'max-w-5xl' : 'max-w-2xl'}`}>
       <div
         ref={containerRef}
         className={`
@@ -80,55 +108,91 @@ export function GamePortal({
         `}
       >
         {/* iPod Classic Device Body */}
-        <div className="ipod-body w-full mx-auto">
+        <div className={`ipod-body w-full mx-auto ${isPlaying ? 'ipod-body--playing' : ''}`}>
           {/* Screen Bezel */}
           <div className="ipod-screen">
             {/* Game Display */}
-            <div className="relative aspect-[16/9] overflow-hidden">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={selectedGame}
-                  className="w-full h-full transition-enhanced"
-                >
-                  <img
-                    src={game.preview}
-                    alt={game.title}
-                    className="w-full h-full object-cover"
-                  />
-                </motion.div>
-              </AnimatePresence>
+            <div className={`relative overflow-hidden ${isPlaying ? 'ipod-screen--playing' : 'aspect-[16/9]'}`}>
+              {isPlaying && GameComponent ? (
+                <GameErrorBoundary gameName={game.title} onReset={onExit}>
+                  <Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-black text-green-500 font-mono">Loading...</div>}>
+                    <GameComponent
+                      achievementManager={achievementManager}
+                      isMuted={isMuted}
+                      autoStart={false}
+                      onExit={onExit}
+                    />
+                  </Suspense>
+                </GameErrorBoundary>
+              ) : (
+                <>
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={selectedGame}
+                      className="w-full h-full transition-enhanced"
+                    >
+                      <img
+                        src={game.preview}
+                        alt={game.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </motion.div>
+                  </AnimatePresence>
 
-              {/* Title overlay on screen */}
-              <div className="absolute top-0 left-0 right-0 ipod-title-overlay pointer-events-none">
-                <h2 className="sr-only">{game.title}</h2>
-                <pre
-                  className="text-green-500 font-mono text-[6px] lg:text-[8px] xl:text-[9px] leading-none text-center select-none overflow-hidden mx-auto py-1.5 lg:py-2"
-                  aria-hidden="true"
-                  style={{ textShadow: '0 0 8px rgba(0,255,0,0.8), 0 0 20px rgba(0,255,0,0.3)' }}
+                  {/* Title overlay on screen */}
+                  <div className="absolute top-0 left-0 right-0 ipod-title-overlay pointer-events-none">
+                    <h2 className="sr-only">{game.title}</h2>
+                    <pre
+                      className="text-green-500 font-mono text-[6px] lg:text-[8px] xl:text-[9px] leading-none text-center select-none overflow-hidden mx-auto py-1.5 lg:py-2"
+                      aria-hidden="true"
+                      style={{ textShadow: '0 0 8px rgba(0,255,0,0.8), 0 0 20px rgba(0,255,0,0.3)' }}
+                    >
+                      {GAME_TITLES[game.id] || game.title}
+                    </pre>
+                  </div>
+                </>
+              )}
+
+              {/* Floating indicators during play */}
+              {isPlaying && isMuted && (
+                <div className="absolute top-3 left-3 z-50 flex items-center gap-1.5 px-3 py-1.5 bg-red-600/90 border border-red-400 rounded-lg animate-pulse-red pointer-events-none shadow-lg shadow-red-500/50">
+                  <VolumeX className="w-4 h-4 text-white" />
+                  <span className="text-white font-mono text-xs font-bold">MUTED</span>
+                </div>
+              )}
+
+              {isPlaying && (
+                <button
+                  onClick={onExit}
+                  className="absolute top-3 right-3 z-50 p-2 bg-red-900/90 hover:bg-red-700 rounded-lg border border-red-500/80 backdrop-blur-sm transition-all group shadow-lg hover:shadow-red-500/50 hover:scale-110"
+                  title="Exit Game (ESC)"
+                  aria-label="Exit Game"
                 >
-                  {GAME_TITLES[game.id] || game.title}
-                </pre>
-              </div>
+                  <X className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+                </button>
+              )}
             </div>
           </div>
 
           {/* Clickwheel region */}
-          <div className="ipod-clickwheel-region mt-3 lg:mt-4">
-            {/* Game info */}
-            <div className="text-center mb-3 lg:mb-4">
-              {game.category && (
-                <span className="inline-block text-green-500/60 font-mono text-xs border border-green-500/30 px-2 py-0.5 rounded-full mb-2">
-                  {game.category}
-                </span>
-              )}
-              <p className="text-green-400 font-mono text-xs lg:text-sm">
-                {game.description}
-              </p>
-            </div>
+          <div className={`ipod-clickwheel-region ${isPlaying ? 'mt-2 lg:mt-2' : 'mt-3 lg:mt-4'}`}>
+            {/* Game info — hidden during play */}
+            {!isPlaying && (
+              <div className="text-center mb-3 lg:mb-4">
+                {game.category && (
+                  <span className="inline-block text-green-500/60 font-mono text-xs border border-green-500/30 px-2 py-0.5 rounded-full mb-2">
+                    {game.category}
+                  </span>
+                )}
+                <p className="text-green-400 font-mono text-xs lg:text-sm">
+                  {game.description}
+                </p>
+              </div>
+            )}
 
             {/* iPod Clickwheel */}
             <div
-              className={`ipod-clickwheel${wheelRotation ? ` rotating-${wheelRotation}` : ''}`}
+              className={`ipod-clickwheel${wheelRotation ? ` rotating-${wheelRotation}` : ''}${isPlaying ? ' ipod-clickwheel--compact' : ''}`}
               role="toolbar"
               aria-label="Game navigation wheel"
               tabIndex={0}
@@ -137,20 +201,21 @@ export function GamePortal({
               <button
                 ref={(el) => { zoneRefs.current[0] = el; }}
                 className="clickwheel-zone clickwheel-top"
-                onClick={onShowInstructions}
+                onClick={isPlaying ? onExit : onShowInstructions}
                 tabIndex={-1}
-                aria-label="How to play"
+                aria-label={isPlaying ? 'Exit game' : 'How to play'}
               >
-                <span>MENU</span>
+                <span>{isPlaying ? 'EXIT' : 'MENU'}</span>
               </button>
 
               <button
                 ref={(el) => { zoneRefs.current[3] = el; }}
                 className="clickwheel-zone clickwheel-left"
-                onClick={() => { triggerRotation('left'); onPrev(); }}
+                onClick={() => { if (!isPlaying) { triggerRotation('left'); onPrev(); } }}
                 data-testid="carousel-prev"
                 tabIndex={-1}
                 aria-label="Previous game"
+                disabled={isPlaying}
               >
                 <span>◄◄</span>
               </button>
@@ -158,10 +223,11 @@ export function GamePortal({
               <button
                 ref={(el) => { zoneRefs.current[1] = el; }}
                 className="clickwheel-zone clickwheel-right"
-                onClick={() => { triggerRotation('right'); onNext(); }}
+                onClick={() => { if (!isPlaying) { triggerRotation('right'); onNext(); } }}
                 data-testid="carousel-next"
                 tabIndex={-1}
                 aria-label="Next game"
+                disabled={isPlaying}
               >
                 <span>►►</span>
               </button>
@@ -169,32 +235,32 @@ export function GamePortal({
               <button
                 ref={(el) => { zoneRefs.current[2] = el; }}
                 className="clickwheel-zone clickwheel-bottom"
-                onClick={() => {
-                  if (!isPlayDisabled && hasComponent) onPlay();
-                }}
-                disabled={isPlayDisabled || !hasComponent}
+                onClick={handleBottomClick}
+                disabled={!isPlaying && (isPlayDisabled || !hasComponent)}
                 tabIndex={-1}
-                aria-label="Play game"
+                aria-label={isPlaying ? 'Stop game' : 'Play game'}
               >
-                <span>▶❚❚</span>
+                <span>{isPlaying ? '❚❚' : '▶'}</span>
               </button>
 
               <button
                 ref={(el) => { zoneRefs.current[4] = el; }}
                 className="clickwheel-centre"
-                onClick={onShowHighScores}
+                onClick={isPlaying ? onExit : onShowHighScores}
                 tabIndex={-1}
-                aria-label="View high scores"
+                aria-label={isPlaying ? 'Exit game' : 'View high scores'}
               >
                 ●
               </button>
             </div>
 
-            {/* Keyboard hints */}
-            <div className="mt-3 text-xs lg:text-sm text-green-400/60 text-center space-y-1 font-mono">
-              <p className="text-green-500/70">&larr;&rarr; NAVIGATE &bull; &uarr; MENU &bull; &darr; PLAY &bull; ENTER SCORES &bull; ESC EXIT</p>
-              <p className="text-green-500/50">I Instructions &bull; H Scores &bull; A Achievements &bull; B About &bull; V Mute</p>
-            </div>
+            {/* Keyboard hints — hidden during play */}
+            {!isPlaying && (
+              <div className="mt-3 text-xs lg:text-sm text-green-400/60 text-center space-y-1 font-mono">
+                <p className="text-green-500/70">&larr;&rarr; NAVIGATE &bull; &uarr; MENU &bull; &darr; PLAY &bull; ENTER SCORES &bull; ESC EXIT</p>
+                <p className="text-green-500/50">I Instructions &bull; H Scores &bull; A Achievements &bull; B About &bull; V Mute</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
