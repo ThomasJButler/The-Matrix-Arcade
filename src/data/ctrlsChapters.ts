@@ -85,6 +85,10 @@ export function getSpeakerForParagraph(
   return chapter.speakers?.[paragraphIndex];
 }
 
+export function getChapterPuzzleCount(index: number): number {
+  return CHAPTERS[index]?.puzzleTriggers?.length ?? 0;
+}
+
 export const CHAPTERS: Chapter[] = [
   // ===================== PROLOGUE =====================
   {

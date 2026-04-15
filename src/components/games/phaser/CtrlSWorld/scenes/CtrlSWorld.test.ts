@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { PHASER_CONFIG, CTRLS_SCENE_KEYS, GAME_CONFIG, ACHIEVEMENTS, CHARACTERS, PORTRAIT_CONFIG } from '../config';
+import { PHASER_CONFIG, CTRLS_SCENE_KEYS, GAME_CONFIG, ACHIEVEMENTS, CHARACTERS, PORTRAIT_CONFIG, HUB_CONFIG } from '../config';
 import { getPuzzleById } from '../../../../../data/puzzles';
 import { getChapter, getPuzzleTriggersForParagraph } from '../../../../../data/ctrlsChapters';
 import { CtrlSBootScene } from './BootScene';
@@ -134,6 +134,31 @@ describe('CTRL-S World Phaser — Scene Key Consistency', () => {
     expect(sceneClasses).toContain(CtrlSChapterHubScene);
     expect(sceneClasses).toContain(CtrlSNarrativeScene);
     expect(sceneClasses).toContain(CtrlSGameOverScene);
+  });
+});
+
+describe('CTRL-S World Phaser — Hub Config', () => {
+  it('has valid grid dimensions that fit within game width', () => {
+    const gridW = HUB_CONFIG.COLS * HUB_CONFIG.TILE_W + (HUB_CONFIG.COLS - 1) * HUB_CONFIG.GAP_X;
+    expect(gridW).toBeLessThan(GAME_CONFIG.WIDTH);
+  });
+
+  it('grid fits within game height with header and button space', () => {
+    const rows = Math.ceil(GAME_CONFIG.CHAPTERS.TOTAL / HUB_CONFIG.COLS);
+    const gridH = rows * HUB_CONFIG.TILE_H + (rows - 1) * HUB_CONFIG.GAP_Y;
+    const totalH = HUB_CONFIG.GRID_TOP_Y + gridH + 60;
+    expect(totalH).toBeLessThanOrEqual(GAME_CONFIG.HEIGHT);
+  });
+
+  it('has positive stagger and fade durations', () => {
+    expect(HUB_CONFIG.STAGGER_DELAY).toBeGreaterThan(0);
+    expect(HUB_CONFIG.TILE_FADE_DURATION).toBeGreaterThan(0);
+    expect(HUB_CONFIG.LAUNCH_ZOOM_DURATION).toBeGreaterThan(0);
+  });
+
+  it('progress bar fits within a tile', () => {
+    expect(HUB_CONFIG.PROGRESS_BAR_W).toBeLessThan(HUB_CONFIG.TILE_W - 60);
+    expect(HUB_CONFIG.PROGRESS_BAR_H).toBeLessThan(HUB_CONFIG.TILE_H);
   });
 });
 

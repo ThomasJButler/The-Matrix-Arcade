@@ -112,6 +112,25 @@ export const CHARACTERS: Record<string, CharacterDef> = {
   },
 } as const;
 
+export type ChapterStatus = 'locked' | 'available' | 'in-progress' | 'complete';
+
+export const HUB_CONFIG = {
+  COLS: 2,
+  TILE_W: 340,
+  TILE_H: 130,
+  GAP_X: 24,
+  GAP_Y: 18,
+  HEADER_Y: 38,
+  SUBTITLE_Y: 64,
+  GRID_TOP_Y: 100,
+  STAGGER_DELAY: 80,
+  TILE_FADE_DURATION: 400,
+  SELECT_PULSE_DURATION: 1200,
+  LAUNCH_ZOOM_DURATION: 350,
+  PROGRESS_BAR_W: 120,
+  PROGRESS_BAR_H: 6,
+} as const;
+
 export const PARALLAX_CONFIG = {
   BG_ALPHA: 0.12,
   BG_DRIFT_SPEED: 4,
