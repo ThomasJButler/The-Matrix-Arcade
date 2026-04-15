@@ -9,7 +9,8 @@
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
 import { MATRIX_COLORS, MATRIX_FONTS } from '../../../../../lib/phaser/types';
-import { CTRLS_SCENE_KEYS, GAME_CONFIG } from '../config';
+import { CTRLS_SCENE_KEYS } from '../config';
+import { getChapterTitle, TOTAL_CHAPTERS } from '../../../../../data/ctrlsChapters';
 
 interface ChapterTile {
   index: number;
@@ -23,14 +24,9 @@ export class CtrlSChapterHubScene extends BaseScene {
   private tiles: ChapterTile[] = [];
   private selectedIndex = 0;
 
-  private static readonly CHAPTER_TITLES = [
-    'Prologue: The Digital Dawn',
-    'Ch 1: Assemble the Heroes',
-    'Ch 2: Heart of Silicon Valley',
-    'Ch 3: Echoes from the Past',
-    'Ch 4: A Glitch in Time',
-    'Ch 5: The New Dawn',
-  ];
+  private static getTitle(index: number): string {
+    return getChapterTitle(index);
+  }
 
   constructor() {
     super(CTRLS_SCENE_KEYS.CHAPTER_HUB);
@@ -59,7 +55,7 @@ export class CtrlSChapterHubScene extends BaseScene {
     const startX = centerX - gridW / 2 + tileW / 2;
     const startY = 130;
 
-    for (let i = 0; i < GAME_CONFIG.CHAPTERS.TOTAL; i++) {
+    for (let i = 0; i < TOTAL_CHAPTERS; i++) {
       const col = i % cols;
       const row = Math.floor(i / cols);
       const x = startX + col * (tileW + gapX);
@@ -112,7 +108,7 @@ export class CtrlSChapterHubScene extends BaseScene {
     });
 
     // Title
-    const title = this.add.text(-w / 2 + 40, -h / 2 + 12, CtrlSChapterHubScene.CHAPTER_TITLES[index], {
+    const title = this.add.text(-w / 2 + 40, -h / 2 + 12, CtrlSChapterHubScene.getTitle(index), {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '10px',
       color: MATRIX_COLORS.PRIMARY_HEX,
@@ -142,7 +138,7 @@ export class CtrlSChapterHubScene extends BaseScene {
       this.highlightTile(index);
     });
 
-    return { index, title: CtrlSChapterHubScene.CHAPTER_TITLES[index], container };
+    return { index, title: CtrlSChapterHubScene.getTitle(index), container };
   }
 
   private createStartButton(x: number, y: number): Phaser.GameObjects.Container {
@@ -230,7 +226,7 @@ export class CtrlSChapterHubScene extends BaseScene {
 
       const downKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
       downKey.on('down', () => {
-        this.selectedIndex = Math.min(GAME_CONFIG.CHAPTERS.TOTAL - 1, this.selectedIndex + 2);
+        this.selectedIndex = Math.min(TOTAL_CHAPTERS - 1, this.selectedIndex + 2);
         this.highlightTile(this.selectedIndex);
         this.playSound('menu');
       });
@@ -244,7 +240,7 @@ export class CtrlSChapterHubScene extends BaseScene {
 
       const rightKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT);
       rightKey.on('down', () => {
-        this.selectedIndex = Math.min(GAME_CONFIG.CHAPTERS.TOTAL - 1, this.selectedIndex + 1);
+        this.selectedIndex = Math.min(TOTAL_CHAPTERS - 1, this.selectedIndex + 1);
         this.highlightTile(this.selectedIndex);
         this.playSound('menu');
       });
