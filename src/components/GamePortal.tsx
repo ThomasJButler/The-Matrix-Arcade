@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useState, Suspense } from 'react';
+import React, { useRef, useCallback, useState, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, VolumeX } from 'lucide-react';
 import { GAME_TITLES } from '../lib/asciiArt';
@@ -69,6 +69,52 @@ export function GamePortal({
 
   const playClick = useCallback(() => playSFX?.('scoreboardTab'), [playSFX]);
   const playConfirm = useCallback(() => playSFX?.('scoreboardConfirm'), [playSFX]);
+
+  const wheelRef = useRef<HTMLDivElement>(null);
+  const touchStart = useRef<{ x: number; y: number; time: number } | null>(null);
+
+  useEffect(() => {
+    const el = wheelRef.current;
+    if (!el) return;
+
+    const SWIPE_THRESHOLD = 40;
+    const SWIPE_MAX_TIME = 500;
+
+    const onTouchStart = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      touchStart.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (!touchStart.current || isPlaying) return;
+      const touch = e.changedTouches[0];
+      const dx = touch.clientX - touchStart.current.x;
+      const dy = touch.clientY - touchStart.current.y;
+      const elapsed = Date.now() - touchStart.current.time;
+      touchStart.current = null;
+
+      if (elapsed > SWIPE_MAX_TIME || Math.abs(dx) < SWIPE_THRESHOLD) return;
+      if (Math.abs(dy) > Math.abs(dx)) return;
+
+      e.preventDefault();
+      if (dx < 0) {
+        playClick();
+        triggerRotation('right');
+        onNext();
+      } else {
+        playClick();
+        triggerRotation('left');
+        onPrev();
+      }
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchend', onTouchEnd, { passive: false });
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [isPlaying, onNext, onPrev, playClick, triggerRotation]);
 
   const handleBottomClick = useCallback(() => {
     if (isPlaying) {
@@ -227,9 +273,10 @@ export function GamePortal({
 
             {/* iPod Clickwheel */}
             <div
+              ref={wheelRef}
               className={`ipod-clickwheel${wheelRotation ? ` rotating-${wheelRotation}` : ''}${isPlaying ? ' ipod-clickwheel--compact' : ''}`}
               role="toolbar"
-              aria-label="Game navigation wheel"
+              aria-label="Game navigation wheel — swipe left or right to navigate"
               tabIndex={0}
               onKeyDown={handleWheelKeyDown}
             >
@@ -293,7 +340,7 @@ export function GamePortal({
             {!isPlaying && (
               <div className="mt-3 text-xs lg:text-sm text-green-400/60 text-center space-y-1 font-mono">
                 <p className="text-green-500/70">&larr;&rarr; NAVIGATE &bull; &uarr; MENU &bull; &darr; PLAY &bull; ENTER SCORES &bull; ESC EXIT</p>
-                <p className="text-green-500/50">1-{Math.min(9, games.length)} JUMP &bull; HOME/END &bull; I Instructions &bull; H Scores &bull; A Achievements</p>
+                <p className="text-green-500/50">1-{Math.min(9, games.length)} JUMP &bull; HOME/END &bull; SWIPE WHEEL &bull; I/H/A Keys</p>
               </div>
             )}
           </div>

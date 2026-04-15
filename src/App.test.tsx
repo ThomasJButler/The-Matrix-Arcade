@@ -270,7 +270,7 @@ describe('App Component', () => {
     render(<App />);
     
     expect(screen.getByText('←→ NAVIGATE • ↑ MENU • ↓ PLAY • ENTER SCORES • ESC EXIT')).toBeInTheDocument();
-    expect(screen.getByText(/1-9 JUMP.*HOME\/END.*I Instructions.*H Scores.*A Achievements/)).toBeInTheDocument();
+    expect(screen.getByText(/1-9 JUMP.*HOME\/END.*SWIPE WHEEL.*I\/H\/A Keys/)).toBeInTheDocument();
   });
 
   it('renders footer with correct version', () => {
