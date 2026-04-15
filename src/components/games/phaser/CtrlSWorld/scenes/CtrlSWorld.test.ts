@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { PHASER_CONFIG, CTRLS_SCENE_KEYS, CTRLS_REGISTRY_KEYS, GAME_CONFIG, ACHIEVEMENTS, CHARACTERS, PORTRAIT_CONFIG, HUB_CONFIG, MUSIC_TRACKS, type ChapterStatus } from '../config';
+import { PHASER_CONFIG, CTRLS_SCENE_KEYS, CTRLS_REGISTRY_KEYS, GAME_CONFIG, ACHIEVEMENTS, CHARACTERS, PORTRAIT_CONFIG, HUB_CONFIG, MUSIC_TRACKS, CHARACTER_TICK_MAP, NARRATOR_TICK, STINGER_KEYS, type ChapterStatus } from '../config';
 import { getPuzzleById } from '../../../../../data/puzzles';
 import { getChapter, getPuzzleTriggersForParagraph } from '../../../../../data/ctrlsChapters';
 import { CtrlSBootScene } from './BootScene';
@@ -283,5 +283,36 @@ describe('CTRL-S World Phaser — Music Tracks', () => {
     for (const track of values) {
       expect(track).toMatch(/^\/assets\/ctrl-s\/audio\/music\//);
     }
+  });
+});
+
+describe('CTRL-S World Phaser — Character SFX', () => {
+  it('every character in CHARACTERS has a tick mapping', () => {
+    for (const charId of Object.keys(CHARACTERS)) {
+      expect(CHARACTER_TICK_MAP[charId]).toBeDefined();
+    }
+  });
+
+  it('tick mappings use valid sound keys', () => {
+    const validKeys = ['ctrlsTickProtagonist', 'ctrlsTickAntagonist', 'ctrlsTickNpc', 'ctrlsTickNarrator'];
+    for (const tickKey of Object.values(CHARACTER_TICK_MAP)) {
+      expect(validKeys).toContain(tickKey);
+    }
+    expect(validKeys).toContain(NARRATOR_TICK);
+  });
+
+  it('protagonist uses high-pitch tick', () => {
+    expect(CHARACTER_TICK_MAP['averag']).toBe('ctrlsTickProtagonist');
+  });
+
+  it('antagonists use bass tick', () => {
+    expect(CHARACTER_TICK_MAP['elon']).toBe('ctrlsTickAntagonist');
+    expect(CHARACTER_TICK_MAP['protector']).toBe('ctrlsTickAntagonist');
+  });
+
+  it('defines all 8 stinger keys', () => {
+    expect(Object.keys(STINGER_KEYS)).toHaveLength(8);
+    expect(STINGER_KEYS.PUZZLE_APPEAR).toBe('ctrlsPuzzleAppear');
+    expect(STINGER_KEYS.CHAPTER_COMPLETE).toBe('ctrlsChapterComplete');
   });
 });

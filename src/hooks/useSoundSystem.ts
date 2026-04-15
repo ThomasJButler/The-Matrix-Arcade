@@ -445,6 +445,54 @@ const SOUND_LIBRARY: Record<string, SoundEffect> = {
     release: 0.08,
     filterType: 'bandpass',
     filterFreq: 1500
+  },
+
+  // CTRL-S typewriter ticks — per-character archetype
+  ctrlsTickProtagonist: {
+    type: 'ctrlsTickProtagonist',
+    frequency: { start: 800, end: 600 },
+    oscillatorType: 'sine',
+    duration: 0.04,
+    attack: 0.003,
+    decay: 0.015,
+    sustain: 0.1,
+    release: 0.02,
+    filterType: 'highpass',
+    filterFreq: 500
+  },
+  ctrlsTickAntagonist: {
+    type: 'ctrlsTickAntagonist',
+    frequency: { start: 180, end: 120 },
+    oscillatorType: 'sawtooth',
+    duration: 0.06,
+    attack: 0.005,
+    decay: 0.02,
+    sustain: 0.15,
+    release: 0.03,
+    filterType: 'lowpass',
+    filterFreq: 300
+  },
+  ctrlsTickNpc: {
+    type: 'ctrlsTickNpc',
+    frequency: { start: 440, end: 350 },
+    oscillatorType: 'triangle',
+    duration: 0.04,
+    attack: 0.003,
+    decay: 0.015,
+    sustain: 0.1,
+    release: 0.02,
+    filterType: 'bandpass',
+    filterFreq: 600
+  },
+  ctrlsTickNarrator: {
+    type: 'ctrlsTickNarrator',
+    frequency: { start: 550, end: 500 },
+    oscillatorType: 'sine',
+    duration: 0.03,
+    attack: 0.002,
+    decay: 0.01,
+    sustain: 0.08,
+    release: 0.015,
   }
 };
 
@@ -494,6 +542,16 @@ const AUDIO_FILE_MAP: Record<string, string> = {
   bulletsDrop: '/assets/audio/sfx/sfx_bullets_drop.mp3',
   doorOpen: '/assets/audio/sfx/sfx_door_open.mp3',
   hitGround: '/assets/audio/sfx/sfx_hit_ground.mp3',
+
+  // CTRL-S World narrative stingers
+  ctrlsPuzzleAppear: '/assets/ctrl-s/audio/sfx/puzzle-appear.mp3',
+  ctrlsPuzzleSolved: '/assets/ctrl-s/audio/sfx/puzzle-solved.mp3',
+  ctrlsPuzzleFailed: '/assets/ctrl-s/audio/sfx/puzzle-failed.mp3',
+  ctrlsChapterStart: '/assets/ctrl-s/audio/sfx/chapter-start.mp3',
+  ctrlsChapterComplete: '/assets/ctrl-s/audio/sfx/chapter-complete.mp3',
+  ctrlsDramaticSting: '/assets/ctrl-s/audio/sfx/dramatic-sting.mp3',
+  ctrlsReveal: '/assets/ctrl-s/audio/sfx/reveal.mp3',
+  ctrlsTransition: '/assets/ctrl-s/audio/sfx/transition.mp3',
 };
 
 // Background music sequences using Web Audio synthesis
