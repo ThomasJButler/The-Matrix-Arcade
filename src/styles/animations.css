@@ -230,6 +230,15 @@
   }
 }
 
+.ipod-clickwheel:focus-visible {
+  outline: 2px solid rgba(0, 255, 0, 0.5);
+  outline-offset: 4px;
+}
+
+.ipod-clickwheel:focus {
+  outline: none;
+}
+
 .clickwheel-zone {
   position: absolute;
   inset: 0;
