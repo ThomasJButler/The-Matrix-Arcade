@@ -37,6 +37,7 @@ export interface Chapter {
   backgroundKey?: string;
   backgroundTint?: number;
   particleTheme?: ParticleTheme;
+  musicTrack?: string;
 }
 
 export function getChapter(index: number): Chapter | undefined {
@@ -98,6 +99,7 @@ export const CHAPTERS: Chapter[] = [
     backgroundKey: 'bg-digital-construct',
     backgroundTint: 0x004400,
     particleTheme: 'binary',
+    musicTrack: '/assets/ctrl-s/audio/music/prologue-brothers.mp3',
     shortTitle: 'Prologue: The Digital Dawn',
     ascii: [
       '   _____________________________   ',
@@ -200,6 +202,7 @@ export const CHAPTERS: Chapter[] = [
     backgroundKey: 'bg-cyberpunk-city',
     backgroundTint: 0x003300,
     particleTheme: 'scanlines',
+    musicTrack: '/assets/ctrl-s/audio/music/ch1-moonlight.mp3',
     index: 1,
     title: 'Chapter 1: Assemble the Unlikely Heroes',
     shortTitle: 'Ch1: Assemble the Heroes',
@@ -273,6 +276,7 @@ export const CHAPTERS: Chapter[] = [
     backgroundKey: 'bg-dystopian-streets',
     backgroundTint: 0x002200,
     particleTheme: 'datastreams',
+    musicTrack: '/assets/ctrl-s/audio/music/ch2-cyberpsychotic.mp3',
     index: 2,
     title: 'Chapter 2: The Heart of Silicon Valley',
     shortTitle: 'Ch2: Heart of Silicon Valley',
@@ -334,6 +338,7 @@ export const CHAPTERS: Chapter[] = [
     backgroundKey: 'bg-digital-construct',
     backgroundTint: 0x001144,
     particleTheme: 'temporal',
+    musicTrack: '/assets/ctrl-s/audio/music/ch3-resonance.mp3',
     index: 3,
     title: 'Chapter 3: Echoes from the Past',
     shortTitle: 'Ch3: Echoes from the Past',
@@ -393,6 +398,7 @@ export const CHAPTERS: Chapter[] = [
     backgroundKey: 'bg-cyberpunk-city-mid',
     backgroundTint: 0x003300,
     particleTheme: 'organic',
+    musicTrack: '/assets/ctrl-s/audio/music/ch4-epic.mp3',
     index: 4,
     title: 'Chapter 4: A Glitch in Time',
     shortTitle: 'Ch4: A Glitch in Time',
@@ -490,6 +496,7 @@ export const CHAPTERS: Chapter[] = [
     backgroundKey: 'bg-new-dawn',
     backgroundTint: 0x113300,
     particleTheme: 'rising-light',
+    musicTrack: '/assets/ctrl-s/audio/music/ch5-cyberpunkin.mp3',
     index: 5,
     title: 'Chapter 5: The New Dawn',
     shortTitle: 'Ch5: The New Dawn',

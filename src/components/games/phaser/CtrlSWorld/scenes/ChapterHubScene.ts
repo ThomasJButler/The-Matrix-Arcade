@@ -9,7 +9,7 @@
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
 import { MATRIX_COLORS, MATRIX_FONTS } from '../../../../../lib/phaser/types';
-import { CTRLS_SCENE_KEYS, CTRLS_REGISTRY_KEYS, HUB_CONFIG, type ChapterStatus } from '../config';
+import { CTRLS_SCENE_KEYS, CTRLS_REGISTRY_KEYS, HUB_CONFIG, MUSIC_TRACKS, type ChapterStatus } from '../config';
 import { getChapterTitle, getChapterPuzzleCount, TOTAL_CHAPTERS } from '../../../../../data/ctrlsChapters';
 
 interface ChapterTile {
@@ -62,6 +62,7 @@ export class CtrlSChapterHubScene extends BaseScene {
     this.createMatrixBackground();
     this.createHubBackground();
     this.rainGroup = this.addMatrixRain(15);
+    this.playBackgroundMusic(MUSIC_TRACKS.MENU);
     this.tiles = [];
     this.isLaunching = false;
 

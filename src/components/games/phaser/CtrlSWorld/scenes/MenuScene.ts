@@ -6,7 +6,7 @@
  */
 
 import { MenuScene } from '../../../../../lib/phaser/scenes/MenuScene';
-import { CTRLS_SCENE_KEYS } from '../config';
+import { CTRLS_SCENE_KEYS, MUSIC_TRACKS } from '../config';
 import { MATRIX_COLORS } from '../../../../../lib/phaser/types';
 
 export class CtrlSMenuScene extends MenuScene {
@@ -21,6 +21,7 @@ export class CtrlSMenuScene extends MenuScene {
 
   create(): void {
     super.create();
+    this.playBackgroundMusic(MUSIC_TRACKS.MENU);
 
     const width = Number(this.game.config.width);
     const height = Number(this.game.config.height);

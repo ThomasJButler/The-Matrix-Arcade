@@ -157,6 +157,17 @@ export const PORTRAIT_CONFIG = {
   TEXT_INDENT: 130,
 } as const;
 
+export const MUSIC_TRACKS = {
+  MENU: '/assets/ctrl-s/audio/music/menu-theme.mp3',
+  PROLOGUE: '/assets/ctrl-s/audio/music/prologue-brothers.mp3',
+  CH1: '/assets/ctrl-s/audio/music/ch1-moonlight.mp3',
+  CH2: '/assets/ctrl-s/audio/music/ch2-cyberpsychotic.mp3',
+  CH3: '/assets/ctrl-s/audio/music/ch3-resonance.mp3',
+  CH4: '/assets/ctrl-s/audio/music/ch4-epic.mp3',
+  CH5: '/assets/ctrl-s/audio/music/ch5-cyberpunkin.mp3',
+  CREDITS: '/assets/ctrl-s/audio/music/credits.mp3',
+} as const;
+
 export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   width: GAME_CONFIG.WIDTH,

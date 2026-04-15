@@ -94,6 +94,10 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.createThemeParticles();
     this.rainGroup = this.addMatrixRain(15);
 
+    if (this.chapter?.musicTrack) {
+      this.playBackgroundMusic(this.chapter.musicTrack);
+    }
+
     const width = Number(this.game.config.width);
     const height = Number(this.game.config.height);
     const margin = GAME_CONFIG.TEXT.MARGIN_X;
@@ -901,6 +905,7 @@ export class CtrlSNarrativeScene extends BaseScene {
 
   shutdown(): void {
     this.emitGameEvent({ type: 'pause', data: { action: 'voiceStop' } });
+    this.stopBackgroundMusic();
     this.bgImage?.destroy();
     this.bgImage = undefined;
     for (const p of this.themeParticles) {
