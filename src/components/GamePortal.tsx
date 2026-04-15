@@ -100,6 +100,11 @@ export function GamePortal({
 
   return (
     <div className={`relative w-full mx-auto flex flex-col justify-center h-full game-portal-container px-4 transition-all duration-300 ${isPlaying ? 'max-w-5xl' : 'max-w-2xl'}`}>
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {isPlaying
+          ? `Now playing ${game.title}`
+          : `${game.title} — game ${selectedGame + 1} of ${games.length}`}
+      </div>
       <div
         ref={containerRef}
         className={`
