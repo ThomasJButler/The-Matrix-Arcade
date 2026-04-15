@@ -663,6 +663,7 @@ function App() {
             isPlaying={isPlaying}
             isMuted={isMuted}
             achievementManager={achievementManager}
+            playSFX={playSFX}
           />
       </main>
 

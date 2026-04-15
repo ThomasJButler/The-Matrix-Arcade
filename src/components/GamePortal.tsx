@@ -28,6 +28,7 @@ export interface GamePortalProps {
   isPlaying: boolean;
   isMuted: boolean;
   achievementManager: AchievementManager | null;
+  playSFX?: (soundType: string) => void;
 }
 
 export function GamePortal({
@@ -46,6 +47,7 @@ export function GamePortal({
   isPlaying,
   isMuted,
   achievementManager,
+  playSFX,
 }: GamePortalProps) {
   const game = games[selectedGame];
   const hasComponent = typeof game.component !== 'undefined';
@@ -63,13 +65,18 @@ export function GamePortal({
     });
   }, []);
 
+  const playClick = useCallback(() => playSFX?.('scoreboardTab'), [playSFX]);
+  const playConfirm = useCallback(() => playSFX?.('scoreboardConfirm'), [playSFX]);
+
   const handleBottomClick = useCallback(() => {
     if (isPlaying) {
+      playClick();
       onExit();
     } else if (!isPlayDisabled && hasComponent) {
+      playConfirm();
       onPlay();
     }
-  }, [isPlaying, onExit, isPlayDisabled, hasComponent, onPlay]);
+  }, [isPlaying, onExit, isPlayDisabled, hasComponent, onPlay, playClick, playConfirm]);
 
   const handleWheelKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (isPlaying) {
@@ -81,12 +88,12 @@ export function GamePortal({
     }
 
     const actionMap: Record<string, { index: number; action: () => void }> = {
-      ArrowUp:    { index: 0, action: onShowInstructions },
-      ArrowRight: { index: 1, action: () => { triggerRotation('right'); onNext(); } },
+      ArrowUp:    { index: 0, action: () => { playClick(); onShowInstructions(); } },
+      ArrowRight: { index: 1, action: () => { playClick(); triggerRotation('right'); onNext(); } },
       ArrowDown:  { index: 2, action: handleBottomClick },
-      ArrowLeft:  { index: 3, action: () => { triggerRotation('left'); onPrev(); } },
-      Enter:      { index: 4, action: onShowHighScores },
-      ' ':        { index: 4, action: onShowHighScores },
+      ArrowLeft:  { index: 3, action: () => { playClick(); triggerRotation('left'); onPrev(); } },
+      Enter:      { index: 4, action: () => { playConfirm(); onShowHighScores(); } },
+      ' ':        { index: 4, action: () => { playConfirm(); onShowHighScores(); } },
     };
 
     const mapping = actionMap[e.key];
@@ -96,7 +103,7 @@ export function GamePortal({
       zoneRefs.current[mapping.index]?.focus();
       mapping.action();
     }
-  }, [onShowInstructions, onNext, onPrev, handleBottomClick, onShowHighScores, isPlaying, onExit, triggerRotation]);
+  }, [onShowInstructions, onNext, onPrev, handleBottomClick, onShowHighScores, isPlaying, onExit, triggerRotation, playClick, playConfirm]);
 
   return (
     <div className={`relative w-full mx-auto flex flex-col justify-center h-full game-portal-container px-4 transition-all duration-300 ${isPlaying ? 'max-w-5xl' : 'max-w-2xl'}`}>
@@ -206,7 +213,7 @@ export function GamePortal({
               <button
                 ref={(el) => { zoneRefs.current[0] = el; }}
                 className="clickwheel-zone clickwheel-top"
-                onClick={isPlaying ? onExit : onShowInstructions}
+                onClick={() => { playClick(); isPlaying ? onExit() : onShowInstructions(); }}
                 tabIndex={-1}
                 aria-label={isPlaying ? 'Exit game' : 'How to play'}
               >
@@ -216,7 +223,7 @@ export function GamePortal({
               <button
                 ref={(el) => { zoneRefs.current[3] = el; }}
                 className="clickwheel-zone clickwheel-left"
-                onClick={() => { if (!isPlaying) { triggerRotation('left'); onPrev(); } }}
+                onClick={() => { if (!isPlaying) { playClick(); triggerRotation('left'); onPrev(); } }}
                 data-testid="carousel-prev"
                 tabIndex={-1}
                 aria-label="Previous game"
@@ -228,7 +235,7 @@ export function GamePortal({
               <button
                 ref={(el) => { zoneRefs.current[1] = el; }}
                 className="clickwheel-zone clickwheel-right"
-                onClick={() => { if (!isPlaying) { triggerRotation('right'); onNext(); } }}
+                onClick={() => { if (!isPlaying) { playClick(); triggerRotation('right'); onNext(); } }}
                 data-testid="carousel-next"
                 tabIndex={-1}
                 aria-label="Next game"
@@ -251,7 +258,7 @@ export function GamePortal({
               <button
                 ref={(el) => { zoneRefs.current[4] = el; }}
                 className="clickwheel-centre"
-                onClick={isPlaying ? onExit : onShowHighScores}
+                onClick={() => { playConfirm(); isPlaying ? onExit() : onShowHighScores(); }}
                 tabIndex={-1}
                 aria-label={isPlaying ? 'Exit game' : 'View high scores'}
               >
