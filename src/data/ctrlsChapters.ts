@@ -9,6 +9,18 @@ export interface AsciiPanel {
   caption?: string;
 }
 
+export interface ChoiceOption {
+  label: string;
+  choiceId: string;
+  nextParagraphIndex?: number;
+}
+
+export interface ChoiceTrigger {
+  afterParagraphIndex: number;
+  prompt?: string;
+  choices: ChoiceOption[];
+}
+
 export interface Chapter {
   id: string;
   index: number;
@@ -18,6 +30,7 @@ export interface Chapter {
   ascii?: string[];
   inlineAscii?: AsciiPanel[];
   puzzleTriggers?: PuzzleTrigger[];
+  choiceTriggers?: ChoiceTrigger[];
 }
 
 export function getChapter(index: number): Chapter | undefined {
@@ -47,6 +60,15 @@ export function getAsciiPanelForParagraph(
 ): AsciiPanel | undefined {
   return chapter.inlineAscii?.find(
     (a) => a.afterParagraphIndex === paragraphIndex,
+  );
+}
+
+export function getChoiceTriggerForParagraph(
+  chapter: Chapter,
+  paragraphIndex: number,
+): ChoiceTrigger | undefined {
+  return chapter.choiceTriggers?.find(
+    (c) => c.afterParagraphIndex === paragraphIndex,
   );
 }
 

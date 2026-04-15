@@ -7,7 +7,9 @@ import {
   getChapter,
   getPuzzleTriggersForParagraph,
   getAsciiPanelForParagraph,
+  getChoiceTriggerForParagraph,
   type Chapter,
+  type ChoiceOption,
 } from '../../../../../data/ctrlsChapters';
 
 export interface NarrativeSceneData {
@@ -18,6 +20,10 @@ export interface NarrativeSceneData {
 const MAX_VISIBLE_COMPLETED = 4;
 const ASCII_FONT_SIZE = '7px';
 const ASCII_LINE_HEIGHT = 9;
+const CHOICE_BUTTON_WIDTH = 450;
+const CHOICE_BUTTON_HEIGHT = 36;
+const CHOICE_BUTTON_GAP = 10;
+const CHOICE_FADE_DURATION = 400;
 
 export class CtrlSNarrativeScene extends BaseScene {
   private chapterIndex = 0;
@@ -33,6 +39,13 @@ export class CtrlSNarrativeScene extends BaseScene {
   private engine: TypewriterEngine;
   private cursorTween?: Phaser.Tweens.Tween;
   private waitingForPuzzle = false;
+  private waitingForChoice = false;
+  private choiceContainer?: Phaser.GameObjects.Container;
+  private choiceButtons: Phaser.GameObjects.Container[] = [];
+  private activeChoices: ChoiceOption[] = [];
+  private selectedChoiceIndex = 0;
+  private upKey?: Phaser.Input.Keyboard.Key;
+  private downKey?: Phaser.Input.Keyboard.Key;
   private startFromParagraph = 0;
 
   constructor() {
@@ -153,7 +166,7 @@ export class CtrlSNarrativeScene extends BaseScene {
       this.updateMatrixRain(this.rainGroup, delta);
     }
 
-    if (!this.waitingForPuzzle) {
+    if (!this.waitingForPuzzle && !this.waitingForChoice) {
       this.engine.update(delta);
     }
     this.renderCurrentText();
@@ -205,6 +218,17 @@ export class CtrlSNarrativeScene extends BaseScene {
             paragraphIndex,
           },
         });
+      });
+      return;
+    }
+
+    const choiceTrigger = getChoiceTriggerForParagraph(this.chapter, paragraphIndex);
+    if (choiceTrigger) {
+      this.waitingForChoice = true;
+      this.promptText?.setText('Use ↑↓ and ENTER to choose');
+      this.playSound('powerUp');
+      this.time.delayedCall(300, () => {
+        this.showChoiceUI(choiceTrigger.choices, choiceTrigger.prompt);
       });
     }
   }
@@ -306,17 +330,29 @@ export class CtrlSNarrativeScene extends BaseScene {
       spaceKey.on('down', () => this.handleAdvance());
 
       const enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
-      enterKey.on('down', () => this.handleAdvance());
+      enterKey.on('down', () => {
+        if (this.waitingForChoice && this.activeChoices.length > 0) {
+          this.confirmChoice(this.selectedChoiceIndex);
+        } else {
+          this.handleAdvance();
+        }
+      });
 
       const iKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.I);
       iKey.on('down', () => this.toggleInventory());
+
+      this.upKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
+      this.upKey.on('down', () => this.navigateChoice(-1));
+
+      this.downKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
+      this.downKey.on('down', () => this.navigateChoice(1));
     });
 
     this.input.on('pointerdown', () => this.handleAdvance());
   }
 
   private handleAdvance(): void {
-    if (this.isPaused || this.waitingForPuzzle) return;
+    if (this.isPaused || this.waitingForPuzzle || this.waitingForChoice) return;
 
     if (this.chapterAscii && this.engine.paragraphIndex === 0 && this.engine.state === 'IDLE') {
       this.tweens.add({
@@ -338,6 +374,209 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.emitGameEvent({ type: 'pause', data: { action: 'openInventory' } });
   }
 
+  private showChoiceUI(choices: ChoiceOption[], prompt?: string): void {
+    if (!this.bodyText) return;
+
+    const width = Number(this.game.config.width);
+    const startY = this.bodyText.getBounds().bottom + 30;
+
+    this.activeChoices = choices;
+    this.selectedChoiceIndex = 0;
+    this.choiceButtons = [];
+
+    this.choiceContainer = this.add.container(0, 0);
+    this.choiceContainer.setAlpha(0);
+
+    if (prompt) {
+      const promptLabel = this.add.text(width / 2, startY - 20, prompt, {
+        fontFamily: MATRIX_FONTS.PRIMARY,
+        fontSize: '10px',
+        color: MATRIX_COLORS.DIM_GREEN_HEX,
+      });
+      promptLabel.setOrigin(0.5);
+      this.choiceContainer.add(promptLabel);
+    }
+
+    choices.forEach((choice, i) => {
+      const buttonY = startY + i * (CHOICE_BUTTON_HEIGHT + CHOICE_BUTTON_GAP);
+      const button = this.createChoiceButton(choice.label, width / 2, buttonY, i);
+      this.choiceButtons.push(button);
+      this.choiceContainer!.add(button);
+    });
+
+    this.highlightChoice(0);
+
+    this.tweens.add({
+      targets: this.choiceContainer,
+      alpha: 1,
+      duration: CHOICE_FADE_DURATION,
+      ease: 'Power2',
+    });
+  }
+
+  private createChoiceButton(
+    label: string,
+    x: number,
+    y: number,
+    index: number,
+  ): Phaser.GameObjects.Container {
+    const container = this.add.container(x, y);
+
+    const bg = this.add.graphics();
+    bg.lineStyle(1, MATRIX_COLORS.DARK_GREEN, 0.8);
+    bg.fillStyle(MATRIX_COLORS.BACKGROUND, 0.9);
+    bg.fillRoundedRect(
+      -CHOICE_BUTTON_WIDTH / 2, -CHOICE_BUTTON_HEIGHT / 2,
+      CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT, 4,
+    );
+    bg.strokeRoundedRect(
+      -CHOICE_BUTTON_WIDTH / 2, -CHOICE_BUTTON_HEIGHT / 2,
+      CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT, 4,
+    );
+
+    const text = this.add.text(0, 0, label, {
+      fontFamily: MATRIX_FONTS.PRIMARY,
+      fontSize: '10px',
+      color: MATRIX_COLORS.DIM_GREEN_HEX,
+      wordWrap: { width: CHOICE_BUTTON_WIDTH - 30 },
+      align: 'center',
+    });
+    text.setOrigin(0.5);
+
+    container.add([bg, text]);
+    container.setSize(CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT);
+
+    const hitArea = new Phaser.Geom.Rectangle(
+      -CHOICE_BUTTON_WIDTH / 2, -CHOICE_BUTTON_HEIGHT / 2,
+      CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT,
+    );
+    container.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains);
+
+    container.on('pointerover', () => {
+      this.selectedChoiceIndex = index;
+      this.highlightChoice(index);
+    });
+
+    container.on('pointerdown', () => {
+      this.confirmChoice(index);
+    });
+
+    container.setData('bg', bg);
+    container.setData('text', text);
+
+    return container;
+  }
+
+  private highlightChoice(index: number): void {
+    this.choiceButtons.forEach((button, i) => {
+      const bg = button.getData('bg') as Phaser.GameObjects.Graphics;
+      const text = button.getData('text') as Phaser.GameObjects.Text;
+
+      bg.clear();
+      if (i === index) {
+        bg.lineStyle(2, MATRIX_COLORS.PRIMARY, 1);
+        bg.fillStyle(MATRIX_COLORS.DARK_GREEN, 0.6);
+        text.setColor(MATRIX_COLORS.PRIMARY_HEX);
+      } else {
+        bg.lineStyle(1, MATRIX_COLORS.DARK_GREEN, 0.8);
+        bg.fillStyle(MATRIX_COLORS.BACKGROUND, 0.9);
+        text.setColor(MATRIX_COLORS.DIM_GREEN_HEX);
+      }
+      bg.fillRoundedRect(
+        -CHOICE_BUTTON_WIDTH / 2, -CHOICE_BUTTON_HEIGHT / 2,
+        CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT, 4,
+      );
+      bg.strokeRoundedRect(
+        -CHOICE_BUTTON_WIDTH / 2, -CHOICE_BUTTON_HEIGHT / 2,
+        CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT, 4,
+      );
+    });
+
+    this.playSound('menu');
+  }
+
+  private navigateChoice(direction: number): void {
+    if (!this.waitingForChoice || this.activeChoices.length === 0) return;
+
+    const newIndex = this.selectedChoiceIndex + direction;
+    if (newIndex < 0 || newIndex >= this.activeChoices.length) return;
+
+    this.selectedChoiceIndex = newIndex;
+    this.highlightChoice(newIndex);
+  }
+
+  private confirmChoice(index: number): void {
+    if (!this.waitingForChoice || index >= this.activeChoices.length) return;
+
+    const choice = this.activeChoices[index];
+    this.playSound('score');
+
+    this.spawnChoiceParticles(this.choiceButtons[index]);
+
+    this.emitGameEvent({
+      type: 'pause',
+      data: {
+        action: 'choice',
+        choiceId: choice.choiceId,
+        label: choice.label,
+        chapterIndex: this.chapterIndex,
+      },
+    });
+
+    this.tweens.add({
+      targets: this.choiceContainer,
+      alpha: 0,
+      duration: CHOICE_FADE_DURATION,
+      ease: 'Power2',
+      onComplete: () => {
+        this.destroyChoiceUI();
+        this.waitingForChoice = false;
+        this.promptText?.setText('Press SPACE or ENTER to advance');
+
+        if (choice.nextParagraphIndex !== undefined) {
+          this.engine.startFromParagraph(choice.nextParagraphIndex);
+        }
+      },
+    });
+  }
+
+  private spawnChoiceParticles(button: Phaser.GameObjects.Container): void {
+    const bounds = button.getBounds();
+    const cx = bounds.centerX;
+    const cy = bounds.centerY;
+    const particleCount = 12;
+
+    for (let i = 0; i < particleCount; i++) {
+      const angle = (i / particleCount) * Math.PI * 2;
+      const speed = Phaser.Math.Between(80, 200);
+      const particle = this.add.text(cx, cy, '█', {
+        fontFamily: 'monospace',
+        fontSize: '6px',
+        color: MATRIX_COLORS.PRIMARY_HEX,
+      });
+      particle.setOrigin(0.5);
+
+      this.tweens.add({
+        targets: particle,
+        x: cx + Math.cos(angle) * speed,
+        y: cy + Math.sin(angle) * speed,
+        alpha: 0,
+        scale: { from: 1.5, to: 0 },
+        duration: Phaser.Math.Between(400, 700),
+        ease: 'Power2',
+        onComplete: () => particle.destroy(),
+      });
+    }
+  }
+
+  private destroyChoiceUI(): void {
+    this.choiceContainer?.destroy(true);
+    this.choiceContainer = undefined;
+    this.choiceButtons = [];
+    this.activeChoices = [];
+    this.selectedChoiceIndex = 0;
+  }
+
   protected handleExit(): void {
     this.scene.start(CTRLS_SCENE_KEYS.CHAPTER_HUB);
   }
@@ -349,6 +588,9 @@ export class CtrlSNarrativeScene extends BaseScene {
       chapterId: this.chapter?.id,
       phase: 'narrative',
       waitingForPuzzle: this.waitingForPuzzle,
+      waitingForChoice: this.waitingForChoice,
+      activeChoices: this.activeChoices.map((c) => c.label),
+      selectedChoiceIndex: this.selectedChoiceIndex,
       typewriter: snapshot,
     };
   }
@@ -371,7 +613,13 @@ export class CtrlSNarrativeScene extends BaseScene {
       ascii.destroy();
     }
     this.asciiPanels = [];
+    this.destroyChoiceUI();
     this.waitingForPuzzle = false;
+    this.waitingForChoice = false;
+    this.upKey?.destroy();
+    this.downKey?.destroy();
+    this.upKey = undefined;
+    this.downKey = undefined;
     if (this.input.keyboard) {
       this.input.keyboard.removeAllKeys(true);
     }
