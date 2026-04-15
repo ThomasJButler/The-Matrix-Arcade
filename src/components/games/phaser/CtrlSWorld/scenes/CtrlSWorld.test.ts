@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { PHASER_CONFIG, CTRLS_SCENE_KEYS, GAME_CONFIG, ACHIEVEMENTS } from '../config';
+import { PHASER_CONFIG, CTRLS_SCENE_KEYS, GAME_CONFIG, ACHIEVEMENTS, CHARACTERS, PORTRAIT_CONFIG } from '../config';
 import { CtrlSBootScene } from './BootScene';
 import { CtrlSMenuScene } from './MenuScene';
 import { CtrlSChapterHubScene } from './ChapterHubScene';
@@ -68,6 +68,59 @@ describe('CTRL-S World Phaser — Scene Construction', () => {
   it('constructs GameOverScene without errors', () => {
     const scene = new CtrlSGameOverScene();
     expect(scene).toBeDefined();
+  });
+});
+
+describe('CTRL-S World Phaser — Character Registry', () => {
+  it('defines all seven characters', () => {
+    expect(Object.keys(CHARACTERS)).toHaveLength(7);
+    expect(CHARACTERS.averag).toBeDefined();
+    expect(CHARACTERS.senora).toBeDefined();
+    expect(CHARACTERS.elon).toBeDefined();
+    expect(CHARACTERS.steve).toBeDefined();
+    expect(CHARACTERS.billiam).toBeDefined();
+    expect(CHARACTERS.samuel).toBeDefined();
+    expect(CHARACTERS.protector).toBeDefined();
+  });
+
+  it('each character has required display properties', () => {
+    Object.values(CHARACTERS).forEach((char) => {
+      expect(char.id).toBeTruthy();
+      expect(char.name).toBeTruthy();
+      expect(char.initial).toHaveLength(1);
+      expect(char.colour).toBeGreaterThan(0);
+      expect(char.colourHex).toMatch(/^#[0-9a-f]{6}$/);
+    });
+  });
+
+  it('protagonist has a portrait key', () => {
+    expect(CHARACTERS.averag.portraitKey).toBe('portrait-protagonist');
+  });
+
+  it('NPC characters have no portrait key (BLOCKED-ART-NEEDED)', () => {
+    expect(CHARACTERS.senora.portraitKey).toBeUndefined();
+    expect(CHARACTERS.elon.portraitKey).toBeUndefined();
+    expect(CHARACTERS.steve.portraitKey).toBeUndefined();
+    expect(CHARACTERS.billiam.portraitKey).toBeUndefined();
+    expect(CHARACTERS.samuel.portraitKey).toBeUndefined();
+  });
+
+  it('each character has a unique colour', () => {
+    const colours = Object.values(CHARACTERS).map((c) => c.colour);
+    expect(new Set(colours).size).toBe(colours.length);
+  });
+});
+
+describe('CTRL-S World Phaser — Portrait Config', () => {
+  it('has valid portrait dimensions', () => {
+    expect(PORTRAIT_CONFIG.SIZE).toBeGreaterThan(0);
+    expect(PORTRAIT_CONFIG.PANEL_WIDTH).toBeGreaterThan(PORTRAIT_CONFIG.SIZE);
+    expect(PORTRAIT_CONFIG.TEXT_INDENT).toBeGreaterThan(PORTRAIT_CONFIG.PANEL_WIDTH);
+  });
+
+  it('text indent leaves enough room for text', () => {
+    const remainingWidth = GAME_CONFIG.WIDTH - PORTRAIT_CONFIG.TEXT_INDENT - GAME_CONFIG.TEXT.MARGIN_X;
+    expect(remainingWidth).toBeGreaterThan(400);
   });
 });
 

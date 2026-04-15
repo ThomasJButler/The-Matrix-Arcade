@@ -50,6 +50,77 @@ export const ACHIEVEMENTS = {
   PUZZLE_MASTER: 'ctrl_puzzle_master',
 } as const;
 
+export interface CharacterDef {
+  id: string;
+  name: string;
+  initial: string;
+  portraitKey?: string;
+  colour: number;
+  colourHex: string;
+}
+
+export const CHARACTERS: Record<string, CharacterDef> = {
+  averag: {
+    id: 'averag',
+    name: 'Aver-Ag',
+    initial: 'A',
+    portraitKey: 'portrait-protagonist',
+    colour: 0x00ff00,
+    colourHex: '#00ff00',
+  },
+  senora: {
+    id: 'senora',
+    name: 'Señora',
+    initial: 'S',
+    colour: 0x00ccff,
+    colourHex: '#00ccff',
+  },
+  elon: {
+    id: 'elon',
+    name: 'Elon-gated',
+    initial: 'E',
+    colour: 0xffcc00,
+    colourHex: '#ffcc00',
+  },
+  steve: {
+    id: 'steve',
+    name: 'Steve',
+    initial: 'S',
+    colour: 0xff6600,
+    colourHex: '#ff6600',
+  },
+  billiam: {
+    id: 'billiam',
+    name: 'Billiam',
+    initial: 'B',
+    colour: 0x9966ff,
+    colourHex: '#9966ff',
+  },
+  samuel: {
+    id: 'samuel',
+    name: 'Samuel',
+    initial: 'S',
+    colour: 0xff3366,
+    colourHex: '#ff3366',
+  },
+  protector: {
+    id: 'protector',
+    name: 'Protector',
+    initial: 'P',
+    colour: 0xff0000,
+    colourHex: '#ff0000',
+  },
+} as const;
+
+export const PORTRAIT_CONFIG = {
+  SIZE: 70,
+  PANEL_WIDTH: 100,
+  PANEL_PADDING: 10,
+  NAME_OFFSET_Y: 8,
+  FADE_DURATION: 300,
+  TEXT_INDENT: 130,
+} as const;
+
 export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   width: GAME_CONFIG.WIDTH,

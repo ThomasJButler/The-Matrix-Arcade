@@ -31,6 +31,7 @@ export interface Chapter {
   inlineAscii?: AsciiPanel[];
   puzzleTriggers?: PuzzleTrigger[];
   choiceTriggers?: ChoiceTrigger[];
+  speakers?: Record<number, string>;
 }
 
 export function getChapter(index: number): Chapter | undefined {
@@ -70,6 +71,13 @@ export function getChoiceTriggerForParagraph(
   return chapter.choiceTriggers?.find(
     (c) => c.afterParagraphIndex === paragraphIndex,
   );
+}
+
+export function getSpeakerForParagraph(
+  chapter: Chapter,
+  paragraphIndex: number,
+): string | undefined {
+  return chapter.speakers?.[paragraphIndex];
 }
 
 export const CHAPTERS: Chapter[] = [
@@ -116,6 +124,12 @@ export const CHAPTERS: Chapter[] = [
       "Here, Aver-Ag Engi Neer, stumbled upon the last stand of humanity's greatest minds.",
       'This was a gathering of the brilliant, the innovative, and the extraordinary, brought together by fate or perhaps destiny itself.',
     ],
+    speakers: {
+      6: 'protector',
+      7: 'protector',
+      8: 'protector',
+      12: 'averag',
+    },
     puzzleTriggers: [
       { afterParagraphIndex: 4, puzzleId: 'prologue_first_command' },
     ],
@@ -213,6 +227,25 @@ export const CHAPTERS: Chapter[] = [
       "'The core servers are distributed across three locations,' he explained, gesturing at the floating diagrams.",
       "'We'll need to move fast, move smart, and most importantly\u2014move together.'",
     ],
+    speakers: {
+      1: 'averag',
+      4: 'senora',
+      5: 'senora',
+      6: 'senora',
+      7: 'senora',
+      8: 'averag',
+      9: 'averag',
+      11: 'elon',
+      12: 'elon',
+      13: 'steve',
+      14: 'steve',
+      17: 'senora',
+      19: 'averag',
+      20: 'averag',
+      24: 'billiam',
+      25: 'billiam',
+      26: 'billiam',
+    },
     puzzleTriggers: [
       { afterParagraphIndex: 18, puzzleId: 'ch1_team_quiz' },
       { afterParagraphIndex: 22, puzzleId: 'ch1_bunker_code' },
@@ -262,6 +295,11 @@ export const CHAPTERS: Chapter[] = [
       'A debugging puzzle, deliberately planted by the resistance movement as a test for fellow hackers.',
       "'Looks like we're not the only ones fighting back,' Señora observed with a slight smile.",
     ],
+    speakers: {
+      17: 'steve',
+      18: 'steve',
+      24: 'senora',
+    },
     puzzleTriggers: [
       { afterParagraphIndex: 11, puzzleId: 'ch2_silicon_valley_riddles' },
       { afterParagraphIndex: 12, puzzleId: 'ch2_valley_riddle_2' },
@@ -313,6 +351,14 @@ export const CHAPTERS: Chapter[] = [
       "'Only those who truly understand destruction can wield the power of creation,' it read.",
       'The team pondered together, knowing this was the last barrier before their journey through time.',
     ],
+    speakers: {
+      4: 'samuel',
+      5: 'samuel',
+      9: 'samuel',
+      13: 'elon',
+      17: 'samuel',
+      18: 'samuel',
+    },
     puzzleTriggers: [
       { afterParagraphIndex: 10, puzzleId: 'ch3_ada_language' },
       { afterParagraphIndex: 14, puzzleId: 'ch3_fibonacci' },
@@ -385,6 +431,25 @@ export const CHAPTERS: Chapter[] = [
       'They had not merely prevented a catastrophe; they had created a foundation for perpetual vigilance, ensuring that humanity would never forget the cost of careless innovation.',
       "The glitch in time had become humanity's greatest teacher.",
     ],
+    speakers: {
+      12: 'averag',
+      13: 'averag',
+      14: 'averag',
+      15: 'senora',
+      16: 'senora',
+      17: 'senora',
+      18: 'elon',
+      19: 'elon',
+      20: 'steve',
+      21: 'steve',
+      22: 'samuel',
+      23: 'samuel',
+      24: 'samuel',
+      31: 'averag',
+      36: 'averag',
+      37: 'senora',
+      38: 'samuel',
+    },
     puzzleTriggers: [
       { afterParagraphIndex: 11, puzzleId: 'ch4_world_assessment' },
       { afterParagraphIndex: 20, puzzleId: 'ch4_pattern_recognition' },
@@ -439,6 +504,25 @@ export const CHAPTERS: Chapter[] = [
       'The digital apocalypse that had once seemed inevitable was now a footnote in history, a story of what might have been.',
       'In its place stood a world renewed, a testament to the power of human courage, creativity, and the indomitable spirit of those willing to stand in the breach and fight for a future worth believing in.',
     ],
+    speakers: {
+      3: 'averag',
+      4: 'averag',
+      5: 'averag',
+      7: 'billiam',
+      8: 'steve',
+      9: 'elon',
+      10: 'elon',
+      11: 'senora',
+      12: 'senora',
+      13: 'samuel',
+      14: 'samuel',
+      15: 'samuel',
+      16: 'averag',
+      17: 'averag',
+      20: 'averag',
+      21: 'averag',
+      22: 'averag',
+    },
     puzzleTriggers: [
       { afterParagraphIndex: 15, puzzleId: 'ch5_final_wisdom' },
     ],
