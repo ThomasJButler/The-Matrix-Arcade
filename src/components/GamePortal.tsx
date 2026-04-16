@@ -56,6 +56,8 @@ export function GamePortal({
   const zoneRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [wheelRotation, setWheelRotation] = useState<'left' | 'right' | null>(null);
   const rotationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [pressedIndex, setPressedIndex] = useState<number | null>(null);
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const GameComponent = game?.component;
   const shouldReduceMotion = useReducedMotion();
 
@@ -106,6 +108,23 @@ export function GamePortal({
       rotationTimer.current = setTimeout(() => setWheelRotation(null), 320);
     });
   }, [shouldReduceMotion]);
+
+  const triggerPressFlash = useCallback((index: number) => {
+    if (shouldReduceMotion) return;
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+    setPressedIndex(null);
+    requestAnimationFrame(() => {
+      setPressedIndex(index);
+      pressTimer.current = setTimeout(() => setPressedIndex(null), 200);
+    });
+  }, [shouldReduceMotion]);
+
+  useEffect(() => {
+    return () => {
+      if (rotationTimer.current) clearTimeout(rotationTimer.current);
+      if (pressTimer.current) clearTimeout(pressTimer.current);
+    };
+  }, []);
 
   const playClick = useCallback(() => playSFX?.('scoreboardTab'), [playSFX]);
   const playConfirm = useCallback(() => playSFX?.('scoreboardConfirm'), [playSFX]);
@@ -195,6 +214,7 @@ export function GamePortal({
       e.preventDefault();
       e.stopPropagation();
       zoneRefs.current[mapping.index]?.focus();
+      triggerPressFlash(mapping.index);
       mapping.action();
       return;
     }
@@ -215,7 +235,7 @@ export function GamePortal({
         onJumpToGame(idx);
       }
     }
-  }, [onShowInstructions, onNext, onPrev, handlePlayPress, handleScoresPress, isPlaying, onExit, triggerRotation, playClick, onJumpToGame, games.length]);
+  }, [onShowInstructions, onNext, onPrev, handlePlayPress, handleScoresPress, isPlaying, onExit, triggerRotation, triggerPressFlash, playClick, onJumpToGame, games.length]);
 
   if (!game) {
     return (
@@ -434,7 +454,7 @@ export function GamePortal({
                 >
                   <button
                     ref={(el) => { zoneRefs.current[0] = el; }}
-                    className="clickwheel-zone clickwheel-top"
+                    className={`clickwheel-zone clickwheel-top${pressedIndex === 0 ? ' is-pressed' : ''}`}
                     onClick={() => { playClick(); onShowInstructions(); }}
                     tabIndex={-1}
                     aria-label="How to play"
@@ -444,7 +464,7 @@ export function GamePortal({
 
                   <button
                     ref={(el) => { zoneRefs.current[3] = el; }}
-                    className="clickwheel-zone clickwheel-left"
+                    className={`clickwheel-zone clickwheel-left${pressedIndex === 3 ? ' is-pressed' : ''}`}
                     onClick={() => { playClick(); triggerRotation('left'); onPrev(); }}
                     data-testid="carousel-prev"
                     tabIndex={-1}
@@ -455,7 +475,7 @@ export function GamePortal({
 
                   <button
                     ref={(el) => { zoneRefs.current[1] = el; }}
-                    className="clickwheel-zone clickwheel-right"
+                    className={`clickwheel-zone clickwheel-right${pressedIndex === 1 ? ' is-pressed' : ''}`}
                     onClick={() => { playClick(); triggerRotation('right'); onNext(); }}
                     data-testid="carousel-next"
                     tabIndex={-1}
@@ -466,7 +486,7 @@ export function GamePortal({
 
                   <button
                     ref={(el) => { zoneRefs.current[2] = el; }}
-                    className="clickwheel-zone clickwheel-bottom"
+                    className={`clickwheel-zone clickwheel-bottom${pressedIndex === 2 ? ' is-pressed' : ''}`}
                     onClick={handleScoresPress}
                     tabIndex={-1}
                     aria-label="View high scores"
@@ -476,7 +496,7 @@ export function GamePortal({
 
                   <button
                     ref={(el) => { zoneRefs.current[4] = el; }}
-                    className="clickwheel-centre"
+                    className={`clickwheel-centre${pressedIndex === 4 ? ' is-pressed' : ''}`}
                     onClick={handlePlayPress}
                     disabled={isPlayDisabled || !hasComponent}
                     tabIndex={-1}
