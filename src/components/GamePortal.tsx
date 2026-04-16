@@ -348,8 +348,11 @@ export function GamePortal({
           ${isTransitioning ? `transition-${transitionDirection}` : ''}
         `}
       >
-        {/* iPod Classic Device Body */}
-        <div className={`ipod-body w-full mx-auto ${isPlaying ? 'ipod-body--playing' : ''}`}>
+        {/* iPod Classic Device Body — during play, body shrinks to fit the
+            16:9 screen so a 16:9 game (VortexPong, etc.) fills the bezel with
+            zero pillarbox; the `w-full` static-mode fill is dropped in favour
+            of `width: fit-content` declared in `.ipod-body--playing`. */}
+        <div className={`ipod-body mx-auto ${isPlaying ? 'ipod-body--playing' : 'w-full'}`}>
           {/* Screen Bezel */}
           <div className="ipod-screen">
             {/* Game Display */}
