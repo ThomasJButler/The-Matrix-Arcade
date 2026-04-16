@@ -99,7 +99,7 @@ test.describe('modal focus restoration', () => {
 
     // Focus the clickwheel toolbar, then open + close the modal and see if
     // focus comes back to anything meaningful.
-    const wheel = page.locator('[role="toolbar"][aria-label="Game navigation wheel"]');
+    const wheel = page.locator('[role="toolbar"][aria-label^="Game navigation wheel"]');
     await wheel.focus();
     const beforeTag = await page.evaluate(() => document.activeElement?.tagName);
     expect(beforeTag).toBe('DIV');

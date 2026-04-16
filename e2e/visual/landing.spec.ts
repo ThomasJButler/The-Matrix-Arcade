@@ -49,7 +49,7 @@ test.describe('Landing page', () => {
   test('clicking card opens portal view', async ({ arcadePage }) => {
     await arcadePage.locator('[role="button"][aria-label="Play Snake Classic"]').click();
     await expect.poll(() => arcadePage.evaluate(() => document.body.dataset.portalReady)).toBe('true');
-    await expect(arcadePage.locator('[role="toolbar"][aria-label="Game navigation wheel"]')).toBeVisible();
+    await expect(arcadePage.locator('[role="toolbar"][aria-label^="Game navigation wheel"]')).toBeVisible();
     await expect(arcadePage).toHaveScreenshot('portal-from-landing.png');
   });
 });

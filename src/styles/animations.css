@@ -376,7 +376,7 @@
   transform: translateY(-50%);
 }
 
-/* Centre select button */
+/* Centre select button — primary play CTA after R82.15 swap */
 .clickwheel-centre {
   position: absolute;
   top: 50%;
@@ -391,8 +391,10 @@
     inset 0 1px 3px rgba(0, 0, 0, 0.5),
     0 0 8px rgba(0, 255, 0, 0.04);
   cursor: pointer;
-  color: rgba(0, 255, 0, 0.45);
-  font-size: 1rem;
+  color: rgba(0, 255, 0, 0.7);
+  font-size: 1.4rem;
+  padding-left: 0.15em;
+  text-shadow: 0 0 6px rgba(0, 255, 0, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -400,6 +402,16 @@
   transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, transform 100ms cubic-bezier(0.34, 1.56, 0.64, 1);
   -webkit-tap-highlight-color: transparent;
   will-change: transform;
+}
+
+@media (min-width: 1024px) {
+  .clickwheel-centre {
+    font-size: 1.6rem;
+  }
+}
+
+.ipod-clickwheel--compact .clickwheel-centre {
+  font-size: 1.1rem;
 }
 
 .clickwheel-centre:hover,
@@ -426,6 +438,14 @@
 .clickwheel-centre:focus-visible {
   outline: 2px solid rgba(0, 255, 0, 0.6);
   outline-offset: 2px;
+}
+
+.clickwheel-centre:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+  animation: none;
+  color: rgba(0, 255, 0, 0.25);
+  text-shadow: none;
 }
 
 /* Clickwheel segment hover pulse — slow organic breathing */

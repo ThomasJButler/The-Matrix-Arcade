@@ -72,7 +72,7 @@ test.describe('Cross-game edge cases', () => {
 
   test('portal navigation between games works without play', async ({ arcadePage: page }) => {
     await navigateToGame(page, 'snake-classic');
-    const wheel = page.locator('[role="toolbar"][aria-label="Game navigation wheel"]');
+    const wheel = page.locator('[role="toolbar"][aria-label^="Game navigation wheel"]');
     await wheel.focus();
     await page.keyboard.press('ArrowRight');
     await expect.poll(() => page.evaluate(() => document.body.dataset.portalGameId)).not.toBe('snake-classic');

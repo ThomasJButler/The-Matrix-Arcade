@@ -145,14 +145,10 @@ export async function navigateToGame(page: Page, gameId: GameId): Promise<void> 
  */
 export async function startGame(page: Page): Promise<void> {
   // Clickwheel zones use clip-path so direct clicks hit the wrong target.
-  // Focus the toolbar and press ArrowDown (mapped to play).
-  const wheel = page.locator('[role="toolbar"][aria-label="Game navigation wheel"]');
-  if (await wheel.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await wheel.focus();
-    await page.keyboard.press('ArrowDown');
-  } else {
-    await page.keyboard.press('Enter');
-  }
+  // Focus the toolbar and press Enter (mapped to centre = play after R82.15).
+  const wheel = page.locator('[role="toolbar"][aria-label^="Game navigation wheel"]');
+  await wheel.focus();
+  await page.keyboard.press('Enter');
   await page.waitForFunction(() => document.body.dataset.portalIsPlaying === 'true', undefined, { timeout: 10000 });
 }
 
