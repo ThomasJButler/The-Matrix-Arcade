@@ -136,6 +136,20 @@ export function GamePortal({
     };
   }, []);
 
+  // R82.21: when play starts, scroll the iPod top into view so the wider
+  // portal doesn't get clipped by the header. Only fires on the false→true
+  // transition; exit lets the layout spring shrink back without scroll jank.
+  const prevIsPlaying = useRef(isPlaying);
+  useEffect(() => {
+    if (!prevIsPlaying.current && isPlaying) {
+      containerRef.current?.scrollIntoView({
+        block: 'start',
+        behavior: shouldReduceMotion ? 'auto' : 'smooth',
+      });
+    }
+    prevIsPlaying.current = isPlaying;
+  }, [isPlaying, shouldReduceMotion, containerRef]);
+
   const playClick = useCallback(() => playSFX?.('scoreboardTab'), [playSFX]);
   const playConfirm = useCallback(() => playSFX?.('scoreboardConfirm'), [playSFX]);
 
