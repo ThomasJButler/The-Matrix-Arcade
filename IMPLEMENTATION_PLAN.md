@@ -5,7 +5,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: R82 open — R82.13 continuous-improvement: a11y polish — focus survives the clickwheel ↔ dashbar crossfade. Closes a real keyboard-navigation gap: pre-fix, pressing Enter on the centre button (or ESC from in-play) triggered the surface swap, the focused element literally unmounted mid-animation, and focus fell to `document.body` — keyboard users then had to Tab back in to keep navigating. Fix adds a `pendingSurfaceFocus` ref ('wheel' | 'dashbar' | null) plus a `captureSurfaceFocusIntent(target)` helper that only flags an intent if `containerRef.current.contains(document.activeElement)` — critical containment check so we never steal focus from an open modal or unrelated UI that may have indirectly triggered onExit (e.g. GameErrorBoundary onReset). Every surface-change entry point is wired: `handlePlayPress` play+exit branches, `handleWheelKeyDown` ESC branch, and the dashbar EXIT button's onClick. Ref callbacks on both `motion.div` surfaces consume the flag at mount and call `.focus()` synchronously. The ref-callback hook is load-bearing — `AnimatePresence mode="wait"` keeps the exiting surface mounted through its 320ms exit anim, so a `useEffect([isPlaying])` would fire before the new surface exists; only the mount callback gives us the deterministic "new node attached to DOM" moment. Mouse users see no focus ring (`:focus-visible` doesn't trigger on programmatic focus after mouse interaction — spec-compliant browser heuristic); keyboard users retain their anchor across Play/Exit without re-tabbing. `wheelRef.current` is still populated by the callback so the existing touch-swipe useEffect keeps working unchanged. Zero new deps, zero CSS, zero test breakage. Gates: lint 0 errors / 10 intentional warnings, tsc clean (exit 0), 23/23 unit tests (App + GamePortal), build clean (7.61s). Ralph does NOT write terminator — Tom's manual call post-review.
+## Status: R82 open — Round 2 playtest refinements R82.21–R82.29 added 2026-04-18 (header clipping, game fills portal, dashbar redesign, exit/pause fix, trophy icon, key panel, bigger play button). R82.14–R82.20 all shipped. R82.21+ ships BEFORE R82.13 resumes.
 
 > **R78.7 complete (2026-04-14)**: Multi-viewport Playwright matrix — added `mobile` (375×667) and `tablet` (768×1024) projects to `playwright.config.ts`. Both viewports trigger the app's "DESKTOP REQUIRED" gate (MobileWarning component), so created dedicated `e2e/responsive/mobile-gate.spec.ts` with 2 tests × 2 viewports = 4 baselines. Scoped via `testMatch: /responsive\//` so only responsive specs run on those projects. Fixed pre-existing lint error (`addScore` unused in App.tsx). All 4 responsive tests pass, all 6 desktop visual tests pass, build clean.
 >
@@ -202,9 +202,61 @@ After playing the portal, Tom flagged 5 layout issues. These are focused follow-
 
 ---
 
-- [ ] **R82.13 — [P3] ★ CONTINUOUS-IMPROVEMENT (never auto-checked, runs AFTER R82.14–R82.20)** — each remaining loop iteration picks ONE micro-improvement from the priority list below and ships it. This task is **intentionally never marked `[x]`** — Tom manually ticks it when he's happy with the final result. Ralph MUST NOT write the terminator phrase to Status; the `loop.sh` iteration cap is the stop signal. Tom's call (2026-04-18): *"fuck it we can make it the best version we possibly can"*.
+### R82 Playtest Refinements Round 2 (added 2026-04-18 after Tom's second playtest)
 
-  **Task ordering note**: Ralph MUST complete all R82.14–R82.20 before picking up any new R82.13 iteration. R82.13 resumes AFTER the layout refinements land — polish should apply to the new shape, not the old one.
+Tom's in-play screenshot (image 7 — Vortex Pong inside widened portal) surfaced 7 new issues. These ship BEFORE any further R82.13 iterations.
+
+- [ ] **R82.21 — [P1]** Portal top clipping fix. When in-play portal expands, the top of the iPod body goes under the site header (Tom: *"cannot see the top of the ipod it goes under the header"*). Add top offset / scroll-into-view / z-index fix so full device silhouette is visible when play starts. Likely needs `scrollIntoView({ block: 'start', behavior: 'smooth' })` on `isPlaying` transition, OR a `padding-top` / `margin-top` on the portal container that accounts for header height. Verify at 1280×800, 1440×900, and 1920×1080.
+- [ ] **R82.22 — [P1]** Game content fills portal (no empty right-column). Tom: *"there is a big space to the right — we can use the whole portal for the game."* Currently the game canvas retains its 16:9 aspect, leaving ~30% empty black space on the right when portal widens to 95vw. Fix options:
+  - **Option A (preferred)**: Remove the `aspect-video` constraint from the screen div during play. Let the Phaser game canvas fill width × height of the screen area. Phaser games with `scale.mode: Phaser.Scale.FIT` will scale proportionally (letterbox themselves if needed). Games without FIT mode may need a per-game config pass — log under Discovered Work.
+  - **Option B (fallback)**: Keep 16:9 but ALSO narrow the portal to match (don't expand as wide). Tom prefers A — more real estate for games, and the key panel (R82.26) can claim the right column cleanly.
+  - Prefer A. Ensure all 12 games still render correctly. If any game breaks, tag per-game follow-up in Discovered Work.
+- [ ] **R82.23 — [P1]** Dashbar visual redesign. Current dashbar (per image 7) shows `EXIT [--] [❚❚] [--] [●]` — the `--` glyphs are disabled prev/next, looking like dashes. Tom: *"dashbar looks bad"*. Redesign:
+  - **Remove** the disabled prev/next buttons from the dashbar entirely (they serve no purpose during play). 3 buttons only: EXIT, PLAY/PAUSE, HIGH SCORES.
+  - Use proper **Lucide icons** instead of ASCII glyphs: `LogOut` for exit, `Pause`/`Play` for pause toggle, `Trophy` for scores (see R82.25).
+  - Better spacing — buttons distributed: EXIT far-left, PAUSE centre (visually prominent, largest), SCORES far-right.
+  - Keep the iPod chrome aesthetic (metallic gradient pill, Matrix green accents).
+  - Mute indicator retains its current inline pill position.
+- [ ] **R82.24 — [P1]** Fix EXIT vs PAUSE redundancy. Tom: *"pause button and exit button do the same thing"*. Make their behaviours genuinely distinct:
+  - **EXIT** (left of dashbar): returns to portal grid. Triggers `onExit()` which calls `setIsPlaying(false)`, stops BGM, resumes landing track, tracks play time. Game is torn down.
+  - **PAUSE** (centre of dashbar): toggles game pause via registry event. Game state PRESERVED. Pause overlay shown (per `BaseScene.togglePause`). Press again to resume.
+  - These are different actions — verify in-code that both currently call different handlers. If they're wired to the same handler (bug), split them. Also ensure the dashbar PAUSE button dispatches the pause event (e.g. via registry `pauseToggle` emit) that Phaser scenes listen for — don't just simulate a P keypress unless that's cleaner.
+- [ ] **R82.25 — [P1]** Trophy icon for HIGH SCORES. Replace the `●` glyph on both clickwheel bottom button AND dashbar right button with a Lucide `Trophy` icon. Consistent visual semantic across browse/play modes. Size: 20px on wheel, 18-20px on dashbar. Colour: `MATRIX_COLORS.PRIMARY_HEX` to match the green aesthetic. Existing `Trophy` import likely needed in `GamePortal.tsx` (check `lucide-react` usage — already imported for other icons per the R82.13 commits).
+- [ ] **R82.26 — [P1]** Key panel (right-side keyboard controls reference). Tom: *"We will have to have a 'Key' in the right of the iPod that says the controls and meanings, and can use keyboard."* New component: `<KeyPanel>` (either separate file `src/components/scoreboard/` no — doesn't fit there — call it `src/components/KeyPanel.tsx` or keep inline in GamePortal.tsx).
+  - **Positioning**: right of the iPod device body, inside the portal container. Claims the space that was empty right-column (R82.22 frees this up during play too).
+  - **Static mode content**: universal arcade controls
+    - `←→` Navigate games
+    - `↑` MENU
+    - `↓` Scores (🏆)
+    - `ENTER` Play
+    - `ESC` Exit
+    - `1-9` Jump to game
+    - `HOME`/`END` First/Last
+    - `SWIPE WHEEL` Touch nav
+  - **In-play mode content**: per-game shortcuts from `gameRegistry[selectedGame].controls` (e.g. Vortex Pong shows `↑↓` Paddle + `P` Pause + `ESC` Exit). Game registry already has a `controls` string per game — parse or split it into key/meaning pairs.
+  - Match iPod aesthetic: bordered panel, matrix green text on dark bg, subtle scanline overlay, monospace font.
+  - Collapsible on narrow viewports (< 1200px?) OR hidden on mobile (MobileWarning already handles true mobile).
+  - The existing footer hints below the wheel can be REMOVED (replaced by this panel) or kept as a backup for compact viewports — Ralph's call.
+- [ ] **R82.27 — [P1]** Bigger, more obvious PLAY button. Tom (2026-04-18, second message): *"play button needs to be bigger too so its obvious"*. On both the clickwheel centre AND the dashbar centre:
+  - **Clickwheel centre**: currently 46px/52px at lg. Bump to ~64px/72px at lg. Bigger icon (1.4rem → 1.8rem). Add a subtle pulse animation when idle (breathing glow) so it visually calls attention. When playing shows `❚❚`, not playing shows `▶`.
+  - **Dashbar centre**: same treatment — make it THE dominant element on the bar. ~1.5-2x the size of EXIT and SCORES buttons. Clear visual hierarchy: primary = play, secondary = exit/scores.
+  - Verify the clickwheel centre button doesn't visually overflow the wheel's centre circle — may need to increase wheel diameter slightly if play button grows.
+- [ ] **R82.28 — [P2]** Visual regression baselines + verification. Regen darwin + linux baselines for static portal (post key panel + bigger play button) and in-play state (post dashbar redesign + full-width game + trophy icon). Run all gates: lint + build + test + e2e + visual. Commit baselines separately with `R82.N-visual: baseline update — round 2 refinements`.
+- [ ] **R82.29 — [P1]** Manual playtest verification (human-in-the-loop). Launch each of 12 games, confirm:
+  - (a) Portal opens without top-clipping at 1280×800
+  - (b) Game canvas fills the portal (no empty right column)
+  - (c) Dashbar looks polished, 3 clear buttons
+  - (d) EXIT returns to grid cleanly; PAUSE actually pauses the game (state preserved)
+  - (e) Trophy icon visible on scores button
+  - (f) Key panel visible right of iPod, shows correct per-game controls when playing
+  - (g) Play button is clearly the dominant CTA
+  Log findings under `### R82 Discovered Work`. Do NOT write R82 terminator — R82.13 resumes after this block completes.
+
+---
+
+- [ ] **R82.13 — [P3] ★ CONTINUOUS-IMPROVEMENT (never auto-checked, runs AFTER R82.14–R82.20 + R82.21–R82.29)** — each remaining loop iteration picks ONE micro-improvement from the priority list below and ships it. This task is **intentionally never marked `[x]`** — Tom manually ticks it when he's happy with the final result. Ralph MUST NOT write the terminator phrase to Status; the `loop.sh` iteration cap is the stop signal. Tom's call (2026-04-18): *"fuck it we can make it the best version we possibly can"*.
+
+  **Task ordering note**: Ralph MUST complete all R82.14–R82.20 AND all R82.21–R82.29 before picking up any new R82.13 iteration. R82.13 polish should apply to the FINAL refined shape — not intermediate states.
 
   **R82.13 micro-improvement priority list** (pick one per iteration, commit as `R82.13: <improvement summary>`):
   - **Clickwheel animation polish** — easing curve refinements, press-depression feedback tuning, hover-glow intensity calibration, wheel-rotation micro-animations on prev/next
