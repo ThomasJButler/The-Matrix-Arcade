@@ -1,5 +1,5 @@
-import React, { useRef, useCallback, useState, useEffect, Suspense } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useRef, useCallback, useState, useEffect, useMemo, Suspense } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { VolumeX } from 'lucide-react';
 import { GAME_TITLES } from '../lib/asciiArt';
 import { GameErrorBoundary } from './ui/GameErrorBoundary';
@@ -57,15 +57,32 @@ export function GamePortal({
   const [wheelRotation, setWheelRotation] = useState<'left' | 'right' | null>(null);
   const rotationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const GameComponent = game.component;
+  const shouldReduceMotion = useReducedMotion();
+
+  const layoutTransition = useMemo(
+    () =>
+      shouldReduceMotion
+        ? { duration: 0 }
+        : { type: 'spring' as const, stiffness: 220, damping: 26, mass: 0.9 },
+    [shouldReduceMotion],
+  );
+  const surfaceTransition = useMemo(
+    () =>
+      shouldReduceMotion
+        ? { duration: 0 }
+        : { duration: 0.32, ease: [0.4, 0, 0.2, 1] as const },
+    [shouldReduceMotion],
+  );
 
   const triggerRotation = useCallback((direction: 'left' | 'right') => {
+    if (shouldReduceMotion) return;
     if (rotationTimer.current) clearTimeout(rotationTimer.current);
     setWheelRotation(null);
     requestAnimationFrame(() => {
       setWheelRotation(direction);
       rotationTimer.current = setTimeout(() => setWheelRotation(null), 320);
     });
-  }, []);
+  }, [shouldReduceMotion]);
 
   const playClick = useCallback(() => playSFX?.('scoreboardTab'), [playSFX]);
   const playConfirm = useCallback(() => playSFX?.('scoreboardConfirm'), [playSFX]);
@@ -180,7 +197,7 @@ export function GamePortal({
   return (
     <motion.div
       layout
-      transition={{ type: 'spring', stiffness: 220, damping: 26, mass: 0.9 }}
+      transition={layoutTransition}
       className={`relative w-full mx-auto flex flex-col justify-center h-full game-portal-container px-4 ${isPlaying ? 'max-w-[min(95vw,1600px)]' : 'max-w-xl'}`}
     >
       <div className="sr-only" aria-live="polite" aria-atomic="true">
@@ -284,10 +301,10 @@ export function GamePortal({
                   aria-label="In-game controls"
                   tabIndex={0}
                   onKeyDown={handleWheelKeyDown}
-                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                  initial={shouldReduceMotion ? false : { opacity: 0, y: -6, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                  transition={{ duration: 0.32, ease: [0.4, 0, 0.2, 1] }}
+                  exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.96 }}
+                  transition={surfaceTransition}
                 >
                   <button
                     ref={(el) => { zoneRefs.current[0] = el; }}
@@ -352,10 +369,10 @@ export function GamePortal({
                   aria-label="Game navigation wheel — swipe left or right to navigate"
                   tabIndex={0}
                   onKeyDown={handleWheelKeyDown}
-                  initial={{ opacity: 0, scale: 0.94 }}
+                  initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.94 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.94 }}
-                  transition={{ duration: 0.32, ease: [0.4, 0, 0.2, 1] }}
+                  exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94 }}
+                  transition={surfaceTransition}
                 >
                   <button
                     ref={(el) => { zoneRefs.current[0] = el; }}
