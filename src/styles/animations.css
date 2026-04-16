@@ -834,3 +834,63 @@
   color: rgba(0, 255, 0, 0.5);
   letter-spacing: 1px;
 }
+
+/* iPod empty / no-signal screen — defensive fallback when no game is resolvable */
+.ipod-empty-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 200px;
+  background: #000;
+  text-align: center;
+  padding: 1rem;
+  contain: layout style paint;
+}
+
+.ipod-empty-glyph {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 28px;
+  color: #00ff00;
+  opacity: 0.35;
+  text-shadow: 0 0 12px rgba(0, 255, 0, 0.4);
+  margin-bottom: 14px;
+  animation: ipod-empty-flicker 2.4s ease-in-out infinite;
+}
+
+.ipod-empty-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 12px;
+  color: #00ff00;
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.6);
+  letter-spacing: 3px;
+  margin-bottom: 10px;
+}
+
+.ipod-empty-sub {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  line-height: 1.6;
+  color: rgba(0, 255, 0, 0.5);
+  letter-spacing: 1px;
+  max-width: 20ch;
+}
+
+@keyframes ipod-empty-flicker {
+  0%, 100% { opacity: 0.35; }
+  42% { opacity: 0.35; }
+  44% { opacity: 0.12; }
+  46% { opacity: 0.35; }
+  70% { opacity: 0.35; }
+  72% { opacity: 0.18; }
+  74% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ipod-empty-glyph {
+    animation: none !important;
+    opacity: 0.35;
+  }
+}

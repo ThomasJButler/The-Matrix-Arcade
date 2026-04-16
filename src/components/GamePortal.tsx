@@ -51,12 +51,12 @@ export function GamePortal({
   achievementManager,
   playSFX,
 }: GamePortalProps) {
-  const game = games[selectedGame];
-  const hasComponent = typeof game.component !== 'undefined';
+  const game: GameWithRuntime | undefined = games[selectedGame];
+  const hasComponent = typeof game?.component !== 'undefined';
   const zoneRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [wheelRotation, setWheelRotation] = useState<'left' | 'right' | null>(null);
   const rotationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const GameComponent = game.component;
+  const GameComponent = game?.component;
   const shouldReduceMotion = useReducedMotion();
 
   const layoutTransition = useMemo(
@@ -216,6 +216,41 @@ export function GamePortal({
       }
     }
   }, [onShowInstructions, onNext, onPrev, handlePlayPress, handleScoresPress, isPlaying, onExit, triggerRotation, playClick, onJumpToGame, games.length]);
+
+  if (!game) {
+    return (
+      <motion.div
+        layout
+        transition={layoutTransition}
+        className="relative w-full mx-auto flex flex-col justify-center h-full game-portal-container px-4 max-w-xl"
+        data-testid="game-portal-empty"
+      >
+        <div className="sr-only" role="alert">
+          No games are available to play. The arcade may be loading or unavailable.
+        </div>
+        <div className="digital-container game-portal-wrapper">
+          <div className="ipod-body w-full mx-auto">
+            <div className="ipod-screen">
+              <div className="relative overflow-hidden aspect-[16/9] ipod-empty-screen">
+                <div className="ipod-empty-glyph" aria-hidden="true">◉</div>
+                <div className="ipod-empty-title">NO SIGNAL</div>
+                <p className="ipod-empty-sub">
+                  The arcade has no games loaded. Try reloading the page.
+                </p>
+              </div>
+            </div>
+            <div className="ipod-clickwheel-region mt-2 lg:mt-3">
+              <div className="text-center mb-2 lg:mb-3">
+                <p className="text-green-400/60 font-mono text-xs lg:text-sm px-2">
+                  Waiting for the Matrix to reconnect…
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
