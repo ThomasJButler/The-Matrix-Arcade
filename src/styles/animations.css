@@ -780,6 +780,33 @@
   animation: clickwheel-rotate-right 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
+/* Keyboard press-flash — roving-tabindex means arrow keys fire actions on the
+   toolbar parent, so individual zones never see :active. Mirror the mouse press
+   depression for keyboard users by toggling .is-pressed for one animation cycle. */
+@keyframes clickwheel-zone-press {
+  0%   { transform: scale(1);    background: rgba(0, 255, 0, 0.05); }
+  35%  { transform: scale(0.95); background: rgba(0, 255, 0, 0.18); }
+  100% { transform: scale(1);    background: rgba(0, 255, 0, 0.05); }
+}
+
+.clickwheel-zone.is-pressed {
+  animation: clickwheel-zone-press 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  color: rgba(0, 255, 0, 1);
+}
+
+@keyframes clickwheel-centre-press {
+  0%   { transform: translate(-50%, -50%) scale(1); }
+  35%  { transform: translate(-50%, -50%) scale(0.92); }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+
+.clickwheel-centre.is-pressed {
+  animation: clickwheel-centre-press 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.7),
+    0 0 10px rgba(0, 255, 0, 0.15);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .phosphor-glow,
   .animate-pulse,
@@ -787,7 +814,9 @@
   .score-highlight,
   .score-1up-blink,
   .clickwheel-zone,
+  .clickwheel-zone.is-pressed,
   .clickwheel-centre,
+  .clickwheel-centre.is-pressed,
   .dashbar-btn,
   .dashbar-mute,
   .ipod-clickwheel.rotating-left,
