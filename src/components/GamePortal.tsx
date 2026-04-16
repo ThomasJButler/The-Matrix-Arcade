@@ -98,6 +98,16 @@ export function GamePortal({
     [shouldReduceMotion],
   );
   const slideDirection = transitionDirection === 'right' ? 1 : -1;
+  const infoEnter = useMemo(
+    () =>
+      shouldReduceMotion
+        ? { initial: false as const, animate: { opacity: 1, y: 0 } }
+        : {
+            initial: { opacity: 0, y: 6 },
+            animate: { opacity: 1, y: 0 },
+          },
+    [shouldReduceMotion],
+  );
 
   const triggerRotation = useCallback((direction: 'left' | 'right') => {
     if (shouldReduceMotion) return;
@@ -354,9 +364,17 @@ export function GamePortal({
 
           {/* Clickwheel region */}
           <div className={`ipod-clickwheel-region ${isPlaying ? 'mt-2 lg:mt-2' : 'mt-2 lg:mt-3'}`}>
-            {/* Game info — hidden during play */}
+            {/* Game info — hidden during play. Keyed on selectedGame so the
+                block re-mounts with its enter animation each game switch,
+                settling in sync with the sibling preview-image slide. */}
             {!isPlaying && (
-              <div className="text-center mb-2 lg:mb-3">
+              <motion.div
+                key={selectedGame}
+                className="text-center mb-2 lg:mb-3"
+                initial={infoEnter.initial}
+                animate={infoEnter.animate}
+                transition={slideTransition}
+              >
                 {game.category && (
                   <span className="ipod-category-badge mb-1.5">
                     {game.category}
@@ -365,7 +383,7 @@ export function GamePortal({
                 <p className="text-green-400 font-mono text-xs lg:text-sm line-clamp-2 px-2">
                   {game.description}
                 </p>
-              </div>
+              </motion.div>
             )}
 
             {/* Control surface: clickwheel (static) ↔ dashbar (in-play) */}
