@@ -298,8 +298,20 @@
 }
 
 /* ===== iPod Playing State ===== */
+/* R82.22: body shrinks to content width during play so the screen can hold
+   a true 16:9 aspect at maximum available height. Previously the body was
+   `w-full` and the screen combined `aspect-ratio: 16/9` with `max-height`,
+   which caused the aspect-ratio to yield to the height clamp — the screen
+   ended up wider than 16:9, and Phaser's FIT scaler pillarboxed 16:9 games
+   to preserve their aspect, producing the "empty right column" Tom flagged.
+   Now body + screen both size from the height budget outward, so a 16:9
+   game (VortexPong, Metris, CodeBreaker, etc.) fills the entire bezel with
+   zero letterbox. Non-16:9 games (MatrixFrogger 4:3, NeoJump 2:3, etc.)
+   still pillarbox via Phaser FIT — that's the documented trade-off. */
 .ipod-body--playing {
   padding: 0.75rem;
+  width: fit-content;
+  max-width: 100%;
 }
 
 .ipod-body--playing .ipod-screen {
@@ -315,14 +327,18 @@
 
 .ipod-screen--playing {
   aspect-ratio: 16 / 9;
-  min-height: 50vh;
-  max-height: 70vh;
+  /* Derive height from the viewport budget; width auto-computes from aspect.
+     220px reserves space for the app header, body padding, dashbar, and
+     per-game info below. */
+  height: min(75vh, calc(100vh - 220px));
+  width: auto;
+  max-width: 100%;
+  min-height: 360px;
 }
 
 @media (min-width: 1024px) {
   .ipod-screen--playing {
-    min-height: 55vh;
-    max-height: 75vh;
+    height: min(78vh, calc(100vh - 220px));
   }
 }
 
