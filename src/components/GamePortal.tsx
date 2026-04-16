@@ -390,6 +390,7 @@ export function GamePortal({
                   className={`ipod-clickwheel${wheelRotation ? ` rotating-${wheelRotation}` : ''}`}
                   role="toolbar"
                   aria-label="Game navigation wheel — swipe left or right to navigate"
+                  aria-describedby="ipod-wheel-instructions"
                   tabIndex={0}
                   onKeyDown={handleWheelKeyDown}
                   initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.94 }}
@@ -455,10 +456,21 @@ export function GamePortal({
 
             {/* Keyboard hints — hidden during play */}
             {!isPlaying && (
-              <div className="mt-2 text-xs lg:text-sm text-green-400/60 text-center space-y-0.5 font-mono">
-                <p className="text-green-500/70">&larr;&rarr; NAVIGATE &bull; &uarr; MENU &bull; &darr; SCORES &bull; ENTER PLAY &bull; ESC EXIT</p>
-                <p className="text-green-500/50">1-{Math.min(9, games.length)} JUMP &bull; HOME/END &bull; SWIPE WHEEL &bull; I/H/A Keys</p>
-              </div>
+              <>
+                <span id="ipod-wheel-instructions" className="sr-only">
+                  Arrow keys navigate: left and right switch games, up opens how to play, down opens high scores.
+                  Enter or Space starts the selected game. Escape exits a running game.
+                  Number keys 1 through {Math.min(9, games.length)} jump to that game.
+                  Home returns to the first game, End jumps to the last.
+                </span>
+                <div
+                  className="mt-2 text-xs lg:text-sm text-green-400/60 text-center space-y-0.5 font-mono"
+                  aria-hidden="true"
+                >
+                  <p className="text-green-500/70">&larr;&rarr; NAVIGATE &bull; &uarr; MENU &bull; &darr; SCORES &bull; ENTER PLAY &bull; ESC EXIT</p>
+                  <p className="text-green-500/50">1-{Math.min(9, games.length)} JUMP &bull; HOME/END &bull; SWIPE WHEEL &bull; I/H/A Keys</p>
+                </div>
+              </>
             )}
           </div>
         </div>
