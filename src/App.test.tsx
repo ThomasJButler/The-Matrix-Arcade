@@ -259,11 +259,11 @@ describe('App Component', () => {
   it('renders responsive classes for desktop', () => {
     render(<App />);
     dismissLandingPage();
-    // The game portal container uses max-w-2xl — use the carousel h2 element
+    // The game portal container uses max-w-xl — use the carousel h2 element
     const titleElements = screen.getAllByText('CTRL-S | The World');
-    const carouselTitle = titleElements.find(el => el.closest('.max-w-2xl'));
+    const carouselTitle = titleElements.find(el => el.closest('.max-w-xl'));
     expect(carouselTitle).toBeTruthy();
-    expect(carouselTitle!.closest('.max-w-2xl')).toBeInTheDocument();
+    expect(carouselTitle!.closest('.max-w-xl')).toBeInTheDocument();
   });
 
   it('shows correct keyboard hints', () => {

@@ -172,7 +172,7 @@ export function GamePortal({
   }, [onShowInstructions, onNext, onPrev, handleBottomClick, onShowHighScores, isPlaying, onExit, triggerRotation, playClick, playConfirm, onJumpToGame, games.length]);
 
   return (
-    <div className={`relative w-full mx-auto flex flex-col justify-center h-full game-portal-container px-4 transition-all duration-300 ${isPlaying ? 'max-w-5xl' : 'max-w-2xl'}`}>
+    <div className={`relative w-full mx-auto flex flex-col justify-center h-full game-portal-container px-4 transition-all duration-300 ${isPlaying ? 'max-w-5xl' : 'max-w-xl'}`}>
       <div className="sr-only" aria-live="polite" aria-atomic="true">
         {isPlaying
           ? `Now playing ${game.title}`
@@ -232,7 +232,7 @@ export function GamePortal({
                   <div className="absolute top-0 left-0 right-0 ipod-title-overlay pointer-events-none">
                     <h2 className="sr-only">{game.title}</h2>
                     <pre
-                      className="text-green-500 font-mono text-[6px] lg:text-[8px] xl:text-[9px] leading-none text-center select-none overflow-hidden mx-auto py-1.5 lg:py-2"
+                      className="text-green-500 font-mono text-[6px] lg:text-[8px] xl:text-[9px] leading-none text-center select-none overflow-hidden mx-auto py-1 lg:py-1.5"
                       aria-hidden="true"
                       style={{ textShadow: '0 0 6px rgba(0,255,0,0.9), 0 0 16px rgba(0,255,0,0.4), 0 0 30px rgba(0,255,0,0.15), 0 1px 2px rgba(0,0,0,0.8)' }}
                     >
@@ -264,19 +264,19 @@ export function GamePortal({
           </div>
 
           {/* Clickwheel region */}
-          <div className={`ipod-clickwheel-region ${isPlaying ? 'mt-2 lg:mt-2' : 'mt-3 lg:mt-4'}`}>
+          <div className={`ipod-clickwheel-region ${isPlaying ? 'mt-2 lg:mt-2' : 'mt-2 lg:mt-3'}`}>
             {/* Game info — hidden during play */}
             {!isPlaying && (
-              <div className="text-center mb-3 lg:mb-4">
+              <div className="text-center mb-2 lg:mb-3">
                 {game.category && (
                   <span
-                    className="inline-block text-green-500/70 font-mono text-[10px] tracking-widest uppercase border border-green-500/25 px-3 py-0.5 rounded-full mb-2"
+                    className="inline-block text-green-500/70 font-mono text-[10px] tracking-widest uppercase border border-green-500/25 px-3 py-0.5 rounded-full mb-1.5"
                     style={{ textShadow: '0 0 6px rgba(0,255,0,0.3)', boxShadow: 'inset 0 0 8px rgba(0,255,0,0.05), 0 0 6px rgba(0,255,0,0.05)' }}
                   >
                     {game.category}
                   </span>
                 )}
-                <p className="text-green-400 font-mono text-xs lg:text-sm">
+                <p className="text-green-400 font-mono text-xs lg:text-sm line-clamp-2 px-2">
                   {game.description}
                 </p>
               </div>
@@ -349,7 +349,7 @@ export function GamePortal({
 
             {/* Keyboard hints — hidden during play */}
             {!isPlaying && (
-              <div className="mt-3 text-xs lg:text-sm text-green-400/60 text-center space-y-1 font-mono">
+              <div className="mt-2 text-xs lg:text-sm text-green-400/60 text-center space-y-0.5 font-mono">
                 <p className="text-green-500/70">&larr;&rarr; NAVIGATE &bull; &uarr; MENU &bull; &darr; PLAY &bull; ENTER SCORES &bull; ESC EXIT</p>
                 <p className="text-green-500/50">1-{Math.min(9, games.length)} JUMP &bull; HOME/END &bull; SWIPE WHEEL &bull; I/H/A Keys</p>
               </div>
