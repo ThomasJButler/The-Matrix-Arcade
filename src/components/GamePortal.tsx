@@ -278,10 +278,7 @@ export function GamePortal({
             {!isPlaying && (
               <div className="text-center mb-2 lg:mb-3">
                 {game.category && (
-                  <span
-                    className="inline-block text-green-500/70 font-mono text-[10px] tracking-widest uppercase border border-green-500/25 px-3 py-0.5 rounded-full mb-1.5"
-                    style={{ textShadow: '0 0 6px rgba(0,255,0,0.3)', boxShadow: 'inset 0 0 8px rgba(0,255,0,0.05), 0 0 6px rgba(0,255,0,0.05)' }}
-                  >
+                  <span className="ipod-category-badge mb-1.5">
                     {game.category}
                   </span>
                 )}
