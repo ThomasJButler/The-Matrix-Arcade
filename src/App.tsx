@@ -646,7 +646,8 @@ function App() {
       <div aria-live="polite" className="sr-only">
         {isMuted ? 'Audio muted' : 'Audio unmuted'}
       </div>
-      <main id="main-content" className="flex-1 overflow-hidden flex items-center justify-center p-2 lg:p-4">
+      <main id="main-content" className="flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="min-h-full w-full flex items-center justify-center p-2 lg:p-4">
           <GamePortal
             games={games}
             selectedGame={selectedGame}
@@ -666,6 +667,7 @@ function App() {
             achievementManager={achievementManager}
             playSFX={playSFX}
           />
+        </div>
       </main>
 
       {/* Enhanced Footer */}

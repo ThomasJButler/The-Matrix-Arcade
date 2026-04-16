@@ -392,6 +392,15 @@ Object.defineProperty(document, 'exitFullscreen', {
   value: vi.fn()
 });
 
+// jsdom doesn't implement scrollIntoView — mock so components that call it
+// (e.g. GamePortal's R82.21 play-start scroll) don't throw under test.
+Object.defineProperty(Element.prototype, 'scrollIntoView', {
+  configurable: true,
+  enumerable: true,
+  writable: true,
+  value: vi.fn()
+});
+
 Object.defineProperty(document, 'fullscreenElement', {
   configurable: true,
   enumerable: true,
