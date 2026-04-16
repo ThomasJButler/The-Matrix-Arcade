@@ -178,7 +178,11 @@ export function GamePortal({
   }, [onShowInstructions, onNext, onPrev, handlePlayPress, handleScoresPress, isPlaying, onExit, triggerRotation, playClick, onJumpToGame, games.length]);
 
   return (
-    <div className={`relative w-full mx-auto flex flex-col justify-center h-full game-portal-container px-4 transition-all duration-300 ${isPlaying ? 'max-w-5xl' : 'max-w-xl'}`}>
+    <motion.div
+      layout
+      transition={{ type: 'spring', stiffness: 220, damping: 26, mass: 0.9 }}
+      className={`relative w-full mx-auto flex flex-col justify-center h-full game-portal-container px-4 ${isPlaying ? 'max-w-[min(95vw,1600px)]' : 'max-w-xl'}`}
+    >
       <div className="sr-only" aria-live="polite" aria-atomic="true">
         {isPlaying
           ? `Now playing ${game.title}`
@@ -354,6 +358,6 @@ export function GamePortal({
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
