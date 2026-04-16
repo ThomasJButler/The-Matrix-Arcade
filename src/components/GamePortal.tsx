@@ -116,7 +116,7 @@ export function GamePortal({
     };
   }, [isPlaying, onNext, onPrev, playClick, triggerRotation]);
 
-  const handleBottomClick = useCallback(() => {
+  const handlePlayPress = useCallback(() => {
     if (isPlaying) {
       playClick();
       onExit();
@@ -125,6 +125,12 @@ export function GamePortal({
       onPlay();
     }
   }, [isPlaying, onExit, isPlayDisabled, hasComponent, onPlay, playClick, playConfirm]);
+
+  const handleScoresPress = useCallback(() => {
+    if (isPlaying) return;
+    playClick();
+    onShowHighScores();
+  }, [isPlaying, onShowHighScores, playClick]);
 
   const handleWheelKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (isPlaying) {
@@ -138,10 +144,10 @@ export function GamePortal({
     const actionMap: Record<string, { index: number; action: () => void }> = {
       ArrowUp:    { index: 0, action: () => { playClick(); onShowInstructions(); } },
       ArrowRight: { index: 1, action: () => { playClick(); triggerRotation('right'); onNext(); } },
-      ArrowDown:  { index: 2, action: handleBottomClick },
+      ArrowDown:  { index: 2, action: handleScoresPress },
       ArrowLeft:  { index: 3, action: () => { playClick(); triggerRotation('left'); onPrev(); } },
-      Enter:      { index: 4, action: () => { playConfirm(); onShowHighScores(); } },
-      ' ':        { index: 4, action: () => { playConfirm(); onShowHighScores(); } },
+      Enter:      { index: 4, action: handlePlayPress },
+      ' ':        { index: 4, action: handlePlayPress },
     };
 
     const mapping = actionMap[e.key];
@@ -169,7 +175,7 @@ export function GamePortal({
         onJumpToGame(idx);
       }
     }
-  }, [onShowInstructions, onNext, onPrev, handleBottomClick, onShowHighScores, isPlaying, onExit, triggerRotation, playClick, playConfirm, onJumpToGame, games.length]);
+  }, [onShowInstructions, onNext, onPrev, handlePlayPress, handleScoresPress, isPlaying, onExit, triggerRotation, playClick, onJumpToGame, games.length]);
 
   return (
     <div className={`relative w-full mx-auto flex flex-col justify-center h-full game-portal-container px-4 transition-all duration-300 ${isPlaying ? 'max-w-5xl' : 'max-w-xl'}`}>
@@ -328,29 +334,30 @@ export function GamePortal({
               <button
                 ref={(el) => { zoneRefs.current[2] = el; }}
                 className="clickwheel-zone clickwheel-bottom"
-                onClick={handleBottomClick}
-                disabled={!isPlaying && (isPlayDisabled || !hasComponent)}
+                onClick={handleScoresPress}
+                disabled={isPlaying}
                 tabIndex={-1}
-                aria-label={isPlaying ? 'Stop game' : 'Play game'}
+                aria-label="View high scores"
               >
-                <span>{isPlaying ? '❚❚' : '▶'}</span>
+                <span>●</span>
               </button>
 
               <button
                 ref={(el) => { zoneRefs.current[4] = el; }}
                 className="clickwheel-centre"
-                onClick={() => { playConfirm(); isPlaying ? onExit() : onShowHighScores(); }}
+                onClick={handlePlayPress}
+                disabled={!isPlaying && (isPlayDisabled || !hasComponent)}
                 tabIndex={-1}
-                aria-label={isPlaying ? 'Exit game' : 'View high scores'}
+                aria-label={isPlaying ? 'Stop game' : 'Play game'}
               >
-                ●
+                {isPlaying ? '❚❚' : '▶'}
               </button>
             </div>
 
             {/* Keyboard hints — hidden during play */}
             {!isPlaying && (
               <div className="mt-2 text-xs lg:text-sm text-green-400/60 text-center space-y-0.5 font-mono">
-                <p className="text-green-500/70">&larr;&rarr; NAVIGATE &bull; &uarr; MENU &bull; &darr; PLAY &bull; ENTER SCORES &bull; ESC EXIT</p>
+                <p className="text-green-500/70">&larr;&rarr; NAVIGATE &bull; &uarr; MENU &bull; &darr; SCORES &bull; ENTER PLAY &bull; ESC EXIT</p>
                 <p className="text-green-500/50">1-{Math.min(9, games.length)} JUMP &bull; HOME/END &bull; SWIPE WHEEL &bull; I/H/A Keys</p>
               </div>
             )}

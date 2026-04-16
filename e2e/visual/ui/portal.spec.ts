@@ -10,7 +10,7 @@ test.describe('Portal view', () => {
     await navigateToGame(arcadePage, 'snake-classic');
     // Clickwheel zones use clip-path which Playwright's hit-testing can't resolve,
     // so navigate via keyboard (ArrowRight triggers onNext on the toolbar)
-    const wheel = arcadePage.locator('[role="toolbar"][aria-label="Game navigation wheel"]');
+    const wheel = arcadePage.locator('[role="toolbar"][aria-label^="Game navigation wheel"]');
     await wheel.focus();
     await arcadePage.keyboard.press('ArrowRight');
     await expect.poll(() => arcadePage.evaluate(() => document.body.dataset.portalGameId)).not.toBe('snake-classic');

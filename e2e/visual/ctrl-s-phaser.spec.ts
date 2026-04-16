@@ -20,13 +20,9 @@ test.describe('CTRL-S Phaser — visual baselines', () => {
       { timeout: 15_000 },
     );
 
-    const wheel = page.locator('[role="toolbar"][aria-label="Game navigation wheel"]');
-    if (await wheel.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await wheel.focus();
-      await page.keyboard.press('ArrowDown');
-    } else {
-      await page.keyboard.press('Enter');
-    }
+    const wheel = page.locator('[role="toolbar"][aria-label^="Game navigation wheel"]');
+    await wheel.focus();
+    await page.keyboard.press('Enter');
     await page.waitForFunction(
       () => document.body.dataset.portalIsPlaying === 'true',
       undefined,
