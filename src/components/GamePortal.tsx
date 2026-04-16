@@ -1,6 +1,6 @@
 import React, { useRef, useCallback, useState, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, VolumeX } from 'lucide-react';
+import { VolumeX } from 'lucide-react';
 import { GAME_TITLES } from '../lib/asciiArt';
 import { GameErrorBoundary } from './ui/GameErrorBoundary';
 import type { GameEntry } from '../data/gameRegistry';
@@ -256,16 +256,6 @@ export function GamePortal({
                 </div>
               )}
 
-              {isPlaying && (
-                <button
-                  onClick={onExit}
-                  className="absolute top-3 right-3 z-50 p-2 bg-red-900/90 hover:bg-red-700 rounded-lg border border-red-500/80 backdrop-blur-sm transition-all group shadow-lg hover:shadow-red-500/50 hover:scale-110"
-                  title="Exit Game (ESC)"
-                  aria-label="Exit Game"
-                >
-                  <X className="w-5 h-5 group-hover:rotate-90 transition-transform" />
-                </button>
-              )}
             </div>
           </div>
 
