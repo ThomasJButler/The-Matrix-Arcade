@@ -252,14 +252,6 @@ export function GamePortal({
                 </>
               )}
 
-              {/* Floating indicators during play */}
-              {isPlaying && isMuted && (
-                <div className="absolute top-3 left-3 z-50 flex items-center gap-1.5 px-3 py-1.5 bg-red-600/90 border border-red-400 rounded-lg animate-pulse-red pointer-events-none shadow-lg shadow-red-500/50">
-                  <VolumeX className="w-4 h-4 text-white" />
-                  <span className="text-white font-mono text-xs font-bold">MUTED</span>
-                </div>
-              )}
-
             </div>
           </div>
 
@@ -282,71 +274,144 @@ export function GamePortal({
               </div>
             )}
 
-            {/* iPod Clickwheel */}
-            <div
-              ref={wheelRef}
-              className={`ipod-clickwheel${wheelRotation ? ` rotating-${wheelRotation}` : ''}${isPlaying ? ' ipod-clickwheel--compact' : ''}`}
-              role="toolbar"
-              aria-label="Game navigation wheel — swipe left or right to navigate"
-              tabIndex={0}
-              onKeyDown={handleWheelKeyDown}
-            >
-              <button
-                ref={(el) => { zoneRefs.current[0] = el; }}
-                className="clickwheel-zone clickwheel-top"
-                onClick={() => { playClick(); isPlaying ? onExit() : onShowInstructions(); }}
-                tabIndex={-1}
-                aria-label={isPlaying ? 'Exit game' : 'How to play'}
-              >
-                <span>{isPlaying ? 'EXIT' : 'MENU'}</span>
-              </button>
+            {/* Control surface: clickwheel (static) ↔ dashbar (in-play) */}
+            <AnimatePresence mode="wait" initial={false}>
+              {isPlaying ? (
+                <motion.div
+                  key="dashbar"
+                  className="ipod-dashbar"
+                  role="toolbar"
+                  aria-label="In-game controls"
+                  tabIndex={0}
+                  onKeyDown={handleWheelKeyDown}
+                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                  transition={{ duration: 0.32, ease: [0.4, 0, 0.2, 1] }}
+                >
+                  <button
+                    ref={(el) => { zoneRefs.current[0] = el; }}
+                    className="dashbar-btn"
+                    onClick={() => { playClick(); onExit(); }}
+                    tabIndex={-1}
+                    aria-label="Exit game"
+                  >
+                    <span>EXIT</span>
+                  </button>
+                  <button
+                    ref={(el) => { zoneRefs.current[3] = el; }}
+                    className="dashbar-btn"
+                    data-testid="carousel-prev"
+                    tabIndex={-1}
+                    aria-label="Previous game"
+                    disabled
+                  >
+                    <span>◄◄</span>
+                  </button>
+                  <button
+                    ref={(el) => { zoneRefs.current[4] = el; }}
+                    className="dashbar-btn dashbar-centre"
+                    onClick={handlePlayPress}
+                    tabIndex={-1}
+                    aria-label="Stop game"
+                  >
+                    <span>❚❚</span>
+                  </button>
+                  <button
+                    ref={(el) => { zoneRefs.current[1] = el; }}
+                    className="dashbar-btn"
+                    data-testid="carousel-next"
+                    tabIndex={-1}
+                    aria-label="Next game"
+                    disabled
+                  >
+                    <span>►►</span>
+                  </button>
+                  <button
+                    ref={(el) => { zoneRefs.current[2] = el; }}
+                    className="dashbar-btn"
+                    tabIndex={-1}
+                    aria-label="View high scores"
+                    disabled
+                  >
+                    <span>●</span>
+                  </button>
+                  {isMuted && (
+                    <div className="dashbar-mute" role="status" aria-label="Audio muted">
+                      <VolumeX className="w-3 h-3" aria-hidden="true" />
+                      <span>MUTED</span>
+                    </div>
+                  )}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="wheel"
+                  ref={wheelRef}
+                  className={`ipod-clickwheel${wheelRotation ? ` rotating-${wheelRotation}` : ''}`}
+                  role="toolbar"
+                  aria-label="Game navigation wheel — swipe left or right to navigate"
+                  tabIndex={0}
+                  onKeyDown={handleWheelKeyDown}
+                  initial={{ opacity: 0, scale: 0.94 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.94 }}
+                  transition={{ duration: 0.32, ease: [0.4, 0, 0.2, 1] }}
+                >
+                  <button
+                    ref={(el) => { zoneRefs.current[0] = el; }}
+                    className="clickwheel-zone clickwheel-top"
+                    onClick={() => { playClick(); onShowInstructions(); }}
+                    tabIndex={-1}
+                    aria-label="How to play"
+                  >
+                    <span>MENU</span>
+                  </button>
 
-              <button
-                ref={(el) => { zoneRefs.current[3] = el; }}
-                className="clickwheel-zone clickwheel-left"
-                onClick={() => { if (!isPlaying) { playClick(); triggerRotation('left'); onPrev(); } }}
-                data-testid="carousel-prev"
-                tabIndex={-1}
-                aria-label="Previous game"
-                disabled={isPlaying}
-              >
-                <span>◄◄</span>
-              </button>
+                  <button
+                    ref={(el) => { zoneRefs.current[3] = el; }}
+                    className="clickwheel-zone clickwheel-left"
+                    onClick={() => { playClick(); triggerRotation('left'); onPrev(); }}
+                    data-testid="carousel-prev"
+                    tabIndex={-1}
+                    aria-label="Previous game"
+                  >
+                    <span>◄◄</span>
+                  </button>
 
-              <button
-                ref={(el) => { zoneRefs.current[1] = el; }}
-                className="clickwheel-zone clickwheel-right"
-                onClick={() => { if (!isPlaying) { playClick(); triggerRotation('right'); onNext(); } }}
-                data-testid="carousel-next"
-                tabIndex={-1}
-                aria-label="Next game"
-                disabled={isPlaying}
-              >
-                <span>►►</span>
-              </button>
+                  <button
+                    ref={(el) => { zoneRefs.current[1] = el; }}
+                    className="clickwheel-zone clickwheel-right"
+                    onClick={() => { playClick(); triggerRotation('right'); onNext(); }}
+                    data-testid="carousel-next"
+                    tabIndex={-1}
+                    aria-label="Next game"
+                  >
+                    <span>►►</span>
+                  </button>
 
-              <button
-                ref={(el) => { zoneRefs.current[2] = el; }}
-                className="clickwheel-zone clickwheel-bottom"
-                onClick={handleScoresPress}
-                disabled={isPlaying}
-                tabIndex={-1}
-                aria-label="View high scores"
-              >
-                <span>●</span>
-              </button>
+                  <button
+                    ref={(el) => { zoneRefs.current[2] = el; }}
+                    className="clickwheel-zone clickwheel-bottom"
+                    onClick={handleScoresPress}
+                    tabIndex={-1}
+                    aria-label="View high scores"
+                  >
+                    <span>●</span>
+                  </button>
 
-              <button
-                ref={(el) => { zoneRefs.current[4] = el; }}
-                className="clickwheel-centre"
-                onClick={handlePlayPress}
-                disabled={!isPlaying && (isPlayDisabled || !hasComponent)}
-                tabIndex={-1}
-                aria-label={isPlaying ? 'Stop game' : 'Play game'}
-              >
-                {isPlaying ? '❚❚' : '▶'}
-              </button>
-            </div>
+                  <button
+                    ref={(el) => { zoneRefs.current[4] = el; }}
+                    className="clickwheel-centre"
+                    onClick={handlePlayPress}
+                    disabled={isPlayDisabled || !hasComponent}
+                    tabIndex={-1}
+                    aria-label="Play game"
+                  >
+                    ▶
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Keyboard hints — hidden during play */}
             {!isPlaying && (
