@@ -163,11 +163,27 @@
   inset: 2px;
   border-radius: calc(1.75rem - 2px);
   border: 1px solid rgba(0, 255, 0, 0.06);
-  background: linear-gradient(180deg, rgba(0, 255, 0, 0.02) 0%, transparent 30%);
+  background:
+    /* Iconic 4th-gen chrome highlight band — strongest at the top edge */
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.07) 0%,
+      rgba(255, 255, 255, 0.025) 4%,
+      transparent 12%
+    ),
+    /* Diagonal gloss sweep, very subtle, evokes brushed-aluminium reflection */
+    linear-gradient(
+      135deg,
+      transparent 0%,
+      rgba(0, 255, 0, 0.025) 35%,
+      transparent 70%
+    ),
+    linear-gradient(180deg, rgba(0, 255, 0, 0.02) 0%, transparent 30%);
   pointer-events: none;
 }
 
 .ipod-screen {
+  position: relative;
   background: #080808;
   border-radius: 0.75rem;
   overflow: hidden;
@@ -180,6 +196,33 @@
     0 -1px 0 rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(0, 255, 0, 0.12);
   contain: layout style paint;
+}
+
+/* Glass reflection — subtle highlight curving across the top of the bezel.
+   Sits inside `.ipod-screen` (clipped by overflow: hidden) and atop game
+   content thanks to default stacking. `pointer-events: none` lets clicks
+   pass straight through to the canvas, so interactivity is preserved. */
+.ipod-screen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  background:
+    /* Top-edge curved-glass highlight, brightest centre-top */
+    radial-gradient(
+      ellipse 120% 35% at 50% -8%,
+      rgba(255, 255, 255, 0.06) 0%,
+      rgba(255, 255, 255, 0.02) 35%,
+      transparent 65%
+    ),
+    /* Diagonal smear — reads as a soft reflection across the glass */
+    linear-gradient(
+      115deg,
+      transparent 30%,
+      rgba(0, 255, 0, 0.018) 50%,
+      transparent 70%
+    );
 }
 
 .ipod-title-overlay {
@@ -239,6 +282,13 @@
 
 .ipod-body--playing .ipod-screen {
   border-radius: 0.5rem;
+}
+
+/* Hide the menu-only glass reflection during play so nothing overlays the
+   game canvas. The game has its own visuals; the iPod chrome metaphor is
+   strongest on the carousel preview where the user is browsing. */
+.ipod-body--playing .ipod-screen::after {
+  display: none;
 }
 
 .ipod-screen--playing {
