@@ -319,9 +319,8 @@ export function GamePortal({
                     <div className="absolute top-0 left-0 right-0 ipod-title-overlay pointer-events-none">
                       <h2 className="sr-only">{game.title}</h2>
                       <pre
-                        className="text-green-500 font-mono text-[6px] lg:text-[8px] xl:text-[9px] leading-none text-center select-none overflow-hidden mx-auto py-1 lg:py-1.5"
+                        className="ipod-title-glyph text-green-500 font-mono text-[6px] lg:text-[8px] xl:text-[9px] leading-none text-center select-none overflow-hidden mx-auto py-1 lg:py-1.5"
                         aria-hidden="true"
-                        style={{ textShadow: '0 0 6px rgba(0,255,0,0.9), 0 0 16px rgba(0,255,0,0.4), 0 0 30px rgba(0,255,0,0.15), 0 1px 2px rgba(0,0,0,0.8)' }}
                       >
                         {GAME_TITLES[game.id] || game.title}
                       </pre>
