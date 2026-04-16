@@ -351,9 +351,20 @@
   box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
+/* Focus-visible: outline ignores border-radius, drawing square corners outside
+   the visible circle. Use inset box-shadow so the focus ring follows the
+   actual circular silhouette. */
 .dashbar-btn:focus-visible {
-  outline: 2px solid rgba(0, 255, 0, 0.6);
-  outline-offset: -2px;
+  outline: none;
+  box-shadow:
+    inset 0 0 0 2px rgba(0, 255, 120, 0.8),
+    inset 0 0 10px rgba(0, 255, 0, 0.2);
+}
+
+.dashbar-btn:focus-visible:active:not(:disabled) {
+  box-shadow:
+    inset 0 0 0 2px rgba(0, 255, 120, 0.8),
+    inset 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
 .dashbar-btn:disabled {
@@ -398,6 +409,23 @@
   box-shadow:
     inset 0 2px 6px rgba(0, 0, 0, 0.7),
     0 0 6px rgba(0, 255, 0, 0.08);
+}
+
+/* Focus-visible: outer halo around the circular button — overrides hover above
+   when both apply (later in source order wins). */
+.dashbar-centre:focus-visible:not(:disabled) {
+  outline: none;
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.5),
+    0 0 0 2px rgba(0, 255, 120, 0.85),
+    0 0 16px rgba(0, 255, 0, 0.3);
+}
+
+.dashbar-centre:focus-visible:active:not(:disabled) {
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.7),
+    0 0 0 2px rgba(0, 255, 120, 0.85),
+    0 0 10px rgba(0, 255, 0, 0.18);
 }
 
 /* Mute indicator inline in dashbar — replaces floating in-screen badge during play */
@@ -482,9 +510,23 @@
   transition: color 0.06s ease, background-color 0.06s ease, transform 50ms ease-out, box-shadow 0.06s ease;
 }
 
+/* Focus-visible: outline gets clipped by clip-path on each wedge, leaving a
+   fragmented L-shape. Use inset box-shadow instead — it's painted inside the
+   element's content box and respects the clip-path, giving a clean focus ring
+   that follows the wedge's actual visible perimeter. */
 .clickwheel-zone:focus-visible {
-  outline: 2px solid rgba(0, 255, 0, 0.6);
-  outline-offset: -4px;
+  outline: none;
+  color: rgba(0, 255, 0, 1);
+  background: rgba(0, 255, 0, 0.10);
+  box-shadow:
+    inset 0 0 0 3px rgba(0, 255, 120, 0.75),
+    inset 0 0 18px rgba(0, 255, 0, 0.25);
+}
+
+.clickwheel-zone:focus-visible:active {
+  box-shadow:
+    inset 0 0 0 3px rgba(0, 255, 120, 0.75),
+    inset 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
 .clickwheel-zone:disabled {
@@ -588,9 +630,23 @@
   transition: color 0.06s ease, background 0.06s ease, box-shadow 0.06s ease, transform 50ms ease-out;
 }
 
+/* Focus-visible: combine an outer halo (outside the circle, where outline can't
+   reach evenly because of border-radius) with an inner ring. The 0/0/0/2px
+   shadow draws a 2px ring tight around the circle; the larger blur is the
+   ambient halo for keyboard-only users. */
 .clickwheel-centre:focus-visible {
-  outline: 2px solid rgba(0, 255, 0, 0.6);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.5),
+    0 0 0 2px rgba(0, 255, 120, 0.85),
+    0 0 16px rgba(0, 255, 0, 0.35);
+}
+
+.clickwheel-centre:focus-visible:active {
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.7),
+    0 0 0 2px rgba(0, 255, 120, 0.85),
+    0 0 10px rgba(0, 255, 0, 0.2);
 }
 
 .clickwheel-centre:disabled {
