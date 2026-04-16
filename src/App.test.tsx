@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitForElementToBeRemoved } from '@testing-library/react';
 import App from './App';
 
 // Create mock objects
@@ -238,14 +238,19 @@ describe('App Component', () => {
     expect(screen.getByRole('button', { name: 'Play game' })).toBeInTheDocument();
   });
 
-  it('handles Enter key to start game', () => {
+  it('handles Enter key to start game', async () => {
     render(<App />);
-    
+
     // Press Enter
     fireEvent.keyDown(window, { key: 'Enter' });
-    
-    // Should start the game — clickwheel play zone disappears
-    expect(screen.queryByRole('button', { name: 'Play game' })).not.toBeInTheDocument();
+
+    // Clickwheel animates out (AnimatePresence mode="wait") then dashbar mounts.
+    // Wait for the exit animation to drop the Play button from the DOM.
+    await waitForElementToBeRemoved(
+      () => screen.queryByRole('button', { name: 'Play game' }),
+      { timeout: 2000 },
+    );
+    expect(screen.getByRole('button', { name: 'Stop game' })).toBeInTheDocument();
   });
 
   it('toggles mute state with V key', () => {
