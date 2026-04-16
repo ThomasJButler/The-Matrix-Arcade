@@ -139,8 +139,39 @@ export function GamePortal({
   const playClick = useCallback(() => playSFX?.('scoreboardTab'), [playSFX]);
   const playConfirm = useCallback(() => playSFX?.('scoreboardConfirm'), [playSFX]);
 
-  const wheelRef = useRef<HTMLDivElement>(null);
+  const wheelRef = useRef<HTMLDivElement | null>(null);
+  const dashbarRef = useRef<HTMLDivElement | null>(null);
+  const pendingSurfaceFocus = useRef<'wheel' | 'dashbar' | null>(null);
   const touchStart = useRef<{ x: number; y: number; time: number } | null>(null);
+
+  // Capture "focus should follow the surface swap" ONLY when the portal
+  // surface currently owns focus — prevents stealing focus from modals
+  // or unrelated UI that may have triggered an exit indirectly.
+  const captureSurfaceFocusIntent = useCallback((target: 'wheel' | 'dashbar') => {
+    const active = document.activeElement;
+    if (containerRef.current && active instanceof Node && containerRef.current.contains(active)) {
+      pendingSurfaceFocus.current = target;
+    }
+  }, [containerRef]);
+
+  // Ref callbacks fire when AnimatePresence mounts the new surface — the
+  // earliest deterministic moment we can transfer focus. A useEffect keyed
+  // on isPlaying fires too early under `mode="wait"` (exit anim still running).
+  const wheelRefCallback = useCallback((el: HTMLDivElement | null) => {
+    wheelRef.current = el;
+    if (el && pendingSurfaceFocus.current === 'wheel') {
+      pendingSurfaceFocus.current = null;
+      el.focus();
+    }
+  }, []);
+
+  const dashbarRefCallback = useCallback((el: HTMLDivElement | null) => {
+    dashbarRef.current = el;
+    if (el && pendingSurfaceFocus.current === 'dashbar') {
+      pendingSurfaceFocus.current = null;
+      el.focus();
+    }
+  }, []);
 
   useEffect(() => {
     const el = wheelRef.current;
@@ -187,13 +218,15 @@ export function GamePortal({
 
   const handlePlayPress = useCallback(() => {
     if (isPlaying) {
+      captureSurfaceFocusIntent('wheel');
       playClick();
       onExit();
     } else if (!isPlayDisabled && hasComponent) {
+      captureSurfaceFocusIntent('dashbar');
       playConfirm();
       onPlay();
     }
-  }, [isPlaying, onExit, isPlayDisabled, hasComponent, onPlay, playClick, playConfirm]);
+  }, [isPlaying, onExit, isPlayDisabled, hasComponent, onPlay, playClick, playConfirm, captureSurfaceFocusIntent]);
 
   const handleScoresPress = useCallback(() => {
     if (isPlaying) return;
@@ -205,6 +238,7 @@ export function GamePortal({
     if (isPlaying) {
       if (e.key === 'Escape') {
         e.preventDefault();
+        captureSurfaceFocusIntent('wheel');
         onExit();
       }
       return;
@@ -245,7 +279,7 @@ export function GamePortal({
         onJumpToGame(idx);
       }
     }
-  }, [onShowInstructions, onNext, onPrev, handlePlayPress, handleScoresPress, isPlaying, onExit, triggerRotation, triggerPressFlash, playClick, onJumpToGame, games.length]);
+  }, [onShowInstructions, onNext, onPrev, handlePlayPress, handleScoresPress, isPlaying, onExit, triggerRotation, triggerPressFlash, playClick, onJumpToGame, games.length, captureSurfaceFocusIntent]);
 
   if (!game) {
     return (
@@ -391,6 +425,7 @@ export function GamePortal({
               {isPlaying ? (
                 <motion.div
                   key="dashbar"
+                  ref={dashbarRefCallback}
                   className="ipod-dashbar"
                   role="toolbar"
                   aria-label="In-game controls"
@@ -404,7 +439,7 @@ export function GamePortal({
                   <button
                     ref={(el) => { zoneRefs.current[0] = el; }}
                     className="dashbar-btn"
-                    onClick={() => { playClick(); onExit(); }}
+                    onClick={() => { captureSurfaceFocusIntent('wheel'); playClick(); onExit(); }}
                     tabIndex={-1}
                     aria-label="Exit game"
                   >
@@ -458,7 +493,7 @@ export function GamePortal({
               ) : (
                 <motion.div
                   key="wheel"
-                  ref={wheelRef}
+                  ref={wheelRefCallback}
                   className={`ipod-clickwheel${wheelRotation ? ` rotating-${wheelRotation}` : ''}`}
                   role="toolbar"
                   aria-label="Game navigation wheel — swipe left or right to navigate"
