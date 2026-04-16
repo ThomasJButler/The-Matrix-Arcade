@@ -73,6 +73,29 @@ export function GamePortal({
         : { duration: 0.32, ease: [0.4, 0, 0.2, 1] as const },
     [shouldReduceMotion],
   );
+  const slideTransition = useMemo(
+    () =>
+      shouldReduceMotion
+        ? { duration: 0 }
+        : { duration: 0.26, ease: [0.25, 0.1, 0.25, 1] as const },
+    [shouldReduceMotion],
+  );
+  const slideVariants = useMemo(
+    () =>
+      shouldReduceMotion
+        ? {
+            initial: { opacity: 0 },
+            animate: { opacity: 1 },
+            exit: { opacity: 0 },
+          }
+        : {
+            initial: (dir: number) => ({ x: `${dir * 100}%`, opacity: 0 }),
+            animate: { x: '0%', opacity: 1 },
+            exit: (dir: number) => ({ x: `${-dir * 100}%`, opacity: 0 }),
+          },
+    [shouldReduceMotion],
+  );
+  const slideDirection = transitionDirection === 'right' ? 1 : -1;
 
   const triggerRotation = useCallback((direction: 'left' | 'right') => {
     if (shouldReduceMotion) return;
@@ -241,32 +264,35 @@ export function GamePortal({
                   </Suspense>
                 </GameErrorBoundary>
               ) : (
-                <>
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={selectedGame}
-                      className="w-full h-full transition-enhanced"
-                    >
-                      <img
-                        src={game.preview}
-                        alt={game.title}
-                        className="w-full h-full object-cover"
-                      />
-                    </motion.div>
-                  </AnimatePresence>
-
-                  {/* Title overlay on screen */}
-                  <div className="absolute top-0 left-0 right-0 ipod-title-overlay pointer-events-none">
-                    <h2 className="sr-only">{game.title}</h2>
-                    <pre
-                      className="text-green-500 font-mono text-[6px] lg:text-[8px] xl:text-[9px] leading-none text-center select-none overflow-hidden mx-auto py-1 lg:py-1.5"
-                      aria-hidden="true"
-                      style={{ textShadow: '0 0 6px rgba(0,255,0,0.9), 0 0 16px rgba(0,255,0,0.4), 0 0 30px rgba(0,255,0,0.15), 0 1px 2px rgba(0,0,0,0.8)' }}
-                    >
-                      {GAME_TITLES[game.id] || game.title}
-                    </pre>
-                  </div>
-                </>
+                <AnimatePresence mode="wait" custom={slideDirection} initial={false}>
+                  <motion.div
+                    key={selectedGame}
+                    custom={slideDirection}
+                    variants={slideVariants}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                    transition={slideTransition}
+                    className="w-full h-full"
+                  >
+                    <img
+                      src={game.preview}
+                      alt={game.title}
+                      className="w-full h-full object-cover"
+                    />
+                    {/* Title overlay rides with the slide */}
+                    <div className="absolute top-0 left-0 right-0 ipod-title-overlay pointer-events-none">
+                      <h2 className="sr-only">{game.title}</h2>
+                      <pre
+                        className="text-green-500 font-mono text-[6px] lg:text-[8px] xl:text-[9px] leading-none text-center select-none overflow-hidden mx-auto py-1 lg:py-1.5"
+                        aria-hidden="true"
+                        style={{ textShadow: '0 0 6px rgba(0,255,0,0.9), 0 0 16px rgba(0,255,0,0.4), 0 0 30px rgba(0,255,0,0.15), 0 1px 2px rgba(0,0,0,0.8)' }}
+                      >
+                        {GAME_TITLES[game.id] || game.title}
+                      </pre>
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
               )}
 
             </div>
