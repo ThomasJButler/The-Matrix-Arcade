@@ -716,22 +716,26 @@ function App() {
       </AnimatePresence>
 
       {/* Game Instructions Modal */}
-      <GameInstructions
-        isOpen={showInstructions}
-        onClose={() => setShowInstructions(false)}
-        game={GAME_REGISTRY[selectedGame]}
-        icon={games[selectedGame].icon}
-      />
+      {GAME_REGISTRY[selectedGame] && (
+        <GameInstructions
+          isOpen={showInstructions}
+          onClose={() => setShowInstructions(false)}
+          game={GAME_REGISTRY[selectedGame]}
+          icon={games[selectedGame]?.icon ?? null}
+        />
+      )}
 
       {/* Game High Scores Modal */}
-      <GameHighScores
-        isOpen={showHighScores}
-        onClose={() => setShowHighScores(false)}
-        game={GAME_REGISTRY[selectedGame]}
-        icon={games[selectedGame].icon}
-        saveData={saveData}
-        achievements={achievementManager.achievements}
-      />
+      {GAME_REGISTRY[selectedGame] && (
+        <GameHighScores
+          isOpen={showHighScores}
+          onClose={() => setShowHighScores(false)}
+          game={GAME_REGISTRY[selectedGame]}
+          icon={games[selectedGame]?.icon ?? null}
+          saveData={saveData}
+          achievements={achievementManager.achievements}
+        />
+      )}
 
       {/* Audio Settings Modal */}
       <AudioSettings
