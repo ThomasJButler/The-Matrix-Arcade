@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { createRef } from 'react';
 import { GamePortal } from './GamePortal';
+import { PAUSE_REQUEST_EVENT } from '../lib/phaser/types';
 
 function makeProps(overrides: Partial<React.ComponentProps<typeof GamePortal>> = {}) {
   return {
@@ -70,5 +71,64 @@ describe('GamePortal empty / edge-state rendering', () => {
 
     expect(screen.getByTestId('game-portal-empty')).toBeInTheDocument();
     expect(screen.getByText('NO SIGNAL')).toBeInTheDocument();
+  });
+});
+
+describe('GamePortal dashbar EXIT vs PAUSE', () => {
+  const makeGames = () => [
+    {
+      id: 'snake-classic',
+      title: 'Snake Classic',
+      description: 'test',
+      preview: 'preview.png',
+      category: 'Arcade' as const,
+      inspiration: '',
+      inspirationNote: '',
+      controls: '',
+      component: () => null,
+      icon: null,
+    },
+  ];
+
+  it('dashbar EXIT button calls onExit without dispatching a pause request', () => {
+    const onExit = vi.fn();
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+
+    render(
+      <GamePortal
+        {...makeProps({ games: makeGames(), isPlaying: true, onExit })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Exit game' }));
+
+    expect(onExit).toHaveBeenCalledTimes(1);
+    const pauseDispatches = dispatchSpy.mock.calls.filter(
+      ([event]) => event instanceof Event && event.type === PAUSE_REQUEST_EVENT,
+    );
+    expect(pauseDispatches).toHaveLength(0);
+
+    dispatchSpy.mockRestore();
+  });
+
+  it('dashbar PAUSE button dispatches pause request without calling onExit', () => {
+    const onExit = vi.fn();
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+
+    render(
+      <GamePortal
+        {...makeProps({ games: makeGames(), isPlaying: true, onExit })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pause game' }));
+
+    expect(onExit).not.toHaveBeenCalled();
+    const pauseDispatches = dispatchSpy.mock.calls.filter(
+      ([event]) => event instanceof Event && event.type === PAUSE_REQUEST_EVENT,
+    );
+    expect(pauseDispatches).toHaveLength(1);
+
+    dispatchSpy.mockRestore();
   });
 });

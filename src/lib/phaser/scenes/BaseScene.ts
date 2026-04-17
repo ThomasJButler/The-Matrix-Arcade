@@ -11,6 +11,7 @@
 
 import Phaser from 'phaser';
 import {
+  PAUSE_REQUEST_EVENT,
   REGISTRY_KEYS,
   SCENE_KEYS,
   MATRIX_COLORS,
@@ -65,7 +66,25 @@ export abstract class BaseScene extends Phaser.Scene {
    */
   protected setupCommonInputs(): void {
     this.waitForKeyboard(() => this._bindCommonKeys());
+    // Listen for pause requests dispatched by the React portal dashbar.
+    // Registered outside waitForKeyboard so the hook is in place even before
+    // Phaser's keyboard plugin finishes initialising.
+    if (typeof window !== 'undefined') {
+      window.addEventListener(PAUSE_REQUEST_EVENT, this._handlePauseRequest);
+    }
   }
+
+  /**
+   * Honour React-side pause requests with the same gating as the in-game P key:
+   * only toggles when this scene is the active one and pause is currently
+   * allowed (not during countdown, not on scenes that opt out via allowPause).
+   */
+  private _handlePauseRequest = (): void => {
+    if (!this.allowPause) return;
+    if (this.isCountingDown) return;
+    if (!this.scene.isActive()) return;
+    this.togglePause();
+  };
 
   private _bindCommonKeys(): void {
     if (!this.input.keyboard) return;
@@ -112,6 +131,9 @@ export abstract class BaseScene extends Phaser.Scene {
     this.escKey = undefined;
     this.pauseKey = undefined;
     this.muteKey = undefined;
+    if (typeof window !== 'undefined') {
+      window.removeEventListener(PAUSE_REQUEST_EVENT, this._handlePauseRequest);
+    }
   }
 
   /**
