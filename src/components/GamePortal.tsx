@@ -1,9 +1,8 @@
 import React, { useRef, useCallback, useState, useEffect, useMemo, Suspense } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { LogOut, Pause, Play, Trophy, VolumeX } from 'lucide-react';
+import { HelpCircle, LogOut, Pause, Play, Trophy, VolumeX } from 'lucide-react';
 import { GAME_TITLES } from '../lib/asciiArt';
 import { GameErrorBoundary } from './ui/GameErrorBoundary';
-import { KeyPanel } from './KeyPanel';
 import type { GameEntry } from '../data/gameRegistry';
 import {
   PAUSE_REQUEST_EVENT,
@@ -316,10 +315,9 @@ export function GamePortal({
   }, [isPlaying, onExit, isPlayDisabled, hasComponent, onPlay, playClick, playConfirm, captureSurfaceFocusIntent]);
 
   const handleScoresPress = useCallback(() => {
-    if (isPlaying) return;
     playClick();
     onShowHighScores();
-  }, [isPlaying, onShowHighScores, playClick]);
+  }, [onShowHighScores, playClick]);
 
   // Dashbar PAUSE dispatches a window-level request; BaseScene honours it with
   // the same `allowPause` gating as the in-game P key, so game state is
@@ -341,12 +339,39 @@ export function GamePortal({
     onToggleMute();
   }, [onToggleMute, playClick]);
 
+  // R82.13 post-playtest 2026-04-18: controls reference is now a modal, not a
+  // sidebar. Opening the modal PAUSES the game (integrates with existing pause
+  // logic) so the user can read without game state advancing. Resuming is
+  // explicit — dashbar play/P key — matching the "paused-to-read" pattern from
+  // games like Dark Souls. Browse-mode instructions are still opened via the
+  // clickwheel MENU button (unchanged).
+  const handleInstructionsPress = useCallback(() => {
+    playClick();
+    // If playing + not yet paused, pause first so game state freezes while the
+    // modal is open. Dispatches same event as the dashbar pause button.
+    if (isPlaying && !isPaused && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(PAUSE_REQUEST_EVENT));
+    }
+    onShowInstructions();
+  }, [isPlaying, isPaused, onShowInstructions, playClick]);
+
   const handleWheelKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (isPlaying) {
       if (e.key === 'Escape') {
         e.preventDefault();
         captureSurfaceFocusIntent('wheel');
         onExit();
+        return;
+      }
+
+      // R82.13 post-playtest 2026-04-18: `i` opens the instructions modal
+      // (and pauses the game via handleInstructionsPress). Matches the "I"
+      // hint text in the wheel footer; also accessible via the dashbar
+      // HelpCircle button for pointer users.
+      if (e.key === 'i' || e.key === 'I') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleInstructionsPress();
         return;
       }
 
@@ -446,7 +471,7 @@ export function GamePortal({
       const idx = parseInt(e.key, 10) - 1;
       if (idx < games.length) jumpTo(idx);
     }
-  }, [onShowInstructions, onNext, onPrev, handlePlayPress, handleScoresPress, isPlaying, onExit, triggerRotation, triggerPressFlash, playClick, onJumpToGame, games.length, selectedGame, captureSurfaceFocusIntent, isMuted, onToggleMute, handlePauseToggle, handleMuteToggle]);
+  }, [onShowInstructions, onNext, onPrev, handlePlayPress, handleScoresPress, handleInstructionsPress, isPlaying, onExit, triggerRotation, triggerPressFlash, playClick, onJumpToGame, games.length, selectedGame, captureSurfaceFocusIntent, isMuted, onToggleMute, handlePauseToggle, handleMuteToggle]);
 
   if (!game) {
     return (
@@ -485,9 +510,7 @@ export function GamePortal({
 
   return (
     <motion.div
-      layout
-      transition={layoutTransition}
-      className={`relative w-full mx-auto flex flex-col justify-center h-full game-portal-container px-4 ${isPlaying ? 'max-w-[min(95vw,1600px)]' : 'max-w-xl'}`}
+      className={`relative w-full mx-auto flex flex-col justify-center h-full game-portal-container game-portal-container--animated px-4 ${isPlaying ? 'max-w-[min(95vw,1600px)]' : 'max-w-xl'}`}
     >
       <div className="sr-only" aria-live="polite" aria-atomic="true">
         {isPlaying
@@ -499,7 +522,7 @@ export function GamePortal({
       <div
         ref={containerRef}
         className={`
-          digital-container game-portal-wrapper game-portal-wrapper--with-key-panel
+          digital-container game-portal-wrapper
           ${isTransitioning ? `transition-${transitionDirection}` : ''}
         `}
       >
@@ -635,6 +658,7 @@ export function GamePortal({
                   <div className="dashbar-section dashbar-section--left">
                     <button
                       ref={(el) => { zoneRefs.current[0] = el; }}
+                      type="button"
                       className={`dashbar-btn${pressedIndex === 0 ? ' is-pressed' : ''}`}
                       onClick={() => { captureSurfaceFocusIntent('wheel'); playClick(); onExit(); }}
                       tabIndex={-1}
@@ -642,6 +666,16 @@ export function GamePortal({
                       aria-keyshortcuts="Escape"
                     >
                       <LogOut className="dashbar-icon" aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      className="dashbar-btn"
+                      onClick={handleInstructionsPress}
+                      tabIndex={-1}
+                      aria-label="Show game instructions (pauses game)"
+                      aria-keyshortcuts="i"
+                    >
+                      <HelpCircle className="dashbar-icon" aria-hidden="true" />
                     </button>
                   </div>
                   <div className="dashbar-section dashbar-section--centre">
@@ -664,10 +698,11 @@ export function GamePortal({
                   <div className="dashbar-section dashbar-section--right">
                     <button
                       ref={(el) => { zoneRefs.current[2] = el; }}
+                      type="button"
                       className="dashbar-btn"
                       tabIndex={-1}
                       aria-label="View high scores"
-                      disabled
+                      onClick={handleScoresPress}
                     >
                       <Trophy className="dashbar-icon" aria-hidden="true" />
                     </button>
@@ -788,7 +823,6 @@ export function GamePortal({
             )}
           </div>
         </div>
-        <KeyPanel game={game} isPlaying={isPlaying} />
       </div>
     </motion.div>
   );

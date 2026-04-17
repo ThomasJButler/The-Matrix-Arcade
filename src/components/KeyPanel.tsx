@@ -141,24 +141,24 @@ export interface KeyPanelProps {
 }
 
 export function KeyPanel({ game, isPlaying }: KeyPanelProps) {
-  const showInPlay = isPlaying && Boolean(game);
+  // Per Tom's 2026-04-18 playtest: the key panel is only valuable DURING play
+  // (as a controls reference while the game is active). During browsing, the
+  // iPod should be visually centred with no sidebar — the footer wheel hints
+  // below the clickwheel serve as the static-mode controls reference.
+  if (!isPlaying || !game) {
+    return null;
+  }
 
-  const hints = React.useMemo<ControlHint[]>(() => {
-    if (showInPlay && game) {
-      return IN_PLAY_CONTROLS[game.id] ?? parseControlsString(game.controls);
-    }
-    return [...STATIC_CONTROLS];
-  }, [showInPlay, game]);
-
-  const title = showInPlay ? 'NOW PLAYING' : 'ARCADE KEYS';
-  const subtitle = showInPlay && game ? game.title : 'iPod Classic Navigation';
+  const hints: ControlHint[] = IN_PLAY_CONTROLS[game.id] ?? parseControlsString(game.controls);
+  const title = 'NOW PLAYING';
+  const subtitle = game.title;
 
   return (
     <aside
       className="key-panel"
-      aria-label={showInPlay ? 'Game controls reference' : 'Arcade navigation controls reference'}
+      aria-label="Game controls reference"
       data-testid="key-panel"
-      data-mode={showInPlay ? 'in-play' : 'static'}
+      data-mode="in-play"
     >
       <div className="key-panel-header">
         <span className="key-panel-dot" aria-hidden="true" />

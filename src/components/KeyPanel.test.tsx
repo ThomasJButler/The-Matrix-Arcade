@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { KeyPanel, parseControlsString, STATIC_CONTROLS } from './KeyPanel';
+import { KeyPanel, parseControlsString } from './KeyPanel';
 import type { GameEntry } from '../data/gameRegistry';
 
 function makeGame(overrides: Partial<GameEntry> = {}): GameEntry {
@@ -43,16 +43,18 @@ describe('parseControlsString fallback parser', () => {
 });
 
 describe('KeyPanel rendering', () => {
-  it('renders the static arcade controls when no game is playing', () => {
-    render(<KeyPanel isPlaying={false} />);
+  // Post-2026-04-18 playtest behaviour: the panel is an in-play-only artefact.
+  // Static/browse mode hides it entirely so the iPod stays visually centred;
+  // the footer wheel hints below the clickwheel serve as the browsing reference.
+  it('renders nothing when no game is playing', () => {
+    const { container } = render(<KeyPanel isPlaying={false} />);
+    expect(container.firstChild).toBeNull();
+    expect(screen.queryByTestId('key-panel')).not.toBeInTheDocument();
+  });
 
-    const panel = screen.getByTestId('key-panel');
-    expect(panel).toHaveAttribute('data-mode', 'static');
-    expect(screen.getByText('ARCADE KEYS')).toBeInTheDocument();
-
-    STATIC_CONTROLS.forEach((hint) => {
-      expect(screen.getAllByText(hint.meaning).length).toBeGreaterThan(0);
-    });
+  it('renders nothing when playing but no game is provided', () => {
+    const { container } = render(<KeyPanel isPlaying={true} />);
+    expect(container.firstChild).toBeNull();
   });
 
   it('renders per-game in-play controls from the curated map when playing', () => {
@@ -82,21 +84,8 @@ describe('KeyPanel rendering', () => {
     expect(screen.getByText('attack')).toBeInTheDocument();
   });
 
-  it('defaults to static controls when playing but no game is provided', () => {
-    render(<KeyPanel isPlaying={true} />);
-
-    const panel = screen.getByTestId('key-panel');
-    expect(panel).toHaveAttribute('data-mode', 'static');
-    expect(screen.getByText('ARCADE KEYS')).toBeInTheDocument();
-  });
-
-  it('exposes accessible labelling reflecting the current mode', () => {
-    const { rerender } = render(<KeyPanel isPlaying={false} />);
-    expect(
-      screen.getByRole('complementary', { name: /arcade navigation controls/i }),
-    ).toBeInTheDocument();
-
-    rerender(<KeyPanel isPlaying={true} game={makeGame()} />);
+  it('exposes accessible labelling in in-play mode', () => {
+    render(<KeyPanel isPlaying={true} game={makeGame()} />);
     expect(
       screen.getByRole('complementary', { name: /game controls reference/i }),
     ).toBeInTheDocument();
