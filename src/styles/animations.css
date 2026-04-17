@@ -584,6 +584,80 @@
   }
 }
 
+/* R82.13 — screen-level pause overlay. The dashbar centre button already turns
+   amber when paused, but a player whose eyes are on the game canvas has no
+   on-screen cue. This overlay mirrors that amber hue (rgba(255, 200, 0, …))
+   for visual continuity with the dashbar pause state, sits above the canvas
+   inside `.ipod-screen--playing`, and stays inert (pointer-events: none) so
+   it doesn't intercept input destined for the game. Resume affordance is the
+   same one the dashbar advertises — P key or ❚❚ click. */
+.ipod-pause-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.ipod-pause-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 200, 0, 0.06) 0%, rgba(0, 0, 0, 0.55) 70%),
+    rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(1.5px);
+  -webkit-backdrop-filter: blur(1.5px);
+}
+
+.ipod-pause-text {
+  position: relative;
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 1.5rem;
+  letter-spacing: 0.4em;
+  color: rgba(255, 200, 0, 0.95);
+  text-shadow:
+    0 0 8px rgba(255, 200, 0, 0.6),
+    0 0 18px rgba(255, 200, 0, 0.3);
+  animation: ipod-pause-pulse 1.6s ease-in-out infinite;
+}
+
+.ipod-pause-hint {
+  position: relative;
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  color: rgba(255, 200, 0, 0.55);
+  text-shadow: 0 0 6px rgba(255, 200, 0, 0.25);
+}
+
+@media (min-width: 1024px) {
+  .ipod-pause-text {
+    font-size: 2rem;
+  }
+  .ipod-pause-hint {
+    font-size: 0.7rem;
+  }
+}
+
+@keyframes ipod-pause-pulse {
+  0%, 100% {
+    opacity: 0.85;
+    text-shadow:
+      0 0 8px rgba(255, 200, 0, 0.5),
+      0 0 14px rgba(255, 200, 0, 0.25);
+  }
+  50% {
+    opacity: 1;
+    text-shadow:
+      0 0 12px rgba(255, 200, 0, 0.75),
+      0 0 24px rgba(255, 200, 0, 0.4);
+  }
+}
+
 @media (min-width: 1024px) {
   .dashbar-centre {
     width: 64px;
@@ -1099,7 +1173,8 @@
   .dashbar-mute-btn,
   .dashbar-mute-btn.is-pressed:not(:disabled),
   .ipod-clickwheel.rotating-left,
-  .ipod-clickwheel.rotating-right {
+  .ipod-clickwheel.rotating-right,
+  .ipod-pause-text {
     animation: none !important;
   }
 
