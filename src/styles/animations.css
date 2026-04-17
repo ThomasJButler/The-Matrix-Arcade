@@ -464,7 +464,15 @@
   }
 }
 
-.dashbar-btn:hover:not(:disabled),
+/* Hover is pointer-fine-only so a tap on touch doesn't leave the button stuck
+   in its hover colour ramp. Keyboard focus below keeps the same look. */
+@media (hover: hover) and (pointer: fine) {
+  .dashbar-btn:hover:not(:disabled) {
+    color: rgba(0, 255, 0, 0.95);
+    background: rgba(0, 255, 0, 0.08);
+  }
+}
+
 .dashbar-btn:focus-visible:not(:disabled) {
   color: rgba(0, 255, 0, 0.95);
   background: rgba(0, 255, 0, 0.08);
@@ -586,8 +594,22 @@
 
 /* Hover/focus/active cancel the idle `dashbar-centre-idle` pulse so these
    rules' static box-shadows paint cleanly. CSS animations otherwise override
-   declared box-shadow values during their keyframe playback. */
-.dashbar-centre:hover:not(:disabled),
+   declared box-shadow values during their keyframe playback.
+
+   Hover is pointer-fine-only — on touch, sticky hover would cancel the idle
+   breathing until the user taps elsewhere, making the primary CTA feel frozen.
+   Keyboard :focus-visible still kills the pulse and paints the static box. */
+@media (hover: hover) and (pointer: fine) {
+  .dashbar-centre:hover:not(:disabled) {
+    background: linear-gradient(145deg, #282828, #1c1c1c);
+    color: rgba(0, 255, 0, 1);
+    animation: none;
+    box-shadow:
+      inset 0 1px 3px rgba(0, 0, 0, 0.5),
+      0 0 18px rgba(0, 255, 0, 0.28);
+  }
+}
+
 .dashbar-centre:focus-visible:not(:disabled) {
   background: linear-gradient(145deg, #282828, #1c1c1c);
   color: rgba(0, 255, 0, 1);
@@ -694,7 +716,18 @@
   will-change: transform;
 }
 
-.clickwheel-zone:hover,
+/* Hover is gated to pointer-fine devices (mouse/trackpad) because on touch the
+   :hover state sticks after a tap with no mouseleave event — leaving the
+   infinite `clickwheel-pulse` animation running until the user taps elsewhere.
+   :focus-visible stays unconditional so keyboard users always get feedback. */
+@media (hover: hover) and (pointer: fine) {
+  .clickwheel-zone:hover {
+    color: rgba(0, 255, 0, 0.85);
+    background: rgba(0, 255, 0, 0.05);
+    animation: clickwheel-pulse 2s ease-in-out infinite;
+  }
+}
+
 .clickwheel-zone:focus-visible {
   color: rgba(0, 255, 0, 0.85);
   background: rgba(0, 255, 0, 0.05);
@@ -830,7 +863,19 @@
   font-size: 1.1rem;
 }
 
-.clickwheel-centre:hover,
+/* Hover-only on pointer-fine devices — same sticky-hover rationale as
+   .clickwheel-zone. :focus-visible below mirrors the look for keyboard users. */
+@media (hover: hover) and (pointer: fine) {
+  .clickwheel-centre:hover {
+    color: rgba(0, 255, 0, 0.85);
+    background: linear-gradient(145deg, #282828, #1c1c1c);
+    box-shadow:
+      inset 0 1px 3px rgba(0, 0, 0, 0.5),
+      0 0 14px rgba(0, 255, 0, 0.12);
+    animation: clickwheel-pulse-centre 2s ease-in-out infinite;
+  }
+}
+
 .clickwheel-centre:focus-visible {
   color: rgba(0, 255, 0, 0.85);
   background: linear-gradient(145deg, #282828, #1c1c1c);
