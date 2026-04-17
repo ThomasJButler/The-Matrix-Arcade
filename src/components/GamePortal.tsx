@@ -551,6 +551,7 @@ export function GamePortal({
                   className="ipod-dashbar"
                   role="toolbar"
                   aria-label="In-game controls"
+                  aria-describedby="ipod-dashbar-instructions"
                   tabIndex={0}
                   onKeyDown={handleWheelKeyDown}
                   initial={shouldReduceMotion ? false : { opacity: 0, y: -6, scale: 0.96 }}
@@ -558,6 +559,11 @@ export function GamePortal({
                   exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.96 }}
                   transition={surfaceTransition}
                 >
+                  <span id="ipod-dashbar-instructions" className="sr-only">
+                    Left and right arrow keys move focus between controls. Home jumps to Exit,
+                    End jumps to the last control. Enter or Space activates the focused control.
+                    Escape exits the running game.
+                  </span>
                   <div className="dashbar-section dashbar-section--left">
                     <button
                       ref={(el) => { zoneRefs.current[0] = el; }}
