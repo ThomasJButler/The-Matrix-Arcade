@@ -517,3 +517,86 @@ describe('GamePortal clickwheel jump-nav rotation feedback', () => {
     expect(onJumpToGame).toHaveBeenCalledWith(1);
   });
 });
+
+describe('GamePortal screen-reader announcement debounce', () => {
+  const makeGames = () =>
+    ['Snake Classic', 'Vortex Pong', 'Neo Jump'].map((title, i) => ({
+      id: `game-${i}`,
+      title,
+      description: 'test',
+      preview: 'preview.png',
+      category: 'Arcade' as const,
+      inspiration: '',
+      inspirationNote: '',
+      controls: '',
+      component: () => null,
+      icon: null,
+    }));
+
+  // Locate the navigation live region specifically — avoids matching the
+  // dashbar sr-only hint that also lives inside the portal when playing.
+  const getLiveRegion = () => {
+    const regions = document.querySelectorAll('.sr-only[aria-live="polite"]');
+    return regions[0] as HTMLElement;
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('announces the initial game immediately on mount', () => {
+    render(<GamePortal {...makeProps({ games: makeGames(), selectedGame: 0 })} />);
+    expect(getLiveRegion()).toHaveTextContent('Snake Classic — game 1 of 3');
+  });
+
+  it('does not re-announce mid-navigation before the debounce window elapses', () => {
+    const { rerender } = render(
+      <GamePortal {...makeProps({ games: makeGames(), selectedGame: 0 })} />,
+    );
+    rerender(<GamePortal {...makeProps({ games: makeGames(), selectedGame: 2 })} />);
+    // Half-way through the debounce window — still announcing the previous game.
+    act(() => { vi.advanceTimersByTime(120); });
+    expect(getLiveRegion()).toHaveTextContent('Snake Classic — game 1 of 3');
+  });
+
+  it('announces the settled game after the debounce window elapses', () => {
+    const { rerender } = render(
+      <GamePortal {...makeProps({ games: makeGames(), selectedGame: 0 })} />,
+    );
+    rerender(<GamePortal {...makeProps({ games: makeGames(), selectedGame: 2 })} />);
+    act(() => { vi.advanceTimersByTime(260); });
+    expect(getLiveRegion()).toHaveTextContent('Neo Jump — game 3 of 3');
+  });
+
+  it('rapid navigation through several games only announces the final settled game', () => {
+    const { rerender } = render(
+      <GamePortal {...makeProps({ games: makeGames(), selectedGame: 0 })} />,
+    );
+    // Three rapid arrow-keys within 60ms — debounce must collapse them.
+    rerender(<GamePortal {...makeProps({ games: makeGames(), selectedGame: 1 })} />);
+    act(() => { vi.advanceTimersByTime(20); });
+    rerender(<GamePortal {...makeProps({ games: makeGames(), selectedGame: 2 })} />);
+    act(() => { vi.advanceTimersByTime(20); });
+    rerender(<GamePortal {...makeProps({ games: makeGames(), selectedGame: 1 })} />);
+    act(() => { vi.advanceTimersByTime(20); });
+    // Still inside debounce — original game.
+    expect(getLiveRegion()).toHaveTextContent('Snake Classic — game 1 of 3');
+    // Settle.
+    act(() => { vi.advanceTimersByTime(260); });
+    expect(getLiveRegion()).toHaveTextContent('Vortex Pong — game 2 of 3');
+  });
+
+  it('announces play state immediately (no debounce on user-committed events)', () => {
+    const { rerender } = render(
+      <GamePortal {...makeProps({ games: makeGames(), selectedGame: 0 })} />,
+    );
+    rerender(
+      <GamePortal {...makeProps({ games: makeGames(), selectedGame: 0, isPlaying: true })} />,
+    );
+    // No timer advance — play announcement is synchronous.
+    expect(getLiveRegion()).toHaveTextContent('Now playing Snake Classic');
+  });
+});

@@ -187,6 +187,21 @@ export function GamePortal({
     prevIsPlaying.current = isPlaying;
   }, [isPlaying, shouldReduceMotion, containerRef]);
 
+  // R82.13: debounce screen-reader announcements of carousel navigation so
+  // rapid arrow-keying / held jump-nav keys don't spam assistive tech with
+  // every transient game the user skates past. `aria-live="polite"` alone
+  // queues announcements but doesn't collapse them — some SR engines (NVDA,
+  // VoiceOver) still read each change. Holding `announcedSelectedGame` 250ms
+  // behind `selectedGame` means only the settled game is announced. Play/pause
+  // transitions remain immediate below because they're user-committed events
+  // the user expects to hear back confirming the action.
+  const [announcedSelectedGame, setAnnouncedSelectedGame] = useState(selectedGame);
+  useEffect(() => {
+    const handle = setTimeout(() => setAnnouncedSelectedGame(selectedGame), 250);
+    return () => clearTimeout(handle);
+  }, [selectedGame]);
+  const announcedGame = games[announcedSelectedGame] ?? game;
+
   // R82.13: paused-state indicator. BaseScene dispatches PAUSE_STATE_CHANGED
   // whenever the active scene's pause state actually changes (P key, dashbar
   // request, or future trigger). The dashbar centre button mirrors the truth.
@@ -479,7 +494,7 @@ export function GamePortal({
           ? isPaused
             ? `${game.title} paused`
             : `Now playing ${game.title}`
-          : `${game.title} — game ${selectedGame + 1} of ${games.length}`}
+          : `${announcedGame.title} — game ${announcedSelectedGame + 1} of ${games.length}`}
       </div>
       <div
         ref={containerRef}
