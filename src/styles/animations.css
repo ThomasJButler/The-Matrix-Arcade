@@ -499,8 +499,8 @@
 }
 
 /* R82.23 — Lucide icon sizing inside dashbar buttons. Side buttons (EXIT,
-   SCORES) get an 18px icon; centre PAUSE icon is bumped to 22px so the
-   primary CTA reads bigger at a glance, before R82.27's full size pass. */
+   SCORES) stay 18/20px. R82.27 bumps the centre PAUSE icon 22→28 (24→32 lg)
+   so it reads as the dominant element of the bar at a glance. */
 .dashbar-icon {
   width: 18px;
   height: 18px;
@@ -509,9 +509,10 @@
 }
 
 .dashbar-icon--centre {
-  width: 22px;
-  height: 22px;
-  filter: drop-shadow(0 0 6px rgba(0, 255, 0, 0.4));
+  width: 28px;
+  height: 28px;
+  stroke-width: 2.25;
+  filter: drop-shadow(0 0 8px rgba(0, 255, 0, 0.5));
 }
 
 @media (min-width: 1024px) {
@@ -520,45 +521,57 @@
     height: 20px;
   }
   .dashbar-icon--centre {
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
   }
 }
 
-/* Dashbar centre: larger, embossed primary CTA (matches clickwheel-centre aesthetic) */
+/* Dashbar centre: dominant primary CTA — R82.27 bumps 46→60 (52→64 lg) so it
+   sits at ~1.58x (1.52x lg) the side buttons' 38/42px. Visual hierarchy:
+   primary=play/pause, secondary=exit/scores. Idle breathing pulse mirrors the
+   clickwheel centre so the CTA reads consistently across surface morphs. */
 .dashbar-centre {
-  width: 46px;
-  height: 46px;
+  width: 60px;
+  height: 60px;
   background: linear-gradient(145deg, #222, #181818);
-  border: 1px solid rgba(0, 255, 0, 0.18);
+  border: 1px solid rgba(0, 255, 0, 0.22);
   box-shadow:
     inset 0 1px 3px rgba(0, 0, 0, 0.5),
     0 0 8px rgba(0, 255, 0, 0.08);
-  color: rgba(0, 255, 0, 0.85);
+  color: rgba(0, 255, 0, 0.9);
   font-size: 1rem;
-  text-shadow: 0 0 6px rgba(0, 255, 0, 0.4);
+  text-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
+}
+
+.dashbar-centre:not(:disabled) {
+  animation: dashbar-centre-idle 3s ease-in-out infinite;
 }
 
 @media (min-width: 1024px) {
   .dashbar-centre {
-    width: 52px;
-    height: 52px;
+    width: 64px;
+    height: 64px;
     font-size: 1.1rem;
   }
 }
 
+/* Hover/focus/active cancel the idle `dashbar-centre-idle` pulse so these
+   rules' static box-shadows paint cleanly. CSS animations otherwise override
+   declared box-shadow values during their keyframe playback. */
 .dashbar-centre:hover:not(:disabled),
 .dashbar-centre:focus-visible:not(:disabled) {
   background: linear-gradient(145deg, #282828, #1c1c1c);
   color: rgba(0, 255, 0, 1);
+  animation: none;
   box-shadow:
     inset 0 1px 3px rgba(0, 0, 0, 0.5),
-    0 0 14px rgba(0, 255, 0, 0.2);
+    0 0 18px rgba(0, 255, 0, 0.28);
 }
 
 .dashbar-centre:active:not(:disabled) {
   transform: scale(0.93);
   background: linear-gradient(145deg, #1a1a1a, #141414);
+  animation: none;
   box-shadow:
     inset 0 2px 6px rgba(0, 0, 0, 0.7),
     0 0 6px rgba(0, 255, 0, 0.08);
@@ -568,10 +581,11 @@
    when both apply (later in source order wins). */
 .dashbar-centre:focus-visible:not(:disabled) {
   outline: none;
+  animation: none;
   box-shadow:
     inset 0 1px 3px rgba(0, 0, 0, 0.5),
     0 0 0 2px rgba(0, 255, 120, 0.85),
-    0 0 16px rgba(0, 255, 0, 0.3);
+    0 0 20px rgba(0, 255, 0, 0.35);
 }
 
 .dashbar-centre:focus-visible:active:not(:disabled) {
@@ -598,11 +612,14 @@
   animation: pulse-red 1.6s ease-in-out infinite;
 }
 
-/* ===== iPod Clickwheel ===== */
+/* ===== iPod Clickwheel =====
+   R82.27 — diameter bumped 140→160 (static) / 160→180 (lg) so the larger
+   primary-CTA centre (40% → 64/72px) still sits comfortably inside the wedges
+   without crowding the labels. */
 .ipod-clickwheel {
   position: relative;
-  width: 140px;
-  height: 140px;
+  width: 160px;
+  height: 160px;
   border-radius: 50%;
   background: linear-gradient(145deg, #1a1a1a, #111);
   box-shadow:
@@ -619,8 +636,8 @@
 
 @media (min-width: 1024px) {
   .ipod-clickwheel {
-    width: 160px;
-    height: 160px;
+    width: 180px;
+    height: 180px;
   }
 }
 
@@ -738,25 +755,29 @@
   display: block;
 }
 
-/* Centre select button — primary play CTA after R82.15 swap */
+/* Centre select button — primary play CTA after R82.15 swap.
+   R82.27: size bumped 34%→40% (≈64/72px on 160/180 wheels) + font 1.4/1.6→
+   1.8/2rem so the ▶ glyph reads as THE dominant CTA. Idle breathing pulse
+   (`clickwheel-centre-idle`) nudges the user's attention toward play without
+   nagging; hover/focus upgrades to the stronger `clickwheel-pulse-centre`. */
 .clickwheel-centre {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 34%;
-  height: 34%;
+  width: 40%;
+  height: 40%;
   border-radius: 50%;
   background: linear-gradient(145deg, #222, #181818);
-  border: 1px solid rgba(0, 255, 0, 0.15);
+  border: 1px solid rgba(0, 255, 0, 0.18);
   box-shadow:
     inset 0 1px 3px rgba(0, 0, 0, 0.5),
-    0 0 8px rgba(0, 255, 0, 0.04);
+    0 0 10px rgba(0, 255, 0, 0.08);
   cursor: pointer;
-  color: rgba(0, 255, 0, 0.7);
-  font-size: 1.4rem;
+  color: rgba(0, 255, 0, 0.8);
+  font-size: 1.8rem;
   padding-left: 0.15em;
-  text-shadow: 0 0 6px rgba(0, 255, 0, 0.35);
+  text-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -766,9 +787,13 @@
   will-change: transform;
 }
 
+.clickwheel-centre:not(:disabled) {
+  animation: clickwheel-centre-idle 3s ease-in-out infinite;
+}
+
 @media (min-width: 1024px) {
   .clickwheel-centre {
-    font-size: 1.6rem;
+    font-size: 2rem;
   }
 }
 
@@ -835,6 +860,30 @@
   50% { box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 22px rgba(0, 255, 0, 0.22); }
 }
 
+/* R82.27 — idle breathing glow for the primary PLAY CTA. Runs on the base
+   `:not(:disabled)` rule so it's always active when the button is interactive;
+   hover/focus upgrade to the stronger `clickwheel-pulse-centre` (CSS
+   `animation` replaces rather than stacks, so the hover rule fully takes over
+   — no compounding layers). Slower cadence (3s) than hover (2s) so the
+   at-rest state reads as a calm invitation, not urgent nagging. */
+@keyframes clickwheel-centre-idle {
+  0%, 100% { box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 10px rgba(0, 255, 0, 0.08); }
+  50% { box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 18px rgba(0, 255, 0, 0.2); }
+}
+
+@keyframes dashbar-centre-idle {
+  0%, 100% {
+    box-shadow:
+      inset 0 1px 3px rgba(0, 0, 0, 0.5),
+      0 0 8px rgba(0, 255, 0, 0.08);
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 3px rgba(0, 0, 0, 0.5),
+      0 0 16px rgba(0, 255, 0, 0.2);
+  }
+}
+
 /* Wheel rotation micro-animation — spring-like overshoot on nav */
 @keyframes clickwheel-rotate-left {
   0% { transform: rotate(0deg); }
@@ -894,8 +943,11 @@
   .clickwheel-zone,
   .clickwheel-zone.is-pressed,
   .clickwheel-centre,
+  .clickwheel-centre:not(:disabled),
   .clickwheel-centre.is-pressed,
   .dashbar-btn,
+  .dashbar-centre,
+  .dashbar-centre:not(:disabled),
   .dashbar-mute,
   .ipod-clickwheel.rotating-left,
   .ipod-clickwheel.rotating-right {
