@@ -646,8 +646,12 @@
     0 0 10px rgba(0, 255, 0, 0.18);
 }
 
-/* Mute indicator inline in dashbar — replaces floating in-screen badge during play */
-.dashbar-mute {
+/* Mute pill inline in dashbar — interactive: click to unmute. Default-state
+   visuals kept byte-identical to the prior passive pill so the in-play visual
+   baselines still match; hover/focus/active affordances only appear on
+   interaction. */
+.dashbar-mute,
+.dashbar-mute-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -661,6 +665,32 @@
   font-size: 0.5rem;
   letter-spacing: 0.05em;
   animation: pulse-red 1.6s ease-in-out infinite;
+}
+
+.dashbar-mute-btn {
+  cursor: pointer;
+  transition: background 120ms ease-out, border-color 120ms ease-out, transform 80ms ease-out;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dashbar-mute-btn:hover:not(:disabled) {
+    background: rgba(255, 0, 0, 0.16);
+    border-color: rgba(255, 120, 120, 0.65);
+    color: rgba(255, 160, 160, 1);
+  }
+}
+
+.dashbar-mute-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 140, 140, 0.85);
+}
+
+.dashbar-mute-btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.dashbar-mute-btn:disabled {
+  cursor: default;
 }
 
 /* ===== iPod Clickwheel =====
@@ -1024,6 +1054,7 @@
   .dashbar-centre:not(:disabled),
   .dashbar-centre.is-paused:not(:disabled),
   .dashbar-mute,
+  .dashbar-mute-btn,
   .ipod-clickwheel.rotating-left,
   .ipod-clickwheel.rotating-right {
     animation: none !important;

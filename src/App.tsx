@@ -666,6 +666,7 @@ function App() {
             isMuted={isMuted}
             achievementManager={achievementManager}
             playSFX={playSFX}
+            onToggleMute={toggleMute}
           />
         </div>
       </main>
