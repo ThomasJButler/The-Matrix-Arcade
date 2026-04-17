@@ -157,6 +157,20 @@
   contain: layout style;
 }
 
+/* R82.13 post-playtest 2026-04-18: smooth width expansion.
+   Previously used Framer Motion `<motion.div layout>` spring which ran
+   concurrently with game mount/scale → double re-layout jank. CSS transition
+   is GPU-accelerated by the browser and costs zero JS frame work. */
+.game-portal-container--animated {
+  transition: max-width 280ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-portal-container--animated {
+    transition: none;
+  }
+}
+
 .ipod-body::before {
   content: '';
   position: absolute;
@@ -312,6 +326,14 @@
   padding: 0.75rem;
   width: fit-content;
   max-width: 100%;
+  /* R82.13 post-playtest 2026-04-18: hard viewport cap so the whole iPod +
+     dashbar assembly fits on screen without scroll. 5rem reserves space for
+     the app header (~4rem) + a little breathing room below. The inner screen
+     height cap (below) provides the fine-grained budget; this outer cap is
+     the belt-and-braces stop against compounding padding/shadow overflow. */
+  max-height: calc(100vh - 5rem);
+  display: flex;
+  flex-direction: column;
 }
 
 .ipod-body--playing .ipod-screen {
@@ -327,13 +349,15 @@
 
 .ipod-screen--playing {
   aspect-ratio: 16 / 9;
-  /* Derive height from the viewport budget; width auto-computes from aspect.
-     220px reserves space for the app header, body padding, dashbar, and
-     per-game info below. */
-  height: min(75vh, calc(100vh - 220px));
+  /* R82.13 post-playtest tightened: 260px reserve (was 220) covers header
+     + body padding + dashbar + safety buffer. Removed the 360px min-height
+     floor — on short viewports it was forcing overflow past the 100vh cap.
+     The outer `.ipod-body--playing max-height` now acts as the hard ceiling. */
+  height: min(70vh, calc(100vh - 260px));
   width: auto;
   max-width: 100%;
-  min-height: 360px;
+  min-height: 0;
+  flex: 1 1 auto;
 }
 
 @media (min-width: 1024px) {
