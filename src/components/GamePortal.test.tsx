@@ -374,4 +374,26 @@ describe('GamePortal dashbar keyboard navigation', () => {
     expect(pauseDispatches).toHaveLength(0);
     dispatchSpy.mockRestore();
   });
+
+  it('exposes sr-only keyboard hints to screen readers via aria-describedby', () => {
+    render(<GamePortal {...makeProps({ games: makeGames(), isPlaying: true })} />);
+
+    const toolbar = screen.getByRole('toolbar', { name: /in-game controls/i });
+    expect(toolbar).toHaveAttribute('aria-describedby', 'ipod-dashbar-instructions');
+
+    const hints = document.getElementById('ipod-dashbar-instructions');
+    expect(hints).not.toBeNull();
+    expect(hints).toHaveClass('sr-only');
+    expect(hints?.textContent ?? '').toMatch(/arrow keys/i);
+    expect(hints?.textContent ?? '').toMatch(/home/i);
+    expect(hints?.textContent ?? '').toMatch(/end/i);
+    expect(hints?.textContent ?? '').toMatch(/enter or space/i);
+    expect(hints?.textContent ?? '').toMatch(/escape/i);
+  });
+
+  it('does not render dashbar keyboard hints while in browse mode (dashbar unmounted)', () => {
+    render(<GamePortal {...makeProps({ games: makeGames(), isPlaying: false })} />);
+
+    expect(document.getElementById('ipod-dashbar-instructions')).toBeNull();
+  });
 });
