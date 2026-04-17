@@ -190,6 +190,35 @@ describe('GamePortal paused-state indicator', () => {
     expect(screen.queryByRole('button', { name: 'Pause game' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Resume game' })).not.toBeInTheDocument();
   });
+
+  // R82.13 — screen-level pause overlay. Dashbar amber alone wasn't enough for
+  // eyes-on-canvas players; these tests lock in that the overlay mounts only
+  // while `isPlaying && isPaused`, and disappears the moment either flips.
+  it('renders the screen pause overlay when paused while playing', () => {
+    render(<GamePortal {...makeProps({ games: makeGames(), isPlaying: true })} />);
+    expect(screen.queryByTestId('ipod-pause-overlay')).not.toBeInTheDocument();
+    dispatchPauseState(true);
+    const overlay = screen.getByTestId('ipod-pause-overlay');
+    expect(overlay).toBeInTheDocument();
+    expect(overlay).toHaveTextContent('PAUSED');
+    expect(overlay).toHaveTextContent(/PRESS P/);
+    // Inert by design — pointer-events: none keeps the canvas hit-testable.
+    expect(overlay).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('removes the screen pause overlay when the scene resumes', () => {
+    render(<GamePortal {...makeProps({ games: makeGames(), isPlaying: true })} />);
+    dispatchPauseState(true);
+    expect(screen.getByTestId('ipod-pause-overlay')).toBeInTheDocument();
+    dispatchPauseState(false);
+    expect(screen.queryByTestId('ipod-pause-overlay')).not.toBeInTheDocument();
+  });
+
+  it('never renders the screen pause overlay outside of play mode', () => {
+    render(<GamePortal {...makeProps({ games: makeGames(), isPlaying: false })} />);
+    dispatchPauseState(true);
+    expect(screen.queryByTestId('ipod-pause-overlay')).not.toBeInTheDocument();
+  });
 });
 
 describe('GamePortal dashbar mute toggle', () => {

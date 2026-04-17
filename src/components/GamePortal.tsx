@@ -463,27 +463,45 @@ export function GamePortal({
             {/* Game Display */}
             <div className={`relative overflow-hidden ${isPlaying ? 'ipod-screen--playing' : 'aspect-[16/9]'}`}>
               {isPlaying && GameComponent ? (
-                <GameErrorBoundary gameName={game.title} onReset={onExit}>
-                  <Suspense fallback={
-                    <div className="ipod-loading-screen">
-                      <div className="ipod-loading-scanline" />
-                      <div className="ipod-loading-title">{game.title}</div>
-                      <div className="ipod-loading-chars">
-                        {'LOADING'.split('').map((ch, i) => (
-                          <span key={i} className="ipod-loading-char">{ch}</span>
-                        ))}
+                <>
+                  <GameErrorBoundary gameName={game.title} onReset={onExit}>
+                    <Suspense fallback={
+                      <div className="ipod-loading-screen">
+                        <div className="ipod-loading-scanline" />
+                        <div className="ipod-loading-title">{game.title}</div>
+                        <div className="ipod-loading-chars">
+                          {'LOADING'.split('').map((ch, i) => (
+                            <span key={i} className="ipod-loading-char">{ch}</span>
+                          ))}
+                        </div>
+                        <div className="ipod-loading-status">INITIALISING MATRIX</div>
                       </div>
-                      <div className="ipod-loading-status">INITIALISING MATRIX</div>
+                    }>
+                      <GameComponent
+                        achievementManager={achievementManager}
+                        isMuted={isMuted}
+                        autoStart={false}
+                        onExit={onExit}
+                      />
+                    </Suspense>
+                  </GameErrorBoundary>
+                  {/* Screen-level pause scrim — mirrors the amber `.dashbar-centre.is-paused`
+                      hue so eyes-on-screen players see the same affordance. Pointer-events
+                      disabled so the underlying game canvas keeps its native cursor and
+                      input wiring during pause; resume routes through the dashbar centre
+                      button or the P key (BaseScene), unchanged. */}
+                  {isPaused && (
+                    <div
+                      className="ipod-pause-overlay"
+                      data-testid="ipod-pause-overlay"
+                      aria-hidden="true"
+                    >
+                      <div className="ipod-pause-scrim" />
+                      <div className="ipod-pause-text">PAUSED</div>
+                      <div className="ipod-pause-hint">PRESS P OR ❚❚ TO RESUME</div>
                     </div>
-                  }>
-                    <GameComponent
-                      achievementManager={achievementManager}
-                      isMuted={isMuted}
-                      autoStart={false}
-                      onExit={onExit}
-                    />
-                  </Suspense>
-                </GameErrorBoundary>
+                  )}
+                </>
               ) : (
                 <AnimatePresence mode="wait" custom={slideDirection} initial={false}>
                   <motion.div
