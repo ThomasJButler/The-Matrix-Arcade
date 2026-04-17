@@ -337,12 +337,14 @@ main:has(.ipod-body--playing) {
   padding: 0.75rem;
   width: fit-content;
   max-width: 100%;
-  /* R82.13 post-playtest 2026-04-18 (tightened 2026-04-19): hard viewport cap
-     so the whole iPod + dashbar assembly fits on screen without scroll.
-     Budget accounts for: header (~4rem) + footer (~2rem) + main padding
-     (0.5-1rem each side) + flex-center margin buffer. 7rem reserves covers
-     all of this with headroom on short viewports (720-800px). */
-  max-height: calc(100vh - 7rem);
+  /* R82.13 post-playtest 2026-04-19 (final tighten): 10rem reserve leaves
+     enough slack that the flex-centred iPod has visually balanced top/bottom
+     gaps. Previous 7rem had the body slightly oversize — because the header
+     (~4rem) is taller than the footer (~2rem), flex-centring within
+     `main` sat the iPod visually low, giving Tom a bigger top gap than
+     bottom. Extra 3rem of reserve gets redistributed evenly by the flex
+     centring, producing the symmetric gap Tom asked for. */
+  max-height: calc(100vh - 10rem);
   display: flex;
   flex-direction: column;
 }
@@ -360,13 +362,11 @@ main:has(.ipod-body--playing) {
 
 .ipod-screen--playing {
   aspect-ratio: 16 / 9;
-  /* R82.13 post-playtest tightened twice (2026-04-19): reserve bumped to
-     320px (was 260) — covers header + footer + flex-center padding + body
-     padding + dashbar + safety buffer for short viewports where the screen
-     was the last 20-40px of overflow causing Tom's scroll bug. Also dropped
-     to 62vh (was 70) so on tall viewports the screen doesn't force body
-     overflow past the outer max-height cap. */
-  height: min(62vh, calc(100vh - 320px));
+  /* R82.13 post-playtest final (2026-04-19): matched to the 10rem body reserve
+     — screen reserve bumped to 360px (was 320) so screen + chrome fits inside
+     the tighter body cap. 58vh (was 62) for tall-viewport discipline. This
+     combination gives the symmetric top/bottom gaps Tom flagged. */
+  height: min(58vh, calc(100vh - 360px));
   width: auto;
   max-width: 100%;
   min-height: 0;
