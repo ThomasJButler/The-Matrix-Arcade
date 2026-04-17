@@ -191,3 +191,49 @@ describe('GamePortal paused-state indicator', () => {
     expect(screen.queryByRole('button', { name: 'Resume game' })).not.toBeInTheDocument();
   });
 });
+
+describe('GamePortal dashbar mute toggle', () => {
+  const makeGames = () => [
+    {
+      id: 'snake-classic',
+      title: 'Snake Classic',
+      description: 'test',
+      preview: 'preview.png',
+      category: 'Arcade' as const,
+      inspiration: '',
+      inspirationNote: '',
+      controls: '',
+      component: () => null,
+      icon: null,
+    },
+  ];
+
+  it('renders no mute control while unmuted (preserves resting dashbar visuals)', () => {
+    render(<GamePortal {...makeProps({ games: makeGames(), isPlaying: true, isMuted: false })} />);
+    expect(screen.queryByRole('button', { name: /unmute audio/i })).not.toBeInTheDocument();
+  });
+
+  it('renders a click-to-unmute button when muted and fires onToggleMute', () => {
+    const onToggleMute = vi.fn();
+    render(
+      <GamePortal
+        {...makeProps({ games: makeGames(), isPlaying: true, isMuted: true, onToggleMute })}
+      />,
+    );
+
+    const unmuteBtn = screen.getByRole('button', { name: /unmute audio/i });
+    expect(unmuteBtn).toHaveAttribute('aria-pressed', 'true');
+    expect(unmuteBtn).not.toBeDisabled();
+
+    fireEvent.click(unmuteBtn);
+    expect(onToggleMute).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables the mute pill when no onToggleMute handler is provided', () => {
+    render(
+      <GamePortal {...makeProps({ games: makeGames(), isPlaying: true, isMuted: true })} />,
+    );
+    const unmuteBtn = screen.getByRole('button', { name: /unmute audio/i });
+    expect(unmuteBtn).toBeDisabled();
+  });
+});

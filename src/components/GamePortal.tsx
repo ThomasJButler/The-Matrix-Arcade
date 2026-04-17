@@ -36,6 +36,7 @@ export interface GamePortalProps {
   isMuted: boolean;
   achievementManager: AchievementManager | null;
   playSFX?: (soundType: string) => void;
+  onToggleMute?: () => void;
 }
 
 export function GamePortal({
@@ -56,6 +57,7 @@ export function GamePortal({
   isMuted,
   achievementManager,
   playSFX,
+  onToggleMute,
 }: GamePortalProps) {
   const game: GameWithRuntime | undefined = games[selectedGame];
   const hasComponent = typeof game?.component !== 'undefined';
@@ -285,6 +287,15 @@ export function GamePortal({
       window.dispatchEvent(new CustomEvent(PAUSE_REQUEST_EVENT));
     }
   }, [isPlaying, playClick]);
+
+  // Dashbar mute pill becomes click-to-unmute so audio is recoverable
+  // without exiting the game. Muting still lives on the V key + header Settings
+  // to avoid cluttering the dashbar when unmuted.
+  const handleMuteToggle = useCallback(() => {
+    if (!onToggleMute) return;
+    playClick();
+    onToggleMute();
+  }, [onToggleMute, playClick]);
 
   const handleWheelKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (isPlaying) {
@@ -531,10 +542,18 @@ export function GamePortal({
                       <Trophy className="dashbar-icon" aria-hidden="true" />
                     </button>
                     {isMuted && (
-                      <div className="dashbar-mute" role="status" aria-label="Audio muted">
+                      <button
+                        type="button"
+                        className="dashbar-mute-btn"
+                        onClick={handleMuteToggle}
+                        disabled={!onToggleMute}
+                        aria-label="Unmute audio"
+                        aria-pressed="true"
+                        title="Click to unmute"
+                      >
                         <VolumeX className="w-3 h-3" aria-hidden="true" />
                         <span>MUTED</span>
-                      </div>
+                      </button>
                     )}
                   </div>
                 </motion.div>
