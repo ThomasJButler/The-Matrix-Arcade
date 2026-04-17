@@ -3,6 +3,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { LogOut, Pause, Trophy, VolumeX } from 'lucide-react';
 import { GAME_TITLES } from '../lib/asciiArt';
 import { GameErrorBoundary } from './ui/GameErrorBoundary';
+import { KeyPanel } from './KeyPanel';
 import type { GameEntry } from '../data/gameRegistry';
 import { PAUSE_REQUEST_EVENT, type AchievementManager } from '../lib/phaser/types';
 
@@ -355,7 +356,7 @@ export function GamePortal({
       <div
         ref={containerRef}
         className={`
-          digital-container game-portal-wrapper
+          digital-container game-portal-wrapper game-portal-wrapper--with-key-panel
           ${isTransitioning ? `transition-${transitionDirection}` : ''}
         `}
       >
@@ -587,7 +588,7 @@ export function GamePortal({
                   Home returns to the first game, End jumps to the last.
                 </span>
                 <div
-                  className="mt-2 text-xs lg:text-sm text-green-400/60 text-center space-y-0.5 font-mono"
+                  className="ipod-wheel-hints mt-2 text-xs lg:text-sm text-green-400/60 text-center space-y-0.5 font-mono"
                   aria-hidden="true"
                 >
                   <p className="text-green-500/70">&larr;&rarr; NAVIGATE &bull; &uarr; MENU &bull; &darr; SCORES &bull; ENTER PLAY &bull; ESC EXIT</p>
@@ -597,6 +598,7 @@ export function GamePortal({
             )}
           </div>
         </div>
+        <KeyPanel game={game} isPlaying={isPlaying} />
       </div>
     </motion.div>
   );

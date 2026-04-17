@@ -1073,3 +1073,203 @@
     opacity: 0.35;
   }
 }
+
+/* ===== iPod Key Panel (R82.26) =====
+   Right-of-device keyboard reference. Authoritative source for controls when
+   the viewport is wide enough (>= 1280px); below that the panel is hidden
+   and the footer hints under the wheel act as the compact fallback.
+   Aesthetic: matches the iPod screen bezel — dark background, matrix green
+   text, subtle inner shadow, scanline overlay. Monospace throughout. */
+.key-panel {
+  display: none;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: 180px;
+  max-height: 100%;
+  padding: 0.9rem 0.85rem;
+  background: linear-gradient(
+    160deg,
+    rgba(8, 28, 8, 0.92) 0%,
+    rgba(2, 12, 2, 0.95) 50%,
+    rgba(8, 28, 8, 0.92) 100%
+  );
+  border: 1px solid rgba(0, 255, 0, 0.18);
+  border-radius: 0.85rem;
+  box-shadow:
+    inset 0 1px 0 rgba(0, 255, 0, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    inset 0 0 24px rgba(0, 0, 0, 0.55),
+    0 0 18px rgba(0, 255, 0, 0.08),
+    0 6px 20px rgba(0, 0, 0, 0.55);
+  color: #00ff00;
+  font-family: 'Press Start 2P', monospace;
+  position: relative;
+  overflow: hidden;
+  contain: layout style;
+}
+
+@media (min-width: 1280px) {
+  .key-panel {
+    display: flex;
+  }
+}
+
+@media (min-width: 1536px) {
+  .key-panel {
+    width: 210px;
+    padding: 1rem 1rem;
+  }
+}
+
+.key-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid rgba(0, 255, 0, 0.18);
+}
+
+.key-panel-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #00ff00;
+  box-shadow: 0 0 6px rgba(0, 255, 0, 0.8);
+  animation: key-panel-pulse 2.8s ease-in-out infinite;
+}
+
+.key-panel-title {
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  color: rgba(0, 255, 0, 0.85);
+  text-shadow: 0 0 4px rgba(0, 255, 0, 0.4);
+}
+
+.key-panel-subtitle {
+  font-size: 7px;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  color: rgba(0, 255, 0, 0.55);
+  min-height: 1.1em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.key-panel-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow-y: auto;
+}
+
+.key-panel-row {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.key-panel-key {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  letter-spacing: 0.05em;
+  padding: 3px 5px 2px;
+  color: #00ff00;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 255, 0, 0.16) 0%,
+    rgba(0, 255, 0, 0.04) 45%,
+    rgba(0, 0, 0, 0.25) 100%
+  );
+  border: 1px solid rgba(0, 255, 0, 0.28);
+  border-top-color: rgba(0, 255, 0, 0.45);
+  border-bottom-color: rgba(0, 0, 0, 0.55);
+  border-radius: 3px;
+  text-shadow: 0 0 4px rgba(0, 255, 0, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(0, 255, 0, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    0 1px 2px rgba(0, 0, 0, 0.45);
+  text-align: center;
+  min-width: 2.25rem;
+  white-space: nowrap;
+}
+
+.key-panel-meaning {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  letter-spacing: 0.04em;
+  color: rgba(0, 255, 0, 0.78);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Subtle scanline overlay — reuses the iPod CRT aesthetic from `.ipod-screen`
+   so the panel visually ties into the device. Pointer-events none so clicks
+   fall through to nothing (panel has no interactive controls yet). */
+.key-panel-scanline {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 255, 0, 0.03) 0px,
+    rgba(0, 255, 0, 0.03) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  opacity: 0.5;
+}
+
+@keyframes key-panel-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .key-panel-dot {
+    animation: none !important;
+    opacity: 0.9;
+  }
+}
+
+/* ===== Game portal wrapper layout when key panel is present =====
+   At >= 1280px, switch the wrapper from flex to a 3-column grid so that:
+   - Column 1 is a phantom balancer (mirrors KeyPanel width visually)
+   - Column 2 holds the iPod body, centered
+   - Column 3 holds the KeyPanel
+   This keeps the iPod dead-centre in the viewport despite the asymmetric
+   KeyPanel on its right, which the previous flex-row layout couldn't do. */
+@media (min-width: 1280px) {
+  .game-portal-wrapper--with-key-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    justify-items: center;
+    gap: 1.25rem;
+  }
+
+  .game-portal-wrapper--with-key-panel > .ipod-body {
+    grid-column: 2;
+  }
+
+  .game-portal-wrapper--with-key-panel > .key-panel {
+    grid-column: 3;
+    justify-self: start;
+    align-self: center;
+  }
+}
+
+/* Hide the compact wheel hints when the full key panel is visible — the
+   panel is the authoritative reference above this breakpoint. */
+@media (min-width: 1280px) {
+  .ipod-wheel-hints {
+    display: none;
+  }
+}
