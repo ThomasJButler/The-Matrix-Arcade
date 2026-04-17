@@ -250,7 +250,7 @@ describe('App Component', () => {
       () => screen.queryByRole('button', { name: 'Play game' }),
       { timeout: 2000 },
     );
-    expect(screen.getByRole('button', { name: 'Stop game' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Pause game' })).toBeInTheDocument();
   });
 
   it('toggles mute state with V key', () => {

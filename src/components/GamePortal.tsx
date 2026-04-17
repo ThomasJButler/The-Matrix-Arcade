@@ -4,7 +4,7 @@ import { LogOut, Pause, Trophy, VolumeX } from 'lucide-react';
 import { GAME_TITLES } from '../lib/asciiArt';
 import { GameErrorBoundary } from './ui/GameErrorBoundary';
 import type { GameEntry } from '../data/gameRegistry';
-import type { AchievementManager } from '../lib/phaser/types';
+import { PAUSE_REQUEST_EVENT, type AchievementManager } from '../lib/phaser/types';
 
 interface GameWithRuntime extends GameEntry {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -248,6 +248,17 @@ export function GamePortal({
     onShowHighScores();
   }, [isPlaying, onShowHighScores, playClick]);
 
+  // Dashbar PAUSE dispatches a window-level request; BaseScene honours it with
+  // the same `allowPause` gating as the in-game P key, so game state is
+  // preserved (distinct from EXIT, which tears the game down via onExit).
+  const handlePauseToggle = useCallback(() => {
+    if (!isPlaying) return;
+    playClick();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(PAUSE_REQUEST_EVENT));
+    }
+  }, [isPlaying, playClick]);
+
   const handleWheelKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (isPlaying) {
       if (e.key === 'Escape') {
@@ -468,9 +479,9 @@ export function GamePortal({
                     <button
                       ref={(el) => { zoneRefs.current[4] = el; }}
                       className="dashbar-btn dashbar-centre"
-                      onClick={handlePlayPress}
+                      onClick={handlePauseToggle}
                       tabIndex={-1}
-                      aria-label="Stop game"
+                      aria-label="Pause game"
                     >
                       <Pause className="dashbar-icon dashbar-icon--centre" aria-hidden="true" />
                     </button>

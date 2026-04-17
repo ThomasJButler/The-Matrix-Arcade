@@ -55,6 +55,14 @@ export interface GameOverEventData {
   reason?: string;
 }
 
+/**
+ * Window-level custom event dispatched by the React portal dashbar to ask the
+ * active Phaser scene to toggle pause. Decouples the React control surface
+ * from individual game wrappers — BaseScene listens for this event and honours
+ * it with the same `allowPause` guard used by the in-game P key.
+ */
+export const PAUSE_REQUEST_EVENT = 'matrix-arcade:pause-toggle';
+
 /** Registry keys for passing data between React and Phaser */
 export const REGISTRY_KEYS = {
   ACHIEVEMENT_MANAGER: 'achievementManager',
