@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, render, screen, fireEvent } from '@testing-library/react';
 import { createRef } from 'react';
 import { GamePortal } from './GamePortal';
@@ -424,5 +424,96 @@ describe('GamePortal dashbar keyboard navigation', () => {
     render(<GamePortal {...makeProps({ games: makeGames(), isPlaying: false })} />);
 
     expect(document.getElementById('ipod-dashbar-instructions')).toBeNull();
+  });
+});
+
+describe('GamePortal clickwheel jump-nav rotation feedback', () => {
+  // Three-game fixture lets us test forward, backward, and same-slot jumps.
+  const makeGames = () =>
+    ['snake-classic', 'vortex-pong', 'metris'].map((id) => ({
+      id,
+      title: id,
+      description: 'test',
+      preview: 'preview.png',
+      category: 'Arcade' as const,
+      inspiration: '',
+      inspirationNote: '',
+      controls: '',
+      component: () => null,
+      icon: null,
+    }));
+
+  const getWheel = () => document.querySelector('.ipod-clickwheel') as HTMLElement;
+
+  // triggerRotation schedules setWheelRotation inside a requestAnimationFrame,
+  // which jsdom defers past the synchronous act() block. Stubbing rAF to
+  // invoke its callback immediately lets the className reflect the state
+  // update in the same tick the keyDown fires.
+  let rafSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(
+      (cb: FrameRequestCallback) => {
+        cb(0);
+        return 0;
+      },
+    );
+  });
+  afterEach(() => {
+    rafSpy.mockRestore();
+  });
+
+  it('forward jump (pressing 3 from index 0) adds rotating-right to the wheel', () => {
+    render(<GamePortal {...makeProps({ games: makeGames(), selectedGame: 0 })} />);
+    const wheel = getWheel();
+    act(() => {
+      fireEvent.keyDown(wheel, { key: '3' });
+    });
+    expect(wheel.className).toMatch(/rotating-right/);
+  });
+
+  it('backward jump (pressing 1 from index 2) adds rotating-left to the wheel', () => {
+    render(<GamePortal {...makeProps({ games: makeGames(), selectedGame: 2 })} />);
+    const wheel = getWheel();
+    act(() => {
+      fireEvent.keyDown(wheel, { key: '1' });
+    });
+    expect(wheel.className).toMatch(/rotating-left/);
+  });
+
+  it('same-slot jump (pressing 1 from index 0) does not add a rotation class', () => {
+    render(<GamePortal {...makeProps({ games: makeGames(), selectedGame: 0 })} />);
+    const wheel = getWheel();
+    act(() => {
+      fireEvent.keyDown(wheel, { key: '1' });
+    });
+    expect(wheel.className).not.toMatch(/rotating-/);
+  });
+
+  it('End from index 0 spins right; Home from the last index spins left', () => {
+    const { rerender } = render(
+      <GamePortal {...makeProps({ games: makeGames(), selectedGame: 0 })} />,
+    );
+    let wheel = getWheel();
+    act(() => {
+      fireEvent.keyDown(wheel, { key: 'End' });
+    });
+    expect(wheel.className).toMatch(/rotating-right/);
+
+    rerender(<GamePortal {...makeProps({ games: makeGames(), selectedGame: 2 })} />);
+    wheel = getWheel();
+    act(() => {
+      fireEvent.keyDown(wheel, { key: 'Home' });
+    });
+    expect(wheel.className).toMatch(/rotating-left/);
+  });
+
+  it('still calls onJumpToGame with the correct index', () => {
+    const onJumpToGame = vi.fn();
+    render(
+      <GamePortal {...makeProps({ games: makeGames(), selectedGame: 0, onJumpToGame })} />,
+    );
+    const wheel = getWheel();
+    fireEvent.keyDown(wheel, { key: '2' });
+    expect(onJumpToGame).toHaveBeenCalledWith(1);
   });
 });
