@@ -1,6 +1,6 @@
 import React, { useRef, useCallback, useState, useEffect, useMemo, Suspense } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { VolumeX } from 'lucide-react';
+import { LogOut, Pause, Trophy, VolumeX } from 'lucide-react';
 import { GAME_TITLES } from '../lib/asciiArt';
 import { GameErrorBoundary } from './ui/GameErrorBoundary';
 import type { GameEntry } from '../data/gameRegistry';
@@ -453,59 +453,45 @@ export function GamePortal({
                   exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.96 }}
                   transition={surfaceTransition}
                 >
-                  <button
-                    ref={(el) => { zoneRefs.current[0] = el; }}
-                    className="dashbar-btn"
-                    onClick={() => { captureSurfaceFocusIntent('wheel'); playClick(); onExit(); }}
-                    tabIndex={-1}
-                    aria-label="Exit game"
-                  >
-                    <span>EXIT</span>
-                  </button>
-                  <button
-                    ref={(el) => { zoneRefs.current[3] = el; }}
-                    className="dashbar-btn"
-                    data-testid="carousel-prev"
-                    tabIndex={-1}
-                    aria-label="Previous game"
-                    disabled
-                  >
-                    <span>◄◄</span>
-                  </button>
-                  <button
-                    ref={(el) => { zoneRefs.current[4] = el; }}
-                    className="dashbar-btn dashbar-centre"
-                    onClick={handlePlayPress}
-                    tabIndex={-1}
-                    aria-label="Stop game"
-                  >
-                    <span>❚❚</span>
-                  </button>
-                  <button
-                    ref={(el) => { zoneRefs.current[1] = el; }}
-                    className="dashbar-btn"
-                    data-testid="carousel-next"
-                    tabIndex={-1}
-                    aria-label="Next game"
-                    disabled
-                  >
-                    <span>►►</span>
-                  </button>
-                  <button
-                    ref={(el) => { zoneRefs.current[2] = el; }}
-                    className="dashbar-btn"
-                    tabIndex={-1}
-                    aria-label="View high scores"
-                    disabled
-                  >
-                    <span>●</span>
-                  </button>
-                  {isMuted && (
-                    <div className="dashbar-mute" role="status" aria-label="Audio muted">
-                      <VolumeX className="w-3 h-3" aria-hidden="true" />
-                      <span>MUTED</span>
-                    </div>
-                  )}
+                  <div className="dashbar-section dashbar-section--left">
+                    <button
+                      ref={(el) => { zoneRefs.current[0] = el; }}
+                      className="dashbar-btn"
+                      onClick={() => { captureSurfaceFocusIntent('wheel'); playClick(); onExit(); }}
+                      tabIndex={-1}
+                      aria-label="Exit game"
+                    >
+                      <LogOut className="dashbar-icon" aria-hidden="true" />
+                    </button>
+                  </div>
+                  <div className="dashbar-section dashbar-section--centre">
+                    <button
+                      ref={(el) => { zoneRefs.current[4] = el; }}
+                      className="dashbar-btn dashbar-centre"
+                      onClick={handlePlayPress}
+                      tabIndex={-1}
+                      aria-label="Stop game"
+                    >
+                      <Pause className="dashbar-icon dashbar-icon--centre" aria-hidden="true" />
+                    </button>
+                  </div>
+                  <div className="dashbar-section dashbar-section--right">
+                    <button
+                      ref={(el) => { zoneRefs.current[2] = el; }}
+                      className="dashbar-btn"
+                      tabIndex={-1}
+                      aria-label="View high scores"
+                      disabled
+                    >
+                      <Trophy className="dashbar-icon" aria-hidden="true" />
+                    </button>
+                    {isMuted && (
+                      <div className="dashbar-mute" role="status" aria-label="Audio muted">
+                        <VolumeX className="w-3 h-3" aria-hidden="true" />
+                        <span>MUTED</span>
+                      </div>
+                    )}
+                  </div>
                 </motion.div>
               ) : (
                 <motion.div
