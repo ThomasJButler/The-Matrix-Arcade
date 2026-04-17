@@ -547,6 +547,35 @@
   animation: dashbar-centre-idle 3s ease-in-out infinite;
 }
 
+/* R82.13: paused-state treatment. When the active scene is paused, the centre
+   button shows a Play icon (icon swap is JSX-side) and warms to amber so users
+   can see at a glance "tap to resume". Faster keyframe cadence pulls the eye
+   without becoming alarming. Idle animation is replaced (not stacked) — same
+   rationale as the hover/active rules above. */
+.dashbar-centre.is-paused:not(:disabled) {
+  background: linear-gradient(145deg, #2a2418, #1f1a10);
+  border-color: rgba(255, 200, 0, 0.45);
+  color: rgba(255, 200, 0, 0.95);
+  text-shadow: 0 0 8px rgba(255, 200, 0, 0.6);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.5),
+    0 0 14px rgba(255, 200, 0, 0.28);
+  animation: dashbar-centre-paused 1.6s ease-in-out infinite;
+}
+
+@keyframes dashbar-centre-paused {
+  0%, 100% {
+    box-shadow:
+      inset 0 1px 3px rgba(0, 0, 0, 0.5),
+      0 0 12px rgba(255, 200, 0, 0.22);
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 3px rgba(0, 0, 0, 0.5),
+      0 0 22px rgba(255, 200, 0, 0.4);
+  }
+}
+
 @media (min-width: 1024px) {
   .dashbar-centre {
     width: 64px;
@@ -948,6 +977,7 @@
   .dashbar-btn,
   .dashbar-centre,
   .dashbar-centre:not(:disabled),
+  .dashbar-centre.is-paused:not(:disabled),
   .dashbar-mute,
   .ipod-clickwheel.rotating-left,
   .ipod-clickwheel.rotating-right {

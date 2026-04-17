@@ -1,11 +1,16 @@
 import React, { useRef, useCallback, useState, useEffect, useMemo, Suspense } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { LogOut, Pause, Trophy, VolumeX } from 'lucide-react';
+import { LogOut, Pause, Play, Trophy, VolumeX } from 'lucide-react';
 import { GAME_TITLES } from '../lib/asciiArt';
 import { GameErrorBoundary } from './ui/GameErrorBoundary';
 import { KeyPanel } from './KeyPanel';
 import type { GameEntry } from '../data/gameRegistry';
-import { PAUSE_REQUEST_EVENT, type AchievementManager } from '../lib/phaser/types';
+import {
+  PAUSE_REQUEST_EVENT,
+  PAUSE_STATE_CHANGED_EVENT,
+  type AchievementManager,
+  type PauseStateChangedDetail,
+} from '../lib/phaser/types';
 
 interface GameWithRuntime extends GameEntry {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -150,6 +155,27 @@ export function GamePortal({
     }
     prevIsPlaying.current = isPlaying;
   }, [isPlaying, shouldReduceMotion, containerRef]);
+
+  // R82.13: paused-state indicator. BaseScene dispatches PAUSE_STATE_CHANGED
+  // whenever the active scene's pause state actually changes (P key, dashbar
+  // request, or future trigger). The dashbar centre button mirrors the truth.
+  const [isPaused, setIsPaused] = useState(false);
+  useEffect(() => {
+    // Reset on play boundary so a stale paused indicator can't leak across a
+    // game lifecycle (e.g. exit-while-paused → re-enter different game).
+    setIsPaused(false);
+    if (!isPlaying) return;
+    const onPauseStateChanged = (e: Event) => {
+      const detail = (e as CustomEvent<PauseStateChangedDetail>).detail;
+      if (detail && typeof detail.isPaused === 'boolean') {
+        setIsPaused(detail.isPaused);
+      }
+    };
+    window.addEventListener(PAUSE_STATE_CHANGED_EVENT, onPauseStateChanged);
+    return () => {
+      window.removeEventListener(PAUSE_STATE_CHANGED_EVENT, onPauseStateChanged);
+    };
+  }, [isPlaying]);
 
   const playClick = useCallback(() => playSFX?.('scoreboardTab'), [playSFX]);
   const playConfirm = useCallback(() => playSFX?.('scoreboardConfirm'), [playSFX]);
@@ -350,7 +376,9 @@ export function GamePortal({
     >
       <div className="sr-only" aria-live="polite" aria-atomic="true">
         {isPlaying
-          ? `Now playing ${game.title}`
+          ? isPaused
+            ? `${game.title} paused`
+            : `Now playing ${game.title}`
           : `${game.title} — game ${selectedGame + 1} of ${games.length}`}
       </div>
       <div
@@ -479,12 +507,17 @@ export function GamePortal({
                   <div className="dashbar-section dashbar-section--centre">
                     <button
                       ref={(el) => { zoneRefs.current[4] = el; }}
-                      className="dashbar-btn dashbar-centre"
+                      className={`dashbar-btn dashbar-centre${isPaused ? ' is-paused' : ''}`}
                       onClick={handlePauseToggle}
                       tabIndex={-1}
-                      aria-label="Pause game"
+                      aria-label={isPaused ? 'Resume game' : 'Pause game'}
+                      aria-pressed={isPaused}
                     >
-                      <Pause className="dashbar-icon dashbar-icon--centre" aria-hidden="true" />
+                      {isPaused ? (
+                        <Play className="dashbar-icon dashbar-icon--centre" aria-hidden="true" />
+                      ) : (
+                        <Pause className="dashbar-icon dashbar-icon--centre" aria-hidden="true" />
+                      )}
                     </button>
                   </div>
                   <div className="dashbar-section dashbar-section--right">

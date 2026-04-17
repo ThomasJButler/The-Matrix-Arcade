@@ -12,12 +12,14 @@
 import Phaser from 'phaser';
 import {
   PAUSE_REQUEST_EVENT,
+  PAUSE_STATE_CHANGED_EVENT,
   REGISTRY_KEYS,
   SCENE_KEYS,
   MATRIX_COLORS,
   MATRIX_FONTS,
   type GameEvent,
   type GameOverStat,
+  type PauseStateChangedDetail,
 } from '../types';
 import { MAX_BOARD_SIZE } from '../../../hooks/useSaveSystem';
 
@@ -154,6 +156,7 @@ export abstract class BaseScene extends Phaser.Scene {
       this.tweens.pauseAll();
       this.time.paused = true;
       this.emitGameEvent({ type: 'pause' });
+      this._dispatchPauseStateChanged(true);
     } else {
       this.resumeGame();
     }
@@ -167,6 +170,16 @@ export abstract class BaseScene extends Phaser.Scene {
     this.time.paused = false;
     this.game.canvas.focus();
     this.emitGameEvent({ type: 'resume' });
+    this._dispatchPauseStateChanged(false);
+  }
+
+  // Notifies the React portal's dashbar that the active scene's pause state
+  // changed. Window-level event mirrors the inbound PAUSE_REQUEST_EVENT — both
+  // sides of the bridge stay decoupled from per-game wrappers.
+  private _dispatchPauseStateChanged(isPaused: boolean): void {
+    if (typeof window === 'undefined') return;
+    const detail: PauseStateChangedDetail = { isPaused };
+    window.dispatchEvent(new CustomEvent(PAUSE_STATE_CHANGED_EVENT, { detail }));
   }
 
   /**

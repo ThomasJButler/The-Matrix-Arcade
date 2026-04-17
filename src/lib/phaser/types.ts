@@ -63,6 +63,20 @@ export interface GameOverEventData {
  */
 export const PAUSE_REQUEST_EVENT = 'matrix-arcade:pause-toggle';
 
+/**
+ * Reverse channel: BaseScene dispatches this whenever the active scene's pause
+ * state actually changes (via P key, dashbar request, or any future trigger).
+ * The portal listens so its dashbar centre button can swap between Pause and
+ * Play icons in lockstep with true game state — no prop-drilling through the
+ * 12 lazy-loaded game wrappers required.
+ */
+export const PAUSE_STATE_CHANGED_EVENT = 'matrix-arcade:pause-state-changed';
+
+/** Detail shape carried on PAUSE_STATE_CHANGED_EVENT */
+export interface PauseStateChangedDetail {
+  isPaused: boolean;
+}
+
 /** Registry keys for passing data between React and Phaser */
 export const REGISTRY_KEYS = {
   ACHIEVEMENT_MANAGER: 'achievementManager',
