@@ -237,3 +237,141 @@ describe('GamePortal dashbar mute toggle', () => {
     expect(unmuteBtn).toBeDisabled();
   });
 });
+
+describe('GamePortal dashbar keyboard navigation', () => {
+  const makeGames = () => [
+    {
+      id: 'snake-classic',
+      title: 'Snake Classic',
+      description: 'test',
+      preview: 'preview.png',
+      category: 'Arcade' as const,
+      inspiration: '',
+      inspirationNote: '',
+      controls: '',
+      component: () => null,
+      icon: null,
+    },
+  ];
+
+  it('ArrowRight rotates focus from EXIT to PAUSE within the dashbar', () => {
+    render(<GamePortal {...makeProps({ games: makeGames(), isPlaying: true })} />);
+
+    const toolbar = screen.getByRole('toolbar', { name: /in-game controls/i });
+    const exitBtn = screen.getByRole('button', { name: 'Exit game' });
+    const pauseBtn = screen.getByRole('button', { name: 'Pause game' });
+
+    exitBtn.focus();
+    expect(document.activeElement).toBe(exitBtn);
+
+    fireEvent.keyDown(toolbar, { key: 'ArrowRight' });
+    expect(document.activeElement).toBe(pauseBtn);
+  });
+
+  it('ArrowLeft wraps from EXIT to the last enabled button (PAUSE when not muted)', () => {
+    render(<GamePortal {...makeProps({ games: makeGames(), isPlaying: true })} />);
+
+    const toolbar = screen.getByRole('toolbar', { name: /in-game controls/i });
+    const exitBtn = screen.getByRole('button', { name: 'Exit game' });
+    const pauseBtn = screen.getByRole('button', { name: 'Pause game' });
+
+    exitBtn.focus();
+    fireEvent.keyDown(toolbar, { key: 'ArrowLeft' });
+    expect(document.activeElement).toBe(pauseBtn);
+  });
+
+  it('includes MUTE in the rove when muted with an onToggleMute handler', () => {
+    render(
+      <GamePortal
+        {...makeProps({
+          games: makeGames(),
+          isPlaying: true,
+          isMuted: true,
+          onToggleMute: vi.fn(),
+        })}
+      />,
+    );
+
+    const toolbar = screen.getByRole('toolbar', { name: /in-game controls/i });
+    const pauseBtn = screen.getByRole('button', { name: 'Pause game' });
+    const muteBtn = screen.getByRole('button', { name: /unmute audio/i });
+
+    pauseBtn.focus();
+    fireEvent.keyDown(toolbar, { key: 'ArrowRight' });
+    expect(document.activeElement).toBe(muteBtn);
+  });
+
+  it('Home focuses EXIT, End focuses the last enabled button', () => {
+    render(
+      <GamePortal
+        {...makeProps({
+          games: makeGames(),
+          isPlaying: true,
+          isMuted: true,
+          onToggleMute: vi.fn(),
+        })}
+      />,
+    );
+
+    const toolbar = screen.getByRole('toolbar', { name: /in-game controls/i });
+    const exitBtn = screen.getByRole('button', { name: 'Exit game' });
+    const muteBtn = screen.getByRole('button', { name: /unmute audio/i });
+
+    fireEvent.keyDown(toolbar, { key: 'End' });
+    expect(document.activeElement).toBe(muteBtn);
+
+    fireEvent.keyDown(toolbar, { key: 'Home' });
+    expect(document.activeElement).toBe(exitBtn);
+  });
+
+  it('Enter on the focused EXIT button calls onExit', () => {
+    const onExit = vi.fn();
+    render(
+      <GamePortal {...makeProps({ games: makeGames(), isPlaying: true, onExit })} />,
+    );
+
+    const toolbar = screen.getByRole('toolbar', { name: /in-game controls/i });
+    const exitBtn = screen.getByRole('button', { name: 'Exit game' });
+
+    exitBtn.focus();
+    fireEvent.keyDown(toolbar, { key: 'Enter' });
+    expect(onExit).toHaveBeenCalledTimes(1);
+  });
+
+  it('Space on the focused PAUSE button dispatches a PAUSE_REQUEST_EVENT', () => {
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+    render(<GamePortal {...makeProps({ games: makeGames(), isPlaying: true })} />);
+
+    const toolbar = screen.getByRole('toolbar', { name: /in-game controls/i });
+    const pauseBtn = screen.getByRole('button', { name: 'Pause game' });
+
+    pauseBtn.focus();
+    fireEvent.keyDown(toolbar, { key: ' ' });
+
+    const pauseDispatches = dispatchSpy.mock.calls.filter(
+      ([event]) => event instanceof Event && event.type === PAUSE_REQUEST_EVENT,
+    );
+    expect(pauseDispatches).toHaveLength(1);
+    dispatchSpy.mockRestore();
+  });
+
+  it('Enter with no focused dashbar slot does not activate anything', () => {
+    const onExit = vi.fn();
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+    render(
+      <GamePortal {...makeProps({ games: makeGames(), isPlaying: true, onExit })} />,
+    );
+
+    const toolbar = screen.getByRole('toolbar', { name: /in-game controls/i });
+    // Toolbar itself has focus, not a button slot
+    toolbar.focus();
+    fireEvent.keyDown(toolbar, { key: 'Enter' });
+
+    expect(onExit).not.toHaveBeenCalled();
+    const pauseDispatches = dispatchSpy.mock.calls.filter(
+      ([event]) => event instanceof Event && event.type === PAUSE_REQUEST_EVENT,
+    );
+    expect(pauseDispatches).toHaveLength(0);
+    dispatchSpy.mockRestore();
+  });
+});

@@ -303,7 +303,61 @@ export function GamePortal({
         e.preventDefault();
         captureSurfaceFocusIntent('wheel');
         onExit();
+        return;
       }
+
+      // R82.13 dashbar roving-tabindex: ArrowLeft/Right walk focus between the
+      // visually-enabled buttons (EXIT, PAUSE-centre, optional MUTE). SCORES is
+      // disabled during play so it's skipped. Home/End jump the extremes.
+      // Enter/Space activates the currently-focused slot. The rove list is
+      // built fresh each press so a mute-pill appearance/disappearance slots
+      // in/out naturally.
+      const enabledSlots: number[] = [0, 4];
+      if (isMuted && onToggleMute) enabledSlots.push(5);
+
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End', 'Enter', ' '].includes(e.key)) {
+        return;
+      }
+
+      const currentEl = document.activeElement;
+      const currentSlot = enabledSlots.find((idx) => zoneRefs.current[idx] === currentEl);
+      const currentPos = currentSlot === undefined ? -1 : enabledSlots.indexOf(currentSlot);
+
+      if (e.key === 'Enter' || e.key === ' ') {
+        // Activate a currently-focused slot — only fires if focus has landed on
+        // a dashbar button (not the toolbar itself), so the bare-toolbar case
+        // doesn't accidentally exit the game on Enter.
+        if (currentSlot === undefined) return;
+        e.preventDefault();
+        e.stopPropagation();
+        triggerPressFlash(currentSlot);
+        if (currentSlot === 0) {
+          captureSurfaceFocusIntent('wheel');
+          playClick();
+          onExit();
+        } else if (currentSlot === 4) {
+          handlePauseToggle();
+        } else if (currentSlot === 5) {
+          handleMuteToggle();
+        }
+        return;
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
+      let nextPos = currentPos;
+      if (e.key === 'ArrowLeft') {
+        nextPos = currentPos <= 0 ? enabledSlots.length - 1 : currentPos - 1;
+      } else if (e.key === 'ArrowRight') {
+        nextPos = currentPos === -1 ? 0 : (currentPos + 1) % enabledSlots.length;
+      } else if (e.key === 'Home') {
+        nextPos = 0;
+      } else if (e.key === 'End') {
+        nextPos = enabledSlots.length - 1;
+      }
+      const nextSlot = enabledSlots[nextPos];
+      zoneRefs.current[nextSlot]?.focus();
+      triggerPressFlash(nextSlot);
       return;
     }
 
@@ -342,7 +396,7 @@ export function GamePortal({
         onJumpToGame(idx);
       }
     }
-  }, [onShowInstructions, onNext, onPrev, handlePlayPress, handleScoresPress, isPlaying, onExit, triggerRotation, triggerPressFlash, playClick, onJumpToGame, games.length, captureSurfaceFocusIntent]);
+  }, [onShowInstructions, onNext, onPrev, handlePlayPress, handleScoresPress, isPlaying, onExit, triggerRotation, triggerPressFlash, playClick, onJumpToGame, games.length, captureSurfaceFocusIntent, isMuted, onToggleMute, handlePauseToggle, handleMuteToggle]);
 
   if (!game) {
     return (
@@ -507,7 +561,7 @@ export function GamePortal({
                   <div className="dashbar-section dashbar-section--left">
                     <button
                       ref={(el) => { zoneRefs.current[0] = el; }}
-                      className="dashbar-btn"
+                      className={`dashbar-btn${pressedIndex === 0 ? ' is-pressed' : ''}`}
                       onClick={() => { captureSurfaceFocusIntent('wheel'); playClick(); onExit(); }}
                       tabIndex={-1}
                       aria-label="Exit game"
@@ -518,7 +572,7 @@ export function GamePortal({
                   <div className="dashbar-section dashbar-section--centre">
                     <button
                       ref={(el) => { zoneRefs.current[4] = el; }}
-                      className={`dashbar-btn dashbar-centre${isPaused ? ' is-paused' : ''}`}
+                      className={`dashbar-btn dashbar-centre${isPaused ? ' is-paused' : ''}${pressedIndex === 4 ? ' is-pressed' : ''}`}
                       onClick={handlePauseToggle}
                       tabIndex={-1}
                       aria-label={isPaused ? 'Resume game' : 'Pause game'}
@@ -543,10 +597,12 @@ export function GamePortal({
                     </button>
                     {isMuted && (
                       <button
+                        ref={(el) => { zoneRefs.current[5] = el; }}
                         type="button"
-                        className="dashbar-mute-btn"
+                        className={`dashbar-mute-btn${pressedIndex === 5 ? ' is-pressed' : ''}`}
                         onClick={handleMuteToggle}
                         disabled={!onToggleMute}
+                        tabIndex={-1}
                         aria-label="Unmute audio"
                         aria-pressed="true"
                         title="Click to unmute"
