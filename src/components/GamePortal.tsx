@@ -380,23 +380,29 @@ export function GamePortal({
       return;
     }
 
+    // Jump-navigation (Home/End/1-9) mirrors the arrow-key tactile feedback:
+    // the wheel physically rotates in the direction of travel so a jump from
+    // game 2 → game 7 spins clockwise (right), matching the muscle-memory
+    // users build from ArrowRight → next. A same-slot jump (e.g. pressing
+    // `3` when already on index 2) skips the rotation to avoid a phantom
+    // spin on a no-op.
+    const jumpTo = (idx: number) => {
+      e.preventDefault();
+      playClick();
+      if (idx > selectedGame) triggerRotation('right');
+      else if (idx < selectedGame) triggerRotation('left');
+      onJumpToGame(idx);
+    };
+
     if (e.key === 'Home') {
-      e.preventDefault();
-      playClick();
-      onJumpToGame(0);
+      jumpTo(0);
     } else if (e.key === 'End') {
-      e.preventDefault();
-      playClick();
-      onJumpToGame(games.length - 1);
+      jumpTo(games.length - 1);
     } else if (e.key >= '1' && e.key <= '9') {
       const idx = parseInt(e.key, 10) - 1;
-      if (idx < games.length) {
-        e.preventDefault();
-        playClick();
-        onJumpToGame(idx);
-      }
+      if (idx < games.length) jumpTo(idx);
     }
-  }, [onShowInstructions, onNext, onPrev, handlePlayPress, handleScoresPress, isPlaying, onExit, triggerRotation, triggerPressFlash, playClick, onJumpToGame, games.length, captureSurfaceFocusIntent, isMuted, onToggleMute, handlePauseToggle, handleMuteToggle]);
+  }, [onShowInstructions, onNext, onPrev, handlePlayPress, handleScoresPress, isPlaying, onExit, triggerRotation, triggerPressFlash, playClick, onJumpToGame, games.length, selectedGame, captureSurfaceFocusIntent, isMuted, onToggleMute, handlePauseToggle, handleMuteToggle]);
 
   if (!game) {
     return (
