@@ -1252,6 +1252,71 @@
   }
 }
 
+/* Windows High Contrast Mode / macOS Increase Contrast.
+   HCM strips box-shadow + gradients + most backgrounds and substitutes its
+   own palette. The iPod chrome relies on those strips for its entire sense
+   of depth (screen bezel, wheel/dashbar pill, wedge separation), so without
+   explicit borders the portal collapses into indistinguishable blocks and
+   interactive affordances lose their hit-zone geometry. We opt IN to the
+   user's chosen system palette (Canvas, CanvasText, ButtonBorder, Highlight,
+   GrayText) rather than opt out via forced-color-adjust: none — honours the
+   theme the user picked while preserving layout via system-coloured borders. */
+@media (forced-colors: active) {
+  .ipod-body,
+  .ipod-screen,
+  .ipod-clickwheel,
+  .ipod-dashbar {
+    border: 1px solid CanvasText;
+  }
+
+  .clickwheel-zone,
+  .clickwheel-centre,
+  .dashbar-btn,
+  .dashbar-centre {
+    border: 1px solid ButtonBorder;
+    color: ButtonText;
+  }
+
+  .ipod-clickwheel:focus-visible,
+  .ipod-dashbar:focus-visible,
+  .clickwheel-zone:focus-visible,
+  .clickwheel-centre:focus-visible,
+  .dashbar-btn:focus-visible:not(:disabled),
+  .dashbar-centre:focus-visible:not(:disabled) {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .clickwheel-zone:disabled,
+  .clickwheel-centre:disabled,
+  .dashbar-btn:disabled,
+  .dashbar-centre:disabled {
+    color: GrayText;
+    border-color: GrayText;
+  }
+
+  /* Pause overlay: HCM nulls the backdrop-blur + amber scrim; anchor the
+     glyph on the screen background with a system-coloured border so the
+     paused affordance stays legible without the glow. */
+  .ipod-pause-overlay {
+    background: Canvas;
+    border: 2px solid CanvasText;
+  }
+  .ipod-pause-text,
+  .ipod-pause-hint {
+    color: CanvasText;
+  }
+
+  /* Mute pill reads as an alert — Mark/MarkText is the CSS Color Level 4
+     pair that system themes reserve for highlighted/alerted text. */
+  .dashbar-mute,
+  .dashbar-mute-btn {
+    border: 1px solid Mark;
+    color: MarkText;
+    background: Mark;
+  }
+}
+
 /* iPod loading screen */
 .ipod-loading-screen {
   display: flex;
