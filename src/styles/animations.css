@@ -725,6 +725,19 @@
   transform: translateY(-50%);
 }
 
+/* R82.25 — Lucide icon sizing inside clickwheel zone buttons. 20px trophy
+   on the HIGH SCORES wedge (was a bare `●` glyph) reads as a recognisable
+   affordance at a glance and matches the dashbar's Trophy icon semantic.
+   Colour inherits via currentColor from `.clickwheel-zone`, so the normal
+   0.65 → 0.85 → 1.0 rgba(0,255,0,*) hover/active ramp still applies. */
+.clickwheel-icon {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2;
+  filter: drop-shadow(0 0 4px rgba(0, 255, 0, 0.3));
+  display: block;
+}
+
 /* Centre select button — primary play CTA after R82.15 swap */
 .clickwheel-centre {
   position: absolute;

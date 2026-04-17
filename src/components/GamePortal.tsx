@@ -558,7 +558,9 @@ export function GamePortal({
                     tabIndex={-1}
                     aria-label="View high scores"
                   >
-                    <span>●</span>
+                    <span>
+                      <Trophy className="clickwheel-icon" aria-hidden="true" />
+                    </span>
                   </button>
 
                   <button
