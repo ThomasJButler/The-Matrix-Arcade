@@ -600,3 +600,60 @@ describe('GamePortal screen-reader announcement debounce', () => {
     expect(getLiveRegion()).toHaveTextContent('Now playing Snake Classic');
   });
 });
+
+describe('GamePortal ARIA keyboard-shortcut surface', () => {
+  const makeGames = () => [
+    {
+      id: 'snake-classic',
+      title: 'Snake Classic',
+      description: 'test',
+      preview: 'preview.png',
+      category: 'Arcade' as const,
+      inspiration: '',
+      inspirationNote: '',
+      controls: '',
+      component: () => null,
+      icon: null,
+    },
+  ];
+
+  it('clickwheel toolbar declares the iPod classic role description', () => {
+    render(<GamePortal {...makeProps({ games: makeGames() })} />);
+
+    const wheel = screen.getByRole('toolbar', { name: /game navigation wheel/i });
+    expect(wheel).toHaveAttribute('aria-roledescription', 'iPod classic click wheel');
+  });
+
+  it('each clickwheel button declares its direct keyboard shortcut via aria-keyshortcuts', () => {
+    render(<GamePortal {...makeProps({ games: makeGames() })} />);
+
+    // Menu zone → ArrowUp
+    expect(screen.getByRole('button', { name: /how to play/i }))
+      .toHaveAttribute('aria-keyshortcuts', 'ArrowUp');
+    // Prev → ArrowLeft, Next → ArrowRight
+    expect(screen.getByRole('button', { name: /previous game/i }))
+      .toHaveAttribute('aria-keyshortcuts', 'ArrowLeft');
+    expect(screen.getByRole('button', { name: /next game/i }))
+      .toHaveAttribute('aria-keyshortcuts', 'ArrowRight');
+    // Scores → ArrowDown
+    expect(screen.getByRole('button', { name: /view high scores/i }))
+      .toHaveAttribute('aria-keyshortcuts', 'ArrowDown');
+    // Centre Play → Enter or Space (space-separated per WAI-ARIA 1.1)
+    expect(screen.getByRole('button', { name: /play game/i }))
+      .toHaveAttribute('aria-keyshortcuts', 'Enter Space');
+  });
+
+  it('dashbar EXIT button declares Escape as its keyboard shortcut', () => {
+    render(<GamePortal {...makeProps({ games: makeGames(), isPlaying: true })} />);
+
+    expect(screen.getByRole('button', { name: 'Exit game' }))
+      .toHaveAttribute('aria-keyshortcuts', 'Escape');
+  });
+
+  it('dashbar PAUSE button declares P as its keyboard shortcut', () => {
+    render(<GamePortal {...makeProps({ games: makeGames(), isPlaying: true })} />);
+
+    expect(screen.getByRole('button', { name: 'Pause game' }))
+      .toHaveAttribute('aria-keyshortcuts', 'P');
+  });
+});

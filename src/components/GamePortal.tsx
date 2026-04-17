@@ -639,6 +639,7 @@ export function GamePortal({
                       onClick={() => { captureSurfaceFocusIntent('wheel'); playClick(); onExit(); }}
                       tabIndex={-1}
                       aria-label="Exit game"
+                      aria-keyshortcuts="Escape"
                     >
                       <LogOut className="dashbar-icon" aria-hidden="true" />
                     </button>
@@ -651,6 +652,7 @@ export function GamePortal({
                       tabIndex={-1}
                       aria-label={isPaused ? 'Resume game' : 'Pause game'}
                       aria-pressed={isPaused}
+                      aria-keyshortcuts="P"
                     >
                       {isPaused ? (
                         <Play className="dashbar-icon dashbar-icon--centre" aria-hidden="true" />
@@ -694,6 +696,7 @@ export function GamePortal({
                   className={`ipod-clickwheel${wheelRotation ? ` rotating-${wheelRotation}` : ''}`}
                   role="toolbar"
                   aria-label="Game navigation wheel — swipe left or right to navigate"
+                  aria-roledescription="iPod classic click wheel"
                   aria-describedby="ipod-wheel-instructions"
                   tabIndex={0}
                   onKeyDown={handleWheelKeyDown}
@@ -708,6 +711,7 @@ export function GamePortal({
                     onClick={() => { playClick(); onShowInstructions(); }}
                     tabIndex={-1}
                     aria-label="How to play"
+                    aria-keyshortcuts="ArrowUp"
                   >
                     <span>MENU</span>
                   </button>
@@ -719,6 +723,7 @@ export function GamePortal({
                     data-testid="carousel-prev"
                     tabIndex={-1}
                     aria-label="Previous game"
+                    aria-keyshortcuts="ArrowLeft"
                   >
                     <span>◄◄</span>
                   </button>
@@ -730,6 +735,7 @@ export function GamePortal({
                     data-testid="carousel-next"
                     tabIndex={-1}
                     aria-label="Next game"
+                    aria-keyshortcuts="ArrowRight"
                   >
                     <span>►►</span>
                   </button>
@@ -740,6 +746,7 @@ export function GamePortal({
                     onClick={handleScoresPress}
                     tabIndex={-1}
                     aria-label="View high scores"
+                    aria-keyshortcuts="ArrowDown"
                   >
                     <span>
                       <Trophy className="clickwheel-icon" aria-hidden="true" />
@@ -753,6 +760,7 @@ export function GamePortal({
                     disabled={isPlayDisabled || !hasComponent}
                     tabIndex={-1}
                     aria-label="Play game"
+                    aria-keyshortcuts="Enter Space"
                   >
                     ▶
                   </button>
