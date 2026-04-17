@@ -171,6 +171,17 @@
   }
 }
 
+/* R82.13 post-playtest 2026-04-19: hard scroll-lock backstop during play.
+   `<main>` in App.tsx carries `overflow-y-auto` (sensible browsing default so
+   long game lists can scroll). During play we don't want ANY page scroll — if
+   our pixel budget is slightly off on a given viewport, this CSS-only guard
+   (modern `:has()` selector, supported in all evergreen browsers) clips rather
+   than scrolls. The iPod body's own max-height caps do the real math; this is
+   belt-and-braces to guarantee the "fits on screen, no scroll" contract. */
+main:has(.ipod-body--playing) {
+  overflow: hidden !important;
+}
+
 .ipod-body::before {
   content: '';
   position: absolute;
@@ -326,12 +337,12 @@
   padding: 0.75rem;
   width: fit-content;
   max-width: 100%;
-  /* R82.13 post-playtest 2026-04-18: hard viewport cap so the whole iPod +
-     dashbar assembly fits on screen without scroll. 5rem reserves space for
-     the app header (~4rem) + a little breathing room below. The inner screen
-     height cap (below) provides the fine-grained budget; this outer cap is
-     the belt-and-braces stop against compounding padding/shadow overflow. */
-  max-height: calc(100vh - 5rem);
+  /* R82.13 post-playtest 2026-04-18 (tightened 2026-04-19): hard viewport cap
+     so the whole iPod + dashbar assembly fits on screen without scroll.
+     Budget accounts for: header (~4rem) + footer (~2rem) + main padding
+     (0.5-1rem each side) + flex-center margin buffer. 7rem reserves covers
+     all of this with headroom on short viewports (720-800px). */
+  max-height: calc(100vh - 7rem);
   display: flex;
   flex-direction: column;
 }
@@ -349,11 +360,13 @@
 
 .ipod-screen--playing {
   aspect-ratio: 16 / 9;
-  /* R82.13 post-playtest tightened: 260px reserve (was 220) covers header
-     + body padding + dashbar + safety buffer. Removed the 360px min-height
-     floor — on short viewports it was forcing overflow past the 100vh cap.
-     The outer `.ipod-body--playing max-height` now acts as the hard ceiling. */
-  height: min(70vh, calc(100vh - 260px));
+  /* R82.13 post-playtest tightened twice (2026-04-19): reserve bumped to
+     320px (was 260) — covers header + footer + flex-center padding + body
+     padding + dashbar + safety buffer for short viewports where the screen
+     was the last 20-40px of overflow causing Tom's scroll bug. Also dropped
+     to 62vh (was 70) so on tall viewports the screen doesn't force body
+     overflow past the outer max-height cap. */
+  height: min(62vh, calc(100vh - 320px));
   width: auto;
   max-width: 100%;
   min-height: 0;
