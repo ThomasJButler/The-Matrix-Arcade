@@ -144,6 +144,35 @@ export function GamePortal({
     };
   }, []);
 
+  // R82.13: idle-prefetch all carousel preview images so arrow-keying to a
+  // previously-unvisited game never shows a load flash. The 0.26s slide
+  // transition can finish before a cold Cloudinary fetch returns, producing
+  // a broken-image flicker on first visit. `new Image().src = url` warms
+  // the same browser cache entry that `<img>` tags read from — no DOM churn.
+  // `requestIdleCallback` yields to initial paint + the current preview's
+  // own load; `setTimeout` fallback keeps parity on Safari < 16.4.
+  useEffect(() => {
+    const prefetch = () => {
+      for (const g of games) {
+        if (!g.preview) continue;
+        const img = new Image();
+        img.decoding = 'async';
+        img.src = g.preview;
+      }
+    };
+    type IdleAPI = {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (h: number) => void;
+    };
+    const idle = window as typeof window & IdleAPI;
+    if (idle.requestIdleCallback) {
+      const handle = idle.requestIdleCallback(prefetch, { timeout: 2500 });
+      return () => idle.cancelIdleCallback?.(handle);
+    }
+    const handle = window.setTimeout(prefetch, 1500);
+    return () => window.clearTimeout(handle);
+  }, [games]);
+
   // R82.21: when play starts, scroll the iPod top into view so the wider
   // portal doesn't get clipped by the header. Only fires on the false→true
   // transition; exit lets the layout spring shrink back without scroll jank.
