@@ -835,19 +835,26 @@
 /* Hover is gated to pointer-fine devices (mouse/trackpad) because on touch the
    :hover state sticks after a tap with no mouseleave event — leaving the
    infinite `clickwheel-pulse` animation running until the user taps elsewhere.
-   :focus-visible stays unconditional so keyboard users always get feedback. */
+   :focus-visible stays unconditional so keyboard users always get feedback.
+
+   R82.13 hover-glow calibration: radial-gradient replaces the flat alpha
+   background so the light reads as emanating from the wheel's geometric
+   centre. Each `.clickwheel-zone` fills the entire wheel bounding box
+   (`position: absolute; inset: 0`) and is clip-pathed to a wedge, so
+   `radial-gradient(circle at 50% 50%)` anchors to the wheel's true centre;
+   the clip just reveals the wedge slice — giving the illusion of an LED ring
+   backlighting the zone from the inside out. */
 @media (hover: hover) and (pointer: fine) {
   .clickwheel-zone:hover {
     color: rgba(0, 255, 0, 0.85);
-    background: rgba(0, 255, 0, 0.05);
+    background: radial-gradient(
+      circle at 50% 50%,
+      rgba(0, 255, 0, 0.14) 40%,
+      rgba(0, 255, 0, 0.06) 75%,
+      transparent 100%
+    );
     animation: clickwheel-pulse 2s ease-in-out infinite;
   }
-}
-
-.clickwheel-zone:focus-visible {
-  color: rgba(0, 255, 0, 0.85);
-  background: rgba(0, 255, 0, 0.05);
-  animation: clickwheel-pulse 2s ease-in-out infinite;
 }
 
 .clickwheel-zone:active {
@@ -862,11 +869,24 @@
 /* Focus-visible: outline gets clipped by clip-path on each wedge, leaving a
    fragmented L-shape. Use inset box-shadow instead — it's painted inside the
    element's content box and respects the clip-path, giving a clean focus ring
-   that follows the wedge's actual visible perimeter. */
+   that follows the wedge's actual visible perimeter.
+
+   R82.13 hover-glow calibration: background switched to the same radial
+   gradient the hover state uses, then strengthened a touch (inner alpha
+   0.14 → 0.18) so keyboard focus reads as a shade brighter than hover —
+   consistent with the existing 0.85 → 1.0 colour ramp. Animation declared
+   here (rather than in the earlier focus-visible rule that was cascading
+   into this one) so it stays in sync with the keyframe's radial form. */
 .clickwheel-zone:focus-visible {
   outline: none;
   color: rgba(0, 255, 0, 1);
-  background: rgba(0, 255, 0, 0.10);
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(0, 255, 0, 0.18) 40%,
+    rgba(0, 255, 0, 0.08) 75%,
+    transparent 100%
+  );
+  animation: clickwheel-pulse 2s ease-in-out infinite;
   box-shadow:
     inset 0 0 0 3px rgba(0, 255, 120, 0.75),
     inset 0 0 18px rgba(0, 255, 0, 0.25);
@@ -1039,10 +1059,29 @@
   text-shadow: none;
 }
 
-/* Clickwheel segment hover pulse — slow organic breathing */
+/* Clickwheel segment hover pulse — slow organic breathing.
+   R82.13 hover-glow calibration: keyframes animate the radial-gradient's
+   inner alpha so the LED-ring feel breathes from the centre outward rather
+   than flashing a flat wedge. Inner radius hovers around the wheel's central
+   ring (40%), mid-stop at 75%, transparent at the rim — same geometry as the
+   static hover/focus rules so the animation blends seamlessly with them. */
 @keyframes clickwheel-pulse {
-  0%, 100% { background: rgba(0, 255, 0, 0.04); }
-  50% { background: rgba(0, 255, 0, 0.10); }
+  0%, 100% {
+    background: radial-gradient(
+      circle at 50% 50%,
+      rgba(0, 255, 0, 0.08) 40%,
+      rgba(0, 255, 0, 0.03) 75%,
+      transparent 100%
+    );
+  }
+  50% {
+    background: radial-gradient(
+      circle at 50% 50%,
+      rgba(0, 255, 0, 0.20) 40%,
+      rgba(0, 255, 0, 0.09) 75%,
+      transparent 100%
+    );
+  }
 }
 
 @keyframes clickwheel-pulse-centre {
