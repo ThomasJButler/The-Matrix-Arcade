@@ -86,6 +86,21 @@ const TYPEWRITER_BURST_CHANCE = 0.03;
 // fading" rather than a blank wait.
 const PARAGRAPH_BEAT_MIN_MS = 100;
 const PARAGRAPH_BEAT_MAX_MS = 200;
+// R83.CTRLS.23 — trailing fade for the just-finished paragraph. Tom's
+// Round 2 verdict: *"we should also see the last sentence too before it
+// slowly disappears"*. Round 2 wiped the old paragraph the instant the
+// next started typing; that jarring snap made the terminal read like a
+// UI instead of a reader's companion. Clone the paragraph's rendered
+// frame into a ghost Text object and alpha-tween it 1 → 0 over 500 ms
+// with Sine.easeIn while the new paragraph kicks in on bodyText. The
+// 100-200 ms inter-paragraph beat (.22) overlaps the first ~30 % of the
+// fade, so by the time the reader looks for the new line, it's already
+// typing underneath the dying ghost. easeIn keeps the line crisp for
+// the first half of the fade (reader's eye can still re-settle the old
+// sentence) then falls away fast, so the new paragraph owns the frame
+// from ~T+350 ms onward.
+const PREVIOUS_PARAGRAPH_FADE_MS = 500;
+const PREVIOUS_PARAGRAPH_FADE_EASE = 'Sine.easeIn';
 // R83.CTRLS.17 — choice prompts wait a full 2 s after the final paragraph char
 // before the choice lines appear. Previously 300 ms (felt like a UI, not a
 // choice). 2 s forces the player to sit with the question.
@@ -158,6 +173,14 @@ export class CtrlSNarrativeScene extends BaseScene {
   private chapterTitle?: Phaser.GameObjects.Text;
   private chapterAscii?: Phaser.GameObjects.Text;
   private bodyText?: Phaser.GameObjects.Text;
+  // R83.CTRLS.23 — trailing fade ghosts. Each paragraph-boundary advance
+  // clones the just-finished paragraph into a ghost that tweens alpha 1 → 0
+  // and self-destroys. Stored as a list (not a single handle) so rapid
+  // advances through back-to-back short paragraphs can queue up multiple
+  // fades without stranding orphan GOs when a new ghost spawns before the
+  // previous one finishes. shutdown() walks the list to destroy any still
+  // mid-fade when the scene tears down.
+  private fadingParagraphGhosts: Phaser.GameObjects.Text[] = [];
   private asciiPanels: Phaser.GameObjects.Text[] = [];
   private cursorBlink?: Phaser.GameObjects.Text;
   private promptText?: Phaser.GameObjects.Text;
@@ -795,6 +818,13 @@ export class CtrlSNarrativeScene extends BaseScene {
     if (this.advancingBeat) return;
     this.advancingBeat = true;
     this.cursorBlink?.setVisible(false);
+    // R83.CTRLS.23 — spawn the trailing-fade ghost BEFORE the beat delay so
+    // the fade clock starts at the keypress moment (T+0), not at the end
+    // of the beat. The 100-200 ms beat consumes roughly the first 20-40 %
+    // of the fade, so by the time engine.advance() fires and bodyText
+    // starts typing the new paragraph, the ghost is already visibly
+    // receding instead of competing with the fresh text at full opacity.
+    this.spawnTrailingFadeGhost();
     const beatMs = Phaser.Math.Between(PARAGRAPH_BEAT_MIN_MS, PARAGRAPH_BEAT_MAX_MS);
     this.time.delayedCall(beatMs, () => {
       this.advancingBeat = false;
@@ -804,6 +834,53 @@ export class CtrlSNarrativeScene extends BaseScene {
       if (this.engine.state === 'WAITING') {
         this.engine.advance();
       }
+    });
+  }
+
+  /**
+   * R83.CTRLS.23 — trailing fade. Clone the just-finished paragraph's
+   * rendered frame into a ghost Text GO, then alpha-tween it 1 → 0 over
+   * PREVIOUS_PARAGRAPH_FADE_MS with Sine.easeIn. The ghost matches
+   * bodyText's position, font, colour, wrap width, resolution, and
+   * phosphor bloom so the visual at T+0 is indistinguishable from a
+   * single bodyText at full alpha — the reader sees no "seam" when the
+   * fade starts.
+   *
+   * Why a fresh GO instead of swapping bodyText handles: the engine
+   * keeps writing into bodyText via renderCurrentText() every frame, so
+   * mutating bodyText.alpha on the existing handle would fade the very
+   * object the new paragraph is about to type into. A disposable clone
+   * decouples the fade from the active typewriter target.
+   *
+   * Why no ghost for the final paragraph of a chapter: applyParagraphBeat
+   * is gated on `!this.engine.isLastParagraph`, so this helper only ever
+   * fires when there IS a next paragraph to crossfade into.
+   */
+  private spawnTrailingFadeGhost(): void {
+    if (!this.bodyText) return;
+    const frozenText = this.bodyText.text;
+    if (!frozenText) return;
+
+    const ghost = this.add.text(this.bodyText.x, this.bodyText.y, frozenText, {
+      fontFamily: MATRIX_FONTS.PRIMARY,
+      fontSize: '12px',
+      color: MATRIX_COLORS.DIM_GREEN_HEX,
+      wordWrap: { width: this.computeTextWrapWidth() },
+      lineSpacing: 8,
+    });
+    ghost.setResolution(TEXT_RESOLUTION);
+    this.applyPhosphorBloom(ghost, PHOSPHOR_BLOOM_BLUR_BODY);
+    this.fadingParagraphGhosts.push(ghost);
+
+    this.tweens.add({
+      targets: ghost,
+      alpha: 0,
+      duration: PREVIOUS_PARAGRAPH_FADE_MS,
+      ease: PREVIOUS_PARAGRAPH_FADE_EASE,
+      onComplete: () => {
+        this.fadingParagraphGhosts = this.fadingParagraphGhosts.filter(g => g !== ghost);
+        ghost.destroy();
+      },
     });
   }
 
@@ -2051,6 +2128,13 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.chapterAscii?.destroy();
     this.chapterAscii = undefined;
     this.bodyText?.destroy();
+    // R83.CTRLS.23 — destroy any ghosts still mid-fade. If the player
+    // ESCapes mid-crossfade the tweens.add callback never fires, so the
+    // ghost list would leak Text GOs across scene restarts.
+    for (const ghost of this.fadingParagraphGhosts) {
+      ghost.destroy();
+    }
+    this.fadingParagraphGhosts = [];
     this.cursorBlink?.destroy();
     this.cursorTween?.destroy();
     this.cursorScaleTween?.stop();
