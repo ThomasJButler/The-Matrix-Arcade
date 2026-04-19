@@ -1,12 +1,6 @@
 import { GameCategory } from '../types/game';
 import matrixInvadersPreview from '../images/matrixinvaders.webp';
 import metrisPreview from '../images/metris.webp';
-import matrixFroggerPreview from '../images/matrix-frogger.png';
-import neoJumpPreview from '../images/neo-jump.png';
-import agentChasePreview from '../images/agent-chase.png';
-import rhythmHackerPreview from '../images/rhythm-hacker.png';
-import cloudJumperPreview from '../images/cloud-jumper.png';
-import codeBreakerPreview from '../images/code-breaker.png';
 
 export interface GameEntry {
   id: string;
@@ -28,7 +22,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     id: 'ctrl-s-world',
     title: 'CTRL-S | The World',
     description: 'A hilarious text adventure about saving the digital world across 5 chapters.',
-    preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1737071600/ctrlsthegame_m1tg5l.png',
+    preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1776588235/Tom_the_most_epic_logo_in_the_entire_world_matrix_green_style_5ce1742c-0357-4606-b29e-ad80e9a5d79f_3_db4csn.png',
     category: 'Story',
     inspiration: 'Zork / Text Adventures',
     inspirationNote: 'Classic interactive fiction meets Matrix lore — type commands, make choices, save reality.',
@@ -58,7 +52,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     id: 'matrix-cloud',
     title: 'Matrix Bird',
     description: 'Navigate through gaps in the digital storm — one wrong move and you crash.',
-    preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1737071594/matrixcloud_rw8hsa.png',
+    preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1776587192/A_surreal_thumbnail_of_a_glowing_neon_green_vortex_spiraling__e2f84ec0-7c65-4f60-af75-634675ca0999_2_gyatls.png',
     category: 'Arcade',
     inspiration: 'Flappy Bird (2013)',
     inspirationNote: 'The brutally addictive one-tap classic, wrapped in cascading code rain.',
@@ -88,7 +82,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     id: 'matrix-frogger',
     title: 'Matrix Frogger',
     description: 'Cross dangerous lanes packed with Agents and Sentinels to reach safety.',
-    preview: matrixFroggerPreview,
+    preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1776588056/A_cascading_stream_of_neon_green_code_over_a_deep_black_backg_b0de650f-ac85-4ab9-bffb-b86402bee8b1_0_gec8cu.png',
     category: 'Arcade',
     inspiration: 'Frogger (1981)',
     inspirationNote: "Konami's road-crossing classic, but the traffic is Agent Smith and his clones.",
@@ -98,7 +92,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     id: 'neo-jump',
     title: 'Neo Jump',
     description: 'Jump through simulation layers, collect power-ups, and reach The Source.',
-    preview: neoJumpPreview,
+    preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1776587193/A_surreal_neon_green_vortex_spiraling_into_an_endless_black_h_599acb93-cc05-4f73-aee9-8c95b57d3366_3_nbsgez.png',
     category: 'Classic',
     inspiration: 'Doodle Jump (2009)',
     inspirationNote: 'The endless vertical platformer — with jetpacks, springs, and Matrix platforms.',
@@ -108,7 +102,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     id: 'agent-chase',
     title: 'Agent Chase',
     description: 'Navigate a maze collecting data pills while evading the relentless Agent Smith.',
-    preview: agentChasePreview,
+    preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1776587994/A_cascading_stream_of_neon_green_code_over_a_deep_black_backg_33b4ea50-9a04-47ec-8444-710686600395_1_mc7nwg.png',
     category: 'Classic',
     inspiration: 'Pac-Man (1980)',
     inspirationNote: "Namco's dot-munching legend — you're Neo, the ghosts are Agents, the dots are data.",
@@ -118,7 +112,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     id: 'rhythm-hacker',
     title: 'Rhythm Hacker',
     description: 'Hack through streams of falling code by hitting keys in time with the beat.',
-    preview: rhythmHackerPreview,
+    preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1776587194/A_surreal_neon_green_vortex_spiraling_into_an_endless_black_h_599acb93-cc05-4f73-aee9-8c95b57d3366_1_fvqse1.png',
     category: 'Rhythm',
     inspiration: 'Guitar Hero / Dance Dance Revolution',
     inspirationNote: 'The rhythm game genre, reimagined as a Matrix hacking sequence with 4 lanes.',
@@ -128,7 +122,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     id: 'cloud-jumper',
     title: 'Cloud Jumper',
     description: 'Leap between clouds in the digital sky, collecting fragments and avoiding the void.',
-    preview: cloudJumperPreview,
+    preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1776587197/A_fun_matrix-themed_thumbnail_featuring_a_glowing_green_cloud_d08dbf00-8288-43ca-a253-6f35b99efeea_1_hzg1el.png',
     category: 'Arcade',
     inspiration: 'Doodle Jump / Platformers',
     inspirationNote: 'Side-scrolling cloud hopping through the Matrix skyline.',
@@ -138,7 +132,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     id: 'code-breaker',
     title: 'Code Breaker',
     description: 'Smash through firewalls of encrypted code to escape the simulation.',
-    preview: codeBreakerPreview,
+    preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1776587188/A_hackers_console_glowing_in_neon_green_fragmented_codes_and__92d98883-0478-47e8-be6c-bfcd655b657d_2_dpmtan.png',
     category: 'Arcade',
     inspiration: 'Breakout / Arkanoid (1986)',
     inspirationNote: "Atari's brick-smashing classic, reimagined as a hacker breaking through layers of Matrix firewall code.",

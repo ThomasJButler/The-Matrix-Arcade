@@ -61,6 +61,9 @@ import { AttractMode } from './components/scoreboard/AttractMode';
 import LandingPage from './components/LandingPage';
 import { GAME_REGISTRY } from './data/gameRegistry';
 import { GamePortal } from './components/GamePortal';
+import { IntroOverlay } from './components/ui/IntroOverlay';
+
+const INTRO_SEEN_KEY = 'matrix-arcade-seen-intro';
 
 function App() {
   const [selectedGame, setSelectedGame] = useState<number>(0);
@@ -68,6 +71,15 @@ function App() {
   const [showNav, setShowNav] = useState(false);
   const [showAudioSettings, setShowAudioSettings] = useState(false);
   const [showSaveManager, setShowSaveManager] = useState(false);
+  const [showIntro, setShowIntro] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    if (window.__TEST__) return false;
+    try {
+      return sessionStorage.getItem(INTRO_SEEN_KEY) !== 'true';
+    } catch {
+      return true;
+    }
+  });
   const [showLandingPage, setShowLandingPage] = useState(true);
   const [showInstructions, setShowInstructions] = useState(false);
   const [showHighScores, setShowHighScores] = useState(false);
@@ -389,6 +401,16 @@ function App() {
     trackPlayTime();
     playBackgroundMP3('/matrixarcaderetrobeat.mp3');
   }, [playSFX, trackPlayTime, playBackgroundMP3]);
+
+  const dismissIntro = useCallback(() => {
+    try {
+      sessionStorage.setItem(INTRO_SEEN_KEY, 'true');
+    } catch {
+      // Private-mode / quota — fall through, flag just won't persist.
+    }
+    setShowIntro(false);
+    playSFX('score');
+  }, [playSFX]);
 
   /**
    * @listens isPlaying, achievementManager, playSFX, showMobileWarning, playBackgroundMP3, handlePrevious, handleNext, toggleMute
@@ -715,6 +737,12 @@ function App() {
             onShowScoreboard={() => setShowScoreboard(true)}
           />
         )}
+      </AnimatePresence>
+
+      {/* First-session intro — sits above LandingPage (z-60 > z-50) so it
+          occludes the whole app until the user picks a pill. */}
+      <AnimatePresence>
+        {showIntro && <IntroOverlay onEnter={dismissIntro} />}
       </AnimatePresence>
 
       {/* Game Instructions Modal */}
