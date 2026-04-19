@@ -48,7 +48,7 @@ export const PUZZLES: Record<string, PuzzleData> = {
     id: 'ch1_bunker_code',
     type: 'code',
     question: 'In JavaScript, what does typeof null return?',
-    answer: ['object', '"object"', 'Object'],
+    answer: ['object', '"object"'],
     optionA: 'null',
     optionB: 'object',
     optionC: 'undefined',
@@ -114,7 +114,7 @@ export const PUZZLES: Record<string, PuzzleData> = {
     id: 'ch2_console_log',
     type: 'code',
     question: "What's the output of: console.log('2' + 2)?",
-    answer: ['22', '"22"', '22'],
+    answer: ['22', '"22"'],
     optionA: '4',
     optionB: '22',
     optionC: 'NaN',
@@ -147,13 +147,18 @@ export const PUZZLES: Record<string, PuzzleData> = {
 
   ch2_ethics_module_activation: {
     id: 'ch2_ethics_module_activation',
+    // Expression evaluates via PEMDAS to 22. The legacy Python port
+    // (CtrlS/src/chapters/ch2.py:213) shipped with "C) 20" as the
+    // accepted answer, but that never matched the maths — R83.CTRLS.20
+    // corrects the answer to 22 and strips the "wait, recalculate!"
+    // feint from the final hint so the puzzle stops gaslighting the player.
     type: 'code',
     question: 'Solve this equation to activate the ethics module: 7 + 3 * (10 / (12 / (3 + 1) - 1))',
-    answer: ['20', '20.0', 'twenty'],
+    answer: ['22', '22.0', 'twenty-two', 'twenty two'],
     hints: [
-      'Remember order of operations: PEMDAS (Parentheses, Exponents, Multiplication/Division, Addition/Subtraction)',
-      'Work from innermost parentheses outward: (3 + 1) = 4, then 12/4 = 3',
-      'Continue: 3 - 1 = 2, then 10/2 = 5, then 3*5 = 15, finally 7+15 = 22... wait, recalculate!'
+      'Remember order of operations: PEMDAS (Parentheses, Exponents, Multiplication/Division, Addition/Subtraction).',
+      'Work from innermost parentheses outward: (3 + 1) = 4, then 12 / 4 = 3, then 3 - 1 = 2.',
+      'Continue: 10 / 2 = 5, then 3 * 5 = 15, finally 7 + 15 = ?'
     ],
     timeLimit: 90,
     points: 25,
@@ -166,7 +171,7 @@ export const PUZZLES: Record<string, PuzzleData> = {
     id: 'ch3_ada_language',
     type: 'code',
     question: 'Which foundational programming language, named after a mathematician, is pivotal to computer science?',
-    answer: ['ada', 'Ada', 'ADA', 'ada lovelace'],
+    answer: ['ada', 'ada lovelace'],
     hints: [
       'Named after Ada Lovelace, the first computer programmer.',
       'She worked with Charles Babbage on the Analytical Engine.',
@@ -180,13 +185,17 @@ export const PUZZLES: Record<string, PuzzleData> = {
 
   ch3_fibonacci: {
     id: 'ch3_fibonacci',
+    // 0-indexed Fibonacci (F0=0, F1=1, F2=1, F3=2, ..., F6=8, F9=34).
+    // Hints must match the answer 26 — original React port had the
+    // answer from Python (chapters/ch3.py:97) but kept 1-indexed hints
+    // pointing at 13 & 55, which gives 42 not 26 — R83.CTRLS.20 fix.
     type: 'code',
-    question: 'What is the difference between the 10th and 7th Fibonacci numbers?',
+    question: 'What is the difference between the 10th and 7th Fibonacci numbers (0-indexed, so F0 = 0)?',
     answer: ['26', '26.0', 'twenty-six', 'twenty six'],
     hints: [
-      'The 7th Fibonacci number is 13.',
-      'The 10th Fibonacci number is 55.',
-      'Calculate: 55 - 13 = ?'
+      'Treat F0 = 0, F1 = 1, F2 = 1, F3 = 2, F4 = 3, F5 = 5 — the 7th term (index 6) is 8.',
+      'The 10th term (index 9) is 34.',
+      'Calculate: 34 - 8 = ?'
     ],
     timeLimit: 90,
     points: 20,
@@ -356,7 +365,7 @@ export const PUZZLES: Record<string, PuzzleData> = {
     id: 'ch5_async_await',
     type: 'code',
     question: 'What keyword makes a function pause and wait for a Promise to resolve?',
-    answer: ['await', 'Await', 'AWAIT'],
+    answer: ['await'],
     hints: [
       'It\'s used with async functions.',
       'It literally means "wait for this".',
