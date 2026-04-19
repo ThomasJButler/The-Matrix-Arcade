@@ -3,6 +3,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { HelpCircle, LogOut, Pause, Play, Trophy, VolumeX } from 'lucide-react';
 import { GAME_TITLES } from '../lib/asciiArt';
 import { GameErrorBoundary } from './ui/GameErrorBoundary';
+import { IpodBootOverlay } from './ui/IpodBootOverlay';
 import type { GameEntry } from '../data/gameRegistry';
 import {
   GAME_TRANSITION_BEGIN_EVENT,
@@ -607,24 +608,12 @@ export function GamePortal({
                       />
                     </Suspense>
                   </GameErrorBoundary>
-                  {/* R83.G5: time-based boot overlay hides Phaser's Scale.FIT
-                      mount flicker. See the `isBooting` effect above for why. */}
-                  {isBooting && (
-                    <div
-                      className="ipod-boot-overlay"
-                      data-testid="ipod-boot-overlay"
-                      aria-hidden="true"
-                    >
-                      <div className="ipod-boot-scanline" />
-                      <div className="ipod-boot-rain" aria-hidden="true">
-                        {Array.from({ length: 12 }).map((_, i) => (
-                          <span key={i} className="ipod-boot-rain-col" style={{ animationDelay: `${i * 30}ms` }} />
-                        ))}
-                      </div>
-                      <div className="ipod-boot-title">{game.title}</div>
-                      <div className="ipod-boot-status">INITIALISING MATRIX…</div>
-                    </div>
-                  )}
+                  {/* R83.G5 (R83.G10 upgrade): Matrix-terminal launcher hides
+                      Phaser's Scale.FIT mount flicker AND plays the 450 ms
+                      procedural boot sequence (phosphor warm-up → glyph sweep
+                      → scanline wipe). Lifts on GAME_TRANSITION_READY_EVENT or
+                      the 500 ms safety timeout — see `isBooting` effect. */}
+                  {isBooting && <IpodBootOverlay title={game.title} />}
                   {/* Screen-level pause scrim — mirrors the amber `.dashbar-centre.is-paused`
                       hue so eyes-on-screen players see the same affordance. Pointer-events
                       disabled so the underlying game canvas keeps its native cursor and
