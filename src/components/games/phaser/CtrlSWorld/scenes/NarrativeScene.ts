@@ -23,10 +23,14 @@ const ASCII_FONT_SIZE = '7px';
 const ASCII_LINE_HEIGHT = 9;
 const CURSOR_GAP_Y = 6;
 const INLINE_ASCII_GAP_Y = 16;
-const CHOICE_BUTTON_WIDTH = 450;
-const CHOICE_BUTTON_HEIGHT = 36;
-const CHOICE_BUTTON_GAP = 10;
 const CHOICE_FADE_DURATION = 400;
+// Inline terminal-prompt choice UI (R83.CTRLS.3). Choices render as
+// `> [1] Label` lines below the active paragraph, mirroring a Matrix
+// terminal. No buttons, no boxes — just text.
+const CHOICE_PROMPT_GAP_Y = 18;
+const CHOICE_LINE_GAP_Y = 4;
+const CHOICE_LINE_FONT_SIZE = '12px';
+const CHOICE_HINT_FONT_SIZE = '9px';
 
 export class CtrlSNarrativeScene extends BaseScene {
   private chapterIndex = 0;
@@ -44,11 +48,14 @@ export class CtrlSNarrativeScene extends BaseScene {
   private waitingForChoice = false;
   private waitingForInventory = false;
   private choiceContainer?: Phaser.GameObjects.Container;
-  private choiceButtons: Phaser.GameObjects.Container[] = [];
+  private choiceLines: Phaser.GameObjects.Text[] = [];
+  private choicePromptLabel?: Phaser.GameObjects.Text;
+  private choiceHintLabel?: Phaser.GameObjects.Text;
   private activeChoices: ChoiceOption[] = [];
   private selectedChoiceIndex = 0;
   private upKey?: Phaser.Input.Keyboard.Key;
   private downKey?: Phaser.Input.Keyboard.Key;
+  private numberKeys: Phaser.Input.Keyboard.Key[] = [];
   private startFromParagraph = 0;
   private portraitContainer?: Phaser.GameObjects.Container;
   private portraitImage?: Phaser.GameObjects.Image;
@@ -414,9 +421,36 @@ export class CtrlSNarrativeScene extends BaseScene {
 
       this.downKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
       this.downKey.on('down', () => this.navigateChoice(1));
+
+      // Number keys 1-9 for direct terminal-style choice selection
+      // (R83.CTRLS.3). Mirrors the `> [1] ...` inline prompt — typing the
+      // digit confirms that choice. Capped at 9 because the prompt only
+      // displays single-digit indices.
+      const numberKeyCodes = [
+        Phaser.Input.Keyboard.KeyCodes.ONE,
+        Phaser.Input.Keyboard.KeyCodes.TWO,
+        Phaser.Input.Keyboard.KeyCodes.THREE,
+        Phaser.Input.Keyboard.KeyCodes.FOUR,
+        Phaser.Input.Keyboard.KeyCodes.FIVE,
+        Phaser.Input.Keyboard.KeyCodes.SIX,
+        Phaser.Input.Keyboard.KeyCodes.SEVEN,
+        Phaser.Input.Keyboard.KeyCodes.EIGHT,
+        Phaser.Input.Keyboard.KeyCodes.NINE,
+      ];
+      this.numberKeys = numberKeyCodes.map((code, index) => {
+        const key = this.input.keyboard!.addKey(code);
+        key.on('down', () => this.handleNumberKey(index));
+        return key;
+      });
     });
 
     this.input.on('pointerdown', () => this.handleAdvance());
+  }
+
+  private handleNumberKey(index: number): void {
+    if (!this.waitingForChoice || index >= this.activeChoices.length) return;
+    this.selectedChoiceIndex = index;
+    this.confirmChoice(index);
   }
 
   private handleAdvance(): void {
@@ -469,131 +503,131 @@ export class CtrlSNarrativeScene extends BaseScene {
   private showChoiceUI(choices: ChoiceOption[], prompt?: string): void {
     if (!this.bodyText) return;
 
+    const margin = GAME_CONFIG.TEXT.MARGIN_X;
     const width = Number(this.game.config.width);
-    const startY = this.bodyText.getBounds().bottom + 30;
+    const wrapWidth = width - margin * 2;
 
     this.activeChoices = choices;
     this.selectedChoiceIndex = 0;
-    this.choiceButtons = [];
+    this.choiceLines = [];
+
+    // Cursor lives below the choices once they render — hide it under the
+    // active paragraph so it doesn't sit between body and the prompt list.
+    this.cursorBlink?.setVisible(false);
 
     this.choiceContainer = this.add.container(0, 0);
 
+    // Anchor the prompt block to the same X as the body text so it reads
+    // as a continuation of the same terminal stream — not a centred modal.
+    const startY = this.bodyText.y + this.bodyText.height + CHOICE_PROMPT_GAP_Y;
+    let cursorY = startY;
+
     if (prompt) {
-      const promptLabel = this.add.text(width / 2, startY - 20, prompt, {
+      // Render the optional decision prompt as a `> Choose:` style line.
+      const promptLine = `> ${prompt}`;
+      this.choicePromptLabel = this.add.text(this.bodyText.x, cursorY, promptLine, {
         fontFamily: MATRIX_FONTS.PRIMARY,
-        fontSize: '10px',
+        fontSize: CHOICE_LINE_FONT_SIZE,
         color: MATRIX_COLORS.DIM_GREEN_HEX,
+        wordWrap: { width: wrapWidth },
       });
-      promptLabel.setOrigin(0.5);
-      promptLabel.setAlpha(0);
-      this.choiceContainer.add(promptLabel);
+      this.choicePromptLabel.setAlpha(0);
+      this.choiceContainer.add(this.choicePromptLabel);
       this.tweens.add({
-        targets: promptLabel,
+        targets: this.choicePromptLabel,
         alpha: 1,
         duration: CHOICE_FADE_DURATION,
         ease: 'Power2',
       });
+      cursorY += this.choicePromptLabel.height + CHOICE_LINE_GAP_Y;
     }
 
-    const STAGGER_MS = 80;
+    const STAGGER_MS = 60;
 
     choices.forEach((choice, i) => {
-      const buttonY = startY + i * (CHOICE_BUTTON_HEIGHT + CHOICE_BUTTON_GAP);
-      const button = this.createChoiceButton(choice.label, width / 2, buttonY, i);
-      button.setAlpha(0);
-      button.y += 12;
-      this.choiceButtons.push(button);
-      this.choiceContainer!.add(button);
+      const line = this.createChoiceLine(choice, i, this.bodyText!.x, cursorY, wrapWidth);
+      line.setAlpha(0);
+      const targetY = line.y;
+      line.y = targetY + 6;
+      this.choiceLines.push(line);
+      this.choiceContainer!.add(line);
 
       this.tweens.add({
-        targets: button,
+        targets: line,
         alpha: 1,
-        y: buttonY,
+        y: targetY,
         duration: CHOICE_FADE_DURATION,
         delay: i * STAGGER_MS,
-        ease: 'Back.easeOut',
+        ease: 'Power2',
       });
+
+      cursorY += line.height + CHOICE_LINE_GAP_Y;
+    });
+
+    // Trailing hint anchored below the last choice — small, always visible.
+    this.choiceHintLabel = this.add.text(
+      this.bodyText.x,
+      cursorY + 4,
+      '> _ press 1-' + choices.length + ', or use \u2191\u2193 + ENTER',
+      {
+        fontFamily: MATRIX_FONTS.PRIMARY,
+        fontSize: CHOICE_HINT_FONT_SIZE,
+        color: MATRIX_COLORS.DARK_GREEN_HEX,
+      },
+    );
+    this.choiceHintLabel.setAlpha(0);
+    this.choiceContainer.add(this.choiceHintLabel);
+    this.tweens.add({
+      targets: this.choiceHintLabel,
+      alpha: 0.85,
+      duration: CHOICE_FADE_DURATION,
+      delay: choices.length * STAGGER_MS,
+      ease: 'Power2',
     });
 
     this.highlightChoice(0);
   }
 
-  private createChoiceButton(
-    label: string,
+  private createChoiceLine(
+    choice: ChoiceOption,
+    index: number,
     x: number,
     y: number,
-    index: number,
-  ): Phaser.GameObjects.Container {
-    const container = this.add.container(x, y);
-
-    const bg = this.add.graphics();
-    bg.lineStyle(1, MATRIX_COLORS.DARK_GREEN, 0.8);
-    bg.fillStyle(MATRIX_COLORS.BACKGROUND, 0.9);
-    bg.fillRoundedRect(
-      -CHOICE_BUTTON_WIDTH / 2, -CHOICE_BUTTON_HEIGHT / 2,
-      CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT, 4,
-    );
-    bg.strokeRoundedRect(
-      -CHOICE_BUTTON_WIDTH / 2, -CHOICE_BUTTON_HEIGHT / 2,
-      CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT, 4,
-    );
-
-    const text = this.add.text(0, 0, label, {
+    wrapWidth: number,
+  ): Phaser.GameObjects.Text {
+    // `> [1] Wake Up` — single line of text, terminal-flavoured.
+    // Pointer events live on the Text bounds, no container/graphics needed.
+    const text = this.add.text(x, y, this.formatChoiceLine(choice, index, false), {
       fontFamily: MATRIX_FONTS.PRIMARY,
-      fontSize: '10px',
+      fontSize: CHOICE_LINE_FONT_SIZE,
       color: MATRIX_COLORS.DIM_GREEN_HEX,
-      wordWrap: { width: CHOICE_BUTTON_WIDTH - 30 },
-      align: 'center',
+      wordWrap: { width: wrapWidth },
     });
-    text.setOrigin(0.5);
-
-    container.add([bg, text]);
-    container.setSize(CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT);
-
-    const hitArea = new Phaser.Geom.Rectangle(
-      -CHOICE_BUTTON_WIDTH / 2, -CHOICE_BUTTON_HEIGHT / 2,
-      CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT,
-    );
-    container.setInteractive(hitArea, Phaser.Geom.Rectangle.Contains);
-
-    container.on('pointerover', () => {
+    text.setInteractive({ useHandCursor: true });
+    text.on('pointerover', () => {
       this.selectedChoiceIndex = index;
       this.highlightChoice(index);
     });
-
-    container.on('pointerdown', () => {
+    text.on('pointerdown', () => {
+      // Scene-level pointerdown also fires, but handleAdvance() guards on
+      // waitingForChoice so it no-ops while the prompt is up.
       this.confirmChoice(index);
     });
+    return text;
+  }
 
-    container.setData('bg', bg);
-    container.setData('text', text);
-
-    return container;
+  private formatChoiceLine(choice: ChoiceOption, index: number, selected: boolean): string {
+    const marker = selected ? '>' : ' ';
+    return `${marker} [${index + 1}] ${choice.label}`;
   }
 
   private highlightChoice(index: number): void {
-    this.choiceButtons.forEach((button, i) => {
-      const bg = button.getData('bg') as Phaser.GameObjects.Graphics;
-      const text = button.getData('text') as Phaser.GameObjects.Text;
-
-      bg.clear();
-      if (i === index) {
-        bg.lineStyle(2, MATRIX_COLORS.PRIMARY, 1);
-        bg.fillStyle(MATRIX_COLORS.DARK_GREEN, 0.6);
-        text.setColor(MATRIX_COLORS.PRIMARY_HEX);
-      } else {
-        bg.lineStyle(1, MATRIX_COLORS.DARK_GREEN, 0.8);
-        bg.fillStyle(MATRIX_COLORS.BACKGROUND, 0.9);
-        text.setColor(MATRIX_COLORS.DIM_GREEN_HEX);
-      }
-      bg.fillRoundedRect(
-        -CHOICE_BUTTON_WIDTH / 2, -CHOICE_BUTTON_HEIGHT / 2,
-        CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT, 4,
-      );
-      bg.strokeRoundedRect(
-        -CHOICE_BUTTON_WIDTH / 2, -CHOICE_BUTTON_HEIGHT / 2,
-        CHOICE_BUTTON_WIDTH, CHOICE_BUTTON_HEIGHT, 4,
-      );
+    this.choiceLines.forEach((line, i) => {
+      const choice = this.activeChoices[i];
+      if (!choice) return;
+      const selected = i === index;
+      line.setText(this.formatChoiceLine(choice, i, selected));
+      line.setColor(selected ? MATRIX_COLORS.PRIMARY_HEX : MATRIX_COLORS.DIM_GREEN_HEX);
     });
 
     this.playSound('menu');
@@ -615,7 +649,10 @@ export class CtrlSNarrativeScene extends BaseScene {
     const choice = this.activeChoices[index];
     this.playSound('score');
 
-    this.spawnChoiceParticles(this.choiceButtons[index]);
+    const targetLine = this.choiceLines[index];
+    if (targetLine) {
+      this.spawnChoiceParticles(targetLine);
+    }
 
     this.emitGameEvent({
       type: 'pause',
@@ -644,8 +681,8 @@ export class CtrlSNarrativeScene extends BaseScene {
     });
   }
 
-  private spawnChoiceParticles(button: Phaser.GameObjects.Container): void {
-    const bounds = button.getBounds();
+  private spawnChoiceParticles(target: Phaser.GameObjects.Text): void {
+    const bounds = target.getBounds();
     const cx = bounds.centerX;
     const cy = bounds.centerY;
     const particleCount = 12;
@@ -676,7 +713,9 @@ export class CtrlSNarrativeScene extends BaseScene {
   private destroyChoiceUI(): void {
     this.choiceContainer?.destroy(true);
     this.choiceContainer = undefined;
-    this.choiceButtons = [];
+    this.choiceLines = [];
+    this.choicePromptLabel = undefined;
+    this.choiceHintLabel = undefined;
     this.activeChoices = [];
     this.selectedChoiceIndex = 0;
   }
@@ -991,6 +1030,10 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.downKey?.destroy();
     this.upKey = undefined;
     this.downKey = undefined;
+    for (const key of this.numberKeys) {
+      key.destroy();
+    }
+    this.numberKeys = [];
     if (this.input.keyboard) {
       this.input.keyboard.removeAllKeys(true);
     }
