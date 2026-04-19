@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Phaser from 'phaser';
 import { MatrixCloudGameScene } from './GameScene';
-import { GAME_CONFIG, ACHIEVEMENTS, SLOW_MODE, POWERUP_DEFS } from '../config';
+import { GAME_CONFIG, ACHIEVEMENTS, SLOW_MODE, POWERUP_DEFS, PIPE_VARIANTS } from '../config';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -33,6 +33,7 @@ function createMockGraphics() {
     strokeCircle: vi.fn().mockReturnThis(),
     moveTo: vi.fn().mockReturnThis(),
     lineTo: vi.fn().mockReturnThis(),
+    beginPath: vi.fn().mockReturnThis(),
     strokePath: vi.fn().mockReturnThis(),
     clear: vi.fn().mockReturnThis(),
     destroy: vi.fn(),
@@ -82,6 +83,11 @@ function createMockRect(x = 0, y = 0, w = 0, h = 0) {
   return {
     x, y, width: w, height: h,
     setX: vi.fn().mockImplementation(function (this: any, v: number) { this.x = v; return this; }),
+    // R84.B4: moving pipes call setY/setSize every frame to animate their
+    // vertical drift, so the mock rect has to expose both. The previous mock
+    // only had setX because pre-variant pipes were purely horizontal.
+    setY: vi.fn().mockImplementation(function (this: any, v: number) { this.y = v; return this; }),
+    setSize: vi.fn().mockImplementation(function (this: any, nw: number, nh: number) { this.width = nw; this.height = nh; return this; }),
     setStrokeStyle: vi.fn().mockReturnThis(),
     setDepth: vi.fn().mockReturnThis(),
     destroy: vi.fn(),
@@ -1018,6 +1024,309 @@ describe('MatrixCloudGameScene', () => {
     it('shutdown removes keyboard listeners', () => {
       call(scene, 'shutdown');
       expect(scene.input.keyboard.removeAllKeys).toHaveBeenCalled();
+    });
+  });
+
+  // R84.B4: pipe-variant progression. Each subdescribe pins a slice of the
+  // moving/zapper/bonus behaviour so future refactors either keep the
+  // specified shape or fail loudly.
+  describe('R84.B4 Pipe variants', () => {
+    describe('pickPipeKind (score gating)', () => {
+      it('returns "normal" at score 0 regardless of random roll', () => {
+        scene.score = 0;
+        const rolls = [0.0, 0.25, 0.5, 0.75, 0.99];
+        for (const r of rolls) {
+          vi.spyOn(Math, 'random').mockReturnValueOnce(r);
+          expect(call(scene, 'pickPipeKind')).toBe('normal');
+        }
+      });
+
+      it('never picks "moving" below MOVING_UNLOCK_SCORE', () => {
+        scene.score = PIPE_VARIANTS.MOVING_UNLOCK_SCORE - 1;
+        for (let i = 0; i < 10; i++) {
+          vi.spyOn(Math, 'random').mockReturnValueOnce(0.95);
+          expect(call(scene, 'pickPipeKind')).toBe('normal');
+        }
+      });
+
+      it('can pick "moving" at MOVING_UNLOCK_SCORE', () => {
+        scene.score = PIPE_VARIANTS.MOVING_UNLOCK_SCORE;
+        // bag = {normal:10, moving:3}, total 13. Moving bucket is roll ≥ 10.
+        vi.spyOn(Math, 'random').mockReturnValueOnce(0.95);
+        expect(call(scene, 'pickPipeKind')).toBe('moving');
+      });
+
+      it('can pick "zapper" at ZAPPER_UNLOCK_SCORE', () => {
+        scene.score = PIPE_VARIANTS.ZAPPER_UNLOCK_SCORE;
+        // bag total = 10+3+2 = 15. Zapper bucket is roll ≥ 13 → random ≥ 13/15.
+        vi.spyOn(Math, 'random').mockReturnValueOnce(0.95);
+        expect(call(scene, 'pickPipeKind')).toBe('zapper');
+      });
+
+      it('can pick "bonus" at BONUS_UNLOCK_SCORE', () => {
+        scene.score = PIPE_VARIANTS.BONUS_UNLOCK_SCORE;
+        // bag total = 10+3+2+1 = 16. Bonus bucket is roll ≥ 15 → random ≥ 15/16.
+        vi.spyOn(Math, 'random').mockReturnValueOnce(0.99);
+        expect(call(scene, 'pickPipeKind')).toBe('bonus');
+      });
+    });
+
+    describe('Moving pipe drift', () => {
+      function makeMovingPipe(baseGapY = 150) {
+        return {
+          topRect: createMockRect(),
+          bottomRect: createMockRect(),
+          x: 400,
+          gapY: baseGapY,
+          baseGapY,
+          passed: false,
+          hit: false,
+          kind: 'moving' as const,
+          gap: C.PIPE_GAP,
+          driftAmp: PIPE_VARIANTS.MOVING_DRIFT_AMP,
+          driftFreqHz: PIPE_VARIANTS.MOVING_DRIFT_FREQ_HZ,
+          driftPhase: 0,
+          elapsedMs: 0,
+        };
+      }
+
+      it('gapY reaches baseGapY + amplitude at quarter cycle', () => {
+        const pipe = makeMovingPipe(150);
+        const quarterMs = 1000 / (4 * PIPE_VARIANTS.MOVING_DRIFT_FREQ_HZ);
+        call(scene, 'updateMovingPipe', pipe, quarterMs);
+        expect(pipe.gapY).toBeCloseTo(150 + PIPE_VARIANTS.MOVING_DRIFT_AMP, 0);
+      });
+
+      it('elapsedMs accumulates by delta', () => {
+        const pipe = makeMovingPipe(150);
+        call(scene, 'updateMovingPipe', pipe, 100);
+        expect(pipe.elapsedMs).toBe(100);
+        call(scene, 'updateMovingPipe', pipe, 50);
+        expect(pipe.elapsedMs).toBe(150);
+      });
+
+      it('clamps gapY to playable bounds', () => {
+        const pipe = makeMovingPipe(C.PIPE_MIN_HEIGHT);
+        pipe.driftAmp = 1000; // Way beyond the bounds
+        pipe.driftPhase = Math.PI; // sin goes strongly negative first quarter
+        const quarterMs = 1000 / (4 * PIPE_VARIANTS.MOVING_DRIFT_FREQ_HZ);
+        call(scene, 'updateMovingPipe', pipe, quarterMs);
+        expect(pipe.gapY).toBeGreaterThanOrEqual(C.PIPE_MIN_HEIGHT);
+        const playableHeight = C.HEIGHT - C.GROUND_HEIGHT;
+        expect(pipe.gapY + C.PIPE_GAP).toBeLessThanOrEqual(playableHeight);
+      });
+
+      it('resizes top and bottom rects each tick', () => {
+        const pipe = makeMovingPipe(150);
+        call(scene, 'updateMovingPipe', pipe, 50);
+        expect(pipe.topRect.setSize).toHaveBeenCalled();
+        expect(pipe.bottomRect.setSize).toHaveBeenCalled();
+      });
+    });
+
+    describe('Zapper pipe cycle + collision', () => {
+      function makeZapperPipe(overrides: Record<string, unknown> = {}) {
+        return {
+          topRect: createMockRect(),
+          bottomRect: createMockRect(),
+          arc: createMockGraphics(),
+          x: C.PLAYER_X - 10,
+          gapY: 50,
+          baseGapY: 50,
+          passed: false,
+          hit: false,
+          kind: 'zapper' as const,
+          gap: C.PIPE_GAP,
+          arcElapsedMs: 0,
+          arcActive: false,
+          arcTelegraphed: false,
+          bonusSpawned: false,
+          ...overrides,
+        };
+      }
+
+      it('arc active at start of cycle', () => {
+        const pipe = makeZapperPipe({ arcElapsedMs: 0 });
+        call(scene, 'updateZapperPipe', pipe, 10);
+        expect(pipe.arcActive).toBe(true);
+      });
+
+      it('arc inactive past ZAPPER_ACTIVE_FRACTION of cycle', () => {
+        const pipe = makeZapperPipe();
+        call(scene, 'updateZapperPipe', pipe, PIPE_VARIANTS.ZAPPER_CYCLE_MS * 0.5);
+        expect(pipe.arcActive).toBe(false);
+      });
+
+      it('plays danger warning on arc activation edge', () => {
+        const pipe = makeZapperPipe();
+        scene.playSound.mockClear();
+        call(scene, 'updateZapperPipe', pipe, 10);
+        expect(scene.playSound).toHaveBeenCalledWith('dangerWarning');
+      });
+
+      it('checkZapperCollision zeroes lives when player is in gap', () => {
+        const pipe = makeZapperPipe({ arcActive: true });
+        scene.playerY = 50 + C.PIPE_GAP / 2;
+        scene.lives = 3;
+        const handleGameOver = vi.spyOn(scene, 'handleGameOver');
+        call(scene, 'checkZapperCollision', pipe);
+        expect(scene.lives).toBe(0);
+        expect(handleGameOver).toHaveBeenCalled();
+      });
+
+      it('zapper bypasses shield — shielded player still dies', () => {
+        const pipe = makeZapperPipe({ arcActive: true });
+        scene.shieldActive = true;
+        scene.playerY = 50 + C.PIPE_GAP / 2;
+        const handleGameOver = vi.spyOn(scene, 'handleGameOver');
+        call(scene, 'checkZapperCollision', pipe);
+        expect(handleGameOver).toHaveBeenCalled();
+        expect(scene.lives).toBe(0);
+      });
+
+      it('no zapper death when player is in pipe BODY (above gap)', () => {
+        const pipe = makeZapperPipe({ arcActive: true });
+        scene.playerY = 10; // above gap
+        const handleGameOver = vi.spyOn(scene, 'handleGameOver');
+        call(scene, 'checkZapperCollision', pipe);
+        expect(handleGameOver).not.toHaveBeenCalled();
+      });
+
+      it('no zapper death when pipe is far from player x', () => {
+        const pipe = makeZapperPipe({ arcActive: true, x: C.PLAYER_X + 400 });
+        scene.playerY = 50 + C.PIPE_GAP / 2;
+        const handleGameOver = vi.spyOn(scene, 'handleGameOver');
+        call(scene, 'checkZapperCollision', pipe);
+        expect(handleGameOver).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('handleZapperDeath', () => {
+      it('zeroes lives even with shield active', () => {
+        scene.shieldActive = true;
+        scene.lives = 5;
+        const handleGameOver = vi.spyOn(scene, 'handleGameOver');
+        call(scene, 'handleZapperDeath');
+        expect(scene.lives).toBe(0);
+        expect(handleGameOver).toHaveBeenCalled();
+      });
+
+      it('plays glassBreak SFX', () => {
+        scene.playSound.mockClear();
+        call(scene, 'handleZapperDeath');
+        expect(scene.playSound).toHaveBeenCalledWith('glassBreak');
+      });
+
+      it('breaks combo back to 1.0', () => {
+        scene.combo = 4.2;
+        call(scene, 'handleZapperDeath');
+        expect(scene.combo).toBe(1.0);
+      });
+    });
+
+    describe('Bonus pipe', () => {
+      beforeEach(() => {
+        scene.score = PIPE_VARIANTS.BONUS_UNLOCK_SCORE;
+        scene.pickPipeKind = () => 'bonus';
+      });
+
+      it('spawnPipe with bonus kind narrows the gap', () => {
+        call(scene, 'spawnPipe');
+        const pipe = scene.pipes[0];
+        expect(pipe.kind).toBe('bonus');
+        expect(pipe.gap).toBe(Math.round(C.PIPE_GAP * PIPE_VARIANTS.BONUS_GAP_SCALE));
+      });
+
+      it('bonus pipe seeds a power-up in the gap centre', () => {
+        call(scene, 'spawnPipe');
+        const pipe = scene.pipes[0];
+        expect(scene.fieldPowerUps).toHaveLength(1);
+        const pu = scene.fieldPowerUps[0];
+        expect(pu.x).toBeCloseTo(pipe.x + C.PIPE_WIDTH / 2, 0);
+        const expectedY = pipe.gapY + (pipe.gap ?? C.PIPE_GAP) / 2;
+        expect(pu.y).toBeCloseTo(expectedY, 0);
+      });
+
+      it('scorePipe awards BONUS_SCORE_MULT × base for bonus', () => {
+        const bonusPipe = { kind: 'bonus' } as any;
+        scene.combo = 1.0;
+        scene.score = 0;
+        call(scene, 'scorePipe', bonusPipe);
+        expect(scene.score).toBe(Math.floor(C.SCORE_PER_PIPE * PIPE_VARIANTS.BONUS_SCORE_MULT));
+      });
+
+      it('scorePipe plays levelUp cue on bonus', () => {
+        scene.playSound.mockClear();
+        call(scene, 'scorePipe', { kind: 'bonus' } as any);
+        expect(scene.playSound).toHaveBeenCalledWith('levelUp');
+      });
+
+      it('does NOT play levelUp cue on normal pipe scoring', () => {
+        // Reset score so scorePipe doesn't cross a LEVEL_THRESHOLD boundary
+        // and trigger the unrelated onLevelUp cue.
+        scene.score = 0;
+        scene.combo = 1.0;
+        scene.level = 1;
+        scene.playSound.mockClear();
+        call(scene, 'scorePipe');
+        expect(scene.playSound).not.toHaveBeenCalledWith('levelUp');
+      });
+    });
+
+    describe('checkPipeCollision honours per-pipe gap', () => {
+      it('narrower bonus gap triggers collision where normal gap would not', () => {
+        const narrowGap = Math.round(C.PIPE_GAP * PIPE_VARIANTS.BONUS_GAP_SCALE);
+        const pipe: any = {
+          x: C.PLAYER_X - 10,
+          gapY: 100,
+          gap: narrowGap,
+          kind: 'bonus',
+          passed: false,
+          hit: false,
+          topRect: createMockRect(),
+          bottomRect: createMockRect(),
+        };
+        scene.playerY = 100 + narrowGap + 10; // Below narrow gap, would still be inside normal gap
+        call(scene, 'checkPipeCollision', pipe);
+        expect(pipe.hit).toBe(true);
+      });
+    });
+
+    describe('Pipe styling', () => {
+      it('getPipeStyle returns four distinct fill colours (normal/moving/zapper/bonus)', () => {
+        const kinds = ['normal', 'moving', 'zapper', 'bonus'] as const;
+        const fills = kinds.map(k => call(scene, 'getPipeStyle', k).fill);
+        expect(new Set(fills).size).toBe(4);
+      });
+
+      it('getPipeStyle returns four distinct stroke colours', () => {
+        const kinds = ['normal', 'moving', 'zapper', 'bonus'] as const;
+        const strokes = kinds.map(k => call(scene, 'getPipeStyle', k).stroke);
+        expect(new Set(strokes).size).toBe(4);
+      });
+    });
+
+    describe('destroyPipe lifecycle', () => {
+      it('destroys arc graphic when present on pipe', () => {
+        const arc = createMockGraphics();
+        const pipe: any = {
+          topRect: createMockRect(),
+          bottomRect: createMockRect(),
+          arc,
+        };
+        call(scene, 'destroyPipe', pipe);
+        expect(arc.destroy).toHaveBeenCalled();
+        expect(pipe.topRect.destroy).toHaveBeenCalled();
+        expect(pipe.bottomRect.destroy).toHaveBeenCalled();
+      });
+
+      it('does not throw when pipe has no arc', () => {
+        const pipe: any = {
+          topRect: createMockRect(),
+          bottomRect: createMockRect(),
+        };
+        expect(() => call(scene, 'destroyPipe', pipe)).not.toThrow();
+      });
     });
   });
 });

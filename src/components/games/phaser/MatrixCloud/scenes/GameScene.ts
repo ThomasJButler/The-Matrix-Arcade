@@ -7,7 +7,9 @@ import {
   BOSS_DEFS,
   BOSS_LEVELS,
   SLOW_MODE,
+  PIPE_VARIANTS,
   type PipePair,
+  type PipeKind,
   type PipeVisual,
   type FieldPowerUp,
   type PowerUpType,
@@ -399,6 +401,7 @@ export class MatrixCloudGameScene extends BaseScene {
 
   private updatePipes(dt: number, speedMult: number): void {
     const pipeSpeed = GAME_CONFIG.PIPE_SPEED * speedMult;
+    const deltaMs = dt * 1000 * speedMult;
 
     for (let i = this.pipes.length - 1; i >= 0; i--) {
       const pipe = this.pipes[i];
@@ -406,16 +409,20 @@ export class MatrixCloudGameScene extends BaseScene {
       pipe.topRect.setX(pipe.x + GAME_CONFIG.PIPE_WIDTH / 2);
       pipe.bottomRect.setX(pipe.x + GAME_CONFIG.PIPE_WIDTH / 2);
 
+      // R84.B4: advance variant-specific state *after* horizontal motion so
+      // the drift/arc visuals lock to the current pipe.x this frame.
+      if (pipe.kind === 'moving') this.updateMovingPipe(pipe, deltaMs);
+      if (pipe.kind === 'zapper') this.updateZapperPipe(pipe, deltaMs);
+
       if (pipe.x + GAME_CONFIG.PIPE_WIDTH < 0) {
-        pipe.topRect.destroy();
-        pipe.bottomRect.destroy();
+        this.destroyPipe(pipe);
         this.pipes.splice(i, 1);
         continue;
       }
 
       if (!pipe.passed && pipe.x + GAME_CONFIG.PIPE_WIDTH < GAME_CONFIG.PLAYER_X) {
         if (!pipe.hit) {
-          this.scorePipe();
+          this.scorePipe(pipe);
         }
         pipe.passed = true;
       }
@@ -432,13 +439,141 @@ export class MatrixCloudGameScene extends BaseScene {
     }
   }
 
-  private createPipeVisual(x: number, y: number, width: number, height: number): PipeVisual {
-    if (this.game.registry.get('spriteMode') === true) {
-      return this.add.tileSprite(x, y, width, height, 'pipe_sprite');
+  // R84.B4: moving pipes drift their gap vertically via a sine wave. We
+  // resize both pipe rectangles every frame rather than translating them as a
+  // unit so the top band stays anchored to the ceiling and the bottom band
+  // to the ground — only the gap position moves. Drift time advances with
+  // speedMult-scaled delta so the slow power-up dampens drift at the same
+  // rate it dampens horizontal scroll, keeping the difficulty relationship
+  // between variant and power-up consistent.
+  private updateMovingPipe(pipe: PipePair, deltaMs: number): void {
+    pipe.elapsedMs = (pipe.elapsedMs ?? 0) + deltaMs;
+    const freqHz = pipe.driftFreqHz ?? PIPE_VARIANTS.MOVING_DRIFT_FREQ_HZ;
+    const amp = pipe.driftAmp ?? PIPE_VARIANTS.MOVING_DRIFT_AMP;
+    const phase = pipe.driftPhase ?? 0;
+    const t = pipe.elapsedMs / 1000;
+    const drift = Math.sin(t * freqHz * 2 * Math.PI + phase) * amp;
+
+    const playableHeight = GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT;
+    const gap = pipe.gap ?? GAME_CONFIG.PIPE_GAP;
+    const minGapY = GAME_CONFIG.PIPE_MIN_HEIGHT;
+    const maxGapY = playableHeight - gap - GAME_CONFIG.PIPE_MIN_HEIGHT;
+    pipe.gapY = Phaser.Math.Clamp((pipe.baseGapY ?? pipe.gapY) + drift, minGapY, maxGapY);
+
+    const topHeight = pipe.gapY;
+    const bottomY = pipe.gapY + gap;
+    const bottomHeight = playableHeight - bottomY;
+    const topRect = pipe.topRect as Phaser.GameObjects.Rectangle;
+    const bottomRect = pipe.bottomRect as Phaser.GameObjects.Rectangle;
+    topRect.setY(topHeight / 2);
+    topRect.setSize?.(GAME_CONFIG.PIPE_WIDTH, topHeight);
+    bottomRect.setY(bottomY + bottomHeight / 2);
+    bottomRect.setSize?.(GAME_CONFIG.PIPE_WIDTH, bottomHeight);
+  }
+
+  // R84.B4: zapper pipes pulse an electric arc across the gap on a 2 s cycle.
+  // Cycle position 0–0.4 = arc ACTIVE (deadly); 0.4–1.0 = safe window. When
+  // cycle position enters the final `ZAPPER_TELEGRAPH_MS` of the safe window
+  // we redraw the arc at low alpha as a "warming up" tell so the player can
+  // time their pass instead of being ambushed.
+  private updateZapperPipe(pipe: PipePair, deltaMs: number): void {
+    pipe.arcElapsedMs = (pipe.arcElapsedMs ?? 0) + deltaMs;
+    const cyclePos = (pipe.arcElapsedMs % PIPE_VARIANTS.ZAPPER_CYCLE_MS) / PIPE_VARIANTS.ZAPPER_CYCLE_MS;
+    const wasActive = pipe.arcActive ?? false;
+    const active = cyclePos < PIPE_VARIANTS.ZAPPER_ACTIVE_FRACTION;
+    pipe.arcActive = active;
+
+    const telegraphFraction = PIPE_VARIANTS.ZAPPER_TELEGRAPH_MS / PIPE_VARIANTS.ZAPPER_CYCLE_MS;
+    const telegraphing = !active && cyclePos >= 1 - telegraphFraction;
+
+    this.drawZapperArc(pipe, active, telegraphing);
+
+    if (active && !wasActive && !pipe.passed) {
+      this.playSound(SOUND_KEYS.DANGER_WARNING);
     }
-    const rect = this.add.rectangle(x, y, width, height, MATRIX_COLORS.DARK_GREEN);
-    rect.setStrokeStyle(2, MATRIX_COLORS.PRIMARY);
+
+    if (active && !pipe.hit) {
+      this.checkZapperCollision(pipe);
+    }
+  }
+
+  private drawZapperArc(pipe: PipePair, active: boolean, telegraphing: boolean): void {
+    const arc = pipe.arc;
+    if (!arc) return;
+    arc.clear();
+    if (!active && !telegraphing) return;
+
+    const gap = pipe.gap ?? GAME_CONFIG.PIPE_GAP;
+    const centerX = pipe.x + GAME_CONFIG.PIPE_WIDTH / 2;
+    const topY = pipe.gapY;
+    const bottomY = pipe.gapY + gap;
+    const alpha = active ? PIPE_VARIANTS.ZAPPER_ARC_ALPHA : 0.3;
+    const lineWidth = active ? 3 : 2;
+
+    arc.lineStyle(lineWidth, PIPE_VARIANTS.ZAPPER_ARC_COLOR, alpha);
+    arc.beginPath();
+    arc.moveTo(centerX, topY);
+    const segments = PIPE_VARIANTS.ZAPPER_ARC_SEGMENTS;
+    for (let s = 1; s <= segments; s++) {
+      const t = s / segments;
+      const y = topY + (bottomY - topY) * t;
+      const jitter = (s === segments) ? 0 : (Math.random() * 2 - 1) * PIPE_VARIANTS.ZAPPER_ARC_JITTER;
+      arc.lineTo(centerX + jitter, y);
+    }
+    arc.strokePath();
+  }
+
+  private checkZapperCollision(pipe: PipePair): void {
+    const px = GAME_CONFIG.PLAYER_X;
+    const playerLeft = px - GAME_CONFIG.PLAYER_WIDTH / 2;
+    const playerRight = px + GAME_CONFIG.PLAYER_WIDTH / 2;
+    const pipeLeft = pipe.x;
+    const pipeRight = pipe.x + GAME_CONFIG.PIPE_WIDTH;
+    if (playerRight <= pipeLeft || playerLeft >= pipeRight) return;
+
+    const gap = pipe.gap ?? GAME_CONFIG.PIPE_GAP;
+    const py = this.playerY;
+    const ph = GAME_CONFIG.PLAYER_HEIGHT;
+    // Only the gap lane is deadly here — a top/bottom body contact falls
+    // through to checkPipeCollision (which can still be soaked by a shield).
+    if (py - ph / 2 > pipe.gapY && py + ph / 2 < pipe.gapY + gap) {
+      pipe.hit = true;
+      this.handleZapperDeath();
+    }
+  }
+
+  private destroyPipe(pipe: PipePair): void {
+    pipe.topRect.destroy();
+    pipe.bottomRect.destroy();
+    pipe.arc?.destroy();
+  }
+
+  private createPipeVisual(x: number, y: number, width: number, height: number, kind: PipeKind = 'normal'): PipeVisual {
+    const style = this.getPipeStyle(kind);
+    if (this.game.registry.get('spriteMode') === true) {
+      const ts = this.add.tileSprite(x, y, width, height, 'pipe_sprite');
+      ts.setTint(style.fill);
+      return ts;
+    }
+    const rect = this.add.rectangle(x, y, width, height, style.fill);
+    rect.setStrokeStyle(2, style.stroke);
     return rect;
+  }
+
+  // R84.B4: pipe-kind → palette. Moving = amber, zapper = red, bonus = cyan.
+  // Returning numeric 0xRRGGBB from a single switch keeps the visual identity
+  // of each variant co-located with the config constants.
+  private getPipeStyle(kind: PipeKind): { fill: number; stroke: number } {
+    switch (kind) {
+      case 'moving':
+        return { fill: PIPE_VARIANTS.MOVING_FILL, stroke: PIPE_VARIANTS.MOVING_STROKE };
+      case 'zapper':
+        return { fill: PIPE_VARIANTS.ZAPPER_FILL, stroke: PIPE_VARIANTS.ZAPPER_STROKE };
+      case 'bonus':
+        return { fill: PIPE_VARIANTS.BONUS_FILL, stroke: PIPE_VARIANTS.BONUS_STROKE };
+      default:
+        return { fill: MATRIX_COLORS.DARK_GREEN, stroke: MATRIX_COLORS.PRIMARY };
+    }
   }
 
   private getEffectivePipeSpacing(): number {
@@ -454,28 +589,110 @@ export class MatrixCloudGameScene extends BaseScene {
     // Cap the number of simultaneously active pipe pairs for balance.
     if (this.pipes.length >= GAME_CONFIG.PIPE_MAX_ACTIVE) return;
 
+    const kind = this.pickPipeKind();
+    const gap = kind === 'bonus' ? Math.round(GAME_CONFIG.PIPE_GAP * PIPE_VARIANTS.BONUS_GAP_SCALE) : GAME_CONFIG.PIPE_GAP;
     const playableHeight = GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT;
-    const maxGapY = playableHeight - GAME_CONFIG.PIPE_GAP - GAME_CONFIG.PIPE_MIN_HEIGHT;
+    const maxGapY = playableHeight - gap - GAME_CONFIG.PIPE_MIN_HEIGHT;
     const gapY = GAME_CONFIG.PIPE_MIN_HEIGHT + Math.random() * (maxGapY - GAME_CONFIG.PIPE_MIN_HEIGHT);
 
     const x = GAME_CONFIG.WIDTH;
 
     const topHeight = gapY;
-    const topRect = this.createPipeVisual(x + GAME_CONFIG.PIPE_WIDTH / 2, topHeight / 2, GAME_CONFIG.PIPE_WIDTH, topHeight);
+    const topRect = this.createPipeVisual(x + GAME_CONFIG.PIPE_WIDTH / 2, topHeight / 2, GAME_CONFIG.PIPE_WIDTH, topHeight, kind);
     topRect.setDepth(3);
 
-    const bottomY = gapY + GAME_CONFIG.PIPE_GAP;
+    const bottomY = gapY + gap;
     const bottomHeight = playableHeight - bottomY;
-    const bottomRect = this.createPipeVisual(x + GAME_CONFIG.PIPE_WIDTH / 2, bottomY + bottomHeight / 2, GAME_CONFIG.PIPE_WIDTH, bottomHeight);
+    const bottomRect = this.createPipeVisual(x + GAME_CONFIG.PIPE_WIDTH / 2, bottomY + bottomHeight / 2, GAME_CONFIG.PIPE_WIDTH, bottomHeight, kind);
     bottomRect.setDepth(3);
 
-    const pipe: PipePair = { topRect, bottomRect, x, gapY, passed: false, hit: false };
+    const pipe: PipePair = {
+      topRect,
+      bottomRect,
+      x,
+      gapY,
+      passed: false,
+      hit: false,
+      kind,
+      gap,
+      baseGapY: gapY,
+      driftAmp: kind === 'moving' ? PIPE_VARIANTS.MOVING_DRIFT_AMP : 0,
+      driftFreqHz: PIPE_VARIANTS.MOVING_DRIFT_FREQ_HZ,
+      driftPhase: Math.random() * Math.PI * 2,
+      elapsedMs: 0,
+      arcElapsedMs: 0,
+      arcActive: false,
+      arcTelegraphed: false,
+      bonusSpawned: false,
+    };
+
+    if (kind === 'zapper') {
+      const arc = this.add.graphics();
+      arc.setDepth(6);
+      pipe.arc = arc;
+    }
+
     this.pipes.push(pipe);
     this.lastPipeX = x;
 
-    if (!this.inBossBattle && Math.random() < GAME_CONFIG.POWERUP_CHANCE) {
+    if (kind === 'bonus') {
+      // Bonus pipes always seed a power-up in the gap centre as the reward
+      // for threading the narrower needle. Bypasses POWERUP_CHANCE so bonus
+      // always pays off.
+      this.spawnBonusPowerUp(pipe);
+    } else if (!this.inBossBattle && Math.random() < GAME_CONFIG.POWERUP_CHANCE) {
       this.spawnPowerUp(x);
     }
+  }
+
+  // R84.B4: weighted pipe-kind selection gated by the player's current score.
+  // Normal always dominates so the core Flappy loop survives the mid-game;
+  // hazards (moving / zapper) layer in at 200 / 500 to widen the skill
+  // ceiling, and bonus at 1000 rewards deep runs with a narrower-gap power-up
+  // drop. See PIPE_VARIANTS in config.ts for the weight tuning.
+  private pickPipeKind(): PipeKind {
+    const candidates: Array<{ kind: PipeKind; weight: number }> = [
+      { kind: 'normal', weight: PIPE_VARIANTS.WEIGHT_NORMAL },
+    ];
+    if (this.score >= PIPE_VARIANTS.MOVING_UNLOCK_SCORE) {
+      candidates.push({ kind: 'moving', weight: PIPE_VARIANTS.WEIGHT_MOVING });
+    }
+    if (this.score >= PIPE_VARIANTS.ZAPPER_UNLOCK_SCORE) {
+      candidates.push({ kind: 'zapper', weight: PIPE_VARIANTS.WEIGHT_ZAPPER });
+    }
+    if (this.score >= PIPE_VARIANTS.BONUS_UNLOCK_SCORE) {
+      candidates.push({ kind: 'bonus', weight: PIPE_VARIANTS.WEIGHT_BONUS });
+    }
+    const total = candidates.reduce((s, c) => s + c.weight, 0);
+    let roll = Math.random() * total;
+    for (const c of candidates) {
+      roll -= c.weight;
+      if (roll <= 0) return c.kind;
+    }
+    return 'normal';
+  }
+
+  private spawnBonusPowerUp(pipe: PipePair): void {
+    if (pipe.bonusSpawned) return;
+    pipe.bonusSpawned = true;
+    const types: PowerUpType[] = ['shield', 'timeSlow', 'extraLife', 'doublePoints'];
+    const type = types[Math.floor(Math.random() * types.length)];
+    const gap = pipe.gap ?? GAME_CONFIG.PIPE_GAP;
+    const px = pipe.x + GAME_CONFIG.PIPE_WIDTH / 2;
+    const py = pipe.gapY + gap / 2;
+
+    const sprite = this.add.sprite(px, py, `powerup_${type}`);
+    sprite.setDepth(4);
+    this.tweens.add({
+      targets: sprite,
+      scaleX: 1.2,
+      scaleY: 1.2,
+      alpha: 0.7,
+      duration: 500,
+      yoyo: true,
+      repeat: -1,
+    });
+    this.fieldPowerUps.push({ sprite, type, x: px, y: py });
   }
 
   private checkPipeCollision(pipe: PipePair): void {
@@ -489,8 +706,11 @@ export class MatrixCloudGameScene extends BaseScene {
 
     if (px + pw <= pipeLeft || px >= pipeRight) return;
 
+    // R84.B4: honour per-pipe `gap` so bonus pipes' narrower window is the
+    // real collider, not the default PIPE_GAP.
+    const gap = pipe.gap ?? GAME_CONFIG.PIPE_GAP;
     const inTopPipe = py < pipe.gapY;
-    const inBottomPipe = py + ph > pipe.gapY + GAME_CONFIG.PIPE_GAP;
+    const inBottomPipe = py + ph > pipe.gapY + gap;
 
     if (inTopPipe || inBottomPipe) {
       pipe.hit = true;
@@ -498,15 +718,22 @@ export class MatrixCloudGameScene extends BaseScene {
     }
   }
 
-  private scorePipe(): void {
-    const scoreMultiplier = this.doublePointsActive ? 2 : 1;
+  private scorePipe(pipe?: PipePair): void {
+    const bonusMult = pipe?.kind === 'bonus' ? PIPE_VARIANTS.BONUS_SCORE_MULT : 1;
+    const scoreMultiplier = (this.doublePointsActive ? 2 : 1) * bonusMult;
     const points = Math.floor(GAME_CONFIG.SCORE_PER_PIPE * Math.min(this.combo, GAME_CONFIG.MAX_COMBO) * scoreMultiplier);
     this.score += points;
     this.combo = Math.min(this.combo + GAME_CONFIG.COMBO_INCREMENT, GAME_CONFIG.MAX_COMBO);
 
     this.playSound(SOUND_KEYS.SCORE);
+    // R84.B4: bonus pipes get an extra triumphant cue so the 3× reward reads
+    // as "this was the right risk" to the player's ear as well as their eye.
+    if (pipe?.kind === 'bonus') {
+      this.playSound(SOUND_KEYS.LEVEL_UP);
+    }
 
-    const popText = this.createMatrixText(this.player.x + 40, this.player.y - 20, `+${points}`, 10, MATRIX_COLORS.PRIMARY_HEX);
+    const popColor = pipe?.kind === 'bonus' ? MATRIX_COLORS.CYAN_HEX : MATRIX_COLORS.PRIMARY_HEX;
+    const popText = this.createMatrixText(this.player.x + 40, this.player.y - 20, `+${points}`, 10, popColor);
     this.tweens.add({
       targets: popText,
       y: popText.y - 25,
@@ -745,6 +972,23 @@ export class MatrixCloudGameScene extends BaseScene {
     this.handleGameOver();
   }
 
+  /**
+   * R84.B4: zapper-pipe arc contact is insta-death, shield or not. Mirrors
+   * the handleGroundDeath pattern: zero lives, break combo, skip the shield
+   * branch of handleCollision, go straight to game over. The red camera
+   * flash + heavier shake distinguish zap death from the standard hit feel
+   * so the player's post-mortem reads "zapped" not "clipped a pipe".
+   */
+  private handleZapperDeath(): void {
+    if (this.isGameOver) return;
+    this.lives = 0;
+    this.combo = 1.0;
+    this.playSound(SOUND_KEYS.GLASS_BREAK);
+    this.cameras.main.shake(300, 0.02);
+    this.cameras.main.flash(220, 255, 60, 60, false, undefined, undefined, 0.4);
+    this.handleGameOver();
+  }
+
   private startInvulnerability(): void {
     this.isInvulnerable = true;
     this.invulnerableTimer?.destroy();
@@ -809,8 +1053,7 @@ export class MatrixCloudGameScene extends BaseScene {
     this.bossAttacks = [];
 
     for (const pipe of this.pipes) {
-      pipe.topRect.destroy();
-      pipe.bottomRect.destroy();
+      this.destroyPipe(pipe);
     }
     this.pipes = [];
 
@@ -1106,8 +1349,7 @@ export class MatrixCloudGameScene extends BaseScene {
     this.slowTrailParticles = [];
 
     for (const pipe of this.pipes) {
-      pipe.topRect.destroy();
-      pipe.bottomRect.destroy();
+      this.destroyPipe(pipe);
     }
     this.pipes = [];
 
