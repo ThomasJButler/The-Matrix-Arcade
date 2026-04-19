@@ -7,25 +7,20 @@
  *
  * React's remaining responsibilities:
  *  - Mount the Phaser game and bridge props via Phaser registry
- *  - Listen for game events and run save/achievement side effects
+ *  - Listen for game events and run save-system side effects
  *  - Sync GameStateContext → Phaser registry (so scenes read live progress)
  */
 
 import React, { useCallback, useEffect, useRef } from 'react';
 import Phaser from 'phaser';
 import { PhaserGame } from '../../../../lib/phaser/PhaserGame';
-import { PHASER_CONFIG, ACHIEVEMENTS, CHAPTER_ACHIEVEMENTS, CTRLS_REGISTRY_KEYS, GAME_CONFIG } from './config';
+import { PHASER_CONFIG, CTRLS_REGISTRY_KEYS } from './config';
 import type { GameEvent } from '../../../../lib/phaser/types';
 import { getItemRewardsForPuzzle, getItemById } from '../../../../data/items';
 import { useGameState } from '../../../../contexts/GameStateContext';
 import { useSoundSystem } from '../../../../hooks/useSoundSystem';
 
-interface AchievementManager {
-  unlockAchievement(gameId: string, achievementId: string): void;
-}
-
 interface CtrlSWorldPhaserProps {
-  achievementManager?: AchievementManager;
   isMuted?: boolean;
   autoStart?: boolean;
   onExit?: () => void;
@@ -38,7 +33,6 @@ interface ActivePuzzleRef {
 }
 
 export default function CtrlSWorldPhaser({
-  achievementManager,
   isMuted = false,
   autoStart = false,
   onExit,
@@ -79,8 +73,6 @@ export default function CtrlSWorldPhaser({
       choiceId?: string;
       label?: string;
       success?: boolean;
-      hintsUsed?: number;
-      lifelinesUsed?: number;
     } | undefined;
     if (!data?.action) return;
 
@@ -99,20 +91,7 @@ export default function CtrlSWorldPhaser({
       }
 
       if (data.success && active) {
-        achievementManager?.unlockAchievement('ctrlSWorld', ACHIEVEMENTS.FIRST_PUZZLE);
-
-        const hintsUsed = data.hintsUsed ?? 0;
-        const lifelinesUsed = data.lifelinesUsed ?? 0;
-        if (hintsUsed === 0 && lifelinesUsed === 0) {
-          achievementManager?.unlockAchievement('ctrlSWorld', ACHIEVEMENTS.NO_HINTS);
-        }
-
         gameState.completePuzzle(active.puzzleId);
-
-        const completedPuzzles = [...(gameState.state.completedPuzzles ?? []), active.puzzleId];
-        if (completedPuzzles.length >= 10) {
-          achievementManager?.unlockAchievement('ctrlSWorld', ACHIEVEMENTS.PUZZLE_MASTER);
-        }
 
         const rewardIds = getItemRewardsForPuzzle(active.puzzleId);
         for (const itemId of rewardIds) {
@@ -126,22 +105,6 @@ export default function CtrlSWorldPhaser({
       }
     } else if (data.action === 'chapterComplete' && data.chapterIndex !== undefined) {
       gameState.completeChapter(data.chapterIndex);
-
-      const chapterAchievement = CHAPTER_ACHIEVEMENTS[data.chapterIndex];
-      if (chapterAchievement) {
-        achievementManager?.unlockAchievement('ctrlSWorld', chapterAchievement);
-      }
-
-      if (data.chapterIndex === GAME_CONFIG.CHAPTERS.TOTAL - 1) {
-        achievementManager?.unlockAchievement('ctrlSWorld', ACHIEVEMENTS.STORY_COMPLETE);
-      }
-
-      const completedChapters = [...(gameState.state.completedChapters ?? []), data.chapterIndex];
-      const completedPuzzles = gameState.state.completedPuzzles ?? [];
-      if (completedChapters.length >= GAME_CONFIG.CHAPTERS.TOTAL && completedPuzzles.length >= 10) {
-        achievementManager?.unlockAchievement('ctrlSWorld', ACHIEVEMENTS.COMPLETIONIST);
-      }
-
       gameState.saveGame();
     } else if (data.action === 'chapterLaunch' && data.chapterIndex !== undefined) {
       gameState.setChapter(data.chapterIndex);
@@ -150,14 +113,13 @@ export default function CtrlSWorldPhaser({
       gameState.makeChoice(data.choiceId, data.label);
       gameState.saveGame();
     }
-  }, [achievementManager, gameState, isMuted, playSFX]);
+  }, [gameState, isMuted, playSFX]);
 
   return (
     <div className="relative w-full h-full bg-black">
       <PhaserGame
         gameId="ctrlSWorld"
         config={PHASER_CONFIG}
-        achievementManager={achievementManager}
         isMuted={isMuted}
         autoStart={autoStart}
         onExit={onExit}

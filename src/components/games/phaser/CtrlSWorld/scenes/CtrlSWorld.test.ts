@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { PHASER_CONFIG, CTRLS_SCENE_KEYS, CTRLS_REGISTRY_KEYS, GAME_CONFIG, ACHIEVEMENTS, CHAPTER_ACHIEVEMENTS, CHARACTERS, PORTRAIT_CONFIG, HUB_CONFIG, MUSIC_TRACKS, CHARACTER_TICK_MAP, NARRATOR_TICK, STINGER_KEYS, type ChapterStatus } from '../config';
+import { PHASER_CONFIG, CTRLS_SCENE_KEYS, CTRLS_REGISTRY_KEYS, GAME_CONFIG, CHARACTERS, PORTRAIT_CONFIG, HUB_CONFIG, MUSIC_TRACKS, CHARACTER_TICK_MAP, NARRATOR_TICK, STINGER_KEYS, type ChapterStatus } from '../config';
 import { getPuzzleById } from '../../../../../data/puzzles';
 import { getChapter, getPuzzleTriggersForParagraph } from '../../../../../data/ctrlsChapters';
 import { CtrlSBootScene } from './BootScene';
@@ -42,28 +42,6 @@ describe('CTRL-S World Phaser — Config', () => {
     expect(GAME_CONFIG.CHAPTERS.TOTAL).toBe(6);
   });
 
-  it('has all 11 achievement IDs defined', () => {
-    expect(Object.keys(ACHIEVEMENTS)).toHaveLength(11);
-    expect(ACHIEVEMENTS.FIRST_PUZZLE).toBe('ctrl_first_puzzle');
-    expect(ACHIEVEMENTS.NO_HINTS).toBe('ctrl_no_hints');
-    expect(ACHIEVEMENTS.CHAPTER_1).toBe('ctrl_chapter_1');
-    expect(ACHIEVEMENTS.CHAPTER_2).toBe('ctrl_chapter_2');
-    expect(ACHIEVEMENTS.CHAPTER_3).toBe('ctrl_chapter_3');
-    expect(ACHIEVEMENTS.CHAPTER_4).toBe('ctrl_chapter_4');
-    expect(ACHIEVEMENTS.CHAPTER_5).toBe('ctrl_chapter_5');
-    expect(ACHIEVEMENTS.STORY_COMPLETE).toBe('ctrl_story_complete');
-    expect(ACHIEVEMENTS.SPEED_READER).toBe('ctrl_speed_reader');
-    expect(ACHIEVEMENTS.PUZZLE_MASTER).toBe('ctrl_puzzle_master');
-    expect(ACHIEVEMENTS.COMPLETIONIST).toBe('ctrl_completionist');
-  });
-
-  it('has chapter achievement mappings for all non-prologue chapters', () => {
-    expect(Object.keys(CHAPTER_ACHIEVEMENTS)).toHaveLength(5);
-    for (let i = 1; i <= 5; i++) {
-      expect(CHAPTER_ACHIEVEMENTS[i]).toBeDefined();
-      expect(CHAPTER_ACHIEVEMENTS[i]).toMatch(/^ctrl_chapter_\d$/);
-    }
-  });
 });
 
 describe('CTRL-S World Phaser — Scene Construction', () => {

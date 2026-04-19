@@ -299,19 +299,11 @@ export const GAME_ACHIEVEMENTS: Record<string, Achievement[]> = {
     { id: 'invaders_boss_defeat', name: 'System Override', description: 'Defeat a boss enemy', game: 'Matrix Invaders' },
     { id: 'invaders_high_score', name: 'Elite Hacker', description: 'Score over 10,000 points', game: 'Matrix Invaders' }
   ],
-  ctrlSWorld: [
-    { id: 'ctrl_first_puzzle', name: 'First Steps', description: 'Complete your first puzzle', game: 'CTRL-S World' },
-    { id: 'ctrl_no_hints', name: 'Quick Thinker', description: 'Complete a puzzle without hints or lifelines', game: 'CTRL-S World' },
-    { id: 'ctrl_chapter_1', name: 'Chapter One', description: 'Complete Chapter 1', game: 'CTRL-S World' },
-    { id: 'ctrl_chapter_2', name: 'Silicon Seeker', description: 'Complete Chapter 2', game: 'CTRL-S World' },
-    { id: 'ctrl_chapter_3', name: 'Midway There', description: 'Complete Chapter 3', game: 'CTRL-S World' },
-    { id: 'ctrl_chapter_4', name: 'Time Bender', description: 'Complete Chapter 4', game: 'CTRL-S World' },
-    { id: 'ctrl_chapter_5', name: 'Dawn Breaker', description: 'Complete Chapter 5', game: 'CTRL-S World' },
-    { id: 'ctrl_story_complete', name: 'Epic Journey', description: 'Complete the main storyline', game: 'CTRL-S World' },
-    { id: 'ctrl_speed_reader', name: 'Speed Reader', description: 'Complete in under 30 minutes', game: 'CTRL-S World' },
-    { id: 'ctrl_puzzle_master', name: 'Puzzle Master', description: 'Complete 10 or more puzzles', game: 'CTRL-S World' },
-    { id: 'ctrl_completionist', name: 'Completionist', description: 'Complete every chapter and solve every puzzle', game: 'CTRL-S World' }
-  ],
+  // CTRL-S World ships with no achievements (R83.CTRLS.7). It's a single
+  // linear narrative, not a score/unlock-driven arcade title; tracking
+  // unlocks added friction without reward. The key is kept (as an empty
+  // array) so every registered game still appears in GAME_ACHIEVEMENTS.
+  ctrlSWorld: [],
   metris: [
     { id: 'first_line', name: 'First Steps', description: 'Clear your first line', game: 'Metris' },
     { id: 'tetris', name: 'Tetris Master', description: 'Clear 4 lines at once', game: 'Metris' },

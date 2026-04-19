@@ -44,28 +44,6 @@ export const GAME_CONFIG = {
   },
 } as const;
 
-export const ACHIEVEMENTS = {
-  FIRST_PUZZLE: 'ctrl_first_puzzle',
-  NO_HINTS: 'ctrl_no_hints',
-  CHAPTER_1: 'ctrl_chapter_1',
-  CHAPTER_2: 'ctrl_chapter_2',
-  CHAPTER_3: 'ctrl_chapter_3',
-  CHAPTER_4: 'ctrl_chapter_4',
-  CHAPTER_5: 'ctrl_chapter_5',
-  STORY_COMPLETE: 'ctrl_story_complete',
-  SPEED_READER: 'ctrl_speed_reader',
-  PUZZLE_MASTER: 'ctrl_puzzle_master',
-  COMPLETIONIST: 'ctrl_completionist',
-} as const;
-
-export const CHAPTER_ACHIEVEMENTS: Record<number, string> = {
-  1: ACHIEVEMENTS.CHAPTER_1,
-  2: ACHIEVEMENTS.CHAPTER_2,
-  3: ACHIEVEMENTS.CHAPTER_3,
-  4: ACHIEVEMENTS.CHAPTER_4,
-  5: ACHIEVEMENTS.CHAPTER_5,
-} as const;
-
 export interface CharacterDef {
   id: string;
   name: string;

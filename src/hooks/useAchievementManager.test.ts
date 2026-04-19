@@ -678,22 +678,6 @@ describe('useAchievementManager', () => {
       });
     });
 
-    it('supports CtrlSWorld achievements', async () => {
-      const { result } = renderHook(() => useAchievementManager());
-
-      await waitFor(() => {
-        expect(result.current.isUnlocked('ctrl_first_puzzle')).toBe(false);
-      });
-
-      act(() => {
-        result.current.unlockAchievement('ctrlSWorld', 'ctrl_first_puzzle');
-      });
-
-      await waitFor(() => {
-        expect(result.current.isUnlocked('ctrl_first_puzzle')).toBe(true);
-      });
-    });
-
     it('supports Metris achievements', async () => {
       const { result } = renderHook(() => useAchievementManager());
 
