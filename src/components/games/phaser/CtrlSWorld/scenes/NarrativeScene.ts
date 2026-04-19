@@ -64,21 +64,28 @@ const TERMINAL_ENDING_HOLD_MS = 1400;
 const PHOSPHOR_BLOOM_COLOR = MATRIX_COLORS.DIM_GREEN_HEX;
 const PHOSPHOR_BLOOM_BLUR = 6;        // soft halo on terminal/cursor lines
 const PHOSPHOR_BLOOM_BLUR_BODY = 4;   // subtler halo on long paragraph text
-// R83.CTRLS.17 — typewriter pacing drops to ~55 ms/char mean (range 45-70 ms)
-// from the previous 20-45 ms range. Slower reading cadence is the foundation
-// of the "game lost in time" feel — the player has to wait on the terminal,
-// not the other way around. Burst-flush chance halved from 6% to 3% so the
-// slow-burn reads as deliberate rather than glitchy.
-const TYPEWRITER_MIN_MS = 45;
-const TYPEWRITER_MAX_MS = 70;
+// R83.CTRLS.22 — typewriter pacing snaps back to ~33 ms/char mean (range
+// 28-38 ms) from Round 2's 45-70 ms dread speed. Tom's Round 2 verdict was
+// "play is generally better now and its just a bit too slow that's all" —
+// the dread palette/scanline/vignette atmosphere from .17 is doing the
+// "lost in time" work, so reading cadence can tighten without undermining
+// the mood. The burst-flush chance stays at 3% so occasional 2-5 ms flushes
+// still fire on common phrases. Pre-.17 baseline was 20-45 ms (mean ~33);
+// we settle a hair slower than that so the dread atmosphere still reads.
+const TYPEWRITER_MIN_MS = 28;
+const TYPEWRITER_MAX_MS = 38;
 const TYPEWRITER_BURST_CHANCE = 0.03;
-// R83.CTRLS.17 — paragraph-boundary beat. After the user presses SPACE/ENTER
-// at a WAITING paragraph, wait 900-1400 ms (randomised per beat) before the
-// next paragraph starts typing. Previously ~0 ms — the next paragraph started
-// the same frame as the keypress, which felt rushed and undermined the dread
-// pacing. The randomised range stops the rhythm from feeling metronomic.
-const PARAGRAPH_BEAT_MIN_MS = 900;
-const PARAGRAPH_BEAT_MAX_MS = 1400;
+// R83.CTRLS.22 — paragraph-boundary beat drops to 100-200 ms (was 900-1400 ms
+// in R83.CTRLS.17). The dread beat held the terminal for a full breath between
+// paragraphs; Tom's Round 2 ask is "a bit quicker when press enter (for the
+// next sentence)". 100-200 ms is enough for the new paragraph's first-char
+// reveal to read as a deliberate beat rather than a same-frame snap, but
+// short enough that SPACE/ENTER feels responsive. Randomised range keeps the
+// rhythm organic. Paired with R83.CTRLS.23's 500 ms trailing fade, the net
+// reading experience becomes "press → new line already typing, old line
+// fading" rather than a blank wait.
+const PARAGRAPH_BEAT_MIN_MS = 100;
+const PARAGRAPH_BEAT_MAX_MS = 200;
 // R83.CTRLS.17 — choice prompts wait a full 2 s after the final paragraph char
 // before the choice lines appear. Previously 300 ms (felt like a UI, not a
 // choice). 2 s forces the player to sit with the question.
@@ -246,11 +253,11 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.terminalResolved = false;
     this.chapterAsciiFadedOut = false;
 
-    // R83.CTRLS.16 — variable-speed typewriter replaces the fixed 15 ms/char
-    // cadence. Recipe (from the task body): 20-45 ms/char with occasional
-    // 2-3 char buffer-flush bursts. Without this the terminal reads like a
-    // web typewriter; with it, the cadence mimics someone actually typing a
-    // mix of familiar and unfamiliar words.
+    // R83.CTRLS.16/22 — variable-speed typewriter replaces the fixed 15 ms/char
+    // cadence. Range retuned in .22 from the .17 dread speed (45-70 ms) down
+    // to 28-38 ms/char with 3% buffer-flush burst chance. Without variance the
+    // terminal reads like a web typewriter; with it, the cadence mimics
+    // someone actually typing a mix of familiar and unfamiliar words.
     this.engine.setVariableSpeed(TYPEWRITER_MIN_MS, TYPEWRITER_MAX_MS, TYPEWRITER_BURST_CHANCE);
     this.tickCounter = 0;
     this.flickerMap.clear();
@@ -761,11 +768,13 @@ export class CtrlSNarrativeScene extends BaseScene {
       });
     }
 
-    // R83.CTRLS.17 — paragraph-boundary beat. If the player is advancing OUT
+    // R83.CTRLS.22 — paragraph-boundary beat. If the player is advancing OUT
     // of a WAITING paragraph (i.e. about to start typing the next one), gate
-    // the engine.advance() behind a 900-1400 ms delay so the terminal holds
-    // for a breath before the next paragraph arrives. Skipping a still-typing
-    // paragraph (TYPING → WAITING) stays instant so the skip feels responsive.
+    // the engine.advance() behind a 100-200 ms delay (was 900-1400 ms in
+    // R83.CTRLS.17 — Tom's Round 2 verdict was that the beat read as dead
+    // air). Skipping a still-typing paragraph (TYPING → WAITING) stays
+    // instant via engine.advance() → skipToEndOfParagraph so rapid presses
+    // feel responsive.
     if (this.engine.state === 'WAITING' && !this.engine.isLastParagraph) {
       this.applyParagraphBeat();
       return;
