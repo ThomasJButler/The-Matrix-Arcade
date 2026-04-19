@@ -197,6 +197,25 @@ const SOUND_LIBRARY: Record<string, SoundEffect> = {
     filterType: 'highpass',
     filterFreq: 800
   },
+  // R83.CTRLS.19 — soft matrix "click" for CTRL-S World paragraph advance.
+  // Short square wave through a 2 kHz lowpass reads as a muted terminal key
+  // tap rather than the tonal `menu` blip that previously fired. Volume
+  // scaled to 0.15 so rapid SPACE/ENTER presses don't pile up on the dread
+  // drone mix. Procedural-only by design (no AUDIO_FILE_MAP entry) — a
+  // 20 ms sample would weigh more as an MP3 than it does synthesised.
+  ctrlsAdvance: {
+    type: 'ctrlsAdvance',
+    frequency: { start: 1200, end: 1200 },
+    oscillatorType: 'square',
+    duration: 0.02,
+    attack: 0.002,
+    decay: 0.005,
+    sustain: 0.4,
+    release: 0.013,
+    filterType: 'lowpass',
+    filterFreq: 2000,
+    volumeScale: 0.15,
+  },
   matrixRain: {
     type: 'matrixRain',
     frequency: { start: 220, end: 330 },
@@ -585,6 +604,8 @@ const AUDIO_FILE_MAP: Record<string, string> = {
   hitGround: '/assets/audio/sfx/sfx_hit_ground.mp3',
 
   // CTRL-S World narrative stingers
+  // Note: ctrlsAdvance is intentionally absent — a 20 ms click is smaller as
+  // synthesis than as an MP3, and R83 forbids new audio files.
   ctrlsPuzzleAppear: '/assets/ctrl-s/audio/sfx/puzzle-appear.mp3',
   ctrlsPuzzleSolved: '/assets/ctrl-s/audio/sfx/puzzle-solved.mp3',
   ctrlsPuzzleFailed: '/assets/ctrl-s/audio/sfx/puzzle-failed.mp3',

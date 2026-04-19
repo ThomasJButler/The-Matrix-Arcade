@@ -599,3 +599,20 @@ describe('NarrativeScene — R83.CTRLS.13 text renderer invariants', () => {
     expect(src.length).toBeGreaterThan(0);
   });
 });
+
+describe('NarrativeScene — R83.CTRLS.19 spacebar-advance SFX', () => {
+  // Tom's playtest: *"don't have a sound effect for when you press a space bar"*.
+  // The previous `'menu'` SFX was a soft tonal blip that didn't register as
+  // terminal feedback. `'ctrlsAdvance'` is the procedural replacement — lock
+  // the wiring against accidental regression to the old key.
+  it('handleAdvance plays the ctrlsAdvance SFX (not the old menu blip)', () => {
+    const proto = CtrlSNarrativeScene.prototype as unknown as Record<string, () => void>;
+    const advanceSrc = proto.handleAdvance.toString();
+    // Quote-agnostic match — TS compiles string literals to double quotes.
+    expect(advanceSrc).toMatch(/playSound\(["']ctrlsAdvance["']\)/);
+    // Old wiring would start `this.playSound('menu')` before the cursor tween.
+    // Assert it no longer appears inside handleAdvance (highlightChoice and
+    // confirmChoice still reference 'menu' / 'score' elsewhere in the scene).
+    expect(advanceSrc).not.toMatch(/playSound\(["']menu["']\)/);
+  });
+});
