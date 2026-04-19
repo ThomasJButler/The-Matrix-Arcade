@@ -1431,12 +1431,14 @@ main:has(.ipod-body--playing) {
   letter-spacing: 1px;
 }
 
-/* R83.G5 — CRT-boot overlay covering Phaser's Scale.FIT mount flicker.
-   Mounted by GamePortal on every play boundary (see `isBooting` effect);
-   auto-unmounts after 400 ms so the fade-out below runs while the canvas
-   underneath has already settled. `pointer-events: none` keeps the game
-   canvas hit-testable during the cover (the overlay is aria-hidden, so
-   screen-reader users get no dead announcement). */
+/* R83.G5 + R83.G10 — Matrix-terminal launcher covering Phaser's Scale.FIT
+   mount flicker AND acting as the "something really cool" game-launch
+   sequence Tom asked for. Mounted by GamePortal on every play boundary
+   (see `isBooting` effect); unmounts on GAME_TRANSITION_READY_EVENT
+   (typically ~100-200 ms for a cold Phaser boot) or the 500 ms safety
+   timeout, whichever fires first. The phased launcher animation is driven
+   by <IpodBootOverlay>'s canvas; this CSS only handles the solid black
+   fill, stacking, and overall fade-out. */
 .ipod-boot-overlay {
   position: absolute;
   inset: 0;
@@ -1451,9 +1453,9 @@ main:has(.ipod-body--playing) {
   pointer-events: none;
   contain: layout style paint;
   /* R83.G9: 500 ms matches the JS safety timeout in GamePortal. If the
-     GAME_TRANSITION_READY_EVENT lifts the mask sooner (cold-boot hits ~100–200
-     ms typically) React unmounts mid-animation — no visible abrupt cut because
-     the game canvas underneath is already live and correctly scaled. */
+     GAME_TRANSITION_READY_EVENT lifts the mask sooner, React unmounts
+     mid-animation — no visible abrupt cut because the game canvas beneath
+     is already live and correctly scaled. */
   animation: ipod-boot-fade 500ms ease-out forwards;
   will-change: opacity;
 }
@@ -1463,56 +1465,16 @@ main:has(.ipod-body--playing) {
   100% { opacity: 0; }
 }
 
-/* Sweep a single bright scanline top→bottom once during the cover. */
-.ipod-boot-scanline {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, transparent, rgba(0, 255, 0, 0.85), transparent);
-  box-shadow: 0 0 12px rgba(0, 255, 0, 0.55);
-  animation: ipod-boot-scanline-sweep 360ms linear forwards;
-  will-change: transform;
-}
-
-@keyframes ipod-boot-scanline-sweep {
-  0% { transform: translateY(0); opacity: 0.9; }
-  100% { transform: translateY(100%); opacity: 0; }
-}
-
-/* Faux matrix rain — 12 thin columns pulsing green via radial gradient.
-   Kept as CSS-only pseudo-rain (no JS per-frame) so the overlay is cheap
-   even if the user re-enters games rapidly. */
-.ipod-boot-rain {
+/* R83.G10: canvas layer hosts the 450 ms procedural launcher sequence
+   (phosphor warm-up → falling glyph sweep → scanline wipe). Absolute-
+   positioned under the title/status text so the labels stay readable. */
+.ipod-boot-canvas {
   position: absolute;
   inset: 0;
-  display: flex;
-  justify-content: space-between;
-  padding: 0 8%;
-  opacity: 0.4;
-  mix-blend-mode: screen;
-}
-
-.ipod-boot-rain-col {
-  flex: 0 0 2px;
-  align-self: stretch;
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    rgba(0, 255, 0, 0.0) 20%,
-    rgba(0, 255, 0, 0.55) 50%,
-    rgba(0, 255, 0, 0.0) 80%,
-    transparent 100%
-  );
-  animation: ipod-boot-rain-fall 320ms ease-in forwards;
-  will-change: transform, opacity;
-}
-
-@keyframes ipod-boot-rain-fall {
-  0% { transform: translateY(-40%); opacity: 0; }
-  30% { opacity: 1; }
-  100% { transform: translateY(60%); opacity: 0; }
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
 }
 
 .ipod-boot-title {
@@ -1594,19 +1556,25 @@ main:has(.ipod-body--playing) {
     opacity: 0.35;
   }
 
-  /* R83.G5 — flicker cover still needed under reduced-motion (the canvas
-     FIT flicker is itself involuntary motion), but drop the rain fall,
-     scanline sweep, and fade-out pulse. Overlay hard-unmounts after the
-     React timeout, so no visible cut-off. */
+  /* R83.G5 + R83.G10 — flicker cover still needed under reduced-motion
+     (the FIT flicker is itself involuntary motion), but drop the 500 ms
+     fade for a plain 100 ms fade and suppress the canvas launcher (the
+     component itself no-ops under reduced-motion). Overlay hard-unmounts
+     when the ready event or React safety timeout fires, so no cut-off. */
   .ipod-boot-overlay {
-    animation: none !important;
-    opacity: 1;
+    animation: ipod-boot-fade-reduced 100ms ease-out forwards;
   }
-  .ipod-boot-scanline,
-  .ipod-boot-rain-col {
-    animation: none !important;
-    opacity: 0.25;
+  .ipod-boot-canvas {
+    display: none;
   }
+}
+
+/* Reduced-motion fade: hold solid black for most of the 100 ms, then fade
+   so the reveal isn't a hard cut. Kept outside the media query so the
+   named keyframe is always resolvable. */
+@keyframes ipod-boot-fade-reduced {
+  0%, 80% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 /* ===== iPod Key Panel (R82.26) =====
