@@ -113,6 +113,38 @@ export const POWERUP_DEFS: Record<PowerUpType, { color: number; label: string }>
   doublePoints: { color: 0x00ffff, label: '2X' },
 };
 
+// R84.B3: SLOW_MODE — single-source-of-truth for how the slow power-up
+// communicates its "time-dilated" feel. Two complementary behaviours the
+// scene hangs off this block:
+//
+//   (a) Player-physics time-dilation (no config constant of its own — the
+//       player re-uses GAME_CONFIG.TIME_SLOW_FACTOR so the player and the
+//       world slow at exactly the same rate). Pre-R84.B3 the scene scaled
+//       pipes / field power-ups / boss by TIME_SLOW_FACTOR but let the
+//       player run at full-rate gravity + integration, so the bird fell
+//       fast while the world crept — exactly the "not enough momentum"
+//       feel Tom flagged in the 2026-04-19 testing doc (line 115). Scaling
+//       the player's gravity accumulation and vertical integration by the
+//       same 0.6× gives coherent 1.67× hang-time that matches pipe scroll.
+//       Combined with the existing R83.B1(e) 0.6× impulse scaling, apparent
+//       peak height stays invariant — gaps remain equally navigable — but
+//       the bird now drifts through them rather than dropping through.
+//
+//   (b) Yellow trail breadcrumbs behind the bird while slow-mode is active
+//       — an unmistakable visual state-change signal, so the player reads
+//       the dilation at a glance. Colour matches POWERUP_DEFS.timeSlow
+//       YELLOW so the HUD indicator and the trail tell the same story.
+//       Emit cadence (120 ms) + lifespan (600 ms) gives a five-particle
+//       visible tail without cluttering the small 800×450 canvas.
+export const SLOW_MODE = {
+  TRAIL_EMIT_INTERVAL_MS: 120,
+  TRAIL_PARTICLE_RADIUS: 3,
+  TRAIL_PARTICLE_ALPHA: 0.7,
+  TRAIL_PARTICLE_LIFESPAN_MS: 600,
+  TRAIL_COLOR: 0xffff00,
+  TRAIL_DEPTH: 9,
+} as const;
+
 export const ACHIEVEMENTS = {
   FIRST_FLIGHT: 'cloud_first_flight',
   LEVEL_5: 'cloud_level_5',

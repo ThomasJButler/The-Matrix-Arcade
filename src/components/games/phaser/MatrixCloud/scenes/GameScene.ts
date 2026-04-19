@@ -6,6 +6,7 @@ import {
   ACHIEVEMENTS,
   BOSS_DEFS,
   BOSS_LEVELS,
+  SLOW_MODE,
   type PipePair,
   type PipeVisual,
   type FieldPowerUp,
@@ -36,6 +37,13 @@ export class MatrixCloudGameScene extends BaseScene {
   private doublePointsActive: boolean = false;
   private timeSlowTimer: Phaser.Time.TimerEvent | null = null;
   private doublePointsTimer: Phaser.Time.TimerEvent | null = null;
+
+  // R84.B3: slow-mode trail — yellow breadcrumbs behind the bird that make
+  // the time-dilation visible at a glance. Emitter runs on `slowTrailTimer`;
+  // live particles tracked in `slowTrailParticles` so resetState + shutdown
+  // can tear them down deterministically without waiting on fade tweens.
+  private slowTrailTimer: Phaser.Time.TimerEvent | null = null;
+  private slowTrailParticles: Phaser.GameObjects.Arc[] = [];
 
   // Scoring
   private score: number = 0;
@@ -148,6 +156,9 @@ export class MatrixCloudGameScene extends BaseScene {
     this.timeSlowTimer = null;
     this.doublePointsTimer?.destroy();
     this.doublePointsTimer = null;
+    this.stopSlowTrail();
+    for (const p of this.slowTrailParticles) p.destroy();
+    this.slowTrailParticles = [];
 
     this.score = 0;
     this.highScore = 0;
@@ -329,9 +340,15 @@ export class MatrixCloudGameScene extends BaseScene {
   // --- PLAYER PHYSICS ---
 
   private updatePlayer(dt: number): void {
-    this.playerVelocity += GAME_CONFIG.GRAVITY * dt;
+    // R84.B3(a): scale gravity accumulation + vertical integration by the
+    // same TIME_SLOW_FACTOR the world uses, so the bird's fall rate tracks
+    // pipe scroll instead of diving at full rate through a creeping world.
+    // Velocity clamp stays absolute — it's a physical safety cap on the raw
+    // state value, not an apparent-motion quantity.
+    const playerSpeedMult = this.timeSlowActive ? GAME_CONFIG.TIME_SLOW_FACTOR : 1.0;
+    this.playerVelocity += GAME_CONFIG.GRAVITY * dt * playerSpeedMult;
     this.playerVelocity = Math.min(this.playerVelocity, GAME_CONFIG.TERMINAL_VELOCITY);
-    this.playerY += this.playerVelocity * dt;
+    this.playerY += this.playerVelocity * dt * playerSpeedMult;
 
     if (this.playerY < 0) {
       this.playerY = 0;
@@ -621,9 +638,11 @@ export class MatrixCloudGameScene extends BaseScene {
       case 'timeSlow':
         this.timeSlowTimer?.destroy();
         this.timeSlowActive = true;
+        this.startSlowTrail();
         this.timeSlowTimer = this.time.delayedCall(GAME_CONFIG.POWERUP_DURATION, () => {
           this.timeSlowActive = false;
           this.timeSlowTimer = null;
+          this.stopSlowTrail();
         });
         break;
       case 'extraLife':
@@ -638,6 +657,45 @@ export class MatrixCloudGameScene extends BaseScene {
         });
         break;
     }
+  }
+
+  // --- R84.B3: SLOW-MODE TRAIL ---
+
+  private startSlowTrail(): void {
+    if (this.slowTrailTimer) return;
+    this.slowTrailTimer = this.time.addEvent({
+      delay: SLOW_MODE.TRAIL_EMIT_INTERVAL_MS,
+      callback: () => this.emitSlowTrailParticle(),
+      loop: true,
+    });
+  }
+
+  private stopSlowTrail(): void {
+    this.slowTrailTimer?.destroy();
+    this.slowTrailTimer = null;
+  }
+
+  private emitSlowTrailParticle(): void {
+    if (!this.player || this.isPaused || this.isGameOver) return;
+    const particle = this.add.circle(
+      this.player.x,
+      this.player.y,
+      SLOW_MODE.TRAIL_PARTICLE_RADIUS,
+      SLOW_MODE.TRAIL_COLOR,
+      SLOW_MODE.TRAIL_PARTICLE_ALPHA,
+    );
+    particle.setDepth(SLOW_MODE.TRAIL_DEPTH);
+    this.slowTrailParticles.push(particle);
+    this.tweens.add({
+      targets: particle,
+      alpha: 0,
+      duration: SLOW_MODE.TRAIL_PARTICLE_LIFESPAN_MS,
+      onComplete: () => {
+        particle.destroy();
+        const idx = this.slowTrailParticles.indexOf(particle);
+        if (idx >= 0) this.slowTrailParticles.splice(idx, 1);
+      },
+    });
   }
 
   // --- COLLISION / DAMAGE ---
@@ -1043,6 +1101,9 @@ export class MatrixCloudGameScene extends BaseScene {
     this.invulnerableFlashTimer?.destroy();
     this.timeSlowTimer?.destroy();
     this.doublePointsTimer?.destroy();
+    this.stopSlowTrail();
+    for (const p of this.slowTrailParticles) p.destroy();
+    this.slowTrailParticles = [];
 
     for (const pipe of this.pipes) {
       pipe.topRect.destroy();
