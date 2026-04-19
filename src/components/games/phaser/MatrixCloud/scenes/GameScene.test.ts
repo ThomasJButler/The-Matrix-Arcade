@@ -501,6 +501,84 @@ describe('MatrixCloudGameScene', () => {
     });
   });
 
+  // R84.B11: early-run milestone stingers at 50/100/250. 500/1000 stay
+  // covered by the existing LEVEL_UP cue (LEVEL_THRESHOLD=500); these tests
+  // pin that the new COLLECTIBLE stinger fires once per threshold crossing
+  // and never bleeds into the level-up territory where it would double-cue.
+  describe('R84.B11 — Score Milestone Stingers', () => {
+    const collectibleCalls = (s: any) =>
+      s.playSound.mock.calls.filter((c: any[]) => c[0] === 'collectible').length;
+
+    it('fires COLLECTIBLE stinger the first time score crosses 50', () => {
+      scene.score = C.SCORE_PER_PIPE * 4; // 40 → after scorePipe: 50
+      scene.combo = 1.0;
+      call(scene, 'scorePipe');
+      expect(scene.score).toBe(50);
+      expect(collectibleCalls(scene)).toBe(1);
+      expect(scene.milestonesHit.has(50)).toBe(true);
+    });
+
+    it('fires COLLECTIBLE stinger the first time score crosses 100', () => {
+      scene.score = 90; // after scorePipe: 100
+      scene.combo = 1.0;
+      scene.milestonesHit = new Set([50]); // 50 already hit earlier in run
+      call(scene, 'scorePipe');
+      expect(scene.score).toBe(100);
+      expect(collectibleCalls(scene)).toBe(1);
+      expect(scene.milestonesHit.has(100)).toBe(true);
+    });
+
+    it('fires COLLECTIBLE stinger the first time score crosses 250', () => {
+      scene.score = 240; // after scorePipe: 250
+      scene.combo = 1.0;
+      scene.milestonesHit = new Set([50, 100]);
+      call(scene, 'scorePipe');
+      expect(scene.score).toBe(250);
+      expect(collectibleCalls(scene)).toBe(1);
+      expect(scene.milestonesHit.has(250)).toBe(true);
+    });
+
+    it('does not re-fire a milestone stinger once the threshold has been hit', () => {
+      scene.score = 60; // 50 already crossed earlier
+      scene.combo = 1.0;
+      scene.milestonesHit = new Set([50]);
+      call(scene, 'scorePipe');
+      expect(collectibleCalls(scene)).toBe(0);
+    });
+
+    // Regression guard: the two highest thresholds that Tom's task enumerated
+    // (500, 1000) are intentionally NOT in SCORE_MILESTONES because onLevelUp
+    // already plays LEVEL_UP every LEVEL_THRESHOLD points. If someone adds
+    // 500/1000 to the list, this test catches the resulting double-stinger.
+    it('does not fire COLLECTIBLE on the 500-pt level-up boundary', () => {
+      scene.score = 490;
+      scene.combo = 1.0;
+      scene.milestonesHit = new Set([50, 100, 250]);
+      call(scene, 'scorePipe');
+      expect(collectibleCalls(scene)).toBe(0);
+      expect(scene.playSound).toHaveBeenCalledWith('levelUp');
+    });
+
+    it('resetState clears milestones so a restart re-fires the early cues', () => {
+      scene.milestonesHit = new Set([50, 100, 250]);
+      call(scene, 'resetState');
+      expect(scene.milestonesHit.size).toBe(0);
+    });
+
+    it('fires exactly one COLLECTIBLE when multiple milestones are crossed in one call', () => {
+      // Pre-seeded only 50 as hit; a combo-multiplied big pipe drops the score
+      // straight past 100 in a single pipe pass. We expect 100 to still fire
+      // and 50 to remain single-shot — no double-trigger from the loop.
+      scene.score = 95;
+      scene.combo = 1.0;
+      scene.milestonesHit = new Set([50]);
+      call(scene, 'scorePipe');
+      // Score now 105; loop should fire only the 100 threshold.
+      expect(collectibleCalls(scene)).toBe(1);
+      expect(scene.milestonesHit.has(100)).toBe(true);
+    });
+  });
+
   describe('Level Progression', () => {
     it('level increases at LEVEL_THRESHOLD', () => {
       scene.score = C.LEVEL_THRESHOLD - C.SCORE_PER_PIPE;
