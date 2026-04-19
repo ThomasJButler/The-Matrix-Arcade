@@ -166,6 +166,57 @@ export class MatrixCloudGameScene extends BaseScene {
     this.cameras.main.flash(duration, r, g, b, force, callback, context, startAlpha);
   }
 
+  // R84.CI-3 (a11y priority 2): object-scale tween gates. CI-1 gated the
+  // worst-hazard camera effects (shake + flash); CI-3 extends the contract
+  // to the next layer — the decorative pulses and popup floats that drift
+  // or throb inside the player's field of view every pipe / level-up /
+  // boss / power-up. Split into two helpers because the under-gate
+  // behaviour differs:
+  //
+  //   • safeDecorativePulse — infinite yoyo scale/alpha tweens on
+  //     long-lived targets (field power-up sprites). Under reduced motion
+  //     the pulse no-ops and the sprite renders at its base scale — the
+  //     cue is gone, but the collectible is still visible + interactive.
+  //
+  //   • safeEphemeralPopup — one-shot tweens on ad-hoc targets that the
+  //     onComplete path destroy()s. Under reduced motion we SKIP the
+  //     tween but run onComplete synchronously so the popup never draws
+  //     AND doesn't leak a silent Phaser object into the scene graph.
+  //     Tom's shield-break ring / level-up text / boss-name banner /
+  //     reward text all follow this shape.
+  //
+  // The boss-entrance sweep (startBossBattle) is gated inline because it
+  // moves a persistent target (this.boss) that must land at its final x
+  // so updateBossMovement's setPosition read stays consistent — snapping
+  // the state object directly keeps the sprite positioned without a
+  // helper indirection.
+  protected safeDecorativePulse(
+    config: Phaser.Types.Tweens.TweenBuilderConfig,
+  ): Phaser.Tweens.Tween | null {
+    if (this.prefersReducedMotion()) return null;
+    return this.tweens.add(config);
+  }
+
+  protected safeEphemeralPopup(
+    config: Phaser.Types.Tweens.TweenBuilderConfig,
+  ): Phaser.Tweens.Tween | null {
+    if (this.prefersReducedMotion()) {
+      const onComplete = config.onComplete;
+      if (typeof onComplete === 'function') {
+        // Every Bird callsite ignores the Phaser-provided (tween, targets)
+        // args — safe to invoke zero-arg. Wrapped in try/catch so a
+        // destroy()-failed target can't bubble into the gameplay loop.
+        try {
+          (onComplete as () => void)();
+        } catch {
+          // Swallow: popup cleanup is best-effort, not load-bearing.
+        }
+      }
+      return null;
+    }
+    return this.tweens.add(config);
+  }
+
   create(): void {
     this.createMatrixBackground();
 
@@ -848,7 +899,7 @@ export class MatrixCloudGameScene extends BaseScene {
 
     const sprite = this.add.sprite(px, py, `powerup_${type}`);
     sprite.setDepth(4);
-    this.tweens.add({
+    this.safeDecorativePulse({
       targets: sprite,
       scaleX: 1.2,
       scaleY: 1.2,
@@ -952,7 +1003,7 @@ export class MatrixCloudGameScene extends BaseScene {
     this.safeFlash(150, 0, 255, 0, false, undefined, undefined, 0.15);
 
     const levelText = this.createMatrixText(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, `LEVEL ${this.level}`, 16, MATRIX_COLORS.CYAN_HEX);
-    this.tweens.add({
+    this.safeEphemeralPopup({
       targets: levelText,
       y: levelText.y - 40,
       alpha: 0,
@@ -994,7 +1045,7 @@ export class MatrixCloudGameScene extends BaseScene {
     const sprite = this.add.sprite(x, y, `powerup_${type}`);
     sprite.setDepth(4);
 
-    this.tweens.add({
+    this.safeDecorativePulse({
       targets: sprite,
       scaleX: 1.2,
       scaleY: 1.2,
@@ -1198,7 +1249,7 @@ export class MatrixCloudGameScene extends BaseScene {
   private showShieldBreakEffect(): void {
     const ring = this.add.circle(GAME_CONFIG.PLAYER_X, this.playerY, 10, MATRIX_COLORS.MAGENTA, 0.6);
     ring.setDepth(15);
-    this.tweens.add({
+    this.safeEphemeralPopup({
       targets: ring,
       scaleX: 4,
       scaleY: 4,
@@ -1268,18 +1319,29 @@ export class MatrixCloudGameScene extends BaseScene {
       elapsedTime: 0,
     };
 
-    this.tweens.add({
-      targets: this.boss,
-      x: GAME_CONFIG.WIDTH * 0.75,
-      duration: 1500,
-      ease: 'Power2',
-    });
+    // R84.CI-3: boss entrance — tween moves a persistent state object that
+    // updateBossMovement clamps + mirrors to the sprite each frame via
+    // setPosition(). Under reduced motion we skip the 1.5s sweep and snap
+    // this.boss.x to its final x directly; the next updateBossMovement
+    // tick writes it to the sprite. Inline guard rather than a helper
+    // because the "final state" here is just one property, not a full
+    // tween config worth abstracting.
+    if (this.prefersReducedMotion()) {
+      this.boss.x = GAME_CONFIG.WIDTH * 0.75;
+    } else {
+      this.tweens.add({
+        targets: this.boss,
+        x: GAME_CONFIG.WIDTH * 0.75,
+        duration: 1500,
+        ease: 'Power2',
+      });
+    }
 
     this.playSound(SOUND_KEYS.DANGER_WARNING);
     this.safeShake(300, 0.01);
 
     const bossText = this.createMatrixText(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, `${type.replace('_', ' ').toUpperCase()}`, 14, MATRIX_COLORS.RED_HEX);
-    this.tweens.add({
+    this.safeEphemeralPopup({
       targets: bossText,
       alpha: 0,
       y: bossText.y - 30,
@@ -1436,7 +1498,7 @@ export class MatrixCloudGameScene extends BaseScene {
     this.safeShake(300, 0.015);
 
     const rewardText = this.createMatrixText(this.boss.x, this.boss.y, `+${reward}`, 14, MATRIX_COLORS.YELLOW_HEX);
-    this.tweens.add({
+    this.safeEphemeralPopup({
       targets: rewardText,
       y: rewardText.y - 50,
       alpha: 0,

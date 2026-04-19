@@ -2240,4 +2240,195 @@ describe('MatrixCloudGameScene', () => {
       expect(scene.cameras.main.shake).toHaveBeenCalled();
     });
   });
+
+  // R84.CI-3 (a11y priority 2): object-scale tween gates. CI-1 stopped at
+  // camera effects (shake + flash). These specs pin the next layer —
+  // decorative pulses and popup floats — so the reduced-motion contract
+  // extends to every motion surface that isn't the score popup or the
+  // slow-trail alpha fade (both intentionally ungated: small motion,
+  // frequently fired, low vestibular risk). Motion-allowed paths stay
+  // behaviourally identical so existing tween-timing tests aren't
+  // destabilised; reduced-motion paths skip the tween entirely and either
+  // leave the target at its base state (pulse) or fire onComplete
+  // synchronously (ephemeral popup — destroy runs immediately so the
+  // scene graph stays clean).
+  describe('R84.CI-3 — a11y reduced-motion gates on object-scale tweens', () => {
+    const originalMatchMedia = window.matchMedia;
+
+    afterEach(() => {
+      window.matchMedia = originalMatchMedia;
+    });
+
+    function mockReducedMotion(reduce: boolean): void {
+      window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+        matches: query === '(prefers-reduced-motion: reduce)' ? reduce : false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })) as unknown as typeof window.matchMedia;
+    }
+
+    describe('safeDecorativePulse', () => {
+      it('forwards to tweens.add when motion allowed', () => {
+        mockReducedMotion(false);
+        const cfg = { targets: {}, scaleX: 1.2, duration: 500, yoyo: true, repeat: -1 };
+        call(scene, 'safeDecorativePulse', cfg);
+        expect(scene.tweens.add).toHaveBeenCalledWith(cfg);
+      });
+
+      it('skips tweens.add and returns null under reduced motion', () => {
+        mockReducedMotion(true);
+        const cfg = { targets: {}, scaleX: 1.2, duration: 500, yoyo: true, repeat: -1 };
+        const result = call(scene, 'safeDecorativePulse', cfg);
+        expect(scene.tweens.add).not.toHaveBeenCalled();
+        expect(result).toBeNull();
+      });
+    });
+
+    describe('safeEphemeralPopup', () => {
+      it('forwards to tweens.add when motion allowed', () => {
+        mockReducedMotion(false);
+        const onComplete = vi.fn();
+        const cfg = { targets: {}, alpha: 0, duration: 400, onComplete };
+        call(scene, 'safeEphemeralPopup', cfg);
+        expect(scene.tweens.add).toHaveBeenCalledWith(cfg);
+        // Tween owns the onComplete — not fired synchronously in the
+        // motion-OK path. (In real Phaser it would fire after `duration`
+        // ms; the mock never invokes it, which is the correct stand-in.)
+        expect(onComplete).not.toHaveBeenCalled();
+      });
+
+      it('skips tweens.add and fires onComplete synchronously under reduced motion', () => {
+        mockReducedMotion(true);
+        const onComplete = vi.fn();
+        const cfg = { targets: {}, alpha: 0, duration: 400, onComplete };
+        const result = call(scene, 'safeEphemeralPopup', cfg);
+        expect(scene.tweens.add).not.toHaveBeenCalled();
+        expect(onComplete).toHaveBeenCalledTimes(1);
+        expect(result).toBeNull();
+      });
+
+      it('no-ops cleanly under reduced motion when onComplete is absent', () => {
+        mockReducedMotion(true);
+        const cfg = { targets: {}, alpha: 0, duration: 400 };
+        expect(() => call(scene, 'safeEphemeralPopup', cfg)).not.toThrow();
+        expect(scene.tweens.add).not.toHaveBeenCalled();
+      });
+
+      it('swallows onComplete errors under reduced motion', () => {
+        // Pins the try/catch safety net — a destroy()-failed target (e.g.
+        // a popup already torn down by a scene restart racing the
+        // synchronous onComplete fire) must not bubble into gameplay.
+        mockReducedMotion(true);
+        const cfg = {
+          targets: {},
+          alpha: 0,
+          duration: 400,
+          onComplete: () => { throw new Error('destroy failed'); },
+        };
+        expect(() => call(scene, 'safeEphemeralPopup', cfg)).not.toThrow();
+      });
+    });
+
+    describe('Integration — infinite-yoyo pulses skipped under reduced motion', () => {
+      it('spawnBonusPowerUp adds the sprite to fieldPowerUps even with the pulse skipped', () => {
+        // Cue is removed, collectible must still be interactable. Without
+        // this pin, a regression that made safeDecorativePulse also gate
+        // the sprite spawn would strip the whole power-up under reduced
+        // motion — much worse than missing a pulse.
+        mockReducedMotion(true);
+        const pipe: any = { x: 200, gapY: 150, gap: 120, bonusSpawned: false };
+        call(scene, 'spawnBonusPowerUp', pipe);
+        expect(scene.tweens.add).not.toHaveBeenCalled();
+        expect(scene.fieldPowerUps.length).toBe(1);
+      });
+
+      it('spawnPowerUp adds the sprite to fieldPowerUps even with the pulse skipped', () => {
+        mockReducedMotion(true);
+        call(scene, 'spawnPowerUp', 100);
+        expect(scene.tweens.add).not.toHaveBeenCalled();
+        expect(scene.fieldPowerUps.length).toBe(1);
+      });
+
+      it('spawnBonusPowerUp still tweens when motion allowed', () => {
+        mockReducedMotion(false);
+        const pipe: any = { x: 200, gapY: 150, gap: 120, bonusSpawned: false };
+        call(scene, 'spawnBonusPowerUp', pipe);
+        expect(scene.tweens.add).toHaveBeenCalled();
+      });
+    });
+
+    describe('Integration — ephemeral popups destroyed immediately under reduced motion', () => {
+      it('onLevelUp destroys the level text immediately', () => {
+        // The mocked createMatrixText returns a fresh text mock each
+        // call; we capture the one vended during onLevelUp and assert its
+        // destroy fired synchronously via the safeEphemeralPopup
+        // onComplete path (no 1500ms wait needed).
+        mockReducedMotion(true);
+        const text = { destroy: vi.fn(), y: 100 };
+        scene.createMatrixText = vi.fn().mockReturnValue(text);
+        call(scene, 'onLevelUp', 1);
+        expect(scene.tweens.add).not.toHaveBeenCalled();
+        expect(text.destroy).toHaveBeenCalledTimes(1);
+      });
+
+      it('showShieldBreakEffect destroys the ring immediately', () => {
+        mockReducedMotion(true);
+        const ring = { setDepth: vi.fn().mockReturnThis(), destroy: vi.fn() };
+        scene.add.circle = vi.fn().mockReturnValue(ring);
+        call(scene, 'showShieldBreakEffect');
+        expect(scene.tweens.add).not.toHaveBeenCalled();
+        expect(ring.destroy).toHaveBeenCalledTimes(1);
+      });
+
+      it('startBossBattle destroys the boss-name banner immediately + snaps boss.x to the final position', () => {
+        // Double pin: (a) boss-name popup collapses to an immediate
+        // destroy; (b) the boss-entrance sweep's inline guard snaps
+        // this.boss.x to WIDTH*0.75 rather than tweening over 1500ms.
+        // Future regressions that drop the inline guard would fail (b);
+        // regressions that drop the popup wrapper would fail (a).
+        mockReducedMotion(true);
+        const bannerText = { destroy: vi.fn(), y: 200 };
+        scene.createMatrixText = vi.fn().mockReturnValue(bannerText);
+        call(scene, 'startBossBattle', 'agent_smith');
+        expect(scene.tweens.add).not.toHaveBeenCalled();
+        expect(bannerText.destroy).toHaveBeenCalledTimes(1);
+        expect(scene.boss.x).toBe(C.WIDTH * 0.75);
+      });
+
+      it('startBossBattle tweens both boss-entrance sweep AND boss-name banner when motion allowed', () => {
+        mockReducedMotion(false);
+        const bannerText = { destroy: vi.fn(), y: 200 };
+        scene.createMatrixText = vi.fn().mockReturnValue(bannerText);
+        call(scene, 'startBossBattle', 'agent_smith');
+        // Two tween.add calls: boss sweep + boss-name banner.
+        expect(scene.tweens.add).toHaveBeenCalledTimes(2);
+        expect(bannerText.destroy).not.toHaveBeenCalled();
+      });
+
+      it('defeatBoss destroys the reward text immediately', () => {
+        mockReducedMotion(true);
+        const rewardText = { destroy: vi.fn(), y: 200 };
+        scene.createMatrixText = vi.fn().mockReturnValue(rewardText);
+        scene.boss = {
+          sprite: { destroy: vi.fn() },
+          healthBar: { destroy: vi.fn() },
+          healthBg: { destroy: vi.fn() },
+          type: 'agent_smith',
+          health: 0,
+          maxHealth: 5,
+          x: 400,
+          y: 200,
+          elapsedTime: 0,
+        };
+        call(scene, 'defeatBoss');
+        expect(scene.tweens.add).not.toHaveBeenCalled();
+        expect(rewardText.destroy).toHaveBeenCalledTimes(1);
+      });
+    });
+  });
 });
