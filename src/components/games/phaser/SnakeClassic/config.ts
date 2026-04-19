@@ -21,7 +21,10 @@ export const GAME_CONFIG = {
   GRID_COLS: 20,
   GRID_ROWS: 20,
   GRID_OFFSET_X: 180,
-  GRID_OFFSET_Y: 20,
+  // Top/bottom walls live at grid-rows -1 and GRID_ROWS. With CELL_SIZE=16 and
+  // HEIGHT=400, offset 40 gives symmetric 24px margins above the top wall and
+  // below the bottom wall. See R84.S1.
+  GRID_OFFSET_Y: 40,
 
   INITIAL_SPEED: 150,
   SPEED_INCREMENT: 5,
