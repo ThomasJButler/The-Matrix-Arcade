@@ -290,6 +290,21 @@ export class CtrlSNarrativeScene extends BaseScene {
   private portraitBlueSplit?: Phaser.GameObjects.Image;
   private portraitGlitchGraphics?: Phaser.GameObjects.Graphics;
   private portraitGlitchTimer = 0;
+  // R83.CTRLS.25 — per-chapter seeded portrait landing inside the funky
+  // layout's safe zone (LAYOUT.PORTRAIT_ZONE_*). Picked in create() from
+  // `chapterIndex` via Phaser's RandomDataGenerator so replays of the same
+  // chapter keep the same anchor; different chapters read visually distinct.
+  // Defaults to the zone centre when create() hasn't run yet (e.g. during
+  // ctor-side test smoke-checks).
+  private portraitAnchorX: number = LAYOUT.PORTRAIT_DEFAULT_X;
+  private portraitAnchorY: number = LAYOUT.PORTRAIT_DEFAULT_Y;
+  // R83.CTRLS.25 — atmosphere glyph scatter + L-bracket zone borders. Glyphs
+  // drift slowly downward at 0.1-0.3 alpha so the frame reads as "Matrix
+  // terminal with live chatter"; L-brackets hug three zones (title band,
+  // body column bottom-left, portrait zone bottom-right) at 30 % alpha so
+  // the composition is framed without being caged.
+  private atmosphereGlyphs: Phaser.GameObjects.Text[] = [];
+  private zoneBorders?: Phaser.GameObjects.Graphics;
 
   constructor() {
     super(CTRLS_SCENE_KEYS.NARRATIVE);
@@ -372,30 +387,51 @@ export class CtrlSNarrativeScene extends BaseScene {
     // so the whole frame reads as "a terminal left on in a derelict lab"
     // rather than a lit-up UI. Bloom colour also dims (via
     // PHOSPHOR_BLOOM_COLOR) so the halo matches the text.
-    // R83.CTRLS.18 — title anchors at the right-pane left edge so it reads as
-    // the header of the narrative column, not a frame-wide banner.
-    this.chapterTitle = this.add.text(LAYOUT.RIGHT_PANE_X, LAYOUT.CHAPTER_TITLE_Y, title, {
+    // R83.CTRLS.25 — title right-aligns at the canvas right edge. Origin (1, 0)
+    // means the title's right edge sits at TITLE_RIGHT_X (= 740 px, 60 px
+    // inside the canvas right) regardless of its length, mirroring Tom's
+    // annotated Round 2 image 2 composition where the title anchors the
+    // top-right corner of the frame.
+    this.chapterTitle = this.add.text(LAYOUT.TITLE_RIGHT_X, LAYOUT.TITLE_Y, title, {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '14px',
       color: MATRIX_COLORS.DIM_GREEN_HEX,
     });
+    this.chapterTitle.setOrigin(1, 0);
     this.chapterTitle.setResolution(TEXT_RESOLUTION);
     this.applyPhosphorBloom(this.chapterTitle, PHOSPHOR_BLOOM_BLUR);
 
-    // R83.CTRLS.18 — body text Y is fixed at the right-pane top regardless of
-    // chapter ASCII visibility. Pre-.18 the chapter ASCII pushed the body Y
-    // downward; now ASCII lives in the left pane vertically centred, so the
-    // text column has a consistent baseline.
-    const contentStartY = GAME_CONFIG.TEXT.MARGIN_Y;
+    // R83.CTRLS.25 — seed per-chapter composition jitter. A fixed seed tied
+    // to `chapterIndex` means replays of the same chapter land at the same
+    // position (stable muscle-memory for puzzle anchors) while different
+    // chapters read visually distinct. RandomDataGenerator keeps the same
+    // pattern the rest of the scene uses for Phaser.Math.* randoms.
+    const compositionRng = new Phaser.Math.RandomDataGenerator([
+      `ctrls-chapter-${this.chapterIndex}`,
+    ]);
+    this.portraitAnchorX = Math.round(
+      compositionRng.between(LAYOUT.PORTRAIT_ZONE_X_MIN, LAYOUT.PORTRAIT_ZONE_X_MAX),
+    );
+    this.portraitAnchorY = Math.round(
+      compositionRng.between(LAYOUT.PORTRAIT_ZONE_Y_MIN, LAYOUT.PORTRAIT_ZONE_Y_MAX),
+    );
+
+    // R83.CTRLS.25 — body text Y remains at the standard top margin so the
+    // title band stays clear. Text column lives top-right (BODY_TEXT_X) with a
+    // 440-px wrap so the right edge aligns with the title's right anchor —
+    // the stack reads as a single column from title through final paragraph.
+    const contentStartY = LAYOUT.BODY_TEXT_Y;
 
     if (this.chapter?.ascii && this.startFromParagraph === 0) {
       const asciiText = this.chapter.ascii.join('\n');
-      // R83.CTRLS.18 — chapter sigil renders centred in the left pane.
-      // Origin (0.5, 0.5) so PANE_CENTER_Y truly centres the block; alpha
-      // tween still does the slow phosphor reveal from .17.
+      // R83.CTRLS.25 — chapter sigil anchors top-left. Origin (0.5, 0) keeps
+      // the block centred on CHAPTER_SIGIL_X while growing downward from
+      // CHAPTER_SIGIL_Y. Sits above the portrait zone so both can be visible
+      // simultaneously during the prologue reveal; fade-out fires as soon as
+      // a speaker's portrait claims the left column.
       this.chapterAscii = this.add.text(
-        LAYOUT.LEFT_PANE_CENTER_X,
-        LAYOUT.PANE_CENTER_Y,
+        LAYOUT.CHAPTER_SIGIL_X,
+        LAYOUT.CHAPTER_SIGIL_Y,
         asciiText,
         {
           fontFamily: MATRIX_FONTS.MONO,
@@ -405,7 +441,7 @@ export class CtrlSNarrativeScene extends BaseScene {
           align: 'center',
         },
       );
-      this.chapterAscii.setOrigin(0.5, 0.5);
+      this.chapterAscii.setOrigin(0.5, 0);
       this.chapterAscii.setResolution(TEXT_RESOLUTION);
       this.chapterAscii.setAlpha(0.7);
 
@@ -417,11 +453,11 @@ export class CtrlSNarrativeScene extends BaseScene {
       });
     }
 
-    this.bodyText = this.add.text(LAYOUT.RIGHT_PANE_X, contentStartY, '', {
+    this.bodyText = this.add.text(LAYOUT.BODY_TEXT_X, contentStartY, '', {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '12px',
       color: MATRIX_COLORS.DIM_GREEN_HEX,
-      wordWrap: { width: LAYOUT.RIGHT_PANE_WIDTH },
+      wordWrap: { width: LAYOUT.BODY_TEXT_WRAP_WIDTH },
       lineSpacing: 8,
     });
     this.bodyText.setResolution(TEXT_RESOLUTION);
@@ -431,7 +467,7 @@ export class CtrlSNarrativeScene extends BaseScene {
     // cursor bright while the paragraph is dim made the cursor feel like a
     // different system — pulling the eye off the text. Matching colours keeps
     // the eye on the text and saves #00ff00 for hope-breaking moments.
-    this.cursorBlink = this.add.text(LAYOUT.RIGHT_PANE_X, contentStartY, '█', {
+    this.cursorBlink = this.add.text(LAYOUT.BODY_TEXT_X, contentStartY, '█', {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '12px',
       color: MATRIX_COLORS.DIM_GREEN_HEX,
@@ -463,6 +499,12 @@ export class CtrlSNarrativeScene extends BaseScene {
 
     this.createScanlineOverlay();
     this.createDreadVignette();
+    // R83.CTRLS.25 — funky layout atmosphere + chrome. Zone borders land
+    // first so the glyph scatter reads over them (background chatter, not
+    // framed UI). Both sit below the scanline/vignette overlays so the CRT
+    // noise reads above them.
+    this.createZoneBorders();
+    this.createAtmosphereGlyphs();
     this.playAmbientDrone();
     this.setupNarrativeInput();
     this.setupCommonInputs();
@@ -489,6 +531,7 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.sceneElapsedMs += delta;
     this.updateParallaxBackground(delta);
     this.updateThemeParticles(delta);
+    this.updateAtmosphereGlyphs(delta);
     this.updateScanlineOverlay(delta);
     this.updatePortraitGlitch(delta);
     this.updateGlyphFlicker(this.sceneElapsedMs);
@@ -546,14 +589,13 @@ export class CtrlSNarrativeScene extends BaseScene {
     return GAME_CONFIG.TEXT.MARGIN_Y;
   }
 
-  // Single source of truth for word-wrap width. R83.CTRLS.18: collapses to the
-  // right-pane width since body text always lives in the right pane regardless
-  // of portrait visibility. Pre-.18 this had to track `bodyText.x` because
-  // the portrait indent moved the text horizontally; that branch is gone.
-  // Inline ASCII panels, choice prompts and the terminal entry block all read
-  // through this helper so they stay column-aligned.
+  // Single source of truth for word-wrap width. R83.CTRLS.25 retargets to the
+  // funky layout's BODY_TEXT_WRAP_WIDTH (440 px) — the top-right column that
+  // replaces .18's rigid right pane. Inline ASCII panels, choice prompts and
+  // the terminal entry block all read through this helper so they stay
+  // column-aligned with the body paragraph.
   private computeTextWrapWidth(): number {
-    return LAYOUT.RIGHT_PANE_WIDTH;
+    return LAYOUT.BODY_TEXT_WRAP_WIDTH;
   }
 
   private onCharTick(): void {
@@ -698,22 +740,24 @@ export class CtrlSNarrativeScene extends BaseScene {
   }
 
   private showInlineAscii(art: string[]): void {
-    // R83.CTRLS.18 — inline panels live in the LEFT pane now. If a portrait
-    // is active for this paragraph, the ASCII anchors below the portrait
-    // (PANE_INLINE_ASCII_Y) so both stay legible without overlap; otherwise it
-    // takes the centred slot. Origin (0.5, 0.5) keeps the art symmetrical
-    // around the left-pane centre line regardless of glyph width.
+    // R83.CTRLS.25 — inline panels anchor in the left column, above the
+    // portrait zone when a speaker is visible (so the art and the character
+    // stack vertically without collision) or closer to the portrait's
+    // landing point when nothing is speaking yet. Origin (0, 0) is fine —
+    // art is left-aligned so multi-line pieces keep their column edge.
     const portraitVisible = (this.portraitContainer?.alpha ?? 0) > 0;
-    const asciiY = portraitVisible ? LAYOUT.PANE_INLINE_ASCII_Y : LAYOUT.PANE_CENTER_Y;
+    const asciiY = portraitVisible
+      ? LAYOUT.INLINE_ASCII_Y
+      : this.portraitAnchorY - LAYOUT.BORDER_BRACKET_LENGTH;
 
-    const asciiText = this.add.text(LAYOUT.LEFT_PANE_CENTER_X, asciiY, art.join('\n'), {
+    const asciiText = this.add.text(LAYOUT.INLINE_ASCII_X, asciiY, art.join('\n'), {
       fontFamily: MATRIX_FONTS.MONO,
       fontSize: ASCII_FONT_SIZE,
       color: MATRIX_COLORS.MEDIUM_GREEN_HEX,
       lineSpacing: 1,
-      align: 'center',
+      align: 'left',
     });
-    asciiText.setOrigin(0.5, 0.5);
+    asciiText.setOrigin(0, 0);
     asciiText.setResolution(TEXT_RESOLUTION);
     asciiText.setAlpha(0);
     this.asciiPanels.push(asciiText);
@@ -1628,13 +1672,14 @@ export class CtrlSNarrativeScene extends BaseScene {
 
   private showPortrait(character: CharacterDef): void {
     const size = PORTRAIT_CONFIG.SIZE;
-    // R83.CTRLS.18 — portrait centres in the LEFT pane vertically and
-    // horizontally. Container origin is (0, 0) so subtract half-size from the
-    // pane centre to align the portrait midpoint to LEFT_PANE_CENTER_X /
-    // PANE_CENTER_Y. Pre-.18 the panel anchored to bodyText.y inside the
-    // single text column; that coupling is gone now.
-    const panelX = LAYOUT.LEFT_PANE_CENTER_X - size / 2;
-    const panelY = LAYOUT.PANE_CENTER_Y - size / 2;
+    // R83.CTRLS.25 — portrait anchors at the chapter-seeded (x, y) landing
+    // inside the middle-left / lower-third safe zone (x ∈ [120, 200], y ∈
+    // [330, 390]). Container origin is (0, 0), so subtract half-size to
+    // centre the portrait midpoint on (portraitAnchorX, portraitAnchorY).
+    // Seed is set in create() from chapterIndex → same chapter → same
+    // landing on replay.
+    const panelX = this.portraitAnchorX - size / 2;
+    const panelY = this.portraitAnchorY - size / 2;
 
     // Two-pane layout collision guard: chapter ASCII sigil and portraits both
     // anchor at PANE_CENTER_Y, so a speaker fading in while the sigil is
@@ -2048,6 +2093,128 @@ export class CtrlSNarrativeScene extends BaseScene {
   }
 
   /**
+   * R83.CTRLS.25 — atmosphere glyph scatter. 8-14 Matrix glyphs seeded via a
+   * chapter-specific RandomDataGenerator so the same chapter reads the same
+   * way on replay. Glyphs drift slowly downward (5-18 px/s) at 0.1-0.3 alpha
+   * so they read as background chatter, not focal content. Positions are
+   * biased away from the portrait zone + body text column so the scatter
+   * never crowds the narrative.
+   */
+  private createAtmosphereGlyphs(): void {
+    const width = Number(this.game.config.width);
+    const height = Number(this.game.config.height);
+    const rng = new Phaser.Math.RandomDataGenerator([
+      `ctrls-atmosphere-${this.chapterIndex}`,
+    ]);
+    const count = rng.between(
+      LAYOUT.ATMOSPHERE_GLYPH_COUNT_MIN,
+      LAYOUT.ATMOSPHERE_GLYPH_COUNT_MAX,
+    );
+
+    for (let i = 0; i < count; i++) {
+      // Bias placement: roll X across the canvas but re-roll if it lands
+      // inside the body text column (x ∈ [BODY_TEXT_X - 10, 740]) during
+      // the first two tries, so glyphs mostly settle in the left third or
+      // the margins. Always accept on the 3rd roll to avoid an infinite
+      // loop on unlucky seeds.
+      let x = rng.between(20, width - 20);
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const insideText = x > LAYOUT.BODY_TEXT_X - 10 && x < LAYOUT.BODY_TEXT_RIGHT_X;
+        if (!insideText) break;
+        x = rng.between(20, width - 20);
+      }
+      const y = rng.between(40, height - 60);
+      const glyph = MATRIX_FLICKER_GLYPHS[rng.between(0, MATRIX_FLICKER_GLYPHS.length - 1)];
+      const alpha = rng.realInRange(
+        LAYOUT.ATMOSPHERE_GLYPH_ALPHA_MIN,
+        LAYOUT.ATMOSPHERE_GLYPH_ALPHA_MAX,
+      );
+      const drift = rng.realInRange(
+        LAYOUT.ATMOSPHERE_GLYPH_DRIFT_MIN,
+        LAYOUT.ATMOSPHERE_GLYPH_DRIFT_MAX,
+      );
+
+      const text = this.add.text(x, y, glyph, {
+        fontFamily: MATRIX_FONTS.MONO,
+        fontSize: '10px',
+        color: MATRIX_COLORS.DIM_GREEN_HEX,
+      });
+      text.setOrigin(0.5);
+      text.setResolution(TEXT_RESOLUTION);
+      text.setAlpha(alpha);
+      text.setData('drift', drift);
+      this.atmosphereGlyphs.push(text);
+    }
+  }
+
+  private updateAtmosphereGlyphs(delta: number): void {
+    if (this.atmosphereGlyphs.length === 0) return;
+    const height = Number(this.game.config.height);
+    const dt = delta / 1000;
+    for (const glyph of this.atmosphereGlyphs) {
+      const drift = (glyph.getData('drift') as number | undefined) ?? 10;
+      glyph.y += drift * dt;
+      if (glyph.y > height + 20) {
+        glyph.y = -10;
+      }
+    }
+  }
+
+  /**
+   * R83.CTRLS.25 — L-bracket zone borders. Three corners are framed with
+   * thin L-shaped strokes (24 px arms, 30 % alpha, MATRIX_COLORS.PRIMARY)
+   * so the composition reads as deliberate terminal chrome without the
+   * caged feel of full rectangles. Zones: (a) title top-right — outside
+   * corner above the title, (b) body text top-left + bottom-left — left
+   * margin of the narrative column, (c) portrait bottom-right + top-left
+   * — framing the seeded portrait landing. All strokes live in a single
+   * Graphics object so we redraw once per scene and can torch the whole
+   * thing on shutdown.
+   */
+  private createZoneBorders(): void {
+    const g = this.add.graphics();
+    const primary = MATRIX_COLORS.PRIMARY;
+    const arm = LAYOUT.BORDER_BRACKET_LENGTH;
+    const stroke = LAYOUT.BORDER_STROKE_WIDTH;
+    const alpha = LAYOUT.BORDER_ALPHA;
+    g.lineStyle(stroke, primary, alpha);
+
+    // (a) Title top-right corner bracket — sits above + to the right of the
+    // title. Arms run down and left from the outside corner at
+    // (TITLE_RIGHT_X + 8, TITLE_Y - 10).
+    const titleCornerX = LAYOUT.TITLE_RIGHT_X + 8;
+    const titleCornerY = LAYOUT.TITLE_Y - 10;
+    g.beginPath();
+    g.moveTo(titleCornerX - arm, titleCornerY);
+    g.lineTo(titleCornerX, titleCornerY);
+    g.lineTo(titleCornerX, titleCornerY + arm);
+    g.strokePath();
+
+    // (b) Body text top-left bracket — traces the inside corner at the
+    // column's top-left so the narrative column reads as anchored.
+    const bodyTopX = LAYOUT.BODY_TEXT_X - 10;
+    const bodyTopY = LAYOUT.BODY_TEXT_Y - 10;
+    g.beginPath();
+    g.moveTo(bodyTopX, bodyTopY + arm);
+    g.lineTo(bodyTopX, bodyTopY);
+    g.lineTo(bodyTopX + arm, bodyTopY);
+    g.strokePath();
+
+    // (c) Portrait bottom-right bracket — frames the seeded portrait
+    // landing from the south-east. Arms run up and left from the outside
+    // corner just beyond the portrait's bottom-right.
+    const portraitCornerX = this.portraitAnchorX + PORTRAIT_CONFIG.SIZE / 2 + 10;
+    const portraitCornerY = this.portraitAnchorY + PORTRAIT_CONFIG.SIZE / 2 + 16;
+    g.beginPath();
+    g.moveTo(portraitCornerX - arm, portraitCornerY);
+    g.lineTo(portraitCornerX, portraitCornerY);
+    g.lineTo(portraitCornerX, portraitCornerY - arm);
+    g.strokePath();
+
+    this.zoneBorders = g;
+  }
+
+  /**
    * R83.CTRLS.17 — portrait glitch bands. Every 333-500 ms a horizontal band
    * flickers onto the portrait (2-4 px tall, 20-40% opacity, 70 ms hold) then
    * clears. Only one band is lit at a time to keep the read as "signal
@@ -2182,6 +2349,15 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.scanlineOverlay = undefined;
     this.dreadVignette?.destroy();
     this.dreadVignette = undefined;
+    // R83.CTRLS.25 — atmosphere glyphs + zone borders are scene-scoped GOs.
+    // Failing to tear them down leaks Text/Graphics handles across scene
+    // restarts; the count-min 8 scales with replays otherwise.
+    for (const glyph of this.atmosphereGlyphs) {
+      glyph.destroy();
+    }
+    this.atmosphereGlyphs = [];
+    this.zoneBorders?.destroy();
+    this.zoneBorders = undefined;
     this.portraitRedSplit = undefined;
     this.portraitBlueSplit = undefined;
     this.portraitGlitchGraphics = undefined;

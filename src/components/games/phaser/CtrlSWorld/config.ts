@@ -184,37 +184,70 @@ export const PORTRAIT_CONFIG = {
   TEXT_INDENT: 130,
 } as const;
 
-// R83.CTRLS.18 — two-pane narrative layout. Tom's brief: "put the image or the
-// ASCII on the left-hand side, and the text on the right would be a better
-// layout." Left pane (40% of canvas width) holds character portrait, chapter
-// ASCII sigil, and per-paragraph inline ASCII panels — all vertically centred.
-// Right pane (60%) holds the chapter title, body paragraph, terminal cursor,
-// inline `>` choice prompts, and the terminal-entry climax block. The 24 px
-// gap between panes lets the scanline overlay + dread vignette breathe across
-// the divider without the eye reading a hard column rule.
+// R83.CTRLS.25 — funky asymmetric layout. Tom's Round 2 verdict rejected the
+// rigid 40/60 two-pane split from .18 in favour of a dynamic composition that
+// implies diagonal visual flow through element placement (portrait low-left,
+// title + text high-right, ambient scatter between).
 //
-// Width math (canvas WIDTH=800, MARGIN_X=40):
-//   PANE_DIVIDER_X = 320          (40% of 800)
-//   LEFT_PANE_X    = 40            (=MARGIN_X — left content padding)
-//   LEFT_PANE_WIDTH= 240           (PANE_DIVIDER_X - LEFT_PANE_X - 40 right inset)
-//   RIGHT_PANE_X   = 344           (PANE_DIVIDER_X + 24 gap)
-//   RIGHT_PANE_WIDTH = 416         (WIDTH - RIGHT_PANE_X - MARGIN_X)
-// 416 lands inside Tom's 360-420 px target wrap-width window.
+// Anchor summary (canvas 800×600, MARGIN_X 40):
+//   • TITLE_RIGHT_X    = 740            text right-edge, origin (1, 0)
+//     TITLE_Y          = 24
+//   • BODY_TEXT_X      = 300            37.5 % of canvas — top-right column
+//     BODY_TEXT_Y      = 70             sits below the title band
+//     BODY_TEXT_WRAP   = 440            55 % canvas width; right edge ≈ 740
+//   • PORTRAIT_ZONE    x ∈ [120, 200]   0.15–0.25 × canvas width
+//                      y ∈ [330, 390]   0.55–0.65 × canvas height
+//     PORTRAIT_DEFAULT = (160, 360)     fallback centre when chapter seed is absent
+//   • CHAPTER_SIGIL    = (120, 170)     top-left zone — above the portrait
+//   • INLINE_ASCII     = (80, 240)      left edge, between sigil and portrait
 //
-// Vertical centring uses PANE_CENTER_Y (=300). The chapter ASCII sigil and
-// portrait both anchor here; per-paragraph inline ASCII anchors below the
-// portrait (PANE_INLINE_ASCII_Y) so a paragraph that triggers both stays
-// readable instead of overlapping.
+// Ambient glyph atmosphere: 10 katakana/digit glyphs (range 8–14) scattered at
+// 0.10–0.30 alpha with slow Y-drift (5–18 px/s). Biased away from the portrait
+// and text zones so they read as background chatter, never competing with the
+// narrative column.
+//
+// L-bracket zone borders at 30 % alpha, 1-px stroke in MATRIX_COLORS.PRIMARY:
+// three corners hug the title band, the text column bottom, and the portrait
+// zone so the composition reads as deliberate terminal chrome rather than
+// free-floating elements. Full rectangles would feel boxy; 24-px arms imply
+// the frame without caging content.
+//
+// Per-chapter seeded jitter: NarrativeScene feeds `chapterIndex` into
+// `Phaser.Math.RandomDataGenerator` so chapter 0 always lands at the same
+// jittered centre — and chapters 0 / 2 / 4 read visually distinct on replay
+// without anything drifting outside its safe zone.
 export const LAYOUT = {
-  PANE_DIVIDER_X: 320,
-  LEFT_PANE_X: 40,
-  LEFT_PANE_WIDTH: 240,
-  LEFT_PANE_CENTER_X: 160,
-  RIGHT_PANE_X: 344,
-  RIGHT_PANE_WIDTH: 416,
-  PANE_CENTER_Y: 300,
-  PANE_INLINE_ASCII_Y: 420,
-  CHAPTER_TITLE_Y: 20,
+  // Title zone
+  TITLE_RIGHT_X: 740,
+  TITLE_Y: 24,
+  // Body text zone (top-right column)
+  BODY_TEXT_X: 300,
+  BODY_TEXT_Y: 70,
+  BODY_TEXT_WRAP_WIDTH: 440,
+  BODY_TEXT_RIGHT_X: 740,
+  // Portrait zone (middle-left / lower-third)
+  PORTRAIT_ZONE_X_MIN: 120,
+  PORTRAIT_ZONE_X_MAX: 200,
+  PORTRAIT_ZONE_Y_MIN: 330,
+  PORTRAIT_ZONE_Y_MAX: 390,
+  PORTRAIT_DEFAULT_X: 160,
+  PORTRAIT_DEFAULT_Y: 360,
+  // Left column atmosphere — chapter sigil + inline ASCII anchors
+  CHAPTER_SIGIL_X: 120,
+  CHAPTER_SIGIL_Y: 170,
+  INLINE_ASCII_X: 80,
+  INLINE_ASCII_Y: 240,
+  // Ambient glyph scatter
+  ATMOSPHERE_GLYPH_COUNT_MIN: 8,
+  ATMOSPHERE_GLYPH_COUNT_MAX: 14,
+  ATMOSPHERE_GLYPH_ALPHA_MIN: 0.1,
+  ATMOSPHERE_GLYPH_ALPHA_MAX: 0.3,
+  ATMOSPHERE_GLYPH_DRIFT_MIN: 5,
+  ATMOSPHERE_GLYPH_DRIFT_MAX: 18,
+  // L-bracket zone borders
+  BORDER_ALPHA: 0.3,
+  BORDER_BRACKET_LENGTH: 24,
+  BORDER_STROKE_WIDTH: 1,
 } as const;
 
 export const CHARACTER_TICK_MAP: Record<string, string> = {

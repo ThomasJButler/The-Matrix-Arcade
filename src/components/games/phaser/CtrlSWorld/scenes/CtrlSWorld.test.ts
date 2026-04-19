@@ -127,80 +127,162 @@ describe('CTRL-S World Phaser — Portrait Config', () => {
   it('has valid portrait dimensions', () => {
     expect(PORTRAIT_CONFIG.SIZE).toBeGreaterThan(0);
     expect(PORTRAIT_CONFIG.PANEL_WIDTH).toBeGreaterThan(PORTRAIT_CONFIG.SIZE);
-    // R83.CTRLS.18: TEXT_INDENT is a legacy value retained for back-compat —
-    // the live narrative layout uses LAYOUT.RIGHT_PANE_X for the body text
-    // origin. Kept as a sanity check that the legacy value is still sensible.
+    // R83.CTRLS.25: TEXT_INDENT is a legacy value kept for back-compat — the
+    // live narrative layout now anchors body text at LAYOUT.BODY_TEXT_X (top-
+    // right column), and the portrait anchors inside the seeded middle-left
+    // safe zone. The sanity bound stays in place to stop the legacy value
+    // from drifting outside meaningful indent territory.
     expect(PORTRAIT_CONFIG.TEXT_INDENT).toBeGreaterThan(PORTRAIT_CONFIG.PANEL_WIDTH);
   });
 });
 
-// R83.CTRLS.18 — Two-pane narrative layout invariants. These tests lock the
-// 40/60 split, the right-pane wrap width Tom called for ("probably ~360-420
-// px depending on canvas width"), and the centred geometry of the left pane
-// so future polish can't drift the columns out of alignment without the
-// suite shouting.
-describe('CTRL-S World Phaser — Two-pane Layout (R83.CTRLS.18)', () => {
-  it('left pane occupies the first 40% of the canvas width', () => {
-    expect(LAYOUT.PANE_DIVIDER_X).toBe(GAME_CONFIG.WIDTH * 0.4);
+// R83.CTRLS.25 — Funky asymmetric narrative layout invariants. Replaces the
+// .18 two-pane 40/60 split with a dynamic composition: title + text anchor
+// top-right, portrait lands inside a seeded middle-left / lower-third zone,
+// ambient glyph scatter + L-bracket zone borders complete the frame. These
+// tests lock the target values in place so future polish can't drift the
+// zones back into symmetry without the suite shouting.
+describe('CTRL-S World Phaser — Funky Layout (R83.CTRLS.25)', () => {
+  it('title right-edge anchors 60 px inside the canvas right', () => {
+    // Title renders with origin (1, 0); TITLE_RIGHT_X is the right edge.
+    // 60 px margin is Tom's "comfortable inside the bezel" window — a 40 px
+    // margin felt cramped against the scanline overlay in R82 playtests.
+    expect(LAYOUT.TITLE_RIGHT_X).toBe(GAME_CONFIG.WIDTH - 60);
+    expect(LAYOUT.TITLE_Y).toBeGreaterThanOrEqual(16);
+    expect(LAYOUT.TITLE_Y).toBeLessThan(GAME_CONFIG.TEXT.MARGIN_Y);
   });
 
-  it('left pane content sits inside the left column with margin breathing room', () => {
-    // LEFT_PANE_X (left edge content padding) + LEFT_PANE_WIDTH should leave
-    // a ≥ 40 px gutter to the divider so the dread vignette can wrap the art
-    // without it touching the column rule.
-    const leftRightEdge = LAYOUT.LEFT_PANE_X + LAYOUT.LEFT_PANE_WIDTH;
-    expect(leftRightEdge).toBeLessThanOrEqual(LAYOUT.PANE_DIVIDER_X);
-    expect(LAYOUT.PANE_DIVIDER_X - leftRightEdge).toBeGreaterThanOrEqual(40);
+  it('body text column starts in the top-right third and right-aligns with the title', () => {
+    // BODY_TEXT_X at 37.5 % of the canvas gives the eye a clear left margin
+    // for the portrait + inline ASCII to breathe into. Wrap + right-edge
+    // arithmetic must match the title anchor so the column reads as one stack.
+    expect(LAYOUT.BODY_TEXT_X).toBeGreaterThanOrEqual(GAME_CONFIG.WIDTH * 0.35);
+    expect(LAYOUT.BODY_TEXT_X).toBeLessThanOrEqual(GAME_CONFIG.WIDTH * 0.4);
+    expect(LAYOUT.BODY_TEXT_X + LAYOUT.BODY_TEXT_WRAP_WIDTH).toBe(LAYOUT.BODY_TEXT_RIGHT_X);
+    expect(LAYOUT.BODY_TEXT_RIGHT_X).toBe(LAYOUT.TITLE_RIGHT_X);
   });
 
-  it('LEFT_PANE_CENTER_X centres the portrait/ASCII slot in the column', () => {
-    // The portrait container origin is (0,0); the rendering code subtracts
-    // SIZE/2 to centre on LEFT_PANE_CENTER_X. So the centre must be
-    // mathematically the middle of the column from the canvas left edge to
-    // the divider — not the middle of (LEFT_PANE_X..LEFT_PANE_X+WIDTH).
-    expect(LAYOUT.LEFT_PANE_CENTER_X).toBe(LAYOUT.PANE_DIVIDER_X / 2);
+  it('body text wrap width lands inside the 420-480 px target window', () => {
+    // 55 % ± a little of canvas width reads as a comfortable terminal column
+    // without drifting into letterbox-wide or cramped-narrow territory.
+    expect(LAYOUT.BODY_TEXT_WRAP_WIDTH).toBeGreaterThanOrEqual(420);
+    expect(LAYOUT.BODY_TEXT_WRAP_WIDTH).toBeLessThanOrEqual(480);
   });
 
-  it('right pane sits to the right of the divider with a visual gap', () => {
-    // 24 px gap between the divider and the text start — wide enough for the
-    // dread vignette to read across, narrow enough that the eye still groups
-    // the two panes as a single frame.
-    expect(LAYOUT.RIGHT_PANE_X).toBeGreaterThan(LAYOUT.PANE_DIVIDER_X);
-    expect(LAYOUT.RIGHT_PANE_X - LAYOUT.PANE_DIVIDER_X).toBeGreaterThanOrEqual(20);
+  it('body text sits below the title band with a clear gap', () => {
+    expect(LAYOUT.BODY_TEXT_Y).toBeGreaterThan(LAYOUT.TITLE_Y);
+    expect(LAYOUT.BODY_TEXT_Y - LAYOUT.TITLE_Y).toBeGreaterThanOrEqual(30);
   });
 
-  it('right pane wrap width lands inside Tom\'s 360-420 px target window', () => {
-    // From the R83.CTRLS.18 task body: "probably ~360-420 px depending on
-    // canvas width". 416 (current) lands inside the window. If a refactor
-    // pushes us outside it, the test forces a deliberate decision.
-    expect(LAYOUT.RIGHT_PANE_WIDTH).toBeGreaterThanOrEqual(360);
-    expect(LAYOUT.RIGHT_PANE_WIDTH).toBeLessThanOrEqual(440);
+  it('portrait safe zone lives in the middle-left / lower-third window', () => {
+    // Task body bounds: x ≈ 0.15–0.25 × W, y ≈ 0.55–0.65 × H.
+    expect(LAYOUT.PORTRAIT_ZONE_X_MIN).toBeCloseTo(GAME_CONFIG.WIDTH * 0.15, 0);
+    expect(LAYOUT.PORTRAIT_ZONE_X_MAX).toBeCloseTo(GAME_CONFIG.WIDTH * 0.25, 0);
+    expect(LAYOUT.PORTRAIT_ZONE_Y_MIN).toBeCloseTo(GAME_CONFIG.HEIGHT * 0.55, 0);
+    expect(LAYOUT.PORTRAIT_ZONE_Y_MAX).toBeCloseTo(GAME_CONFIG.HEIGHT * 0.65, 0);
+    // Defaults fall inside their safe zones so ctor-time reads land on a
+    // valid centre before any seeded roll happens.
+    expect(LAYOUT.PORTRAIT_DEFAULT_X).toBeGreaterThanOrEqual(LAYOUT.PORTRAIT_ZONE_X_MIN);
+    expect(LAYOUT.PORTRAIT_DEFAULT_X).toBeLessThanOrEqual(LAYOUT.PORTRAIT_ZONE_X_MAX);
+    expect(LAYOUT.PORTRAIT_DEFAULT_Y).toBeGreaterThanOrEqual(LAYOUT.PORTRAIT_ZONE_Y_MIN);
+    expect(LAYOUT.PORTRAIT_DEFAULT_Y).toBeLessThanOrEqual(LAYOUT.PORTRAIT_ZONE_Y_MAX);
   });
 
-  it('right pane fits inside the canvas with the canonical right margin', () => {
-    const rightEdge = LAYOUT.RIGHT_PANE_X + LAYOUT.RIGHT_PANE_WIDTH;
-    expect(rightEdge).toBeLessThanOrEqual(GAME_CONFIG.WIDTH - GAME_CONFIG.TEXT.MARGIN_X);
+  it('portrait zone never collides with the body text column', () => {
+    // Portrait right-edge + a small buffer must stay left of the body text
+    // column's left-edge so a large-size portrait never bleeds into the
+    // narrative column regardless of seeded X.
+    const portraitRightEdge = LAYOUT.PORTRAIT_ZONE_X_MAX + PORTRAIT_CONFIG.SIZE / 2;
+    expect(portraitRightEdge).toBeLessThan(LAYOUT.BODY_TEXT_X);
   });
 
-  it('PANE_CENTER_Y vertically centres left-pane content', () => {
-    expect(LAYOUT.PANE_CENTER_Y).toBe(GAME_CONFIG.HEIGHT / 2);
+  it('chapter sigil anchors above the portrait zone so both can co-exist', () => {
+    // Sigil origin (0.5, 0) grows downward from CHAPTER_SIGIL_Y. Its bottom
+    // edge must clear the portrait zone's top edge with breathing room for
+    // the portrait's top border + name strip.
+    expect(LAYOUT.CHAPTER_SIGIL_Y).toBeLessThan(LAYOUT.PORTRAIT_ZONE_Y_MIN);
+    expect(LAYOUT.CHAPTER_SIGIL_X).toBeGreaterThanOrEqual(LAYOUT.PORTRAIT_ZONE_X_MIN);
+    expect(LAYOUT.CHAPTER_SIGIL_X).toBeLessThanOrEqual(LAYOUT.PORTRAIT_ZONE_X_MAX);
   });
 
-  it('PANE_INLINE_ASCII_Y sits below the centred portrait + name strip', () => {
-    // When both portrait and inline ASCII are visible at once, the inline
-    // panel anchors below the portrait band so they don't overlap. Portrait
-    // bottom edge ≈ PANE_CENTER_Y + SIZE/2 + NAME_OFFSET_Y + ~7px name height.
-    const portraitBottom =
-      LAYOUT.PANE_CENTER_Y + PORTRAIT_CONFIG.SIZE / 2 + PORTRAIT_CONFIG.NAME_OFFSET_Y + 8;
-    expect(LAYOUT.PANE_INLINE_ASCII_Y).toBeGreaterThan(portraitBottom);
+  it('inline ASCII anchors in the left column between sigil and portrait', () => {
+    expect(LAYOUT.INLINE_ASCII_X).toBeLessThan(LAYOUT.BODY_TEXT_X);
+    expect(LAYOUT.INLINE_ASCII_Y).toBeGreaterThan(LAYOUT.CHAPTER_SIGIL_Y);
+    expect(LAYOUT.INLINE_ASCII_Y).toBeLessThan(LAYOUT.PORTRAIT_ZONE_Y_MIN);
   });
 
-  it('chapter title anchors at the right pane top so it reads as the column header', () => {
-    // The narrative scene places the chapter title at (RIGHT_PANE_X,
-    // CHAPTER_TITLE_Y). CHAPTER_TITLE_Y must clear the canvas top with at
-    // least the standard top padding so it doesn't kiss the iPod chrome.
-    expect(LAYOUT.CHAPTER_TITLE_Y).toBeGreaterThanOrEqual(16);
-    expect(LAYOUT.CHAPTER_TITLE_Y).toBeLessThan(GAME_CONFIG.TEXT.MARGIN_Y);
+  it('atmosphere glyph bounds match Tom\'s 8-14 scattered-glyph brief', () => {
+    expect(LAYOUT.ATMOSPHERE_GLYPH_COUNT_MIN).toBe(8);
+    expect(LAYOUT.ATMOSPHERE_GLYPH_COUNT_MAX).toBe(14);
+    expect(LAYOUT.ATMOSPHERE_GLYPH_ALPHA_MIN).toBeCloseTo(0.1, 2);
+    expect(LAYOUT.ATMOSPHERE_GLYPH_ALPHA_MAX).toBeCloseTo(0.3, 2);
+    // Drift must be slow (<20 px/s) — anything faster reads as motion
+    // design rather than ambient chatter.
+    expect(LAYOUT.ATMOSPHERE_GLYPH_DRIFT_MAX).toBeLessThanOrEqual(20);
+    expect(LAYOUT.ATMOSPHERE_GLYPH_DRIFT_MIN).toBeGreaterThan(0);
+  });
+
+  it('L-bracket borders render thin strokes at ~30 % alpha', () => {
+    // Thin (1-px) + dim (30 %) keeps the borders feeling like terminal chrome
+    // rather than framed UI. Arm length must stay short enough that it reads
+    // as a corner mark, not an enclosing box.
+    expect(LAYOUT.BORDER_STROKE_WIDTH).toBe(1);
+    expect(LAYOUT.BORDER_ALPHA).toBeGreaterThan(0.2);
+    expect(LAYOUT.BORDER_ALPHA).toBeLessThanOrEqual(0.4);
+    expect(LAYOUT.BORDER_BRACKET_LENGTH).toBeGreaterThanOrEqual(16);
+    expect(LAYOUT.BORDER_BRACKET_LENGTH).toBeLessThanOrEqual(40);
+  });
+});
+
+describe('NarrativeScene — R83.CTRLS.25 funky layout wiring', () => {
+  // Structural source-string checks guarding the scene-level plumbing of the
+  // funky layout (Phaser is mocked under jsdom, so we can't snapshot the
+  // rendered frame). Regressing the scene back to the two-pane layout would
+  // remove the right-aligned title origin, the atmosphere/border factories,
+  // and the seeded portrait anchor — each of which is asserted here.
+  it('chapter title uses origin (1, 0) so TITLE_RIGHT_X is the right edge', () => {
+    const createSrc = CtrlSNarrativeScene.prototype.create.toString();
+    // The setOrigin call must land on chapterTitle AFTER it's created. An
+    // ordering regression (origin set on a different GO) is caught by
+    // requiring the origin assertion to appear in the same create() body
+    // that positions the title at LAYOUT.TITLE_RIGHT_X.
+    expect(createSrc).toMatch(/LAYOUT\.TITLE_RIGHT_X/);
+    expect(createSrc).toMatch(/chapterTitle\.setOrigin\(1,\s*0\)/);
+  });
+
+  it('create seeds portrait anchor via chapter-specific RandomDataGenerator', () => {
+    const createSrc = CtrlSNarrativeScene.prototype.create.toString();
+    expect(createSrc).toMatch(/RandomDataGenerator/);
+    expect(createSrc).toMatch(/ctrls-chapter-/);
+    expect(createSrc).toMatch(/portraitAnchorX/);
+    expect(createSrc).toMatch(/portraitAnchorY/);
+  });
+
+  it('create invokes the atmosphere + border factories', () => {
+    const createSrc = CtrlSNarrativeScene.prototype.create.toString();
+    expect(createSrc).toMatch(/createZoneBorders\(\)/);
+    expect(createSrc).toMatch(/createAtmosphereGlyphs\(\)/);
+  });
+
+  it('exposes createAtmosphereGlyphs, updateAtmosphereGlyphs, createZoneBorders', () => {
+    const proto = CtrlSNarrativeScene.prototype as unknown as Record<string, unknown>;
+    expect(typeof proto.createAtmosphereGlyphs).toBe('function');
+    expect(typeof proto.updateAtmosphereGlyphs).toBe('function');
+    expect(typeof proto.createZoneBorders).toBe('function');
+  });
+
+  it('showPortrait anchors on seeded portraitAnchorX / portraitAnchorY', () => {
+    const src = (CtrlSNarrativeScene.prototype as unknown as Record<string, () => void>)
+      .showPortrait.toString();
+    expect(src).toMatch(/portraitAnchorX/);
+    expect(src).toMatch(/portraitAnchorY/);
+  });
+
+  it('shutdown tears down atmosphere glyphs + zone borders (leak guard)', () => {
+    const shutdownSrc = (CtrlSNarrativeScene.prototype as unknown as Record<string, () => void>)
+      .shutdown.toString();
+    expect(shutdownSrc).toMatch(/atmosphereGlyphs/);
+    expect(shutdownSrc).toMatch(/zoneBorders/);
   });
 });
 
