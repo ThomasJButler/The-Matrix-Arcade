@@ -761,6 +761,32 @@ describe('SnakeGameScene', () => {
     });
   });
 
+  // ─── R84.S1 — Wall margin symmetry ─────────────────────
+
+  describe('R84.S1 — Yellow wall margin symmetry', () => {
+    // Tom 2026-04-19 playtest: "no space at the top of the portal and a little
+    // bit of space at the bottom". Root cause was asymmetric vertical margins
+    // (4px top / 44px bottom). Pin symmetry so a future offset tweak can't
+    // silently reintroduce the imbalance.
+    it('should render walls with equal top and bottom pixel margins', () => {
+      const { HEIGHT, CELL_SIZE, GRID_ROWS, GRID_OFFSET_Y } = GAME_CONFIG;
+      const topWallTopEdge = GRID_OFFSET_Y + (-1) * CELL_SIZE;
+      const bottomWallBottomEdge = GRID_OFFSET_Y + GRID_ROWS * CELL_SIZE + CELL_SIZE;
+      const topMargin = topWallTopEdge;
+      const bottomMargin = HEIGHT - bottomWallBottomEdge;
+      expect(topMargin).toBe(bottomMargin);
+      expect(topMargin).toBeGreaterThan(0);
+    });
+
+    it('should keep play area plus walls within the canvas bounds', () => {
+      const { HEIGHT, CELL_SIZE, GRID_ROWS, GRID_OFFSET_Y } = GAME_CONFIG;
+      const topWallTopEdge = GRID_OFFSET_Y + (-1) * CELL_SIZE;
+      const bottomWallBottomEdge = GRID_OFFSET_Y + GRID_ROWS * CELL_SIZE + CELL_SIZE;
+      expect(topWallTopEdge).toBeGreaterThanOrEqual(0);
+      expect(bottomWallBottomEdge).toBeLessThanOrEqual(HEIGHT);
+    });
+  });
+
   // ─── Random Empty Cell ─────────────────────────────────
 
   describe('Random Empty Cell', () => {
