@@ -19,9 +19,10 @@ export interface NarrativeSceneData {
   startFromParagraph?: number;
 }
 
-const MAX_VISIBLE_COMPLETED = 4;
 const ASCII_FONT_SIZE = '7px';
 const ASCII_LINE_HEIGHT = 9;
+const CURSOR_GAP_Y = 6;
+const INLINE_ASCII_GAP_Y = 16;
 const CHOICE_BUTTON_WIDTH = 450;
 const CHOICE_BUTTON_HEIGHT = 36;
 const CHOICE_BUTTON_GAP = 10;
@@ -33,7 +34,6 @@ export class CtrlSNarrativeScene extends BaseScene {
   private chapterTitle?: Phaser.GameObjects.Text;
   private chapterAscii?: Phaser.GameObjects.Text;
   private bodyText?: Phaser.GameObjects.Text;
-  private completedTexts: Phaser.GameObjects.Text[] = [];
   private asciiPanels: Phaser.GameObjects.Text[] = [];
   private cursorBlink?: Phaser.GameObjects.Text;
   private promptText?: Phaser.GameObjects.Text;
@@ -215,16 +215,27 @@ export class CtrlSNarrativeScene extends BaseScene {
     const revealed = this.engine.revealedText;
     this.bodyText.setText(revealed);
 
-    const bounds = this.bodyText.getBounds();
-    if (this.engine.state === 'TYPING') {
-      this.cursorBlink.setVisible(true);
-      this.cursorBlink.setPosition(bounds.right + 2, bounds.bottom - 14);
-    } else {
-      this.cursorBlink.setVisible(this.engine.state === 'WAITING');
-      if (this.engine.state === 'WAITING') {
-        this.cursorBlink.setPosition(bounds.right + 2, bounds.bottom - 14);
-      }
+    const showCursor = this.engine.state === 'TYPING' || this.engine.state === 'WAITING';
+    this.cursorBlink.setVisible(showCursor);
+    if (!showCursor) return;
+
+    // Cursor lives on its own line below the paragraph. When an inline ASCII
+    // panel has been drawn below the paragraph (WAITING state), drop the
+    // cursor below it so it does not overlap the art.
+    let cursorY = this.bodyText.y + this.bodyText.height + CURSOR_GAP_Y;
+    for (const ascii of this.asciiPanels) {
+      if (!ascii.active) continue;
+      const asciiBottom = ascii.y + ascii.height + CURSOR_GAP_Y;
+      if (asciiBottom > cursorY) cursorY = asciiBottom;
     }
+    this.cursorBlink.setPosition(this.bodyText.x, cursorY);
+  }
+
+  private computeContentStartY(): number {
+    if (this.chapterAscii && this.chapterAscii.active) {
+      return 45 + this.chapterAscii.height + 15;
+    }
+    return GAME_CONFIG.TEXT.MARGIN_Y;
   }
 
   private onCharTick(): void {
@@ -238,6 +249,20 @@ export class CtrlSNarrativeScene extends BaseScene {
   }
 
   private onParagraphStart(text: string): void {
+    // Single-paragraph region: every new paragraph starts from a clean slate.
+    // Destroy any inline ASCII left over from the previous paragraph and snap
+    // bodyText back to the baseline Y so the paragraph always appears in the
+    // same place rather than scrolling downward.
+    for (const ascii of this.asciiPanels) {
+      ascii.destroy();
+    }
+    this.asciiPanels = [];
+
+    if (this.bodyText) {
+      this.bodyText.setY(this.computeContentStartY());
+    }
+    this.syncPortraitY();
+
     this.emitGameEvent({
       type: 'pause',
       data: { action: 'voiceStart', text },
@@ -246,7 +271,6 @@ export class CtrlSNarrativeScene extends BaseScene {
 
   private onParagraphComplete(paragraphIndex: number): void {
     this.tickCounter = 0;
-    this.promoteCompletedParagraph();
 
     if (!this.chapter) return;
 
@@ -303,9 +327,11 @@ export class CtrlSNarrativeScene extends BaseScene {
     if (!this.bodyText) return;
 
     const margin = GAME_CONFIG.TEXT.MARGIN_X;
-    const currentY = this.bodyText.y;
+    // Place the panel below the active paragraph without moving the paragraph.
+    // The cursor auto-repositions below the panel via renderCurrentText().
+    const asciiY = this.bodyText.y + this.bodyText.height + INLINE_ASCII_GAP_Y;
 
-    const asciiText = this.add.text(margin, currentY, art.join('\n'), {
+    const asciiText = this.add.text(margin, asciiY, art.join('\n'), {
       fontFamily: MATRIX_FONTS.MONO,
       fontSize: ASCII_FONT_SIZE,
       color: MATRIX_COLORS.MEDIUM_GREEN_HEX,
@@ -320,9 +346,6 @@ export class CtrlSNarrativeScene extends BaseScene {
       duration: 800,
       ease: 'Power2',
     });
-
-    const asciiHeight = art.length * ASCII_LINE_HEIGHT + 10;
-    this.bodyText.setY(currentY + asciiHeight);
   }
 
   resumeAfterPuzzle(): void {
@@ -348,57 +371,6 @@ export class CtrlSNarrativeScene extends BaseScene {
     if (this.waitingForInventory) {
       this.resumeAfterInventory();
     }
-  }
-
-  private promoteCompletedParagraph(): void {
-    if (!this.bodyText) return;
-
-    const width = Number(this.game.config.width);
-    const margin = GAME_CONFIG.TEXT.MARGIN_X;
-
-    const completedText = this.add.text(margin, 0, this.engine.currentFullParagraph, {
-      fontFamily: MATRIX_FONTS.PRIMARY,
-      fontSize: '12px',
-      color: MATRIX_COLORS.DEEP_GREEN_HEX,
-      wordWrap: { width: width - margin * 2 },
-      lineSpacing: 8,
-    });
-    completedText.setAlpha(0.6);
-    this.completedTexts.push(completedText);
-
-    while (this.completedTexts.length > MAX_VISIBLE_COMPLETED) {
-      const oldest = this.completedTexts.shift();
-      oldest?.destroy();
-    }
-
-    this.layoutCompletedTexts();
-  }
-
-  private layoutCompletedTexts(): void {
-    let y = GAME_CONFIG.TEXT.MARGIN_Y;
-
-    if (this.chapterAscii) {
-      const asciiHeight = this.chapterAscii.height;
-      y = 45 + asciiHeight + 15;
-    }
-
-    for (const text of this.completedTexts) {
-      text.setPosition(GAME_CONFIG.TEXT.MARGIN_X, y);
-      y += text.height + GAME_CONFIG.TEXT.LINE_HEIGHT;
-    }
-
-    for (const ascii of this.asciiPanels) {
-      if (ascii.active) {
-        ascii.setPosition(GAME_CONFIG.TEXT.MARGIN_X, y);
-        y += ascii.height + 10;
-      }
-    }
-
-    const textX = this.currentSpeakerId ? PORTRAIT_CONFIG.TEXT_INDENT : GAME_CONFIG.TEXT.MARGIN_X;
-    if (this.bodyText) {
-      this.bodyText.setPosition(textX, y);
-    }
-    this.syncPortraitY();
   }
 
   private onAllComplete(): void {
@@ -470,7 +442,8 @@ export class CtrlSNarrativeScene extends BaseScene {
         onComplete: () => {
           this.chapterAscii?.destroy();
           this.chapterAscii = undefined;
-          this.layoutCompletedTexts();
+          this.bodyText?.setY(this.computeContentStartY());
+          this.syncPortraitY();
         },
       });
     }
@@ -999,10 +972,6 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.cursorBlink?.destroy();
     this.cursorTween?.destroy();
     this.promptText?.destroy();
-    for (const text of this.completedTexts) {
-      text.destroy();
-    }
-    this.completedTexts = [];
     for (const ascii of this.asciiPanels) {
       ascii.destroy();
     }
