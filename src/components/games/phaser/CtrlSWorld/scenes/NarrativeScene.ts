@@ -108,6 +108,36 @@ const PORTRAIT_GLITCH_INTERVAL_MAX_MS = 500;
 const PORTRAIT_GLITCH_HOLD_MS = 70;
 const PORTRAIT_RGB_SPLIT_OFFSET_PX = 1;
 
+// R83.CTRLS.12 — juice pass. Transient feedback on resolution moments
+// (choice locked, CTRL-S typed, buffer flushed) so the *ambient* dread
+// palette/scanline/drone from .16/.17 reads as the baseline, and the
+// *transient* beats below read as player-earned payoff.
+//
+// Choice commitment flash: selected line jumps PRIMARY_HEX for 180 ms so
+// the lock-in registers before the container fade.
+const CHOICE_COMMIT_FLASH_MS = 180;
+// Terminal success gets an extra 500 ms of held silence after the final
+// ending line so the "world saved" beat lands before the hub fade-out —
+// failure keeps the base hold (no reward, no pause).
+const TERMINAL_SUCCESS_BONUS_HOLD_MS = 500;
+// Climax radial ring: 24 Matrix glyphs from the input caret on save —
+// bigger radius than the 12-particle choice burst, this is the title shot.
+const CLIMAX_RING_PARTICLES = 24;
+const CLIMAX_RING_RADIUS_MIN = 180;
+const CLIMAX_RING_RADIUS_MAX = 320;
+const CLIMAX_RING_DURATION_MIN = 600;
+const CLIMAX_RING_DURATION_MAX = 900;
+// Climax camera zoom pulse: gentle push-in then release (1.0 → 1.02 → 1.0)
+// over 400 ms — pairs with the bumped flash so the frame itself inhales.
+const CLIMAX_ZOOM_PEAK = 1.02;
+const CLIMAX_ZOOM_DURATION_MS = 400;
+// Failure glitch cascade: 6 horizontal bars strobe red across the frame
+// over 500 ms so "buffer flushed" has a physical feel, not just a shake.
+const GLITCH_CASCADE_BARS = 6;
+const GLITCH_CASCADE_DURATION_MS = 500;
+const GLITCH_CASCADE_BAR_ALPHA = 0.6;
+const GLITCH_CASCADE_BAR_COLOR = 0xff2040;
+
 const MATRIX_FLICKER_GLYPHS = [
   'ﾊ', 'ﾐ', 'ﾋ', 'ｰ', 'ｳ', 'ｼ', 'ﾅ', 'ﾓ', 'ﾆ', 'ｻ', 'ﾜ', 'ﾂ', 'ｵ', 'ﾘ',
   'ｱ', 'ﾎ', 'ﾃ', 'ﾏ', 'ｹ', 'ﾑ', 'ｴ', 'ｶ', 'ｷ', 'ﾁ', 'ｲ',
@@ -971,7 +1001,18 @@ export class CtrlSNarrativeScene extends BaseScene {
     }
     this.playSound('score');
     this.playSound(STINGER_KEYS.CHAPTER_COMPLETE);
-    this.cameras.main.flash(250, 0, 255, 0);
+    // R83.CTRLS.12 — climax juice stack. The title moment ("CTRL-S saves
+    // the world") is the single most load-bearing beat in the game, so
+    // three transient effects fire together: (a) green flash bumped from
+    // 250 ms to 400 ms so the wash outlives the drone's 1 s fade gap and
+    // reads as a real release of light, (b) camera zoom pulse 1.0 → 1.02
+    // → 1.0 over 400 ms — small enough not to disorient but big enough to
+    // make the frame itself feel like it inhales on the keystroke,
+    // (c) a 24-glyph Matrix-character ring radiating from the input caret
+    // so the save action has spatial payoff beyond the flash.
+    this.cameras.main.flash(400, 0, 255, 0);
+    this.pulseCameraZoom(CLIMAX_ZOOM_PEAK, CLIMAX_ZOOM_DURATION_MS);
+    this.spawnClimaxRing();
     this.renderTerminalEnding(this.terminalTrigger.successLines, 'success');
   }
 
@@ -979,6 +1020,13 @@ export class CtrlSNarrativeScene extends BaseScene {
     if (!this.terminalTrigger) return;
     this.playSound('gameOver');
     this.cameras.main.shake(420, 0.012);
+    // R83.CTRLS.12 — buffer-flush glitch cascade. The camera shake alone
+    // reads as "damage happened" but not as "the terminal is literally
+    // breaking" — six red horizontal bars strobing across the frame over
+    // 500 ms sells the buffer flush as a physical event. Staggered delays
+    // (not simultaneous) so the eye tracks the cascade top-to-bottom
+    // rather than registering one uniform flash.
+    this.spawnGlitchCascade();
     this.renderTerminalEnding(this.terminalTrigger.failureLines, 'failure');
   }
 
@@ -1023,7 +1071,13 @@ export class CtrlSNarrativeScene extends BaseScene {
       cursorY += line.height + TERMINAL_LINE_GAP_Y;
     });
 
-    const holdDelay = lines.length * TERMINAL_ENDING_LINE_DELAY_MS + TERMINAL_ENDING_HOLD_MS;
+    // R83.CTRLS.12 — success-only bonus hold. The 400 ms zoom pulse +
+    // 400 ms flash from resolveTerminalSuccess need the final ending line
+    // to sit on screen for longer than the base 1400 ms hold — otherwise
+    // the fade-out to hub clips the moment. Failure keeps the base hold
+    // so the gut-punch lands and moves on.
+    const bonusHold = outcome === 'success' ? TERMINAL_SUCCESS_BONUS_HOLD_MS : 0;
+    const holdDelay = lines.length * TERMINAL_ENDING_LINE_DELAY_MS + TERMINAL_ENDING_HOLD_MS + bonusHold;
     this.time.delayedCall(holdDelay, () => {
       this.emitGameEvent({
         type: 'pause',
@@ -1226,7 +1280,18 @@ export class CtrlSNarrativeScene extends BaseScene {
     const targetLine = this.choiceLines[index];
     if (targetLine) {
       this.spawnChoiceParticles(targetLine);
+      // R83.CTRLS.12 — commitment flash. The selected line jumps to
+      // PRIMARY_HEX (the reserved-climax green from the .17 dread palette)
+      // for CHOICE_COMMIT_FLASH_MS before the container-fade tween runs,
+      // so the player reads "decision locked in" before the choice block
+      // disappears. setColor lasts until destroyChoiceUI() tears the line
+      // down during onComplete, so no explicit revert is needed.
+      targetLine.setColor(MATRIX_COLORS.PRIMARY_HEX);
     }
+    // Micro camera shake — 100 ms × 0.002 is small enough not to disturb
+    // the surrounding dread calm but firm enough to register the input as
+    // a physical thud, not a state change.
+    this.cameras.main.shake(100, 0.002);
 
     this.emitGameEvent({
       type: 'pause',
@@ -1242,6 +1307,11 @@ export class CtrlSNarrativeScene extends BaseScene {
       targets: this.choiceContainer,
       alpha: 0,
       duration: CHOICE_FADE_DURATION,
+      // R83.CTRLS.12 — held delay lets the commitment flash breathe
+      // before the whole block fades. Without this, the flash and fade
+      // start on the same frame and the colour swap reads as a flicker
+      // rather than a deliberate lock-in beat.
+      delay: CHOICE_COMMIT_FLASH_MS,
       ease: 'Power2',
       onComplete: () => {
         this.destroyChoiceUI();
@@ -1280,6 +1350,95 @@ export class CtrlSNarrativeScene extends BaseScene {
         duration: Phaser.Math.Between(400, 700),
         ease: 'Power2',
         onComplete: () => particle.destroy(),
+      });
+    }
+  }
+
+  /**
+   * R83.CTRLS.12 — camera zoom pulse for the terminal-success climax.
+   * Tween drives `cam.zoom` from 1.0 to `peak` and yoyos back over
+   * `durationMs` split evenly. Used as an optical inhale paired with the
+   * 400 ms green flash — small amplitude (1.02) so the frame still reads
+   * at the edges and doesn't break the two-pane layout from .18.
+   */
+  private pulseCameraZoom(peak: number, durationMs: number): void {
+    const cam = this.cameras.main;
+    this.tweens.add({
+      targets: cam,
+      zoom: { from: 1, to: peak },
+      duration: durationMs / 2,
+      ease: 'Sine.easeOut',
+      yoyo: true,
+    });
+  }
+
+  /**
+   * R83.CTRLS.12 — radial Matrix-glyph ring for the terminal-success
+   * climax. Spawns CLIMAX_RING_PARTICLES (24) text objects at the caret
+   * position with a small angular jitter so the ring doesn't read as a
+   * perfectly-spaced rosette, then tweens each outward to a randomised
+   * radius (180-320 px) with alpha and scale easing. Depth is bumped
+   * above the scanline overlay so the ring reads over the CRT mesh.
+   * Particles self-destroy on tween complete — no pool.
+   */
+  private spawnClimaxRing(): void {
+    const inputLine = this.terminalInputLine;
+    if (!inputLine) return;
+    const bounds = inputLine.getBounds();
+    const cx = bounds.centerX;
+    const cy = bounds.centerY;
+    for (let i = 0; i < CLIMAX_RING_PARTICLES; i++) {
+      const angle =
+        (i / CLIMAX_RING_PARTICLES) * Math.PI * 2 +
+        Phaser.Math.FloatBetween(-0.06, 0.06);
+      const radius = Phaser.Math.Between(CLIMAX_RING_RADIUS_MIN, CLIMAX_RING_RADIUS_MAX);
+      const glyph = Phaser.Utils.Array.GetRandom(MATRIX_FLICKER_GLYPHS) as string;
+      const particle = this.add.text(cx, cy, glyph, {
+        fontFamily: MATRIX_FONTS.PRIMARY,
+        fontSize: '11px',
+        color: MATRIX_COLORS.PRIMARY_HEX,
+      });
+      particle.setOrigin(0.5);
+      particle.setDepth(SCANLINE_DEPTH + 1);
+      this.tweens.add({
+        targets: particle,
+        x: cx + Math.cos(angle) * radius,
+        y: cy + Math.sin(angle) * radius,
+        alpha: { from: 1, to: 0 },
+        scale: { from: 1.2, to: 0.4 },
+        duration: Phaser.Math.Between(CLIMAX_RING_DURATION_MIN, CLIMAX_RING_DURATION_MAX),
+        ease: 'Cubic.easeOut',
+        onComplete: () => particle.destroy(),
+      });
+    }
+  }
+
+  /**
+   * R83.CTRLS.12 — glitch cascade for terminal-failure "buffer flushed".
+   * Spawns GLITCH_CASCADE_BARS (6) red horizontal rectangles at random Y
+   * positions, strobes each to the peak alpha and fades out over 140 ms.
+   * Delays are linearly spaced across GLITCH_CASCADE_DURATION_MS so the
+   * eye tracks top-to-bottom rather than seeing one uniform red wash.
+   * Depth above the scanline overlay so the bars read over the CRT mesh.
+   */
+  private spawnGlitchCascade(): void {
+    const width = this.scale.width;
+    const height = this.scale.height;
+    for (let i = 0; i < GLITCH_CASCADE_BARS; i++) {
+      const y = Phaser.Math.Between(40, height - 40);
+      const barHeight = Phaser.Math.Between(3, 7);
+      const bar = this.add.rectangle(0, y, width, barHeight, GLITCH_CASCADE_BAR_COLOR);
+      bar.setOrigin(0, 0.5);
+      bar.setAlpha(0);
+      bar.setDepth(SCANLINE_DEPTH + 1);
+      const delay = (i / GLITCH_CASCADE_BARS) * GLITCH_CASCADE_DURATION_MS;
+      this.tweens.add({
+        targets: bar,
+        alpha: { from: GLITCH_CASCADE_BAR_ALPHA, to: 0 },
+        duration: 140,
+        delay,
+        ease: 'Power1',
+        onComplete: () => bar.destroy(),
       });
     }
   }

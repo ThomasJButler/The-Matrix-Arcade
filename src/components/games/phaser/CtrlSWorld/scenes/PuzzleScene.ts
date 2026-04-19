@@ -415,6 +415,14 @@ export class CtrlSPuzzleScene extends BaseScene {
       this.settled = true;
       this.playSound(STINGER_KEYS.PUZZLE_SOLVED);
       this.showResult('CORRECT', MATRIX_COLORS.PRIMARY_HEX);
+      // R83.CTRLS.12 — solve juice. A correct answer previously paid the
+      // player back with audio + a text scale-punch only; the text flash
+      // reads as a state change, not a reward. The 180 ms green camera
+      // flash plus a 12-glyph radial burst from the CORRECT text put the
+      // payoff in the same spatial register as the typing action — the
+      // answer the player just typed is what *emits* the celebration.
+      this.cameras.main.flash(180, 0, 255, 0);
+      this.spawnSolveParticles();
       this.time.delayedCall(900, () => this.closeAndResume(true));
       return;
     }
@@ -425,6 +433,14 @@ export class CtrlSPuzzleScene extends BaseScene {
       this.settled = true;
       this.playSound(STINGER_KEYS.PUZZLE_FAILED);
       this.showResult(timeUp ? 'TIME UP' : 'FAILED', MATRIX_COLORS.RED_HEX);
+      // R83.CTRLS.12 — final-fail camera shake at the modal level. The
+      // NarrativeScene already shakes 180 ms × 0.005 when it receives
+      // the PUZZLE_FAILED event back from the puzzle close, but that
+      // shake fires *after* the modal has closed, so the modal itself
+      // never feels the impact. 220 ms × 0.006 here makes the puzzle
+      // panel jolt before it fades — the failure registers in the space
+      // where the failure happened.
+      this.cameras.main.shake(220, 0.006);
       this.time.delayedCall(1100, () => this.closeAndResume(false));
       return;
     }
@@ -466,6 +482,45 @@ export class CtrlSPuzzleScene extends BaseScene {
       duration: 350,
       ease: 'Back.easeOut',
     });
+  }
+
+  /**
+   * R83.CTRLS.12 — radial block-glyph burst from the CORRECT text on a
+   * correct answer. Same shape as NarrativeScene.spawnChoiceParticles:
+   * 12 '█' glyphs at 6 px in PRIMARY_HEX, radiating outward on random
+   * speeds (90-220 px/s) over 400-700 ms with scale easing to 0.
+   * Intentionally identical in silhouette to the choice-confirm burst so
+   * both "player decision resolves correctly" beats read as the same
+   * visual grammar — just spawned from different sources.
+   */
+  private spawnSolveParticles(): void {
+    if (!this.resultText) return;
+    const bounds = this.resultText.getBounds();
+    const cx = bounds.centerX;
+    const cy = bounds.centerY;
+    const particleCount = 12;
+
+    for (let i = 0; i < particleCount; i++) {
+      const angle = (i / particleCount) * Math.PI * 2;
+      const speed = Phaser.Math.Between(90, 220);
+      const particle = this.add.text(cx, cy, '█', {
+        fontFamily: MATRIX_FONTS.PRIMARY,
+        fontSize: '6px',
+        color: MATRIX_COLORS.PRIMARY_HEX,
+      });
+      particle.setOrigin(0.5);
+
+      this.tweens.add({
+        targets: particle,
+        x: cx + Math.cos(angle) * speed,
+        y: cy + Math.sin(angle) * speed,
+        alpha: 0,
+        scale: { from: 1.4, to: 0 },
+        duration: Phaser.Math.Between(400, 700),
+        ease: 'Power2',
+        onComplete: () => particle.destroy(),
+      });
+    }
   }
 
   private closeAndResume(success: boolean): void {
