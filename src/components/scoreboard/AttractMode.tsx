@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { MatrixRainCanvas } from '../ui/MatrixRainCanvas';
 import { ScoreTable } from './ScoreTable';
 import type { ScoreboardGameId, ScoreEntry } from '../../hooks/useSaveSystem';
-import { SCOREBOARD_GAME_IDS } from '../../hooks/useSaveSystem';
+import { R84_PRIORITY_TRIO, selectAttractCycle } from './attractCycle';
 
 const IDLE_TIMEOUT_MS = 10_000;
 const GAME_DISPLAY_MS = 5_000;
@@ -33,6 +33,8 @@ export const AttractMode: React.FC<AttractModeProps> = ({
   lastInitials,
   enabled = true,
 }) => {
+  const cycle = useMemo(() => selectAttractCycle(scoreboards), [scoreboards]);
+  const cycleLength = cycle.length;
   const [active, setActive] = useState(false);
   const [gameIndex, setGameIndex] = useState(0);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -72,16 +74,24 @@ export const AttractMode: React.FC<AttractModeProps> = ({
   }, [enabled, resetIdle]);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active || cycleLength <= 1) return;
     cycleTimerRef.current = setInterval(() => {
-      setGameIndex(prev => (prev + 1) % SCOREBOARD_GAME_IDS.length);
+      setGameIndex(prev => (prev + 1) % cycleLength);
     }, GAME_DISPLAY_MS);
     return () => {
       if (cycleTimerRef.current) clearInterval(cycleTimerRef.current);
     };
-  }, [active]);
+  }, [active, cycleLength]);
 
-  const currentGame = SCOREBOARD_GAME_IDS[gameIndex];
+  // Keep gameIndex in range when the cycle shape changes mid-session (a newly
+  // achieved score can shrink or grow the populated set).
+  useEffect(() => {
+    if (cycleLength === 0) return;
+    setGameIndex(prev => (prev >= cycleLength ? 0 : prev));
+  }, [cycleLength]);
+
+  const currentGame: ScoreboardGameId =
+    cycle[gameIndex] ?? cycle[0] ?? R84_PRIORITY_TRIO[0];
   const top5 = (scoreboards[currentGame] || []).slice(0, 5);
 
   return (
