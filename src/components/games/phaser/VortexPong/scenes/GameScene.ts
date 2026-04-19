@@ -129,6 +129,15 @@ export class VortexPongGameScene extends BaseScene {
   // flashes so a multi-ball 3-goal storm cannot breach WCAG 2.3.1 ≤3Hz.
   private lastGoalFlashAt = 0;
 
+  // R84.CI-5 — match-point SR announcement state. One flag per side so the
+  // shared PhaserGame live region fires exactly one `Match point.` /
+  // `Opponent match point.` per run — the "one away from winning" beat.
+  // Cleared by resetState so an R-restart re-announces cleanly.
+  private matchPointAnnounced: { player: boolean; opponent: boolean } = {
+    player: false,
+    opponent: false,
+  };
+
   constructor() {
     super(SCENE_KEYS.GAME);
   }
@@ -272,6 +281,10 @@ export class VortexPongGameScene extends BaseScene {
     // R84.P11 — reset keyboard ramp so an R-restart mid-press doesn't
     // resume at full speed before the player can react.
     this.keyboardSpeedRatio = 0;
+    // R84.CI-5 — reset match-point SR flags so an R-restart re-announces
+    // the first 9 on each side. Same contract as Bird/Snake milestone
+    // resets: a fresh run gets fresh cues.
+    this.matchPointAnnounced = { player: false, opponent: false };
   }
 
   // ── Drawing ──────────────────���───────────────────────────────
@@ -641,6 +654,22 @@ export class VortexPongGameScene extends BaseScene {
 
   // ── Scoring ───────────────���──────────────────────────────────
 
+  /**
+   * R84.CI-5 — emit a one-shot `matchPoint` event to the shared PhaserGame
+   * SR live region the first time the named side reaches WIN_SCORE - 1 in
+   * a run. Win-condition-based scoring means this beat maps to exactly one
+   * numeric state (score === WIN_SCORE - 1) rather than a cumulative
+   * threshold band; the flag guards against repeat emission at the same
+   * score, and resetState clears both flags for a fresh R-restart.
+   */
+  private checkMatchPointAnnouncement(side: 'player' | 'opponent'): void {
+    if (this.matchPointAnnounced[side]) return;
+    const score = side === 'player' ? this.playerScore : this.aiScore;
+    if (score !== GAME_CONFIG.WIN_SCORE - 1) return;
+    this.matchPointAnnounced[side] = true;
+    this.emitGameEvent({ type: 'matchPoint', data: { side } });
+  }
+
   private checkGoals(): void {
     const toRemove: PongBall[] = [];
 
@@ -655,6 +684,7 @@ export class VortexPongGameScene extends BaseScene {
         this.addImpactEffect(0, ball.sprite.y, 20);
         this.goalFlash(GAME_CONFIG.GOAL_FLASH.AI_GOAL);
         this.popScoreText(this.aiScoreText);
+        this.checkMatchPointAnnouncement('opponent');
         toRemove.push(ball);
       } else if (ball.sprite.x - GAME_CONFIG.BALL.RADIUS > GAME_CONFIG.WIDTH) {
         // Ball exits right — Player scores (+1, classic Pong).
@@ -674,6 +704,7 @@ export class VortexPongGameScene extends BaseScene {
           this.unlockAchievement(ACHIEVEMENTS.FIRST_POINT);
         }
 
+        this.checkMatchPointAnnouncement('player');
         toRemove.push(ball);
       }
     }

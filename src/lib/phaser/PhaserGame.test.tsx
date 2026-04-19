@@ -12,7 +12,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { PhaserGame } from './PhaserGame';
-import { buildGameOverAnnouncement, buildScoreMilestoneAnnouncement } from './a11y';
+import { buildGameOverAnnouncement, buildScoreMilestoneAnnouncement, buildMatchPointAnnouncement } from './a11y';
 
 // The shared Phaser mock in src/test/setup.ts wires `events.on / .off` but
 // not `.once`, and PhaserGame.tsx subscribes to `game.events.once('ready', …)`
@@ -130,5 +130,42 @@ describe('buildScoreMilestoneAnnouncement', () => {
     // render `Score milestone NaN.` into the live region.
     expect(buildScoreMilestoneAnnouncement({ value: Number.NaN })).toBe('');
     expect(buildScoreMilestoneAnnouncement({ value: Number.POSITIVE_INFINITY })).toBe('');
+  });
+});
+
+// R84.CI-5: dedicated announcement for Vortex Pong's win-condition-based
+// tension beat. Pong scoring is first-to-WIN_SCORE so "match point" is a
+// semantic side-aware state, not a cumulative numeric threshold — hence a
+// distinct event + builder rather than overloading scoreMilestone.
+describe('buildMatchPointAnnouncement', () => {
+  it('renders the player-side phrase when side is "player"', () => {
+    // Bare "Match point." mirrors tennis/pong sports-announcer vernacular;
+    // trailing period gives the screen reader an audible pause before the
+    // next live-region update, same shape as the other builders.
+    expect(buildMatchPointAnnouncement({ side: 'player' })).toBe('Match point.');
+  });
+
+  it('renders the opponent-side phrase when side is "opponent"', () => {
+    // "Opponent" rather than "AI" so the announcement stays game-agnostic
+    // if a future 2-player Pong lands — the wording still works when the
+    // opponent is a second human.
+    expect(buildMatchPointAnnouncement({ side: 'opponent' })).toBe('Opponent match point.');
+  });
+
+  it('returns an empty string for undefined data', () => {
+    // Defensive: a scene that forgets the payload shouldn't trigger a
+    // garbled announcement. Empty string fails the `if (msg)` guard in
+    // PhaserGame.tsx so the region stays on its previous announcement.
+    expect(buildMatchPointAnnouncement()).toBe('');
+  });
+
+  it('returns an empty string for an empty-object payload', () => {
+    expect(buildMatchPointAnnouncement({})).toBe('');
+  });
+
+  it('returns an empty string for an unknown side value', () => {
+    // Typo or future third side ("referee"?) shouldn't render garbage into
+    // the live region; the `if (msg)` guard in the wrapper no-ops on ''.
+    expect(buildMatchPointAnnouncement({ side: 'neither' as 'player' })).toBe('');
   });
 });

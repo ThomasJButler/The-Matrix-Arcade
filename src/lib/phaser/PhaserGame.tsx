@@ -12,7 +12,7 @@ import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import Phaser from 'phaser';
 import { useSoundSystem, type SoundEffect } from '../../hooks/useSoundSystem';
 import { useSaveSystem } from '../../hooks/useSaveSystem';
-import { buildGameOverAnnouncement, buildScoreMilestoneAnnouncement } from './a11y';
+import { buildGameOverAnnouncement, buildScoreMilestoneAnnouncement, buildMatchPointAnnouncement } from './a11y';
 import {
   GAME_TRANSITION_READY_EVENT,
   REGISTRY_KEYS,
@@ -20,6 +20,7 @@ import {
   type GameEvent,
   type ScoreEventData,
   type ScoreMilestoneEventData,
+  type MatchPointEventData,
   type AchievementEventData,
 } from './types';
 
@@ -120,6 +121,18 @@ export function PhaserGame({
           // malformed payload so the region no-ops rather than announcing
           // garbage — matches the `buildGameOverAnnouncement` guard shape.
           const msg = buildScoreMilestoneAnnouncement(event.data as ScoreMilestoneEventData | undefined);
+          if (msg) {
+            setSrAnnouncement(prev => ({ msg, nonce: prev.nonce + 1 }));
+          }
+          break;
+        }
+        case 'matchPoint': {
+          // R84.CI-5: Vortex Pong's win-condition-based scoring doesn't map
+          // to numeric-threshold milestones, so its tension beat (either
+          // side reaching WIN_SCORE - 1) travels on a dedicated event.
+          // Same nonce-bumping pattern so replays re-announce on identical
+          // sides, and the same '' → no-op guard on malformed payloads.
+          const msg = buildMatchPointAnnouncement(event.data as MatchPointEventData | undefined);
           if (msg) {
             setSrAnnouncement(prev => ({ msg, nonce: prev.nonce + 1 }));
           }

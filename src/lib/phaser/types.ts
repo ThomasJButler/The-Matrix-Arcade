@@ -20,6 +20,7 @@ export interface PhaserGameProps {
 export type GameEventType =
   | 'score'
   | 'scoreMilestone'
+  | 'matchPoint'
   | 'achievement'
   | 'gameOver'
   | 'highScoreEntry'
@@ -65,6 +66,21 @@ export interface GameOverEventData {
 export interface ScoreMilestoneEventData {
   /** The threshold value that was just crossed (e.g. 50, 100, 250). */
   value: number;
+}
+
+/**
+ * R84.CI-5 — match-point event data. Vortex Pong's scoring is
+ * win-condition-based (first to WIN_SCORE=10), so the cumulative-threshold
+ * shape used by `scoreMilestone` doesn't map. Instead the scene emits one
+ * of these the first time either side reaches WIN_SCORE - 1 in a run: the
+ * "one away from winning" tension beat that sighted players see as the
+ * score digit flipping to 9 but AT users had no surface for. `side` lets
+ * the announcement disambiguate player vs opponent without the wrapper
+ * needing to reach back into Pong-specific state.
+ */
+export interface MatchPointEventData {
+  /** Who is one point from winning. */
+  side: 'player' | 'opponent';
 }
 
 /**

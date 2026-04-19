@@ -2142,4 +2142,120 @@ describe('VortexPongGameScene', () => {
       });
     });
   });
+
+  // -----------------------------------------------------------------------
+  // R84.CI-5 — Match point SR event emission
+  // -----------------------------------------------------------------------
+  //
+  // Pong's scoring is win-condition-based (first to WIN_SCORE=10), so the
+  // "tension beat" maps to exactly one transient state per side: score ===
+  // WIN_SCORE - 1 ("match point"). The scene emits a one-shot `matchPoint`
+  // event on each side's first 9 so the shared PhaserGame SR live region
+  // announces "Match point." / "Opponent match point." to AT users — the
+  // same information sighted players get from the score digit flipping.
+  // resetState clears both flags so an R-restart re-announces cleanly.
+  describe('R84.CI-5 — Match point SR event emission', () => {
+    function matchPointEmits(scene: any): Array<{ side: string }> {
+      return (scene.emitGameEvent as ReturnType<typeof vi.fn>).mock.calls
+        .filter((c: any[]) => c[0]?.type === 'matchPoint')
+        .map((c: any[]) => c[0].data);
+    }
+
+    it('emits matchPoint side="player" the first time playerScore reaches WIN_SCORE - 1', () => {
+      // Seed at 8 so the goal tick lands on 9 (= WIN_SCORE - 1).
+      scene.playerScore = GAME_CONFIG.WIN_SCORE - 2;
+      createBall(scene, GAME_CONFIG.WIDTH + 10, 225, 420, 0);
+      scene.checkGoals();
+      expect(scene.playerScore).toBe(GAME_CONFIG.WIN_SCORE - 1);
+      expect(matchPointEmits(scene)).toEqual([{ side: 'player' }]);
+    });
+
+    it('emits matchPoint side="opponent" the first time aiScore reaches WIN_SCORE - 1', () => {
+      scene.aiScore = GAME_CONFIG.WIN_SCORE - 2;
+      createBall(scene, -10, 225, -420, 0);
+      scene.checkGoals();
+      expect(scene.aiScore).toBe(GAME_CONFIG.WIN_SCORE - 1);
+      expect(matchPointEmits(scene)).toEqual([{ side: 'opponent' }]);
+    });
+
+    it('does NOT emit before the threshold is reached', () => {
+      // Score 5 after a goal — nowhere near 9, so no matchPoint event.
+      scene.playerScore = 4;
+      createBall(scene, GAME_CONFIG.WIDTH + 10, 225, 420, 0);
+      scene.checkGoals();
+      expect(scene.playerScore).toBe(5);
+      expect(matchPointEmits(scene)).toEqual([]);
+    });
+
+    it('does NOT emit a second time if the flag is already set', () => {
+      // Player already announced match-point this run; a stray re-entry
+      // (e.g. through a future refactor) must not blurt "Match point."
+      // again. The flag is the safety net around the === threshold check.
+      scene.matchPointAnnounced = { player: true, opponent: false };
+      scene.playerScore = GAME_CONFIG.WIN_SCORE - 2;
+      createBall(scene, GAME_CONFIG.WIDTH + 10, 225, 420, 0);
+      scene.checkGoals();
+      expect(matchPointEmits(scene)).toEqual([]);
+    });
+
+    it('tracks player and opponent flags independently in the same run', () => {
+      // Both sides should be able to announce match-point in the same run
+      // (9-9 is a valid tight-finish scenario). Losing independence would
+      // silently drop one side's tension beat.
+      scene.aiScore = GAME_CONFIG.WIN_SCORE - 2;
+      createBall(scene, -10, 225, -420, 0);
+      scene.checkGoals();
+
+      scene.playerScore = GAME_CONFIG.WIN_SCORE - 2;
+      createBall(scene, GAME_CONFIG.WIDTH + 10, 225, 420, 0);
+      scene.checkGoals();
+
+      expect(matchPointEmits(scene)).toEqual([
+        { side: 'opponent' },
+        { side: 'player' },
+      ]);
+    });
+
+    it('does NOT emit when scoring past WIN_SCORE - 1 (the win event handles it)', () => {
+      // Seed at 9 so the next goal lands on 10 (win). The game-over path
+      // is what AT users hear at that point — the match-point announcement
+      // would be redundant noise stacked on top of "Game over. Final score 10."
+      scene.playerScore = GAME_CONFIG.WIN_SCORE - 1;
+      scene.matchPointAnnounced = { player: true, opponent: false };
+      createBall(scene, GAME_CONFIG.WIDTH + 10, 225, 420, 0);
+      scene.checkGoals();
+      expect(scene.playerScore).toBe(GAME_CONFIG.WIN_SCORE);
+      expect(matchPointEmits(scene)).toEqual([]);
+    });
+
+    it('resetState clears both match-point flags', () => {
+      // Seed both flags true (mid-run state) and confirm resetState zeros
+      // them — an R-restart must re-announce the first 9 on each side so
+      // AT users hear the tension beat on the new run, not silence.
+      scene.matchPointAnnounced = { player: true, opponent: true };
+      scene.resetState();
+      expect(scene.matchPointAnnounced).toEqual({ player: false, opponent: false });
+    });
+
+    it('direct checkMatchPointAnnouncement("player") at score 9 fires exactly once', () => {
+      // Pin the helper's === guard directly rather than through checkGoals,
+      // so a refactor that routes the wiring differently still exercises
+      // the underlying contract.
+      scene.playerScore = GAME_CONFIG.WIN_SCORE - 1;
+      scene.checkMatchPointAnnouncement('player');
+      scene.checkMatchPointAnnouncement('player');
+      expect(matchPointEmits(scene)).toEqual([{ side: 'player' }]);
+    });
+
+    it('direct checkMatchPointAnnouncement at other scores is a no-op', () => {
+      // Scores on either side of the threshold must not fire — the helper's
+      // `score !== WIN_SCORE - 1` guard protects against a future caller
+      // that mis-invokes after every goal rather than only on the crossing.
+      scene.playerScore = GAME_CONFIG.WIN_SCORE - 2;
+      scene.checkMatchPointAnnouncement('player');
+      scene.playerScore = GAME_CONFIG.WIN_SCORE;
+      scene.checkMatchPointAnnouncement('player');
+      expect(matchPointEmits(scene)).toEqual([]);
+    });
+  });
 });
