@@ -899,9 +899,18 @@ export function useSoundSystem() {
     }
   }, []);
 
-  // Play MP3 background music — keeps playing if same track is already active
-  const playBackgroundMP3 = useCallback((src: string) => {
+  // Per-game ambient multiplier so a scene can request a quieter mix
+  // (e.g. Matrix Snake at 0.7) without permanently muting global music volume.
+  // Stored on the audio element so the config-update effect can re-apply it.
+  const bgMusicAmbientMultiplierRef = useRef(1);
+
+  // Play MP3 background music — keeps playing if same track is already active.
+  // `ambientMultiplier` (0–1, default 1) lets a game soften the mix locally.
+  const playBackgroundMP3 = useCallback((src: string, ambientMultiplier = 1) => {
     if (!config.music || !src) return;
+
+    const clampedMultiplier = Math.max(0, Math.min(1, ambientMultiplier));
+    bgMusicAmbientMultiplierRef.current = clampedMultiplier;
 
     // Create or reuse audio element
     if (!backgroundMusicRef.current) {
@@ -909,9 +918,11 @@ export function useSoundSystem() {
       backgroundMusicRef.current.loop = true;
     }
 
+    const targetVolume = config.masterVolume * config.musicVolume * clampedMultiplier;
+
     // If the same track is already playing, just ensure volume is correct and don't restart
     if (backgroundMusicRef.current.src.endsWith(src) && !backgroundMusicRef.current.paused) {
-      backgroundMusicRef.current.volume = config.masterVolume * config.musicVolume;
+      backgroundMusicRef.current.volume = targetVolume;
       return;
     }
 
@@ -923,7 +934,7 @@ export function useSoundSystem() {
     }
 
     backgroundMusicRef.current.src = src;
-    backgroundMusicRef.current.volume = config.masterVolume * config.musicVolume;
+    backgroundMusicRef.current.volume = targetVolume;
 
     // Play the music
     backgroundMusicRef.current.play().catch(error => {
@@ -960,9 +971,10 @@ export function useSoundSystem() {
         sfxGainRef.current.gain.setValueAtTime(updated.sfxVolume, currentTime);
       }
 
-      // Immediately update MP3 background music volume if it exists
+      // Immediately update MP3 background music volume if it exists, preserving the per-game ambient multiplier
       if (backgroundMusicRef.current && (updated.masterVolume !== prev.masterVolume || updated.musicVolume !== prev.musicVolume)) {
-        backgroundMusicRef.current.volume = updated.masterVolume * updated.musicVolume;
+        backgroundMusicRef.current.volume =
+          updated.masterVolume * updated.musicVolume * bgMusicAmbientMultiplierRef.current;
       }
 
       return updated;
@@ -1027,7 +1039,8 @@ export function useSoundSystem() {
   // Update MP3 volume when config changes
   useEffect(() => {
     if (backgroundMusicRef.current) {
-      backgroundMusicRef.current.volume = config.masterVolume * config.musicVolume;
+      backgroundMusicRef.current.volume =
+        config.masterVolume * config.musicVolume * bgMusicAmbientMultiplierRef.current;
       backgroundMusicRef.current.muted = isMuted || !config.music;
     }
   }, [config.masterVolume, config.musicVolume, config.music, isMuted]);

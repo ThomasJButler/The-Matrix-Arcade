@@ -36,8 +36,8 @@ export const GAME_REGISTRY: GameEntry[] = [
   },
   {
     id: 'snake-classic',
-    title: 'Snake Classic',
-    description: 'Navigate through the matrix collecting data fragments to grow longer.',
+    title: 'Matrix Snake',
+    description: 'Slither through the cascade — devour data fragments, dodge walls, grow longer.',
     preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1737071599/matrixsnake2_jw29w1.png',
     category: 'Arcade',
     inspiration: 'Nokia Snake (1998)',

@@ -1,7 +1,7 @@
 import { test } from '../fixtures/arcade.fixture';
 import { runPlaythrough, runExitToPortal } from '../fixtures/playthrough';
 
-test.describe('Snake Classic', () => {
+test.describe('Matrix Snake', () => {
   test('full human playthrough', async ({ gameplayPage: page }) => {
     test.setTimeout(60_000);
     await runPlaythrough(page, {

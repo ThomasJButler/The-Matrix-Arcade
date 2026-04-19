@@ -236,7 +236,7 @@ describe('SaveLoadManager', () => {
     it('displays game names', () => {
       render(<SaveLoadManager {...defaultProps} />);
       expect(screen.getByText('Vortex Pong')).toBeInTheDocument();
-      expect(screen.getByText('Snake Classic')).toBeInTheDocument();
+      expect(screen.getByText('Matrix Snake')).toBeInTheDocument();
     });
 
     it('displays high scores', () => {

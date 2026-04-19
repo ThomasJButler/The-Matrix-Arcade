@@ -5,8 +5,8 @@ export class SnakeMenuScene extends MenuScene {
   constructor() {
     super({
       key: SCENE_KEYS.MENU,
-      title: 'SNAKE CLASSIC',
-      subtitle: 'Navigate the Matrix, collect data fragments',
+      title: 'MATRIX SNAKE',
+      subtitle: 'Slither the cascade, devour data fragments',
       gameScene: SCENE_KEYS.GAME,
     });
   }

@@ -106,7 +106,7 @@ export type GameId = typeof GAME_IDS[number];
 
 const GAME_DISPLAY_TITLES: Record<GameId, string> = {
   'ctrl-s-world': 'CTRL-S | The World',
-  'snake-classic': 'Snake Classic',
+  'snake-classic': 'Matrix Snake',
   'vortex-pong': 'Vortex Pong',
   'matrix-cloud': 'Matrix Bird',
   'matrix-invaders': 'Matrix Invaders',
