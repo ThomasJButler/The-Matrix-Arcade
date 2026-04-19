@@ -1732,4 +1732,105 @@ describe('MatrixCloudGameScene', () => {
       expect(callback()).toBeUndefined();
     });
   });
+
+  // R84.B10: pin the PG4 (≥80px from nearest pipe) + PG5 (max 4 simultaneous
+  // pipes) fairness invariants that R83.B1 shipped. The testing checklist
+  // lines 147–148 tick both as fixed, but pre-R84.B10 there were no
+  // regression-guard tests — a future refactor (especially one touching
+  // `spawnPipe` or `spawnPowerUp` to add new variants) could silently
+  // reintroduce cramped pipes or powerups-under-pipe spawns. These tests
+  // lock the contract against the config constants so any breakage fails
+  // loudly in CI before Tom sees it.
+  describe('R84.B10 Pipe + power-up spacing invariants', () => {
+    describe('PG5 — PIPE_MAX_ACTIVE cap', () => {
+      it('config sanity: PIPE_MAX_ACTIVE is 4', () => {
+        expect(C.PIPE_MAX_ACTIVE).toBe(4);
+      });
+
+      it('spawnPipe hard-caps pipes.length at PIPE_MAX_ACTIVE no matter how many times invoked', () => {
+        for (let i = 0; i < 10; i++) call(scene, 'spawnPipe');
+        expect(scene.pipes.length).toBe(C.PIPE_MAX_ACTIVE);
+      });
+
+      it('spawnPipe above cap is a no-op — no new pipe, no power-up side-effect', () => {
+        for (let i = 0; i < C.PIPE_MAX_ACTIVE; i++) call(scene, 'spawnPipe');
+        const prePipes = scene.pipes.length;
+        const prePowerUps = scene.fieldPowerUps.length;
+        // Force the POWERUP_CHANCE branch so a bug that skipped the cap
+        // guard would push both a pipe AND a power-up.
+        const rng = vi.spyOn(Math, 'random').mockReturnValue(0);
+        call(scene, 'spawnPipe');
+        rng.mockRestore();
+        expect(scene.pipes.length).toBe(prePipes);
+        expect(scene.fieldPowerUps.length).toBe(prePowerUps);
+      });
+    });
+
+    describe('PG4 — POWERUP_MIN_PIPE_DISTANCE from nearest pipe', () => {
+      it('config sanity: POWERUP_MIN_PIPE_DISTANCE is 80', () => {
+        expect(C.POWERUP_MIN_PIPE_DISTANCE).toBe(80);
+      });
+
+      it('spawnPowerUp places sprite within the safe [pipeRight+80, nextPipeLeft-80] window at fresh score', () => {
+        scene.score = 0; // effective spacing = PIPE_SPACING_INITIAL = 320
+        const pipeX = 500;
+        const rng = vi.spyOn(Math, 'random').mockReturnValue(0.5); // midpoint of window
+        call(scene, 'spawnPowerUp', pipeX);
+        rng.mockRestore();
+
+        expect(scene.fieldPowerUps).toHaveLength(1);
+        const pu = scene.fieldPowerUps[0];
+        const pipeRightEdge = pipeX + C.PIPE_WIDTH;
+        const nextPipeLeftEdge = pipeX + C.PIPE_SPACING_INITIAL;
+        expect(pu.x).toBeGreaterThanOrEqual(pipeRightEdge + C.POWERUP_MIN_PIPE_DISTANCE);
+        expect(pu.x).toBeLessThanOrEqual(nextPipeLeftEdge - C.POWERUP_MIN_PIPE_DISTANCE);
+      });
+
+      it('spawnPowerUp at left window edge (random=0) clears the 80px rule from the just-spawned pipe', () => {
+        scene.score = 0;
+        const pipeX = 0;
+        const rng = vi.spyOn(Math, 'random').mockReturnValue(0); // pushes x to safeStart
+        call(scene, 'spawnPowerUp', pipeX);
+        rng.mockRestore();
+        const pu = scene.fieldPowerUps[scene.fieldPowerUps.length - 1];
+        expect(pu.x).toBeGreaterThanOrEqual(pipeX + C.PIPE_WIDTH + C.POWERUP_MIN_PIPE_DISTANCE);
+      });
+
+      it('spawnPowerUp at minimum spacing (score ≥ RAMP) still respects 80px from both neighbours', () => {
+        // At PIPE_SPACING_MIN=240 the safe window is only 240 - 50 - 2*80 = 30px
+        // wide — but the rule still holds: both endpoints must be ≥80px from
+        // their nearest pipe. If a refactor squeezes spacing below the
+        // PIPE_WIDTH+2*minDist=210px floor, this assertion flags it.
+        scene.score = C.PIPE_SPACING_RAMP_SCORE;
+        const pipeX = 0;
+        const safeWindowWidth = C.PIPE_SPACING_MIN - C.PIPE_WIDTH - 2 * C.POWERUP_MIN_PIPE_DISTANCE;
+        expect(safeWindowWidth).toBeGreaterThan(0); // contract: min spacing must be > PIPE_WIDTH+2*minDist
+        const rng = vi.spyOn(Math, 'random').mockReturnValue(1); // pushes x to safeEnd
+        call(scene, 'spawnPowerUp', pipeX);
+        rng.mockRestore();
+        const pu = scene.fieldPowerUps[scene.fieldPowerUps.length - 1];
+        const nextPipeLeftEdge = pipeX + C.PIPE_SPACING_MIN;
+        expect(pu.x).toBeLessThanOrEqual(nextPipeLeftEdge - C.POWERUP_MIN_PIPE_DISTANCE);
+        expect(pu.x).toBeGreaterThanOrEqual(pipeX + C.PIPE_WIDTH + C.POWERUP_MIN_PIPE_DISTANCE);
+      });
+
+      it('bonus-pipe power-up intentionally bypasses the 80px rule (gap-centre reward)', () => {
+        // R84.B4 bonus pipes seed a power-up AT the gap centre as the
+        // threading reward — distance from pipe left = PIPE_WIDTH/2 = 25px.
+        // Pinning this as a semantic exception so a future "safety fix"
+        // doesn't silently regress the narrower-gap reward contract.
+        scene.score = PIPE_VARIANTS.BONUS_UNLOCK_SCORE;
+        scene.pickPipeKind = () => 'bonus';
+        call(scene, 'spawnPipe');
+        const pipe = scene.pipes[0];
+        expect(scene.fieldPowerUps).toHaveLength(1);
+        const pu = scene.fieldPowerUps[0];
+        const distFromPipeLeft = pu.x - pipe.x;
+        expect(distFromPipeLeft).toBe(C.PIPE_WIDTH / 2);
+        // Deliberately INSIDE the pipe's horizontal footprint — this is the
+        // bonus-reward contract, not a PG4 violation.
+        expect(pu.x).toBeLessThan(pipe.x + C.PIPE_WIDTH);
+      });
+    });
+  });
 });
