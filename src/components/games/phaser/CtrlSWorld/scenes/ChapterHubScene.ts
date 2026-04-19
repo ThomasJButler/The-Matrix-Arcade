@@ -11,6 +11,7 @@ import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
 import { MATRIX_COLORS, MATRIX_FONTS } from '../../../../../lib/phaser/types';
 import { CTRLS_SCENE_KEYS, CTRLS_REGISTRY_KEYS, HUB_CONFIG, MUSIC_TRACKS, STINGER_KEYS, type ChapterStatus } from '../config';
 import { getChapterTitle, getChapterPuzzleCount, TOTAL_CHAPTERS } from '../../../../../data/ctrlsChapters';
+import { CHAPTER_SIGILS, type ChapterId } from '../asciiArt';
 
 interface ChapterTile {
   index: number;
@@ -233,6 +234,35 @@ export class CtrlSChapterHubScene extends BaseScene {
     statusLabel.setAlpha(0.8);
 
     container.add([bg, badgeBg, badge, title, statusIcon, statusLabel]);
+
+    // R83.CTRLS.28 — chapter ASCII sigil badge on unlocked tiles.
+    // Maps chapter index to its ChapterId for the CHAPTER_SIGILS lookup.
+    // Locked tiles stay dark — the sigil would reveal the chapter's identity
+    // before the player has earned it. Available/in-progress/complete tiles
+    // get the small ASCII stamp anchored to the right side of the tile.
+    if (progress.status !== 'locked') {
+      const CHAPTER_ID_MAP: ChapterId[] = [
+        'prologue', 'chapter1', 'chapter2', 'chapter3', 'chapter4', 'chapter5',
+      ];
+      const chapterId = CHAPTER_ID_MAP[index];
+      if (chapterId && CHAPTER_SIGILS[chapterId]) {
+        const sigilText = this.add.text(
+          w / 2 - 8,
+          h / 2 - 8,
+          CHAPTER_SIGILS[chapterId],
+          {
+            fontFamily: MATRIX_FONTS.MONO,
+            fontSize: '3px',
+            color: colours.text,
+            align: 'right',
+          },
+        );
+        sigilText.setOrigin(1, 1);
+        sigilText.setResolution(TEXT_RESOLUTION);
+        sigilText.setAlpha(0.25);
+        container.add(sigilText);
+      }
+    }
 
     let progressBar: Phaser.GameObjects.Graphics | undefined;
     let progressFill: Phaser.GameObjects.Graphics | undefined;
