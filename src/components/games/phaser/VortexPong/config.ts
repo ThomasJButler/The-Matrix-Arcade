@@ -70,6 +70,43 @@ export const GAME_CONFIG = {
   },
 
   MAX_IMPACT_EFFECTS: 10,
+
+  // R84.P4 — vortex atmosphere amp-up. Tom's testing-doc verdict: the "vortex"
+  // naming implied more depth than R83.V1's paddle-hit trail alone. This block
+  // drives three procedural layers stacked beneath/between the existing rain +
+  // paddle render: a rotating elliptical radial-gradient backdrop for depth,
+  // a denser CRT scanline overlay (+30% alpha over Snake's R83.S1 0.18 base =
+  // 0.23), and a paddle-glow pulse that brightens as the nearest ball closes
+  // in. All layers are skipped (backdrop) or static (scanline) under
+  // prefers-reduced-motion so sensitive players still read the vortex without
+  // continuous movement.
+  ATMOSPHERE: {
+    VORTEX: {
+      INNER_RADIUS: 40,
+      OUTER_RADIUS: 560,
+      RING_COUNT: 8,
+      ROTATION_SECONDS: 45,      // plan: 30–60s full revolution
+      ASPECT_X: 1.25,             // elliptical stretch so rotation is visible
+      ASPECT_Y: 0.85,
+      BASE_ALPHA: 0.35,           // overall opacity of the whole layer
+      RING_INNER_ALPHA: 0.55,     // brightest (centre-most) ring
+      RING_OUTER_ALPHA: 0.05,     // dimmest (outermost) ring
+    },
+    SCANLINE: {
+      STRIDE_PX: 3,
+      ALPHA: 0.23,                // Snake baseline 0.18 × 1.30
+    },
+    PADDLE_GLOW: {
+      COLOR: 0x00ff00,            // MATRIX_COLORS.PRIMARY inlined to keep the
+                                  // config block free of `Phaser` imports.
+      MAX_ALPHA: 0.55,
+      MIN_ALPHA: 0.08,            // faint halo even when ball is far
+      THRESHOLD_PX: 260,          // ~1/3 of canvas width — approach distance
+      WIDTH_PAD: 14,              // glow rect is bigger than the paddle
+      HEIGHT_PAD: 24,
+      SCALE_BOOST: 0.25,          // extra size swell on closest approach
+    },
+  },
 } as const;
 
 export const ACHIEVEMENTS = {

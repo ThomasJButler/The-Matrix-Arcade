@@ -89,27 +89,45 @@ function createTestScene() {
     activePointer: { isDown: false, wasTouch: false, y: 0 },
   };
 
-  // Graphics (for center line)
+  // Graphics — fresh instance per call so vortex backdrop, scanline overlay
+  // and centre-line don't share the same mock and stomp on each other's
+  // call records.
   scene.add = {
-    graphics: vi.fn().mockReturnValue({
-      lineStyle: vi.fn(),
-      moveTo: vi.fn(),
-      lineTo: vi.fn(),
-      strokePath: vi.fn(),
-      fillStyle: vi.fn(),
-      fillCircle: vi.fn(),
-      strokeCircle: vi.fn(),
-      generateTexture: vi.fn(),
-      destroy: vi.fn(),
-      setStrokeStyle: vi.fn(),
-      setScale: vi.fn(),
-      setAlpha: vi.fn(),
+    graphics: vi.fn().mockImplementation(() => {
+      const g: any = {
+        lineStyle: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        strokePath: vi.fn(),
+        fillStyle: vi.fn(),
+        fillCircle: vi.fn(),
+        strokeCircle: vi.fn(),
+        fillRect: vi.fn(),
+        generateTexture: vi.fn(),
+        setStrokeStyle: vi.fn(),
+        // R84.P4 — atmosphere uses these chainable setters.
+        setPosition: vi.fn(function (this: any, x: number, y: number) { this.x = x; this.y = y; return this; }),
+        setDepth: vi.fn(function (this: any, z: number) { this.depth = z; return this; }),
+        setScale: vi.fn(function (this: any, sx: number, sy?: number) {
+          this.scaleX = sx; this.scaleY = sy ?? sx; return this;
+        }),
+        setAlpha: vi.fn(function (this: any, a: number) { this.alpha = a; return this; }),
+        rotation: 0,
+        destroy: vi.fn(),
+      };
+      return g;
     }),
-    rectangle: vi.fn().mockImplementation((x: number, y: number, w: number, h: number) => ({
-      x, y, width: w, height: h,
-      setSize: vi.fn(),
-      destroy: vi.fn(),
-    })),
+    rectangle: vi.fn().mockImplementation((x: number, y: number, w: number, h: number, color?: number, alpha?: number) => {
+      const r: any = {
+        x, y, width: w, height: h, color, alpha, scale: 1,
+        setSize: vi.fn(),
+        setDepth: vi.fn(function (this: any, z: number) { this.depth = z; return this; }),
+        setAlpha: vi.fn(function (this: any, a: number) { this.alpha = a; return this; }),
+        setScale: vi.fn(function (this: any, s: number) { this.scale = s; return this; }),
+        destroy: vi.fn(),
+      };
+      return r;
+    }),
     image: vi.fn().mockImplementation((x: number, y: number) => ({
       x, y,
       setDisplaySize: vi.fn(),
@@ -951,6 +969,211 @@ describe('VortexPongGameScene', () => {
       // clampPaddle to height-paddleHeight/2 = 450-40 = 410.
       expect(scene.aiPaddle.y).toBeLessThanOrEqual(GAME_CONFIG.HEIGHT - GAME_CONFIG.PADDLE.HEIGHT / 2);
       expect(scene.aiPaddle.y).toBeGreaterThan(100);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // R84.P4 — Vortex atmosphere amp-up (rotating backdrop + scanline overlay
+  // + paddle-glow pulse on ball approach). Why these tests exist: the whole
+  // feature is procedural (no assets), so the only way to verify it lands
+  // correctly in the jsdom suite is by checking the scene wires up the right
+  // Phaser-side calls and that the per-frame drive functions respond to
+  // state the way the design brief prescribes.
+  // -----------------------------------------------------------------------
+  describe('R84.P4 vortex atmosphere', () => {
+    describe('config', () => {
+      it('exposes an ATMOSPHERE block with vortex, scanline and paddle-glow sub-config', () => {
+        expect(GAME_CONFIG.ATMOSPHERE).toBeDefined();
+        expect(GAME_CONFIG.ATMOSPHERE.VORTEX).toBeDefined();
+        expect(GAME_CONFIG.ATMOSPHERE.SCANLINE).toBeDefined();
+        expect(GAME_CONFIG.ATMOSPHERE.PADDLE_GLOW).toBeDefined();
+      });
+
+      it('keeps the vortex rotation period inside the 30–60s band the plan specifies', () => {
+        expect(GAME_CONFIG.ATMOSPHERE.VORTEX.ROTATION_SECONDS).toBeGreaterThanOrEqual(30);
+        expect(GAME_CONFIG.ATMOSPHERE.VORTEX.ROTATION_SECONDS).toBeLessThanOrEqual(60);
+      });
+
+      it('scanline alpha is +30% over Snake\'s 0.18 baseline', () => {
+        // Tolerate rounding — 0.18 × 1.30 = 0.234.
+        expect(GAME_CONFIG.ATMOSPHERE.SCANLINE.ALPHA).toBeCloseTo(0.234, 2);
+      });
+
+      it('vortex aspect ratio is non-circular so rotation is visible', () => {
+        const { ASPECT_X, ASPECT_Y } = GAME_CONFIG.ATMOSPHERE.VORTEX;
+        expect(ASPECT_X).not.toBe(ASPECT_Y);
+      });
+    });
+
+    describe('createVortexBackdrop', () => {
+      it('creates a graphics layer at depth -20 centred on the canvas', () => {
+        scene.createVortexBackdrop();
+        expect(scene.vortexBackdrop).toBeDefined();
+        expect(scene.vortexBackdrop.depth).toBe(-20);
+        expect(scene.vortexBackdrop.x).toBe(GAME_CONFIG.WIDTH / 2);
+        expect(scene.vortexBackdrop.y).toBe(GAME_CONFIG.HEIGHT / 2);
+      });
+
+      it('applies the configured base alpha', () => {
+        scene.createVortexBackdrop();
+        expect(scene.vortexBackdrop.alpha).toBeCloseTo(GAME_CONFIG.ATMOSPHERE.VORTEX.BASE_ALPHA);
+      });
+
+      it('paints base disc plus RING_COUNT+1 rings so every radius step is drawn', () => {
+        scene.createVortexBackdrop();
+        // Base disc is 1 fillCircle; loop from RING_COUNT..0 inclusive adds
+        // another RING_COUNT + 1, total = RING_COUNT + 2.
+        const expected = GAME_CONFIG.ATMOSPHERE.VORTEX.RING_COUNT + 2;
+        expect(scene.vortexBackdrop.fillCircle).toHaveBeenCalledTimes(expected);
+      });
+
+      it('stretches the disc elliptically via setScale', () => {
+        scene.createVortexBackdrop();
+        expect(scene.vortexBackdrop.scaleX).toBeCloseTo(GAME_CONFIG.ATMOSPHERE.VORTEX.ASPECT_X);
+        expect(scene.vortexBackdrop.scaleY).toBeCloseTo(GAME_CONFIG.ATMOSPHERE.VORTEX.ASPECT_Y);
+      });
+    });
+
+    describe('updateVortexRotation', () => {
+      it('advances rotation by 2π / ROTATION_SECONDS per second of dt', () => {
+        scene.createVortexBackdrop();
+        scene.vortexBackdrop.rotation = 0;
+        scene.updateVortexRotation(1.0); // one second
+        const expected = (Math.PI * 2) / GAME_CONFIG.ATMOSPHERE.VORTEX.ROTATION_SECONDS;
+        expect(scene.vortexBackdrop.rotation).toBeCloseTo(expected, 5);
+      });
+
+      it('no-ops when backdrop is not created', () => {
+        scene.vortexBackdrop = undefined;
+        expect(() => scene.updateVortexRotation(1.0)).not.toThrow();
+      });
+
+      it('skips rotation under prefers-reduced-motion', () => {
+        const original = window.matchMedia;
+        // @ts-expect-error overriding for test
+        window.matchMedia = vi.fn().mockReturnValue({ matches: true });
+        try {
+          scene.createVortexBackdrop();
+          scene.vortexBackdrop.rotation = 0;
+          scene.updateVortexRotation(1.0);
+          expect(scene.vortexBackdrop.rotation).toBe(0);
+        } finally {
+          window.matchMedia = original;
+        }
+      });
+    });
+
+    describe('createScanlineOverlay', () => {
+      it('creates a graphics layer at depth 90 so it paints above gameplay objects', () => {
+        scene.createScanlineOverlay();
+        expect(scene.scanlineOverlay).toBeDefined();
+        expect(scene.scanlineOverlay.depth).toBe(90);
+      });
+
+      it('paints one fillRect per scanline row when reduced motion is off', () => {
+        scene.createScanlineOverlay();
+        const expectedRows = Math.ceil(
+          GAME_CONFIG.HEIGHT / GAME_CONFIG.ATMOSPHERE.SCANLINE.STRIDE_PX,
+        );
+        expect(scene.scanlineOverlay.fillRect).toHaveBeenCalledTimes(expectedRows);
+      });
+
+      it('skips scanline drawing under prefers-reduced-motion (but keeps the object for cleanup)', () => {
+        const original = window.matchMedia;
+        // @ts-expect-error overriding for test
+        window.matchMedia = vi.fn().mockReturnValue({ matches: true });
+        try {
+          scene.createScanlineOverlay();
+          expect(scene.scanlineOverlay).toBeDefined();
+          expect(scene.scanlineOverlay.fillRect).not.toHaveBeenCalled();
+        } finally {
+          window.matchMedia = original;
+        }
+      });
+    });
+
+    describe('createPaddleGlows', () => {
+      it('creates both player + AI glow rectangles at depth -5 (behind paddles)', () => {
+        scene.createPaddleGlows();
+        expect(scene.playerPaddleGlow).toBeDefined();
+        expect(scene.aiPaddleGlow).toBeDefined();
+        expect(scene.playerPaddleGlow.depth).toBe(-5);
+        expect(scene.aiPaddleGlow.depth).toBe(-5);
+      });
+
+      it('sizes each glow as padded paddle dimensions so the halo extends past the paddle edges', () => {
+        scene.createPaddleGlows();
+        const pg = GAME_CONFIG.ATMOSPHERE.PADDLE_GLOW;
+        expect(scene.playerPaddleGlow.width).toBe(GAME_CONFIG.PADDLE.WIDTH + pg.WIDTH_PAD);
+        expect(scene.playerPaddleGlow.height).toBe(GAME_CONFIG.PADDLE.HEIGHT + pg.HEIGHT_PAD);
+      });
+
+      it('starts at MIN_ALPHA (faint halo) so there is no glow without a ball', () => {
+        scene.createPaddleGlows();
+        expect(scene.playerPaddleGlow.alpha).toBeCloseTo(GAME_CONFIG.ATMOSPHERE.PADDLE_GLOW.MIN_ALPHA);
+      });
+    });
+
+    describe('updatePaddleGlows', () => {
+      beforeEach(() => {
+        scene.createPaddleGlows();
+      });
+
+      it('holds glow at MIN_ALPHA when no balls exist', () => {
+        scene.balls = [];
+        scene.updatePaddleGlows();
+        expect(scene.playerPaddleGlow.alpha).toBeCloseTo(GAME_CONFIG.ATMOSPHERE.PADDLE_GLOW.MIN_ALPHA);
+        expect(scene.aiPaddleGlow.alpha).toBeCloseTo(GAME_CONFIG.ATMOSPHERE.PADDLE_GLOW.MIN_ALPHA);
+      });
+
+      it('ramps glow toward MAX_ALPHA as the ball closes on the player paddle', () => {
+        // Ball sitting right on the player paddle → norm = 1 → alpha = MAX_ALPHA.
+        createBall(scene, scene.playerPaddle.x, scene.playerPaddle.y, 0, 0);
+        scene.updatePaddleGlows();
+        expect(scene.playerPaddleGlow.alpha).toBeCloseTo(GAME_CONFIG.ATMOSPHERE.PADDLE_GLOW.MAX_ALPHA);
+      });
+
+      it('holds player glow at MIN_ALPHA when ball is beyond THRESHOLD_PX away', () => {
+        // Ball parked at the AI side, well beyond the player-glow threshold.
+        const farX = scene.playerPaddle.x + GAME_CONFIG.ATMOSPHERE.PADDLE_GLOW.THRESHOLD_PX + 50;
+        createBall(scene, farX, 225, 0, 0);
+        scene.updatePaddleGlows();
+        expect(scene.playerPaddleGlow.alpha).toBeCloseTo(GAME_CONFIG.ATMOSPHERE.PADDLE_GLOW.MIN_ALPHA);
+      });
+
+      it('tracks paddle Y so the glow sticks to the paddle vertically', () => {
+        scene.playerPaddle.y = 123;
+        scene.aiPaddle.y = 321;
+        createBall(scene, 400, 200, 0, 0);
+        scene.updatePaddleGlows();
+        expect(scene.playerPaddleGlow.y).toBe(123);
+        expect(scene.aiPaddleGlow.y).toBe(321);
+      });
+
+      it('boosts glow scale on closest approach when reduced motion is off', () => {
+        createBall(scene, scene.playerPaddle.x, scene.playerPaddle.y, 0, 0);
+        scene.updatePaddleGlows();
+        expect(scene.playerPaddleGlow.scale).toBeCloseTo(1 + GAME_CONFIG.ATMOSPHERE.PADDLE_GLOW.SCALE_BOOST);
+      });
+
+      it('pins glow scale to 1 under prefers-reduced-motion (no pulsing swell)', () => {
+        const original = window.matchMedia;
+        // @ts-expect-error overriding for test
+        window.matchMedia = vi.fn().mockReturnValue({ matches: true });
+        try {
+          createBall(scene, scene.playerPaddle.x, scene.playerPaddle.y, 0, 0);
+          scene.updatePaddleGlows();
+          expect(scene.playerPaddleGlow.scale).toBe(1);
+        } finally {
+          window.matchMedia = original;
+        }
+      });
+
+      it('no-ops safely when glow rectangles are not yet created', () => {
+        scene.playerPaddleGlow = undefined;
+        scene.aiPaddleGlow = undefined;
+        expect(() => scene.updatePaddleGlows()).not.toThrow();
+      });
     });
   });
 
