@@ -1431,6 +1431,106 @@ main:has(.ipod-body--playing) {
   letter-spacing: 1px;
 }
 
+/* R83.G5 — CRT-boot overlay covering Phaser's Scale.FIT mount flicker.
+   Mounted by GamePortal on every play boundary (see `isBooting` effect);
+   auto-unmounts after 400 ms so the fade-out below runs while the canvas
+   underneath has already settled. `pointer-events: none` keeps the game
+   canvas hit-testable during the cover (the overlay is aria-hidden, so
+   screen-reader users get no dead announcement). */
+.ipod-boot-overlay {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  overflow: hidden;
+  z-index: 20;
+  pointer-events: none;
+  contain: layout style paint;
+  animation: ipod-boot-fade 400ms ease-out forwards;
+  will-change: opacity;
+}
+
+@keyframes ipod-boot-fade {
+  0%, 75% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Sweep a single bright scanline top→bottom once during the cover. */
+.ipod-boot-scanline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 0, 0.85), transparent);
+  box-shadow: 0 0 12px rgba(0, 255, 0, 0.55);
+  animation: ipod-boot-scanline-sweep 360ms linear forwards;
+  will-change: transform;
+}
+
+@keyframes ipod-boot-scanline-sweep {
+  0% { transform: translateY(0); opacity: 0.9; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+
+/* Faux matrix rain — 12 thin columns pulsing green via radial gradient.
+   Kept as CSS-only pseudo-rain (no JS per-frame) so the overlay is cheap
+   even if the user re-enters games rapidly. */
+.ipod-boot-rain {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 8%;
+  opacity: 0.4;
+  mix-blend-mode: screen;
+}
+
+.ipod-boot-rain-col {
+  flex: 0 0 2px;
+  align-self: stretch;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 255, 0, 0.0) 20%,
+    rgba(0, 255, 0, 0.55) 50%,
+    rgba(0, 255, 0, 0.0) 80%,
+    transparent 100%
+  );
+  animation: ipod-boot-rain-fall 320ms ease-in forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes ipod-boot-rain-fall {
+  0% { transform: translateY(-40%); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translateY(60%); opacity: 0; }
+}
+
+.ipod-boot-title {
+  position: relative;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  color: #00ff00;
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.8), 0 0 22px rgba(0, 255, 0, 0.35);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  z-index: 1;
+}
+
+.ipod-boot-status {
+  position: relative;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: rgba(0, 255, 0, 0.6);
+  letter-spacing: 1.5px;
+  z-index: 1;
+}
+
 /* iPod empty / no-signal screen — defensive fallback when no game is resolvable */
 .ipod-empty-screen {
   display: flex;
@@ -1488,6 +1588,20 @@ main:has(.ipod-body--playing) {
   .ipod-empty-glyph {
     animation: none !important;
     opacity: 0.35;
+  }
+
+  /* R83.G5 — flicker cover still needed under reduced-motion (the canvas
+     FIT flicker is itself involuntary motion), but drop the rain fall,
+     scanline sweep, and fade-out pulse. Overlay hard-unmounts after the
+     React timeout, so no visible cut-off. */
+  .ipod-boot-overlay {
+    animation: none !important;
+    opacity: 1;
+  }
+  .ipod-boot-scanline,
+  .ipod-boot-rain-col {
+    animation: none !important;
+    opacity: 0.25;
   }
 }
 
