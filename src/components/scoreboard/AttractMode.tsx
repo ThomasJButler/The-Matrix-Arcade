@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { MatrixRainCanvas } from '../ui/MatrixRainCanvas';
 import { ScoreTable } from './ScoreTable';
 import type { ScoreboardGameId, ScoreEntry } from '../../hooks/useSaveSystem';
@@ -39,6 +39,15 @@ export const AttractMode: React.FC<AttractModeProps> = ({
   const [gameIndex, setGameIndex] = useState(0);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cycleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Attract is purely decorative — skip fades, slides, and the pulse CTA under
+  // prefers-reduced-motion. Framer's hook returns `null` on the server / first
+  // paint; coerce to a boolean so downstream expressions stay stable.
+  const shouldReduceMotion = useReducedMotion() ?? false;
+  const overlayDuration = shouldReduceMotion ? 0 : 0.5;
+  const slideDuration = shouldReduceMotion ? 0 : 0.4;
+  const slideOffset = shouldReduceMotion ? 0 : 20;
+  const insertCoinClass = shouldReduceMotion ? 'mt-8' : 'mt-8 animate-pulse';
 
   const resetIdle = useCallback(() => {
     setActive(false);
@@ -101,10 +110,11 @@ export const AttractMode: React.FC<AttractModeProps> = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: overlayDuration }}
           className="fixed inset-0 z-50 flex flex-col items-center justify-center"
           style={{ cursor: 'pointer' }}
           onClick={resetIdle}
+          data-reduced-motion={shouldReduceMotion ? 'true' : 'false'}
         >
           <MatrixRainCanvas opacity={0.3} />
 
@@ -121,10 +131,10 @@ export const AttractMode: React.FC<AttractModeProps> = ({
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentGame}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: slideOffset }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.4 }}
+                exit={{ opacity: 0, y: -slideOffset }}
+                transition={{ duration: slideDuration }}
               >
                 <h2
                   className="text-2xl mb-1"
@@ -162,7 +172,7 @@ export const AttractMode: React.FC<AttractModeProps> = ({
             </AnimatePresence>
 
             <p
-              className="mt-8 animate-pulse"
+              className={insertCoinClass}
               style={{
                 fontFamily: '"Press Start 2P", monospace',
                 fontSize: '10px',

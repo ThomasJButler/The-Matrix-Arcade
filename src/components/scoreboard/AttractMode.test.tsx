@@ -2,6 +2,10 @@ import type { ComponentProps, ReactNode } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 
+// Mutable container hoisted so tests can flip reduced-motion mid-suite without
+// re-mocking the module (vi.mock itself is hoisted).
+const framerMock = vi.hoisted(() => ({ reducedMotion: false }));
+
 // Strip framer-motion animations so `mode="wait"` exit/enter doesn't hold the
 // old slide in the DOM while the test asserts against the new one. This mirrors
 // the shared pattern used across the UI test suite (AchievementNotification,
@@ -13,6 +17,7 @@ vi.mock('framer-motion', () => ({
     ),
   },
   AnimatePresence: ({ children }: { children?: ReactNode }) => <>{children}</>,
+  useReducedMotion: () => framerMock.reducedMotion,
 }));
 
 // MatrixRainCanvas spins a requestAnimationFrame loop in its effect; in fake-
@@ -142,11 +147,13 @@ describe('selectAttractCycle (R84.CI-10)', () => {
 describe('AttractMode component (R84.CI-10)', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    framerMock.reducedMotion = false;
   });
 
   afterEach(() => {
     cleanup();
     vi.useRealTimers();
+    framerMock.reducedMotion = false;
   });
 
   const renderAttract = (
@@ -298,5 +305,127 @@ describe('AttractMode component (R84.CI-10)', () => {
       vi.advanceTimersByTime(15_000);
     });
     expect(screen.getByText('Metris')).toBeInTheDocument();
+  });
+});
+
+describe('AttractMode reduced-motion (R84.CI-11)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    framerMock.reducedMotion = false;
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    framerMock.reducedMotion = false;
+  });
+
+  const renderAttract = () =>
+    render(
+      <AttractMode
+        scoreboards={emptyBoards()}
+        lastInitials="ABC"
+        enabled
+      />,
+    );
+
+  const activate = () => {
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+  };
+
+  it('renders the pulse CTA with animate-pulse when motion is allowed', () => {
+    // Baseline: with reduced-motion false the CTA should keep the
+    // Tailwind pulse class so sighted users see the "insert coin" breath.
+    framerMock.reducedMotion = false;
+    renderAttract();
+    activate();
+    const cta = screen.getByText('INSERT COIN TO CONTINUE');
+    expect(cta.className).toContain('animate-pulse');
+  });
+
+  it('strips animate-pulse from the CTA when reduced-motion is requested', () => {
+    // Load-bearing a11y contract: attract is decorative, so vestibular-trigger
+    // pulse animations must drop away under prefers-reduced-motion: reduce.
+    framerMock.reducedMotion = true;
+    renderAttract();
+    activate();
+    const cta = screen.getByText('INSERT COIN TO CONTINUE');
+    expect(cta.className).not.toContain('animate-pulse');
+    // The layout class must stay — the CTA still needs its top margin.
+    expect(cta.className).toContain('mt-8');
+  });
+
+  it('marks the overlay root with data-reduced-motion="false" by default', () => {
+    // Observable tripwire for the shouldReduceMotion wiring — exposes the
+    // framer hook decision to DOM-level tests without needing to reflect on
+    // framer internals (which the module mock flattens).
+    framerMock.reducedMotion = false;
+    const { container } = renderAttract();
+    activate();
+    const overlay = container.querySelector('[data-reduced-motion]');
+    expect(overlay?.getAttribute('data-reduced-motion')).toBe('false');
+  });
+
+  it('marks the overlay root with data-reduced-motion="true" when requested', () => {
+    framerMock.reducedMotion = true;
+    const { container } = renderAttract();
+    activate();
+    const overlay = container.querySelector('[data-reduced-motion]');
+    expect(overlay?.getAttribute('data-reduced-motion')).toBe('true');
+  });
+
+  it('still cycles between entries under reduced-motion (motion gated, logic intact)', () => {
+    // Reduced-motion must suppress the visual transitions, not the cycle
+    // advancement — AT users still need the scoreboard rotation to surface
+    // different games over time. Regression tripwire for a refactor that
+    // mistakenly halts the interval when motion is disabled.
+    framerMock.reducedMotion = true;
+    const boards = emptyBoards();
+    boards.snakeClassic = [entry(100)];
+    boards.vortexPong = [entry(200)];
+    render(
+      <AttractMode scoreboards={boards} lastInitials="ABC" enabled />,
+    );
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(screen.getByText('Matrix Snake')).toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(5_000);
+    });
+    expect(screen.getByText('Vortex Pong')).toBeInTheDocument();
+  });
+
+  it('tolerates a null return from useReducedMotion (server / first paint)', () => {
+    // Framer returns `null` before the media-query probe has run. The
+    // component coerces via `?? false`, so a null reading must behave
+    // identically to false. Spy the mock to force-return null and assert
+    // the overlay stays in the motion-allowed shape.
+    const originalMock = Object.getOwnPropertyDescriptor(framerMock, 'reducedMotion');
+    Object.defineProperty(framerMock, 'reducedMotion', {
+      configurable: true,
+      get: () => null as unknown as boolean,
+    });
+    try {
+      const { container } = renderAttract();
+      activate();
+      const overlay = container.querySelector('[data-reduced-motion]');
+      expect(overlay?.getAttribute('data-reduced-motion')).toBe('false');
+      const cta = screen.getByText('INSERT COIN TO CONTINUE');
+      expect(cta.className).toContain('animate-pulse');
+    } finally {
+      if (originalMock) {
+        Object.defineProperty(framerMock, 'reducedMotion', originalMock);
+      } else {
+        // Restore simple data-property shape so later tests can mutate freely.
+        Object.defineProperty(framerMock, 'reducedMotion', {
+          configurable: true,
+          writable: true,
+          value: false,
+        });
+      }
+    }
   });
 });
