@@ -77,6 +77,25 @@ export interface PauseStateChangedDetail {
   isPaused: boolean;
 }
 
+/**
+ * R83.G9 — dispatched by GamePortal the instant the user presses PLAY, BEFORE
+ * the parent state flip that mounts the game component. Gives any visual
+ * transition layer (current G5 boot overlay, future G10 Matrix-terminal
+ * launcher) a hook to start covering the iPod screen synchronously with the
+ * click, closing the 1-frame gap where the previous preview image briefly
+ * showed through in the bottom-left as the bezel grew.
+ */
+export const GAME_TRANSITION_BEGIN_EVENT = 'matrix-arcade:game-transition-begin';
+
+/**
+ * R83.G9 — dispatched by PhaserGame.tsx once the Phaser.Game instance fires
+ * its internal `ready` event (input system initialised, first scene booted).
+ * The transition mask listens for this to lift itself at the earliest moment
+ * the game canvas is safe to reveal, with a 500 ms safety timeout as a backstop
+ * in case `ready` never arrives (e.g. a non-Phaser game wrapper in future).
+ */
+export const GAME_TRANSITION_READY_EVENT = 'matrix-arcade:game-transition-ready';
+
 /** Registry keys for passing data between React and Phaser */
 export const REGISTRY_KEYS = {
   ACHIEVEMENT_MANAGER: 'achievementManager',
