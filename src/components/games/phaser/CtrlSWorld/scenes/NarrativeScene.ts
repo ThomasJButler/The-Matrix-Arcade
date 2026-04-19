@@ -116,7 +116,7 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.tickCounter = 0;
     this.engine.setCallbacks({
       onCharRevealed: () => this.onCharTick(),
-      onParagraphStart: (_idx: number, text: string) => this.onParagraphStart(text),
+      onParagraphStart: () => this.onParagraphStart(),
       onParagraphComplete: (idx: number) => this.onParagraphComplete(idx),
       onAllComplete: () => this.onAllComplete(),
     });
@@ -292,7 +292,7 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.playSound(tickKey);
   }
 
-  private onParagraphStart(text: string): void {
+  private onParagraphStart(): void {
     // Single-paragraph region: every new paragraph starts from a clean slate.
     // Destroy any inline ASCII left over from the previous paragraph and snap
     // bodyText back to the baseline Y so the paragraph always appears in the
@@ -306,11 +306,6 @@ export class CtrlSNarrativeScene extends BaseScene {
       this.bodyText.setY(this.computeContentStartY());
     }
     this.syncPortraitY();
-
-    this.emitGameEvent({
-      type: 'pause',
-      data: { action: 'voiceStart', text },
-    });
   }
 
   private onParagraphComplete(paragraphIndex: number): void {
@@ -541,10 +536,6 @@ export class CtrlSNarrativeScene extends BaseScene {
           this.syncPortraitY();
         },
       });
-    }
-
-    if (this.engine.state === 'TYPING') {
-      this.emitGameEvent({ type: 'pause', data: { action: 'voiceStop' } });
     }
 
     this.engine.advance();
@@ -1334,7 +1325,6 @@ export class CtrlSNarrativeScene extends BaseScene {
 
   shutdown(): void {
     this.events.off(Phaser.Scenes.Events.RESUME, this.onSceneResume, this);
-    this.emitGameEvent({ type: 'pause', data: { action: 'voiceStop' } });
     this.stopBackgroundMusic();
     this.bgImage?.destroy();
     this.bgImage = undefined;

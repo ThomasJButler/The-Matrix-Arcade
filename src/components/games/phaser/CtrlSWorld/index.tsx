@@ -9,10 +9,6 @@
  *  - Mount the Phaser game and bridge props via Phaser registry
  *  - Listen for game events and run save/achievement side effects
  *  - Sync GameStateContext → Phaser registry (so scenes read live progress)
- *  - (Transitional) drive Shatner TTS via useShatnerVoice — removed in R83.CTRLS.5
- *
- * R83.CTRLS.1: React overlays (PuzzleModal, InventoryPanel, ShatnerVoiceControls)
- * stripped from inside the game container — everything on the iPod screen is now Phaser-native.
  */
 
 import React, { useCallback, useEffect, useRef } from 'react';
@@ -23,7 +19,6 @@ import type { GameEvent } from '../../../../lib/phaser/types';
 import { getItemRewardsForPuzzle, getItemById } from '../../../../data/items';
 import { useGameState } from '../../../../contexts/GameStateContext';
 import { useSoundSystem } from '../../../../hooks/useSoundSystem';
-import { useShatnerVoice } from '../../../../hooks/useShatnerVoice';
 
 interface AchievementManager {
   unlockAchievement(gameId: string, achievementId: string): void;
@@ -51,18 +46,11 @@ export default function CtrlSWorldPhaser({
   const gameInstanceRef = useRef<Phaser.Game | null>(null);
   const activePuzzleRef = useRef<ActivePuzzleRef | null>(null);
   const { playSFX } = useSoundSystem();
-  const shatnerVoice = useShatnerVoice();
   const gameState = useGameState();
 
   const handleGameRef = useCallback((game: Phaser.Game | null) => {
     gameInstanceRef.current = game;
   }, []);
-
-  useEffect(() => {
-    if (isMuted) {
-      shatnerVoice.stop();
-    }
-  }, [isMuted, shatnerVoice]);
 
   // Sync GameStateContext → Phaser registry so scenes read live progress + inventory.
   useEffect(() => {
@@ -90,7 +78,6 @@ export default function CtrlSWorldPhaser({
       paragraphIndex?: number;
       choiceId?: string;
       label?: string;
-      text?: string;
       success?: boolean;
       hintsUsed?: number;
       lifelinesUsed?: number;
@@ -162,14 +149,8 @@ export default function CtrlSWorldPhaser({
     } else if (data.action === 'choice' && data.choiceId && data.label) {
       gameState.makeChoice(data.choiceId, data.label);
       gameState.saveGame();
-    } else if (data.action === 'voiceStart' && data.text) {
-      if (!isMuted) {
-        shatnerVoice.speak(data.text as string);
-      }
-    } else if (data.action === 'voiceStop') {
-      shatnerVoice.stop();
     }
-  }, [achievementManager, gameState, isMuted, playSFX, shatnerVoice]);
+  }, [achievementManager, gameState, isMuted, playSFX]);
 
   return (
     <div className="relative w-full h-full bg-black">
