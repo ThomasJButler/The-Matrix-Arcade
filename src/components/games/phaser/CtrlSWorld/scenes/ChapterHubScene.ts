@@ -43,6 +43,12 @@ const STATUS_ICONS: Record<ChapterStatus, string> = {
   'complete':    '✓',
 };
 
+// R83.CTRLS.14 — crisp text resolution. See NarrativeScene for full rationale;
+// duplicated per-scene so each stays self-contained. Hub tile badges sit at
+// 18-22px — the difference between res 1 and res 2 is especially visible on
+// these because the tile grid is the highest-density text block in the game.
+const TEXT_RESOLUTION = 2;
+
 export class CtrlSChapterHubScene extends BaseScene {
   protected override allowPause = false;
   private rainGroup?: Phaser.GameObjects.Group;
@@ -165,6 +171,7 @@ export class CtrlSChapterHubScene extends BaseScene {
       color: colours.text,
     });
     badge.setOrigin(0.5);
+    badge.setResolution(TEXT_RESOLUTION);
 
     const title = this.add.text(-w / 2 + 44, -h / 2 + 12, getChapterTitle(index), {
       fontFamily: MATRIX_FONTS.PRIMARY,
@@ -172,6 +179,7 @@ export class CtrlSChapterHubScene extends BaseScene {
       color: progress.status === 'locked' ? '#555555' : MATRIX_COLORS.PRIMARY_HEX,
       wordWrap: { width: w - 90 },
     });
+    title.setResolution(TEXT_RESOLUTION);
 
     const statusIcon = this.add.text(w / 2 - 20, -h / 2 + 14, STATUS_ICONS[progress.status], {
       fontFamily: MATRIX_FONTS.MONO,
@@ -179,12 +187,14 @@ export class CtrlSChapterHubScene extends BaseScene {
       color: colours.text,
     });
     statusIcon.setOrigin(0.5);
+    statusIcon.setResolution(TEXT_RESOLUTION);
 
     const statusLabel = this.add.text(-w / 2 + 44, -h / 2 + 34, colours.label, {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '7px',
       color: colours.text,
     });
+    statusLabel.setResolution(TEXT_RESOLUTION);
     statusLabel.setAlpha(0.8);
 
     container.add([bg, badgeBg, badge, title, statusIcon, statusLabel]);
@@ -218,6 +228,7 @@ export class CtrlSChapterHubScene extends BaseScene {
           color: colours.text,
         },
       );
+      puzzleLabel.setResolution(TEXT_RESOLUTION);
       puzzleLabel.setAlpha(0.7);
 
       container.add([progressBar, progressFill, puzzleLabel]);
@@ -230,6 +241,7 @@ export class CtrlSChapterHubScene extends BaseScene {
         color: '#00dd00',
       });
       checkText.setOrigin(0.5);
+      checkText.setResolution(TEXT_RESOLUTION);
       checkText.setAlpha(0.6);
       container.add(checkText);
     }
@@ -299,6 +311,7 @@ export class CtrlSChapterHubScene extends BaseScene {
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
     text.setOrigin(0.5);
+    text.setResolution(TEXT_RESOLUTION);
 
     container.add([bg, text]);
 
@@ -450,7 +463,16 @@ export class CtrlSChapterHubScene extends BaseScene {
     const width = Number(this.game.config.width);
     const height = Number(this.game.config.height);
 
-    const bg = this.add.image(width / 2, height / 2, 'bg-hub-node');
+    // R83.CTRLS.14 — explicit origin(0.5) + integer-snap. Defaults produce the
+    // same visual here (images default to origin 0.5, 400/300 are already
+    // integer) but R83.CTRLS.14's remit is to document intent at every image
+    // call site so future refactors can't drift the alignment silently.
+    const bg = this.add.image(
+      Math.round(width / 2),
+      Math.round(height / 2),
+      'bg-hub-node',
+    );
+    bg.setOrigin(0.5);
     bg.setDisplaySize(width, height);
     bg.setAlpha(0.08);
     bg.setTint(0x003300);

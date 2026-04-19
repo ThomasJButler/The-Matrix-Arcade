@@ -16,6 +16,8 @@ const OPTION_KEYS = ['A', 'B', 'C', 'D'] as const;
 const PANEL_WIDTH = 560;
 const PANEL_HEIGHT = 440;
 const INPUT_MAX = 40;
+// R83.CTRLS.14 — crisp text resolution. See NarrativeScene for full rationale.
+const TEXT_RESOLUTION = 2;
 
 /**
  * Phaser-native puzzle modal. Launched in parallel on top of NarrativeScene.
@@ -97,11 +99,15 @@ export class CtrlSPuzzleScene extends BaseScene {
     const contentX = panelX + 24;
     const contentTop = panelY + 20;
 
-    this.add.text(contentX, contentTop, `PUZZLE — ${this.puzzle.difficulty.toUpperCase()}`, {
+    // R83.CTRLS.14 — setResolution(2) on every text object in the puzzle
+    // modal. Puzzle text is the second-highest density block after the hub
+    // grid; small fonts (7-12px) render visibly crisper with the 2× canvas.
+    const header = this.add.text(contentX, contentTop, `PUZZLE — ${this.puzzle.difficulty.toUpperCase()}`, {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '10px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
+    header.setResolution(TEXT_RESOLUTION);
 
     if (this.puzzle.timeLimit) {
       this.timerText = this.add.text(panelX + PANEL_WIDTH - 24, contentTop, '', {
@@ -110,6 +116,7 @@ export class CtrlSPuzzleScene extends BaseScene {
         color: MATRIX_COLORS.CYAN_HEX,
       });
       this.timerText.setOrigin(1, 0);
+      this.timerText.setResolution(TEXT_RESOLUTION);
       this.updateTimerDisplay();
     }
 
@@ -121,6 +128,7 @@ export class CtrlSPuzzleScene extends BaseScene {
         wordWrap: { width: PANEL_WIDTH - 48 },
         lineSpacing: 2,
       });
+      this.contextText.setResolution(TEXT_RESOLUTION);
     }
 
     const questionY = this.contextText
@@ -134,6 +142,7 @@ export class CtrlSPuzzleScene extends BaseScene {
       wordWrap: { width: PANEL_WIDTH - 48 },
       lineSpacing: 4,
     });
+    this.questionText.setResolution(TEXT_RESOLUTION);
 
     const afterQuestionY = this.questionText.y + this.questionText.height + 18;
     if (this.isMultipleChoice()) {
@@ -147,6 +156,7 @@ export class CtrlSPuzzleScene extends BaseScene {
       fontSize: '9px',
       color: MATRIX_COLORS.DIM_GREEN_HEX,
     });
+    this.attemptsText.setResolution(TEXT_RESOLUTION);
     this.updateAttemptsDisplay();
 
     this.hintText = this.add.text(contentX, panelY + PANEL_HEIGHT - 54, '', {
@@ -155,6 +165,7 @@ export class CtrlSPuzzleScene extends BaseScene {
       color: MATRIX_COLORS.YELLOW_HEX,
       wordWrap: { width: PANEL_WIDTH - 48 },
     });
+    this.hintText.setResolution(TEXT_RESOLUTION);
 
     this.helpText = this.add.text(
       panelX + PANEL_WIDTH / 2,
@@ -167,6 +178,7 @@ export class CtrlSPuzzleScene extends BaseScene {
       },
     );
     this.helpText.setOrigin(0.5, 0.5);
+    this.helpText.setResolution(TEXT_RESOLUTION);
 
     this.resultText = this.add.text(panelX + PANEL_WIDTH / 2, panelY + PANEL_HEIGHT / 2, '', {
       fontFamily: MATRIX_FONTS.PRIMARY,
@@ -174,6 +186,7 @@ export class CtrlSPuzzleScene extends BaseScene {
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
     this.resultText.setOrigin(0.5);
+    this.resultText.setResolution(TEXT_RESOLUTION);
     this.resultText.setVisible(false);
 
     this.bindKeyboard();
@@ -207,6 +220,7 @@ export class CtrlSPuzzleScene extends BaseScene {
         color: MATRIX_COLORS.DIM_GREEN_HEX,
         wordWrap: { width: PANEL_WIDTH - 60 },
       });
+      text.setResolution(TEXT_RESOLUTION);
       this.optionTexts.push(text);
     });
 
@@ -257,6 +271,7 @@ export class CtrlSPuzzleScene extends BaseScene {
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
     this.inputText.setOrigin(0, 0.5);
+    this.inputText.setResolution(TEXT_RESOLUTION);
   }
 
   private updateInputDisplay(): void {

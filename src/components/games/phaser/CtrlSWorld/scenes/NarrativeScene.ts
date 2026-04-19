@@ -27,6 +27,13 @@ const ASCII_LINE_HEIGHT = 9;
 const CURSOR_GAP_Y = 6;
 const INLINE_ASCII_GAP_Y = 16;
 const CHOICE_FADE_DURATION = 400;
+// R83.CTRLS.14 — crisp text resolution. Phaser's default Text resolution is 1,
+// which renders strokes with the canvas's native DPI only. 2× multiplies the
+// off-screen canvas Phaser uses for text layout then samples down to display
+// size — strokes stay sharp on every monitor, and on DPR=1 displays the
+// downsample acts as a cheap SSAA pass so small font sizes (7-12px) stop
+// looking soft. Memory cost is negligible for CTRL-S's ~50 text objects.
+const TEXT_RESOLUTION = 2;
 // Inline terminal-prompt choice UI (R83.CTRLS.3). Choices render as
 // `> [1] Label` lines below the active paragraph, mirroring a Matrix
 // terminal. No buttons, no boxes — just text.
@@ -164,6 +171,7 @@ export class CtrlSNarrativeScene extends BaseScene {
       fontSize: '14px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
+    this.chapterTitle.setResolution(TEXT_RESOLUTION);
 
     let contentStartY = GAME_CONFIG.TEXT.MARGIN_Y;
 
@@ -175,6 +183,7 @@ export class CtrlSNarrativeScene extends BaseScene {
         color: MATRIX_COLORS.DIM_GREEN_HEX,
         lineSpacing: 1,
       });
+      this.chapterAscii.setResolution(TEXT_RESOLUTION);
       this.chapterAscii.setAlpha(0.7);
 
       const asciiHeight = this.chapter.ascii.length * ASCII_LINE_HEIGHT;
@@ -195,12 +204,14 @@ export class CtrlSNarrativeScene extends BaseScene {
       wordWrap: { width: width - margin * 2 },
       lineSpacing: 8,
     });
+    this.bodyText.setResolution(TEXT_RESOLUTION);
 
     this.cursorBlink = this.add.text(margin, contentStartY, '█', {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '12px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
+    this.cursorBlink.setResolution(TEXT_RESOLUTION);
     this.cursorTween = this.tweens.add({
       targets: this.cursorBlink,
       alpha: { from: 1, to: 0 },
@@ -215,6 +226,7 @@ export class CtrlSNarrativeScene extends BaseScene {
       color: MATRIX_COLORS.DIM_GREEN_HEX,
     });
     this.promptText.setOrigin(0.5);
+    this.promptText.setResolution(TEXT_RESOLUTION);
     this.tweens.add({
       targets: this.promptText,
       alpha: { from: 1, to: 0.3 },
@@ -442,6 +454,7 @@ export class CtrlSNarrativeScene extends BaseScene {
       color: MATRIX_COLORS.MEDIUM_GREEN_HEX,
       lineSpacing: 1,
     });
+    asciiText.setResolution(TEXT_RESOLUTION);
     asciiText.setAlpha(0);
     this.asciiPanels.push(asciiText);
 
@@ -612,6 +625,7 @@ export class CtrlSNarrativeScene extends BaseScene {
       color: MATRIX_COLORS.PRIMARY_HEX,
       wordWrap: { width: wrapWidth },
     });
+    this.terminalPromptLabel.setResolution(TEXT_RESOLUTION);
     this.terminalContainer.add(this.terminalPromptLabel);
     cursorY += this.terminalPromptLabel.height + TERMINAL_LINE_GAP_Y;
 
@@ -620,6 +634,7 @@ export class CtrlSNarrativeScene extends BaseScene {
       fontSize: TERMINAL_FONT_SIZE,
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
+    this.terminalInputLine.setResolution(TEXT_RESOLUTION);
     this.terminalContainer.add(this.terminalInputLine);
     cursorY += this.terminalInputLine.height + TERMINAL_LINE_GAP_Y;
 
@@ -628,6 +643,7 @@ export class CtrlSNarrativeScene extends BaseScene {
       fontSize: TERMINAL_HINT_FONT_SIZE,
       color: MATRIX_COLORS.MEDIUM_GREEN_HEX,
     });
+    this.terminalStatusLine.setResolution(TEXT_RESOLUTION);
     this.terminalContainer.add(this.terminalStatusLine);
     cursorY += this.terminalStatusLine.height + TERMINAL_LINE_GAP_Y;
 
@@ -637,6 +653,7 @@ export class CtrlSNarrativeScene extends BaseScene {
       color: MATRIX_COLORS.DIM_GREEN_HEX,
       wordWrap: { width: wrapWidth },
     });
+    this.terminalHintLabel.setResolution(TEXT_RESOLUTION);
     this.terminalHintLabel.setAlpha(0.85);
     this.terminalContainer.add(this.terminalHintLabel);
 
@@ -806,6 +823,7 @@ export class CtrlSNarrativeScene extends BaseScene {
         color: outcome === 'success' ? MATRIX_COLORS.PRIMARY_HEX : MATRIX_COLORS.DIM_GREEN_HEX,
         wordWrap: { width: wrapWidth },
       });
+      line.setResolution(TEXT_RESOLUTION);
       line.setAlpha(0);
       this.terminalEndingLines.push(line);
       this.terminalContainer!.add(line);
@@ -893,6 +911,7 @@ export class CtrlSNarrativeScene extends BaseScene {
         color: MATRIX_COLORS.DIM_GREEN_HEX,
         wordWrap: { width: wrapWidth },
       });
+      this.choicePromptLabel.setResolution(TEXT_RESOLUTION);
       this.choicePromptLabel.setAlpha(0);
       this.choiceContainer.add(this.choicePromptLabel);
       this.tweens.add({
@@ -937,6 +956,7 @@ export class CtrlSNarrativeScene extends BaseScene {
         color: MATRIX_COLORS.DARK_GREEN_HEX,
       },
     );
+    this.choiceHintLabel.setResolution(TEXT_RESOLUTION);
     this.choiceHintLabel.setAlpha(0);
     this.choiceContainer.add(this.choiceHintLabel);
     this.tweens.add({
@@ -965,6 +985,7 @@ export class CtrlSNarrativeScene extends BaseScene {
       color: MATRIX_COLORS.DIM_GREEN_HEX,
       wordWrap: { width: wrapWidth },
     });
+    text.setResolution(TEXT_RESOLUTION);
     text.setInteractive({ useHandCursor: true });
     text.on('pointerover', () => {
       this.selectedChoiceIndex = index;
@@ -1125,28 +1146,51 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.portraitContainer.add(this.portraitBorder);
 
     if (character.portraitKey && this.textures.exists(character.portraitKey)) {
-      this.portraitImage = this.add.image(size / 2, size / 2, character.portraitKey);
+      // R83.CTRLS.14 — explicit origin(0.5) documents intent (Phaser's default
+      // for images is 0.5 so behaviour is unchanged, but an explicit call
+      // protects against future refactors that bulk-reset origins). NEAREST
+      // filter is applied once at texture-load time in BootScene, so the
+      // 24px source sprite scales crisply up to the panel's 66px display size
+      // instead of the bilinear blur the pre-.14 build shipped.
+      this.portraitImage = this.add.image(
+        Math.round(size / 2),
+        Math.round(size / 2),
+        character.portraitKey,
+      );
+      this.portraitImage.setOrigin(0.5);
       this.portraitImage.setDisplaySize(size - 4, size - 4);
       this.portraitContainer.add(this.portraitImage);
     } else {
-      this.portraitMonogram = this.add.text(size / 2, size / 2, character.initial, {
-        fontFamily: MATRIX_FONTS.PRIMARY,
-        fontSize: '28px',
-        color: character.colourHex,
-      });
+      this.portraitMonogram = this.add.text(
+        Math.round(size / 2),
+        Math.round(size / 2),
+        character.initial,
+        {
+          fontFamily: MATRIX_FONTS.PRIMARY,
+          fontSize: '28px',
+          color: character.colourHex,
+        },
+      );
       this.portraitMonogram.setOrigin(0.5);
+      this.portraitMonogram.setResolution(TEXT_RESOLUTION);
       this.portraitContainer.add(this.portraitMonogram);
     }
 
-    this.portraitName = this.add.text(size / 2, size + PORTRAIT_CONFIG.NAME_OFFSET_Y, character.name, {
-      fontFamily: MATRIX_FONTS.PRIMARY,
-      fontSize: '7px',
-      color: character.colourHex,
-    });
+    this.portraitName = this.add.text(
+      Math.round(size / 2),
+      size + PORTRAIT_CONFIG.NAME_OFFSET_Y,
+      character.name,
+      {
+        fontFamily: MATRIX_FONTS.PRIMARY,
+        fontSize: '7px',
+        color: character.colourHex,
+      },
+    );
     this.portraitName.setOrigin(0.5, 0);
+    this.portraitName.setResolution(TEXT_RESOLUTION);
     this.portraitContainer.add(this.portraitName);
 
-    this.portraitContainer.setPosition(panelX, panelY);
+    this.portraitContainer.setPosition(Math.round(panelX), Math.round(panelY));
 
     this.tweens.add({
       targets: this.portraitContainer,
@@ -1206,7 +1250,12 @@ export class CtrlSNarrativeScene extends BaseScene {
     const width = Number(this.game.config.width);
     const height = Number(this.game.config.height);
 
-    this.bgImage = this.add.image(width / 2, height / 2, this.chapter.backgroundKey);
+    this.bgImage = this.add.image(
+      Math.round(width / 2),
+      Math.round(height / 2),
+      this.chapter.backgroundKey,
+    );
+    this.bgImage.setOrigin(0.5);
     this.bgImage.setDisplaySize(width + PARALLAX_CONFIG.BG_DRIFT_AMPLITUDE * 2, height + 10);
     this.bgImage.setAlpha(PARALLAX_CONFIG.BG_ALPHA);
 
@@ -1223,7 +1272,11 @@ export class CtrlSNarrativeScene extends BaseScene {
 
     this.bgElapsed += delta;
     const drift = Math.sin(this.bgElapsed / 1000 * PARALLAX_CONFIG.BG_DRIFT_SPEED * 0.1) * PARALLAX_CONFIG.BG_DRIFT_AMPLITUDE;
-    this.bgImage.setX(this.bgBaseX + drift);
+    // R83.CTRLS.14 — integer-snap the parallax drift position so the 800×620
+    // display-sized bg doesn't sub-pixel-wobble frame-to-frame and blur its
+    // own edges under bilinear filtering. The drift arc is still smooth
+    // because sin() remains continuous; we just quantise the sample.
+    this.bgImage.setX(Math.round(this.bgBaseX + drift));
   }
 
   private createThemeParticles(): void {
