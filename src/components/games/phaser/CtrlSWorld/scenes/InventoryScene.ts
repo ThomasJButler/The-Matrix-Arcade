@@ -8,6 +8,8 @@ const PANEL_WIDTH = 560;
 const PANEL_HEIGHT = 440;
 const ROW_HEIGHT = 34;
 const MAX_VISIBLE = 8;
+// R83.CTRLS.14 — crisp text resolution. See NarrativeScene for full rationale.
+const TEXT_RESOLUTION = 2;
 
 const TYPE_COLOURS: Record<CtrlSGameItem['type'], string> = {
   quest: MATRIX_COLORS.YELLOW_HEX,
@@ -68,22 +70,27 @@ export class CtrlSInventoryScene extends BaseScene {
     panel.fillRoundedRect(this.panelX, this.panelY, PANEL_WIDTH, PANEL_HEIGHT, 8);
     panel.strokeRoundedRect(this.panelX, this.panelY, PANEL_WIDTH, PANEL_HEIGHT, 8);
 
-    this.add.text(this.panelX + 24, this.panelY + 18, 'INVENTORY', {
-      fontFamily: MATRIX_FONTS.PRIMARY,
-      fontSize: '12px',
-      color: MATRIX_COLORS.PRIMARY_HEX,
-    });
-
-    this.add.text(
-      this.panelX + PANEL_WIDTH - 24,
-      this.panelY + 18,
-      `${this.items.length} items`,
-      {
+    this.add
+      .text(this.panelX + 24, this.panelY + 18, 'INVENTORY', {
         fontFamily: MATRIX_FONTS.PRIMARY,
-        fontSize: '10px',
-        color: MATRIX_COLORS.DIM_GREEN_HEX,
-      },
-    ).setOrigin(1, 0);
+        fontSize: '12px',
+        color: MATRIX_COLORS.PRIMARY_HEX,
+      })
+      .setResolution(TEXT_RESOLUTION);
+
+    this.add
+      .text(
+        this.panelX + PANEL_WIDTH - 24,
+        this.panelY + 18,
+        `${this.items.length} items`,
+        {
+          fontFamily: MATRIX_FONTS.PRIMARY,
+          fontSize: '10px',
+          color: MATRIX_COLORS.DIM_GREEN_HEX,
+        },
+      )
+      .setOrigin(1, 0)
+      .setResolution(TEXT_RESOLUTION);
 
     if (this.items.length === 0) {
       this.renderEmptyState();
@@ -92,16 +99,19 @@ export class CtrlSInventoryScene extends BaseScene {
       this.renderDetail();
     }
 
-    this.add.text(
-      this.panelX + PANEL_WIDTH / 2,
-      this.panelY + PANEL_HEIGHT - 22,
-      '↑↓ browse   ESC / I close',
-      {
-        fontFamily: MATRIX_FONTS.PRIMARY,
-        fontSize: '8px',
-        color: MATRIX_COLORS.DIM_GREEN_HEX,
-      },
-    ).setOrigin(0.5, 0.5);
+    this.add
+      .text(
+        this.panelX + PANEL_WIDTH / 2,
+        this.panelY + PANEL_HEIGHT - 22,
+        '↑↓ browse   ESC / I close',
+        {
+          fontFamily: MATRIX_FONTS.PRIMARY,
+          fontSize: '8px',
+          color: MATRIX_COLORS.DIM_GREEN_HEX,
+        },
+      )
+      .setOrigin(0.5, 0.5)
+      .setResolution(TEXT_RESOLUTION);
 
     this.bindKeyboard();
   }
@@ -120,6 +130,7 @@ export class CtrlSInventoryScene extends BaseScene {
       },
     );
     this.emptyText.setOrigin(0.5, 0.5);
+    this.emptyText.setResolution(TEXT_RESOLUTION);
   }
 
   private renderRows(): void {
@@ -142,6 +153,7 @@ export class CtrlSInventoryScene extends BaseScene {
         fontSize: '11px',
         color: selected ? MATRIX_COLORS.PRIMARY_HEX : TYPE_COLOURS[item.type],
       });
+      row.setResolution(TEXT_RESOLUTION);
       this.rowTexts.push(row);
     });
   }
@@ -163,6 +175,7 @@ export class CtrlSInventoryScene extends BaseScene {
       fontSize: '12px',
       color: TYPE_COLOURS[current.type],
     });
+    this.detailName.setResolution(TEXT_RESOLUTION);
 
     this.detailMeta = this.add.text(
       detailX,
@@ -174,6 +187,7 @@ export class CtrlSInventoryScene extends BaseScene {
         color: MATRIX_COLORS.DIM_GREEN_HEX,
       },
     );
+    this.detailMeta.setResolution(TEXT_RESOLUTION);
 
     this.detailDescription = this.add.text(detailX, detailY + 34, current.description, {
       fontFamily: MATRIX_FONTS.MONO,
@@ -182,6 +196,7 @@ export class CtrlSInventoryScene extends BaseScene {
       wordWrap: { width: detailWidth },
       lineSpacing: 2,
     });
+    this.detailDescription.setResolution(TEXT_RESOLUTION);
   }
 
   private bindKeyboard(): void {

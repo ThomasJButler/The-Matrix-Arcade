@@ -14,6 +14,10 @@ const ASCII_TITLE = [
 
 const ENTRANCE_STAGGER = 60;
 const TITLE_LINE_HEIGHT = 16;
+// R83.CTRLS.14 — crisp text resolution. See NarrativeScene for rationale;
+// duplicated const here so MenuScene stays self-contained without cross-scene
+// imports (each CTRL-S scene imports its own config, not sibling scenes).
+const TEXT_RESOLUTION = 2;
 
 export class CtrlSMenuScene extends BaseScene {
   protected override allowPause = false;
@@ -34,15 +38,21 @@ export class CtrlSMenuScene extends BaseScene {
     const height = Number(this.game.config.height);
     const centerX = width / 2;
 
-    const titleTopY = height * 0.12;
+    const titleTopY = Math.round(height * 0.12);
     ASCII_TITLE.forEach((line, i) => {
-      const text = this.add.text(centerX, titleTopY + i * TITLE_LINE_HEIGHT, line, {
-        fontFamily: MATRIX_FONTS.MONO,
-        fontSize: '12px',
-        color: MATRIX_COLORS.PRIMARY_HEX,
-        lineSpacing: 0,
-      });
+      const text = this.add.text(
+        Math.round(centerX),
+        titleTopY + i * TITLE_LINE_HEIGHT,
+        line,
+        {
+          fontFamily: MATRIX_FONTS.MONO,
+          fontSize: '12px',
+          color: MATRIX_COLORS.PRIMARY_HEX,
+          lineSpacing: 0,
+        },
+      );
       text.setOrigin(0.5);
+      text.setResolution(TEXT_RESOLUTION);
       text.setAlpha(0);
 
       this.tweens.add({
@@ -58,12 +68,13 @@ export class CtrlSMenuScene extends BaseScene {
     });
 
     const subtitleY = titleTopY + ASCII_TITLE.length * TITLE_LINE_HEIGHT + 20;
-    const subtitle = this.add.text(centerX, subtitleY, 'SAVE THE WORLD', {
+    const subtitle = this.add.text(Math.round(centerX), subtitleY, 'SAVE THE WORLD', {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '14px',
       color: MATRIX_COLORS.CYAN_HEX,
     });
     subtitle.setOrigin(0.5);
+    subtitle.setResolution(TEXT_RESOLUTION);
     subtitle.setAlpha(0);
     this.tweens.add({
       targets: subtitle,
@@ -74,12 +85,13 @@ export class CtrlSMenuScene extends BaseScene {
     });
 
     const taglineY = subtitleY + 30;
-    const tagline = this.add.text(centerX, taglineY, 'A Hacker\'s Odyssey', {
+    const tagline = this.add.text(Math.round(centerX), taglineY, 'A Hacker\'s Odyssey', {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '10px',
       color: MATRIX_COLORS.DIM_GREEN_HEX,
     });
     tagline.setOrigin(0.5);
+    tagline.setResolution(TEXT_RESOLUTION);
     tagline.setAlpha(0);
     this.tweens.add({
       targets: tagline,
@@ -89,13 +101,19 @@ export class CtrlSMenuScene extends BaseScene {
       ease: 'Power2',
     });
 
-    const statsY = height * 0.62;
-    const stats = this.add.text(centerX, statsY, '5 Chapters  ·  19 Puzzles  ·  1 World to Save', {
-      fontFamily: MATRIX_FONTS.PRIMARY,
-      fontSize: '8px',
-      color: MATRIX_COLORS.MEDIUM_GREEN_HEX,
-    });
+    const statsY = Math.round(height * 0.62);
+    const stats = this.add.text(
+      Math.round(centerX),
+      statsY,
+      '5 Chapters  ·  19 Puzzles  ·  1 World to Save',
+      {
+        fontFamily: MATRIX_FONTS.PRIMARY,
+        fontSize: '8px',
+        color: MATRIX_COLORS.MEDIUM_GREEN_HEX,
+      },
+    );
     stats.setOrigin(0.5);
+    stats.setResolution(TEXT_RESOLUTION);
     stats.setAlpha(0);
     this.tweens.add({
       targets: stats,
@@ -116,12 +134,18 @@ export class CtrlSMenuScene extends BaseScene {
       ease: 'Power2',
     });
 
-    const controls = this.add.text(centerX, height * BaseScene.MENU_CONTROLS_HINT_Y_RATIO, 'ESC: Exit  ·  P: Pause  ·  M: Mute', {
-      fontFamily: MATRIX_FONTS.PRIMARY,
-      fontSize: '8px',
-      color: MATRIX_COLORS.DIM_GREEN_HEX,
-    });
+    const controls = this.add.text(
+      Math.round(centerX),
+      Math.round(height * BaseScene.MENU_CONTROLS_HINT_Y_RATIO),
+      'ESC: Exit  ·  P: Pause  ·  M: Mute',
+      {
+        fontFamily: MATRIX_FONTS.PRIMARY,
+        fontSize: '8px',
+        color: MATRIX_COLORS.DIM_GREEN_HEX,
+      },
+    );
     controls.setOrigin(0.5);
+    controls.setResolution(TEXT_RESOLUTION);
     controls.setAlpha(0);
     this.tweens.add({
       targets: controls,
@@ -158,6 +182,7 @@ export class CtrlSMenuScene extends BaseScene {
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
     text.setOrigin(0.5);
+    text.setResolution(TEXT_RESOLUTION);
 
     container.add([bg, text]);
 
