@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Phaser from 'phaser';
 import { MatrixCloudGameScene } from './GameScene';
-import { GAME_CONFIG, ACHIEVEMENTS } from '../config';
+import { GAME_CONFIG, ACHIEVEMENTS, SLOW_MODE, POWERUP_DEFS } from '../config';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -488,6 +488,195 @@ describe('MatrixCloudGameScene', () => {
     it('doublePoints sets doublePointsActive', () => {
       call(scene, 'activatePowerUp', 'doublePoints');
       expect(scene.doublePointsActive).toBe(true);
+    });
+  });
+
+  // R84.B3: slow-mode momentum + trail. Two separate contracts tested here:
+  //   (1) updatePlayer scales gravity + integration by TIME_SLOW_FACTOR only
+  //       while timeSlowActive, giving the bird coherent hang-time that
+  //       matches the slowed world (fixes Tom's "not enough momentum" note).
+  //   (2) Yellow trail particles emit behind the bird for the power-up's
+  //       lifetime — visual state-change signal, cleaned up on reset /
+  //       shutdown / expiry.
+  describe('R84.B3 — Slow-mode player physics scaling', () => {
+    it('scales gravity accumulation when timeSlowActive', () => {
+      scene.timeSlowActive = true;
+      scene.playerVelocity = 0;
+      scene.playerY = 100;
+      call(scene, 'updatePlayer', 1 / 60);
+      // velocity += GRAVITY × dt × TIME_SLOW_FACTOR = 1400 × 1/60 × 0.6 ≈ 14
+      expect(scene.playerVelocity).toBeCloseTo(
+        C.GRAVITY * (1 / 60) * C.TIME_SLOW_FACTOR,
+        2,
+      );
+    });
+
+    it('does NOT scale gravity when slow inactive (preserves full-rate fall)', () => {
+      scene.timeSlowActive = false;
+      scene.playerVelocity = 0;
+      scene.playerY = 100;
+      call(scene, 'updatePlayer', 1 / 60);
+      // velocity += GRAVITY × dt = 1400 × 1/60 ≈ 23.33
+      expect(scene.playerVelocity).toBeCloseTo(C.GRAVITY * (1 / 60), 2);
+    });
+
+    it('scales vertical position integration when timeSlowActive', () => {
+      scene.timeSlowActive = true;
+      scene.playerVelocity = 100;
+      scene.playerY = 100;
+      call(scene, 'updatePlayer', 1 / 60);
+      // velocity after gravity: 100 + 1400 × 1/60 × 0.6 = 114
+      // position delta: 114 × 1/60 × 0.6 = 1.14
+      const expectedV = 100 + C.GRAVITY * (1 / 60) * C.TIME_SLOW_FACTOR;
+      const expectedY = 100 + expectedV * (1 / 60) * C.TIME_SLOW_FACTOR;
+      expect(scene.playerY).toBeCloseTo(expectedY, 3);
+    });
+
+    it('does NOT scale position integration when slow inactive', () => {
+      scene.timeSlowActive = false;
+      scene.playerVelocity = 100;
+      scene.playerY = 100;
+      call(scene, 'updatePlayer', 1 / 60);
+      const expectedV = 100 + C.GRAVITY * (1 / 60);
+      const expectedY = 100 + expectedV * (1 / 60);
+      expect(scene.playerY).toBeCloseTo(expectedY, 3);
+    });
+
+    it('velocity terminal clamp stays absolute under slow mode', () => {
+      // The raw velocity cap is a safety ceiling on the physical state; only
+      // the integration rate scales. This keeps the bird's recorded velocity
+      // comparable across speed modes for debug / score / telemetry.
+      scene.timeSlowActive = true;
+      scene.playerVelocity = C.TERMINAL_VELOCITY + 200;
+      scene.playerY = 100;
+      call(scene, 'updatePlayer', 1 / 60);
+      expect(scene.playerVelocity).toBeLessThanOrEqual(C.TERMINAL_VELOCITY);
+    });
+  });
+
+  describe('R84.B3 — Slow-mode trail lifecycle', () => {
+    it('slowTrailTimer starts null', () => {
+      expect(scene.slowTrailTimer).toBeNull();
+      expect(scene.slowTrailParticles).toHaveLength(0);
+    });
+
+    it('activatePowerUp(timeSlow) starts trail timer', () => {
+      call(scene, 'activatePowerUp', 'timeSlow');
+      expect(scene.slowTrailTimer).not.toBeNull();
+      expect(scene.time.addEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          delay: SLOW_MODE.TRAIL_EMIT_INTERVAL_MS,
+          loop: true,
+        }),
+      );
+    });
+
+    it('startSlowTrail is idempotent (re-activation preserves existing timer)', () => {
+      call(scene, 'startSlowTrail');
+      const first = scene.slowTrailTimer;
+      call(scene, 'startSlowTrail');
+      expect(scene.slowTrailTimer).toBe(first);
+    });
+
+    it('stopSlowTrail destroys the timer and clears the field', () => {
+      call(scene, 'startSlowTrail');
+      const timer = scene.slowTrailTimer;
+      call(scene, 'stopSlowTrail');
+      expect(timer.destroy).toHaveBeenCalled();
+      expect(scene.slowTrailTimer).toBeNull();
+    });
+
+    it('emitSlowTrailParticle spawns a yellow circle at the player position', () => {
+      scene.player = createMockSprite(120, 210);
+      call(scene, 'emitSlowTrailParticle');
+      expect(scene.add.circle).toHaveBeenCalledWith(
+        120,
+        210,
+        SLOW_MODE.TRAIL_PARTICLE_RADIUS,
+        SLOW_MODE.TRAIL_COLOR,
+        SLOW_MODE.TRAIL_PARTICLE_ALPHA,
+      );
+      expect(scene.slowTrailParticles).toHaveLength(1);
+    });
+
+    it('emitSlowTrailParticle registers a fade tween to zero alpha', () => {
+      scene.player = createMockSprite(50, 50);
+      call(scene, 'emitSlowTrailParticle');
+      expect(scene.tweens.add).toHaveBeenCalledWith(
+        expect.objectContaining({
+          alpha: 0,
+          duration: SLOW_MODE.TRAIL_PARTICLE_LIFESPAN_MS,
+        }),
+      );
+    });
+
+    it('emitSlowTrailParticle no-ops when paused', () => {
+      scene.player = createMockSprite(50, 50);
+      scene.isPaused = true;
+      call(scene, 'emitSlowTrailParticle');
+      expect(scene.add.circle).not.toHaveBeenCalled();
+      expect(scene.slowTrailParticles).toHaveLength(0);
+    });
+
+    it('emitSlowTrailParticle no-ops when gameOver', () => {
+      scene.player = createMockSprite(50, 50);
+      scene.isGameOver = true;
+      call(scene, 'emitSlowTrailParticle');
+      expect(scene.add.circle).not.toHaveBeenCalled();
+      expect(scene.slowTrailParticles).toHaveLength(0);
+    });
+
+    it('resetState tears down trail timer and destroys live particles', () => {
+      scene.player = createMockSprite(80, 80);
+      call(scene, 'startSlowTrail');
+      call(scene, 'emitSlowTrailParticle');
+      call(scene, 'emitSlowTrailParticle');
+      const live = [...scene.slowTrailParticles];
+      expect(live).toHaveLength(2);
+      call(scene, 'resetState');
+      expect(scene.slowTrailTimer).toBeNull();
+      expect(scene.slowTrailParticles).toHaveLength(0);
+      for (const p of live) expect(p.destroy).toHaveBeenCalled();
+    });
+
+    it('shutdown tears down trail timer and destroys live particles', () => {
+      scene.player = createMockSprite(80, 80);
+      call(scene, 'startSlowTrail');
+      call(scene, 'emitSlowTrailParticle');
+      const live = [...scene.slowTrailParticles];
+      expect(live).toHaveLength(1);
+      call(scene, 'shutdown');
+      expect(scene.slowTrailTimer).toBeNull();
+      expect(scene.slowTrailParticles).toHaveLength(0);
+      for (const p of live) expect(p.destroy).toHaveBeenCalled();
+    });
+  });
+
+  describe('R84.B3 — SLOW_MODE config sanity', () => {
+    it('trail colour matches POWERUP_DEFS.timeSlow so HUD chip + trail read as one state', () => {
+      expect(SLOW_MODE.TRAIL_COLOR).toBe(POWERUP_DEFS.timeSlow.color);
+    });
+
+    it('trail depth sits below the player depth (10)', () => {
+      // Player is drawn at depth 10 (createPlayer); the trail must slot in
+      // behind so breadcrumbs read as "left behind" not "in front of".
+      expect(SLOW_MODE.TRAIL_DEPTH).toBeLessThan(10);
+    });
+
+    it('emit interval is positive and strictly shorter than particle lifespan', () => {
+      // If interval ≥ lifespan, the first particle would fully fade before the
+      // next emit — no visible trail, only flashes. Must overlap.
+      expect(SLOW_MODE.TRAIL_EMIT_INTERVAL_MS).toBeGreaterThan(0);
+      expect(SLOW_MODE.TRAIL_EMIT_INTERVAL_MS).toBeLessThan(SLOW_MODE.TRAIL_PARTICLE_LIFESPAN_MS);
+    });
+
+    it('particle alpha sits in (0, 1]', () => {
+      expect(SLOW_MODE.TRAIL_PARTICLE_ALPHA).toBeGreaterThan(0);
+      expect(SLOW_MODE.TRAIL_PARTICLE_ALPHA).toBeLessThanOrEqual(1);
+    });
+
+    it('particle radius is positive (visible size)', () => {
+      expect(SLOW_MODE.TRAIL_PARTICLE_RADIUS).toBeGreaterThan(0);
     });
   });
 
