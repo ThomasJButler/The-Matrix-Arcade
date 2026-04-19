@@ -298,10 +298,17 @@ describe('CTRL-S World Phaser — Music Tracks', () => {
     }
   });
 
-  it('all track paths are under /assets/ctrl-s/audio/music/', () => {
+  it('all track paths point to a valid audio asset under /assets/', () => {
     const values = Object.values(MUSIC_TRACKS);
     for (const track of values) {
-      expect(track).toMatch(/^\/assets\/ctrl-s\/audio\/music\//);
+      expect(track).toMatch(/^\/assets\/.+\.(mp3|ogg|wav)$/);
+    }
+  });
+
+  it('does not reference the retired brothers-and-sisters track', () => {
+    const values = Object.values(MUSIC_TRACKS);
+    for (const track of values) {
+      expect(track).not.toMatch(/brothers/i);
     }
   });
 });

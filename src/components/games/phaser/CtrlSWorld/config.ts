@@ -199,7 +199,7 @@ export const STINGER_KEYS = {
 
 export const MUSIC_TRACKS = {
   MENU: '/assets/ctrl-s/audio/music/menu-theme.mp3',
-  PROLOGUE: '/assets/ctrl-s/audio/music/prologue-brothers.mp3',
+  PROLOGUE: '/assets/rhythm-hacker/tracks/enhancements.mp3',
   CH1: '/assets/ctrl-s/audio/music/ch1-moonlight.mp3',
   CH2: '/assets/ctrl-s/audio/music/ch2-cyberpsychotic.mp3',
   CH3: '/assets/ctrl-s/audio/music/ch3-resonance.mp3',
