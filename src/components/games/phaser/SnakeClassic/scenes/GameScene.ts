@@ -4,6 +4,7 @@ import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '@/lib/phas
 import {
   GAME_CONFIG,
   ACHIEVEMENTS,
+  GLITCH_RAIN,
   MATRIX_FUNKINESS,
   POWERUP_DEFS,
   OPPOSITE_DIRECTIONS,
@@ -33,6 +34,16 @@ export class SnakeGameScene extends BaseScene {
   private shieldActive = false;
   private ghostActive = false;
   private ghostPowerUpTimer: Phaser.Time.TimerEvent | null = null;
+  // R84.S3 — new time-gated power-ups. All three follow the ghost/speed
+  // pattern (flag + timer destroyed on deactivate/shutdown) so a restart
+  // mid-effect can't leak stale state.
+  private reverseActive = false;
+  private reversePowerUpTimer: Phaser.Time.TimerEvent | null = null;
+  private hyperActive = false;
+  private hyperPowerUpTimer: Phaser.Time.TimerEvent | null = null;
+  private glitchActive = false;
+  private glitchPowerUpTimer: Phaser.Time.TimerEvent | null = null;
+  private glitchOverlay: Phaser.GameObjects.Text[] = [];
 
   private score = 0;
   private highScore = 0;
@@ -114,6 +125,7 @@ export class SnakeGameScene extends BaseScene {
     this.updateMatrixRain(this.matrixRainGroup, delta);
     this.updatePlayAreaRain(delta);
     this.updateSnakeHeadGlow();
+    this.updateGlitchOverlay(delta);
     this.gameTimer += delta;
     this.handleInput();
     this.updateGhostVisuals();
@@ -132,6 +144,7 @@ export class SnakeGameScene extends BaseScene {
     this.powerUpLegend.forEach(t => t.destroy());
     this.powerUpLegend = [];
     this.destroyBonusFoodText();
+    this.destroyGlitchOverlay();
     this.playAreaRainGroup?.destroy(true);
     this.snakeHeadGlow?.destroy();
     this.achievementsUnlocked.clear();
@@ -162,6 +175,9 @@ export class SnakeGameScene extends BaseScene {
     this.doublePointsRemaining = 0;
     this.shieldActive = false;
     this.ghostActive = false;
+    this.reverseActive = false;
+    this.hyperActive = false;
+    this.glitchActive = false;
     this.isBonusFood = false;
     this.achievementsUnlocked = new Set();
   }
@@ -384,6 +400,21 @@ export class SnakeGameScene extends BaseScene {
       this.powerUpIndicators.set('ghost', t);
       y += 30;
     }
+    if (this.reverseActive) {
+      const t = this.createMatrixText(rightX, y, POWERUP_DEFS.reverse.label, 10, MATRIX_COLORS.RED_HEX);
+      this.powerUpIndicators.set('reverse', t);
+      y += 30;
+    }
+    if (this.hyperActive) {
+      const t = this.createMatrixText(rightX, y, POWERUP_DEFS.hyper.label, 10, '#ffaa00');
+      this.powerUpIndicators.set('hyper', t);
+      y += 30;
+    }
+    if (this.glitchActive) {
+      const t = this.createMatrixText(rightX, y, POWERUP_DEFS.glitch.label, 10, '#aa00ff');
+      this.powerUpIndicators.set('glitch', t);
+      y += 30;
+    }
   }
 
   private getLevel(): number {
@@ -417,6 +448,13 @@ export class SnakeGameScene extends BaseScene {
       newDir = 'left';
     } else if (Phaser.Input.Keyboard.JustDown(this.arrowKeys.right) || Phaser.Input.Keyboard.JustDown(this.dKey)) {
       newDir = 'right';
+    }
+
+    // R84.S3 reverse power-up: swap the intended axis so UP↔DOWN, LEFT↔RIGHT.
+    // Applied BEFORE the 180°-reversal guard so the reversed direction still
+    // gets rejected when it would collapse onto the snake's own body.
+    if (newDir && this.reverseActive) {
+      newDir = OPPOSITE_DIRECTIONS[newDir];
     }
 
     if (newDir && newDir !== OPPOSITE_DIRECTIONS[this.direction]) {
@@ -603,6 +641,12 @@ export class SnakeGameScene extends BaseScene {
       points = GAME_CONFIG.POINTS_PER_FOOD_DOUBLE;
       this.doublePointsRemaining--;
     }
+    // R84.S3 hyper power-up: time-based 2× multiplier stacks on top of the
+    // count-based `double` (and on top of bonus food) — a fully-stacked
+    // pickup inside an active hyper + bonus window scores 8× base points.
+    if (this.hyperActive) {
+      points *= 2;
+    }
     if (wasBonus) {
       // Bonus food stacks multiplicatively with the 2X power-up so a lucky
       // overlap of the two rewards the player with 4×. Kept simple because
@@ -676,7 +720,13 @@ export class SnakeGameScene extends BaseScene {
   // ─── Power-Ups ─────────────────────────────────────────
 
   private spawnFieldPowerUp(): void {
-    const types: PowerUpType[] = ['speed', 'double', 'shield', 'ghost'];
+    // R84.S3 extended pool — all 7 types are equal-probability. Kept flat
+    // rather than weighted because the 5s/10s/3s durations already gate how
+    // often each effect can fire, and weighting would require a new tuning
+    // surface Tom hasn't asked for.
+    const types: PowerUpType[] = [
+      'speed', 'double', 'shield', 'ghost', 'reverse', 'hyper', 'glitch',
+    ];
     const type = types[Math.floor(Math.random() * types.length)];
     const position = this.getRandomEmptyCell();
 
@@ -719,6 +769,13 @@ export class SnakeGameScene extends BaseScene {
       double: SOUND_KEYS.POWERUP_MAGNET,
       shield: SOUND_KEYS.POWERUP_SHIELD,
       ghost: SOUND_KEYS.POWERUP_GHOST,
+      // R84.S3 SFX per type — reverse uses a glassy break to cue "things are
+      // flipped", hyper reuses the magnet cue (shared "money-is-good" beat
+      // with `double`), glitch uses the special-ability burst because the
+      // overlay is a one-shot screen takeover.
+      reverse: SOUND_KEYS.GLASS_BREAK,
+      hyper: SOUND_KEYS.POWERUP_MAGNET,
+      glitch: SOUND_KEYS.SPECIAL_ABILITY,
     };
     this.playSound(sfxMap[type] ?? SOUND_KEYS.COLLECTIBLE);
 
@@ -761,6 +818,51 @@ export class SnakeGameScene extends BaseScene {
         });
         break;
       }
+      case 'reverse': {
+        // Reverse keyboard mapping 5s. Award a flat score bonus because the
+        // challenge itself is pure downside — no effect that "helps" the
+        // player, so the reward has to come from collection.
+        this.reverseActive = true;
+        this.score += GAME_CONFIG.REVERSE_PICKUP_BONUS;
+        if (this.score > this.highScore) this.highScore = this.score;
+        this.reportScore(this.score, this.highScore);
+        if (this.reversePowerUpTimer) this.reversePowerUpTimer.destroy();
+        this.reversePowerUpTimer = this.time.delayedCall(
+          GAME_CONFIG.REVERSE_POWERUP_DURATION,
+          () => this.deactivateReversePowerUp(),
+        );
+        break;
+      }
+      case 'hyper': {
+        // Time-based 2× multiplier on every food pickup for 10s. Distinct
+        // from `double` (count-based next-3-pickups) — they stack.
+        this.hyperActive = true;
+        if (this.hyperPowerUpTimer) this.hyperPowerUpTimer.destroy();
+        this.hyperPowerUpTimer = this.time.delayedCall(
+          GAME_CONFIG.HYPER_POWERUP_DURATION,
+          () => this.deactivateHyperPowerUp(),
+        );
+        break;
+      }
+      case 'glitch': {
+        // Obscures the screen with dense matrix rain for 3s while granting
+        // a flat +100 bonus — gameplay continues normally beneath the
+        // overlay (grid collisions untouched). The risk/reward is whether
+        // the player remembers their current trajectory well enough to keep
+        // steering blind. Bonus awarded up-front so the score bump isn't
+        // consumed by an immediate wall crash.
+        this.glitchActive = true;
+        this.score += GAME_CONFIG.GLITCH_PICKUP_BONUS;
+        if (this.score > this.highScore) this.highScore = this.score;
+        this.reportScore(this.score, this.highScore);
+        this.showGlitchOverlay();
+        if (this.glitchPowerUpTimer) this.glitchPowerUpTimer.destroy();
+        this.glitchPowerUpTimer = this.time.delayedCall(
+          GAME_CONFIG.GLITCH_POWERUP_DURATION,
+          () => this.deactivateGlitchPowerUp(),
+        );
+        break;
+      }
     }
   }
 
@@ -780,6 +882,81 @@ export class SnakeGameScene extends BaseScene {
     });
   }
 
+  private deactivateReversePowerUp(): void {
+    this.reverseActive = false;
+    this.reversePowerUpTimer = null;
+  }
+
+  private deactivateHyperPowerUp(): void {
+    this.hyperActive = false;
+    this.hyperPowerUpTimer = null;
+  }
+
+  private deactivateGlitchPowerUp(): void {
+    this.glitchActive = false;
+    this.glitchPowerUpTimer = null;
+    this.destroyGlitchOverlay();
+  }
+
+  /**
+   * Dense Matrix-rain overlay on top of the playfield for the duration of a
+   * glitch power-up. Text objects sit at depth 200 (above scanline=100 and
+   * every gameplay sprite) so they read as "the code is eating the
+   * playfield". Gameplay continues beneath untouched — collisions stay
+   * grid-based. Skipped under `prefers-reduced-motion` to avoid strobing for
+   * sensitive users (they still get the score bonus).
+   */
+  private showGlitchOverlay(): void {
+    this.destroyGlitchOverlay();
+
+    if (typeof window !== 'undefined' &&
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
+    if (typeof window !== 'undefined' && (window as { __TEST__?: boolean }).__TEST__) {
+      return;
+    }
+
+    const w = Number(this.game.config.width);
+    const h = Number(this.game.config.height);
+    const { GLYPHS, DENSITY, ALPHA, FONT_SIZE, DEPTH, SPEED_MIN, SPEED_MAX } = GLITCH_RAIN;
+
+    for (let i = 0; i < DENSITY; i++) {
+      const x = Phaser.Math.Between(0, w);
+      const y = Phaser.Math.Between(-h, h);
+      const speed = Phaser.Math.Between(SPEED_MIN, SPEED_MAX);
+      const char = GLYPHS[Phaser.Math.Between(0, GLYPHS.length - 1)];
+      const text = this.add.text(x, y, char, {
+        fontFamily: 'monospace',
+        fontSize: `${FONT_SIZE}px`,
+        color: MATRIX_COLORS.PRIMARY_HEX,
+      });
+      text.setAlpha(ALPHA).setDepth(DEPTH);
+      text.setData('speed', speed);
+      this.glitchOverlay.push(text);
+    }
+  }
+
+  private destroyGlitchOverlay(): void {
+    this.glitchOverlay.forEach(t => t.destroy());
+    this.glitchOverlay = [];
+  }
+
+  private updateGlitchOverlay(delta: number): void {
+    if (this.glitchOverlay.length === 0) return;
+    const h = Number(this.game.config.height);
+    this.glitchOverlay.forEach(text => {
+      const speed = text.getData('speed') as number;
+      if (typeof speed !== 'number') return;
+      text.y += speed * (delta / 1000);
+      if (text.y > h + 10) {
+        text.y = -10;
+        const glyphs = GLITCH_RAIN.GLYPHS;
+        text.setText(glyphs[Math.floor(Math.random() * glyphs.length)]);
+      }
+    });
+  }
+
   private destroyPowerUpTimers(): void {
     if (this.speedPowerUpTimer) {
       this.speedPowerUpTimer.destroy();
@@ -788,6 +965,18 @@ export class SnakeGameScene extends BaseScene {
     if (this.ghostPowerUpTimer) {
       this.ghostPowerUpTimer.destroy();
       this.ghostPowerUpTimer = null;
+    }
+    if (this.reversePowerUpTimer) {
+      this.reversePowerUpTimer.destroy();
+      this.reversePowerUpTimer = null;
+    }
+    if (this.hyperPowerUpTimer) {
+      this.hyperPowerUpTimer.destroy();
+      this.hyperPowerUpTimer = null;
+    }
+    if (this.glitchPowerUpTimer) {
+      this.glitchPowerUpTimer.destroy();
+      this.glitchPowerUpTimer = null;
     }
   }
 
@@ -969,9 +1158,11 @@ export class SnakeGameScene extends BaseScene {
       9,
       MATRIX_COLORS.PRIMARY_HEX,
     );
+    // R84.S3 — second line carries the 3 new tokens + a tighter activation
+    // cue so the legend still reads in under ~90 characters per row.
     const sub = this.createMatrixText(
       cx, baseY + 14,
-      'CATCH GLOWING TOKENS TO ACTIVATE',
+      'REVERSE · HYPER · GLITCH · CATCH TOKENS',
       8,
       MATRIX_COLORS.PRIMARY_HEX,
     );
@@ -1119,6 +1310,9 @@ export class SnakeGameScene extends BaseScene {
       gameTimer: this.gameTimer,
       countdownValue: this.countdownValue,
       isBonusFood: this.isBonusFood,
+      reverseActive: this.reverseActive,
+      hyperActive: this.hyperActive,
+      glitchActive: this.glitchActive,
     };
   }
 }

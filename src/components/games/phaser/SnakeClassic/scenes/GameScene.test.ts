@@ -1,7 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import Phaser from 'phaser';
 import { SnakeGameScene } from './GameScene';
-import { GAME_CONFIG, ACHIEVEMENTS, MATRIX_FUNKINESS } from '../config';
-import { MATRIX_COLORS } from '@/lib/phaser/types';
+import { GAME_CONFIG, ACHIEVEMENTS, MATRIX_FUNKINESS, POWERUP_DEFS, GLITCH_RAIN } from '../config';
+import { MATRIX_COLORS, SOUND_KEYS } from '@/lib/phaser/types';
+
+// Seed JustDown on the global Phaser mock from setup.ts so handleInput tests
+// can drive direction presses deterministically.
+(Phaser.Input.Keyboard as unknown as Record<string, unknown>).JustDown =
+  vi.fn().mockReturnValue(false);
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -1132,6 +1138,441 @@ describe('SnakeGameScene', () => {
         (scene as any).getRandomEmptyCell = vi.fn(() => ({ x: 1, y: 1 }));
         call('spawnFood');
         expect(prior.destroy).toHaveBeenCalled();
+      });
+    });
+  });
+
+  // ─── R84.S3 — Power-up variety expansion ──────────────
+
+  describe('R84.S3 — Power-up variety expansion', () => {
+    // Short-circuit the overlay's Phaser.Math.Between RNG path (not mocked
+    // under jsdom) via the same __TEST__ seam the play-area rain uses. Tests
+    // below exercise overlay behaviour by seeding glitchOverlay directly.
+    beforeEach(() => {
+      (window as unknown as { __TEST__?: boolean }).__TEST__ = true;
+    });
+
+    describe('config sanity', () => {
+      it('should register reverse, hyper, and glitch in POWERUP_DEFS', () => {
+        expect(POWERUP_DEFS.reverse).toBeDefined();
+        expect(POWERUP_DEFS.hyper).toBeDefined();
+        expect(POWERUP_DEFS.glitch).toBeDefined();
+      });
+
+      it('should assign distinct colours per new power-up', () => {
+        const colours = new Set([
+          POWERUP_DEFS.speed.color, POWERUP_DEFS.double.color,
+          POWERUP_DEFS.shield.color, POWERUP_DEFS.ghost.color,
+          POWERUP_DEFS.reverse.color, POWERUP_DEFS.hyper.color,
+          POWERUP_DEFS.glitch.color,
+        ]);
+        expect(colours.size).toBe(7);
+      });
+
+      it('should use short uppercase labels for the new tokens', () => {
+        expect(POWERUP_DEFS.reverse.label).toBe('REVERSE');
+        expect(POWERUP_DEFS.hyper.label).toBe('HYPER');
+        expect(POWERUP_DEFS.glitch.label).toBe('GLITCH');
+      });
+
+      it('should pin power-up durations to the plan brief', () => {
+        expect(GAME_CONFIG.REVERSE_POWERUP_DURATION).toBe(5000);
+        expect(GAME_CONFIG.HYPER_POWERUP_DURATION).toBe(10000);
+        expect(GAME_CONFIG.GLITCH_POWERUP_DURATION).toBe(3000);
+      });
+
+      it('should assign positive pickup bonuses for the pure-challenge and risk/reward types', () => {
+        expect(GAME_CONFIG.REVERSE_PICKUP_BONUS).toBeGreaterThan(0);
+        expect(GAME_CONFIG.GLITCH_PICKUP_BONUS).toBeGreaterThan(0);
+      });
+
+      it('should configure a dense high-depth glitch overlay', () => {
+        expect(GLITCH_RAIN.DENSITY).toBeGreaterThan(0);
+        expect(GLITCH_RAIN.ALPHA).toBeGreaterThan(0);
+        expect(GLITCH_RAIN.ALPHA).toBeLessThanOrEqual(1);
+        // Overlay must sit above scanline (=100) and gameplay sprites.
+        expect(GLITCH_RAIN.DEPTH).toBeGreaterThan(100);
+        expect(GLITCH_RAIN.SPEED_MIN).toBeLessThan(GLITCH_RAIN.SPEED_MAX);
+        expect(GLITCH_RAIN.GLYPHS.length).toBeGreaterThan(0);
+      });
+    });
+
+    describe('resetState() zeroing', () => {
+      it('should clear all three new flags', () => {
+        (scene as any).reverseActive = true;
+        (scene as any).hyperActive = true;
+        (scene as any).glitchActive = true;
+        call('resetState');
+        expect((scene as any).reverseActive).toBe(false);
+        expect((scene as any).hyperActive).toBe(false);
+        expect((scene as any).glitchActive).toBe(false);
+      });
+    });
+
+    describe('activatePowerUp()', () => {
+      it('should flip reverseActive and schedule a REVERSE_POWERUP_DURATION teardown', () => {
+        const delayed = vi.fn(() => createMockTimer());
+        (scene as any).time.delayedCall = delayed;
+        call('activatePowerUp', 'reverse');
+        expect((scene as any).reverseActive).toBe(true);
+        const entry = delayed.mock.calls.find(
+          (c: any[]) => c[0] === GAME_CONFIG.REVERSE_POWERUP_DURATION,
+        );
+        expect(entry).toBeDefined();
+      });
+
+      it('should award REVERSE_PICKUP_BONUS and report the new score', () => {
+        (scene as any).score = 0;
+        (scene as any).highScore = 0;
+        call('activatePowerUp', 'reverse');
+        expect((scene as any).score).toBe(GAME_CONFIG.REVERSE_PICKUP_BONUS);
+        expect((scene as any).reportScore).toHaveBeenCalled();
+      });
+
+      it('should flip hyperActive and schedule a HYPER_POWERUP_DURATION teardown', () => {
+        const delayed = vi.fn(() => createMockTimer());
+        (scene as any).time.delayedCall = delayed;
+        call('activatePowerUp', 'hyper');
+        expect((scene as any).hyperActive).toBe(true);
+        const entry = delayed.mock.calls.find(
+          (c: any[]) => c[0] === GAME_CONFIG.HYPER_POWERUP_DURATION,
+        );
+        expect(entry).toBeDefined();
+      });
+
+      it('should not touch the score on hyper pickup (multiplier only applies at food-eat time)', () => {
+        (scene as any).score = 0;
+        (scene as any).highScore = 0;
+        call('activatePowerUp', 'hyper');
+        expect((scene as any).score).toBe(0);
+      });
+
+      it('should flip glitchActive, award GLITCH_PICKUP_BONUS, and schedule teardown', () => {
+        (scene as any).score = 0;
+        (scene as any).highScore = 0;
+        const delayed = vi.fn(() => createMockTimer());
+        (scene as any).time.delayedCall = delayed;
+        call('activatePowerUp', 'glitch');
+        expect((scene as any).glitchActive).toBe(true);
+        expect((scene as any).score).toBe(GAME_CONFIG.GLITCH_PICKUP_BONUS);
+        expect((scene as any).reportScore).toHaveBeenCalled();
+        const entry = delayed.mock.calls.find(
+          (c: any[]) => c[0] === GAME_CONFIG.GLITCH_POWERUP_DURATION,
+        );
+        expect(entry).toBeDefined();
+      });
+
+      it('should destroy any prior timer before scheduling a fresh one', () => {
+        const priorTimer = createMockTimer();
+        (scene as any).glitchPowerUpTimer = priorTimer;
+        call('activatePowerUp', 'glitch');
+        expect(priorTimer.destroy).toHaveBeenCalled();
+      });
+    });
+
+    describe('handleInput() reverse mapping', () => {
+      const justDown = Phaser.Input.Keyboard.JustDown as unknown as ReturnType<typeof vi.fn>;
+      const stubJustDown = (activeKey: Record<string, unknown>) => {
+        justDown.mockImplementation((key: unknown) => key === activeKey);
+      };
+
+      beforeEach(() => {
+        (scene as any).arrowKeys = {
+          up: { isDown: false }, down: { isDown: false },
+          left: { isDown: false }, right: { isDown: false },
+        };
+        (scene as any).wKey = { isDown: false };
+        (scene as any).sKey = { isDown: false };
+        (scene as any).aKey = { isDown: false };
+        (scene as any).dKey = { isDown: false };
+        justDown.mockReset();
+        justDown.mockReturnValue(false);
+      });
+
+      it('should swap UP to DOWN when reverse is active', () => {
+        stubJustDown((scene as any).arrowKeys.up);
+        (scene as any).reverseActive = true;
+        (scene as any).direction = 'right';
+        call('handleInput');
+        expect((scene as any).nextDirection).toBe('down');
+      });
+
+      it('should swap LEFT to RIGHT when reverse is active', () => {
+        stubJustDown((scene as any).arrowKeys.left);
+        (scene as any).reverseActive = true;
+        (scene as any).direction = 'up';
+        call('handleInput');
+        expect((scene as any).nextDirection).toBe('right');
+      });
+
+      it('should still reject reversed-into-own-body (180° guard wins)', () => {
+        // Direction=right, press RIGHT with reverse on → swap to LEFT, which
+        // IS OPPOSITE_DIRECTIONS[right], so the guard rejects the input and
+        // nextDirection stays null (no instant-death from the reversal).
+        stubJustDown((scene as any).arrowKeys.right);
+        (scene as any).reverseActive = true;
+        (scene as any).direction = 'right';
+        (scene as any).nextDirection = null;
+        call('handleInput');
+        expect((scene as any).nextDirection).toBeNull();
+      });
+
+      it('should leave inputs untouched when reverse is inactive', () => {
+        stubJustDown((scene as any).arrowKeys.up);
+        (scene as any).reverseActive = false;
+        (scene as any).direction = 'right';
+        call('handleInput');
+        expect((scene as any).nextDirection).toBe('up');
+      });
+    });
+
+    describe('eatFood() hyper multiplier', () => {
+      beforeEach(() => {
+        (scene as any).spawnFood = vi.fn();
+        (scene as any).snake = [{ x: 15, y: 10 }];
+        (scene as any).food = { x: 15, y: 10 };
+      });
+
+      it('should double base food points when hyper is active', () => {
+        (scene as any).hyperActive = true;
+        (scene as any).isBonusFood = false;
+        const before = s('score');
+        call('eatFood');
+        expect(s('score') - before).toBe(GAME_CONFIG.POINTS_PER_FOOD * 2);
+      });
+
+      it('should stack hyper 2× on top of the count-based 2X power-up (4× base)', () => {
+        (scene as any).hyperActive = true;
+        (scene as any).doublePointsRemaining = 3;
+        (scene as any).isBonusFood = false;
+        const before = s('score');
+        call('eatFood');
+        expect(s('score') - before).toBe(GAME_CONFIG.POINTS_PER_FOOD_DOUBLE * 2);
+      });
+
+      it('should stack hyper × 2X × bonus food up to 8× base', () => {
+        (scene as any).hyperActive = true;
+        (scene as any).doublePointsRemaining = 3;
+        (scene as any).isBonusFood = true;
+        const before = s('score');
+        call('eatFood');
+        expect(s('score') - before).toBe(
+          GAME_CONFIG.POINTS_PER_FOOD_DOUBLE *
+          2 *
+          MATRIX_FUNKINESS.BONUS_FOOD_POINTS_MULTIPLIER,
+        );
+      });
+
+      it('should leave scoring untouched when hyper is inactive', () => {
+        (scene as any).hyperActive = false;
+        (scene as any).isBonusFood = false;
+        const before = s('score');
+        call('eatFood');
+        expect(s('score') - before).toBe(GAME_CONFIG.POINTS_PER_FOOD);
+      });
+    });
+
+    describe('collectPowerUp() SFX map', () => {
+      beforeEach(() => {
+        (scene as any).fieldPowerUp = null;
+        (scene as any).powerUpSprite = null;
+        (scene as any).createParticleBurst = vi.fn();
+      });
+
+      it('should play GLASS_BREAK on reverse pickup', () => {
+        call('collectPowerUp', 'reverse');
+        expect((scene as any).playSound).toHaveBeenCalledWith(SOUND_KEYS.GLASS_BREAK);
+      });
+
+      it('should play POWERUP_MAGNET on hyper pickup', () => {
+        call('collectPowerUp', 'hyper');
+        expect((scene as any).playSound).toHaveBeenCalledWith(SOUND_KEYS.POWERUP_MAGNET);
+      });
+
+      it('should play SPECIAL_ABILITY on glitch pickup', () => {
+        call('collectPowerUp', 'glitch');
+        expect((scene as any).playSound).toHaveBeenCalledWith(SOUND_KEYS.SPECIAL_ABILITY);
+      });
+    });
+
+    describe('deactivate methods', () => {
+      it('should clear reverse flag and null its timer', () => {
+        (scene as any).reverseActive = true;
+        (scene as any).reversePowerUpTimer = createMockTimer();
+        call('deactivateReversePowerUp');
+        expect((scene as any).reverseActive).toBe(false);
+        expect((scene as any).reversePowerUpTimer).toBeNull();
+      });
+
+      it('should clear hyper flag and null its timer', () => {
+        (scene as any).hyperActive = true;
+        (scene as any).hyperPowerUpTimer = createMockTimer();
+        call('deactivateHyperPowerUp');
+        expect((scene as any).hyperActive).toBe(false);
+        expect((scene as any).hyperPowerUpTimer).toBeNull();
+      });
+
+      it('should clear glitch flag, null its timer, and tear down overlay', () => {
+        const text = createMockText();
+        (scene as any).glitchActive = true;
+        (scene as any).glitchPowerUpTimer = createMockTimer();
+        (scene as any).glitchOverlay = [text];
+        call('deactivateGlitchPowerUp');
+        expect((scene as any).glitchActive).toBe(false);
+        expect((scene as any).glitchPowerUpTimer).toBeNull();
+        expect(text.destroy).toHaveBeenCalled();
+        expect((scene as any).glitchOverlay).toEqual([]);
+      });
+    });
+
+    describe('spawnFieldPowerUp() pool', () => {
+      it('should include all three new types in the sampling pool', () => {
+        const observed = new Set<string>();
+        const sampleCount = 400;
+        (scene as any).getRandomEmptyCell = vi.fn(() => ({ x: 1, y: 1 }));
+        (scene as any).add.image = vi.fn(() => createMockImage());
+        (scene as any).tweens.add = vi.fn(() => ({ destroy: vi.fn() }));
+        (scene as any).time.delayedCall = vi.fn(() => createMockTimer());
+        for (let i = 0; i < sampleCount; i++) {
+          (scene as any).fieldPowerUp = null;
+          (scene as any).powerUpSprite = null;
+          call('spawnFieldPowerUp');
+          observed.add((scene as any).fieldPowerUp.type);
+        }
+        expect(observed.has('reverse')).toBe(true);
+        expect(observed.has('hyper')).toBe(true);
+        expect(observed.has('glitch')).toBe(true);
+        // Plus the original four — full 7-type coverage.
+        expect(observed.size).toBe(7);
+      });
+    });
+
+    describe('destroyPowerUpTimers()', () => {
+      it('should destroy and null all new timers', () => {
+        const reverse = createMockTimer();
+        const hyper = createMockTimer();
+        const glitch = createMockTimer();
+        (scene as any).reversePowerUpTimer = reverse;
+        (scene as any).hyperPowerUpTimer = hyper;
+        (scene as any).glitchPowerUpTimer = glitch;
+        call('destroyPowerUpTimers');
+        expect(reverse.destroy).toHaveBeenCalled();
+        expect(hyper.destroy).toHaveBeenCalled();
+        expect(glitch.destroy).toHaveBeenCalled();
+        expect((scene as any).reversePowerUpTimer).toBeNull();
+        expect((scene as any).hyperPowerUpTimer).toBeNull();
+        expect((scene as any).glitchPowerUpTimer).toBeNull();
+      });
+    });
+
+    describe('updatePowerUpIndicators()', () => {
+      beforeEach(() => {
+        (scene as any).powerUpIndicators = new Map();
+      });
+
+      it('should render REVERSE label in red when reverse is active', () => {
+        (scene as any).reverseActive = true;
+        call('updatePowerUpIndicators');
+        expect((scene as any).createMatrixText).toHaveBeenCalledWith(
+          expect.any(Number), expect.any(Number),
+          POWERUP_DEFS.reverse.label, 10, MATRIX_COLORS.RED_HEX,
+        );
+      });
+
+      it('should render HYPER label in gold when hyper is active', () => {
+        (scene as any).hyperActive = true;
+        call('updatePowerUpIndicators');
+        expect((scene as any).createMatrixText).toHaveBeenCalledWith(
+          expect.any(Number), expect.any(Number),
+          POWERUP_DEFS.hyper.label, 10, '#ffaa00',
+        );
+      });
+
+      it('should render GLITCH label in violet when glitch is active', () => {
+        (scene as any).glitchActive = true;
+        call('updatePowerUpIndicators');
+        expect((scene as any).createMatrixText).toHaveBeenCalledWith(
+          expect.any(Number), expect.any(Number),
+          POWERUP_DEFS.glitch.label, 10, '#aa00ff',
+        );
+      });
+    });
+
+    describe('showPowerUpLegend() second line', () => {
+      it('should list the three new tokens on the sub row', () => {
+        call('showPowerUpLegend');
+        const texts = (scene as any).createMatrixText.mock.calls.map((c: any[]) => c[2]);
+        const subRow = texts.find((t: string) => t?.includes?.('REVERSE'));
+        expect(subRow).toBeDefined();
+        expect(subRow).toContain('HYPER');
+        expect(subRow).toContain('GLITCH');
+      });
+    });
+
+    describe('getTestState() exposure', () => {
+      it('should surface the three new flags for Playwright hooks', () => {
+        (scene as any).reverseActive = true;
+        (scene as any).hyperActive = true;
+        (scene as any).glitchActive = true;
+        const state = call('getTestState');
+        expect(state).toMatchObject({
+          reverseActive: true,
+          hyperActive: true,
+          glitchActive: true,
+        });
+      });
+    });
+
+    describe('glitch overlay animation', () => {
+      it('should not throw when updating an empty overlay (cheap no-op path)', () => {
+        (scene as any).glitchOverlay = [];
+        expect(() => call('updateGlitchOverlay', 16)).not.toThrow();
+      });
+
+      it('should advance overlay text y by speed × delta/1000', () => {
+        const text = createMockText();
+        text.y = 100;
+        text.setData('speed', 200);
+        (scene as any).glitchOverlay = [text];
+        call('updateGlitchOverlay', 1000);
+        expect(text.y).toBe(300);
+      });
+
+      it('should wrap overlay text to -10 once it falls past the canvas floor', () => {
+        const text = createMockText();
+        text.y = GAME_CONFIG.HEIGHT + 20; // already past the floor
+        text.setData('speed', 0); // no drift this frame, just trigger wrap
+        (scene as any).glitchOverlay = [text];
+        // speed=0 means the y+=speed step is a no-op but y is already over,
+        // so the wrap branch fires.
+        call('updateGlitchOverlay', 16);
+        expect(text.y).toBe(-10);
+        expect(text.setText).toHaveBeenCalled();
+      });
+
+      it('should destroy every overlay text on teardown', () => {
+        const a = createMockText();
+        const b = createMockText();
+        (scene as any).glitchOverlay = [a, b];
+        call('destroyGlitchOverlay');
+        expect(a.destroy).toHaveBeenCalled();
+        expect(b.destroy).toHaveBeenCalled();
+        expect((scene as any).glitchOverlay).toEqual([]);
+      });
+    });
+
+    describe('shutdown lifecycle', () => {
+      it('should tear down the glitch overlay when the scene shuts down', () => {
+        const a = createMockText();
+        (scene as any).glitchOverlay = [a];
+        (scene as any).moveTimer = null;
+        (scene as any).fieldPowerUp = null;
+        (scene as any).powerUpIndicators = new Map();
+        (scene as any).powerUpLegend = [];
+        (scene as any).achievementsUnlocked = new Set();
+        call('shutdown');
+        expect(a.destroy).toHaveBeenCalled();
+        expect((scene as any).glitchOverlay).toEqual([]);
       });
     });
   });
