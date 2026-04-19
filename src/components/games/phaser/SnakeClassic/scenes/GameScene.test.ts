@@ -2875,4 +2875,121 @@ describe('SnakeGameScene', () => {
       });
     });
   });
+
+  // R84.CI-4 (a11y priority 2): pin that Snake emits `scoreMilestone` events
+  // into the React bridge on the 50/100/250/500-pt landmark beats. The shared
+  // PhaserGame SR live region consumes these to announce "Score milestone N"
+  // to assistive tech — AT-parity with the levelUp SFX sighted players hear.
+  // Mirrors Matrix Bird's CI-2 test block; the milestone-crossing math and
+  // set-guard semantics are identical across games.
+  describe('R84.CI-4 — Score milestone SR event emission', () => {
+    const milestoneEmissions = (s: any) =>
+      (s.emitGameEvent.mock.calls as any[][]).filter((c) => c[0]?.type === 'scoreMilestone');
+
+    beforeEach(() => {
+      (scene as any).spawnFood = vi.fn();
+      (scene as any).snake = [{ x: 15, y: 10 }];
+      (scene as any).food = { x: 15, y: 10 };
+      (scene as any).isBonusFood = false;
+      (scene as any).doublePointsRemaining = 0;
+      (scene as any).hyperActive = false;
+    });
+
+    it('emits scoreMilestone with the threshold value (not current score) the first time 50 is crossed', () => {
+      // 45 + 10 = 55 crosses the 50 threshold. The announcement should read
+      // 50 (the landmark), not 55 (the incidental current score).
+      (scene as any).score = 45;
+      call('eatFood');
+      const emits = milestoneEmissions(scene);
+      expect(emits).toHaveLength(1);
+      expect(emits[0][0]).toEqual({ type: 'scoreMilestone', data: { value: 50 } });
+      expect((scene as any).milestonesHit.has(50)).toBe(true);
+    });
+
+    it('emits scoreMilestone for 100 only when that threshold is freshly crossed', () => {
+      (scene as any).score = 95;
+      (scene as any).milestonesHit = new Set([50]);
+      call('eatFood');
+      const emits = milestoneEmissions(scene);
+      expect(emits).toHaveLength(1);
+      expect(emits[0][0].data.value).toBe(100);
+    });
+
+    it('does not emit scoreMilestone once the threshold has been hit earlier in the run', () => {
+      // Score already above 50 from earlier in the run; the set remembers it.
+      (scene as any).score = 55;
+      (scene as any).milestonesHit = new Set([50]);
+      call('eatFood');
+      expect(milestoneEmissions(scene)).toHaveLength(0);
+    });
+
+    it('emits two milestones in one call when a large bump crosses both', () => {
+      // Simulates the glitch-pickup edge case (flat +100 bonus) landing at
+      // a score that crosses BOTH 50 and 100 in one mutation. checkScoreMilestones
+      // must emit both announcements, not just the lowest.
+      (scene as any).score = 45;
+      (scene as any).milestonesHit = new Set();
+      // Manually bump to simulate the reverse/glitch +bonus path flow.
+      (scene as any).score = 145;
+      call('checkScoreMilestones');
+      const emits = milestoneEmissions(scene);
+      expect(emits.map((e) => e[0].data.value)).toEqual([50, 100]);
+    });
+
+    it('emits at 250 and 500 landmarks', () => {
+      (scene as any).score = 250;
+      call('checkScoreMilestones');
+      (scene as any).score = 500;
+      call('checkScoreMilestones');
+      const emits = milestoneEmissions(scene);
+      expect(emits.map((e) => e[0].data.value)).toEqual([50, 100, 250, 500]);
+    });
+
+    it('does not emit beyond the top 500 threshold — no noisy re-announcements at 550/1000/etc.', () => {
+      (scene as any).score = 1200;
+      call('checkScoreMilestones');
+      const emits = milestoneEmissions(scene);
+      expect(emits.map((e) => e[0].data.value)).toEqual([50, 100, 250, 500]);
+    });
+
+    it('resetState clears milestones so a restart re-fires the early cues', () => {
+      (scene as any).milestonesHit = new Set([50, 100, 250, 500]);
+      call('resetState');
+      expect((scene as any).milestonesHit.size).toBe(0);
+    });
+
+    it('fires via the reverse-pickup bonus path (+REVERSE_PICKUP_BONUS can cross a threshold)', () => {
+      // REVERSE_PICKUP_BONUS = 50 — seed score at 5 so the pickup lands at 55
+      // and crosses the 50 threshold. Pins that reverse/glitch bonus paths
+      // (which don't go through eatFood) still announce landmark beats.
+      // fieldPowerUp left null so collectPowerUp skips its particle-burst
+      // branch (same pattern as the existing `(e)` block's collectPowerUp pins).
+      (scene as any).score = 5;
+      (scene as any).milestonesHit = new Set();
+      (scene as any).fieldPowerUp = null;
+      (scene as any).createParticleBurst = vi.fn();
+      call('collectPowerUp', 'reverse');
+      const emits = milestoneEmissions(scene);
+      expect(emits).toHaveLength(1);
+      expect(emits[0][0].data.value).toBe(50);
+    });
+
+    it('fires via the glitch-pickup bonus path (+GLITCH_PICKUP_BONUS can cross a threshold)', () => {
+      // showGlitchOverlay's spawn path needs the __TEST__ short-circuit to
+      // avoid Phaser.Math.Between — same guard the `(e)` block uses.
+      (window as { __TEST__?: boolean }).__TEST__ = true;
+      try {
+        (scene as any).score = 5;
+        (scene as any).milestonesHit = new Set();
+        (scene as any).fieldPowerUp = null;
+        (scene as any).createParticleBurst = vi.fn();
+        call('collectPowerUp', 'glitch');
+        const emits = milestoneEmissions(scene);
+        // GLITCH_PICKUP_BONUS = 100 → score 105 crosses both 50 and 100.
+        expect(emits.map((e) => e[0].data.value)).toEqual([50, 100]);
+      } finally {
+        delete (window as { __TEST__?: boolean }).__TEST__;
+      }
+    });
+  });
 });
