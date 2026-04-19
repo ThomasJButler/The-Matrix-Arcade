@@ -51,7 +51,7 @@ export const GAME_REGISTRY: GameEntry[] = [
   {
     id: 'matrix-cloud',
     title: 'Matrix Bird',
-    description: 'Navigate through gaps in the digital storm — one wrong move and you crash.',
+    description: 'Flap between pipes in the code cascade — one missed beat and gravity wins.',
     preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1776587192/A_surreal_thumbnail_of_a_glowing_neon_green_vortex_spiraling__e2f84ec0-7c65-4f60-af75-634675ca0999_2_gyatls.png',
     category: 'Arcade',
     inspiration: 'Flappy Bird (2013)',
