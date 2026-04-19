@@ -41,6 +41,12 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
+            src: '/ipodlogo.svg',
+            sizes: 'any',
+            type: 'image/svg+xml',
+            purpose: 'any'
+          },
+          {
             src: '/icon-192x192.png',
             sizes: '192x192',
             type: 'image/png'
