@@ -98,7 +98,7 @@ export class CtrlSChapterHubScene extends BaseScene {
 
     this.drawConnectionLines();
 
-    this.startBtn = this.createStartButton(centerX, height - 45);
+    this.startBtn = this.createStartButton(centerX, height - HUB_CONFIG.START_BUTTON_BOTTOM_MARGIN);
     this.startBtn.setAlpha(0);
 
     this.playEntranceAnimation();
@@ -285,7 +285,7 @@ export class CtrlSChapterHubScene extends BaseScene {
     const container = this.add.container(x, y);
     container.setDepth(2);
     const bw = 220;
-    const bh = 36;
+    const bh = HUB_CONFIG.START_BUTTON_HEIGHT;
 
     const bg = this.add.graphics();
     bg.fillStyle(MATRIX_COLORS.DARK_GREEN, 0.6);

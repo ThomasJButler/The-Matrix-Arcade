@@ -144,8 +144,36 @@ describe('CTRL-S World Phaser — Hub Config', () => {
   it('grid fits within game height with header and button space', () => {
     const rows = Math.ceil(GAME_CONFIG.CHAPTERS.TOTAL / HUB_CONFIG.COLS);
     const gridH = rows * HUB_CONFIG.TILE_H + (rows - 1) * HUB_CONFIG.GAP_Y;
-    const totalH = HUB_CONFIG.GRID_TOP_Y + gridH + 60;
+    const totalH = HUB_CONFIG.GRID_TOP_Y + gridH + HUB_CONFIG.START_BUTTON_BOTTOM_MARGIN;
     expect(totalH).toBeLessThanOrEqual(GAME_CONFIG.HEIGHT);
+  });
+
+  it('first chapter tile row clears the MISSION SELECT header and subtitle', () => {
+    // Header at HEADER_Y with 18px font (origin 0.5) → bottom ≈ HEADER_Y + 9.
+    // Subtitle at SUBTITLE_Y with 9px font (origin 0.5) → bottom ≈ SUBTITLE_Y + 5.
+    // First tile row container sits at y = GRID_TOP_Y; tile top edge = y - TILE_H / 2.
+    const firstTileTopY = HUB_CONFIG.GRID_TOP_Y - HUB_CONFIG.TILE_H / 2;
+    const subtitleBottomY = HUB_CONFIG.SUBTITLE_Y + 5;
+    expect(firstTileTopY).toBeGreaterThan(subtitleBottomY);
+  });
+
+  it('start button clears the last chapter tile row', () => {
+    const rows = Math.ceil(GAME_CONFIG.CHAPTERS.TOTAL / HUB_CONFIG.COLS);
+    const lastRowCentreY = HUB_CONFIG.GRID_TOP_Y + (rows - 1) * (HUB_CONFIG.TILE_H + HUB_CONFIG.GAP_Y);
+    const lastRowBottomY = lastRowCentreY + HUB_CONFIG.TILE_H / 2;
+    const buttonCentreY = GAME_CONFIG.HEIGHT - HUB_CONFIG.START_BUTTON_BOTTOM_MARGIN;
+    const buttonTopY = buttonCentreY - HUB_CONFIG.START_BUTTON_HEIGHT / 2;
+    expect(buttonTopY).toBeGreaterThan(lastRowBottomY);
+  });
+
+  it('start button sits fully inside the canvas with bottom breathing room', () => {
+    // The iPod portal chrome overlaps the lower canvas band; keep the button
+    // centred at least START_BUTTON_HEIGHT above the canvas edge so half of it
+    // cannot drift into the system-shell pause strip.
+    const buttonCentreY = GAME_CONFIG.HEIGHT - HUB_CONFIG.START_BUTTON_BOTTOM_MARGIN;
+    const buttonBottomY = buttonCentreY + HUB_CONFIG.START_BUTTON_HEIGHT / 2;
+    expect(buttonBottomY).toBeLessThan(GAME_CONFIG.HEIGHT);
+    expect(HUB_CONFIG.START_BUTTON_BOTTOM_MARGIN).toBeGreaterThanOrEqual(HUB_CONFIG.START_BUTTON_HEIGHT);
   });
 
   it('has positive stagger and fade durations', () => {
