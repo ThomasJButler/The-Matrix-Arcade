@@ -13,6 +13,7 @@ import {
   GAME_CONFIG,
   ACHIEVEMENTS,
   POWERUP_DEFS,
+  POWERUP_LEGEND,
   type PowerUpType,
   type DifficultyTier,
   DIFFICULTY_TIERS,
@@ -103,6 +104,12 @@ export class VortexPongGameScene extends BaseScene {
   private scanlineOverlay?: Phaser.GameObjects.Graphics;
   private playerPaddleGlow?: Phaser.GameObjects.Rectangle;
   private aiPaddleGlow?: Phaser.GameObjects.Rectangle;
+
+  // R84.P5 — 4-line power-up legend rendered on pickup. Tom: "didn't know
+  // what each did". `powerUpLegendHideTimer` owns the auto-hide deadline so
+  // repeat pickups re-arm the same window rather than stacking timers.
+  private powerUpLegend: Phaser.GameObjects.Text[] = [];
+  private powerUpLegendHideTimer?: Phaser.Time.TimerEvent;
 
   constructor() {
     super(SCENE_KEYS.GAME);
@@ -208,6 +215,12 @@ export class VortexPongGameScene extends BaseScene {
     this.playerPaddleGlow = undefined;
     this.aiPaddleGlow?.destroy();
     this.aiPaddleGlow = undefined;
+    // R84.P5 — legend cleanup: the hide timer is cancelled first so the
+    // delayedCall callback can't run against destroyed text instances.
+    this.powerUpLegendHideTimer?.remove(false);
+    this.powerUpLegendHideTimer = undefined;
+    this.powerUpLegend.forEach((t) => t.destroy());
+    this.powerUpLegend = [];
     if (this.input.keyboard) this.input.keyboard.removeAllKeys(true);
     super.shutdown();
   }
@@ -806,6 +819,9 @@ export class VortexPongGameScene extends BaseScene {
     this.playSound(SOUND_KEYS.SPECIAL_ABILITY);
     this.powerUpsCollected++;
     this.activatePowerUp(pu.type);
+    // R84.P5 — flash the 4-line legend so a novice player can learn each
+    // power-up's effect without opening the pause/help screen.
+    this.showPowerUpLegend(pu.type);
 
     if (this.powerUpsCollected >= 5) {
       this.unlockAchievement(ACHIEVEMENTS.POWER_MASTER);
@@ -972,6 +988,89 @@ export class VortexPongGameScene extends BaseScene {
       );
       this.powerUpIndicators.push(text);
       idx++;
+    }
+  }
+
+  /**
+   * R84.P5 — Render the 4-line power-up legend on every pickup. The entry
+   * matching the picked-up type is painted in that power-up's chevron colour
+   * at full alpha; the other three dim to `INACTIVE_ALPHA` so the player sees
+   * all options but their eye tracks the highlighted row. Existing legend
+   * text is rebuilt from scratch each call so repeat pickups refresh in place
+   * (not stack). Reduced-motion skips the fade tweens but still hides the
+   * legend via the `DISPLAY_MS` timer so the HUD does not stay cluttered.
+   */
+  private showPowerUpLegend(activatedType: PowerUpType): void {
+    this.clearPowerUpLegend();
+    const cx = GAME_CONFIG.WIDTH / 2;
+    const baseY = GAME_CONFIG.HEIGHT * POWERUP_LEGEND.BASE_Y_RATIO;
+    const reducedMotion = this.prefersReducedMotion();
+
+    POWERUP_LEGEND.ENTRIES.forEach((entry, i) => {
+      const def = POWERUP_DEFS[entry.type];
+      const isActive = entry.type === activatedType;
+      const colour = `#${def.color.toString(16).padStart(6, '0')}`;
+      const text = this.add.text(
+        cx,
+        baseY + i * POWERUP_LEGEND.LINE_HEIGHT,
+        `${entry.name} · ${entry.effect} · ${entry.duration}`,
+        {
+          fontFamily: MATRIX_FONTS.PRIMARY,
+          fontSize: '10px',
+          color: colour,
+          align: 'center',
+        },
+      );
+      text.setOrigin(0.5, 0.5);
+      text.setDepth(100);
+      const targetAlpha = isActive ? POWERUP_LEGEND.ACTIVE_ALPHA : POWERUP_LEGEND.INACTIVE_ALPHA;
+      if (reducedMotion) {
+        text.setAlpha(targetAlpha);
+      } else {
+        text.setAlpha(0);
+        this.tweens.add({
+          targets: text,
+          alpha: targetAlpha,
+          duration: POWERUP_LEGEND.FADE_IN_MS,
+          ease: 'Quad.easeOut',
+        });
+      }
+      this.powerUpLegend.push(text);
+    });
+
+    this.powerUpLegendHideTimer = this.time.delayedCall(
+      POWERUP_LEGEND.DISPLAY_MS,
+      () => this.hidePowerUpLegend(),
+    );
+  }
+
+  private hidePowerUpLegend(): void {
+    if (this.powerUpLegend.length === 0) return;
+    const targets = this.powerUpLegend;
+    if (this.prefersReducedMotion()) {
+      this.clearPowerUpLegend();
+      return;
+    }
+    this.tweens.add({
+      targets,
+      alpha: 0,
+      duration: POWERUP_LEGEND.FADE_OUT_MS,
+      onComplete: () => {
+        // Guard: a second pickup landing mid-fade will have already rebuilt
+        // `this.powerUpLegend`; only destroy the original cohort.
+        targets.forEach((t) => t.destroy());
+        if (this.powerUpLegend === targets) this.powerUpLegend = [];
+      },
+    });
+  }
+
+  private clearPowerUpLegend(): void {
+    this.powerUpLegendHideTimer?.remove(false);
+    this.powerUpLegendHideTimer = undefined;
+    if (this.powerUpLegend.length > 0) {
+      this.tweens.killTweensOf(this.powerUpLegend);
+      this.powerUpLegend.forEach((t) => t.destroy());
+      this.powerUpLegend = [];
     }
   }
 

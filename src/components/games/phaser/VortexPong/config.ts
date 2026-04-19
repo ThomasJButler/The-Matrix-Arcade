@@ -128,6 +128,45 @@ export const POWERUP_DEFS: Record<PowerUpType, { color: number; label: string }>
   multi_ball:       { color: 0xff00ff, label: 'MULTI' },
 };
 
+// R84.P5 — HUD legend shown for ~4s on every power-up pickup. Tom's testing
+// doc: "he didn't know what each did". The legend lists all four so a novice
+// player builds the mental model after two or three pickups. Duration values
+// are copy-frozen against `GAME_CONFIG.POWERUP.DURATION` (10s) and multi_ball
+// is flagged INSTANT because it has no expiry (see activatePowerUp switch).
+export interface PowerUpLegendEntry {
+  type: PowerUpType;
+  name: string;
+  effect: string;
+  duration: string;
+}
+
+export const POWERUP_LEGEND: {
+  readonly ENTRIES: readonly PowerUpLegendEntry[];
+  readonly DISPLAY_MS: number;
+  readonly FADE_IN_MS: number;
+  readonly FADE_OUT_MS: number;
+  readonly LINE_HEIGHT: number;
+  readonly BASE_Y_RATIO: number;
+  readonly ACTIVE_ALPHA: number;
+  readonly INACTIVE_ALPHA: number;
+} = {
+  ENTRIES: [
+    { type: 'bigger_paddle',    name: 'BIG',   effect: 'PADDLE +50%',    duration: '10s' },
+    { type: 'slower_ball',      name: 'SLOW',  effect: 'BALL -40%',      duration: '10s' },
+    { type: 'score_multiplier', name: '2X',    effect: 'SCORE BONUS',    duration: '10s' },
+    { type: 'multi_ball',       name: 'MULTI', effect: '+2 BALLS',       duration: 'NOW' },
+  ],
+  DISPLAY_MS: 4000,
+  FADE_IN_MS: 200,
+  FADE_OUT_MS: 400,
+  LINE_HEIGHT: 12,
+  BASE_Y_RATIO: 0.72,     // ~324px on 450px canvas — below the arena, above
+                          // the power-up indicator stack at HEIGHT - 20.
+  ACTIVE_ALPHA: 1,
+  INACTIVE_ALPHA: 0.55,   // non-activated entries dim so the active one reads
+                          // but the player still sees the other three options.
+};
+
 // R84.P3 — AI difficulty second pass (Tom: "too easy" verdict survived R83.V1).
 // Three tiers scale four AI params together so the feel differs by reaction
 // speed *and* prediction accuracy, not just one knob. Normal mirrors the

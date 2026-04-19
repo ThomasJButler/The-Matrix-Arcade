@@ -8,7 +8,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { VortexPongGameScene } from './GameScene';
-import { GAME_CONFIG, ACHIEVEMENTS } from '../config';
+import { GAME_CONFIG, ACHIEVEMENTS, POWERUP_LEGEND } from '../config';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -73,10 +73,15 @@ function createTestScene() {
     killAll: vi.fn(),
   };
 
-  // Timer
+  // Timer — R84.P5 adds `.remove()` so the legend hide timer can be
+  // cancelled safely without invoking its callback.
   scene.time = {
-    addEvent: vi.fn().mockReturnValue({ destroy: vi.fn(), delay: 0 }),
-    delayedCall: vi.fn().mockReturnValue({ destroy: vi.fn() }),
+    addEvent: vi.fn().mockReturnValue({ destroy: vi.fn(), remove: vi.fn(), delay: 0 }),
+    delayedCall: vi.fn().mockImplementation((_ms: number, cb: () => void) => ({
+      destroy: vi.fn(),
+      remove: vi.fn(),
+      callback: cb,
+    })),
     removeAllEvents: vi.fn(),
   };
 
@@ -147,10 +152,23 @@ function createTestScene() {
       setAlpha: vi.fn(),
       destroy: vi.fn(),
     })),
-    text: vi.fn().mockReturnValue({
-      setText: vi.fn(),
-      setAlpha: vi.fn(),
-      destroy: vi.fn(),
+    // R84.P5 — fresh text instance per call so per-line state (alpha/depth/
+    // origin/style) on the 4-row power-up legend can be asserted separately.
+    text: vi.fn().mockImplementation((x: number, y: number, content?: string, style?: any) => {
+      const t: any = {
+        x, y, text: content, style,
+        alpha: 1,
+        depth: 0,
+        originX: 0, originY: 0,
+        setText: vi.fn(function (this: any, s: string) { this.text = s; return this; }),
+        setAlpha: vi.fn(function (this: any, a: number) { this.alpha = a; return this; }),
+        setDepth: vi.fn(function (this: any, z: number) { this.depth = z; return this; }),
+        setOrigin: vi.fn(function (this: any, ox: number, oy?: number) {
+          this.originX = ox; this.originY = oy ?? ox; return this;
+        }),
+        destroy: vi.fn(),
+      };
+      return t;
     }),
   };
 
@@ -1203,6 +1221,214 @@ describe('VortexPongGameScene', () => {
       } finally {
         window.matchMedia = original;
       }
+    });
+  });
+
+  // ----------------------------------------------------------------------
+  // R84.P5 — Power-up in-HUD legend
+  // ----------------------------------------------------------------------
+  describe('R84.P5 — Power-up legend', () => {
+    function collectFresh(type: 'bigger_paddle' | 'slower_ball' | 'score_multiplier' | 'multi_ball') {
+      const pu = {
+        type,
+        sprite: { x: 100, y: 100, destroy: vi.fn() },
+      } as any;
+      scene.fieldPowerUps.push(pu);
+      scene.collectPowerUp(pu);
+      return pu;
+    }
+
+    describe('config sanity', () => {
+      it('POWERUP_LEGEND ships exactly 4 entries', () => {
+        expect(POWERUP_LEGEND.ENTRIES).toHaveLength(4);
+      });
+
+      it('every entry carries name + effect + duration copy', () => {
+        for (const e of POWERUP_LEGEND.ENTRIES) {
+          expect(e.name.length).toBeGreaterThan(0);
+          expect(e.effect.length).toBeGreaterThan(0);
+          expect(e.duration.length).toBeGreaterThan(0);
+        }
+      });
+
+      it('covers all four PowerUpType values', () => {
+        const types = POWERUP_LEGEND.ENTRIES.map((e) => e.type).sort();
+        expect(types).toEqual(['bigger_paddle', 'multi_ball', 'score_multiplier', 'slower_ball']);
+      });
+
+      it('display window is ~4 seconds (plan target)', () => {
+        expect(POWERUP_LEGEND.DISPLAY_MS).toBeGreaterThanOrEqual(3000);
+        expect(POWERUP_LEGEND.DISPLAY_MS).toBeLessThanOrEqual(5000);
+      });
+
+      it('inactive alpha dims but stays visible', () => {
+        expect(POWERUP_LEGEND.INACTIVE_ALPHA).toBeGreaterThan(0);
+        expect(POWERUP_LEGEND.INACTIVE_ALPHA).toBeLessThan(POWERUP_LEGEND.ACTIVE_ALPHA);
+      });
+    });
+
+    describe('showPowerUpLegend rendering', () => {
+      beforeEach(() => {
+        scene.add.text.mockClear();
+      });
+
+      it('spawns 4 text instances on pickup', () => {
+        // activatePowerUp also adds an indicator text; the legend itself owns
+        // exactly 4 rows, tracked by the `powerUpLegend` array.
+        collectFresh('bigger_paddle');
+        expect(scene.powerUpLegend).toHaveLength(4);
+      });
+
+      it('lines are centred on canvas mid-x', () => {
+        collectFresh('slower_ball');
+        const cx = GAME_CONFIG.WIDTH / 2;
+        for (const t of scene.powerUpLegend) {
+          expect(t.x).toBe(cx);
+          expect(t.originX).toBe(0.5);
+        }
+      });
+
+      it('each line uses the correct power-up colour', () => {
+        collectFresh('bigger_paddle');
+        const colours = scene.powerUpLegend.map((t: any) => t.style.color);
+        expect(colours).toEqual(['#00ff00', '#00ffff', '#ffff00', '#ff00ff']);
+      });
+
+      it('line text includes name, effect and duration', () => {
+        collectFresh('multi_ball');
+        const texts = scene.powerUpLegend.map((t: any) => t.text);
+        expect(texts[0]).toContain('BIG');
+        expect(texts[0]).toContain('PADDLE +50%');
+        expect(texts[0]).toContain('10s');
+        expect(texts[3]).toContain('MULTI');
+        expect(texts[3]).toContain('NOW');
+      });
+
+      it('stacks lines vertically at LINE_HEIGHT spacing', () => {
+        collectFresh('bigger_paddle');
+        const ys = scene.powerUpLegend.map((t: any) => t.y);
+        expect(ys[1] - ys[0]).toBe(POWERUP_LEGEND.LINE_HEIGHT);
+        expect(ys[3] - ys[0]).toBe(POWERUP_LEGEND.LINE_HEIGHT * 3);
+      });
+
+      it('baseY anchors to BASE_Y_RATIO of canvas height', () => {
+        collectFresh('bigger_paddle');
+        expect(scene.powerUpLegend[0].y).toBeCloseTo(GAME_CONFIG.HEIGHT * POWERUP_LEGEND.BASE_Y_RATIO);
+      });
+
+      it('paints every row at render depth 100 (above gameplay)', () => {
+        collectFresh('slower_ball');
+        for (const t of scene.powerUpLegend) {
+          expect(t.depth).toBe(100);
+        }
+      });
+
+      it('schedules an auto-hide timer for DISPLAY_MS', () => {
+        collectFresh('bigger_paddle');
+        // activatePowerUp also registers a POWERUP.DURATION (10000ms) expiry
+        // timer, so assert the legend's own 4000ms call is present.
+        const legendCall = scene.time.delayedCall.mock.calls.find(
+          (c: any[]) => c[0] === POWERUP_LEGEND.DISPLAY_MS,
+        );
+        expect(legendCall).toBeTruthy();
+      });
+    });
+
+    describe('active-row highlighting', () => {
+      it('tweens activated row to ACTIVE_ALPHA', () => {
+        scene.tweens.add.mockClear();
+        collectFresh('score_multiplier');
+        const tweenCalls = scene.tweens.add.mock.calls;
+        const activeTween = tweenCalls.find((c: any[]) => c[0].alpha === POWERUP_LEGEND.ACTIVE_ALPHA);
+        expect(activeTween).toBeTruthy();
+      });
+
+      it('tweens non-activated rows to INACTIVE_ALPHA', () => {
+        scene.tweens.add.mockClear();
+        collectFresh('score_multiplier');
+        const tweenCalls = scene.tweens.add.mock.calls;
+        const inactiveTweens = tweenCalls.filter((c: any[]) => c[0].alpha === POWERUP_LEGEND.INACTIVE_ALPHA);
+        expect(inactiveTweens).toHaveLength(3);
+      });
+
+      it('each pickup type highlights a different row', () => {
+        for (const type of ['bigger_paddle', 'slower_ball', 'score_multiplier', 'multi_ball'] as const) {
+          scene.clearPowerUpLegend();
+          scene.tweens.add.mockClear();
+          collectFresh(type);
+          const activeTweens = scene.tweens.add.mock.calls.filter(
+            (c: any[]) => c[0].alpha === POWERUP_LEGEND.ACTIVE_ALPHA,
+          );
+          expect(activeTweens).toHaveLength(1);
+        }
+      });
+    });
+
+    describe('repeat pickup refresh', () => {
+      it('clears previous legend before spawning new cohort', () => {
+        collectFresh('bigger_paddle');
+        const firstCohort = scene.powerUpLegend;
+        const firstDestroy = firstCohort.map((t: any) => t.destroy);
+        collectFresh('slower_ball');
+        for (const d of firstDestroy) expect(d).toHaveBeenCalled();
+        expect(scene.powerUpLegend).not.toBe(firstCohort);
+        expect(scene.powerUpLegend).toHaveLength(4);
+      });
+
+      it('cancels the prior hide timer so callbacks do not fire on dead text', () => {
+        collectFresh('bigger_paddle');
+        const firstTimer = scene.powerUpLegendHideTimer;
+        collectFresh('slower_ball');
+        expect(firstTimer.remove).toHaveBeenCalledWith(false);
+        expect(scene.powerUpLegendHideTimer).not.toBe(firstTimer);
+      });
+    });
+
+    describe('reduced-motion handling', () => {
+      const withReducedMotion = (fn: () => void) => {
+        const original = window.matchMedia;
+        // @ts-expect-error overriding for test
+        window.matchMedia = vi.fn().mockReturnValue({ matches: true });
+        try { fn(); } finally { window.matchMedia = original; }
+      };
+
+      it('skips fade-in tween and sets alpha directly', () => {
+        withReducedMotion(() => {
+          scene.tweens.add.mockClear();
+          collectFresh('bigger_paddle');
+          expect(scene.tweens.add).not.toHaveBeenCalled();
+          expect(scene.powerUpLegend[0].alpha).toBe(POWERUP_LEGEND.ACTIVE_ALPHA);
+          expect(scene.powerUpLegend[1].alpha).toBe(POWERUP_LEGEND.INACTIVE_ALPHA);
+        });
+      });
+
+      it('hidePowerUpLegend clears text immediately when reduced-motion is set', () => {
+        withReducedMotion(() => {
+          collectFresh('bigger_paddle');
+          scene.tweens.add.mockClear();
+          scene.hidePowerUpLegend();
+          expect(scene.tweens.add).not.toHaveBeenCalled();
+          expect(scene.powerUpLegend).toHaveLength(0);
+        });
+      });
+    });
+
+    describe('safety', () => {
+      it('hidePowerUpLegend is a no-op when no legend is visible', () => {
+        scene.tweens.add.mockClear();
+        scene.hidePowerUpLegend();
+        expect(scene.tweens.add).not.toHaveBeenCalled();
+      });
+
+      it('clearPowerUpLegend kills tweens + destroys all text', () => {
+        collectFresh('bigger_paddle');
+        const cohort = scene.powerUpLegend;
+        const destroyFns = cohort.map((t: any) => t.destroy);
+        scene.clearPowerUpLegend();
+        for (const d of destroyFns) expect(d).toHaveBeenCalled();
+        expect(scene.powerUpLegend).toHaveLength(0);
+        expect(scene.tweens.killTweensOf).toHaveBeenCalledWith(cohort);
+      });
     });
   });
 });
