@@ -85,6 +85,24 @@ export const GAME_CONFIG = {
 
   MAX_IMPACT_EFFECTS: 10,
 
+  // R84.P8 — top-centre rally counter. Plan line: "Small top-centre counter,
+  // pulses per hit, resets on goal — feeds P2 High Score + is a satisfying
+  // metric." Colour matches the MULTI power-up CYAN family so the HUD reads
+  // as the "rally / multi-ball" metric cluster. Hidden (alpha 0) at
+  // rallyCount 0 so a fresh serve doesn't show "RALLY x0"; fades in the
+  // moment the first player return lands and pulses up on every subsequent
+  // player hit. Reduced-motion skips the scale pulse but the text + alpha
+  // still update so players who need the metric still see it.
+  RALLY_COUNTER: {
+    Y: 14,                         // top-centre, above the score digits at y=30
+    FONT_SIZE: 14,
+    COLOR: '#00ffff',              // MATRIX_COLORS.CYAN_HEX — rally family
+    PULSE_FROM: 1.3,
+    PULSE_TO: 1,
+    PULSE_DURATION_MS: 180,
+    PULSE_EASE: 'Back.easeOut',
+  },
+
   // R84.P4 — vortex atmosphere amp-up. Tom's testing-doc verdict: the "vortex"
   // naming implied more depth than R83.V1's paddle-hit trail alone. This block
   // drives three procedural layers stacked beneath/between the existing rain +
