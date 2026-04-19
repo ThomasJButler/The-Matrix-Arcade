@@ -4,6 +4,7 @@ import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '@/lib/phas
 import {
   GAME_CONFIG,
   ACHIEVEMENTS,
+  DEATH_CINEMATIC,
   DREAD_BUILDUP,
   GLITCH_RAIN,
   MATRIX_FUNKINESS,
@@ -77,6 +78,11 @@ export class SnakeGameScene extends BaseScene {
   private dreadShakeTimer: Phaser.Time.TimerEvent | null = null;
   private dreadActive = false;
   private dreadIntensity = 0;
+  // R84.S5 — Snake death cinematic. Red-bar glitch cascade held in a list so
+  // teardown can mass-destroy if the scene tears down mid-strobe (restart
+  // before the 300 ms window completes). Individual bars also self-destroy
+  // via the tween `onComplete` callback to keep the happy-path cheap.
+  private deathCinematicBars: Phaser.GameObjects.Rectangle[] = [];
 
   private scoreText!: Phaser.GameObjects.Text;
   private highScoreText!: Phaser.GameObjects.Text;
@@ -156,6 +162,7 @@ export class SnakeGameScene extends BaseScene {
     this.powerUpLegend = [];
     this.destroyBonusFoodText();
     this.destroyGlitchOverlay();
+    this.destroyDeathCinematicBars();
     this.teardownDreadBuildup();
     this.playAreaRainGroup?.destroy(true);
     this.snakeHeadGlow?.destroy();
@@ -1347,6 +1354,77 @@ export class SnakeGameScene extends BaseScene {
 
   // ─── Game Over ─────────────────────────────────────────
 
+  /**
+   * R84.S5 — Red-bar glitch cascade before Game Over. 5 horizontal bars evenly
+   * spaced top-to-bottom, each yoyo-tweened 0 → BAR_ALPHA → 0 over BAR_STROBE_MS.
+   * Delays staggered linearly so the last bar finishes exactly at
+   * TOTAL_DURATION_MS, giving a clean top-to-bottom "buffer flush" read.
+   * Mirrors the R83.CTRLS.12 "buffer flushed" failure juice in
+   * `CtrlSWorld/NarrativeScene.spawnGlitchCascade` — shared Matrix-collapse
+   * visual language across the arcade.
+   *
+   * Gated under prefers-reduced-motion: the GAME_OVER sound + camera
+   * flash/shake + head sprite turning red already convey death; the cascade
+   * is supplemental juice that strobes fast enough to warrant a11y gating
+   * for sensitive users.
+   */
+  private playDeathCinematic(): void {
+    if (typeof window !== 'undefined' &&
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
+
+    const w = Number(this.game.config.width);
+    const h = Number(this.game.config.height);
+    const {
+      BAR_COUNT,
+      TOTAL_DURATION_MS,
+      BAR_STROBE_MS,
+      BAR_ALPHA,
+      BAR_COLOR,
+      BAR_HEIGHT,
+      DEPTH,
+      MARGIN_Y,
+    } = DEATH_CINEMATIC;
+
+    // Even vertical spacing + linear stagger → last bar ends at exactly
+    // TOTAL_DURATION_MS. With BAR_COUNT=5, BAR_STROBE_MS=120, TOTAL=300:
+    //   delays = [0, 45, 90, 135, 180]; last bar ends 180+120 = 300.
+    const yStep = BAR_COUNT > 1 ? (h - MARGIN_Y * 2) / (BAR_COUNT - 1) : 0;
+    const delayStep = BAR_COUNT > 1
+      ? (TOTAL_DURATION_MS - BAR_STROBE_MS) / (BAR_COUNT - 1)
+      : 0;
+    const halfStrobe = BAR_STROBE_MS / 2;
+
+    for (let i = 0; i < BAR_COUNT; i++) {
+      const y = MARGIN_Y + i * yStep;
+      const bar = this.add.rectangle(0, y, w, BAR_HEIGHT, BAR_COLOR);
+      bar.setOrigin(0, 0.5);
+      bar.setAlpha(0);
+      bar.setDepth(DEPTH);
+      this.deathCinematicBars.push(bar);
+
+      this.tweens.add({
+        targets: bar,
+        alpha: { from: 0, to: BAR_ALPHA },
+        yoyo: true,
+        duration: halfStrobe,
+        delay: i * delayStep,
+        ease: 'Power1',
+        onComplete: () => {
+          const idx = this.deathCinematicBars.indexOf(bar);
+          if (idx !== -1) this.deathCinematicBars.splice(idx, 1);
+          bar.destroy();
+        },
+      });
+    }
+  }
+
+  private destroyDeathCinematicBars(): void {
+    this.deathCinematicBars.forEach(b => b.destroy());
+    this.deathCinematicBars = [];
+  }
+
   private handleGameOver(): void {
     this.isGameOver = true;
     this.destroyMoveTimer();
@@ -1372,6 +1450,11 @@ export class SnakeGameScene extends BaseScene {
       }
       headSprite.setTint(MATRIX_COLORS.RED);
     }
+
+    // R84.S5 — 300 ms red-bar glitch cascade bridging death-frame → Game Over.
+    // Fires inside the 600 ms delayedCall window so the dead-head freeze is
+    // still visible underneath the strobe before the panel takes over.
+    this.playDeathCinematic();
 
     this.time.delayedCall(600, () => {
       this.gameOver(this.score, undefined, this.highScore, [
