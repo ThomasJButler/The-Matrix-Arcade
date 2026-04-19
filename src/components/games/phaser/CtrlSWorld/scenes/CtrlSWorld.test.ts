@@ -12,9 +12,10 @@ import { getPuzzleById } from '../../../../../data/puzzles';
 import { getChapter, getPuzzleTriggersForParagraph } from '../../../../../data/ctrlsChapters';
 import { CtrlSBootScene } from './BootScene';
 import { CtrlSMenuScene } from './MenuScene';
-import { CtrlSChapterHubScene } from './ChapterHubScene';
+import { CtrlSChapterHubScene, computeChapterProgress } from './ChapterHubScene';
 import { CtrlSNarrativeScene } from './NarrativeScene';
 import { CtrlSGameOverScene } from './GameOverScene';
+import { TOTAL_CHAPTERS } from '../../../../../data/ctrlsChapters';
 
 describe('CTRL-S World Phaser — Config', () => {
   it('has valid Phaser config with correct dimensions', () => {
@@ -223,6 +224,116 @@ describe('CTRL-S World Phaser — Chapter Status Logic', () => {
 
   it('chapter status types cover all hub tile states', () => {
     expect(statuses).toHaveLength(4);
+  });
+});
+
+describe('CTRL-S World Phaser — computeChapterProgress (R83.CTRLS.15)', () => {
+  // Regression block for the "chapters stay blacked out after completion" bug.
+  // The fix unlocks chapter N+1 once chapter N is in `completedChapters`, even
+  // if `currentChapter` (set only at launch) has not yet advanced.
+
+  const baseInput = {
+    completedChapters: [] as number[],
+    completedPuzzles: [] as string[],
+    currentChapter: 0,
+    totalChapters: TOTAL_CHAPTERS,
+  };
+
+  it('fresh playthrough: chapter 0 in-progress, rest locked', () => {
+    const progress = computeChapterProgress(baseInput);
+    expect(progress[0].status).toBe('in-progress');
+    for (let i = 1; i < TOTAL_CHAPTERS; i++) {
+      expect(progress[i].status).toBe('locked');
+    }
+  });
+
+  it('completing chapter 0 unlocks chapter 1 even when currentChapter has not advanced', () => {
+    // Exact bug Tom reported: finish chapter 0 without manually re-launching,
+    // come back to hub, chapter 1 must be pickable (not locked).
+    const progress = computeChapterProgress({
+      ...baseInput,
+      completedChapters: [0],
+      currentChapter: 0,
+    });
+    expect(progress[0].status).toBe('complete');
+    expect(progress[1].status).toBe('available');
+    for (let i = 2; i < TOTAL_CHAPTERS; i++) {
+      expect(progress[i].status).toBe('locked');
+    }
+  });
+
+  it('completing chapters 0-2 unlocks chapter 3 and keeps 4+ locked', () => {
+    const progress = computeChapterProgress({
+      ...baseInput,
+      completedChapters: [0, 1, 2],
+      currentChapter: 2,
+    });
+    expect(progress[0].status).toBe('complete');
+    expect(progress[1].status).toBe('complete');
+    expect(progress[2].status).toBe('complete');
+    expect(progress[3].status).toBe('available');
+    for (let i = 4; i < TOTAL_CHAPTERS; i++) {
+      expect(progress[i].status).toBe('locked');
+    }
+  });
+
+  it('launching an already-unlocked later chapter marks it in-progress without re-locking the rest', () => {
+    const progress = computeChapterProgress({
+      ...baseInput,
+      completedChapters: [0],
+      currentChapter: 1,
+    });
+    expect(progress[0].status).toBe('complete');
+    expect(progress[1].status).toBe('in-progress');
+    // The old logic would stop at `i <= currentChapter (1)` and lock chapter 2.
+    // The fix lets maxCompleted + 1 (= 1) compose with currentChapter (= 1),
+    // so chapter 2 remains locked here — completion hasn't reached it yet.
+    expect(progress[2].status).toBe('locked');
+  });
+
+  it('completing the final chapter leaves it marked complete without spilling into imaginary N+1', () => {
+    const last = TOTAL_CHAPTERS - 1;
+    const progress = computeChapterProgress({
+      ...baseInput,
+      completedChapters: Array.from({ length: TOTAL_CHAPTERS }, (_, i) => i),
+      currentChapter: last,
+    });
+    for (let i = 0; i < TOTAL_CHAPTERS; i++) {
+      expect(progress[i].status).toBe('complete');
+    }
+    // Sanity: the array doesn't over-index past totalChapters even when every
+    // slot is complete. This guards against a Math.max + 1 off-by-one creating
+    // a phantom entry.
+    expect(progress).toHaveLength(TOTAL_CHAPTERS);
+  });
+
+  it('counts completed puzzles per chapter via the prologue_/chN_ prefix convention', () => {
+    const progress = computeChapterProgress({
+      ...baseInput,
+      completedPuzzles: [
+        'prologue_first_command',
+        'ch1_patrol_route',
+        'ch1_cipher',
+        'ch2_trace',
+      ],
+    });
+    expect(progress[0].puzzlesCompleted).toBe(1);
+    expect(progress[1].puzzlesCompleted).toBe(2);
+    expect(progress[2].puzzlesCompleted).toBe(1);
+  });
+
+  it('handles out-of-order completion gracefully (Math.max over a sparse set)', () => {
+    // Defensive test — the reducer uses Math.max, not the array tail, so
+    // even a corrupted registry with [2, 0] still unlocks through index 3.
+    const progress = computeChapterProgress({
+      ...baseInput,
+      completedChapters: [2, 0],
+      currentChapter: 0,
+    });
+    expect(progress[0].status).toBe('complete');
+    expect(progress[1].status).toBe('available');
+    expect(progress[2].status).toBe('complete');
+    expect(progress[3].status).toBe('available');
   });
 });
 
