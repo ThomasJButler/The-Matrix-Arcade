@@ -123,6 +123,45 @@ export const MATRIX_FUNKINESS = {
   BONUS_FOOD_DEPTH: 5,
 } as const;
 
+// R84.S4 — Speed-tier dread build-up. Tom's Snake testing doc flagged the
+// top-tier speed feeling under-telegraphed: the game quietly gets faster but
+// the sensory envelope stays the same as at level 1. Three synchronised
+// effects tied to a single intensity ramp address it:
+//
+//   (a) Scanline intensification — a second overlay above the baseline
+//       scanline fades in proportional to intensity, up to +0.20 extra alpha
+//       at full dread (total ~0.38 incl. the 0.18 baseline). Reads as the
+//       CRT "tightening" as the run gets dangerous.
+//   (b) BGM bass thickening — `BaseScene.playAmbientDrone()` starts under
+//       the track when dread kicks in (55 Hz saw+sine through 180 Hz
+//       lowpass). The drone is an amplitude-felt layer, not a melodic one,
+//       so it doesn't clash with `cruise-control.mp3`'s existing arrangement.
+//       Built-in 2 s fade-in + 1 s fade-out so activation/deactivation is
+//       smooth; no need to re-implement envelopes here.
+//   (c) Camera micro-shake — a periodic `cameras.main.shake()` pulses every
+//       `SHAKE_INTERVAL_MS` at intensity-scaled amplitude. Kept well below
+//       the death-shake (0.012) so it reads as "pulse under the skin"
+//       rather than "thing crashing". Skipped under prefers-reduced-motion
+//       (nauseating for sensitive users; audio + scanline still convey the
+//       state change).
+//
+// Thresholds: dread engages once `currentSpeed` drops below START_SPEED (80,
+// ≈ level 15 / score 700) and fully peaks at MAX_SPEED (50 = MIN_SPEED, level
+// 21 / score 1000). The linear ramp means the earliest dread is barely
+// perceptible and the final tiers feel genuinely tense — matches the
+// gameplay arc where runs start survivable and end knife-edge.
+export const DREAD_BUILDUP = {
+  START_SPEED: 80,
+  MAX_SPEED: GAME_CONFIG.MIN_SPEED,
+  SCANLINE_MAX_ALPHA: 0.2,
+  SCANLINE_STRIDE: 3,
+  SCANLINE_DEPTH: 101,
+  DRONE_VOLUME: 0.08,
+  SHAKE_INTERVAL_MS: 450,
+  SHAKE_DURATION_MS: 40,
+  SHAKE_MAX_INTENSITY: 0.003,
+} as const;
+
 export const ACHIEVEMENTS = {
   FIRST_APPLE: 'snake_first_apple',
   SCORE_100: 'snake_score_100',

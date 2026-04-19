@@ -4,6 +4,7 @@ import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '@/lib/phas
 import {
   GAME_CONFIG,
   ACHIEVEMENTS,
+  DREAD_BUILDUP,
   GLITCH_RAIN,
   MATRIX_FUNKINESS,
   POWERUP_DEFS,
@@ -68,6 +69,14 @@ export class SnakeGameScene extends BaseScene {
   private snakeHeadGlow!: Phaser.GameObjects.Graphics;
   private scanlineOverlay!: Phaser.GameObjects.Graphics;
   private powerUpLegend: Phaser.GameObjects.Text[] = [];
+  // R84.S4 — Speed-tier dread build-up. `dreadIntensity` is the [0..1] ramp
+  // driving all three effects; `dreadActive` flips true on the frame
+  // intensity becomes non-zero so we can one-shot the drone + shake timer
+  // setup rather than re-triggering them every tick.
+  private dreadScanlineOverlay!: Phaser.GameObjects.Graphics;
+  private dreadShakeTimer: Phaser.Time.TimerEvent | null = null;
+  private dreadActive = false;
+  private dreadIntensity = 0;
 
   private scoreText!: Phaser.GameObjects.Text;
   private highScoreText!: Phaser.GameObjects.Text;
@@ -106,6 +115,7 @@ export class SnakeGameScene extends BaseScene {
     this.createPlayAreaMatrixRain();
     this.createSnakeHeadGlow();
     this.createScanlineOverlay();
+    this.createDreadScanlineOverlay();
     this.createHUD();
     this.createFoodSprite();
     this.createInitialSnake();
@@ -126,6 +136,7 @@ export class SnakeGameScene extends BaseScene {
     this.updatePlayAreaRain(delta);
     this.updateSnakeHeadGlow();
     this.updateGlitchOverlay(delta);
+    this.updateDreadBuildup();
     this.gameTimer += delta;
     this.handleInput();
     this.updateGhostVisuals();
@@ -145,6 +156,7 @@ export class SnakeGameScene extends BaseScene {
     this.powerUpLegend = [];
     this.destroyBonusFoodText();
     this.destroyGlitchOverlay();
+    this.teardownDreadBuildup();
     this.playAreaRainGroup?.destroy(true);
     this.snakeHeadGlow?.destroy();
     this.achievementsUnlocked.clear();
@@ -179,6 +191,8 @@ export class SnakeGameScene extends BaseScene {
     this.hyperActive = false;
     this.glitchActive = false;
     this.isBonusFood = false;
+    this.dreadActive = false;
+    this.dreadIntensity = 0;
     this.achievementsUnlocked = new Set();
   }
 
@@ -1144,6 +1158,130 @@ export class SnakeGameScene extends BaseScene {
     }
   }
 
+  // ─── Speed-tier dread build-up (R84.S4) ───────────────
+
+  /**
+   * Second scanline layer stacked above the baseline scanline overlay. Fades
+   * in proportional to `dreadIntensity` while the snake runs at top-tier
+   * speed (≈ level 15+). The pattern mirrors the baseline overlay but uses a
+   * higher alpha cap so the CRT feels like it's "tightening" as the run gets
+   * dangerous. Hidden under prefers-reduced-motion — the extra layered
+   * visual noise can bother sensitive users even though the lines are
+   * static.
+   */
+  private createDreadScanlineOverlay(): void {
+    this.dreadScanlineOverlay = this.add
+      .graphics()
+      .setDepth(DREAD_BUILDUP.SCANLINE_DEPTH);
+    if (typeof window !== 'undefined' &&
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
+    const w = Number(this.game.config.width);
+    const h = Number(this.game.config.height);
+    // Draw at alpha=1 here; the overlay's actual opacity is driven by
+    // `setAlpha()` in `updateDreadBuildup()` so the ramp is a single
+    // per-frame multiply rather than a full redraw per-tick.
+    this.dreadScanlineOverlay.fillStyle(0x000000, 1);
+    for (let y = 0; y < h; y += DREAD_BUILDUP.SCANLINE_STRIDE) {
+      this.dreadScanlineOverlay.fillRect(0, y, w, 1);
+    }
+    this.dreadScanlineOverlay.setAlpha(0);
+  }
+
+  /**
+   * Pure-function intensity ramp: 0 above START_SPEED, 1 at/below MAX_SPEED,
+   * linear between. Kept side-effect-free so tests can pin the curve without
+   * instantiating any visual/audio plumbing.
+   */
+  private computeDreadIntensity(currentSpeed: number): number {
+    const { START_SPEED, MAX_SPEED } = DREAD_BUILDUP;
+    if (currentSpeed >= START_SPEED) return 0;
+    if (currentSpeed <= MAX_SPEED) return 1;
+    return (START_SPEED - currentSpeed) / (START_SPEED - MAX_SPEED);
+  }
+
+  /**
+   * Per-frame dread controller. Recomputes intensity from `currentSpeed`,
+   * then synchronises the scanline alpha, the sub-bass drone, and the
+   * micro-shake loop. Drone + shake are one-shot on activation/deactivation
+   * edges so we don't restart Web Audio nodes per tick.
+   */
+  private updateDreadBuildup(): void {
+    const intensity = this.computeDreadIntensity(this.currentSpeed);
+    this.dreadIntensity = intensity;
+
+    if (this.dreadScanlineOverlay) {
+      const reduced = typeof window !== 'undefined' &&
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      this.dreadScanlineOverlay.setAlpha(
+        reduced ? 0 : intensity * DREAD_BUILDUP.SCANLINE_MAX_ALPHA,
+      );
+    }
+
+    const shouldBeActive = intensity > 0;
+    if (shouldBeActive && !this.dreadActive) {
+      this.dreadActive = true;
+      this.startDreadDrone();
+      this.startDreadShakeLoop();
+    } else if (!shouldBeActive && this.dreadActive) {
+      this.dreadActive = false;
+      this.stopDreadDrone();
+      this.stopDreadShakeLoop();
+    }
+  }
+
+  private startDreadDrone(): void {
+    this.playAmbientDrone({ volume: DREAD_BUILDUP.DRONE_VOLUME });
+  }
+
+  private stopDreadDrone(): void {
+    this.stopAmbientDrone();
+  }
+
+  /**
+   * Periodic camera micro-shake while dread is active. Amplitude scales with
+   * the current intensity so the final tier feels distinctly more rattled
+   * than the first tier past the dread threshold. Skipped entirely under
+   * prefers-reduced-motion — camera shake is a common nausea trigger and
+   * the scanline + drone already convey the state change.
+   */
+  private startDreadShakeLoop(): void {
+    if (typeof window !== 'undefined' &&
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
+    if (this.dreadShakeTimer) return;
+    this.dreadShakeTimer = this.time.addEvent({
+      delay: DREAD_BUILDUP.SHAKE_INTERVAL_MS,
+      loop: true,
+      callback: () => {
+        if (!this.dreadActive) return;
+        this.cameras.main.shake(
+          DREAD_BUILDUP.SHAKE_DURATION_MS,
+          DREAD_BUILDUP.SHAKE_MAX_INTENSITY * this.dreadIntensity,
+        );
+      },
+    });
+  }
+
+  private stopDreadShakeLoop(): void {
+    if (this.dreadShakeTimer) {
+      this.dreadShakeTimer.destroy();
+      this.dreadShakeTimer = null;
+    }
+  }
+
+  private teardownDreadBuildup(): void {
+    this.stopDreadShakeLoop();
+    if (this.dreadActive) {
+      this.stopDreadDrone();
+      this.dreadActive = false;
+    }
+    this.dreadScanlineOverlay?.destroy();
+    this.dreadIntensity = 0;
+  }
+
   /**
    * Briefly explain the four power-ups after the countdown clears (R83.S1).
    * Two centred lines, fade out after ~4s. Tom: "Need to explain what power-ups are".
@@ -1313,6 +1451,8 @@ export class SnakeGameScene extends BaseScene {
       reverseActive: this.reverseActive,
       hyperActive: this.hyperActive,
       glitchActive: this.glitchActive,
+      dreadActive: this.dreadActive,
+      dreadIntensity: this.dreadIntensity,
     };
   }
 }
