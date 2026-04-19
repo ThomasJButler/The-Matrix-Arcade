@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
 import { MATRIX_COLORS, MATRIX_FONTS } from '../../../../../lib/phaser/types';
 import { CTRLS_SCENE_KEYS, GAME_CONFIG, CHARACTERS, PORTRAIT_CONFIG, PARALLAX_CONFIG, LAYOUT, CHARACTER_TICK_MAP, NARRATOR_TICK, STINGER_KEYS, SPEAKER_SPEED_MULTIPLIERS, type CharacterDef, type SpeakerRole } from '../config';
-import { CHARACTER_PORTRAITS } from '../asciiArt';
+import { CHARACTER_PORTRAITS, buildMonogramCard } from '../asciiArt';
 import { TypewriterEngine } from '../engine/TypewriterEngine';
 import { TerminalEntryState } from '../engine/TerminalEntryState';
 import {
@@ -1774,39 +1774,32 @@ export class CtrlSNarrativeScene extends BaseScene {
     } else {
       // R83.CTRLS.28 — ASCII portrait fallback. Replaces the single-letter
       // placeholder (the "red-P bug" for Protector) with a proper ASCII sigil
-      // when CHARACTER_PORTRAITS contains art for this character. The art is
-      // rendered at 6px monospace, centred in the portrait box. If no ASCII
-      // portrait exists for this character, fall back to the initial letter.
-      const asciiPortrait = CHARACTER_PORTRAITS[character.id as keyof typeof CHARACTER_PORTRAITS];
-      if (asciiPortrait) {
-        this.portraitMonogram = this.add.text(
-          Math.round(size / 2),
-          Math.round(size / 2),
-          asciiPortrait,
-          {
-            fontFamily: MATRIX_FONTS.MONO,
-            fontSize: '6px',
-            color: character.colourHex,
-          },
-        );
-        this.portraitMonogram.setOrigin(0.5);
-        this.portraitMonogram.setResolution(TEXT_RESOLUTION);
-        this.portraitContainer.add(this.portraitMonogram);
-      } else {
-        this.portraitMonogram = this.add.text(
-          Math.round(size / 2),
-          Math.round(size / 2),
-          character.initial,
-          {
-            fontFamily: MATRIX_FONTS.PRIMARY,
-            fontSize: '28px',
-            color: character.colourHex,
-          },
-        );
-        this.portraitMonogram.setOrigin(0.5);
-        this.portraitMonogram.setResolution(TEXT_RESOLUTION);
-        this.portraitContainer.add(this.portraitMonogram);
-      }
+      // when CHARACTER_PORTRAITS contains art for this character.
+      // R83.CTRLS.26 — if a future character is added to CHARACTERS without
+      // a matching portrait, fall back to a procedurally-generated monogram
+      // card rather than a raw centred letter. The parity test in
+      // __tests__/asciiArt.test.ts makes this path unreachable in practice;
+      // the defensive branch guarantees "looks intentional" even if the test
+      // is bypassed. Both paths render at 6px MONO centred in the portrait
+      // box, tinted with character.colourHex, so an antagonist's red tint
+      // continues to read as a deliberate hostile signifier rather than a
+      // visual bug.
+      const asciiPortrait =
+        CHARACTER_PORTRAITS[character.id as keyof typeof CHARACTER_PORTRAITS] ??
+        buildMonogramCard(character.initial, character.name);
+      this.portraitMonogram = this.add.text(
+        Math.round(size / 2),
+        Math.round(size / 2),
+        asciiPortrait,
+        {
+          fontFamily: MATRIX_FONTS.MONO,
+          fontSize: '6px',
+          color: character.colourHex,
+        },
+      );
+      this.portraitMonogram.setOrigin(0.5);
+      this.portraitMonogram.setResolution(TEXT_RESOLUTION);
+      this.portraitContainer.add(this.portraitMonogram);
     }
 
     this.portraitName = this.add.text(
