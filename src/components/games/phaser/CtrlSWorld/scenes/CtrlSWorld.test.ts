@@ -20,7 +20,10 @@ describe('CTRL-S World Phaser — Config', () => {
   it('has valid Phaser config with correct dimensions', () => {
     expect(PHASER_CONFIG.width).toBe(800);
     expect(PHASER_CONFIG.height).toBe(600);
-    expect(PHASER_CONFIG.scene).toHaveLength(5);
+    // 7 scenes: Boot, Menu, ChapterHub, Narrative, GameOver, Puzzle, Inventory.
+    // Puzzle + Inventory added R83.CTRLS.1 — Phaser-native replacements for
+    // the stripped React PuzzleModal / InventoryPanel overlays.
+    expect(PHASER_CONFIG.scene).toHaveLength(7);
   });
 
   it('defines all scene keys', () => {
@@ -29,6 +32,8 @@ describe('CTRL-S World Phaser — Config', () => {
     expect(CTRLS_SCENE_KEYS.CHAPTER_HUB).toBe('CtrlSChapterHubScene');
     expect(CTRLS_SCENE_KEYS.NARRATIVE).toBe('CtrlSNarrativeScene');
     expect(CTRLS_SCENE_KEYS.GAME_OVER).toBe('CtrlSGameOverScene');
+    expect(CTRLS_SCENE_KEYS.PUZZLE).toBe('CtrlSPuzzleScene');
+    expect(CTRLS_SCENE_KEYS.INVENTORY).toBe('CtrlSInventoryScene');
   });
 
   it('has game config with text rendering settings', () => {

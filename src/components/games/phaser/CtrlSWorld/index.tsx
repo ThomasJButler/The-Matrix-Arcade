@@ -1,27 +1,29 @@
 /**
- * CTRL-S World (Phaser) - React Component
+ * CTRL-S World (Phaser) — React Component
  *
- * Phaser 3 rewrite of the narrative text adventure.
- * Feature-flagged alongside the old React version until R80.25 cut-over.
+ * Phaser 3 narrative adventure. Pure Phaser-native rendering inside the iPod
+ * canvas: puzzles and inventory are Phaser scenes (see PuzzleScene, InventoryScene),
+ * no React overlays live inside the game container.
  *
- * Renders PuzzleModal and InventoryPanel as React overlays when NarrativeScene triggers them.
- * Bridges GameStateContext ↔ Phaser registry for save/load persistence.
+ * React's remaining responsibilities:
+ *  - Mount the Phaser game and bridge props via Phaser registry
+ *  - Listen for game events and run save/achievement side effects
+ *  - Sync GameStateContext → Phaser registry (so scenes read live progress)
+ *  - (Transitional) drive Shatner TTS via useShatnerVoice — removed in R83.CTRLS.5
+ *
+ * R83.CTRLS.1: React overlays (PuzzleModal, InventoryPanel, ShatnerVoiceControls)
+ * stripped from inside the game container — everything on the iPod screen is now Phaser-native.
  */
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import Phaser from 'phaser';
 import { PhaserGame } from '../../../../lib/phaser/PhaserGame';
-import { PHASER_CONFIG, CTRLS_SCENE_KEYS, CTRLS_REGISTRY_KEYS, ACHIEVEMENTS, CHAPTER_ACHIEVEMENTS, GAME_CONFIG } from './config';
+import { PHASER_CONFIG, ACHIEVEMENTS, CHAPTER_ACHIEVEMENTS, CTRLS_REGISTRY_KEYS, GAME_CONFIG } from './config';
 import type { GameEvent } from '../../../../lib/phaser/types';
-import { PuzzleModal, type PuzzleData } from '../../../ui/PuzzleModal';
-import { InventoryPanel } from '../../../ui/InventoryPanel';
-import { getPuzzleById } from '../../../../data/puzzles';
 import { getItemRewardsForPuzzle, getItemById } from '../../../../data/items';
 import { useGameState } from '../../../../contexts/GameStateContext';
-import { CtrlSNarrativeScene } from './scenes/NarrativeScene';
 import { useSoundSystem } from '../../../../hooks/useSoundSystem';
 import { useShatnerVoice } from '../../../../hooks/useShatnerVoice';
-import { ShatnerVoiceControls } from '../../../ui/ShatnerVoiceControls';
 
 interface AchievementManager {
   unlockAchievement(gameId: string, achievementId: string): void;
@@ -34,8 +36,7 @@ interface CtrlSWorldPhaserProps {
   onExit?: () => void;
 }
 
-interface PuzzleOverlayState {
-  puzzle: PuzzleData;
+interface ActivePuzzleRef {
   puzzleId: string;
   chapterIndex: number;
   paragraphIndex: number;
@@ -47,10 +48,8 @@ export default function CtrlSWorldPhaser({
   autoStart = false,
   onExit,
 }: CtrlSWorldPhaserProps) {
-  const [activePuzzle, setActivePuzzle] = useState<PuzzleOverlayState | null>(null);
-  const [inventoryOpen, setInventoryOpen] = useState(false);
-  const [voiceSettingsOpen, setVoiceSettingsOpen] = useState(false);
   const gameInstanceRef = useRef<Phaser.Game | null>(null);
+  const activePuzzleRef = useRef<ActivePuzzleRef | null>(null);
   const { playSFX } = useSoundSystem();
   const shatnerVoice = useShatnerVoice();
   const gameState = useGameState();
@@ -65,7 +64,7 @@ export default function CtrlSWorldPhaser({
     }
   }, [isMuted, shatnerVoice]);
 
-  // Sync GameStateContext → Phaser registry so scenes read live progress
+  // Sync GameStateContext → Phaser registry so scenes read live progress + inventory.
   useEffect(() => {
     const game = gameInstanceRef.current;
     if (!game) return;
@@ -73,10 +72,12 @@ export default function CtrlSWorldPhaser({
     game.registry.set(CTRLS_REGISTRY_KEYS.COMPLETED_CHAPTERS, gameState.state.completedChapters);
     game.registry.set(CTRLS_REGISTRY_KEYS.COMPLETED_PUZZLES, gameState.state.completedPuzzles);
     game.registry.set(CTRLS_REGISTRY_KEYS.CURRENT_CHAPTER, gameState.state.currentChapter);
+    game.registry.set(CTRLS_REGISTRY_KEYS.INVENTORY, gameState.state.inventory);
   }, [
     gameState.state.completedChapters,
     gameState.state.completedPuzzles,
     gameState.state.currentChapter,
+    gameState.state.inventory,
   ]);
 
   const handleGameEvent = useCallback((event: GameEvent) => {
@@ -90,21 +91,52 @@ export default function CtrlSWorldPhaser({
       choiceId?: string;
       label?: string;
       text?: string;
+      success?: boolean;
+      hintsUsed?: number;
+      lifelinesUsed?: number;
     } | undefined;
     if (!data?.action) return;
 
     if (data.action === 'openPuzzle' && data.puzzleId) {
-      const puzzle = getPuzzleById(data.puzzleId);
-      if (!puzzle) return;
-
-      setActivePuzzle({
-        puzzle,
+      activePuzzleRef.current = {
         puzzleId: data.puzzleId,
         chapterIndex: data.chapterIndex ?? 0,
         paragraphIndex: data.paragraphIndex ?? 0,
-      });
-    } else if (data.action === 'openInventory') {
-      setInventoryOpen(true);
+      };
+    } else if (data.action === 'puzzleComplete' && data.puzzleId) {
+      const active = activePuzzleRef.current;
+      activePuzzleRef.current = null;
+
+      if (!isMuted) {
+        playSFX(data.success ? 'ctrlsPuzzleSolved' : 'ctrlsPuzzleFailed');
+      }
+
+      if (data.success && active) {
+        achievementManager?.unlockAchievement('ctrlSWorld', ACHIEVEMENTS.FIRST_PUZZLE);
+
+        const hintsUsed = data.hintsUsed ?? 0;
+        const lifelinesUsed = data.lifelinesUsed ?? 0;
+        if (hintsUsed === 0 && lifelinesUsed === 0) {
+          achievementManager?.unlockAchievement('ctrlSWorld', ACHIEVEMENTS.NO_HINTS);
+        }
+
+        gameState.completePuzzle(active.puzzleId);
+
+        const completedPuzzles = [...(gameState.state.completedPuzzles ?? []), active.puzzleId];
+        if (completedPuzzles.length >= 10) {
+          achievementManager?.unlockAchievement('ctrlSWorld', ACHIEVEMENTS.PUZZLE_MASTER);
+        }
+
+        const rewardIds = getItemRewardsForPuzzle(active.puzzleId);
+        for (const itemId of rewardIds) {
+          const itemData = getItemById(itemId);
+          if (itemData) {
+            gameState.addItem({ ...itemData, quantity: 1, acquiredAt: new Date().toISOString() });
+          }
+        }
+
+        gameState.saveGame();
+      }
     } else if (data.action === 'chapterComplete' && data.chapterIndex !== undefined) {
       gameState.completeChapter(data.chapterIndex);
 
@@ -137,61 +169,7 @@ export default function CtrlSWorldPhaser({
     } else if (data.action === 'voiceStop') {
       shatnerVoice.stop();
     }
-  }, [gameState, isMuted, shatnerVoice]);
-
-  const resumeNarrative = useCallback(() => {
-    const game = gameInstanceRef.current;
-    if (!game) return;
-
-    const scene = game.scene.getScene(CTRLS_SCENE_KEYS.NARRATIVE) as CtrlSNarrativeScene | null;
-    scene?.resumeAfterPuzzle();
-  }, []);
-
-  const handlePuzzleClose = useCallback(() => {
-    setActivePuzzle(null);
-    resumeNarrative();
-  }, [resumeNarrative]);
-
-  const handlePuzzleComplete = useCallback((success: boolean, hintsUsed: number, lifelinesUsed: number) => {
-    if (!isMuted) {
-      playSFX(success ? 'ctrlsPuzzleSolved' : 'ctrlsPuzzleFailed');
-    }
-    if (success && activePuzzle) {
-      achievementManager?.unlockAchievement('ctrlSWorld', ACHIEVEMENTS.FIRST_PUZZLE);
-
-      if (hintsUsed === 0 && lifelinesUsed === 0) {
-        achievementManager?.unlockAchievement('ctrlSWorld', ACHIEVEMENTS.NO_HINTS);
-      }
-
-      gameState.completePuzzle(activePuzzle.puzzleId);
-
-      const completedPuzzles = [...(gameState.state.completedPuzzles ?? []), activePuzzle.puzzleId];
-      if (completedPuzzles.length >= 10) {
-        achievementManager?.unlockAchievement('ctrlSWorld', ACHIEVEMENTS.PUZZLE_MASTER);
-      }
-
-      const rewardIds = getItemRewardsForPuzzle(activePuzzle.puzzleId);
-      for (const itemId of rewardIds) {
-        const itemData = getItemById(itemId);
-        if (itemData) {
-          gameState.addItem({ ...itemData, quantity: 1, acquiredAt: new Date().toISOString() });
-        }
-      }
-
-      gameState.saveGame();
-    }
-    setActivePuzzle(null);
-    resumeNarrative();
-  }, [achievementManager, resumeNarrative, activePuzzle, gameState]);
-
-  const handleInventoryClose = useCallback(() => {
-    setInventoryOpen(false);
-
-    const game = gameInstanceRef.current;
-    if (!game) return;
-    const scene = game.scene.getScene(CTRLS_SCENE_KEYS.NARRATIVE) as CtrlSNarrativeScene | null;
-    scene?.resumeAfterInventory();
-  }, []);
+  }, [achievementManager, gameState, isMuted, playSFX, shatnerVoice]);
 
   return (
     <div className="relative w-full h-full bg-black">
@@ -206,25 +184,6 @@ export default function CtrlSWorldPhaser({
         gameRef={handleGameRef}
         className="w-full h-full"
       />
-      {activePuzzle && (
-        <PuzzleModal
-          isOpen={true}
-          puzzle={activePuzzle.puzzle}
-          onClose={handlePuzzleClose}
-          onComplete={handlePuzzleComplete}
-          playSFX={isMuted ? undefined : playSFX}
-        />
-      )}
-      <InventoryPanel
-        isOpen={inventoryOpen}
-        onClose={handleInventoryClose}
-      />
-      <div className="absolute top-2 right-2 z-10 max-w-xs">
-        <ShatnerVoiceControls
-          isExpanded={voiceSettingsOpen}
-          onToggleExpanded={() => setVoiceSettingsOpen(prev => !prev)}
-        />
-      </div>
     </div>
   );
 }

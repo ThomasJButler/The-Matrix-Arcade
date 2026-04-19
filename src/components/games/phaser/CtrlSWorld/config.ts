@@ -12,6 +12,8 @@ import { CtrlSMenuScene } from './scenes/MenuScene';
 import { CtrlSChapterHubScene } from './scenes/ChapterHubScene';
 import { CtrlSNarrativeScene } from './scenes/NarrativeScene';
 import { CtrlSGameOverScene } from './scenes/GameOverScene';
+import { CtrlSPuzzleScene } from './scenes/PuzzleScene';
+import { CtrlSInventoryScene } from './scenes/InventoryScene';
 
 export const CTRLS_SCENE_KEYS = {
   BOOT: 'CtrlSBootScene',
@@ -19,6 +21,8 @@ export const CTRLS_SCENE_KEYS = {
   CHAPTER_HUB: 'CtrlSChapterHubScene',
   NARRATIVE: 'CtrlSNarrativeScene',
   GAME_OVER: 'CtrlSGameOverScene',
+  PUZZLE: 'CtrlSPuzzleScene',
+  INVENTORY: 'CtrlSInventoryScene',
 } as const;
 
 export const GAME_CONFIG = {
@@ -130,6 +134,7 @@ export const CTRLS_REGISTRY_KEYS = {
   COMPLETED_CHAPTERS: 'completedChapters',
   COMPLETED_PUZZLES: 'completedPuzzles',
   CURRENT_CHAPTER: 'currentChapter',
+  INVENTORY: 'inventory',
 } as const;
 
 export const HUB_CONFIG = {
@@ -214,6 +219,8 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
     CtrlSChapterHubScene,
     CtrlSNarrativeScene,
     CtrlSGameOverScene,
+    CtrlSPuzzleScene,
+    CtrlSInventoryScene,
   ],
   input: {
     keyboard: true,
