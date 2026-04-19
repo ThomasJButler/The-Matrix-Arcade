@@ -304,12 +304,13 @@ describe('MatrixCloudGameScene', () => {
     });
   });
 
-  // R84.B6 (2026-04-19): Tom's post-R83.B1 playtest still flagged the flap SFX
-  // as "the worst". The playSound override now drops BIRD_FLAP another 20%
-  // (0.75 × 0.8 = 0.60) while leaving score/hit/etc at the shared 0.75 so the
-  // louder cues Tom liked stay intact. These tests are the only guard against
-  // a regression that mixes the jump back up to the 0.75 baseline.
-  describe('playSound override (R84.B6)', () => {
+  // R84.B6 (2026-04-19): Tom's post-R83.B1 playtest flagged the flap SFX as
+  // "the worst"; jump key branched to a lower scale via JUMP_VOLUME_SCALE.
+  // R84.B9 (2026-04-19 night): Tom's follow-up note "SFX too loud" persisted
+  // for non-jump SFX — master scale dropped 0.75 → 0.65 while jump stays at
+  // 0.60. These tests are the only guard against a regression that re-mixes
+  // any of the three pinned values.
+  describe('playSound override (R84.B6 + R84.B9)', () => {
     // Build a minimal scene that keeps the real playSound override intact —
     // createTestScene stubs `playSound = vi.fn()` for the rest of the suite so
     // unrelated tests can assert on the key alone.
@@ -332,16 +333,51 @@ describe('MatrixCloudGameScene', () => {
       expect(soundSystem.play).toHaveBeenCalledWith('birdFlap', { volumeScale: 0.6 });
     });
 
-    it('passes 0.75 volumeScale for non-flap SFX (score)', () => {
+    it('passes 0.65 volumeScale for non-flap SFX (score)', () => {
       const { scene, soundSystem } = buildScene();
       scene.playSound('score');
-      expect(soundSystem.play).toHaveBeenCalledWith('score', { volumeScale: 0.75 });
+      expect(soundSystem.play).toHaveBeenCalledWith('score', { volumeScale: 0.65 });
     });
 
-    it('passes 0.75 volumeScale for hit', () => {
+    it('passes 0.65 volumeScale for hit', () => {
       const { scene, soundSystem } = buildScene();
       scene.playSound('hit');
-      expect(soundSystem.play).toHaveBeenCalledWith('hit', { volumeScale: 0.75 });
+      expect(soundSystem.play).toHaveBeenCalledWith('hit', { volumeScale: 0.65 });
+    });
+
+    // R84.B9: regression guard covering every non-jump SFX the scene uses.
+    // A refactor that branches the wrong key would otherwise silently regress
+    // only the one key its test misses — sweeping every non-flap key here
+    // means any future mis-branching surfaces as a test failure the same day.
+    it('applies 0.65 master scale to every non-flap SFX key used by the scene', () => {
+      const nonFlapKeys = [
+        'menu',
+        'score',
+        'hit',
+        'levelUp',
+        'combo',
+        'collectible',
+        'dangerWarning',
+        'gameOver',
+        'glassBreak',
+      ];
+      for (const key of nonFlapKeys) {
+        const { scene, soundSystem } = buildScene();
+        scene.playSound(key);
+        expect(soundSystem.play).toHaveBeenCalledWith(key, { volumeScale: 0.65 });
+      }
+    });
+
+    // R84.B9: pin the jump-vs-master invariant so a future tune-pass can't
+    // silently raise the jump above or level it with the master — Tom's B6
+    // calibration depends on jump reading perceptibly quieter than the rest.
+    it('keeps jump volumeScale strictly below the non-jump master', () => {
+      const { scene, soundSystem } = buildScene();
+      scene.playSound('birdFlap');
+      scene.playSound('score');
+      const flapCall = soundSystem.play.mock.calls.find((c: any) => c[0] === 'birdFlap');
+      const scoreCall = soundSystem.play.mock.calls.find((c: any) => c[0] === 'score');
+      expect(flapCall?.[1].volumeScale).toBeLessThan(scoreCall?.[1].volumeScale);
     });
   });
 
