@@ -97,6 +97,17 @@ export class CtrlSNarrativeScene extends BaseScene {
   private bgElapsed = 0;
   private themeParticles: Phaser.GameObjects.Text[] = [];
   private tickCounter = 0;
+  // Cursor ping tween kept on a ref so rapid advances can stop the previous
+  // scale ping before kicking off a new one (R83.CTRLS.13). Without this,
+  // spacebar-mash stacks N concurrent scaleX tweens on the same target and
+  // the cursor visibly twitches.
+  private cursorScaleTween?: Phaser.Tweens.Tween;
+  // Portrait-indent tween ref so rapid portrait swaps can stop the in-flight
+  // x-tween instead of chaining concurrent ones (R83.CTRLS.13).
+  private indentTween?: Phaser.Tweens.Tween;
+  // Flag to ensure the chapter-ASCII banner fades out exactly once when the
+  // narrative transitions from paragraph 0 → 1 (R83.CTRLS.13 dead-code fix).
+  private chapterAsciiFadedOut = false;
 
   constructor() {
     super(CTRLS_SCENE_KEYS.NARRATIVE);
@@ -111,6 +122,7 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.waitingForInventory = false;
     this.waitingForTerminal = false;
     this.terminalResolved = false;
+    this.chapterAsciiFadedOut = false;
 
     this.engine.setSpeed(GAME_CONFIG.TEXT.TYPEWRITER_SPEED_MEDIUM);
     this.tickCounter = 0;
@@ -282,6 +294,18 @@ export class CtrlSNarrativeScene extends BaseScene {
     return GAME_CONFIG.TEXT.MARGIN_Y;
   }
 
+  // Single source of truth for word-wrap width. Honours the current bodyText
+  // indent (the portrait push) so inline panels, choice prompts and terminal
+  // lines all wrap at the same right edge as the narrative. Falls back to the
+  // unindented margin when bodyText isn't created yet or is still at the
+  // left edge. R83.CTRLS.13: pre-existing duplicated `width - margin * 2` calls
+  // ignored the portrait indent and overflowed past the viewport.
+  private computeTextWrapWidth(): number {
+    const width = Number(this.game.config.width);
+    const leftX = this.bodyText?.x ?? GAME_CONFIG.TEXT.MARGIN_X;
+    return width - leftX - GAME_CONFIG.TEXT.MARGIN_X;
+  }
+
   private onCharTick(): void {
     this.tickCounter++;
     if (this.tickCounter % 3 !== 0) return;
@@ -293,6 +317,18 @@ export class CtrlSNarrativeScene extends BaseScene {
   }
 
   private onParagraphStart(): void {
+    // First genuine story beat (paragraph 1) → fade the chapter banner so the
+    // reader has a clean column. Previous code tried to gate this off the
+    // first advance press via `engine.state === 'IDLE'`, but engine.start()
+    // runs synchronously in create() so state is never IDLE at advance time
+    // — the banner stayed on screen for the entire chapter, competing with
+    // the single-paragraph region below it. R83.CTRLS.13 fix: fire on the
+    // 0 → 1 paragraph boundary, exactly once per chapter, and let the
+    // fadeout's onComplete reclaim the vertical space.
+    if (this.engine.paragraphIndex >= 1 && this.chapterAscii && !this.chapterAsciiFadedOut) {
+      this.fadeOutChapterAscii();
+    }
+
     // Single-paragraph region: every new paragraph starts from a clean slate.
     // Destroy any inline ASCII left over from the previous paragraph and snap
     // bodyText back to the baseline Y so the paragraph always appears in the
@@ -306,6 +342,24 @@ export class CtrlSNarrativeScene extends BaseScene {
       this.bodyText.setY(this.computeContentStartY());
     }
     this.syncPortraitY();
+  }
+
+  private fadeOutChapterAscii(): void {
+    if (!this.chapterAscii || this.chapterAsciiFadedOut) return;
+    this.chapterAsciiFadedOut = true;
+    const target = this.chapterAscii;
+    this.chapterAscii = undefined;
+    this.tweens.killTweensOf(target);
+    this.tweens.add({
+      targets: target,
+      alpha: 0,
+      duration: 500,
+      onComplete: () => {
+        target.destroy();
+        this.bodyText?.setY(this.computeContentStartY());
+        this.syncPortraitY();
+      },
+    });
   }
 
   private onParagraphComplete(paragraphIndex: number): void {
@@ -376,12 +430,13 @@ export class CtrlSNarrativeScene extends BaseScene {
   private showInlineAscii(art: string[]): void {
     if (!this.bodyText) return;
 
-    const margin = GAME_CONFIG.TEXT.MARGIN_X;
-    // Place the panel below the active paragraph without moving the paragraph.
-    // The cursor auto-repositions below the panel via renderCurrentText().
+    // Anchor the panel to the same X as the active paragraph so it never
+    // drifts under the portrait column when one is visible (R83.CTRLS.13).
+    // Previously hardcoded to GAME_CONFIG.TEXT.MARGIN_X which collided with
+    // the 196px portrait indent.
     const asciiY = this.bodyText.y + this.bodyText.height + INLINE_ASCII_GAP_Y;
 
-    const asciiText = this.add.text(margin, asciiY, art.join('\n'), {
+    const asciiText = this.add.text(this.bodyText.x, asciiY, art.join('\n'), {
       fontFamily: MATRIX_FONTS.MONO,
       fontSize: ASCII_FONT_SIZE,
       color: MATRIX_COLORS.MEDIUM_GREEN_HEX,
@@ -514,27 +569,15 @@ export class CtrlSNarrativeScene extends BaseScene {
 
     this.playSound('menu');
     if (this.cursorBlink && this.cursorBlink.visible) {
-      this.tweens.add({
+      this.cursorScaleTween?.stop();
+      this.cursorBlink.setScale(1);
+      this.cursorScaleTween = this.tweens.add({
         targets: this.cursorBlink,
         scaleX: 1.4,
         scaleY: 1.4,
         duration: 60,
         yoyo: true,
         ease: 'Quad.easeOut',
-      });
-    }
-
-    if (this.chapterAscii && this.engine.paragraphIndex === 0 && this.engine.state === 'IDLE') {
-      this.tweens.add({
-        targets: this.chapterAscii,
-        alpha: 0,
-        duration: 500,
-        onComplete: () => {
-          this.chapterAscii?.destroy();
-          this.chapterAscii = undefined;
-          this.bodyText?.setY(this.computeContentStartY());
-          this.syncPortraitY();
-        },
       });
     }
 
@@ -557,9 +600,7 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.promptText?.setText('> awaiting keystroke');
     this.playSound(STINGER_KEYS.TRANSITION);
 
-    const margin = GAME_CONFIG.TEXT.MARGIN_X;
-    const width = Number(this.game.config.width);
-    const wrapWidth = width - margin * 2;
+    const wrapWidth = this.computeTextWrapWidth();
     const startY = this.bodyText.y + this.bodyText.height + TERMINAL_BLOCK_GAP_Y;
 
     this.terminalContainer = this.add.container(0, 0);
@@ -755,9 +796,7 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.terminalStatusLine?.setColor(outcome === 'success' ? MATRIX_COLORS.PRIMARY_HEX : MATRIX_COLORS.DARK_GREEN_HEX);
     this.terminalHintLabel?.setVisible(false);
 
-    const margin = GAME_CONFIG.TEXT.MARGIN_X;
-    const width = Number(this.game.config.width);
-    const wrapWidth = width - margin * 2;
+    const wrapWidth = this.computeTextWrapWidth();
     let cursorY = (this.terminalStatusLine?.y ?? 0) + (this.terminalStatusLine?.height ?? 0) + TERMINAL_BLOCK_GAP_Y;
 
     lines.forEach((text, i) => {
@@ -828,9 +867,7 @@ export class CtrlSNarrativeScene extends BaseScene {
   private showChoiceUI(choices: ChoiceOption[], prompt?: string): void {
     if (!this.bodyText) return;
 
-    const margin = GAME_CONFIG.TEXT.MARGIN_X;
-    const width = Number(this.game.config.width);
-    const wrapWidth = width - margin * 2;
+    const wrapWidth = this.computeTextWrapWidth();
 
     this.activeChoices = choices;
     this.selectedChoiceIndex = 0;
@@ -1141,14 +1178,17 @@ export class CtrlSNarrativeScene extends BaseScene {
     const targetX = indented ? PORTRAIT_CONFIG.TEXT_INDENT : GAME_CONFIG.TEXT.MARGIN_X;
     const targetWidth = width - targetX - GAME_CONFIG.TEXT.MARGIN_X;
 
-    this.tweens.add({
+    // Set wrap width once up front so Phaser only re-lays-out the text a
+    // single time, not on every tween frame. Stop any prior indent tween via
+    // ref so rapid portrait swaps don't chain concurrent x-tweens (and we
+    // avoid killing unrelated bodyText tweens like puzzle-resume alpha).
+    this.bodyText.setWordWrapWidth(targetWidth);
+    this.indentTween?.stop();
+    this.indentTween = this.tweens.add({
       targets: this.bodyText,
       x: targetX,
       duration: PORTRAIT_CONFIG.FADE_DURATION,
       ease: 'Power2',
-      onUpdate: () => {
-        this.bodyText?.setWordWrapWidth(targetWidth);
-      },
     });
   }
 
@@ -1340,6 +1380,11 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.bodyText?.destroy();
     this.cursorBlink?.destroy();
     this.cursorTween?.destroy();
+    this.cursorScaleTween?.stop();
+    this.cursorScaleTween = undefined;
+    this.indentTween?.stop();
+    this.indentTween = undefined;
+    this.chapterAsciiFadedOut = false;
     this.promptText?.destroy();
     for (const ascii of this.asciiPanels) {
       ascii.destroy();
