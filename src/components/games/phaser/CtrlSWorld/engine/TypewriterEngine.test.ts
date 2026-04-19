@@ -281,6 +281,268 @@ describe('TypewriterEngine', () => {
     });
   });
 
+  describe('R83.CTRLS.24 — jitter, punctuation, capitalisation, speaker multiplier, paragraph stagger', () => {
+    // All of these tests run with Math.random() locked to a fixed value via
+    // vi.spyOn so the random branches inside rollNextDelay become
+    // deterministic. 0 picks the minimum of any [min..max] range; 0.5 picks
+    // the midpoint; 0.999 picks ~max. That lets us assert cadence effects
+    // without asserting exact ms counts.
+
+    describe('setJitter', () => {
+      it('shifts reveal cadence symmetrically around the base speed', () => {
+        // Random = 0 → jitter term (Math.random() * 2 - 1) = -1, so delay =
+        // base - jitterMs. With base 20, jitter 8 → delay = 12 ms/char.
+        const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+        const engine = new TypewriterEngine();
+        engine.setSpeed(20);
+        engine.setJitter(8);
+        engine.load(['AB']);
+        engine.start();
+
+        engine.update(11);
+        expect(engine.revealedText).toBe('');
+        engine.update(1);
+        expect(engine.revealedText).toBe('A');
+        engine.update(12);
+        expect(engine.revealedText).toBe('AB');
+        rand.mockRestore();
+      });
+
+      it('jitter=0 is equivalent to fixed speed', () => {
+        const engine = new TypewriterEngine();
+        engine.setSpeed(10);
+        engine.setJitter(0);
+        engine.load(['AB']);
+        engine.start();
+        engine.update(20);
+        expect(engine.revealedText).toBe('AB');
+      });
+    });
+
+    describe('setPunctuationRules', () => {
+      it('extends delay after "." before the next char', () => {
+        // Random = 0 picks the minimum of any range. Base 10 ms/char; after
+        // "." add +120 ms. So 'A' at T=10, '.' at T=20, next char needs
+        // T=20+10+120=150 for the second 'A' to appear.
+        const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+        const engine = new TypewriterEngine();
+        engine.setSpeed(10);
+        engine.setPunctuationRules([{ chars: '.!?', minMs: 120, maxMs: 180 }]);
+        engine.load(['A.A']);
+        engine.start();
+
+        engine.update(10);
+        expect(engine.revealedText).toBe('A');
+        engine.update(10);
+        expect(engine.revealedText).toBe('A.');
+
+        // +10 ms base + 120 ms punctuation = 130 ms until next reveal.
+        engine.update(129);
+        expect(engine.revealedText).toBe('A.');
+        engine.update(1);
+        expect(engine.revealedText).toBe('A.A');
+        rand.mockRestore();
+      });
+
+      it('applies a smaller pause after "," than after "."', () => {
+        // With Random = 0: comma adds +60 ms, full stop adds +120 ms. Run
+        // both sides with the same base speed and confirm the comma branch
+        // lands a char sooner.
+        const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+        const engine = new TypewriterEngine();
+        engine.setSpeed(10);
+        engine.setPunctuationRules([
+          { chars: '.!?', minMs: 120, maxMs: 180 },
+          { chars: ',;', minMs: 60, maxMs: 90 },
+        ]);
+        engine.load([',X']);
+        engine.start();
+
+        engine.update(10); // ',' revealed at T=10
+        expect(engine.revealedText).toBe(',');
+        // Next char needs 10 + 60 = 70 ms total; at T = 10 + 69 still ','.
+        engine.update(69);
+        expect(engine.revealedText).toBe(',');
+        engine.update(1);
+        expect(engine.revealedText).toBe(',X');
+        rand.mockRestore();
+      });
+
+      it('does not apply a pause when the paragraph has not yet revealed a char', () => {
+        // currentCharIndex === 0 at the start of a paragraph → no prior-char
+        // lookup → no punctuation pause on the first reveal.
+        const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+        const engine = new TypewriterEngine();
+        engine.setSpeed(10);
+        engine.setPunctuationRules([{ chars: '.', minMs: 500, maxMs: 500 }]);
+        engine.load(['.X']);
+        engine.start();
+        engine.update(10);
+        expect(engine.revealedText).toBe('.');
+        rand.mockRestore();
+      });
+    });
+
+    describe('setCapitalisationPause', () => {
+      it('extends delay before a capital letter that follows a lowercase letter', () => {
+        const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+        const engine = new TypewriterEngine();
+        engine.setSpeed(10);
+        engine.setCapitalisationPause(40);
+        engine.load(['aBc']);
+        engine.start();
+
+        engine.update(10);
+        expect(engine.revealedText).toBe('a');
+        // 'B' next: prev 'a' lowercase + next 'B' upper → +40 ms.
+        engine.update(49);
+        expect(engine.revealedText).toBe('a');
+        engine.update(1);
+        expect(engine.revealedText).toBe('aB');
+        rand.mockRestore();
+      });
+
+      it('does not fire for consecutive capitals (BB has no prior lowercase)', () => {
+        const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+        const engine = new TypewriterEngine();
+        engine.setSpeed(10);
+        engine.setCapitalisationPause(40);
+        engine.load(['BB']);
+        engine.start();
+        engine.update(20);
+        expect(engine.revealedText).toBe('BB');
+        rand.mockRestore();
+      });
+
+      it('does not fire for the first char of a paragraph (even if capital)', () => {
+        const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+        const engine = new TypewriterEngine();
+        engine.setSpeed(10);
+        engine.setCapitalisationPause(40);
+        engine.load(['Bb']);
+        engine.start();
+        engine.update(10);
+        expect(engine.revealedText).toBe('B');
+        rand.mockRestore();
+      });
+    });
+
+    describe('setSpeakerMultiplier', () => {
+      it('scales the rolled delay (1.15x slows, 0.9x speeds up)', () => {
+        const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+        const engine = new TypewriterEngine();
+        engine.setSpeed(20);
+        engine.setSpeakerMultiplier(1.5);
+        engine.load(['AB']);
+        engine.start();
+        // 20 × 1.5 = 30 ms/char.
+        engine.update(29);
+        expect(engine.revealedText).toBe('');
+        engine.update(1);
+        expect(engine.revealedText).toBe('A');
+        rand.mockRestore();
+      });
+
+      it('re-rolls the next char delay when updated mid-TYPING so the new speed takes effect immediately', () => {
+        const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+        const engine = new TypewriterEngine();
+        engine.setSpeed(20);
+        engine.load(['AB']);
+        engine.start();
+        // Before any update, multiplier 2x → next char delay becomes 40.
+        engine.setSpeakerMultiplier(2.0);
+        engine.update(39);
+        expect(engine.revealedText).toBe('');
+        engine.update(1);
+        expect(engine.revealedText).toBe('A');
+        rand.mockRestore();
+      });
+
+      it('clamps below 0.1 so callers cannot accidentally stall the engine', () => {
+        const engine = new TypewriterEngine();
+        engine.setSpeed(10);
+        engine.setSpeakerMultiplier(0);
+        engine.load(['AB']);
+        engine.start();
+        // Clamp to 0.1 → 10 × 0.1 = 1 ms/char minimum.
+        engine.update(5);
+        expect(engine.revealedText).toBe('AB');
+      });
+    });
+
+    describe('setParagraphStartDelay', () => {
+      it('delays the first char of each paragraph by the configured range', () => {
+        const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+        const engine = new TypewriterEngine();
+        engine.setSpeed(10);
+        engine.setParagraphStartDelay(80, 220);
+        engine.load(['ABC']);
+        engine.start();
+        // Min stagger 80 ms at Random = 0; +10 base = 90 ms until 'A'.
+        engine.update(89);
+        expect(engine.revealedText).toBe('');
+        engine.update(1);
+        expect(engine.revealedText).toBe('A');
+        // Subsequent chars (currentCharIndex > 0) get only the 10 ms base.
+        engine.update(10);
+        expect(engine.revealedText).toBe('AB');
+        rand.mockRestore();
+      });
+
+      it('re-applies the stagger on each paragraph start (not just the first)', () => {
+        const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+        const engine = new TypewriterEngine();
+        engine.setSpeed(10);
+        engine.setParagraphStartDelay(80, 80);
+        engine.load(['A', 'B']);
+        engine.start();
+        engine.update(90);
+        expect(engine.state).toBe('WAITING');
+        engine.advance();
+        // New paragraph → fresh stagger. 'B' needs another 90 ms.
+        engine.update(89);
+        expect(engine.revealedText).toBe('');
+        engine.update(1);
+        expect(engine.revealedText).toBe('B');
+        rand.mockRestore();
+      });
+    });
+
+    describe('modulators compound additively before the speaker multiplier', () => {
+      it('applies jitter + punctuation + capitalisation + stagger, then scales by speaker', () => {
+        // Random = 0 → min of every range, jitter = -jitterMs.
+        // Walk through "A.Bc":
+        //   char 0 'A': base 10 + jitter (-8) + stagger 80 = 82.  speaker 2 → 164 ms.
+        //   char 1 '.': prev 'A' not punct; prev 'A' upper + next '.' not letter → no cap pause; no stagger.
+        //              base 10 + jitter (-8) = 2 ms. speaker 2 → 4 ms.
+        //   char 2 'B': prev '.' punct match → +120 base 10 + jitter (-8) = 122; prev '.' not letter → no cap.
+        //              speaker 2 → 244 ms.
+        //   char 3 'c': prev 'B' upper, next 'c' lower → no cap fire (only fires upper-after-lower). base 10 - 8 = 2 ms.
+        //              speaker 2 → 4 ms.
+        const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+        const engine = new TypewriterEngine();
+        engine.setSpeed(10); // fixed, simplifies math
+        engine.setJitter(8);
+        engine.setCapitalisationPause(40);
+        engine.setParagraphStartDelay(80, 80);
+        engine.setPunctuationRules([{ chars: '.', minMs: 120, maxMs: 120 }]);
+        engine.setSpeakerMultiplier(2);
+        engine.load(['A.Bc']);
+        engine.start();
+
+        engine.update(164);
+        expect(engine.revealedText).toBe('A');
+        engine.update(4);
+        expect(engine.revealedText).toBe('A.');
+        engine.update(244);
+        expect(engine.revealedText).toBe('A.B');
+        engine.update(4);
+        expect(engine.revealedText).toBe('A.Bc');
+        rand.mockRestore();
+      });
+    });
+  });
+
   describe('rapid advance (spacebar mash) — R83.CTRLS.13', () => {
     it('survives a sequence of advance() calls faster than the typewriter cadence', () => {
       // Spacebar-mash simulation: the user taps advance every few ms through

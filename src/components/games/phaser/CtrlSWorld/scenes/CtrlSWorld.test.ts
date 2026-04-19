@@ -682,3 +682,71 @@ describe('NarrativeScene — R83.CTRLS.23 previous-paragraph trailing fade', () 
     expect(spawnSrc).toMatch(/bodyText\.text/);
   });
 });
+
+describe('NarrativeScene — R83.CTRLS.24 staggered text entry', () => {
+  // Tom's Round 2 ask: *"have really cool staggered text entry for different
+  // lines and characters"*. The engine change is tested in
+  // TypewriterEngine.test.ts (jitter / punctuation / capitalisation / speaker
+  // multiplier / paragraph stagger — real unit tests with deterministic
+  // Math.random spies). These NarrativeScene checks guard the WIRING:
+  // the scene's init must turn each modulator on, and onParagraphStart must
+  // push the current speaker's role multiplier into the engine so every new
+  // paragraph picks up its speaker cadence on the opening char.
+
+  it('SPEAKER_SPEED_MULTIPLIERS covers every SpeakerRole with expected values', async () => {
+    const { SPEAKER_SPEED_MULTIPLIERS } = await import('../config');
+    expect(SPEAKER_SPEED_MULTIPLIERS.narrator).toBe(1.0);
+    expect(SPEAKER_SPEED_MULTIPLIERS.npc).toBe(1.0);
+    expect(SPEAKER_SPEED_MULTIPLIERS.protagonist).toBe(0.9);
+    expect(SPEAKER_SPEED_MULTIPLIERS.antagonist).toBe(1.15);
+    expect(SPEAKER_SPEED_MULTIPLIERS.system).toBe(0.7);
+  });
+
+  it('every named character has a role classification', () => {
+    for (const character of Object.values(CHARACTERS)) {
+      expect(['narrator', 'protagonist', 'antagonist', 'npc', 'system']).toContain(character.role);
+    }
+    // Spot-check the anchors so regressing the protagonist/antagonist tagging
+    // surfaces here — the pacing pass depends on these exact roles.
+    expect(CHARACTERS.averag.role).toBe('protagonist');
+    expect(CHARACTERS.protector.role).toBe('antagonist');
+  });
+
+  it('init wires every .24 modulator onto the engine', () => {
+    const proto = CtrlSNarrativeScene.prototype as unknown as Record<string, () => void>;
+    const initSrc = proto.init.toString();
+    // Each modulator setter must be invoked exactly once from init so
+    // scene restarts (ESC → re-enter) reset the cadence cleanly.
+    expect(initSrc).toMatch(/setJitter\(TYPEWRITER_JITTER_MS\)/);
+    expect(initSrc).toMatch(/setPunctuationRules\(/);
+    expect(initSrc).toMatch(/setCapitalisationPause\(CAPITALISATION_PAUSE_MS\)/);
+    expect(initSrc).toMatch(
+      /setParagraphStartDelay\(PARAGRAPH_START_STAGGER_MIN_MS,\s*PARAGRAPH_START_STAGGER_MAX_MS\)/,
+    );
+    // The narrator-speaker seed guards against the engine defaulting to
+    // whatever multiplier was left from a previous scene instance.
+    // Tolerate the vite SSR import namespace prefix in compiled source.
+    expect(initSrc).toMatch(/setSpeakerMultiplier\([^)]*SPEAKER_SPEED_MULTIPLIERS\.narrator\)/);
+  });
+
+  it('onParagraphStart delegates to applySpeakerMultiplierForCurrentParagraph', () => {
+    const proto = CtrlSNarrativeScene.prototype as unknown as Record<string, () => void>;
+    const onStartSrc = proto.onParagraphStart.toString();
+    expect(onStartSrc).toMatch(/applySpeakerMultiplierForCurrentParagraph\(\)/);
+  });
+
+  it('applySpeakerMultiplierForCurrentParagraph reads the chapter speaker and sets the role multiplier', () => {
+    const proto = CtrlSNarrativeScene.prototype as unknown as Record<string, () => void>;
+    const src = proto.applySpeakerMultiplierForCurrentParagraph.toString();
+    // Look up via the data-layer helper so speaker edits in ctrlsChapters.ts
+    // flow through automatically — no speaker list hardcoded in the scene.
+    expect(src).toMatch(/getSpeakerForParagraph/);
+    // Role fallback to narrator when the paragraph has no tagged speaker.
+    // Quote-agnostic — TS compiles string literals to double quotes.
+    expect(src).toMatch(/["']narrator["']/);
+    // Speaker multiplier must be set through the engine setter, not a direct
+    // field assignment — the setter re-rolls the upcoming char delay so the
+    // new cadence takes effect immediately. Tolerate SSR import prefix.
+    expect(src).toMatch(/setSpeakerMultiplier\([^)]*SPEAKER_SPEED_MULTIPLIERS\[/);
+  });
+});
