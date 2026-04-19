@@ -176,6 +176,10 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.setupNarrativeInput();
     this.setupCommonInputs();
 
+    // When a modal Phaser scene (PuzzleScene, InventoryScene) stops and
+    // resumes us, clear the blocking flag so advance/input resumes.
+    this.events.on(Phaser.Scenes.Events.RESUME, this.onSceneResume, this);
+
     if (this.startFromParagraph > 0) {
       this.engine.startFromParagraph(this.startFromParagraph);
       this.updatePortraitForParagraph(this.startFromParagraph);
@@ -263,6 +267,8 @@ export class CtrlSNarrativeScene extends BaseScene {
       this.playSound(STINGER_KEYS.PUZZLE_APPEAR);
 
       this.time.delayedCall(800, () => {
+        // Still emit the event so React can record which puzzle is active
+        // (used by the puzzleComplete handler for item rewards + gameState).
         this.emitGameEvent({
           type: 'pause',
           data: {
@@ -271,6 +277,12 @@ export class CtrlSNarrativeScene extends BaseScene {
             chapterIndex: this.chapterIndex,
             paragraphIndex,
           },
+        });
+        this.scene.pause();
+        this.scene.launch(CTRLS_SCENE_KEYS.PUZZLE, {
+          puzzleId: puzzleTrigger.puzzleId,
+          chapterIndex: this.chapterIndex,
+          paragraphIndex,
         });
       });
       return;
@@ -326,6 +338,15 @@ export class CtrlSNarrativeScene extends BaseScene {
         duration: 300,
         ease: 'Power2',
       });
+    }
+  }
+
+  private onSceneResume(): void {
+    if (this.waitingForPuzzle) {
+      this.resumeAfterPuzzle();
+    }
+    if (this.waitingForInventory) {
+      this.resumeAfterInventory();
     }
   }
 
@@ -462,8 +483,10 @@ export class CtrlSNarrativeScene extends BaseScene {
   }
 
   private toggleInventory(): void {
+    if (this.waitingForInventory) return;
     this.waitingForInventory = true;
-    this.emitGameEvent({ type: 'pause', data: { action: 'openInventory' } });
+    this.scene.pause();
+    this.scene.launch(CTRLS_SCENE_KEYS.INVENTORY);
   }
 
   resumeAfterInventory(): void {
@@ -958,6 +981,7 @@ export class CtrlSNarrativeScene extends BaseScene {
   }
 
   shutdown(): void {
+    this.events.off(Phaser.Scenes.Events.RESUME, this.onSceneResume, this);
     this.emitGameEvent({ type: 'pause', data: { action: 'voiceStop' } });
     this.stopBackgroundMusic();
     this.bgImage?.destroy();
