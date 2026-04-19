@@ -61,6 +61,28 @@ export const GAME_CONFIG = {
   REVERSE_PICKUP_BONUS: 50,
 } as const;
 
+// R84.S12 — HUD column X coordinates. The Snake canvas is `WIDTH=640` wide
+// with the play area at `GRID_OFFSET_X=180..500` and walls at `x=164..516`.
+// Pre-S12 the right-column X was a magic-numbered `700` — 60 px past the
+// right edge of the canvas — so the `POWER-UPS` label, `FOOD` count and all
+// seven active power-up indicators rendered off-canvas and never became
+// visible to the player. Moved to a single source of truth here so any future
+// layout change pins both `createHUD` + `updatePowerUpIndicators` together.
+//
+// Geometry: the right-hand HUD margin spans `x=516..640` (wall right edge to
+// canvas right edge). Its centre is at `x=578`, rounded to `580` for
+// readability. That mirrors `LEFT_X=100`'s play-area-symmetric relationship
+// to the left wall (64 px gap between `LEFT_X` and left-wall-right-edge at
+// `x=164`; 64 px gap between right-wall-right-edge at `x=516` and
+// `RIGHT_X=580`). Text uses `setOrigin(0.5)` so the longest label
+// (`POWER-UPS` at 8 px font ≈ 45 px wide, power-up labels at 10 px ≈ 50 px
+// wide) extends ~25 px each side of RIGHT_X, landing within `x=555..605`
+// → 35 px clearance from the canvas right edge.
+export const HUD_X = {
+  LEFT_X: 100,
+  RIGHT_X: 580,
+} as const;
+
 export const POWERUP_DEFS: Record<PowerUpType, { color: number; label: string }> = {
   speed: { color: 0xffff00, label: 'SLOW' },
   double: { color: 0x0099ff, label: '2X' },

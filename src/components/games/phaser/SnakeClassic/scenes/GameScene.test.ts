@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import Phaser from 'phaser';
 import { SnakeGameScene } from './GameScene';
-import { GAME_CONFIG, ACHIEVEMENTS, DEATH_CINEMATIC, DREAD_BUILDUP, FOOD_PICKUP_JUICE, MATRIX_FUNKINESS, POWERUP_DEFS, GLITCH_RAIN } from '../config';
+import { GAME_CONFIG, ACHIEVEMENTS, DEATH_CINEMATIC, DREAD_BUILDUP, FOOD_PICKUP_JUICE, HUD_X, MATRIX_FUNKINESS, POWERUP_DEFS, GLITCH_RAIN } from '../config';
 import { MATRIX_COLORS, SOUND_KEYS } from '@/lib/phaser/types';
 
 // Seed JustDown on the global Phaser mock from setup.ts so handleInput tests
@@ -2326,6 +2326,120 @@ describe('SnakeGameScene', () => {
         expect(riseTween).toBeDefined();
         // Rises 30 px — value lives in gridToPixel's y-output minus 30.
         expect(typeof riseTween.y).toBe('number');
+      });
+    });
+  });
+
+  // ─── R84.S12 — HUD column bounds ────────────────────────
+  //
+  // Pre-S12 the right-column X was a magic-numbered `700` on a 640-px canvas,
+  // so the POWER-UPS label, FOOD count and all seven active power-up
+  // indicators rendered off-canvas. Config + scene now pin `HUD_X.RIGHT_X`
+  // to 580 (right-margin centre on a 640-px canvas with the play area at
+  // x=180..500). These tests block any future off-canvas regression by
+  // (a) pinning the config within canvas bounds, (b) pinning both call sites
+  // use the shared constant, (c) asserting the HUD text bounds stay inside
+  // [0, WIDTH] even for the widest label/font combination.
+
+  describe('R84.S12 — HUD column bounds', () => {
+    describe('config sanity', () => {
+      it('should keep RIGHT_X strictly less than canvas WIDTH', () => {
+        expect(HUD_X.RIGHT_X).toBeLessThan(GAME_CONFIG.WIDTH);
+      });
+
+      it('should keep LEFT_X strictly greater than 0', () => {
+        expect(HUD_X.LEFT_X).toBeGreaterThan(0);
+      });
+
+      it('should keep the widest label fully within canvas bounds at RIGHT_X', () => {
+        // Worst-case: power-up labels at 10px font. `Press Start 2P` is a
+        // monospace bitmap font where each glyph is roughly fontSize × 0.8
+        // wide. Longest label is `POWER-UPS` (9 chars). setOrigin(0.5) means
+        // the rendered rect extends ±halfWidth around RIGHT_X.
+        const longestChars = 'POWER-UPS'.length;
+        const fontSize = 10;
+        const charWidthFactor = 0.8;
+        const halfWidth = (longestChars * fontSize * charWidthFactor) / 2;
+        expect(HUD_X.RIGHT_X + halfWidth).toBeLessThan(GAME_CONFIG.WIDTH);
+        expect(HUD_X.RIGHT_X - halfWidth).toBeGreaterThan(0);
+      });
+
+      it('should centre the right column inside the right-hand margin', () => {
+        // Right-hand HUD margin is between the wall right edge and the
+        // canvas right edge. The centre of that strip is the intended target
+        // for RIGHT_X — same design intent as LEFT_X sitting in the left
+        // margin.
+        const wallRightEdge =
+          GAME_CONFIG.GRID_OFFSET_X +
+          GAME_CONFIG.GRID_COLS * GAME_CONFIG.CELL_SIZE +
+          GAME_CONFIG.CELL_SIZE;
+        const marginCentre = (wallRightEdge + GAME_CONFIG.WIDTH) / 2;
+        // Tolerance 10 px — the S12 fix rounds 578 → 580 for readability.
+        expect(Math.abs(HUD_X.RIGHT_X - marginCentre)).toBeLessThanOrEqual(10);
+      });
+    });
+
+    describe('createHUD() wiring', () => {
+      it('should render the POWER-UPS label at HUD_X.RIGHT_X', () => {
+        call('createHUD');
+        const powerUpsCall = (scene as any).createMatrixText.mock.calls.find(
+          (c: any[]) => c[2] === 'POWER-UPS',
+        );
+        expect(powerUpsCall).toBeDefined();
+        expect(powerUpsCall[0]).toBe(HUD_X.RIGHT_X);
+      });
+
+      it('should render the FOOD count at HUD_X.RIGHT_X', () => {
+        call('createHUD');
+        const foodCall = (scene as any).createMatrixText.mock.calls.find(
+          (c: any[]) => typeof c[2] === 'string' && c[2].startsWith('FOOD:'),
+        );
+        expect(foodCall).toBeDefined();
+        expect(foodCall[0]).toBe(HUD_X.RIGHT_X);
+      });
+
+      it('should render the SCORE label at HUD_X.LEFT_X', () => {
+        call('createHUD');
+        const scoreCall = (scene as any).createMatrixText.mock.calls.find(
+          (c: any[]) => c[2] === 'SCORE',
+        );
+        expect(scoreCall).toBeDefined();
+        expect(scoreCall[0]).toBe(HUD_X.LEFT_X);
+      });
+
+      it('should keep every HUD text call within [0, WIDTH]', () => {
+        call('createHUD');
+        const calls = (scene as any).createMatrixText.mock.calls;
+        for (const c of calls) {
+          const x = c[0] as number;
+          expect(x).toBeGreaterThanOrEqual(0);
+          expect(x).toBeLessThan(GAME_CONFIG.WIDTH);
+        }
+      });
+    });
+
+    describe('updatePowerUpIndicators() wiring', () => {
+      beforeEach(() => {
+        (scene as any).powerUpIndicators = new Map();
+      });
+
+      it('should place every active power-up indicator at HUD_X.RIGHT_X', () => {
+        (scene as any).speedSlowed = true;
+        (scene as any).doublePointsRemaining = 3;
+        (scene as any).shieldActive = true;
+        (scene as any).ghostActive = true;
+        (scene as any).reverseActive = true;
+        (scene as any).hyperActive = true;
+        (scene as any).glitchActive = true;
+        (scene as any).createMatrixText.mockClear();
+
+        call('updatePowerUpIndicators');
+
+        const xs = (scene as any).createMatrixText.mock.calls.map((c: any[]) => c[0]);
+        expect(xs.length).toBe(7);
+        for (const x of xs) {
+          expect(x).toBe(HUD_X.RIGHT_X);
+        }
       });
     });
   });
