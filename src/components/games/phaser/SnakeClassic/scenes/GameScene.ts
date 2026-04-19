@@ -87,6 +87,22 @@ export class SnakeGameScene extends BaseScene {
   // via the tween `onComplete` callback to keep the happy-path cheap.
   private deathCinematicBars: Phaser.GameObjects.Rectangle[] = [];
 
+  // R84.CI-8: ephemeral-arc object pool. `createEatRing` spawns one circle
+  // per food pickup and `createParticleBurst` spawns BURST_COUNT=10 per
+  // pickup + per power-up pickup + 8 per shield break — at a five-minute run
+  // with 60+ pickups this is 600+ Arc allocations each destroyed on tween
+  // complete. Pool parks retired arcs (setActive/setVisible false + push)
+  // and acquire re-dresses them (setPosition/setRadius/setFillStyle/reset
+  // stroke/setAlpha/setScale + reactivate) so subsequent pickups reuse the
+  // pooled arc rather than hitting `this.add.circle` again. Drained in
+  // `shutdown()` via `drainEffectArcPool()` to avoid leaks into the next
+  // scene instance. Mirrors the Bird CI-7 pipe-pool contract (two-pool
+  // hide/park + duck-typed re-dress) but with a single shared arc pool —
+  // eat-rings + particle-bursts both use Phaser.GameObjects.Arc so one pool
+  // covers both callsites; the re-dress path clears any prior stroke so a
+  // retired ring can safely re-emerge as a fill-only particle.
+  private effectArcPool: Phaser.GameObjects.Arc[] = [];
+
   private scoreText!: Phaser.GameObjects.Text;
   private highScoreText!: Phaser.GameObjects.Text;
   private levelText!: Phaser.GameObjects.Text;
@@ -180,6 +196,10 @@ export class SnakeGameScene extends BaseScene {
     this.destroyGlitchOverlay();
     this.destroyDeathCinematicBars();
     this.teardownDreadBuildup();
+    // R84.CI-8: hard-destroy any parked arcs so they don't leak across a
+    // `scene.restart()` boundary. Retired arcs are hidden + parked but
+    // still attached to Phaser's display list until drained.
+    this.drainEffectArcPool();
     this.playAreaRainGroup?.destroy(true);
     this.snakeHeadGlow?.destroy();
     this.achievementsUnlocked.clear();
@@ -1157,15 +1177,81 @@ export class SnakeGameScene extends BaseScene {
 
   // ─── Effects ───────────────────────────────────────────
 
+  // R84.CI-8: hide + park a retired effect arc for reuse. Called from each
+  // tween's `onComplete` after the ring/particle has finished its fade.
+  // Keeps the existing `destroy()`-oriented scene-shutdown path intact via
+  // `drainEffectArcPool()` below so pooled arcs don't leak into the next
+  // scene instance. Stroke style is cleared on retire so a pool-acquired
+  // particle (fill-only) won't carry the previous ring's stroke.
+  protected retireEffectArc(arc: Phaser.GameObjects.Arc): void {
+    const a = arc as Phaser.GameObjects.Arc & {
+      setActive?: (v: boolean) => unknown;
+      setVisible?: (v: boolean) => unknown;
+      setStrokeStyle?: (w?: number, c?: number) => unknown;
+    };
+    a.setActive?.(false);
+    a.setVisible?.(false);
+    a.setStrokeStyle?.();
+    this.effectArcPool.push(arc);
+  }
+
+  // R84.CI-8: pop a pooled arc and re-dress it for reuse. Falls back to
+  // `this.add.circle` when the pool is empty so the first few pickups in a
+  // run still fresh-allocate. Duck-typed setters match the Bird CI-7 pool
+  // pattern — jsdom unit-test mocks are plain objects, so `instanceof`
+  // checks don't work; guarded calls keep the runtime correct and let the
+  // mock pin the contract without a jsdom Phaser class tree.
+  protected acquireEffectArc(
+    x: number,
+    y: number,
+    radius: number,
+    color: number,
+    alpha: number,
+  ): Phaser.GameObjects.Arc {
+    const pooled = this.effectArcPool.pop();
+    if (pooled) {
+      const p = pooled as Phaser.GameObjects.Arc & {
+        setActive?: (v: boolean) => unknown;
+        setVisible?: (v: boolean) => unknown;
+        setPosition?: (x: number, y: number) => unknown;
+        setRadius?: (r: number) => unknown;
+        setFillStyle?: (c: number, a?: number) => unknown;
+        setAlpha?: (a: number) => unknown;
+        setScale?: (s: number) => unknown;
+      };
+      p.setActive?.(true);
+      p.setVisible?.(true);
+      p.setPosition?.(x, y);
+      p.setRadius?.(radius);
+      p.setFillStyle?.(color, alpha);
+      p.setAlpha?.(alpha);
+      p.setScale?.(1);
+      return pooled;
+    }
+    return this.add.circle(x, y, radius, color, alpha);
+  }
+
+  // R84.CI-8: drain the arc pool (hard destroy). Called from `shutdown()`
+  // so pooled arcs from the dying scene don't survive into the next scene
+  // instance — Phaser `scene.restart()` invokes `shutdown()` → `create()`,
+  // which would otherwise leak.
+  protected drainEffectArcPool(): void {
+    for (const arc of this.effectArcPool) arc.destroy();
+    this.effectArcPool = [];
+  }
+
   private createShieldBreakEffect(pos: Position): void {
     const { x, y } = this.gridToPixel(pos.x, pos.y);
-    const ring = this.add.circle(x, y, 10, MATRIX_COLORS.MAGENTA, 0.8);
+    // R84.CI-8: route through the effect-arc pool. First shield break in a
+    // run still fresh-allocates via the acquire fallback; subsequent breaks
+    // (rare but possible under GLITCH_PICKUP replays) reuse a retired arc.
+    const ring = this.acquireEffectArc(x, y, 10, MATRIX_COLORS.MAGENTA, 0.8);
     this.tweens.add({
       targets: ring,
       scale: 3,
       alpha: 0,
       duration: 400,
-      onComplete: () => ring.destroy(),
+      onComplete: () => this.retireEffectArc(ring),
     });
     this.createParticleBurst(x, y, MATRIX_COLORS.MAGENTA, 8);
   }
@@ -1197,7 +1283,9 @@ export class SnakeGameScene extends BaseScene {
     // tweenable (Phaser Shape inherits from GameObject) — `radius` is only
     // set at construction, so the scale-tween approach mirrors the existing
     // shield-break and particle-burst effects.
-    const ring = this.add.circle(x, y, FOOD_PICKUP_JUICE.EAT_RING_RADIUS, 0x000000, 0);
+    // R84.CI-8: pooled acquire — subsequent pickups reuse retired arcs, so
+    // long runs stop hammering `this.add.circle` for every pellet eaten.
+    const ring = this.acquireEffectArc(x, y, FOOD_PICKUP_JUICE.EAT_RING_RADIUS, 0x000000, 0);
     ring.setStrokeStyle(
       FOOD_PICKUP_JUICE.EAT_RING_STROKE_WIDTH,
       MATRIX_COLORS.PRIMARY,
@@ -1210,7 +1298,7 @@ export class SnakeGameScene extends BaseScene {
       alpha: 0,
       duration: FOOD_PICKUP_JUICE.EAT_RING_DURATION_MS,
       ease: 'Quad.easeOut',
-      onComplete: () => ring.destroy(),
+      onComplete: () => this.retireEffectArc(ring),
     });
   }
 
@@ -1441,7 +1529,10 @@ export class SnakeGameScene extends BaseScene {
   private createParticleBurst(x: number, y: number, colour: number, count: number): void {
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count;
-      const particle = this.add.circle(x, y, 3, colour, 0.9);
+      // R84.CI-8: pooled acquire. Biggest caller is `createEatBurst` at
+      // BURST_COUNT=10 per food pickup — pool reuse turns a 10x
+      // `add.circle` churn into a 10x pool pop once the pool has warmed.
+      const particle = this.acquireEffectArc(x, y, 3, colour, 0.9);
       this.tweens.add({
         targets: particle,
         x: x + Math.cos(angle) * 25,
@@ -1450,7 +1541,7 @@ export class SnakeGameScene extends BaseScene {
         scale: { from: 0.8, to: 0 },
         duration: 350,
         ease: 'Quad.easeOut',
-        onComplete: () => particle.destroy(),
+        onComplete: () => this.retireEffectArc(particle),
       });
     }
   }
