@@ -86,6 +86,10 @@ function createMockTimer() {
 // chains `setStrokeStyle` + `setAlpha` + `setDepth` on it. Tests need to
 // read back radius/colour + the chain-call destinations, so the mock now
 // captures constructor args + supports the full chain.
+// R84.CI-8 — added pool-contract setters (setActive/setVisible/setPosition/
+// setRadius/setScale) + isActive/isVisible readable fields so the
+// acquire/retire pool tests can drive through the duck-typed guards on
+// plain-object mocks.
 function createMockCircle() {
   const c: Record<string, any> = {};
   const self = () => c;
@@ -93,12 +97,20 @@ function createMockCircle() {
   c.setFillStyle = vi.fn(self);
   c.setAlpha = vi.fn(self);
   c.setDepth = vi.fn(self);
+  c.setActive = vi.fn((v: boolean) => { c.isActive = v; return c; });
+  c.setVisible = vi.fn((v: boolean) => { c.isVisible = v; return c; });
+  c.setPosition = vi.fn((x: number, y: number) => { c.x = x; c.y = y; return c; });
+  c.setRadius = vi.fn((r: number) => { c.radius = r; return c; });
+  c.setScale = vi.fn((s: number) => { c.scale = s; return c; });
   c.destroy = vi.fn();
   c.x = 0;
   c.y = 0;
   c.radius = 0;
   c.fillColor = 0;
   c.fillAlpha = 0;
+  c.isActive = true;
+  c.isVisible = true;
+  c.scale = 1;
   return c;
 }
 
@@ -2239,7 +2251,14 @@ describe('SnakeGameScene', () => {
         expect(circle.setDepth).toHaveBeenCalledWith(FOOD_PICKUP_JUICE.EAT_RING_DEPTH);
       });
 
-      it('should register a tween that scales to SCALE_END, alphas to 0, and destroys on complete', () => {
+      it('should register a tween that scales to SCALE_END, alphas to 0, and retires to pool on complete', () => {
+        // R84.CI-8 — tween onComplete routes through `retireEffectArc` now
+        // (hide + park for reuse) rather than direct `.destroy()`. Pool
+        // drain at shutdown still hard-destroys, so the scene-teardown
+        // contract is preserved by `drainEffectArcPool()` assertions
+        // below. Pinning the ring's arrival in `effectArcPool` keeps the
+        // regression tripwire specific — a refactor reverting to direct
+        // destroy would leave the pool empty and fail here.
         call('createEatRing', 100, 200);
         const tween = ((scene as any).tweens.add as any).mock.calls[0][0];
         const circle = ((scene as any).add.circle as any).mock.results[0].value;
@@ -2248,7 +2267,10 @@ describe('SnakeGameScene', () => {
         expect(tween.alpha).toBe(0);
         expect(tween.duration).toBe(FOOD_PICKUP_JUICE.EAT_RING_DURATION_MS);
         tween.onComplete();
-        expect(circle.destroy).toHaveBeenCalled();
+        expect(circle.destroy).not.toHaveBeenCalled();
+        expect(circle.setActive).toHaveBeenCalledWith(false);
+        expect(circle.setVisible).toHaveBeenCalledWith(false);
+        expect((scene as any).effectArcPool).toContain(circle);
       });
 
       it('should early-return under prefers-reduced-motion with no circle spawned', () => {
@@ -2990,6 +3012,185 @@ describe('SnakeGameScene', () => {
       } finally {
         delete (window as { __TEST__?: boolean }).__TEST__;
       }
+    });
+  });
+
+  // R84.CI-8 (perf priority 2): effect-arc object pool. `createEatRing` +
+  // `createParticleBurst` previously hit `this.add.circle` on every call and
+  // `.destroy()` on every tween completion. At BURST_COUNT=10 particles per
+  // food pickup plus a ring plus 10 per power-up plus 8 per shield break,
+  // a five-minute run churns 600+ Arc allocations. Pool reuses retired arcs
+  // (hidden via setActive/setVisible false + pushed) and acquire re-dresses
+  // them (setPosition/setRadius/setFillStyle/cleared stroke/setAlpha/
+  // setScale + reactivate). Drained in `shutdown()` so pooled arcs don't
+  // leak into the next scene instance. Mirrors Bird CI-7's pipe pool in
+  // shape; specs pin retire contract, acquire pop+fallback, drain teardown,
+  // full round-trip (spawn → retire → spawn) no-extra-allocation, and the
+  // duck-typed re-dress path (cleared stroke + reset scale).
+  describe('R84.CI-8 — effect-arc object pool', () => {
+    let originalMatchMedia: typeof window.matchMedia;
+
+    beforeEach(() => {
+      originalMatchMedia = window.matchMedia;
+      // Ensure reduced-motion off so createEatRing / createParticleBurst
+      // run their full path; matchMedia gate would early-return and mask
+      // the pool contract.
+      (window as any).matchMedia = vi.fn().mockReturnValue({ matches: false });
+    });
+
+    afterEach(() => {
+      (window as any).matchMedia = originalMatchMedia;
+    });
+
+    describe('retireEffectArc', () => {
+      it('hides the arc via setActive(false) + setVisible(false) and parks it in the pool', () => {
+        const arc = createMockCircle();
+        call('retireEffectArc', arc);
+        expect(arc.setActive).toHaveBeenCalledWith(false);
+        expect(arc.setVisible).toHaveBeenCalledWith(false);
+        expect((scene as any).effectArcPool).toContain(arc);
+      });
+
+      it('does not destroy the retired arc — destroy is reserved for shutdown drain', () => {
+        const arc = createMockCircle();
+        call('retireEffectArc', arc);
+        expect(arc.destroy).not.toHaveBeenCalled();
+      });
+
+      it('clears any prior stroke so a pool-acquired particle does not inherit a retired ring stroke', () => {
+        const arc = createMockCircle();
+        call('retireEffectArc', arc);
+        // Bare `setStrokeStyle()` call clears the stroke — Phaser Arc treats
+        // missing args as "strip stroke entirely".
+        expect(arc.setStrokeStyle).toHaveBeenCalledWith();
+      });
+    });
+
+    describe('acquireEffectArc', () => {
+      it('falls back to this.add.circle when the pool is empty', () => {
+        const arc = call('acquireEffectArc', 10, 20, 3, 0xff00ff, 0.9);
+        expect((scene as any).add.circle).toHaveBeenCalledWith(10, 20, 3, 0xff00ff, 0.9);
+        expect(arc).toBeTruthy();
+      });
+
+      it('pops a pooled arc when available and skips this.add.circle', () => {
+        const parked = createMockCircle();
+        (scene as any).effectArcPool = [parked];
+        ((scene as any).add.circle as any).mockClear();
+        const arc = call('acquireEffectArc', 42, 43, 5, 0x00ff00, 0.8);
+        expect(arc).toBe(parked);
+        expect((scene as any).add.circle).not.toHaveBeenCalled();
+        expect((scene as any).effectArcPool).toHaveLength(0);
+      });
+
+      it('re-dresses a pooled arc (reactivate + reposition + re-style + reset scale)', () => {
+        const parked = createMockCircle();
+        (scene as any).effectArcPool = [parked];
+        call('acquireEffectArc', 42, 43, 5, 0x00ff00, 0.8);
+        expect(parked.setActive).toHaveBeenCalledWith(true);
+        expect(parked.setVisible).toHaveBeenCalledWith(true);
+        expect(parked.setPosition).toHaveBeenCalledWith(42, 43);
+        expect(parked.setRadius).toHaveBeenCalledWith(5);
+        expect(parked.setFillStyle).toHaveBeenCalledWith(0x00ff00, 0.8);
+        expect(parked.setAlpha).toHaveBeenCalledWith(0.8);
+        expect(parked.setScale).toHaveBeenCalledWith(1);
+      });
+    });
+
+    describe('drainEffectArcPool', () => {
+      it('destroys every parked arc and empties the pool', () => {
+        const a = createMockCircle();
+        const b = createMockCircle();
+        (scene as any).effectArcPool = [a, b];
+        call('drainEffectArcPool');
+        expect(a.destroy).toHaveBeenCalled();
+        expect(b.destroy).toHaveBeenCalled();
+        expect((scene as any).effectArcPool).toHaveLength(0);
+      });
+
+      it('is safe to call when the pool is already empty', () => {
+        (scene as any).effectArcPool = [];
+        expect(() => call('drainEffectArcPool')).not.toThrow();
+        expect((scene as any).effectArcPool).toHaveLength(0);
+      });
+    });
+
+    describe('integration — createEatRing routes through the pool', () => {
+      it('on tween complete the ring is parked (not destroyed) in effectArcPool', () => {
+        call('createEatRing', 100, 200);
+        const tween = ((scene as any).tweens.add as any).mock.calls[0][0];
+        const ring = ((scene as any).add.circle as any).mock.results[0].value;
+        tween.onComplete();
+        expect(ring.destroy).not.toHaveBeenCalled();
+        expect((scene as any).effectArcPool).toContain(ring);
+      });
+    });
+
+    describe('integration — createParticleBurst routes through the pool', () => {
+      it('on tween complete each particle is parked (not destroyed) in effectArcPool', () => {
+        call('createParticleBurst', 100, 200, MATRIX_COLORS.PRIMARY, 4);
+        const tweens = ((scene as any).tweens.add as any).mock.calls as any[][];
+        // Drive every tween's onComplete — then every particle should be pooled.
+        const particles = ((scene as any).add.circle as any).mock.results.map((r: any) => r.value);
+        tweens.forEach((t) => t[0].onComplete());
+        particles.forEach((p: any) => expect(p.destroy).not.toHaveBeenCalled());
+        particles.forEach((p: any) => expect((scene as any).effectArcPool).toContain(p));
+        expect((scene as any).effectArcPool).toHaveLength(4);
+      });
+    });
+
+    describe('round-trip — spawn → retire → spawn reuses pooled arcs', () => {
+      it('second createEatRing after a retired one does not call this.add.circle again', () => {
+        // First ring — hits the fallback path (pool empty).
+        call('createEatRing', 100, 200);
+        const firstTween = ((scene as any).tweens.add as any).mock.calls[0][0];
+        firstTween.onComplete(); // retire
+        const circleAddCallsBeforeSecond = ((scene as any).add.circle as any).mock.calls.length;
+
+        // Second ring — pool now has one entry, should be popped.
+        call('createEatRing', 300, 400);
+        const circleAddCallsAfterSecond = ((scene as any).add.circle as any).mock.calls.length;
+        expect(circleAddCallsAfterSecond).toBe(circleAddCallsBeforeSecond);
+      });
+
+      it('second createParticleBurst reuses all parked arcs from the first burst', () => {
+        // First burst of 4 — 4 fresh allocations.
+        call('createParticleBurst', 100, 200, MATRIX_COLORS.PRIMARY, 4);
+        const firstTweens = ((scene as any).tweens.add as any).mock.calls as any[][];
+        firstTweens.forEach((t) => t[0].onComplete()); // retire all 4
+        const addCallsAfterFirstBurst = ((scene as any).add.circle as any).mock.calls.length;
+        expect(addCallsAfterFirstBurst).toBe(4);
+
+        // Second burst of 4 — pool has 4, so zero new this.add.circle calls.
+        call('createParticleBurst', 500, 600, MATRIX_COLORS.CYAN, 4);
+        const addCallsAfterSecondBurst = ((scene as any).add.circle as any).mock.calls.length;
+        expect(addCallsAfterSecondBurst).toBe(4); // unchanged — the load-bearing tripwire
+      });
+    });
+
+    describe('shutdown drains the pool', () => {
+      it('shutdown calls drainEffectArcPool so parked arcs do not leak across scene.restart()', () => {
+        // Pre-seed two parked arcs + stub the upstream shutdown helpers the
+        // real path calls (Snake's shutdown touches many subsystems that
+        // don't matter here — the pool drain is what we're pinning).
+        const a = createMockCircle();
+        const b = createMockCircle();
+        (scene as any).effectArcPool = [a, b];
+        (scene as any).stopBackgroundMusic = vi.fn();
+        (scene as any).destroyMoveTimer = vi.fn();
+        (scene as any).destroyFieldPowerUp = vi.fn();
+        (scene as any).destroyPowerUpTimers = vi.fn();
+        (scene as any).destroyBonusFoodText = vi.fn();
+        (scene as any).destroyGlitchOverlay = vi.fn();
+        (scene as any).destroyDeathCinematicBars = vi.fn();
+        (scene as any).teardownDreadBuildup = vi.fn();
+        const drainSpy = vi.spyOn(scene as any, 'drainEffectArcPool');
+        call('shutdown');
+        expect(drainSpy).toHaveBeenCalled();
+        expect(a.destroy).toHaveBeenCalled();
+        expect(b.destroy).toHaveBeenCalled();
+        expect((scene as any).effectArcPool).toHaveLength(0);
+      });
     });
   });
 });
