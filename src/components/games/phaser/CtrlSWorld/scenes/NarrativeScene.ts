@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
 import { MATRIX_COLORS, MATRIX_FONTS } from '../../../../../lib/phaser/types';
-import { CTRLS_SCENE_KEYS, GAME_CONFIG, CHARACTERS, PORTRAIT_CONFIG, PARALLAX_CONFIG, LAYOUT, CHARACTER_TICK_MAP, NARRATOR_TICK, STINGER_KEYS, type CharacterDef } from '../config';
+import { CTRLS_SCENE_KEYS, GAME_CONFIG, CHARACTERS, PORTRAIT_CONFIG, PARALLAX_CONFIG, LAYOUT, CHARACTER_TICK_MAP, NARRATOR_TICK, STINGER_KEYS, SPEAKER_SPEED_MULTIPLIERS, type CharacterDef, type SpeakerRole } from '../config';
 import { CHARACTER_PORTRAITS } from '../asciiArt';
 import { TypewriterEngine } from '../engine/TypewriterEngine';
 import { TerminalEntryState } from '../engine/TerminalEntryState';
@@ -75,6 +75,36 @@ const PHOSPHOR_BLOOM_BLUR_BODY = 4;   // subtler halo on long paragraph text
 const TYPEWRITER_MIN_MS = 28;
 const TYPEWRITER_MAX_MS = 38;
 const TYPEWRITER_BURST_CHANCE = 0.03;
+// R83.CTRLS.24 — staggered text entry. Each modulator is ADDITIVE on top of
+// the .22 base cadence; together they turn a metronomic web typewriter into
+// something that reads like a specific narrator at a specific keyboard. The
+// idle glyph-flicker (.16) and phosphor bloom (.17) remain untouched — .24
+// is a timing-domain change, not a rendering one.
+// (a) Per-char jitter: symmetric ±8 ms around the base 28-38 ms sample.
+// Effective window widens to ~20-46 ms but each char still lands near its
+// sampled base, so the grain registers without slipping into dread speed.
+const TYPEWRITER_JITTER_MS = 8;
+// (b) Punctuation pauses: lengthen the delay BEFORE the next char based on
+// what the reader's eye just passed over. Terminal punctuation (. ! ?)
+// gets the longest beat (reader needs a micro-rest); soft breaks (, ;) get
+// a quarter of that; the ellipsis gets a full dramatic pause.
+const PUNCTUATION_PAUSE_RULES = [
+  { chars: '.!?', minMs: 120, maxMs: 180 },
+  { chars: ',;', minMs: 60, maxMs: 90 },
+  { chars: '…', minMs: 240, maxMs: 240 },
+] as const;
+// (c) Capitalisation pause: 40 ms extra before a capital-after-lowercase
+// (new sentence mid-paragraph, proper noun). Small enough to read as
+// hesitation, not stutter. Capital-at-paragraph-start already pays for
+// itself via the stagger, so the engine correctly skips the cap pause
+// when currentCharIndex === 0.
+const CAPITALISATION_PAUSE_MS = 40;
+// (e) Per-paragraph stagger: the first char of every paragraph waits an
+// extra 80-220 ms. Pairs with .22's 100-200 ms paragraph-boundary beat and
+// .23's 500 ms trailing fade so multi-paragraph flow reads as "old line
+// dying → pause → new line stagger-in" rather than autopilot.
+const PARAGRAPH_START_STAGGER_MIN_MS = 80;
+const PARAGRAPH_START_STAGGER_MAX_MS = 220;
 // R83.CTRLS.22 — paragraph-boundary beat drops to 100-200 ms (was 900-1400 ms
 // in R83.CTRLS.17). The dread beat held the terminal for a full breath between
 // paragraphs; Tom's Round 2 ask is "a bit quicker when press enter (for the
@@ -282,6 +312,24 @@ export class CtrlSNarrativeScene extends BaseScene {
     // terminal reads like a web typewriter; with it, the cadence mimics
     // someone actually typing a mix of familiar and unfamiliar words.
     this.engine.setVariableSpeed(TYPEWRITER_MIN_MS, TYPEWRITER_MAX_MS, TYPEWRITER_BURST_CHANCE);
+    // R83.CTRLS.24 — layer per-char jitter, punctuation pauses, capitalisation
+    // hesitation and per-paragraph stagger on top of the .22 base speed. The
+    // speaker multiplier is set per-paragraph in onParagraphStart() once the
+    // current speaker is known. Rules are idempotent — safe to re-apply on
+    // scene restart / chapter reload without leaking state from prior runs.
+    this.engine.setJitter(TYPEWRITER_JITTER_MS);
+    this.engine.setPunctuationRules(
+      PUNCTUATION_PAUSE_RULES.map((rule) => ({
+        chars: rule.chars,
+        minMs: rule.minMs,
+        maxMs: rule.maxMs,
+      })),
+    );
+    this.engine.setCapitalisationPause(CAPITALISATION_PAUSE_MS);
+    this.engine.setParagraphStartDelay(PARAGRAPH_START_STAGGER_MIN_MS, PARAGRAPH_START_STAGGER_MAX_MS);
+    // Initialise with narrator cadence; the first onParagraphStart will
+    // overwrite this with the actual speaker for paragraph 0 if tagged.
+    this.engine.setSpeakerMultiplier(SPEAKER_SPEED_MULTIPLIERS.narrator);
     this.tickCounter = 0;
     this.flickerMap.clear();
     this.flickerUntilMs = 0;
@@ -531,6 +579,14 @@ export class CtrlSNarrativeScene extends BaseScene {
       this.fadeOutChapterAscii();
     }
 
+    // R83.CTRLS.24 — per-paragraph speaker multiplier. Look up the speaker
+    // for the new paragraph (narrator when untagged), classify into a role,
+    // and set the engine's speaker multiplier. The engine re-rolls the
+    // upcoming first-char delay so the new cadence takes effect on this
+    // paragraph's opening char rather than leaking one char of the previous
+    // speaker's speed.
+    this.applySpeakerMultiplierForCurrentParagraph();
+
     // Single-paragraph region: every new paragraph starts from a clean slate.
     // Destroy any inline ASCII left over from the previous paragraph so the
     // left pane re-centres on the portrait (or empties) for the next beat.
@@ -541,6 +597,18 @@ export class CtrlSNarrativeScene extends BaseScene {
       ascii.destroy();
     }
     this.asciiPanels = [];
+  }
+
+  // R83.CTRLS.24 — derives the speaker multiplier from the current paragraph
+  // index and pushes it into the engine. Kept as its own method so the
+  // scene's own tests can verify the behaviour without driving the whole
+  // TypewriterEngine callback chain.
+  private applySpeakerMultiplierForCurrentParagraph(): void {
+    if (!this.chapter) return;
+    const paragraphIndex = this.engine.paragraphIndex;
+    const speakerId = getSpeakerForParagraph(this.chapter, paragraphIndex);
+    const role: SpeakerRole = (speakerId ? CHARACTERS[speakerId]?.role : undefined) ?? 'narrator';
+    this.engine.setSpeakerMultiplier(SPEAKER_SPEED_MULTIPLIERS[role]);
   }
 
   private fadeOutChapterAscii(): void {

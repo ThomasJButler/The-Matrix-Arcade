@@ -44,6 +44,20 @@ export const GAME_CONFIG = {
   },
 } as const;
 
+// R83.CTRLS.24 — speaker roles drive per-paragraph typewriter cadence.
+// Protagonist reads faster (human urgency), antagonist slower (menace),
+// system text mechanically fast, narrator/npc at baseline. When a paragraph
+// has no speaker entry we fall back to 'narrator' and its 1.0× multiplier.
+export type SpeakerRole = 'narrator' | 'protagonist' | 'antagonist' | 'npc' | 'system';
+
+export const SPEAKER_SPEED_MULTIPLIERS: Record<SpeakerRole, number> = {
+  narrator: 1.0,
+  npc: 1.0,
+  protagonist: 0.9,
+  antagonist: 1.15,
+  system: 0.7,
+};
+
 export interface CharacterDef {
   id: string;
   name: string;
@@ -51,6 +65,10 @@ export interface CharacterDef {
   portraitKey?: string;
   colour: number;
   colourHex: string;
+  // R83.CTRLS.24 — classifies the character for the typewriter speed
+  // multiplier. Roles double as a source-of-truth for future UI beats
+  // (e.g. antagonist pulses, system glitch bands).
+  role: SpeakerRole;
 }
 
 export const CHARACTERS: Record<string, CharacterDef> = {
@@ -61,6 +79,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     portraitKey: 'portrait-protagonist',
     colour: 0x00ff00,
     colourHex: '#00ff00',
+    role: 'protagonist',
   },
   senora: {
     id: 'senora',
@@ -68,6 +87,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     initial: 'S',
     colour: 0x00ccff,
     colourHex: '#00ccff',
+    role: 'npc',
   },
   elon: {
     id: 'elon',
@@ -75,6 +95,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     initial: 'E',
     colour: 0xffcc00,
     colourHex: '#ffcc00',
+    role: 'antagonist',
   },
   steve: {
     id: 'steve',
@@ -82,6 +103,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     initial: 'S',
     colour: 0xff6600,
     colourHex: '#ff6600',
+    role: 'antagonist',
   },
   billiam: {
     id: 'billiam',
@@ -89,6 +111,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     initial: 'B',
     colour: 0x9966ff,
     colourHex: '#9966ff',
+    role: 'antagonist',
   },
   samuel: {
     id: 'samuel',
@@ -96,6 +119,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     initial: 'S',
     colour: 0xff3366,
     colourHex: '#ff3366',
+    role: 'npc',
   },
   protector: {
     id: 'protector',
@@ -103,6 +127,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     initial: 'P',
     colour: 0xff0000,
     colourHex: '#ff0000',
+    role: 'antagonist',
   },
 } as const;
 
