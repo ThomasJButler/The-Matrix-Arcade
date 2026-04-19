@@ -722,3 +722,95 @@ R78 ran 35 commits across ~30 iterations. Phase pattern: continuous-improvement 
 **Key outcomes**: Global SFX across all 11 games, sprite deployment passes 1–4 (Snake through Vortex Pong), visual regression baselines regen, multi-viewport Playwright matrix, comprehensive a11y sweep (all modals + icon buttons + live regions), MATRIX_COLORS/MATRIX_FONTS constant extraction, scene shutdown hardening, high score persistence fix, BGM deduplication.
 
 ---
+
+## R79 — Close R78 Residue (2026-04-14)
+
+Short 3-loop phase closing out R78 leftovers.
+
+**Shipped**:
+- R79.1: Docker linux baselines — 85 `*-chromium-linux.png` generated via Playwright-in-Docker (daemon available post-R78 fix)
+- R79.2: Rhythm Hacker manual BPM verification — Cyberpsychotic (140 BPM), Enhancements (160 BPM) confirmed by ear
+- R79.3: Final plan cleanup — archived R76/R77/R78 sections, trimmed Phase 0b `[~]` → `[x]` where R78.2–.4 sprites landed
+
+**Terminator**: `R79 COMPLETE — R78 residue closed`.
+
+---
+
+## R82 — Retro iPod Classic Portal Redesign (2026-04-16 → 2026-04-19)
+
+Large 40+ iteration phase rebuilding the game portal as a rendered iPod Classic device. **PORTAL/CAROUSEL VIEW only** — landing-page grid untouched per guardrail (first attempt targeted the grid incorrectly and was reverted).
+
+**Core shipped (R82.1–R82.12)**: Extracted `GamePortal.tsx` from `App.tsx`, iPod device body + CRT screen + interactive clickwheel (MENU / Prev / Next / Centre-Play / Scroll) + touch/swipe + keyboard shortcuts + audio feedback + a11y (focus trap, aria-label, role=dialog).
+
+**Round 1 refinements (R82.14–R82.20)**: Static portal height reduction, clickwheel button layout swap (PLAY → centre, Scores → bottom), close-X removal (exit via ESC/MENU-wheel), in-play portal width expansion, clickwheel→dashbar transformation (Nintendo Switch style), visual baseline regen.
+
+**Round 2 refinements (R82.21–R82.29)**: Header clipping fix, game fills portal properly, dashbar redesign, exit/pause distinct buttons, trophy icon wiring, key-panel hide-when-browsing, bigger play button, manual playtest verification, top/bottom gap balance (the "I'm happy, can test other stuff" sign-off).
+
+**R82.13 continuous-improvement bucket (40+ iterations)**: a11y (HCM/forced-colors, prefers-reduced-motion, aria-keyshortcuts, SR debounce, focus polish, hover-glow radial gradient, jump-nav wheel spin), perf (idle-prefetch, will-change, contain), audio (clickwheel SFX reused from R77 scoreboard), visual (pause overlay, screen-level pause mirror, height-budget balancing), post-playtest fixes (trophy button wired, info button opens GameInstructions, scroll-lock via `:has()` backstop).
+
+**Tom's manual sign-off**: 2026-04-19 evening after the gap-balance fix (commit `d443599`). R82.29 final hand-playtest rolled into R83 since R83 changes required a fresh end-to-end re-playtest anyway.
+
+**Tests post-R82**: 2,133 unit / 73 E2E specs / all visual baselines green.
+
+**Files created**: `src/components/GamePortal.tsx`, `src/components/KeyPanel.tsx`; CSS additions in `src/styles/animations.css`.
+
+---
+
+## R83 — Global Polish + CTRL-S Rewrite (2026-04-19)
+
+Three-round phase: 10 cross-cutting global bugs, 3 per-game polish passes (Snake/Pong/Bird), and a 28-sub-bullet CTRL-S World rewrite umbrella. Ran overnight + evening + night across a single day.
+
+### Round 1 — Globals G1-G8, polish S1/V1/B1, CTRL-S .1-.11
+
+**Globals** (affect all 12 games via shared infrastructure):
+- G1 Mute untoggle (`useSoundSystem` masterGain path — silence via gain, stop rewinding BGM)
+- G2 Kill click-to-play overlay (`PhaserGame.tsx` — no more blur-on-focus-loss)
+- G3 Consolidate pause overlays (drop in-canvas yellow, dashbar amber is sole source)
+- G4 MenuScene start-button Y hoisted into `BaseScene.MENU_START_BUTTON_Y_RATIO`
+- G5 CRT-boot overlay hides Phaser Scale.FIT mount flicker
+- G6 iPod trophy per-game high-score correctness (fix `matrix-cloud` ↔ `matrix-bird` ID mismatch + Matrix Bird high-score persistence)
+- G7 Pre-populate 8 untested testing-doc templates (Invaders, Metris, Frogger, NeoJump, AgentChase, Rhythm, CloudJumper, CodeBreaker)
+- G8 Global verification pass (lint/tsc/build/unit green; E2E env-gap under sandbox logged for retry)
+
+**Per-game polish** (3 playtested-by-Tom games only):
+- S1 Matrix Snake rename, apple shrink, BGM volume drop, power-up legend, CRT atmosphere
+- V1 Vortex Pong AI lookahead, keyboard hold-to-move fix, dim goal flash, restart-audio cleanup, paddle-hit particle trail
+- B1 Matrix Bird rename + ID alignment, ground-death, pause→resume countdown, procedural birdFlap SFX (tri-pluck 800→400Hz), slow-powerup jump-height scale, master SFX dim
+
+**CTRL-S rewrite (.1-.11)**: React overlay strip → Phaser-native, text-renderer single-paragraph fix, terminal-style inline choices, literal `CTRL-S` climax with attempts counter, Shatner TTS removal, music swap off `brothers-and-sisters.mp3`, achievements + save-system removal for CTRL-S only, ChapterHub menu overlap fix (vertical stack layout), register missing `ctrlsTransition` SFX + death-SFX orphan resolution, silence WebGL warnings (render-config `premultipliedAlpha: false` + `mipmapFilter: ''`).
+
+### Round 2 — Globals G9-G10, CTRL-S .13-.21 + .12 (juice last)
+
+**New globals**:
+- G9 Portal-expand ghost mask (synchronous cover during iPod → in-play transition)
+- G10 Matrix-terminal launcher (450ms procedural CSS boot replacing G5's simple CRT, applies to all 12 game launches, respects `prefers-reduced-motion`)
+
+**CTRL-S Round 2 sub-bullets**:
+- .13 Text renderer second pass (ASCII fadeout + overlap fixes)
+- .14 Image + ASCII deblur + centre (setOrigin + integer scale + NEAREST filter)
+- .15 ChapterHub unlock-state persistence (post save-system-removal registry sync)
+- .16 Terminal atmosphere (phosphor bloom, variable typing speed, idle glyph-flicker)
+- .17 **Sense-of-dread anchor pass** — darker palette (#00aa00 body / #007700 secondary / #00ff00 only for peak moments), RGB channel split + glitch bands on character portraits, slower pacing (55ms/char, 900-1400ms paragraph beats, 2s pre-choice delay), ambient sub-bass drone. Target feel: Papers Please / Oxenfree / OneShot — *"game lost in time, playing 50 years early"*
+- .18 Two-pane narrative layout (ASCII/portrait LEFT, text RIGHT)
+- .19 Spacebar-advance soft matrix click SFX
+- .20 Puzzle verification + repair (data audit pass)
+- .21 Sandbox-off E2E retry + 6-shot walkthrough (`manual-testing-sessions/screenshots/R83-round2/`)
+- .12 Juice pass (ran LAST per plan banner) — choice-commit flash + 100ms camera shake, puzzle-solve green flash + 12-glyph radial burst, terminal-climax success ring + camera zoom pulse + 24-glyph Matrix ring, climax-failure red-strobe cascade across 500ms
+
+### Round 3 — CTRL-S .22-.28 (post Tom's Round 2 playtest)
+
+Tom's Round 2 playtest verdict: *"play is generally better now and its just a bit too slow that's all. lets get the funky layout and improve the text speed"*.
+
+- .22 Text pacing speed-up (28-38ms/char, 100-200ms inter-paragraph beat, instant advance-press response — jump to end-of-paragraph if mid-reveal)
+- .23 Previous-paragraph trailing alpha-fade (500ms crossfade with next paragraph typewriter start)
+- .24 Staggered text entry (per-char ±8ms jitter, punctuation pauses `. ! ?` +120-180ms / `, ;` +60-90ms / `…` +240ms, capitalisation pause +40ms, per-speaker multipliers narrator 1.0× / protagonist 0.9× / antagonist 1.15× / system 0.7×, 80-220ms paragraph-start stagger)
+- .25 Funky asymmetric layout — title + text top-right, portrait middle-left / lower-third (y ≈ 0.55-0.65 × h), scatter of 8-14 matrix-glyph atmosphere particles at varying opacities 0.1-0.3, thin 1-px `MATRIX_COLORS.PRIMARY` L-bracket zone borders. Replaces the rigid 40/60 split from .18.
+- .26 Character portrait audit + monogram-card fallback parity test (works with .28 ASCII library)
+- .27 Round 3 screenshot walkthrough + dedicated capture spec (`e2e/playthrough/ctrl-s-walkthrough-round3-capture.spec.ts`, 10 shots under `manual-testing-sessions/screenshots/R83-round3/`)
+- .28 **ASCII art library** — 6 chapter sigils (Prologue rain+globe, Ch1 bunker cross-section, Ch2 agent silhouette, Ch3 code cascade, Ch4 bifurcation fork, Ch5 CTRL+S keyboard climax), 7 character portraits (averag, senora, elon, steve, billiam, samuel, protector), 12 transition beats, 28 decorative glyphs. Kills the red-P Protector placeholder bug via `CHARACTER_PORTRAITS[character.id]` lookup in `NarrativeScene.showPortrait()`. Shipped via new project-scoped agent `matrix-ascii-artist` at `.claude/agents/matrix-ascii-artist.md` (first custom agent for this repo).
+
+**Umbrella status**: All 38 R83 checkboxes `[x]` except `R83.CTRLS [ ]` which stays open pending Tom's end-to-end CTRL-S playthrough sign-off (Ralph cannot self-tick per design). Terminator phrase `R83 COMPLETE — global polish + CTRL-S rewrite shipped` is Tom-side only.
+
+**Total R83 footprint**: ~36 task commits across 3 rounds + 16 playtest screenshots (6 Round 2 + 10 Round 3) + 1 new project-scoped agent + 1 new Phaser module (`asciiArt.ts`, 523 lines with 14 smoke tests). Test count post-R83: ~1,927 unit across 45 files.
+
+---
