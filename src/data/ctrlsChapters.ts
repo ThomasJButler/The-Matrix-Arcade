@@ -21,6 +21,18 @@ export interface ChoiceTrigger {
   choices: ChoiceOption[];
 }
 
+export interface TerminalTrigger {
+  afterParagraphIndex: number;
+  prompt: string;
+  hint: string;
+  expected: string;
+  initialTimeoutMs: number;
+  retryTimeoutMs: number;
+  maxAttempts: number;
+  successLines: string[];
+  failureLines: string[];
+}
+
 export type ParticleTheme = 'binary' | 'scanlines' | 'datastreams' | 'temporal' | 'organic' | 'rising-light';
 
 export interface Chapter {
@@ -33,6 +45,7 @@ export interface Chapter {
   inlineAscii?: AsciiPanel[];
   puzzleTriggers?: PuzzleTrigger[];
   choiceTriggers?: ChoiceTrigger[];
+  terminalTrigger?: TerminalTrigger;
   speakers?: Record<number, string>;
   backgroundKey?: string;
   backgroundTint?: number;
@@ -77,6 +90,15 @@ export function getChoiceTriggerForParagraph(
   return chapter.choiceTriggers?.find(
     (c) => c.afterParagraphIndex === paragraphIndex,
   );
+}
+
+export function getTerminalTriggerForParagraph(
+  chapter: Chapter,
+  paragraphIndex: number,
+): TerminalTrigger | undefined {
+  return chapter.terminalTrigger?.afterParagraphIndex === paragraphIndex
+    ? chapter.terminalTrigger
+    : undefined;
 }
 
 export function getSpeakerForParagraph(
@@ -560,6 +582,25 @@ export const CHAPTERS: Chapter[] = [
     puzzleTriggers: [
       { afterParagraphIndex: 15, puzzleId: 'ch5_final_wisdom' },
     ],
+    terminalTrigger: {
+      afterParagraphIndex: 25,
+      prompt: 'The terminal hands you the keyboard. Save this world into history.',
+      hint: 'Press Ctrl+S (or type CTRL-S + ENTER) before the buffer flushes.',
+      expected: 'CTRL-S',
+      initialTimeoutMs: 20_000,
+      retryTimeoutMs: 10_000,
+      maxAttempts: 3,
+      successLines: [
+        '> CTRL-S acknowledged.',
+        '> Kernel stable. Timeline committed.',
+        '> Humanity persisted to disk. You may breathe.',
+      ],
+      failureLines: [
+        '> Buffer flushed. No save issued.',
+        '> Kernel panic. The new dawn unravels.',
+        '> The terminal goes dark. Try again, next world.',
+      ],
+    },
   },
 ];
 

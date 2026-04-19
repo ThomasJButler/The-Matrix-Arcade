@@ -3,15 +3,18 @@ import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
 import { MATRIX_COLORS, MATRIX_FONTS } from '../../../../../lib/phaser/types';
 import { CTRLS_SCENE_KEYS, GAME_CONFIG, CHARACTERS, PORTRAIT_CONFIG, PARALLAX_CONFIG, CHARACTER_TICK_MAP, NARRATOR_TICK, STINGER_KEYS, type CharacterDef } from '../config';
 import { TypewriterEngine } from '../engine/TypewriterEngine';
+import { TerminalEntryState } from '../engine/TerminalEntryState';
 import {
   getChapter,
   getPuzzleTriggersForParagraph,
   getAsciiPanelForParagraph,
   getChoiceTriggerForParagraph,
+  getTerminalTriggerForParagraph,
   getSpeakerForParagraph,
   type Chapter,
   type ChoiceOption,
   type ParticleTheme,
+  type TerminalTrigger,
 } from '../../../../../data/ctrlsChapters';
 
 export interface NarrativeSceneData {
@@ -31,6 +34,18 @@ const CHOICE_PROMPT_GAP_Y = 18;
 const CHOICE_LINE_GAP_Y = 4;
 const CHOICE_LINE_FONT_SIZE = '12px';
 const CHOICE_HINT_FONT_SIZE = '9px';
+// Terminal-entry climax (R83.CTRLS.4). Rendered as a block below the final
+// paragraph of a chapter: prompt, blinking `> _` input line, timer readout,
+// attempts indicator. Player types `CTRL-S` or hits the Ctrl+S chord to save
+// the world. Timeout/wrong → retry with shrinking timer; exhaust attempts →
+// failure ending. Each ending line reveals on a fixed cadence then fades out
+// to the chapter hub.
+const TERMINAL_BLOCK_GAP_Y = 18;
+const TERMINAL_LINE_GAP_Y = 4;
+const TERMINAL_FONT_SIZE = '12px';
+const TERMINAL_HINT_FONT_SIZE = '9px';
+const TERMINAL_ENDING_LINE_DELAY_MS = 900;
+const TERMINAL_ENDING_HOLD_MS = 1400;
 
 export class CtrlSNarrativeScene extends BaseScene {
   private chapterIndex = 0;
@@ -47,6 +62,20 @@ export class CtrlSNarrativeScene extends BaseScene {
   private waitingForPuzzle = false;
   private waitingForChoice = false;
   private waitingForInventory = false;
+  private waitingForTerminal = false;
+  private terminalResolved = false;
+  private terminalState?: TerminalEntryState;
+  private terminalTrigger?: TerminalTrigger;
+  private terminalContainer?: Phaser.GameObjects.Container;
+  private terminalPromptLabel?: Phaser.GameObjects.Text;
+  private terminalInputLine?: Phaser.GameObjects.Text;
+  private terminalStatusLine?: Phaser.GameObjects.Text;
+  private terminalHintLabel?: Phaser.GameObjects.Text;
+  private terminalEndingLines: Phaser.GameObjects.Text[] = [];
+  private terminalCaretTween?: Phaser.Tweens.Tween;
+  private terminalKeyHandler?: (event: KeyboardEvent) => void;
+  private terminalCaretTimer = 0;
+  private terminalCaretVisible = true;
   private choiceContainer?: Phaser.GameObjects.Container;
   private choiceLines: Phaser.GameObjects.Text[] = [];
   private choicePromptLabel?: Phaser.GameObjects.Text;
@@ -80,6 +109,8 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.chapter = getChapter(this.chapterIndex);
     this.waitingForPuzzle = false;
     this.waitingForInventory = false;
+    this.waitingForTerminal = false;
+    this.terminalResolved = false;
 
     this.engine.setSpeed(GAME_CONFIG.TEXT.TYPEWRITER_SPEED_MEDIUM);
     this.tickCounter = 0;
@@ -209,10 +240,16 @@ export class CtrlSNarrativeScene extends BaseScene {
       this.updateMatrixRain(this.rainGroup, delta);
     }
 
-    if (!this.waitingForPuzzle && !this.waitingForChoice && !this.waitingForInventory) {
+    if (
+      !this.waitingForPuzzle &&
+      !this.waitingForChoice &&
+      !this.waitingForInventory &&
+      !this.waitingForTerminal
+    ) {
       this.engine.update(delta);
     }
     this.renderCurrentText();
+    this.tickTerminalEntry(delta);
     this.exposeTestState(this.buildTestState());
   }
 
@@ -327,6 +364,17 @@ export class CtrlSNarrativeScene extends BaseScene {
       this.time.delayedCall(300, () => {
         this.showChoiceUI(choiceTrigger.choices, choiceTrigger.prompt);
       });
+      return;
+    }
+
+    const terminalTrigger = getTerminalTriggerForParagraph(this.chapter, paragraphIndex);
+    if (terminalTrigger) {
+      this.waitingForTerminal = true;
+      this.promptText?.setText('Incoming: terminal entry');
+      this.playSound(STINGER_KEYS.DRAMATIC_STING);
+      this.time.delayedCall(400, () => {
+        this.startTerminalEntry(terminalTrigger);
+      });
     }
   }
 
@@ -381,6 +429,11 @@ export class CtrlSNarrativeScene extends BaseScene {
   }
 
   private onAllComplete(): void {
+    // Terminal-entry chapters own their own transition — the ending lines
+    // and hub fade fire after the player resolves the Ctrl+S payoff, not
+    // when the final paragraph finishes typing.
+    if (this.waitingForTerminal || this.terminalResolved) return;
+
     this.playSound(STINGER_KEYS.CHAPTER_COMPLETE);
     this.promptText?.setText('Chapter complete');
 
@@ -406,7 +459,9 @@ export class CtrlSNarrativeScene extends BaseScene {
 
       const enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
       enterKey.on('down', () => {
-        if (this.waitingForChoice && this.activeChoices.length > 0) {
+        if (this.waitingForTerminal && this.terminalState?.phase === 'awaiting') {
+          this.submitTerminalInput();
+        } else if (this.waitingForChoice && this.activeChoices.length > 0) {
           this.confirmChoice(this.selectedChoiceIndex);
         } else {
           this.handleAdvance();
@@ -454,7 +509,13 @@ export class CtrlSNarrativeScene extends BaseScene {
   }
 
   private handleAdvance(): void {
-    if (this.isPaused || this.waitingForPuzzle || this.waitingForChoice || this.waitingForInventory) return;
+    if (
+      this.isPaused ||
+      this.waitingForPuzzle ||
+      this.waitingForChoice ||
+      this.waitingForInventory ||
+      this.waitingForTerminal
+    ) return;
 
     this.playSound('menu');
     if (this.cursorBlink && this.cursorBlink.visible) {
@@ -487,6 +548,279 @@ export class CtrlSNarrativeScene extends BaseScene {
     }
 
     this.engine.advance();
+  }
+
+  private startTerminalEntry(trigger: TerminalTrigger): void {
+    if (!this.bodyText) return;
+
+    this.terminalTrigger = trigger;
+    this.terminalState = new TerminalEntryState({
+      expected: trigger.expected,
+      maxAttempts: trigger.maxAttempts,
+      initialTimeoutMs: trigger.initialTimeoutMs,
+      retryTimeoutMs: trigger.retryTimeoutMs,
+    });
+    this.terminalState.begin();
+
+    this.cursorBlink?.setVisible(false);
+    this.promptText?.setText('> awaiting keystroke');
+    this.playSound(STINGER_KEYS.TRANSITION);
+
+    const margin = GAME_CONFIG.TEXT.MARGIN_X;
+    const width = Number(this.game.config.width);
+    const wrapWidth = width - margin * 2;
+    const startY = this.bodyText.y + this.bodyText.height + TERMINAL_BLOCK_GAP_Y;
+
+    this.terminalContainer = this.add.container(0, 0);
+    let cursorY = startY;
+
+    this.terminalPromptLabel = this.add.text(this.bodyText.x, cursorY, `> ${trigger.prompt}`, {
+      fontFamily: MATRIX_FONTS.PRIMARY,
+      fontSize: TERMINAL_FONT_SIZE,
+      color: MATRIX_COLORS.PRIMARY_HEX,
+      wordWrap: { width: wrapWidth },
+    });
+    this.terminalContainer.add(this.terminalPromptLabel);
+    cursorY += this.terminalPromptLabel.height + TERMINAL_LINE_GAP_Y;
+
+    this.terminalInputLine = this.add.text(this.bodyText.x, cursorY, this.renderTerminalInputLine(), {
+      fontFamily: MATRIX_FONTS.PRIMARY,
+      fontSize: TERMINAL_FONT_SIZE,
+      color: MATRIX_COLORS.PRIMARY_HEX,
+    });
+    this.terminalContainer.add(this.terminalInputLine);
+    cursorY += this.terminalInputLine.height + TERMINAL_LINE_GAP_Y;
+
+    this.terminalStatusLine = this.add.text(this.bodyText.x, cursorY, this.renderTerminalStatusLine(), {
+      fontFamily: MATRIX_FONTS.PRIMARY,
+      fontSize: TERMINAL_HINT_FONT_SIZE,
+      color: MATRIX_COLORS.MEDIUM_GREEN_HEX,
+    });
+    this.terminalContainer.add(this.terminalStatusLine);
+    cursorY += this.terminalStatusLine.height + TERMINAL_LINE_GAP_Y;
+
+    this.terminalHintLabel = this.add.text(this.bodyText.x, cursorY, trigger.hint, {
+      fontFamily: MATRIX_FONTS.PRIMARY,
+      fontSize: TERMINAL_HINT_FONT_SIZE,
+      color: MATRIX_COLORS.DIM_GREEN_HEX,
+      wordWrap: { width: wrapWidth },
+    });
+    this.terminalHintLabel.setAlpha(0.85);
+    this.terminalContainer.add(this.terminalHintLabel);
+
+    this.terminalCaretTimer = 0;
+    this.terminalCaretVisible = true;
+    this.attachTerminalKeyListener();
+  }
+
+  private attachTerminalKeyListener(): void {
+    if (typeof window === 'undefined') return;
+    const handler = (event: KeyboardEvent) => this.onTerminalKeyDown(event);
+    this.terminalKeyHandler = handler;
+    window.addEventListener('keydown', handler, true);
+  }
+
+  private detachTerminalKeyListener(): void {
+    if (typeof window === 'undefined' || !this.terminalKeyHandler) return;
+    window.removeEventListener('keydown', this.terminalKeyHandler, true);
+    this.terminalKeyHandler = undefined;
+  }
+
+  private onTerminalKeyDown(event: KeyboardEvent): void {
+    if (!this.waitingForTerminal || !this.terminalState) return;
+    if (this.terminalState.phase !== 'awaiting') return;
+
+    // Ctrl+S / Cmd+S chord short-circuits to instant success and prevents
+    // the browser's "Save Page As..." dialog hijacking the keystroke.
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 's') {
+      event.preventDefault();
+      event.stopPropagation();
+      this.resolveTerminalSuccess('chord');
+      return;
+    }
+
+    if (event.key === 'Backspace') {
+      event.preventDefault();
+      this.terminalState.backspace();
+      this.refreshTerminalInput();
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.terminalState.clearInput();
+      this.refreshTerminalInput();
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      // ENTER is also handled via Phaser keyboard; guard by stopping propagation
+      // only when the terminal is actually accepting input so we don't double-fire.
+      event.preventDefault();
+      this.submitTerminalInput();
+      return;
+    }
+
+    if (event.key.length === 1) {
+      const allowed = /^[A-Za-z0-9+\-_]$/;
+      if (!allowed.test(event.key)) return;
+      event.preventDefault();
+      this.terminalState.appendChar(event.key);
+      this.refreshTerminalInput();
+      this.playSound(NARRATOR_TICK);
+    }
+  }
+
+  private submitTerminalInput(): void {
+    if (!this.terminalState) return;
+    if (this.terminalState.phase !== 'awaiting') return;
+    const buffered = this.terminalState.input;
+    const result = this.terminalState.submit(buffered);
+    if (result.outcome === 'success') {
+      this.resolveTerminalSuccess('typed');
+    } else if (result.outcome === 'failure') {
+      this.resolveTerminalFailure();
+    } else {
+      this.onTerminalRetry();
+    }
+  }
+
+  private tickTerminalEntry(delta: number): void {
+    if (!this.terminalInputLine) return;
+
+    this.terminalCaretTimer += delta;
+    if (this.terminalCaretTimer >= 530) {
+      this.terminalCaretTimer = 0;
+      this.terminalCaretVisible = !this.terminalCaretVisible;
+      this.terminalInputLine.setText(this.renderTerminalInputLine());
+    }
+
+    if (!this.waitingForTerminal || !this.terminalState) return;
+    if (this.terminalState.phase !== 'awaiting') return;
+
+    const tickResult = this.terminalState.tick(delta);
+    this.terminalStatusLine?.setText(this.renderTerminalStatusLine());
+    if (tickResult === 'timeout') {
+      const res = this.terminalState.timeout();
+      if (res.outcome === 'failure') {
+        this.resolveTerminalFailure();
+      } else {
+        this.onTerminalRetry();
+      }
+    }
+  }
+
+  private onTerminalRetry(): void {
+    this.playSound(STINGER_KEYS.PUZZLE_FAILED);
+    this.cameras.main.shake(180, 0.005);
+    this.refreshTerminalInput();
+    this.terminalStatusLine?.setText(this.renderTerminalStatusLine());
+  }
+
+  private refreshTerminalInput(): void {
+    this.terminalInputLine?.setText(this.renderTerminalInputLine());
+  }
+
+  private renderTerminalInputLine(): string {
+    const buffered = this.terminalState?.input ?? '';
+    const caret = this.terminalCaretVisible ? '_' : ' ';
+    return `> ${buffered}${caret}`;
+  }
+
+  private renderTerminalStatusLine(): string {
+    if (!this.terminalState || !this.terminalTrigger) return '';
+    const remaining = Math.ceil(this.terminalState.timeRemainingMs / 1000);
+    const attempts = this.terminalState.attemptsRemaining;
+    const total = this.terminalTrigger.maxAttempts;
+    return `[ ${remaining.toString().padStart(2, '0')}s ]  attempts: ${attempts}/${total}`;
+  }
+
+  private resolveTerminalSuccess(via: 'chord' | 'typed'): void {
+    if (!this.terminalState || !this.terminalTrigger) return;
+    if (via === 'chord') {
+      this.terminalState.phase = 'resolved';
+      this.terminalState.outcome = 'success';
+    }
+    this.playSound('score');
+    this.playSound(STINGER_KEYS.CHAPTER_COMPLETE);
+    this.cameras.main.flash(250, 0, 255, 0);
+    this.renderTerminalEnding(this.terminalTrigger.successLines, 'success');
+  }
+
+  private resolveTerminalFailure(): void {
+    if (!this.terminalTrigger) return;
+    this.playSound('gameOver');
+    this.cameras.main.shake(420, 0.012);
+    this.renderTerminalEnding(this.terminalTrigger.failureLines, 'failure');
+  }
+
+  private renderTerminalEnding(lines: string[], outcome: 'success' | 'failure'): void {
+    if (!this.terminalContainer) return;
+
+    this.terminalResolved = true;
+    this.detachTerminalKeyListener();
+    this.terminalInputLine?.setText('> ');
+    this.terminalStatusLine?.setText(outcome === 'success' ? '[ committed ]' : '[ flushed ]');
+    this.terminalStatusLine?.setColor(outcome === 'success' ? MATRIX_COLORS.PRIMARY_HEX : MATRIX_COLORS.DARK_GREEN_HEX);
+    this.terminalHintLabel?.setVisible(false);
+
+    const margin = GAME_CONFIG.TEXT.MARGIN_X;
+    const width = Number(this.game.config.width);
+    const wrapWidth = width - margin * 2;
+    let cursorY = (this.terminalStatusLine?.y ?? 0) + (this.terminalStatusLine?.height ?? 0) + TERMINAL_BLOCK_GAP_Y;
+
+    lines.forEach((text, i) => {
+      const line = this.add.text(this.bodyText!.x, cursorY, text, {
+        fontFamily: MATRIX_FONTS.PRIMARY,
+        fontSize: TERMINAL_FONT_SIZE,
+        color: outcome === 'success' ? MATRIX_COLORS.PRIMARY_HEX : MATRIX_COLORS.DIM_GREEN_HEX,
+        wordWrap: { width: wrapWidth },
+      });
+      line.setAlpha(0);
+      this.terminalEndingLines.push(line);
+      this.terminalContainer!.add(line);
+
+      this.tweens.add({
+        targets: line,
+        alpha: 1,
+        duration: 350,
+        delay: i * TERMINAL_ENDING_LINE_DELAY_MS,
+        ease: 'Power2',
+      });
+
+      cursorY += line.height + TERMINAL_LINE_GAP_Y;
+    });
+
+    const holdDelay = lines.length * TERMINAL_ENDING_LINE_DELAY_MS + TERMINAL_ENDING_HOLD_MS;
+    this.time.delayedCall(holdDelay, () => {
+      this.emitGameEvent({
+        type: 'pause',
+        data: {
+          action: 'chapterComplete',
+          chapterIndex: this.chapterIndex,
+          terminalOutcome: outcome,
+        },
+      });
+      this.cameras.main.fadeOut(700, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        this.scene.start(CTRLS_SCENE_KEYS.CHAPTER_HUB);
+      });
+    });
+  }
+
+  private destroyTerminalUI(): void {
+    this.detachTerminalKeyListener();
+    this.terminalCaretTween?.stop();
+    this.terminalCaretTween = undefined;
+    this.terminalContainer?.destroy(true);
+    this.terminalContainer = undefined;
+    this.terminalPromptLabel = undefined;
+    this.terminalInputLine = undefined;
+    this.terminalStatusLine = undefined;
+    this.terminalHintLabel = undefined;
+    this.terminalEndingLines = [];
+    this.terminalState = undefined;
+    this.terminalTrigger = undefined;
   }
 
   private toggleInventory(): void {
@@ -984,6 +1318,12 @@ export class CtrlSNarrativeScene extends BaseScene {
       waitingForPuzzle: this.waitingForPuzzle,
       waitingForChoice: this.waitingForChoice,
       waitingForInventory: this.waitingForInventory,
+      waitingForTerminal: this.waitingForTerminal,
+      terminalPhase: this.terminalState?.phase ?? null,
+      terminalOutcome: this.terminalState?.outcome ?? null,
+      terminalInput: this.terminalState?.input ?? '',
+      terminalAttemptsRemaining: this.terminalState?.attemptsRemaining ?? null,
+      terminalTimeRemainingMs: this.terminalState?.timeRemainingMs ?? null,
       activeChoices: this.activeChoices.map((c) => c.label),
       selectedChoiceIndex: this.selectedChoiceIndex,
       currentSpeaker: this.currentSpeakerId ?? null,
@@ -1016,6 +1356,7 @@ export class CtrlSNarrativeScene extends BaseScene {
     }
     this.asciiPanels = [];
     this.destroyChoiceUI();
+    this.destroyTerminalUI();
     this.portraitContainer?.destroy(true);
     this.portraitContainer = undefined;
     this.portraitImage = undefined;
@@ -1026,6 +1367,8 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.waitingForPuzzle = false;
     this.waitingForChoice = false;
     this.waitingForInventory = false;
+    this.waitingForTerminal = false;
+    this.terminalResolved = false;
     this.upKey?.destroy();
     this.downKey?.destroy();
     this.upKey = undefined;
