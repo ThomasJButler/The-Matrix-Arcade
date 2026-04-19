@@ -49,6 +49,40 @@ export const POWERUP_DEFS: Record<PowerUpType, { color: number; label: string }>
   ghost: { color: 0x00ffff, label: 'GHOST' },
 };
 
+// R84.S2 — Matrix funkiness depth pass. Three atmospheric layers stacked on
+// top of the R83.S1 background rain + scanline + chromatic aberration. Tom's
+// 2026-04-19 note: "needs more matrix funkiness as it's a bit generic".
+//
+// (a) Play-area rain — 8 extra glyphs confined inside the grid at 0.15 alpha
+//     so it reads as "the playfield is made of code" without fighting the
+//     snake sprites for attention (depth -1: below snake at depth 0).
+// (b) Snake-head glow — twin concentric PRIMARY-green fillCircles under the
+//     head sprite, 8px outer / 6px inner, reads as a headlamp cast across
+//     the playfield.
+// (c) Bonus food — every Nth food pickup flags the next spawn as a bonus,
+//     rendered as a Matrix ASCII glyph (instead of the apple sprite) that
+//     awards 2× points. Makes food read as "code eaten by the snake".
+export const MATRIX_FUNKINESS = {
+  PLAY_AREA_RAIN_DENSITY: 8,
+  PLAY_AREA_RAIN_ALPHA: 0.15,
+  PLAY_AREA_RAIN_DEPTH: -1,
+  PLAY_AREA_RAIN_FONT_SIZE: 12,
+  PLAY_AREA_RAIN_SPEED_MIN: 30,
+  PLAY_AREA_RAIN_SPEED_MAX: 80,
+
+  HEAD_GLOW_OUTER_RADIUS: 8,
+  HEAD_GLOW_INNER_RADIUS: 6,
+  HEAD_GLOW_OUTER_ALPHA: 0.22,
+  HEAD_GLOW_INNER_ALPHA: 0.5,
+  HEAD_GLOW_DEPTH: -1,
+
+  BONUS_FOOD_INTERVAL: 5,
+  BONUS_FOOD_POINTS_MULTIPLIER: 2,
+  BONUS_FOOD_GLYPHS: 'アイウエオカキクケコサシスセソタチツ0123456789',
+  BONUS_FOOD_FONT_SIZE: 18,
+  BONUS_FOOD_DEPTH: 5,
+} as const;
+
 export const ACHIEVEMENTS = {
   FIRST_APPLE: 'snake_first_apple',
   SCORE_100: 'snake_score_100',

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SnakeGameScene } from './GameScene';
-import { GAME_CONFIG, ACHIEVEMENTS } from '../config';
+import { GAME_CONFIG, ACHIEVEMENTS, MATRIX_FUNKINESS } from '../config';
+import { MATRIX_COLORS } from '@/lib/phaser/types';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -17,6 +18,7 @@ function createMockGraphics() {
   g.strokeCircle = vi.fn(self);
   g.clear = vi.fn(self);
   g.generateTexture = vi.fn(self);
+  g.setDepth = vi.fn(self);
   g.destroy = vi.fn();
   return g;
 }
@@ -42,10 +44,27 @@ function createMockImage() {
 
 function createMockText() {
   const t: Record<string, any> = {};
+  const dataStore: Record<string, unknown> = {};
   const self = () => t;
   t.setText = vi.fn(self);
   t.setStyle = vi.fn(self);
+  t.setAlpha = vi.fn(self);
+  t.setDepth = vi.fn(self);
+  t.setOrigin = vi.fn(self);
+  t.setScale = vi.fn(self);
+  t.setPosition = vi.fn((x: number, y: number) => {
+    t.x = x;
+    t.y = y;
+    return t;
+  });
+  t.setData = vi.fn((key: string, value: unknown) => {
+    dataStore[key] = value;
+    return t;
+  });
+  t.getData = vi.fn((key: string) => dataStore[key]);
   t.destroy = vi.fn();
+  t.x = 0;
+  t.y = 0;
   return t;
 }
 
@@ -88,8 +107,14 @@ function createTestScene(): SnakeGameScene {
   scene.gameOver = vi.fn();
   scene.createMatrixText = vi.fn(() => createMockText());
   scene.createMatrixBackground = vi.fn();
-  scene.addMatrixRain = vi.fn(() => ({ destroy: vi.fn() }));
+  scene.addMatrixRain = vi.fn(() => ({ destroy: vi.fn(), getChildren: () => [] }));
   scene.updateMatrixRain = vi.fn();
+  // R84.S2 rain helper uses Phaser.Math.Between which isn't mocked in the
+  // jsdom setup; stub it out like addMatrixRain. Unit tests exercise the
+  // update path by seeding the group's children directly.
+  scene.createPlayAreaMatrixRain = vi.fn(function (this: any) {
+    this.playAreaRainGroup = { destroy: vi.fn(), getChildren: () => [] };
+  });
   scene.exposeTestState = vi.fn();
   scene.setupCommonInputs = vi.fn();
 
@@ -150,6 +175,13 @@ describe('SnakeGameScene', () => {
     (scene as any).foodCountText = createMockText();
     (scene as any).speedBarBg = createMockGraphics();
     (scene as any).speedBarFill = createMockGraphics();
+    // R84.S2 visual wiring — head glow graphics, bonus-food slot, and the
+    // play-area rain group are created during scene.create() in production;
+    // seed them here so unit tests that skip create() can still exercise
+    // update()/shutdown() paths safely.
+    (scene as any).snakeHeadGlow = createMockGraphics();
+    (scene as any).bonusFoodText = null;
+    (scene as any).playAreaRainGroup = { destroy: vi.fn(), getChildren: () => [] };
   });
 
   // ─── Initial State ──────────────────────────────────────
@@ -870,6 +902,237 @@ describe('SnakeGameScene', () => {
       const state = call('getTestState');
       state.snake.push({ x: 99, y: 99 });
       expect(s('snake').length).toBe(1);
+    });
+  });
+
+  // ─── R84.S2 — Matrix funkiness depth pass ──────────────
+
+  describe('R84.S2 — Matrix funkiness depth pass', () => {
+    describe('config sanity', () => {
+      it('should pin play-area rain alpha at 0.15', () => {
+        expect(MATRIX_FUNKINESS.PLAY_AREA_RAIN_ALPHA).toBe(0.15);
+      });
+
+      it('should render play-area rain beneath the snake (depth -1)', () => {
+        expect(MATRIX_FUNKINESS.PLAY_AREA_RAIN_DEPTH).toBe(-1);
+      });
+
+      it('should size the head glow to the 6-8px radius band Tom asked for', () => {
+        expect(MATRIX_FUNKINESS.HEAD_GLOW_OUTER_RADIUS).toBeGreaterThanOrEqual(6);
+        expect(MATRIX_FUNKINESS.HEAD_GLOW_OUTER_RADIUS).toBeLessThanOrEqual(8);
+        expect(MATRIX_FUNKINESS.HEAD_GLOW_INNER_RADIUS).toBeGreaterThanOrEqual(6);
+        expect(MATRIX_FUNKINESS.HEAD_GLOW_INNER_RADIUS).toBeLessThanOrEqual(8);
+        expect(MATRIX_FUNKINESS.HEAD_GLOW_INNER_RADIUS).toBeLessThanOrEqual(
+          MATRIX_FUNKINESS.HEAD_GLOW_OUTER_RADIUS,
+        );
+      });
+
+      it('should keep the head glow under the sprite (depth -1)', () => {
+        expect(MATRIX_FUNKINESS.HEAD_GLOW_DEPTH).toBe(-1);
+      });
+
+      it('should trigger a bonus food every five pickups with a 2× multiplier', () => {
+        expect(MATRIX_FUNKINESS.BONUS_FOOD_INTERVAL).toBe(5);
+        expect(MATRIX_FUNKINESS.BONUS_FOOD_POINTS_MULTIPLIER).toBe(2);
+      });
+
+      it('should provide a non-empty katakana+digit glyph pool for bonus food', () => {
+        expect(MATRIX_FUNKINESS.BONUS_FOOD_GLYPHS.length).toBeGreaterThan(0);
+      });
+    });
+
+    describe('lifecycle wiring', () => {
+      it('should teardown play-area rain + head glow + bonus-food text on shutdown', () => {
+        const rainGroup = { destroy: vi.fn(), getChildren: () => [] };
+        const glow = createMockGraphics();
+        const bonusText = createMockText();
+        (scene as any).playAreaRainGroup = rainGroup;
+        (scene as any).snakeHeadGlow = glow;
+        (scene as any).bonusFoodText = bonusText;
+        (scene as any).moveTimer = null;
+        (scene as any).fieldPowerUp = null;
+        (scene as any).powerUpIndicators = new Map();
+        (scene as any).powerUpLegend = [];
+        (scene as any).achievementsUnlocked = new Set();
+        call('shutdown');
+        expect(rainGroup.destroy).toHaveBeenCalledWith(true);
+        expect(glow.destroy).toHaveBeenCalled();
+        expect(bonusText.destroy).toHaveBeenCalled();
+        expect((scene as any).bonusFoodText).toBeNull();
+      });
+    });
+
+    describe('createSnakeHeadGlow()', () => {
+      it('should pin the head glow to MATRIX_FUNKINESS.HEAD_GLOW_DEPTH', () => {
+        const glow = createMockGraphics();
+        (scene as any).add.graphics = vi.fn(() => glow);
+        call('createSnakeHeadGlow');
+        expect(glow.setDepth).toHaveBeenCalledWith(MATRIX_FUNKINESS.HEAD_GLOW_DEPTH);
+      });
+    });
+
+    describe('updateSnakeHeadGlow()', () => {
+      it('should draw twin PRIMARY-green fillCircles at the head position', () => {
+        const glow = createMockGraphics();
+        (scene as any).snakeHeadGlow = glow;
+        (scene as any).snake = [{ x: 10, y: 10 }];
+        call('updateSnakeHeadGlow');
+        expect(glow.clear).toHaveBeenCalledTimes(1);
+        expect(glow.fillStyle).toHaveBeenCalledWith(
+          MATRIX_COLORS.PRIMARY,
+          MATRIX_FUNKINESS.HEAD_GLOW_OUTER_ALPHA,
+        );
+        expect(glow.fillStyle).toHaveBeenCalledWith(
+          MATRIX_COLORS.PRIMARY,
+          MATRIX_FUNKINESS.HEAD_GLOW_INNER_ALPHA,
+        );
+        // One call per radius — outer then inner.
+        const radii = glow.fillCircle.mock.calls.map((c: any[]) => c[2]);
+        expect(radii).toEqual([
+          MATRIX_FUNKINESS.HEAD_GLOW_OUTER_RADIUS,
+          MATRIX_FUNKINESS.HEAD_GLOW_INNER_RADIUS,
+        ]);
+      });
+
+      it('should no-op when the snake is empty (prevents post-death residue)', () => {
+        const glow = createMockGraphics();
+        (scene as any).snakeHeadGlow = glow;
+        (scene as any).snake = [];
+        call('updateSnakeHeadGlow');
+        expect(glow.clear).not.toHaveBeenCalled();
+        expect(glow.fillCircle).not.toHaveBeenCalled();
+      });
+
+      it('should no-op when the glow graphics is null (never initialised)', () => {
+        (scene as any).snakeHeadGlow = null;
+        (scene as any).snake = [{ x: 10, y: 10 }];
+        expect(() => call('updateSnakeHeadGlow')).not.toThrow();
+      });
+    });
+
+    describe('isBonusFood cadence', () => {
+      beforeEach(() => {
+        // Anchor the snake next to the food so tick() drives eatFood().
+        (scene as any).snake = [{ x: 14, y: 10 }];
+        (scene as any).food = { x: 15, y: 10 };
+        (scene as any).direction = 'right';
+      });
+
+      it('should start without a pending bonus food', () => {
+        expect(s('isBonusFood')).toBe(false);
+      });
+
+      it('should flag the 5th pickup as bonus (foodEaten % 5 === 0)', () => {
+        // Fast-forward eatFood's bookkeeping rather than simulating movement
+        // for every pickup — the cadence lives at the foodEaten boundary.
+        (scene as any).foodEaten = 4;
+        (scene as any).food = { x: 15, y: 10 };
+        (scene as any).snake = [{ x: 14, y: 10 }];
+        (scene as any).spawnFood = vi.fn(); // avoid RNG pathways
+        call('eatFood');
+        expect(s('isBonusFood')).toBe(true);
+      });
+
+      it('should keep isBonusFood false between bonus boundaries', () => {
+        (scene as any).spawnFood = vi.fn();
+        for (const start of [0, 1, 2, 3]) {
+          (scene as any).foodEaten = start;
+          (scene as any).consecutiveFood = 0;
+          (scene as any).isBonusFood = false;
+          call('eatFood');
+          expect(s('isBonusFood')).toBe(false);
+        }
+      });
+
+      it('should reset isBonusFood to false on resetState()', () => {
+        (scene as any).isBonusFood = true;
+        call('resetState');
+        expect(s('isBonusFood')).toBe(false);
+      });
+
+      it('should expose isBonusFood via getTestState() for Playwright hooks', () => {
+        (scene as any).isBonusFood = true;
+        const state = call('getTestState');
+        expect(state).toHaveProperty('isBonusFood', true);
+      });
+    });
+
+    describe('eatFood() bonus multiplier', () => {
+      beforeEach(() => {
+        (scene as any).spawnFood = vi.fn();
+        (scene as any).snake = [{ x: 15, y: 10 }];
+        (scene as any).food = { x: 15, y: 10 };
+      });
+
+      it('should apply the 2× multiplier when wasBonus is true', () => {
+        (scene as any).isBonusFood = true;
+        const scoreBefore = s('score');
+        call('eatFood');
+        const gained = s('score') - scoreBefore;
+        expect(gained).toBe(
+          GAME_CONFIG.POINTS_PER_FOOD * MATRIX_FUNKINESS.BONUS_FOOD_POINTS_MULTIPLIER,
+        );
+      });
+
+      it('should leave regular food scoring untouched when not bonus', () => {
+        (scene as any).isBonusFood = false;
+        const scoreBefore = s('score');
+        call('eatFood');
+        const gained = s('score') - scoreBefore;
+        expect(gained).toBe(GAME_CONFIG.POINTS_PER_FOOD);
+      });
+
+      it('should stack bonus + 2X power-up to 4×', () => {
+        (scene as any).isBonusFood = true;
+        (scene as any).doublePointsRemaining = 3;
+        const scoreBefore = s('score');
+        call('eatFood');
+        const gained = s('score') - scoreBefore;
+        expect(gained).toBe(
+          GAME_CONFIG.POINTS_PER_FOOD_DOUBLE * MATRIX_FUNKINESS.BONUS_FOOD_POINTS_MULTIPLIER,
+        );
+      });
+    });
+
+    describe('spawnFood() visual branches', () => {
+      it('should hide the apple sprite and spawn a glyph text when bonus', () => {
+        const apple = createMockImage();
+        const glyphText = createMockText();
+        (scene as any).foodSprite = apple;
+        (scene as any).add.text = vi.fn(() => glyphText);
+        (scene as any).isBonusFood = true;
+        (scene as any).getRandomEmptyCell = vi.fn(() => ({ x: 12, y: 12 }));
+        call('spawnFood');
+        expect(apple.setAlpha).toHaveBeenCalledWith(0);
+        expect((scene as any).bonusFoodText).toBe(glyphText);
+        // Glyph drawn from the charset + given the right depth.
+        const glyphArg = (scene as any).add.text.mock.calls[0][2];
+        expect(MATRIX_FUNKINESS.BONUS_FOOD_GLYPHS).toContain(glyphArg);
+        expect(glyphText.setDepth).toHaveBeenCalledWith(MATRIX_FUNKINESS.BONUS_FOOD_DEPTH);
+      });
+
+      it('should show the apple and skip glyph text when not bonus', () => {
+        const apple = createMockImage();
+        const addText = vi.fn(() => createMockText());
+        (scene as any).foodSprite = apple;
+        (scene as any).add.text = addText;
+        (scene as any).isBonusFood = false;
+        (scene as any).getRandomEmptyCell = vi.fn(() => ({ x: 12, y: 12 }));
+        call('spawnFood');
+        expect(apple.setAlpha).toHaveBeenCalledWith(1);
+        expect((scene as any).bonusFoodText).toBeNull();
+        expect(addText).not.toHaveBeenCalled();
+      });
+
+      it('should destroy any prior bonus text before spawning (no leaks)', () => {
+        const prior = createMockText();
+        (scene as any).bonusFoodText = prior;
+        (scene as any).foodSprite = createMockImage();
+        (scene as any).isBonusFood = false;
+        (scene as any).getRandomEmptyCell = vi.fn(() => ({ x: 1, y: 1 }));
+        call('spawnFood');
+        expect(prior.destroy).toHaveBeenCalled();
+      });
     });
   });
 });
