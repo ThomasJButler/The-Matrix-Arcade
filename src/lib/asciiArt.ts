@@ -61,7 +61,7 @@ const TITLE_LINES: Record<string, string[]> = {
   'ctrl-s-world': ['CTRL-S', 'THE WORLD'],
   'snake-classic': ['SNAKE', 'CLASSIC'],
   'vortex-pong': ['VORTEX', 'PONG'],
-  'matrix-cloud': ['MATRIX', 'CLOUD'],
+  'matrix-cloud': ['MATRIX', 'BIRD'],
   'matrix-invaders': ['MATRIX', 'INVADERS'],
   'metris': ['METRIS'],
   'matrix-frogger': ['MATRIX', 'FROGGER'],

@@ -81,6 +81,13 @@ export class MatrixCloudGameScene extends BaseScene {
   private isGameOver: boolean = false;
   private achievementsUnlocked: Set<string> = new Set();
 
+  // R83.B1(f): all Matrix Bird SFX play at 0.75× envelope peak so the mix
+  // sits behind the ambient BGM rather than on top of it. Applied via a
+  // scene-local playSound override that forwards volumeScale through the
+  // soundSystem bridge; no global useSoundSystem change needed because the
+  // other 11 games keep the default 1.0 scale.
+  private static readonly SFX_VOLUME_SCALE = 0.75;
+
   constructor() {
     super({ key: SCENE_KEYS.GAME });
   }
@@ -249,13 +256,43 @@ export class MatrixCloudGameScene extends BaseScene {
   }
 
   private jump(): void {
-    this.playerVelocity = GAME_CONFIG.JUMP_VELOCITY;
-    this.playSound(SOUND_KEYS.JUMP);
+    // R83.B1(e): while the slow power-up is active, gameplay speed is
+    // multiplied by TIME_SLOW_FACTOR (0.6). If the flap retained its full
+    // impulse, the bird would over-ascend for the same gap width and slow
+    // mode would perversely make navigation harder. Scaling the impulse by
+    // the same factor keeps the *apparent* jump height (pixels cleared per
+    // pipe gap) constant across speed modes.
+    const impulseScale = this.timeSlowActive ? GAME_CONFIG.TIME_SLOW_FACTOR : 1;
+    this.playerVelocity = GAME_CONFIG.JUMP_VELOCITY * impulseScale;
+    this.playSound(SOUND_KEYS.BIRD_FLAP);
 
     if (!this.hasJumped) {
       this.hasJumped = true;
       this.tryUnlockAchievement(ACHIEVEMENTS.FIRST_FLIGHT);
     }
+  }
+
+  /**
+   * R83.B1(f): override BaseScene.playSound so every Matrix Bird SFX runs
+   * through the shared volumeScale (0.75). Centralising here means every
+   * callsite in this scene — jump, score, hit, level-up, collectible — drops
+   * by the same 25% without peppering config objects through the file.
+   */
+  protected override playSound(key: string): void {
+    super.playSound(key, { volumeScale: MatrixCloudGameScene.SFX_VOLUME_SCALE });
+  }
+
+  /**
+   * R83.B1(c): on resume-from-pause, give the player a 5-second countdown so
+   * the bird doesn't drop instantly while they're re-orienting. The same
+   * isCountingDown gate used by the initial-run countdown (see update()
+   * early-return) is reused here, so physics freeze naturally until the
+   * overlay clears.
+   */
+  protected override resumeGame(): void {
+    super.resumeGame();
+    if (this.isGameOver || this.isCountingDown) return;
+    this.startCountdown(5, () => {});
   }
 
   update(_time: number, delta: number): void {
@@ -301,9 +338,14 @@ export class MatrixCloudGameScene extends BaseScene {
       this.playerVelocity = 0;
     }
 
+    // R83.B1(b): ground touch is instant death, shield or not. Previously
+    // this fell through to handleCollision() which either consumed the
+    // shield or decremented lives — Flappy Bird's reference feel is that
+    // kissing the dirt ends the run immediately, and Tom explicitly
+    // confirmed that's the intended behaviour on 2026-04-19 playtest.
     const groundY = GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT - GAME_CONFIG.PLAYER_HEIGHT / 2;
-    if (this.playerY > groundY) {
-      this.handleCollision();
+    if (this.playerY >= groundY) {
+      this.handleGroundDeath();
       return;
     }
 
@@ -626,6 +668,23 @@ export class MatrixCloudGameScene extends BaseScene {
 
     this.playerY = Math.min(this.playerY, GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT - GAME_CONFIG.PLAYER_HEIGHT);
     this.playerVelocity = GAME_CONFIG.JUMP_VELOCITY * 0.5;
+  }
+
+  /**
+   * R83.B1(b): dedicated ground-death path. Skips the shield-consume /
+   * life-loss branch of handleCollision because Tom's playtest noted that a
+   * shielded ground hit would otherwise survive (the shield ring would pop
+   * and the bird would be bounced back into the air). Flappy Bird
+   * convention: ground = death.
+   */
+  private handleGroundDeath(): void {
+    if (this.isGameOver) return;
+    this.lives = 0;
+    this.combo = 1.0;
+    this.playerY = GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT - GAME_CONFIG.PLAYER_HEIGHT / 2;
+    this.playerVelocity = 0;
+    this.player.setY(this.playerY);
+    this.handleGameOver();
   }
 
   private startInvulnerability(): void {

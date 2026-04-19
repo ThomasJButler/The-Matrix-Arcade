@@ -29,6 +29,11 @@ export interface SoundEffect {
   filterFreq?: number;
   delay?: number;
   reverb?: boolean;
+  // R83.B1(f): per-call envelope scalar (0–1). Multiplies the attack peak and
+  // sustain level so a caller can drop a specific SFX without touching the
+  // global sfxVolume slider. Used by Matrix Bird to soften all its SFX by 25%
+  // after Tom flagged the mix as too hot on 2026-04-19.
+  volumeScale?: number;
 }
 
 const DEFAULT_CONFIG: SoundConfig = {
@@ -51,6 +56,21 @@ const SOUND_LIBRARY: Record<string, SoundEffect> = {
     release: 0.08,
     filterType: 'lowpass',
     filterFreq: 800
+  },
+  // R83.B1(d): Matrix Bird flap — procedural-only (not in AUDIO_FILE_MAP) so
+  // the "horrendous" sfx_landing.mp3 that Tom flagged stays out of the Bird
+  // flap path. Short 80ms triangle pluck sliding 800→400Hz reads as a clean,
+  // birdy wingbeat rather than a thud. Neo Jump / Cloud Jumper still call the
+  // original `jump` MP3 path and are unaffected.
+  birdFlap: {
+    type: 'birdFlap',
+    frequency: { start: 800, end: 400 },
+    oscillatorType: 'triangle',
+    duration: 0.08,
+    attack: 0.005,
+    decay: 0.02,
+    sustain: 0.25,
+    release: 0.05,
   },
   hit: {
     type: 'hit',
@@ -754,12 +774,16 @@ export function useSoundSystem() {
         audioContext.currentTime + soundConfig.duration
       );
 
-      // Create envelope
+      // Create envelope. `volumeScale` (0–1, default 1) uniformly multiplies
+      // the attack peak and sustain level so a per-scene call can drop a SFX
+      // without touching the global sfxVolume slider. Clamped [0, 1] so a
+      // rogue caller can never push past unity gain.
+      const volumeScale = Math.max(0, Math.min(1, soundConfig.volumeScale ?? 1));
       const envelope = audioContext.createGain();
       envelope.gain.setValueAtTime(0, audioContext.currentTime);
-      envelope.gain.linearRampToValueAtTime(1, audioContext.currentTime + soundConfig.attack);
+      envelope.gain.linearRampToValueAtTime(volumeScale, audioContext.currentTime + soundConfig.attack);
       envelope.gain.linearRampToValueAtTime(
-        soundConfig.sustain,
+        soundConfig.sustain * volumeScale,
         audioContext.currentTime + soundConfig.attack + soundConfig.decay
       );
       envelope.gain.linearRampToValueAtTime(

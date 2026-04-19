@@ -141,6 +141,7 @@ export const MATRIX_COLORS = {
 /** Sound effect keys (matching useSoundSystem) */
 export const SOUND_KEYS = {
   JUMP: 'jump',
+  BIRD_FLAP: 'birdFlap',
   HIT: 'hit',
   SCORE: 'score',
   POWERUP: 'powerup',

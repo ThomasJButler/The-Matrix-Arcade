@@ -5,8 +5,8 @@ export class MatrixCloudMenuScene extends MenuScene {
   constructor() {
     super({
       key: SCENE_KEYS.MENU,
-      title: 'MATRIX CLOUD',
-      subtitle: 'Navigate the digital storm',
+      title: 'MATRIX BIRD',
+      subtitle: 'One flap at a time through the cascade',
       gameScene: SCENE_KEYS.GAME,
     });
   }

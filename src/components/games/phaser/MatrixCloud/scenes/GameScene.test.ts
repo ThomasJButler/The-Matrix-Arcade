@@ -242,12 +242,23 @@ describe('MatrixCloudGameScene', () => {
       expect(scene.playerVelocity).toBe(0);
     });
 
-    it('ground collision triggers handleCollision', () => {
-      const handleCollision = vi.spyOn(scene, 'handleCollision');
+    // R83.B1(b): ground touch is instant death, routed via handleGroundDeath
+    // rather than handleCollision — shields no longer soak a ground hit.
+    it('ground collision triggers handleGroundDeath', () => {
+      const handleGroundDeath = vi.spyOn(scene, 'handleGroundDeath');
       scene.playerY = C.HEIGHT - C.GROUND_HEIGHT;
       scene.playerVelocity = 100;
       call(scene, 'updatePlayer', 1 / 60);
-      expect(handleCollision).toHaveBeenCalled();
+      expect(handleGroundDeath).toHaveBeenCalled();
+    });
+
+    it('handleGroundDeath zeroes lives and ends the run even with shield active', () => {
+      scene.shieldActive = true;
+      scene.lives = 3;
+      const handleGameOver = vi.spyOn(scene, 'handleGameOver');
+      call(scene, 'handleGroundDeath');
+      expect(scene.lives).toBe(0);
+      expect(handleGameOver).toHaveBeenCalled();
     });
   });
 
@@ -257,9 +268,22 @@ describe('MatrixCloudGameScene', () => {
       expect(scene.playerVelocity).toBe(C.JUMP_VELOCITY);
     });
 
-    it('plays jump sound', () => {
+    // R83.B1(d): Matrix Bird's flap now drives the procedural-only birdFlap
+    // preset instead of the shared `jump` MP3 (the latter was flagged as
+    // "horrendous" in Tom's playtest). Cloud Jumper / Neo Jump still map to
+    // `jump`, so a global `jump` key lookup would regress them.
+    it('plays birdFlap sound (not jump)', () => {
       call(scene, 'jump');
-      expect(scene.playSound).toHaveBeenCalledWith('jump');
+      expect(scene.playSound).toHaveBeenCalledWith('birdFlap');
+    });
+
+    // R83.B1(e): while the slow power-up is active, flap impulse scales with
+    // TIME_SLOW_FACTOR so apparent gap-clear height stays constant across
+    // speed modes. Without the scale, slow mode would perversely over-lift.
+    it('scales impulse by TIME_SLOW_FACTOR during slow power-up', () => {
+      scene.timeSlowActive = true;
+      call(scene, 'jump');
+      expect(scene.playerVelocity).toBeCloseTo(C.JUMP_VELOCITY * C.TIME_SLOW_FACTOR);
     });
 
     it('unlocks FIRST_FLIGHT on first jump', () => {
