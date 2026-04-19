@@ -8,6 +8,7 @@ import {
   BOSS_LEVELS,
   SLOW_MODE,
   PIPE_VARIANTS,
+  PARALLAX,
   type PipePair,
   type PipeKind,
   type PipeVisual,
@@ -17,7 +18,11 @@ import {
   type BossState,
   type BossAttackState,
   type AttackType,
+  type ParallaxRainLayerConfig,
 } from '../config';
+
+const PARALLAX_CHARS =
+  'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789';
 
 export class MatrixCloudGameScene extends BaseScene {
   // Player
@@ -80,8 +85,12 @@ export class MatrixCloudGameScene extends BaseScene {
   // Ground
   private groundRect!: Phaser.GameObjects.Rectangle;
 
-  // Effects
-  private matrixRainGroup!: Phaser.GameObjects.Group;
+  // R84.B5: 3-layer parallax — far city silhouette TileSprite + two Matrix-rain
+  // cohorts at mid + near depth. Nulled when bg_city is absent (menu-only
+  // boot path) or in unit-test mode where rain creation is stubbed.
+  private parallaxFar: Phaser.GameObjects.TileSprite | null = null;
+  private parallaxMidRain: Phaser.GameObjects.Group | null = null;
+  private parallaxNearRain: Phaser.GameObjects.Group | null = null;
 
   // Input
   private spaceKey!: Phaser.Input.Keyboard.Key;
@@ -105,14 +114,10 @@ export class MatrixCloudGameScene extends BaseScene {
   create(): void {
     this.createMatrixBackground();
 
-    // Sprite background: city skyline
-    if (this.textures?.exists('bg_city')) {
-      const bg = this.add.image(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, 'bg_city');
-      bg.setDisplaySize(GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT);
-      bg.setAlpha(0.15);
-      bg.setDepth(0);
-      bg.setTint(MATRIX_COLORS.PRIMARY);
-    }
+    // R84.B5: far parallax layer (0.1× scroll) replaces the pre-B5 static
+    // bg_city image. Tile-sprite lets tilePositionX carry the horizontal
+    // drift without per-pixel work — one field write per frame.
+    this.createParallaxFarLayer();
 
     // Sprite ground tile
     if (this.textures?.exists('ground_tile')) {
@@ -126,7 +131,8 @@ export class MatrixCloudGameScene extends BaseScene {
       groundTile.setDepth(5);
     }
 
-    this.matrixRainGroup = this.addMatrixRain(10);
+    this.parallaxMidRain = this.createParallaxRainLayer(PARALLAX.MID);
+    this.parallaxNearRain = this.createParallaxRainLayer(PARALLAX.NEAR);
     this.resetState();
     this.createGround();
     this.createPlayer();
@@ -197,6 +203,99 @@ export class MatrixCloudGameScene extends BaseScene {
     );
     this.groundRect.setStrokeStyle(2, MATRIX_COLORS.PRIMARY);
     this.groundRect.setDepth(5);
+  }
+
+  // --- R84.B5 PARALLAX LAYERS ---
+
+  private createParallaxFarLayer(): void {
+    if (!this.textures?.exists('bg_city')) return;
+    const sprite = this.add.tileSprite(
+      GAME_CONFIG.WIDTH / 2,
+      GAME_CONFIG.HEIGHT / 2,
+      GAME_CONFIG.WIDTH,
+      GAME_CONFIG.HEIGHT,
+      'bg_city',
+    );
+    sprite.setAlpha(PARALLAX.FAR.ALPHA);
+    sprite.setDepth(PARALLAX.FAR.DEPTH);
+    sprite.setTint(MATRIX_COLORS.PRIMARY);
+    this.parallaxFar = sprite;
+  }
+
+  private createParallaxRainLayer(cfg: ParallaxRainLayerConfig): Phaser.GameObjects.Group {
+    const group = this.add.group();
+    // E2E test mode seeds — Phaser RNG isn't seeded there, so random char +
+    // position would break visual baselines. Same guard BaseScene.addMatrixRain
+    // uses and the pattern R84.S2/S3 follow for Snake rain effects.
+    if (typeof window !== 'undefined' && (window as { __TEST__?: boolean }).__TEST__) {
+      return group;
+    }
+    for (let i = 0; i < cfg.DENSITY; i++) {
+      const x = Phaser.Math.Between(0, GAME_CONFIG.WIDTH);
+      const y = Phaser.Math.Between(-GAME_CONFIG.HEIGHT, GAME_CONFIG.HEIGHT);
+      const verticalSpeed = Phaser.Math.Between(cfg.VERTICAL_SPEED_MIN, cfg.VERTICAL_SPEED_MAX);
+      const char = PARALLAX_CHARS[Phaser.Math.Between(0, PARALLAX_CHARS.length - 1)];
+      const text = this.add.text(x, y, char, {
+        fontFamily: 'monospace',
+        fontSize: `${cfg.FONT_SIZE}px`,
+        color: MATRIX_COLORS.PRIMARY_HEX,
+      });
+      text.setAlpha(cfg.ALPHA);
+      text.setDepth(cfg.DEPTH);
+      text.setData('verticalSpeed', verticalSpeed);
+      group.add(text);
+    }
+    return group;
+  }
+
+  private updateParallaxLayers(delta: number, speedMult: number): void {
+    const dt = delta / 1000;
+    const baseHorizontalPx = GAME_CONFIG.PIPE_SPEED * speedMult * dt;
+
+    if (this.parallaxFar) {
+      this.parallaxFar.tilePositionX += baseHorizontalPx * PARALLAX.FAR.SCROLL_FACTOR;
+    }
+    this.updateParallaxRainLayer(this.parallaxMidRain, PARALLAX.MID, delta, speedMult);
+    this.updateParallaxRainLayer(this.parallaxNearRain, PARALLAX.NEAR, delta, speedMult);
+  }
+
+  private updateParallaxRainLayer(
+    group: Phaser.GameObjects.Group | null,
+    cfg: ParallaxRainLayerConfig,
+    delta: number,
+    speedMult: number,
+  ): void {
+    if (!group) return;
+    const dt = delta / 1000;
+    const horizontalDrift = GAME_CONFIG.PIPE_SPEED * speedMult * cfg.SCROLL_FACTOR * dt;
+    const gameHeight = GAME_CONFIG.HEIGHT;
+    const gameWidth = GAME_CONFIG.WIDTH;
+
+    group.getChildren().forEach((obj) => {
+      const text = obj as Phaser.GameObjects.Text;
+      const verticalSpeed = (text.getData('verticalSpeed') as number) ?? 0;
+      text.y += verticalSpeed * dt;
+      text.x -= horizontalDrift;
+
+      if (text.y > gameHeight + 20) {
+        text.y = -20;
+        text.x = Phaser.Math.Between(0, gameWidth);
+        text.setText(PARALLAX_CHARS[Phaser.Math.Between(0, PARALLAX_CHARS.length - 1)]);
+      }
+      if (text.x < -cfg.FONT_SIZE) {
+        text.x = gameWidth + cfg.FONT_SIZE;
+        text.setText(PARALLAX_CHARS[Phaser.Math.Between(0, PARALLAX_CHARS.length - 1)]);
+      }
+    });
+  }
+
+  private destroyParallaxLayers(): void {
+    this.parallaxFar?.destroy();
+    this.parallaxFar = null;
+    this.parallaxMidRain?.destroy(true);
+    this.parallaxMidRain = null;
+    this.parallaxNearRain?.destroy(true);
+    this.parallaxNearRain = null;
   }
 
   private createPlayer(): void {
@@ -312,10 +411,10 @@ export class MatrixCloudGameScene extends BaseScene {
     if (this.isPaused || this.isGameOver) return;
     if (this.isCountingDown) return;
 
-    this.updateMatrixRain(this.matrixRainGroup, delta);
-
     const dt = delta / 1000;
     const speedMult = this.timeSlowActive ? GAME_CONFIG.TIME_SLOW_FACTOR : 1.0;
+
+    this.updateParallaxLayers(delta, speedMult);
 
     this.handleInput();
     this.updatePlayer(dt);
@@ -1364,6 +1463,8 @@ export class MatrixCloudGameScene extends BaseScene {
       ind.destroy();
     }
     this.powerUpIndicators = [];
+
+    this.destroyParallaxLayers();
 
     if (this.input.keyboard) {
       this.input.keyboard.removeAllKeys(true);
