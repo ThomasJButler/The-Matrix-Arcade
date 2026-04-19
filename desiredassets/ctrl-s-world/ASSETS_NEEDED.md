@@ -94,7 +94,7 @@ This is the most art-heavy rebuild. The vision is a Citizen Sleeper-style narrat
 - [x] NPC dialogue initiation sound — SOURCE: DUMP/SFX Kit/bending the spoon.wav → `audio/sfx/reveal.mp3`
 - [x] Dramatic reveal sting (for story twists) — SOURCE: DUMP/SFX Kit/orchestral stab - jacking in.wav → `audio/sfx/dramatic-sting.mp3`
 - [x] Per-chapter ambient music (5 tracks, loopable, mood-matched):
-  - Prologue: `audio/music/prologue-brothers.mp3` (brothers_and_sisters_FINAL)
+  - Prologue: shares `/assets/rhythm-hacker/tracks/enhancements.mp3` (AI/tech-transformation fit — brothers_and_sisters_FINAL retired R83.CTRLS.6 as 12MB exceeded PWA precache budget)
   - Ch1: `audio/music/ch1-moonlight.mp3` (In The Moonlight — atmospheric, mysterious)
   - Ch2: `audio/music/ch2-cyberpsychotic.mp3` (Cyberpsychotic — tense, dark)
   - Ch3: `audio/music/ch3-resonance.mp3` (ostcrunch2 resonance — temporal, cerebral)

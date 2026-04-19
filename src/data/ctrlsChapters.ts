@@ -121,7 +121,7 @@ export const CHAPTERS: Chapter[] = [
     backgroundKey: 'bg-digital-construct',
     backgroundTint: 0x004400,
     particleTheme: 'binary',
-    musicTrack: '/assets/ctrl-s/audio/music/prologue-brothers.mp3',
+    musicTrack: '/assets/rhythm-hacker/tracks/enhancements.mp3',
     shortTitle: 'Prologue: The Digital Dawn',
     ascii: [
       '   _____________________________   ',
