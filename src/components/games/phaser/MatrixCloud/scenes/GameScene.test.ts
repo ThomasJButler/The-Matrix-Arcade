@@ -2097,4 +2097,95 @@ describe('MatrixCloudGameScene', () => {
       });
     });
   });
+
+  // R84.CI (a11y priority 1): Matrix Bird previously had zero
+  // prefers-reduced-motion gates while siblings Pong + Snake both honour
+  // the media query. Camera shake + fullscreen flash are the two effects
+  // with the highest vestibular / strobe risk for sensitive users, so the
+  // gate routes through `safeShake` / `safeFlash` helpers rather than
+  // per-callsite matchMedia probes. These tests pin both the pass-through
+  // (motion-OK → raw camera calls) and skip (reduced-motion → silence)
+  // paths so a regression can't sneak in by reverting to
+  // `this.cameras.main.shake(...)` directly.
+  describe('R84.CI — a11y prefers-reduced-motion gates', () => {
+    const originalMatchMedia = window.matchMedia;
+
+    afterEach(() => {
+      window.matchMedia = originalMatchMedia;
+    });
+
+    function mockReducedMotion(reduce: boolean): void {
+      window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+        matches: query === '(prefers-reduced-motion: reduce)' ? reduce : false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })) as unknown as typeof window.matchMedia;
+    }
+
+    it('prefersReducedMotion returns true when media query matches', () => {
+      mockReducedMotion(true);
+      expect(call(scene, 'prefersReducedMotion')).toBe(true);
+    });
+
+    it('prefersReducedMotion returns false when media query does not match', () => {
+      mockReducedMotion(false);
+      expect(call(scene, 'prefersReducedMotion')).toBe(false);
+    });
+
+    it('safeShake forwards to cameras.main.shake when motion allowed', () => {
+      mockReducedMotion(false);
+      call(scene, 'safeShake', 200, 0.01);
+      expect(scene.cameras.main.shake).toHaveBeenCalledWith(200, 0.01);
+    });
+
+    it('safeShake skips cameras.main.shake under reduced motion', () => {
+      mockReducedMotion(true);
+      call(scene, 'safeShake', 200, 0.01);
+      expect(scene.cameras.main.shake).not.toHaveBeenCalled();
+    });
+
+    it('safeFlash forwards to cameras.main.flash when motion allowed', () => {
+      mockReducedMotion(false);
+      call(scene, 'safeFlash', 150, 0, 255, 0, false, undefined, undefined, 0.15);
+      expect(scene.cameras.main.flash).toHaveBeenCalledWith(
+        150, 0, 255, 0, false, undefined, undefined, 0.15,
+      );
+    });
+
+    it('safeFlash skips cameras.main.flash under reduced motion', () => {
+      mockReducedMotion(true);
+      call(scene, 'safeFlash', 150, 0, 255, 0, false, undefined, undefined, 0.15);
+      expect(scene.cameras.main.flash).not.toHaveBeenCalled();
+    });
+
+    it('handleCollision (no shield) skips shake under reduced motion but still decrements lives', () => {
+      // Pins the integration — collision side-effects (score/lives/sfx)
+      // must still fire so the run remains fair; only the camera hazard
+      // is removed. Tests the gate at a real callsite, not just the
+      // helper in isolation.
+      mockReducedMotion(true);
+      scene.lives = 3;
+      scene.shieldActive = false;
+      scene.isInvulnerable = false;
+      scene.isGameOver = false;
+      call(scene, 'handleCollision');
+      expect(scene.lives).toBe(2);
+      expect(scene.cameras.main.shake).not.toHaveBeenCalled();
+    });
+
+    it('handleCollision (no shield) shakes camera when motion allowed', () => {
+      mockReducedMotion(false);
+      scene.lives = 3;
+      scene.shieldActive = false;
+      scene.isInvulnerable = false;
+      scene.isGameOver = false;
+      call(scene, 'handleCollision');
+      expect(scene.cameras.main.shake).toHaveBeenCalled();
+    });
+  });
 });

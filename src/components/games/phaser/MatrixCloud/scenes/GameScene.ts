@@ -132,6 +132,40 @@ export class MatrixCloudGameScene extends BaseScene {
     super({ key: SCENE_KEYS.GAME });
   }
 
+  // R84.CI (a11y): Matrix Bird previously had zero prefers-reduced-motion
+  // gates — Pong + Snake both honour the media query but Bird strobed every
+  // pipe-pass / level-up / boss-hit / death with a camera shake + flash.
+  // Helpers centralise the check so every shake/flash callsite reads
+  // intent-first (`safeShake(...)`) rather than duplicating the matchMedia
+  // probe. Under reduced motion the camera effect is skipped entirely; the
+  // SFX + scoreboard update + sprite tweens still fire, so the event is
+  // still perceptible without the vestibular/strobe hazard. Exposed as
+  // protected so unit tests can spy via a subclass without reaching through
+  // `(scene as any)` type escape hatches.
+  protected prefersReducedMotion(): boolean {
+    return typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+  }
+
+  protected safeShake(duration: number, intensity: number): void {
+    if (this.prefersReducedMotion()) return;
+    this.cameras.main.shake(duration, intensity);
+  }
+
+  protected safeFlash(
+    duration: number,
+    r: number,
+    g: number,
+    b: number,
+    force?: boolean,
+    callback?: (camera: Phaser.Cameras.Scene2D.Camera, progress: number) => void,
+    context?: unknown,
+    startAlpha?: number,
+  ): void {
+    if (this.prefersReducedMotion()) return;
+    this.cameras.main.flash(duration, r, g, b, force, callback, context, startAlpha);
+  }
+
   create(): void {
     this.createMatrixBackground();
 
@@ -906,8 +940,8 @@ export class MatrixCloudGameScene extends BaseScene {
 
   private onLevelUp(_prevLevel: number): void {
     this.playSound(SOUND_KEYS.LEVEL_UP);
-    this.cameras.main.shake(200, 0.005);
-    this.cameras.main.flash(150, 0, 255, 0, false, undefined, undefined, 0.15);
+    this.safeShake(200, 0.005);
+    this.safeFlash(150, 0, 255, 0, false, undefined, undefined, 0.15);
 
     const levelText = this.createMatrixText(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, `LEVEL ${this.level}`, 16, MATRIX_COLORS.CYAN_HEX);
     this.tweens.add({
@@ -1077,7 +1111,7 @@ export class MatrixCloudGameScene extends BaseScene {
       this.shieldActive = false;
       this.playSound(SOUND_KEYS.HIT);
       this.startInvulnerability();
-      this.cameras.main.shake(100, 0.008);
+      this.safeShake(100, 0.008);
       this.showShieldBreakEffect();
       return;
     }
@@ -1085,7 +1119,7 @@ export class MatrixCloudGameScene extends BaseScene {
     this.lives--;
     this.combo = 1.0;
     this.playSound(SOUND_KEYS.HIT);
-    this.cameras.main.shake(200, 0.01);
+    this.safeShake(200, 0.01);
 
     if (this.lives <= 0) {
       this.handleGameOver();
@@ -1127,8 +1161,8 @@ export class MatrixCloudGameScene extends BaseScene {
     this.lives = 0;
     this.combo = 1.0;
     this.playSound(SOUND_KEYS.GLASS_BREAK);
-    this.cameras.main.shake(300, 0.02);
-    this.cameras.main.flash(220, 255, 60, 60, false, undefined, undefined, 0.4);
+    this.safeShake(300, 0.02);
+    this.safeFlash(220, 255, 60, 60, false, undefined, undefined, 0.4);
     this.handleGameOver();
   }
 
@@ -1169,8 +1203,8 @@ export class MatrixCloudGameScene extends BaseScene {
   private handleGameOver(): void {
     this.isGameOver = true;
     this.playSound(SOUND_KEYS.GAME_OVER);
-    this.cameras.main.shake(180, 0.012);
-    this.cameras.main.flash(120, 255, 0, 0, false, undefined, undefined, 0.25);
+    this.safeShake(180, 0.012);
+    this.safeFlash(120, 255, 0, 0, false, undefined, undefined, 0.25);
 
     if (this.score > this.highScore) {
       this.highScore = this.score;
@@ -1234,7 +1268,7 @@ export class MatrixCloudGameScene extends BaseScene {
     });
 
     this.playSound(SOUND_KEYS.DANGER_WARNING);
-    this.cameras.main.shake(300, 0.01);
+    this.safeShake(300, 0.01);
 
     const bossText = this.createMatrixText(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, `${type.replace('_', ' ').toUpperCase()}`, 14, MATRIX_COLORS.RED_HEX);
     this.tweens.add({
@@ -1391,7 +1425,7 @@ export class MatrixCloudGameScene extends BaseScene {
     this.bossesDefeated.add(type);
 
     this.playSound(SOUND_KEYS.LEVEL_UP);
-    this.cameras.main.shake(300, 0.015);
+    this.safeShake(300, 0.015);
 
     const rewardText = this.createMatrixText(this.boss.x, this.boss.y, `+${reward}`, 14, MATRIX_COLORS.YELLOW_HEX);
     this.tweens.add({
