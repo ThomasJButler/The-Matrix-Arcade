@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 import { BaseScene } from '@/lib/phaser/scenes/BaseScene';
 import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '@/lib/phaser/types';
 import {
@@ -49,6 +50,8 @@ export class SnakeGameScene extends BaseScene {
   private gridGraphics!: Phaser.GameObjects.Graphics;
   private gridBorder!: Phaser.GameObjects.Graphics;
   private matrixRainGroup!: Phaser.GameObjects.Group;
+  private scanlineOverlay!: Phaser.GameObjects.Graphics;
+  private powerUpLegend: Phaser.GameObjects.Text[] = [];
 
   private scoreText!: Phaser.GameObjects.Text;
   private highScoreText!: Phaser.GameObjects.Text;
@@ -72,7 +75,8 @@ export class SnakeGameScene extends BaseScene {
 
   create(): void {
     this.createMatrixBackground();
-    this.matrixRainGroup = this.addMatrixRain(10);
+    // Density bumped from 10 → 14 (R83.S1) for extra Matrix wow factor.
+    this.matrixRainGroup = this.addMatrixRain(14);
     this.resetState();
 
     const saveSystem = this.registry.get(REGISTRY_KEYS.SAVE_SYSTEM);
@@ -83,6 +87,7 @@ export class SnakeGameScene extends BaseScene {
 
     this.drawGrid();
     this.drawGridBorder();
+    this.createScanlineOverlay();
     this.createHUD();
     this.createFoodSprite();
     this.createInitialSnake();
@@ -90,8 +95,9 @@ export class SnakeGameScene extends BaseScene {
     this.setupCommonInputs();
     this.startMoveTimer();
     this.playSound('menu');
-    this.playBackgroundMusic('/assets/audio/music/cruise-control.mp3');
-    this.startCountdown(5, () => {});
+    // BGM softened to 70% for ambient feel — Tom: "more of a background" (R83.S1).
+    this.playBackgroundMusic('/assets/audio/music/cruise-control.mp3', 0.7);
+    this.startCountdown(5, () => this.showPowerUpLegend());
   }
 
   update(_time: number, delta: number): void {
@@ -114,6 +120,8 @@ export class SnakeGameScene extends BaseScene {
     this.snakeSprites = [];
     this.powerUpIndicators.forEach(t => t.destroy());
     this.powerUpIndicators.clear();
+    this.powerUpLegend.forEach(t => t.destroy());
+    this.powerUpLegend = [];
     this.achievementsUnlocked.clear();
 
     if (this.input.keyboard) {
@@ -414,11 +422,15 @@ export class SnakeGameScene extends BaseScene {
     const key = this.spriteMode ? 'food_sprite' : 'food';
     this.foodSprite = this.add.image(x, y, key);
     if (this.spriteMode) {
-      this.foodSprite.setDisplaySize(GAME_CONFIG.CELL_SIZE, GAME_CONFIG.CELL_SIZE);
+      // Shrunk to 75% of the grid cell (R83.S1) — Tom reported the apple was
+      // overspilling and causing missed pickups; collision is grid-based so
+      // smaller display has no gameplay effect, only visual fit.
+      const visual = GAME_CONFIG.CELL_SIZE * 0.75;
+      this.foodSprite.setDisplaySize(visual, visual);
     }
     this.tweens.add({
       targets: this.foodSprite,
-      scale: { from: 0.9, to: 1.1 },
+      scale: { from: 0.85, to: 1.05 },
       yoyo: true,
       repeat: -1,
       duration: 600,
@@ -732,6 +744,102 @@ export class SnakeGameScene extends BaseScene {
   private createEatBurst(pos: Position): void {
     const { x, y } = this.gridToPixel(pos.x, pos.y);
     this.createParticleBurst(x, y, MATRIX_COLORS.PRIMARY, 6);
+    this.createChromaticAberrationFlash(x, y);
+  }
+
+  /**
+   * Two offset ghost copies (red/cyan) tween outward and fade — gives the
+   * pickup a subtle CRT-glitch feel without overwhelming the playfield.
+   * Skipped under prefers-reduced-motion to keep the a11y contract.
+   */
+  private createChromaticAberrationFlash(x: number, y: number): void {
+    if (typeof window !== 'undefined' &&
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
+    const key = this.spriteMode ? 'food_sprite' : 'food';
+    const visual = this.spriteMode ? GAME_CONFIG.CELL_SIZE * 0.75 : GAME_CONFIG.CELL_SIZE;
+
+    const makeGhost = (tint: number, dx: number) => {
+      const ghost = this.add.image(x, y, key).setDepth(5);
+      if (this.spriteMode) ghost.setDisplaySize(visual, visual);
+      ghost.setTint(tint).setAlpha(0.7).setBlendMode(Phaser.BlendModes.ADD);
+      this.tweens.add({
+        targets: ghost,
+        x: x + dx,
+        alpha: 0,
+        scale: 1.4,
+        duration: 220,
+        ease: 'Quad.easeOut',
+        onComplete: () => ghost.destroy(),
+      });
+    };
+    makeGhost(0xff3333, -3);
+    makeGhost(0x33ffff, 3);
+  }
+
+  /**
+   * Static horizontal scanline overlay — every 3px, very low alpha. Adds a
+   * subtle CRT scan feel on top of existing matrix rain (R83.S1).
+   * Hidden under prefers-reduced-motion (the lines are static so it's mostly
+   * fine, but layered visual noise can still bother sensitive users).
+   */
+  private createScanlineOverlay(): void {
+    this.scanlineOverlay = this.add.graphics().setDepth(100);
+    if (typeof window !== 'undefined' &&
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
+    const w = Number(this.game.config.width);
+    const h = Number(this.game.config.height);
+    this.scanlineOverlay.fillStyle(0x000000, 0.18);
+    for (let y = 0; y < h; y += 3) {
+      this.scanlineOverlay.fillRect(0, y, w, 1);
+    }
+  }
+
+  /**
+   * Briefly explain the four power-ups after the countdown clears (R83.S1).
+   * Two centred lines, fade out after ~4s. Tom: "Need to explain what power-ups are".
+   */
+  private showPowerUpLegend(): void {
+    const cx = Number(this.game.config.width) / 2;
+    const baseY = GAME_CONFIG.GRID_OFFSET_Y + GAME_CONFIG.GRID_ROWS * GAME_CONFIG.CELL_SIZE + 18;
+
+    const headline = this.createMatrixText(
+      cx, baseY,
+      'POWER-UPS · SLOW · 2X · SHIELD · GHOST',
+      9,
+      MATRIX_COLORS.PRIMARY_HEX,
+    );
+    const sub = this.createMatrixText(
+      cx, baseY + 14,
+      'CATCH GLOWING TOKENS TO ACTIVATE',
+      8,
+      MATRIX_COLORS.PRIMARY_HEX,
+    );
+    headline.setAlpha(0).setDepth(10);
+    sub.setAlpha(0).setDepth(10);
+    this.powerUpLegend = [headline, sub];
+
+    this.tweens.add({
+      targets: this.powerUpLegend,
+      alpha: 1,
+      duration: 300,
+      ease: 'Quad.easeOut',
+      onComplete: () => {
+        this.tweens.add({
+          targets: this.powerUpLegend,
+          alpha: 0,
+          delay: 4000,
+          duration: 600,
+          onComplete: () => {
+            this.powerUpLegend.forEach(t => t.destroy());
+            this.powerUpLegend = [];
+          },
+        });
+      },
+    });
   }
 
   private createParticleBurst(x: number, y: number, colour: number, count: number): void {

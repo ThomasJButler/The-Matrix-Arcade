@@ -217,7 +217,7 @@ describe('App Component', () => {
     // Test arrow key navigation
     fireEvent.keyDown(window, { key: 'ArrowRight' });
     // Should change to next game — use getAllByText as landing page exit animation may linger
-    expect(screen.getAllByText('Snake Classic').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Matrix Snake').length).toBeGreaterThan(0);
 
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
     // Should go back to first game
@@ -300,7 +300,7 @@ describe('App Component', () => {
     // Navigate through all games (actual games in App.tsx)
     const games = [
       'CTRL-S | The World',
-      'Snake Classic',
+      'Matrix Snake',
       'Vortex Pong',
       'Matrix Bird',
       'Matrix Invaders',
@@ -345,7 +345,7 @@ describe('App Component', () => {
     fireEvent.click(gamesButton);
 
     // Should show games menu — use getAllByText as landing page exit animation may linger
-    expect(screen.getAllByText('Snake Classic').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Matrix Snake').length).toBeGreaterThan(0);
   });
 
   it('applies correct transition classes during game switch', async () => {

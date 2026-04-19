@@ -115,6 +115,13 @@ vi.mock('phaser', () => {
       AUTO: 0,
       CANVAS: 1,
       WEBGL: 2,
+      BlendModes: {
+        NORMAL: 0,
+        ADD: 1,
+        MULTIPLY: 2,
+        SCREEN: 3,
+        ERASE: 17,
+      },
       Scale: {
         FIT: 'FIT',
         CENTER_BOTH: 'CENTER_BOTH',
@@ -167,6 +174,13 @@ vi.mock('phaser', () => {
     AUTO: 0,
     CANVAS: 1,
     WEBGL: 2,
+    BlendModes: {
+      NORMAL: 0,
+      ADD: 1,
+      MULTIPLY: 2,
+      SCREEN: 3,
+      ERASE: 17,
+    },
     Scale: {
       FIT: 'FIT',
       CENTER_BOTH: 'CENTER_BOTH',

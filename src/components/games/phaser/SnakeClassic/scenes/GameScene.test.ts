@@ -32,6 +32,8 @@ function createMockImage() {
   img.clearTint = vi.fn(self);
   img.setDisplaySize = vi.fn(self);
   img.setScale = vi.fn(self);
+  img.setDepth = vi.fn(self);
+  img.setBlendMode = vi.fn(self);
   img.destroy = vi.fn();
   img.x = 0;
   img.y = 0;

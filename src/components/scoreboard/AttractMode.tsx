@@ -9,7 +9,7 @@ const IDLE_TIMEOUT_MS = 10_000;
 const GAME_DISPLAY_MS = 5_000;
 
 const GAME_LABELS: Record<ScoreboardGameId, string> = {
-  snakeClassic: 'Snake Classic',
+  snakeClassic: 'Matrix Snake',
   vortexPong: 'Vortex Pong',
   matrixCloud: 'Matrix Bird',
   matrixInvaders: 'Matrix Invaders',

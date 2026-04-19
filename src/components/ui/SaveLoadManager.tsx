@@ -84,7 +84,7 @@ export const SaveLoadManager: React.FC<SaveLoadManagerProps> = ({ isOpen, onClos
 
   const getGameDisplayName = (gameId: string) => {
     const names: Record<string, string> = {
-      snakeClassic: 'Snake Classic',
+      snakeClassic: 'Matrix Snake',
       vortexPong: 'Vortex Pong',
       matrixCloud: 'Matrix Bird',
       ctrlSWorld: 'CTRL-S | The World',

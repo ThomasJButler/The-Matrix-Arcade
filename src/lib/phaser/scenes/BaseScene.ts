@@ -308,12 +308,14 @@ export abstract class BaseScene extends Phaser.Scene {
   }
 
   /**
-   * Play looping background music via React's sound system
+   * Play looping background music via React's sound system.
+   * `ambientMultiplier` (0–1, default 1) lets a scene soften the mix locally
+   * without permanently lowering the user's music slider.
    */
-  protected playBackgroundMusic(src: string): void {
+  protected playBackgroundMusic(src: string, ambientMultiplier = 1): void {
     const soundSystem = this.registry.get(REGISTRY_KEYS.SOUND_SYSTEM);
     if (soundSystem && typeof soundSystem.playBgMusic === 'function') {
-      soundSystem.playBgMusic(src);
+      soundSystem.playBgMusic(src, ambientMultiplier);
     }
   }
 
