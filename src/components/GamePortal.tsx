@@ -5,6 +5,8 @@ import { GAME_TITLES } from '../lib/asciiArt';
 import { GameErrorBoundary } from './ui/GameErrorBoundary';
 import type { GameEntry } from '../data/gameRegistry';
 import {
+  GAME_TRANSITION_BEGIN_EVENT,
+  GAME_TRANSITION_READY_EVENT,
   PAUSE_REQUEST_EVENT,
   PAUSE_STATE_CHANGED_EVENT,
   type AchievementManager,
@@ -186,15 +188,23 @@ export function GamePortal({
     prevIsPlaying.current = isPlaying;
   }, [isPlaying, shouldReduceMotion, containerRef]);
 
-  // R83.G5: CRT-boot overlay masks Phaser's Scale.FIT mount flicker (canvas
-  // attaches at native size, then asynchronously resizes to fill the parent —
-  // the 1-2 intermediate frames read as "snap from left/middle then expand").
-  // Cover is time-based, independent of Suspense: fires on every play boundary
-  // even for already-loaded games. 400 ms is the upper of Tom's 300–400 ms
-  // range; long enough to swallow the Scale.FIT tick + Phaser `ready` event
-  // on a cold launch, short enough to feel snappy. Keyed on game.id so
-  // switching games mid-session would re-trigger, but that can't happen
-  // (dashbar lacks prev/next in play mode). Cleared on unmount + on exit.
+  // R83.G5 (upgraded in R83.G9): transition mask hides the 1-frame gap where
+  // Phaser's Scale.FIT canvas attaches at native size before resizing to fill
+  // the bezel — the intermediate frame otherwise shows the previous preview
+  // image pinned to the bottom-left of the newly-grown ipod-screen.
+  //
+  // Lifecycle:
+  // - MASK ON — synchronously in handlePlayPress (same React batch as the
+  //   parent's setIsPlaying(true)), so the very first commit after the click
+  //   already has the overlay rendered. Covers the full-bleed ipod-screen
+  //   inner box via `inset: 0`.
+  // - MASK OFF — whichever fires first: (a) GAME_TRANSITION_READY_EVENT,
+  //   dispatched by PhaserGame.tsx one rAF after Phaser's `ready` event, or
+  //   (b) a 500 ms safety timeout so a stalled / non-Phaser wrapper can't
+  //   pin the mask open.
+  // - Also primed via isPlaying→true as a belt-and-braces path for callers
+  //   (tests, future entry points) that flip isPlaying without going through
+  //   handlePlayPress. Reset on exit.
   const [isBooting, setIsBooting] = useState(false);
   useEffect(() => {
     if (!isPlaying) {
@@ -202,8 +212,18 @@ export function GamePortal({
       return;
     }
     setIsBooting(true);
-    const handle = window.setTimeout(() => setIsBooting(false), 400);
-    return () => window.clearTimeout(handle);
+
+    const safety = window.setTimeout(() => setIsBooting(false), 500);
+    const onReady = () => {
+      // One rAF after ready so the first Phaser frame has fully painted before
+      // we reveal — pre-empts any last-millisecond canvas reflow.
+      requestAnimationFrame(() => setIsBooting(false));
+    };
+    window.addEventListener(GAME_TRANSITION_READY_EVENT, onReady);
+    return () => {
+      window.clearTimeout(safety);
+      window.removeEventListener(GAME_TRANSITION_READY_EVENT, onReady);
+    };
   }, [isPlaying, selectedGame]);
 
   // R82.13: debounce screen-reader announcements of carousel navigation so
@@ -328,6 +348,15 @@ export function GamePortal({
       playClick();
       onExit();
     } else if (!isPlayDisabled && hasComponent) {
+      // R83.G9: start the transition mask synchronously, in the same React
+      // batch as the parent's setIsPlaying(true), so the first paint after
+      // the click already has the overlay covering the bezel. Without this,
+      // the useEffect-driven toggle fires a frame late and Phaser's native-
+      // size canvas flashes in the bottom-left of the grown bezel.
+      setIsBooting(true);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent(GAME_TRANSITION_BEGIN_EVENT));
+      }
       captureSurfaceFocusIntent('dashbar');
       playConfirm();
       onPlay();

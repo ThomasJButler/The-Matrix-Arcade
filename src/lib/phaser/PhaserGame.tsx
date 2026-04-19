@@ -13,6 +13,7 @@ import Phaser from 'phaser';
 import { useSoundSystem, type SoundEffect } from '../../hooks/useSoundSystem';
 import { useSaveSystem } from '../../hooks/useSaveSystem';
 import {
+  GAME_TRANSITION_READY_EVENT,
   REGISTRY_KEYS,
   type AchievementManager,
   type GameEvent,
@@ -202,6 +203,18 @@ export function PhaserGame({
       focusContainer();
       // Strategy 3: One more rAF after ready to ensure DOM is fully settled
       requestAnimationFrame(focusContainer);
+
+      // R83.G9: signal the portal transition mask that the game instance is
+      // live so it can lift the black cover. One rAF after `ready` means the
+      // first scene tick has had a chance to paint, so revealing now shows a
+      // populated canvas rather than an empty one. The portal layers a 500 ms
+      // safety timeout on top so a scene that stalls can't pin the mask
+      // open indefinitely.
+      requestAnimationFrame(() => {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent(GAME_TRANSITION_READY_EVENT));
+        }
+      });
     });
 
     // Cleanup on unmount

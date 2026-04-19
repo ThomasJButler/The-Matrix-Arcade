@@ -1450,12 +1450,16 @@ main:has(.ipod-body--playing) {
   z-index: 20;
   pointer-events: none;
   contain: layout style paint;
-  animation: ipod-boot-fade 400ms ease-out forwards;
+  /* R83.G9: 500 ms matches the JS safety timeout in GamePortal. If the
+     GAME_TRANSITION_READY_EVENT lifts the mask sooner (cold-boot hits ~100–200
+     ms typically) React unmounts mid-animation — no visible abrupt cut because
+     the game canvas underneath is already live and correctly scaled. */
+  animation: ipod-boot-fade 500ms ease-out forwards;
   will-change: opacity;
 }
 
 @keyframes ipod-boot-fade {
-  0%, 75% { opacity: 1; }
+  0%, 80% { opacity: 1; }
   100% { opacity: 0; }
 }
 

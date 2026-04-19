@@ -3,6 +3,7 @@ import { act, render, screen, fireEvent } from '@testing-library/react';
 import { createRef } from 'react';
 import { GamePortal } from './GamePortal';
 import {
+  GAME_TRANSITION_READY_EVENT,
   PAUSE_REQUEST_EVENT,
   PAUSE_STATE_CHANGED_EVENT,
   type PauseStateChangedDetail,
@@ -221,11 +222,16 @@ describe('GamePortal paused-state indicator', () => {
   });
 });
 
-// R83.G5 — CRT-boot overlay masks Phaser's Scale.FIT mount flicker. Lock in
-// that the overlay mounts on play-boundary, clears after the 400 ms timer, and
-// never leaks outside play mode. Timer-based — these tests use fake timers so
-// the 400 ms cover is deterministic without slowing the suite.
-describe('GamePortal CRT boot-cover (R83.G5)', () => {
+// R83.G5 (upgraded by R83.G9) — transition mask hides the 1-frame canvas-
+// native-size flash during Phaser's Scale.FIT mount. Lock in:
+//   1. the overlay mounts on play-boundary (synchronous path + useEffect
+//      fallback),
+//   2. it unmounts when GAME_TRANSITION_READY_EVENT fires (event-based lift
+//      driven by PhaserGame.tsx's Phaser `ready` hook),
+//   3. a 500 ms safety timeout still clears the mask if the ready event
+//      never arrives (stalled wrapper, non-Phaser future game),
+//   4. it never leaks outside play mode.
+describe('GamePortal CRT boot-cover (R83.G5 / R83.G9)', () => {
   const makeGames = () => [
     {
       id: 'snake-classic',
@@ -258,11 +264,23 @@ describe('GamePortal CRT boot-cover (R83.G5)', () => {
     expect(overlay).toHaveAttribute('aria-hidden', 'true');
   });
 
-  it('unmounts the boot overlay after the 400 ms cover elapses', () => {
+  it('unmounts the boot overlay after the 500 ms safety timeout elapses', () => {
     render(<GamePortal {...makeProps({ games: makeGames(), isPlaying: true })} />);
     expect(screen.getByTestId('ipod-boot-overlay')).toBeInTheDocument();
     act(() => {
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(500);
+    });
+    expect(screen.queryByTestId('ipod-boot-overlay')).not.toBeInTheDocument();
+  });
+
+  it('unmounts the boot overlay early when GAME_TRANSITION_READY_EVENT fires', () => {
+    render(<GamePortal {...makeProps({ games: makeGames(), isPlaying: true })} />);
+    expect(screen.getByTestId('ipod-boot-overlay')).toBeInTheDocument();
+    act(() => {
+      window.dispatchEvent(new CustomEvent(GAME_TRANSITION_READY_EVENT));
+      // Listener wraps setIsBooting in a rAF so a pending paint can settle;
+      // advance enough timers to let the rAF-shim flush under fake timers.
+      vi.advanceTimersByTime(50);
     });
     expect(screen.queryByTestId('ipod-boot-overlay')).not.toBeInTheDocument();
   });
