@@ -4,6 +4,7 @@ import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '@/lib/phas
 import {
   GAME_CONFIG,
   ACHIEVEMENTS,
+  MATRIX_FUNKINESS,
   POWERUP_DEFS,
   OPPOSITE_DIRECTIONS,
   type Direction,
@@ -46,10 +47,14 @@ export class SnakeGameScene extends BaseScene {
 
   private snakeSprites: Phaser.GameObjects.Image[] = [];
   private foodSprite!: Phaser.GameObjects.Image;
+  private bonusFoodText: Phaser.GameObjects.Text | null = null;
+  private isBonusFood = false;
   private powerUpSprite: Phaser.GameObjects.Image | null = null;
   private gridGraphics!: Phaser.GameObjects.Graphics;
   private gridBorder!: Phaser.GameObjects.Graphics;
   private matrixRainGroup!: Phaser.GameObjects.Group;
+  private playAreaRainGroup!: Phaser.GameObjects.Group;
+  private snakeHeadGlow!: Phaser.GameObjects.Graphics;
   private scanlineOverlay!: Phaser.GameObjects.Graphics;
   private powerUpLegend: Phaser.GameObjects.Text[] = [];
 
@@ -87,6 +92,8 @@ export class SnakeGameScene extends BaseScene {
 
     this.drawGrid();
     this.drawGridBorder();
+    this.createPlayAreaMatrixRain();
+    this.createSnakeHeadGlow();
     this.createScanlineOverlay();
     this.createHUD();
     this.createFoodSprite();
@@ -105,6 +112,8 @@ export class SnakeGameScene extends BaseScene {
     if (this.isCountingDown) return;
 
     this.updateMatrixRain(this.matrixRainGroup, delta);
+    this.updatePlayAreaRain(delta);
+    this.updateSnakeHeadGlow();
     this.gameTimer += delta;
     this.handleInput();
     this.updateGhostVisuals();
@@ -122,6 +131,9 @@ export class SnakeGameScene extends BaseScene {
     this.powerUpIndicators.clear();
     this.powerUpLegend.forEach(t => t.destroy());
     this.powerUpLegend = [];
+    this.destroyBonusFoodText();
+    this.playAreaRainGroup?.destroy(true);
+    this.snakeHeadGlow?.destroy();
     this.achievementsUnlocked.clear();
 
     if (this.input.keyboard) {
@@ -150,6 +162,7 @@ export class SnakeGameScene extends BaseScene {
     this.doublePointsRemaining = 0;
     this.shieldActive = false;
     this.ghostActive = false;
+    this.isBonusFood = false;
     this.achievementsUnlocked = new Set();
   }
 
@@ -208,6 +221,98 @@ export class SnakeGameScene extends BaseScene {
         GRID_ROWS * CELL_SIZE + 2,
       );
     }
+  }
+
+  // ─── Play-area rain (R84.S2a) ──────────────────────────
+
+  /**
+   * Subtle second rain layer clipped inside the play area. Renders at depth
+   * `-1` beneath the snake sprites (which sit at default depth 0) so the
+   * playfield reads as "made of code" without fighting the snake for
+   * attention. Skipped in E2E test mode because Phaser's RNG is unseedable.
+   */
+  private createPlayAreaMatrixRain(): void {
+    this.playAreaRainGroup = this.add.group();
+    if (typeof window !== 'undefined' && (window as { __TEST__?: boolean }).__TEST__) {
+      return;
+    }
+    const chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789';
+    const { left, right, top, bottom } = this.getPlayAreaBounds();
+
+    for (let i = 0; i < MATRIX_FUNKINESS.PLAY_AREA_RAIN_DENSITY; i++) {
+      const x = Phaser.Math.Between(left, right);
+      const y = Phaser.Math.Between(top - 60, bottom);
+      const speed = Phaser.Math.Between(
+        MATRIX_FUNKINESS.PLAY_AREA_RAIN_SPEED_MIN,
+        MATRIX_FUNKINESS.PLAY_AREA_RAIN_SPEED_MAX,
+      );
+      const char = chars[Phaser.Math.Between(0, chars.length - 1)];
+      const text = this.add.text(x, y, char, {
+        fontFamily: 'monospace',
+        fontSize: `${MATRIX_FUNKINESS.PLAY_AREA_RAIN_FONT_SIZE}px`,
+        color: MATRIX_COLORS.PRIMARY_HEX,
+      });
+      text
+        .setAlpha(MATRIX_FUNKINESS.PLAY_AREA_RAIN_ALPHA)
+        .setDepth(MATRIX_FUNKINESS.PLAY_AREA_RAIN_DEPTH);
+      text.setData('speed', speed);
+      text.setData('chars', chars);
+      this.playAreaRainGroup.add(text);
+    }
+  }
+
+  private updatePlayAreaRain(delta: number): void {
+    if (!this.playAreaRainGroup) return;
+    const { left, right, top, bottom } = this.getPlayAreaBounds();
+
+    this.playAreaRainGroup.getChildren().forEach((obj) => {
+      const text = obj as Phaser.GameObjects.Text;
+      const speed = text.getData('speed') as number;
+      const chars = text.getData('chars') as string;
+      if (typeof speed !== 'number' || !chars) return;
+      text.y += speed * (delta / 1000);
+      if (text.y > bottom + 10) {
+        text.y = top - 10;
+        text.x = Phaser.Math.Between(left, right);
+        text.setText(chars[Phaser.Math.Between(0, chars.length - 1)]);
+      }
+      if (Math.random() < 0.008) {
+        text.setText(chars[Phaser.Math.Between(0, chars.length - 1)]);
+      }
+    });
+  }
+
+  private getPlayAreaBounds(): { left: number; right: number; top: number; bottom: number } {
+    const { GRID_OFFSET_X, GRID_OFFSET_Y, GRID_COLS, GRID_ROWS, CELL_SIZE } = GAME_CONFIG;
+    return {
+      left: GRID_OFFSET_X,
+      right: GRID_OFFSET_X + GRID_COLS * CELL_SIZE,
+      top: GRID_OFFSET_Y,
+      bottom: GRID_OFFSET_Y + GRID_ROWS * CELL_SIZE,
+    };
+  }
+
+  // ─── Snake-head glow (R84.S2b) ─────────────────────────
+
+  /**
+   * Twin concentric PRIMARY-green fillCircles under the snake head. Reads
+   * as a headlamp cast on the playfield and anchors the eye on the head
+   * during frantic rallies. Depth `-1` keeps it beneath the sprite.
+   */
+  private createSnakeHeadGlow(): void {
+    this.snakeHeadGlow = this.add.graphics();
+    this.snakeHeadGlow.setDepth(MATRIX_FUNKINESS.HEAD_GLOW_DEPTH);
+  }
+
+  private updateSnakeHeadGlow(): void {
+    if (!this.snakeHeadGlow || this.snake.length === 0) return;
+    this.snakeHeadGlow.clear();
+    const head = this.snake[0];
+    const { x, y } = this.gridToPixel(head.x, head.y);
+    this.snakeHeadGlow.fillStyle(MATRIX_COLORS.PRIMARY, MATRIX_FUNKINESS.HEAD_GLOW_OUTER_ALPHA);
+    this.snakeHeadGlow.fillCircle(x, y, MATRIX_FUNKINESS.HEAD_GLOW_OUTER_RADIUS);
+    this.snakeHeadGlow.fillStyle(MATRIX_COLORS.PRIMARY, MATRIX_FUNKINESS.HEAD_GLOW_INNER_ALPHA);
+    this.snakeHeadGlow.fillCircle(x, y, MATRIX_FUNKINESS.HEAD_GLOW_INNER_RADIUS);
   }
 
   // ─── HUD ───────────────────────────────────────────────
@@ -440,18 +545,56 @@ export class SnakeGameScene extends BaseScene {
   private spawnFood(): void {
     this.food = this.getRandomEmptyCell();
     const { x, y } = this.gridToPixel(this.food.x, this.food.y);
-    this.foodSprite.setPosition(x, y);
-    this.foodSprite.setScale(0);
-    this.tweens.add({
-      targets: this.foodSprite,
-      scale: 1,
-      duration: 200,
-      ease: 'Back.easeOut',
-    });
+
+    this.destroyBonusFoodText();
+
+    if (this.isBonusFood) {
+      // Hide apple sprite under the glyph — collision is grid-based so the
+      // gameplay is identical, only the visual differs.
+      this.foodSprite.setPosition(x, y);
+      this.foodSprite.setAlpha(0);
+      const glyphs = MATRIX_FUNKINESS.BONUS_FOOD_GLYPHS;
+      const glyph = glyphs[Math.floor(Math.random() * glyphs.length)];
+      this.bonusFoodText = this.add.text(x, y, glyph, {
+        fontFamily: 'monospace',
+        fontSize: `${MATRIX_FUNKINESS.BONUS_FOOD_FONT_SIZE}px`,
+        color: MATRIX_COLORS.PRIMARY_HEX,
+      });
+      this.bonusFoodText
+        .setOrigin(0.5)
+        .setDepth(MATRIX_FUNKINESS.BONUS_FOOD_DEPTH);
+      this.tweens.add({
+        targets: this.bonusFoodText,
+        alpha: { from: 0.7, to: 1 },
+        scale: { from: 0.9, to: 1.15 },
+        yoyo: true,
+        repeat: -1,
+        duration: 450,
+      });
+    } else {
+      this.foodSprite.setAlpha(1);
+      this.foodSprite.setPosition(x, y);
+      this.foodSprite.setScale(0);
+      this.tweens.add({
+        targets: this.foodSprite,
+        scale: 1,
+        duration: 200,
+        ease: 'Back.easeOut',
+      });
+    }
+  }
+
+  private destroyBonusFoodText(): void {
+    if (this.bonusFoodText) {
+      this.tweens.killTweensOf(this.bonusFoodText);
+      this.bonusFoodText.destroy();
+      this.bonusFoodText = null;
+    }
   }
 
   private eatFood(): void {
     const prevFoodEaten = this.foodEaten;
+    const wasBonus = this.isBonusFood;
     this.foodEaten++;
     this.consecutiveFood++;
 
@@ -459,6 +602,13 @@ export class SnakeGameScene extends BaseScene {
     if (this.doublePointsRemaining > 0) {
       points = GAME_CONFIG.POINTS_PER_FOOD_DOUBLE;
       this.doublePointsRemaining--;
+    }
+    if (wasBonus) {
+      // Bonus food stacks multiplicatively with the 2X power-up so a lucky
+      // overlap of the two rewards the player with 4×. Kept simple because
+      // the 5-food cadence already limits how often this fires.
+      points *= MATRIX_FUNKINESS.BONUS_FOOD_POINTS_MULTIPLIER;
+      this.playSound(SOUND_KEYS.COMBO);
     }
     this.score += points;
 
@@ -496,6 +646,13 @@ export class SnakeGameScene extends BaseScene {
       this.highScore = this.score;
     }
     this.reportScore(this.score, this.highScore);
+
+    // Seed the next spawn as bonus on a fixed food-count cadence. Evaluated
+    // here (not in spawnFood) so the cadence is deterministic w.r.t. food
+    // eaten, independent of any future spawnFood retry logic.
+    this.isBonusFood =
+      this.foodEaten > 0 &&
+      this.foodEaten % MATRIX_FUNKINESS.BONUS_FOOD_INTERVAL === 0;
 
     this.spawnFood();
 
@@ -961,6 +1118,7 @@ export class SnakeGameScene extends BaseScene {
       fieldPowerUp: this.fieldPowerUp ? { ...this.fieldPowerUp } : null,
       gameTimer: this.gameTimer,
       countdownValue: this.countdownValue,
+      isBonusFood: this.isBonusFood,
     };
   }
 }
