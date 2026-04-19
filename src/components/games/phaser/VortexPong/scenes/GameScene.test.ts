@@ -56,11 +56,15 @@ function createTestScene() {
   scene.updateMatrixRain = vi.fn();
   scene.exposeTestState = vi.fn();
   scene.setupCommonInputs = vi.fn();
+  scene.stopBackgroundMusic = vi.fn();
 
   // Phaser camera
   scene.cameras = {
     main: { shake: vi.fn(), flash: vi.fn(), setBackgroundColor: vi.fn() },
   };
+
+  // Phaser sound manager (used by stopAllAudio for R-restart)
+  scene.sound = { stopAll: vi.fn(), mute: false };
 
   // Tweens
   scene.tweens = {
@@ -641,6 +645,144 @@ describe('VortexPongGameScene', () => {
       scene.fieldPowerUps = [{ sprite: mockSprite, type: 'bigger_paddle' as const }];
       scene.checkPowerUpCollisions();
       expect(scene.fieldPowerUps.length).toBe(1);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // R83.V1 polish — keyboard input fix, AI predictive lookahead,
+  // goal-flash brightness, R-restart audio cleanup, paddle-hit trail.
+  // -----------------------------------------------------------------------
+  describe('R83.V1 keyboard "springs back to centre" fix', () => {
+    beforeEach(() => {
+      scene.upKey = { isDown: false };
+      scene.downKey = { isDown: false };
+      scene.wKey = { isDown: false };
+      scene.sKey = { isDown: false };
+      scene.input.activePointer = { isDown: false, wasTouch: false, y: 100, event: undefined };
+    });
+
+    it('does not snap to pointer when keys released and mouse is stationary', () => {
+      scene.playerPaddle.y = 250;
+      scene.lastPointerY = 100;
+      scene.lastPointerMoveTime = 0;
+      scene.input.activePointer.y = 100;
+
+      scene.handlePlayerInput(0.016);
+
+      expect(scene.playerPaddle.y).toBe(250);
+    });
+
+    it('follows mouse while it is actively moving', () => {
+      scene.playerPaddle.y = 250;
+      scene.input.activePointer.y = 320;
+      scene.input.activePointer.isDown = true;
+
+      scene.handlePlayerInput(0.016);
+
+      expect(scene.playerPaddle.y).toBe(320);
+    });
+
+    it('keyboard up moves paddle up', () => {
+      scene.playerPaddle.y = 250;
+      scene.upKey = { isDown: true };
+      scene.handlePlayerInput(0.1);
+      expect(scene.playerPaddle.y).toBeLessThan(250);
+    });
+
+    it('keyboard down moves paddle down', () => {
+      scene.playerPaddle.y = 200;
+      scene.downKey = { isDown: true };
+      scene.handlePlayerInput(0.1);
+      expect(scene.playerPaddle.y).toBeGreaterThan(200);
+    });
+  });
+
+  describe('R83.V1a AI predictive lookahead', () => {
+    it('uses extrapolated intercept rather than raw ball Y', () => {
+      // Ball at x=400 y=100 moving down-right; intercept at AI x≈784.
+      // With pure tracking the AI would chase y=100; with lookahead it
+      // anticipates the descent.
+      scene.aiPaddle.y = 225;
+      createBall(scene, 400, 100, 200, 200);
+      scene.updateAI(0.5);
+      expect(scene.aiPaddle.y).toBeGreaterThan(225);
+    });
+
+    it('reflects predicted intercept off bottom wall', () => {
+      // Ball heading down past the bottom — intercept reflects upward.
+      scene.aiPaddle.y = 50;
+      createBall(scene, 400, GAME_CONFIG.HEIGHT - 100, 300, 600);
+      const prevY = scene.aiPaddle.y;
+      scene.updateAI(0.5);
+      expect(scene.aiPaddle.y).toBeGreaterThan(prevY);
+    });
+  });
+
+  describe('R83.V1c goal flash', () => {
+    it('halves green channel on player goal (no longer pure 255)', () => {
+      createBall(scene, GAME_CONFIG.WIDTH + 10, 225, 420, 0);
+      scene.checkGoals();
+      const flashCalls = scene.cameras.main.flash.mock.calls;
+      const greenFlash = flashCalls.find((c: number[]) => c[2] === 128 && c[1] === 0 && c[3] === 0);
+      expect(greenFlash).toBeDefined();
+    });
+
+    it('halves red channel on AI goal (no longer pure 255)', () => {
+      createBall(scene, -10, 225, -420, 0);
+      scene.checkGoals();
+      const flashCalls = scene.cameras.main.flash.mock.calls;
+      const redFlash = flashCalls.find((c: number[]) => c[1] === 128 && c[2] === 0 && c[3] === 0);
+      expect(redFlash).toBeDefined();
+    });
+
+    it('skips flash entirely under prefers-reduced-motion', () => {
+      const original = window.matchMedia;
+      // @ts-expect-error overriding for test
+      window.matchMedia = vi.fn().mockReturnValue({ matches: true });
+      try {
+        createBall(scene, GAME_CONFIG.WIDTH + 10, 225, 420, 0);
+        scene.checkGoals();
+        expect(scene.cameras.main.flash).not.toHaveBeenCalled();
+      } finally {
+        window.matchMedia = original;
+      }
+    });
+  });
+
+  describe('R83.V1d R-restart audio cleanup', () => {
+    it('stopAllAudio stops both BGM and Phaser sound manager', () => {
+      scene.stopAllAudio();
+      expect(scene.stopBackgroundMusic).toHaveBeenCalled();
+      expect(scene.sound.stopAll).toHaveBeenCalled();
+    });
+  });
+
+  describe('R83.V1e paddle-hit particle trail', () => {
+    it('emits 10 particles on player paddle hit', () => {
+      const before = scene.add.circle.mock.calls.length;
+      const paddleRight = scene.playerPaddle.x + GAME_CONFIG.PADDLE.WIDTH / 2;
+      createBall(scene, paddleRight, scene.playerPaddle.y, -420, 0);
+      scene.checkPaddleCollisions();
+      const after = scene.add.circle.mock.calls.length;
+      // Impact effect creates 2 circles (ring + glow); trail adds 10 more.
+      expect(after - before).toBeGreaterThanOrEqual(10);
+    });
+
+    it('skips particle trail under prefers-reduced-motion', () => {
+      const original = window.matchMedia;
+      // @ts-expect-error overriding for test
+      window.matchMedia = vi.fn().mockReturnValue({ matches: true });
+      try {
+        const before = scene.add.circle.mock.calls.length;
+        const paddleRight = scene.playerPaddle.x + GAME_CONFIG.PADDLE.WIDTH / 2;
+        createBall(scene, paddleRight, scene.playerPaddle.y, -420, 0);
+        scene.checkPaddleCollisions();
+        const after = scene.add.circle.mock.calls.length;
+        // Only the impact effect (2 circles) — no trail.
+        expect(after - before).toBeLessThan(10);
+      } finally {
+        window.matchMedia = original;
+      }
     });
   });
 });

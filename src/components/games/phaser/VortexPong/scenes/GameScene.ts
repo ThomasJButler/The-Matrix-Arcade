@@ -68,6 +68,8 @@ export class VortexPongGameScene extends BaseScene {
   private playerPaddleVelocity = 0;
   private aiPaddleVelocity = 0;
   private previousPlayerY = 0;
+  private lastPointerMoveTime = 0;
+  private lastPointerY = 0;
 
   // Input
   private upKey?: Phaser.Input.Keyboard.Key;
@@ -187,6 +189,8 @@ export class VortexPongGameScene extends BaseScene {
     this.playerPaddleVelocity = 0;
     this.aiPaddleVelocity = 0;
     this.previousPlayerY = GAME_CONFIG.HEIGHT / 2;
+    this.lastPointerMoveTime = 0;
+    this.lastPointerY = 0;
   }
 
   // ── Drawing ──────────────────���───────────────────────────────
@@ -248,6 +252,7 @@ export class VortexPongGameScene extends BaseScene {
       this.rKey.on('down', () => {
         if (this.playerScore > this.highScore) this.highScore = this.playerScore;
         this.reportScore(this.playerScore, this.highScore);
+        this.stopAllAudio();
         this.scene.restart();
       });
     });
@@ -265,22 +270,27 @@ export class VortexPongGameScene extends BaseScene {
     const kbUp = this.upKey?.isDown || this.wKey?.isDown;
     const kbDown = this.downKey?.isDown || this.sKey?.isDown;
 
+    // Track pointer movement so a stationary cursor stops fighting the keyboard.
+    // R83.V1: previously the paddle snapped to pointer-Y on every frame the
+    // keyboard was *not* pressed, so releasing W/S "sprung" the paddle back to
+    // the cursor (often near the centre). Now we only follow the mouse if it
+    // actually moved within the last 600ms.
+    const pointer = this.input.activePointer;
+    const pointerMoved = pointer && pointer.y !== this.lastPointerY;
+    if (pointerMoved) {
+      this.lastPointerMoveTime = pointer.event ? pointer.event.timeStamp : Date.now();
+      this.lastPointerY = pointer.y;
+    }
+    const now = Date.now();
+    const pointerActive = pointer.isDown || pointer.wasTouch ||
+      (now - this.lastPointerMoveTime < 600 && this.lastPointerMoveTime > 0);
+
     if (kbUp) {
       this.playerPaddle.y -= moveAmount;
     } else if (kbDown) {
       this.playerPaddle.y += moveAmount;
-    }
-
-    // Mouse control — map pointer Y directly to paddle Y
-    if (this.input.activePointer.isDown || this.input.activePointer.wasTouch) {
-      this.playerPaddle.y = this.input.activePointer.y;
-    } else if (
-      this.input.activePointer.y !== 0 &&
-      !kbUp &&
-      !kbDown
-    ) {
-      // Track mouse even without click (like the original)
-      this.playerPaddle.y = this.input.activePointer.y;
+    } else if (pointerActive) {
+      this.playerPaddle.y = pointer.y;
     }
 
     this.clampPaddle(this.playerPaddle, this.currentPaddleHeight);
@@ -299,30 +309,48 @@ export class VortexPongGameScene extends BaseScene {
     const targetBall = this.getClosestBallToAI();
     if (!targetBall) return;
 
-    // Difficulty ramp: AI gets faster as player scores increase
-    const difficultyBonus = Math.min(this.playerScore * 0.06, 0.4);
-    const baseTracking = 2.5;
+    // R83.V1a: AI was a pushover (Tom: "AI is not very responsive"). Bumped
+    // baseTracking 2.5 → 4.0, raised maxSpeed factor 0.85 → 0.95, and
+    // shrank rally-driven jitter so the paddle holds its line under pressure.
+    const difficultyBonus = Math.min(this.playerScore * 0.08, 0.6);
+    const baseTracking = 4.0;
     const trackingSpeed = baseTracking + difficultyBonus;
 
-    // When the ball is heading away, drift lazily toward center
+    // When the ball is heading away, drift lazily toward center.
     const ballMovingToward = targetBall.vx > 0;
-    const effectiveTracking = ballMovingToward ? trackingSpeed : trackingSpeed * 0.4;
+    const effectiveTracking = ballMovingToward ? trackingSpeed : trackingSpeed * 0.45;
 
-    // Stable error offset based on rally count (not random each frame)
+    // Predictive lookahead — extrapolate the ball's intercept Y at the AI
+    // paddle's X column, accounting for any number of top/bottom wall
+    // reflections via sawtooth folding. Only applied when the ball is
+    // heading toward the AI; outgoing balls keep the gentle centre-drift
+    // behaviour to preserve "beatable" feel.
+    let predictedY = targetBall.sprite.y;
+    if (ballMovingToward && targetBall.vx > 0) {
+      const distance = this.aiPaddle.x - targetBall.sprite.x;
+      const timeToIntercept = distance / targetBall.vx;
+      const projected = targetBall.sprite.y + targetBall.vy * timeToIntercept;
+      const period = 2 * GAME_CONFIG.HEIGHT;
+      const folded = ((projected % period) + period) % period;
+      predictedY = folded > GAME_CONFIG.HEIGHT ? period - folded : folded;
+    }
+
+    // Stable, low-amplitude error offset (rally + score seeded — same every
+    // frame within a rally so the AI doesn't twitch).
     const errorOffset = Math.sin(this.rallyCount * 1.7 + this.aiScore * 2.3) *
-      GAME_CONFIG.AI.ERROR_MARGIN * 0.3;
+      GAME_CONFIG.AI.ERROR_MARGIN * 0.18;
     const targetY = ballMovingToward
-      ? targetBall.sprite.y + errorOffset
+      ? predictedY + errorOffset
       : GAME_CONFIG.HEIGHT / 2;
 
     const diff = targetY - this.aiPaddle.y;
 
-    // Direct tracking: move toward the ball's Y position
-    const maxSpeed = GAME_CONFIG.PADDLE.SPEED * 0.85;
+    const maxSpeed = GAME_CONFIG.PADDLE.SPEED * 0.95;
     let moveAmount = diff * effectiveTracking * dt;
 
-    // Minimum speed floor so the paddle always visibly tracks
-    const minSpeed = 30;
+    // Minimum speed floor so the paddle always visibly tracks even at small
+    // diffs (otherwise the proportional term gets micro-stalls near target).
+    const minSpeed = 60;
     if (Math.abs(diff) > 2) {
       const minMove = minSpeed * dt * Math.sign(diff);
       if (Math.abs(moveAmount) < Math.abs(minMove)) {
@@ -330,7 +358,6 @@ export class VortexPongGameScene extends BaseScene {
       }
     }
 
-    // Clamp to max speed so the AI is beatable
     moveAmount = clamp(moveAmount, -maxSpeed * dt, maxSpeed * dt);
 
     this.aiPaddle.y += moveAmount;
@@ -443,6 +470,7 @@ export class VortexPongGameScene extends BaseScene {
     this.playSound(SOUND_KEYS.HIT);
     this.cameras.main.shake(GAME_CONFIG.SHAKE.PLAYER_HIT.duration, GAME_CONFIG.SHAKE.PLAYER_HIT.intensity);
     this.addImpactEffect(ball.sprite.x, ball.sprite.y, 10);
+    this.createPaddleHitTrail(ball.sprite.x, ball.sprite.y, MATRIX_COLORS.PRIMARY);
 
     // Achievements
     if (this.rallyCount >= 5) this.unlockAchievement(ACHIEVEMENTS.COMBO_KING);
@@ -466,6 +494,7 @@ export class VortexPongGameScene extends BaseScene {
     this.playSound(SOUND_KEYS.HIT);
     this.cameras.main.shake(GAME_CONFIG.SHAKE.AI_HIT.duration, GAME_CONFIG.SHAKE.AI_HIT.intensity);
     this.addImpactEffect(ball.sprite.x, ball.sprite.y, 8);
+    this.createPaddleHitTrail(ball.sprite.x, ball.sprite.y, MATRIX_COLORS.RED);
   }
 
   // ── Scoring ───────────────���──────────────────────────────────
@@ -479,7 +508,7 @@ export class VortexPongGameScene extends BaseScene {
         this.aiScore += this.scoreMultiplier;
         this.playSound('hit');
         this.addImpactEffect(0, ball.sprite.y, 20);
-        this.cameras.main.flash(100, 255, 0, 0, false, undefined, undefined, 0.15);
+        this.goalFlash(128, 0, 0, 100);
         this.popScoreText(this.aiScoreText);
         toRemove.push(ball);
       } else if (ball.sprite.x - GAME_CONFIG.BALL.RADIUS > GAME_CONFIG.WIDTH) {
@@ -490,7 +519,7 @@ export class VortexPongGameScene extends BaseScene {
         if (comboBonus > 0) this.playSound('combo');
         this.playSound('score');
         this.addImpactEffect(GAME_CONFIG.WIDTH, ball.sprite.y, 20);
-        this.cameras.main.flash(100, 0, 255, 0, false, undefined, undefined, 0.15);
+        this.goalFlash(0, 128, 0, 100);
         this.popScoreText(this.playerScoreText);
 
         if (!this.hasFirstPoint) {
@@ -514,7 +543,9 @@ export class VortexPongGameScene extends BaseScene {
       this.rallyCount = 0;
       this.timeSinceLastGoal = 0;
 
-      this.cameras.main.shake(GAME_CONFIG.SHAKE.GOAL.duration, GAME_CONFIG.SHAKE.GOAL.intensity);
+      if (!this.prefersReducedMotion()) {
+        this.cameras.main.shake(GAME_CONFIG.SHAKE.GOAL.duration, GAME_CONFIG.SHAKE.GOAL.intensity);
+      }
       this.updateScoreDisplay();
 
       if (this.checkWinCondition(ballCountBeforeRemoval)) return;
@@ -537,8 +568,10 @@ export class VortexPongGameScene extends BaseScene {
       }
       this.playSound('levelUp');
       this.playSound(SOUND_KEYS.ACHIEVEMENT_UNLOCK);
-      this.cameras.main.shake(GAME_CONFIG.SHAKE.GAME_OVER.duration, GAME_CONFIG.SHAKE.GAME_OVER.intensity);
-      this.cameras.main.flash(200, 0, 255, 0, false, undefined, undefined, 0.3);
+      if (!this.prefersReducedMotion()) {
+        this.cameras.main.shake(GAME_CONFIG.SHAKE.GAME_OVER.duration, GAME_CONFIG.SHAKE.GAME_OVER.intensity);
+      }
+      this.goalFlash(0, 160, 0, 200);
       if (this.playerScore > this.highScore) this.highScore = this.playerScore;
       this.reportScore(this.playerScore, this.highScore);
       this.time.delayedCall(600, () => {
@@ -557,8 +590,10 @@ export class VortexPongGameScene extends BaseScene {
         this.unlockAchievement(ACHIEVEMENTS.MULTI_BALL);
       }
       this.playSound(SOUND_KEYS.GAME_OVER);
-      this.cameras.main.shake(GAME_CONFIG.SHAKE.GAME_OVER.duration, GAME_CONFIG.SHAKE.GAME_OVER.intensity);
-      this.cameras.main.flash(150, 255, 0, 0, false, undefined, undefined, 0.25);
+      if (!this.prefersReducedMotion()) {
+        this.cameras.main.shake(GAME_CONFIG.SHAKE.GAME_OVER.duration, GAME_CONFIG.SHAKE.GAME_OVER.intensity);
+      }
+      this.goalFlash(160, 0, 0, 150);
       if (this.playerScore > this.highScore) this.highScore = this.playerScore;
       this.reportScore(this.playerScore, this.highScore);
       this.time.delayedCall(600, () => {
@@ -819,6 +854,59 @@ export class VortexPongGameScene extends BaseScene {
       );
       this.powerUpIndicators.push(text);
       idx++;
+    }
+  }
+
+  // ── R83.V1 helpers ───────────────────────────────────────────
+
+  private prefersReducedMotion(): boolean {
+    return typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+  }
+
+  /**
+   * R83.V1c: Tom flagged the original full-brightness goal flash as an
+   * epilepsy concern. We halve the rgb values from 255 to 128, and skip
+   * the flash entirely under prefers-reduced-motion.
+   */
+  private goalFlash(r: number, g: number, b: number, duration: number): void {
+    if (this.prefersReducedMotion()) return;
+    this.cameras.main.flash(duration, r, g, b, false);
+  }
+
+  /**
+   * R83.V1e: Paddle-hit particle trail. 10 small dots radiate outward from
+   * the impact point and fade over 300ms. Skipped under reduced-motion.
+   */
+  private createPaddleHitTrail(x: number, y: number, colour: number): void {
+    if (this.prefersReducedMotion()) return;
+    const count = 10;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
+      const speed = 30 + Math.random() * 20;
+      const particle = this.add.circle(x, y, 2, colour, 0.85);
+      this.tweens.add({
+        targets: particle,
+        x: x + Math.cos(angle) * speed,
+        y: y + Math.sin(angle) * speed,
+        alpha: 0,
+        scale: { from: 1, to: 0.2 },
+        duration: 300,
+        ease: 'Quad.easeOut',
+        onComplete: () => particle.destroy(),
+      });
+    }
+  }
+
+  /**
+   * R83.V1d: previously R-restart left the BGM (and any in-flight Phaser
+   * sounds) running, which then doubled up when create() respawned the
+   * music track. Stop both audio paths before scene.restart().
+   */
+  private stopAllAudio(): void {
+    this.stopBackgroundMusic();
+    if (this.sound && typeof this.sound.stopAll === 'function') {
+      this.sound.stopAll();
     }
   }
 }
