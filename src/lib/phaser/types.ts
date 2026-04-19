@@ -145,6 +145,12 @@ export const MATRIX_COLORS = {
   MEDIUM_GREEN_HEX: '#00cc00',
   DIM_GREEN: 0x00aa00,
   DIM_GREEN_HEX: '#00aa00',
+  // R83.CTRLS.17 — "dread green". Used for secondary / ambient terminal chrome
+  // (hints, prompts, choice labels before selection). Darker than DIM_GREEN so
+  // the reader's eye isn't fighting three near-equal greens in the same frame.
+  // Keep it distinct from DEEP_GREEN (#006600, used elsewhere for panels).
+  DREAD_GREEN: 0x007700,
+  DREAD_GREEN_HEX: '#007700',
   DEEP_GREEN: 0x006600,
   DEEP_GREEN_HEX: '#006600',
   FOREST_GREEN: 0x009900,

@@ -58,14 +58,32 @@ const TERMINAL_ENDING_HOLD_MS = 1400;
 // scene feel like an authentic phosphor CRT terminal (not a web typewriter).
 // Authored from Tom's brief: "Make it look like an actual matrix terminal.
 // Better typing. Flicker like we're inside the matrix or something."
-const PHOSPHOR_BLOOM_COLOR = MATRIX_COLORS.PRIMARY_HEX;
+// R83.CTRLS.17 — phosphor bloom colour drops from bright #00ff00 to the dim
+// body green so the halo doesn't contradict the darker palette. The climax
+// (terminal-entry success lines) explicitly re-applies bloom with
+// PRIMARY_HEX for the hope-breaking moment.
+const PHOSPHOR_BLOOM_COLOR = MATRIX_COLORS.DIM_GREEN_HEX;
 const PHOSPHOR_BLOOM_BLUR = 6;        // soft halo on terminal/cursor lines
 const PHOSPHOR_BLOOM_BLUR_BODY = 4;   // subtler halo on long paragraph text
-// Typewriter variance: each char picks a delay from [20, 45] ms; ~6% of chars
-// trigger a 2-3 char "buffer flush" at 2-5 ms each (see TypewriterEngine).
-const TYPEWRITER_MIN_MS = 20;
-const TYPEWRITER_MAX_MS = 45;
-const TYPEWRITER_BURST_CHANCE = 0.06;
+// R83.CTRLS.17 — typewriter pacing drops to ~55 ms/char mean (range 45-70 ms)
+// from the previous 20-45 ms range. Slower reading cadence is the foundation
+// of the "game lost in time" feel — the player has to wait on the terminal,
+// not the other way around. Burst-flush chance halved from 6% to 3% so the
+// slow-burn reads as deliberate rather than glitchy.
+const TYPEWRITER_MIN_MS = 45;
+const TYPEWRITER_MAX_MS = 70;
+const TYPEWRITER_BURST_CHANCE = 0.03;
+// R83.CTRLS.17 — paragraph-boundary beat. After the user presses SPACE/ENTER
+// at a WAITING paragraph, wait 900-1400 ms (randomised per beat) before the
+// next paragraph starts typing. Previously ~0 ms — the next paragraph started
+// the same frame as the keypress, which felt rushed and undermined the dread
+// pacing. The randomised range stops the rhythm from feeling metronomic.
+const PARAGRAPH_BEAT_MIN_MS = 900;
+const PARAGRAPH_BEAT_MAX_MS = 1400;
+// R83.CTRLS.17 — choice prompts wait a full 2 s after the final paragraph char
+// before the choice lines appear. Previously 300 ms (felt like a UI, not a
+// choice). 2 s forces the player to sit with the question.
+const CHOICE_PROMPT_APPEAR_DELAY_MS = 2000;
 // Scanline overlay jitters 1 px vertically at ~3 Hz — the ~333 ms cadence
 // matches a CRT frame lock wobble. Alpha stays low so it's a suggestion, not
 // a wall of noise.
@@ -79,6 +97,19 @@ const SCANLINE_DEPTH = 1000;
 const FLICKER_HOLD_MS = 80;
 const FLICKER_MIN_INTERVAL_MS = 5000;
 const FLICKER_MAX_INTERVAL_MS = 7000;
+// R83.CTRLS.17 — dread vignette. Radial gradient from transparent centre to
+// 35% black at the edge. Depth sits BELOW the scanline overlay (which is at
+// SCANLINE_DEPTH = 1000) so scanlines render over the vignette darkness
+// and still read across the frame.
+const VIGNETTE_DEPTH = 990;
+const VIGNETTE_EDGE_ALPHA = 0.35;
+// R83.CTRLS.17 — portrait glitch bands. 2-3 per second (so 500-333 ms cadence),
+// 2-4 px tall, 20-40% opacity, one-band-at-a-time flicker-then-clear.
+const PORTRAIT_GLITCH_INTERVAL_MIN_MS = 333;
+const PORTRAIT_GLITCH_INTERVAL_MAX_MS = 500;
+const PORTRAIT_GLITCH_HOLD_MS = 70;
+const PORTRAIT_RGB_SPLIT_OFFSET_PX = 1;
+
 const MATRIX_FLICKER_GLYPHS = [
   'ﾊ', 'ﾐ', 'ﾋ', 'ｰ', 'ｳ', 'ｼ', 'ﾅ', 'ﾓ', 'ﾆ', 'ｻ', 'ﾜ', 'ﾂ', 'ｵ', 'ﾘ',
   'ｱ', 'ﾎ', 'ﾃ', 'ﾏ', 'ｹ', 'ﾑ', 'ｴ', 'ｶ', 'ｷ', 'ﾁ', 'ｲ',
@@ -157,6 +188,16 @@ export class CtrlSNarrativeScene extends BaseScene {
   private flickerUntilMs = 0;
   private nextFlickerAtMs = 0;
   private sceneElapsedMs = 0;
+  // R83.CTRLS.17 — dread vignette + portrait distortion overlays. Vignette is
+  // a radial black gradient baked into a canvas texture once per scene, held
+  // as an Image at depth just below the scanline overlay. Portrait distortion
+  // layers two offset colour-tinted image copies + a glitch-band graphics
+  // object that redraws on a timer.
+  private dreadVignette?: Phaser.GameObjects.Image;
+  private portraitRedSplit?: Phaser.GameObjects.Image;
+  private portraitBlueSplit?: Phaser.GameObjects.Image;
+  private portraitGlitchGraphics?: Phaser.GameObjects.Graphics;
+  private portraitGlitchTimer = 0;
 
   constructor() {
     super(CTRLS_SCENE_KEYS.NARRATIVE);
@@ -218,10 +259,14 @@ export class CtrlSNarrativeScene extends BaseScene {
     const margin = GAME_CONFIG.TEXT.MARGIN_X;
 
     const title = this.chapter?.title ?? `Chapter ${this.chapterIndex}`;
+    // R83.CTRLS.17 — chapter title drops from bright #00ff00 to dim body green
+    // so the whole frame reads as "a terminal left on in a derelict lab"
+    // rather than a lit-up UI. Bloom colour also dims (via
+    // PHOSPHOR_BLOOM_COLOR) so the halo matches the text.
     this.chapterTitle = this.add.text(margin, 20, title, {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '14px',
-      color: MATRIX_COLORS.PRIMARY_HEX,
+      color: MATRIX_COLORS.DIM_GREEN_HEX,
     });
     this.chapterTitle.setResolution(TEXT_RESOLUTION);
     this.applyPhosphorBloom(this.chapterTitle, PHOSPHOR_BLOOM_BLUR);
@@ -260,10 +305,14 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.bodyText.setResolution(TEXT_RESOLUTION);
     this.applyPhosphorBloom(this.bodyText, PHOSPHOR_BLOOM_BLUR_BODY);
 
+    // R83.CTRLS.17 — cursor tracks the body text palette (dim). Keeping the
+    // cursor bright while the paragraph is dim made the cursor feel like a
+    // different system — pulling the eye off the text. Matching colours keeps
+    // the eye on the text and saves #00ff00 for hope-breaking moments.
     this.cursorBlink = this.add.text(margin, contentStartY, '█', {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '12px',
-      color: MATRIX_COLORS.PRIMARY_HEX,
+      color: MATRIX_COLORS.DIM_GREEN_HEX,
     });
     this.cursorBlink.setResolution(TEXT_RESOLUTION);
     this.applyPhosphorBloom(this.cursorBlink, PHOSPHOR_BLOOM_BLUR);
@@ -291,6 +340,8 @@ export class CtrlSNarrativeScene extends BaseScene {
     });
 
     this.createScanlineOverlay();
+    this.createDreadVignette();
+    this.playAmbientDrone();
     this.setupNarrativeInput();
     this.setupCommonInputs();
 
@@ -317,6 +368,7 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.updateParallaxBackground(delta);
     this.updateThemeParticles(delta);
     this.updateScanlineOverlay(delta);
+    this.updatePortraitGlitch(delta);
     this.updateGlyphFlicker(this.sceneElapsedMs);
 
     if (this.rainGroup) {
@@ -345,7 +397,12 @@ export class CtrlSNarrativeScene extends BaseScene {
     // advance-logic behave exactly as before.
     this.bodyText.setText(this.applyFlickerMap(revealed));
 
-    const showCursor = this.engine.state === 'TYPING' || this.engine.state === 'WAITING';
+    // R83.CTRLS.17 — during the paragraph-boundary beat the engine state is
+    // still WAITING (the beat gates engine.advance()), so the default cursor
+    // visibility would light back up on the next frame. Hiding it mid-beat
+    // gives the reader the "terminal is thinking" cue.
+    const showCursor = !this.advancingBeat &&
+      (this.engine.state === 'TYPING' || this.engine.state === 'WAITING');
     this.cursorBlink.setVisible(showCursor);
     if (!showCursor) return;
 
@@ -484,7 +541,9 @@ export class CtrlSNarrativeScene extends BaseScene {
       this.waitingForChoice = true;
       this.promptText?.setText('Use ↑↓ and ENTER to choose');
       this.playSound(STINGER_KEYS.REVEAL);
-      this.time.delayedCall(300, () => {
+      // R83.CTRLS.17 — 2 s beat before the `>` choice lines surface so the
+      // player has to sit with the question before the answer options appear.
+      this.time.delayedCall(CHOICE_PROMPT_APPEAR_DELAY_MS, () => {
         this.showChoiceUI(choiceTrigger.choices, choiceTrigger.prompt);
       });
       return;
@@ -656,7 +715,41 @@ export class CtrlSNarrativeScene extends BaseScene {
       });
     }
 
+    // R83.CTRLS.17 — paragraph-boundary beat. If the player is advancing OUT
+    // of a WAITING paragraph (i.e. about to start typing the next one), gate
+    // the engine.advance() behind a 900-1400 ms delay so the terminal holds
+    // for a breath before the next paragraph arrives. Skipping a still-typing
+    // paragraph (TYPING → WAITING) stays instant so the skip feels responsive.
+    if (this.engine.state === 'WAITING' && !this.engine.isLastParagraph) {
+      this.applyParagraphBeat();
+      return;
+    }
+
     this.engine.advance();
+  }
+
+  /**
+   * R83.CTRLS.17 — insert a paragraph-boundary beat. Hides the blinking cursor
+   * for the beat's duration (so the player can tell the terminal is "thinking"
+   * rather than waiting for input), then kicks off the next paragraph. Guards
+   * against double-beats by flagging `advancingBeat` — a second SPACE press
+   * during the beat is a no-op.
+   */
+  private advancingBeat = false;
+  private applyParagraphBeat(): void {
+    if (this.advancingBeat) return;
+    this.advancingBeat = true;
+    this.cursorBlink?.setVisible(false);
+    const beatMs = Phaser.Math.Between(PARAGRAPH_BEAT_MIN_MS, PARAGRAPH_BEAT_MAX_MS);
+    this.time.delayedCall(beatMs, () => {
+      this.advancingBeat = false;
+      if (this.isPaused) return;
+      // State may have changed while beating (e.g. puzzle/choice launched);
+      // only advance if we're still in WAITING.
+      if (this.engine.state === 'WAITING') {
+        this.engine.advance();
+      }
+    });
   }
 
   private startTerminalEntry(trigger: TerminalTrigger): void {
@@ -681,10 +774,15 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.terminalContainer = this.add.container(0, 0);
     let cursorY = startY;
 
+    // R83.CTRLS.17 — terminal prompt/input lines use the dim palette so the
+    // player's bright #00ff00 reward only lands on the success-line flash.
+    // Pre-resolve, the terminal reads as "yet another dim terminal prompt";
+    // post-resolve (renderTerminalEnding, outcome === 'success') it bursts
+    // into the climax green. The contrast is the beat.
     this.terminalPromptLabel = this.add.text(this.bodyText.x, cursorY, `> ${trigger.prompt}`, {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: TERMINAL_FONT_SIZE,
-      color: MATRIX_COLORS.PRIMARY_HEX,
+      color: MATRIX_COLORS.DIM_GREEN_HEX,
       wordWrap: { width: wrapWidth },
     });
     this.terminalPromptLabel.setResolution(TEXT_RESOLUTION);
@@ -695,7 +793,7 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.terminalInputLine = this.add.text(this.bodyText.x, cursorY, this.renderTerminalInputLine(), {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: TERMINAL_FONT_SIZE,
-      color: MATRIX_COLORS.PRIMARY_HEX,
+      color: MATRIX_COLORS.DIM_GREEN_HEX,
     });
     this.terminalInputLine.setResolution(TEXT_RESOLUTION);
     this.applyPhosphorBloom(this.terminalInputLine, PHOSPHOR_BLOOM_BLUR);
@@ -1051,10 +1149,12 @@ export class CtrlSNarrativeScene extends BaseScene {
   ): Phaser.GameObjects.Text {
     // `> [1] Wake Up` — single line of text, terminal-flavoured.
     // Pointer events live on the Text bounds, no container/graphics needed.
+    // R83.CTRLS.17 — unselected choice starts at dread-green so the selected
+    // choice (dim green) feels like a genuine shift, not just bolder chrome.
     const text = this.add.text(x, y, this.formatChoiceLine(choice, index, false), {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: CHOICE_LINE_FONT_SIZE,
-      color: MATRIX_COLORS.DIM_GREEN_HEX,
+      color: MATRIX_COLORS.DREAD_GREEN_HEX,
       wordWrap: { width: wrapWidth },
     });
     text.setResolution(TEXT_RESOLUTION);
@@ -1083,7 +1183,10 @@ export class CtrlSNarrativeScene extends BaseScene {
       if (!choice) return;
       const selected = i === index;
       line.setText(this.formatChoiceLine(choice, i, selected));
-      line.setColor(selected ? MATRIX_COLORS.PRIMARY_HEX : MATRIX_COLORS.DIM_GREEN_HEX);
+      // R83.CTRLS.17 — selected → dim green (body palette), unselected →
+      // dread green (#007700). Two-step dim-on-dim contrast is enough to
+      // read at a glance and leaves #00ff00 reserved for the climax.
+      line.setColor(selected ? MATRIX_COLORS.DIM_GREEN_HEX : MATRIX_COLORS.DREAD_GREEN_HEX);
     });
 
     this.playSound('menu');
@@ -1210,6 +1313,13 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.portraitMonogram = undefined;
     this.portraitBorder = undefined;
     this.portraitName = undefined;
+    // R83.CTRLS.17 — distortion layer refs must clear alongside the base
+    // portrait so a swap doesn't leave glitch bands painting the old
+    // character's frame.
+    this.portraitRedSplit = undefined;
+    this.portraitBlueSplit = undefined;
+    this.portraitGlitchGraphics = undefined;
+    this.portraitGlitchTimer = 0;
 
     this.portraitBorder = this.add.graphics();
     this.portraitBorder.lineStyle(2, character.colour, 0.8);
@@ -1225,14 +1335,54 @@ export class CtrlSNarrativeScene extends BaseScene {
       // filter is applied once at texture-load time in BootScene, so the
       // 24px source sprite scales crisply up to the panel's 66px display size
       // instead of the bilinear blur the pre-.14 build shipped.
-      this.portraitImage = this.add.image(
-        Math.round(size / 2),
-        Math.round(size / 2),
+      //
+      // R83.CTRLS.17 — RGB channel split distortion. Two tinted copies of the
+      // portrait are stacked behind the base image, offset ±1px on the X
+      // axis, with red/blue tint and ADD blend mode. The eye reconstructs
+      // them as a single image with chromatic aberration — the "cursed VHS"
+      // look. Blend mode ADD is a cheap approximation of proper channel
+      // extraction; on CTRL-S's small (66px) portraits the fringe reads
+      // correctly without needing a custom shader. Placed BEFORE the base
+      // image in the container so the base reads on top with the splits
+      // bleeding out the sides.
+      const cx = Math.round(size / 2);
+      const cy = Math.round(size / 2);
+
+      this.portraitRedSplit = this.add.image(
+        cx + PORTRAIT_RGB_SPLIT_OFFSET_PX,
+        cy,
         character.portraitKey,
       );
+      this.portraitRedSplit.setOrigin(0.5);
+      this.portraitRedSplit.setDisplaySize(size - 4, size - 4);
+      this.portraitRedSplit.setTint(0xff4040);
+      this.portraitRedSplit.setBlendMode(Phaser.BlendModes.ADD);
+      this.portraitRedSplit.setAlpha(0.45);
+      this.portraitContainer.add(this.portraitRedSplit);
+
+      this.portraitBlueSplit = this.add.image(
+        cx - PORTRAIT_RGB_SPLIT_OFFSET_PX,
+        cy,
+        character.portraitKey,
+      );
+      this.portraitBlueSplit.setOrigin(0.5);
+      this.portraitBlueSplit.setDisplaySize(size - 4, size - 4);
+      this.portraitBlueSplit.setTint(0x4080ff);
+      this.portraitBlueSplit.setBlendMode(Phaser.BlendModes.ADD);
+      this.portraitBlueSplit.setAlpha(0.45);
+      this.portraitContainer.add(this.portraitBlueSplit);
+
+      this.portraitImage = this.add.image(cx, cy, character.portraitKey);
       this.portraitImage.setOrigin(0.5);
       this.portraitImage.setDisplaySize(size - 4, size - 4);
       this.portraitContainer.add(this.portraitImage);
+
+      // Glitch-band layer sits on top of the portrait image, bounded to the
+      // portrait frame so bands never bleed into the narrative column. A
+      // Graphics object redraws itself on a timer in update().
+      this.portraitGlitchGraphics = this.add.graphics();
+      this.portraitContainer.add(this.portraitGlitchGraphics);
+      this.portraitGlitchTimer = 0;
     } else {
       this.portraitMonogram = this.add.text(
         Math.round(size / 2),
@@ -1520,6 +1670,93 @@ export class CtrlSNarrativeScene extends BaseScene {
   }
 
   /**
+   * R83.CTRLS.17 — dread vignette. Radial gradient baked once into a Phaser
+   * canvas texture so the GPU doesn't redraw the gradient every frame. A
+   * transparent centre lets the portrait + narrative text remain fully
+   * readable while the 35% black edge pulls focus inward — reads as "the
+   * terminal is the only thing lit in the room." Depth 990 puts it under the
+   * scanline overlay (1000) so scanlines still wrap the frame.
+   */
+  private createDreadVignette(): void {
+    const width = Number(this.game.config.width);
+    const height = Number(this.game.config.height);
+    const key = 'ctrls-dread-vignette';
+
+    if (!this.textures.exists(key)) {
+      const tex = this.textures.createCanvas(key, width, height);
+      if (tex) {
+        const ctx = tex.getContext();
+        if (ctx) {
+          const cx = width / 2;
+          const cy = height / 2;
+          const maxR = Math.hypot(cx, cy);
+          // Start the darkening ~45% out from centre so paragraph text in the
+          // middle stays fully legible; the edge-darkening is enough to kill
+          // the "bright rectangle" feel without crushing readability.
+          const innerR = maxR * 0.45;
+          const gradient = ctx.createRadialGradient(cx, cy, innerR, cx, cy, maxR);
+          gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+          gradient.addColorStop(1, `rgba(0, 0, 0, ${VIGNETTE_EDGE_ALPHA})`);
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, width, height);
+        }
+        tex.refresh();
+      }
+    }
+
+    this.dreadVignette = this.add.image(0, 0, key);
+    this.dreadVignette.setOrigin(0, 0);
+    this.dreadVignette.setDepth(VIGNETTE_DEPTH);
+    this.dreadVignette.setScrollFactor(0);
+  }
+
+  /**
+   * R83.CTRLS.17 — portrait glitch bands. Every 333-500 ms a horizontal band
+   * flickers onto the portrait (2-4 px tall, 20-40% opacity, 70 ms hold) then
+   * clears. Only one band is lit at a time to keep the read as "signal
+   * instability" rather than constant noise. The graphics live inside the
+   * portrait container so they inherit the container's fade + indent tweens
+   * automatically; there's no absolute-position math to sync.
+   */
+  private updatePortraitGlitch(delta: number): void {
+    if (!this.portraitGlitchGraphics || !this.portraitContainer) return;
+    if (this.portraitContainer.alpha <= 0) return;
+
+    this.portraitGlitchTimer -= delta;
+    if (this.portraitGlitchTimer > 0) return;
+
+    const size = PORTRAIT_CONFIG.SIZE;
+    this.portraitGlitchGraphics.clear();
+    // 60% of ticks draw a band, 40% leave the portrait clean — gives the
+    // eye quiet moments so the next glitch reads as "something flickered"
+    // rather than "it's always like this."
+    if (Math.random() < 0.6) {
+      const bandHeight = Phaser.Math.Between(2, 4);
+      const bandY = Phaser.Math.Between(2, size - bandHeight - 2);
+      const alpha = Phaser.Math.FloatBetween(0.2, 0.4);
+      // Green band with a slight magenta sibling underneath — the paired
+      // offset fringe sells the "CRT desync" feel better than a single
+      // green bar, which reads as overlay art.
+      this.portraitGlitchGraphics.fillStyle(MATRIX_COLORS.PRIMARY, alpha);
+      this.portraitGlitchGraphics.fillRect(2, bandY, size - 4, bandHeight);
+      this.portraitGlitchGraphics.fillStyle(MATRIX_COLORS.MAGENTA, alpha * 0.5);
+      this.portraitGlitchGraphics.fillRect(2, bandY + 1, size - 4, 1);
+    }
+
+    // Queue the next glitch tick. The random window keeps bands feeling
+    // irregular rather than metronomic.
+    this.portraitGlitchTimer = Phaser.Math.Between(
+      PORTRAIT_GLITCH_INTERVAL_MIN_MS,
+      PORTRAIT_GLITCH_INTERVAL_MAX_MS,
+    );
+    // Schedule a clear at PORTRAIT_GLITCH_HOLD_MS so the band flickers then
+    // fades — without this the band would sit lit until the next tick.
+    this.time.delayedCall(PORTRAIT_GLITCH_HOLD_MS, () => {
+      this.portraitGlitchGraphics?.clear();
+    });
+  }
+
+  /**
    * R83.CTRLS.16 — idle glyph flicker. Every ~5-7 s while the typewriter is
    * active, replace 1-2 random characters in the revealed paragraph with a
    * random Matrix glyph for 80 ms, then revert. Writes into `flickerMap`
@@ -1591,6 +1828,11 @@ export class CtrlSNarrativeScene extends BaseScene {
   shutdown(): void {
     this.events.off(Phaser.Scenes.Events.RESUME, this.onSceneResume, this);
     this.stopBackgroundMusic();
+    // R83.CTRLS.17 — drone fade-out is handled inside useSoundSystem (1 s
+    // linearRamp to 0 then oscillator.stop), so calling this during shutdown
+    // doesn't produce a DC click. Skipping this leaks the drone into the
+    // next scene, which sounds like a bug.
+    this.stopAmbientDrone();
     this.bgImage?.destroy();
     this.bgImage = undefined;
     for (const p of this.themeParticles) {
@@ -1601,6 +1843,13 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.rainGroup = undefined;
     this.scanlineOverlay?.destroy();
     this.scanlineOverlay = undefined;
+    this.dreadVignette?.destroy();
+    this.dreadVignette = undefined;
+    this.portraitRedSplit = undefined;
+    this.portraitBlueSplit = undefined;
+    this.portraitGlitchGraphics = undefined;
+    this.portraitGlitchTimer = 0;
+    this.advancingBeat = false;
     this.flickerMap.clear();
     this.flickerUntilMs = 0;
     this.nextFlickerAtMs = 0;

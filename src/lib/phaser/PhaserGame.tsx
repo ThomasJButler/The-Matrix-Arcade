@@ -60,7 +60,7 @@ export function PhaserGame({
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
   const [hasFocus, setHasFocus] = useState(false);
-  const { playSFX, playBackgroundMP3, stopBackgroundMP3, toggleMute } = useSoundSystem();
+  const { playSFX, playBackgroundMP3, stopBackgroundMP3, playAmbientDrone, stopAmbientDrone, toggleMute } = useSoundSystem();
   const { saveData, updateGameSave, unlockAchievement: unlockSaveAchievement, addScore } = useSaveSystem();
 
   // Sound wrapper that respects mute state.
@@ -113,15 +113,29 @@ export function PhaserGame({
     [gameId, achievementManager, unlockSaveAchievement, updateGameSave, playSound, toggleMute, onExit, onGameEventProp]
   );
 
-  // Create sound system interface for Phaser
+  // Create sound system interface for Phaser.
+  // R83.CTRLS.17 — `playAmbientDrone`/`stopAmbientDrone` added for CTRL-S
+  // narrative dread drone. Guards on `isMuted` so muting a chapter stops the
+  // drone's fade-in without relying on masterGain silencing (masterGain=0
+  // still routes, we want no scheduled audio at all when muted).
+  const playAmbientDroneGuarded = useCallback(
+    (options?: { volume?: number }) => {
+      if (isMuted) return;
+      playAmbientDrone(options);
+    },
+    [isMuted, playAmbientDrone]
+  );
+
   const soundSystem = useCallback(
     () => ({
       play: playSound,
       playBgMusic: playBackgroundMP3,
       stopBgMusic: stopBackgroundMP3,
+      playAmbientDrone: playAmbientDroneGuarded,
+      stopAmbientDrone,
       isMuted,
     }),
-    [playSound, playBackgroundMP3, stopBackgroundMP3, isMuted]
+    [playSound, playBackgroundMP3, stopBackgroundMP3, playAmbientDroneGuarded, stopAmbientDrone, isMuted]
   );
 
   const saveDataRef = useRef(saveData);
