@@ -616,3 +616,69 @@ describe('NarrativeScene — R83.CTRLS.19 spacebar-advance SFX', () => {
     expect(advanceSrc).not.toMatch(/playSound\(["']menu["']\)/);
   });
 });
+
+describe('NarrativeScene — R83.CTRLS.23 previous-paragraph trailing fade', () => {
+  // Tom's Round 2 verdict: *"we should also see the last sentence too before
+  // it slowly disappears"*. Round 2 instant-wiped the old paragraph when the
+  // next began typing; reading flow snapped to a blank frame. Fix is a ghost
+  // Text GO cloned from bodyText that alpha-tweens 1 → 0 over 500 ms while
+  // the new paragraph types underneath it on bodyText — a crossfade.
+  //
+  // Phaser is fully mocked in jsdom (no WebGL), so we can't actually invoke
+  // the beat. Assertions are structural source-string checks on the scene
+  // prototype so the wiring can't silently drift: regressing to an instant
+  // wipe would remove the spawnTrailingFadeGhost call from applyParagraphBeat
+  // and these tests would fail immediately.
+  it('exposes spawnTrailingFadeGhost as an instance method', () => {
+    const proto = CtrlSNarrativeScene.prototype as unknown as Record<string, unknown>;
+    expect(typeof proto.spawnTrailingFadeGhost).toBe('function');
+  });
+
+  it('applyParagraphBeat invokes the trailing-fade ghost spawn', () => {
+    const proto = CtrlSNarrativeScene.prototype as unknown as Record<string, () => void>;
+    const beatSrc = proto.applyParagraphBeat.toString();
+    // The spawn must fire BEFORE the delayedCall so the fade clock starts at
+    // the keypress, not after the 100-200 ms beat completes.
+    expect(beatSrc).toMatch(/spawnTrailingFadeGhost\(\)/);
+    const spawnIdx = beatSrc.indexOf('spawnTrailingFadeGhost');
+    const delayIdx = beatSrc.indexOf('delayedCall');
+    expect(spawnIdx).toBeGreaterThan(-1);
+    expect(delayIdx).toBeGreaterThan(-1);
+    expect(spawnIdx).toBeLessThan(delayIdx);
+  });
+
+  it('spawnTrailingFadeGhost runs an alpha tween with Sine.easeIn', () => {
+    const proto = CtrlSNarrativeScene.prototype as unknown as Record<string, () => void>;
+    const spawnSrc = proto.spawnTrailingFadeGhost.toString();
+    // Tween must zero the alpha (not fade to some non-zero floor that would
+    // leave a dim shadow on screen).
+    expect(spawnSrc).toMatch(/alpha:\s*0/);
+    // Ease locks to the const so Round 4+ can retune via the constant only.
+    expect(spawnSrc).toMatch(/PREVIOUS_PARAGRAPH_FADE_EASE|Sine\.easeIn/);
+    // Duration reads through the const, giving a single source of truth.
+    expect(spawnSrc).toMatch(/PREVIOUS_PARAGRAPH_FADE_MS|500/);
+    // Destroy on complete is the leak guard — the fade-complete callback
+    // must strip the ghost from the tracking list and destroy the Text GO.
+    expect(spawnSrc).toMatch(/ghost\.destroy\(\)/);
+  });
+
+  it('shutdown destroys still-fading ghosts (ESC mid-crossfade leak guard)', () => {
+    const proto = CtrlSNarrativeScene.prototype as unknown as Record<string, () => void>;
+    const shutdownSrc = proto.shutdown.toString();
+    // Walking the ghost list on shutdown prevents orphan GOs when the
+    // player ESCapes a scene before a fade completes — Phaser's tween
+    // onComplete never fires in that case, so manual cleanup is required.
+    expect(shutdownSrc).toMatch(/fadingParagraphGhosts/);
+    expect(shutdownSrc).toMatch(/ghost\.destroy\(\)/);
+  });
+
+  it('spawn call site reads bodyText.text (clones the rendered frame)', () => {
+    const proto = CtrlSNarrativeScene.prototype as unknown as Record<string, () => void>;
+    const spawnSrc = proto.spawnTrailingFadeGhost.toString();
+    // The ghost must inherit the frozen text from bodyText, not re-derive
+    // it from engine state — by the time the beat fires, engine.revealedText
+    // may have already advanced. bodyText.text is the only reliable
+    // snapshot of what the reader last saw on screen.
+    expect(spawnSrc).toMatch(/bodyText\.text/);
+  });
+});
