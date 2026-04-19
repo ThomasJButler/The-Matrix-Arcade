@@ -223,6 +223,68 @@ export const SLOW_MODE = {
   TRAIL_DEPTH: 9,
 } as const;
 
+// R84.B5: 3-layer parallax deepening. Horizontal scroll rates sit on the same
+// PIPE_SPEED reference axis the pipes travel, so the backdrop moves through
+// the frame at the same cadence the gameplay does — just fractionally, per
+// layer, to give the "far things are far, near things are near" illusion. A
+// single dreadIntensity-style scroll mult isn't used here because each layer
+// has its own inner motion (rain falls vertically at its own speed regardless
+// of horizontal drift), so per-layer SCROLL_FACTOR is the right handle.
+//
+//   • FAR layer re-uses the existing `bg_city` texture (already loaded in
+//     BootScene as the static silhouette behind the gameplay) but promoted
+//     to a TileSprite so `tilePositionX` advances can scroll horizontally for
+//     free — one field write per frame, no per-pixel work. 0.1× scrollFactor
+//     → 20 px/s drift at default PIPE_SPEED=200, slow enough that the player
+//     reads the skyline as "way off in the distance".
+//   • MID layer is a Matrix-rain character cohort: falls vertically like the
+//     BaseScene helper, but also drifts LEFT at 0.3× = 60 px/s. Density 16,
+//     font 11 px, alpha 0.22 — meaningfully denser than FAR but dimmer and
+//     smaller than NEAR so the three layers read as depth bands.
+//   • NEAR layer is the densest rain band, closest to the gameplay plane:
+//     0.7× drift = 140 px/s (matches roughly how fast pipes move across the
+//     screen in the player's peripheral vision). Density 10, font 15 px,
+//     alpha 0.38 — larger, brighter characters that read as "right in front
+//     of me". Density is intentionally less than MID because bigger glyphs
+//     need more breathing room to avoid visual crowding.
+//   • Depth ordering 0 → 1 → 2 puts FAR behind MID behind NEAR, all beneath
+//     pipes (3), power-ups (4), ground (5), arcs/boss (6-9), player (10).
+//   • Vertical speed ranges scale with layer depth: FAR has none (TileSprite),
+//     MID falls slowly (35-75 px/s, dreamy), NEAR falls fast (80-140 px/s,
+//     urgent) — another "closer = faster" depth cue riding on top of the
+//     horizontal drift.
+//   • TIME_SLOW_FACTOR dampens horizontal drift in lockstep with pipe scroll
+//     and R84.B3's player physics, keeping the "time slowed together" feel
+//     coherent. Vertical rain fall intentionally does NOT scale — rain is an
+//     atmosphere effect independent of the player's time-dilation frame.
+export const PARALLAX = {
+  FAR: {
+    SCROLL_FACTOR: 0.1,
+    DEPTH: 0,
+    ALPHA: 0.15,
+  },
+  MID: {
+    SCROLL_FACTOR: 0.3,
+    DEPTH: 1,
+    ALPHA: 0.22,
+    DENSITY: 16,
+    FONT_SIZE: 11,
+    VERTICAL_SPEED_MIN: 35,
+    VERTICAL_SPEED_MAX: 75,
+  },
+  NEAR: {
+    SCROLL_FACTOR: 0.7,
+    DEPTH: 2,
+    ALPHA: 0.38,
+    DENSITY: 10,
+    FONT_SIZE: 15,
+    VERTICAL_SPEED_MIN: 80,
+    VERTICAL_SPEED_MAX: 140,
+  },
+} as const;
+
+export type ParallaxRainLayerConfig = typeof PARALLAX.MID;
+
 export const ACHIEVEMENTS = {
   FIRST_FLIGHT: 'cloud_first_flight',
   LEVEL_5: 'cloud_level_5',

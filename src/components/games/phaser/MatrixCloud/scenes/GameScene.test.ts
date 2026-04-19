@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Phaser from 'phaser';
 import { MatrixCloudGameScene } from './GameScene';
-import { GAME_CONFIG, ACHIEVEMENTS, SLOW_MODE, POWERUP_DEFS, PIPE_VARIANTS } from '../config';
+import { GAME_CONFIG, ACHIEVEMENTS, SLOW_MODE, POWERUP_DEFS, PIPE_VARIANTS, PARALLAX } from '../config';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -1326,6 +1326,208 @@ describe('MatrixCloudGameScene', () => {
           bottomRect: createMockRect(),
         };
         expect(() => call(scene, 'destroyPipe', pipe)).not.toThrow();
+      });
+    });
+  });
+
+  describe('R84.B5 — 3-layer parallax', () => {
+    describe('PARALLAX config sanity', () => {
+      it('scrollFactors step far < mid < near', () => {
+        expect(PARALLAX.FAR.SCROLL_FACTOR).toBeLessThan(PARALLAX.MID.SCROLL_FACTOR);
+        expect(PARALLAX.MID.SCROLL_FACTOR).toBeLessThan(PARALLAX.NEAR.SCROLL_FACTOR);
+      });
+
+      it('depths step far (0) < mid (1) < near (2), all beneath pipes (3)', () => {
+        expect(PARALLAX.FAR.DEPTH).toBe(0);
+        expect(PARALLAX.MID.DEPTH).toBe(1);
+        expect(PARALLAX.NEAR.DEPTH).toBe(2);
+        expect(PARALLAX.NEAR.DEPTH).toBeLessThan(3);
+      });
+
+      it('alphas scale up far < mid < near so closer reads brighter', () => {
+        expect(PARALLAX.FAR.ALPHA).toBeLessThan(PARALLAX.MID.ALPHA);
+        expect(PARALLAX.MID.ALPHA).toBeLessThan(PARALLAX.NEAR.ALPHA);
+        expect(PARALLAX.NEAR.ALPHA).toBeLessThanOrEqual(1);
+      });
+
+      it('near font size > mid font size (closer = bigger glyphs)', () => {
+        expect(PARALLAX.NEAR.FONT_SIZE).toBeGreaterThan(PARALLAX.MID.FONT_SIZE);
+      });
+
+      it('vertical speed ranges are positive and min <= max per layer', () => {
+        expect(PARALLAX.MID.VERTICAL_SPEED_MIN).toBeGreaterThan(0);
+        expect(PARALLAX.MID.VERTICAL_SPEED_MAX).toBeGreaterThanOrEqual(PARALLAX.MID.VERTICAL_SPEED_MIN);
+        expect(PARALLAX.NEAR.VERTICAL_SPEED_MIN).toBeGreaterThan(0);
+        expect(PARALLAX.NEAR.VERTICAL_SPEED_MAX).toBeGreaterThanOrEqual(PARALLAX.NEAR.VERTICAL_SPEED_MIN);
+      });
+
+      it('near vertical speeds exceed mid vertical speeds (closer = faster fall)', () => {
+        expect(PARALLAX.NEAR.VERTICAL_SPEED_MIN).toBeGreaterThan(PARALLAX.MID.VERTICAL_SPEED_MIN);
+        expect(PARALLAX.NEAR.VERTICAL_SPEED_MAX).toBeGreaterThan(PARALLAX.MID.VERTICAL_SPEED_MAX);
+      });
+
+      it('densities positive for both rain layers', () => {
+        expect(PARALLAX.MID.DENSITY).toBeGreaterThan(0);
+        expect(PARALLAX.NEAR.DENSITY).toBeGreaterThan(0);
+      });
+    });
+
+    describe('createParallaxFarLayer', () => {
+      it('no-ops when bg_city texture is absent', () => {
+        scene.textures = { exists: vi.fn().mockReturnValue(false) };
+        scene.add.tileSprite = vi.fn();
+        call(scene, 'createParallaxFarLayer');
+        expect(scene.add.tileSprite).not.toHaveBeenCalled();
+        expect(s(scene, 'parallaxFar')).toBeNull();
+      });
+
+      it('creates a tinted TileSprite at FAR depth when bg_city exists', () => {
+        scene.textures = { exists: vi.fn().mockReturnValue(true) };
+        const mockTile: any = {
+          setAlpha: vi.fn().mockReturnThis(),
+          setDepth: vi.fn().mockReturnThis(),
+          setTint: vi.fn().mockReturnThis(),
+          tilePositionX: 0,
+          destroy: vi.fn(),
+        };
+        scene.add.tileSprite = vi.fn().mockReturnValue(mockTile);
+        call(scene, 'createParallaxFarLayer');
+        expect(scene.add.tileSprite).toHaveBeenCalledWith(
+          GAME_CONFIG.WIDTH / 2,
+          GAME_CONFIG.HEIGHT / 2,
+          GAME_CONFIG.WIDTH,
+          GAME_CONFIG.HEIGHT,
+          'bg_city',
+        );
+        expect(mockTile.setAlpha).toHaveBeenCalledWith(PARALLAX.FAR.ALPHA);
+        expect(mockTile.setDepth).toHaveBeenCalledWith(PARALLAX.FAR.DEPTH);
+        expect(mockTile.setTint).toHaveBeenCalled();
+        expect(s(scene, 'parallaxFar')).toBe(mockTile);
+      });
+    });
+
+    describe('updateParallaxLayers', () => {
+      it('advances parallaxFar.tilePositionX at FAR.SCROLL_FACTOR × pipe speed', () => {
+        const mockTile: any = { tilePositionX: 0 };
+        scene.parallaxFar = mockTile;
+        scene.parallaxMidRain = null;
+        scene.parallaxNearRain = null;
+        call(scene, 'updateParallaxLayers', 1000, 1.0);
+        // 1000 ms × 1.0 mult × PIPE_SPEED × 0.1 = 200 × 1 × 0.1 = 20 px
+        expect(mockTile.tilePositionX).toBeCloseTo(GAME_CONFIG.PIPE_SPEED * PARALLAX.FAR.SCROLL_FACTOR, 5);
+      });
+
+      it('scales horizontal drift by speedMult (time-slow dampens parallax)', () => {
+        const mockTile: any = { tilePositionX: 0 };
+        scene.parallaxFar = mockTile;
+        scene.parallaxMidRain = null;
+        scene.parallaxNearRain = null;
+        call(scene, 'updateParallaxLayers', 1000, GAME_CONFIG.TIME_SLOW_FACTOR);
+        expect(mockTile.tilePositionX).toBeCloseTo(
+          GAME_CONFIG.PIPE_SPEED * GAME_CONFIG.TIME_SLOW_FACTOR * PARALLAX.FAR.SCROLL_FACTOR,
+          5,
+        );
+      });
+
+      it('safely no-ops when all three parallax fields are null', () => {
+        scene.parallaxFar = null;
+        scene.parallaxMidRain = null;
+        scene.parallaxNearRain = null;
+        expect(() => call(scene, 'updateParallaxLayers', 16, 1.0)).not.toThrow();
+      });
+    });
+
+    describe('updateParallaxRainLayer', () => {
+      const makeRainChar = (x: number, y: number, verticalSpeed: number) => {
+        const data: Record<string, unknown> = { verticalSpeed };
+        const text: any = {
+          x, y,
+          setText: vi.fn().mockReturnThis(),
+          getData: vi.fn((k: string) => data[k]),
+          setData: vi.fn((k: string, v: unknown) => { data[k] = v; }),
+        };
+        return text;
+      };
+
+      it('drifts characters LEFT at SCROLL_FACTOR × PIPE_SPEED × dt', () => {
+        const char = makeRainChar(500, 100, 60);
+        const group = { getChildren: () => [char] };
+        // delta 1000 ms, mult 1.0, MID scrollFactor 0.3 → 200 × 0.3 × 1.0 × 1.0 = 60 px
+        call(scene, 'updateParallaxRainLayer', group, PARALLAX.MID, 1000, 1.0);
+        // horizontal minus 60, vertical plus 60 (vertical speed × 1s)
+        expect(char.x).toBeCloseTo(500 - GAME_CONFIG.PIPE_SPEED * PARALLAX.MID.SCROLL_FACTOR, 5);
+        expect(char.y).toBeCloseTo(100 + 60, 5);
+      });
+
+      it('wraps characters that drift past left edge to WIDTH + fontSize', () => {
+        const char = makeRainChar(-PARALLAX.MID.FONT_SIZE - 1, 50, 50);
+        const group = { getChildren: () => [char] };
+        (Phaser as any).Math.Between = vi.fn().mockReturnValue(0);
+        call(scene, 'updateParallaxRainLayer', group, PARALLAX.MID, 16, 1.0);
+        expect(char.x).toBe(GAME_CONFIG.WIDTH + PARALLAX.MID.FONT_SIZE);
+        expect(char.setText).toHaveBeenCalled();
+      });
+
+      it('wraps characters that fall past bottom to y = -20 with new x + char', () => {
+        const char = makeRainChar(100, GAME_CONFIG.HEIGHT + 25, 50);
+        const group = { getChildren: () => [char] };
+        (Phaser as any).Math.Between = vi.fn().mockReturnValue(400);
+        call(scene, 'updateParallaxRainLayer', group, PARALLAX.MID, 16, 1.0);
+        expect(char.y).toBe(-20);
+        expect(char.x).toBe(400);
+        expect(char.setText).toHaveBeenCalled();
+      });
+
+      it('no-ops when group is null', () => {
+        expect(() => call(scene, 'updateParallaxRainLayer', null, PARALLAX.MID, 16, 1.0)).not.toThrow();
+      });
+
+      it('treats missing verticalSpeed data as 0 (defensive)', () => {
+        const data: Record<string, unknown> = {}; // no verticalSpeed key
+        const char: any = {
+          x: 400, y: 50,
+          setText: vi.fn().mockReturnThis(),
+          getData: vi.fn((k: string) => data[k]),
+        };
+        const group = { getChildren: () => [char] };
+        call(scene, 'updateParallaxRainLayer', group, PARALLAX.MID, 1000, 1.0);
+        // y should stay put (0 * dt), x should drift left by 60
+        expect(char.y).toBe(50);
+        expect(char.x).toBeCloseTo(400 - GAME_CONFIG.PIPE_SPEED * PARALLAX.MID.SCROLL_FACTOR, 5);
+      });
+
+      it('near layer drifts faster than mid layer per frame', () => {
+        const midChar = makeRainChar(500, 100, 50);
+        const nearChar = makeRainChar(500, 100, 50);
+        call(scene, 'updateParallaxRainLayer', { getChildren: () => [midChar] }, PARALLAX.MID, 1000, 1.0);
+        call(scene, 'updateParallaxRainLayer', { getChildren: () => [nearChar] }, PARALLAX.NEAR, 1000, 1.0);
+        // near.x should be smaller (drifted further left)
+        expect(nearChar.x).toBeLessThan(midChar.x);
+      });
+    });
+
+    describe('destroyParallaxLayers', () => {
+      it('destroys all three layer handles and nulls the fields', () => {
+        const farMock: any = { destroy: vi.fn() };
+        const midMock: any = { destroy: vi.fn() };
+        const nearMock: any = { destroy: vi.fn() };
+        scene.parallaxFar = farMock;
+        scene.parallaxMidRain = midMock;
+        scene.parallaxNearRain = nearMock;
+        call(scene, 'destroyParallaxLayers');
+        expect(farMock.destroy).toHaveBeenCalled();
+        expect(midMock.destroy).toHaveBeenCalledWith(true);
+        expect(nearMock.destroy).toHaveBeenCalledWith(true);
+        expect(s(scene, 'parallaxFar')).toBeNull();
+        expect(s(scene, 'parallaxMidRain')).toBeNull();
+        expect(s(scene, 'parallaxNearRain')).toBeNull();
+      });
+
+      it('is safe to call when no layers exist', () => {
+        scene.parallaxFar = null;
+        scene.parallaxMidRain = null;
+        scene.parallaxNearRain = null;
+        expect(() => call(scene, 'destroyParallaxLayers')).not.toThrow();
       });
     });
   });
