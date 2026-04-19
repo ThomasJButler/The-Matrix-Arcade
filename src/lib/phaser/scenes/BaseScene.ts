@@ -30,9 +30,6 @@ export abstract class BaseScene extends Phaser.Scene {
   protected escKey?: Phaser.Input.Keyboard.Key;
   protected pauseKey?: Phaser.Input.Keyboard.Key;
   protected muteKey?: Phaser.Input.Keyboard.Key;
-  private pauseOverlayBg?: Phaser.GameObjects.Graphics;
-  private pauseOverlayText?: Phaser.GameObjects.Text;
-  private pauseOverlayHint?: Phaser.GameObjects.Text;
   private static readonly MAX_KEYBOARD_RETRIES = 10;
   private static readonly KEYBOARD_RETRY_MS = 50;
 
@@ -116,13 +113,7 @@ export abstract class BaseScene extends Phaser.Scene {
       this.time.paused = false;
     }
     this.isPaused = false;
-    this.pauseOverlayBg?.destroy();
-    this.pauseOverlayText?.destroy();
-    this.pauseOverlayHint?.destroy();
     this.countdownText?.destroy();
-    this.pauseOverlayBg = undefined;
-    this.pauseOverlayText = undefined;
-    this.pauseOverlayHint = undefined;
     this.countdownText = undefined;
     this.isCountingDown = false;
     if (this.input?.keyboard) {
@@ -146,12 +137,14 @@ export abstract class BaseScene extends Phaser.Scene {
   }
 
   /**
-   * Toggle pause state with visible overlay
+   * Toggle pause state. Presentation is owned by the React portal's dashbar
+   * scrim (see `.ipod-pause-overlay` in GamePortal.tsx), which subscribes to
+   * PAUSE_STATE_CHANGED_EVENT. Scenes only own the state flip and the engine
+   * pause (physics, tweens, timers).
    */
   protected togglePause(): void {
     this.isPaused = !this.isPaused;
     if (this.isPaused) {
-      this.showPauseOverlay();
       if (this.physics?.world) this.physics.pause();
       this.tweens.pauseAll();
       this.time.paused = true;
@@ -164,7 +157,6 @@ export abstract class BaseScene extends Phaser.Scene {
 
   protected resumeGame(): void {
     this.isPaused = false;
-    this.hidePauseOverlay();
     if (this.physics?.world) this.physics.resume();
     this.tweens.resumeAll();
     this.time.paused = false;
@@ -180,52 +172,6 @@ export abstract class BaseScene extends Phaser.Scene {
     if (typeof window === 'undefined') return;
     const detail: PauseStateChangedDetail = { isPaused };
     window.dispatchEvent(new CustomEvent(PAUSE_STATE_CHANGED_EVENT, { detail }));
-  }
-
-  /**
-   * Show dimmed pause overlay with text — must be called BEFORE scene.pause()
-   * because scene.pause() stops the update loop (but rendering continues)
-   */
-  private showPauseOverlay(): void {
-    const width = Number(this.game.config.width);
-    const height = Number(this.game.config.height);
-
-    // Semi-transparent dark overlay
-    this.pauseOverlayBg = this.add.graphics();
-    this.pauseOverlayBg.fillStyle(0x000000, 0.6);
-    this.pauseOverlayBg.fillRect(0, 0, width, height);
-    this.pauseOverlayBg.setDepth(9998);
-
-    // PAUSED text
-    this.pauseOverlayText = this.add.text(width / 2, height / 2 - 20, 'PAUSED', {
-      fontFamily: MATRIX_FONTS.PRIMARY,
-      fontSize: '32px',
-      color: MATRIX_COLORS.PRIMARY_HEX,
-    });
-    this.pauseOverlayText.setOrigin(0.5);
-    this.pauseOverlayText.setDepth(9999);
-
-    // Hint text
-    this.pauseOverlayHint = this.add.text(width / 2, height / 2 + 30, 'Press P to resume', {
-      fontFamily: MATRIX_FONTS.PRIMARY,
-      fontSize: '12px',
-      color: MATRIX_COLORS.PRIMARY_HEX,
-    });
-    this.pauseOverlayHint.setOrigin(0.5);
-    this.pauseOverlayHint.setAlpha(0.7);
-    this.pauseOverlayHint.setDepth(9999);
-  }
-
-  /**
-   * Remove pause overlay — called BEFORE scene.resume()
-   */
-  private hidePauseOverlay(): void {
-    this.pauseOverlayBg?.destroy();
-    this.pauseOverlayText?.destroy();
-    this.pauseOverlayHint?.destroy();
-    this.pauseOverlayBg = undefined;
-    this.pauseOverlayText = undefined;
-    this.pauseOverlayHint = undefined;
   }
 
   // ---------------------------------------------------------------------------
