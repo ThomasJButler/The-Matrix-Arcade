@@ -513,6 +513,27 @@ const SOUND_LIBRARY: Record<string, SoundEffect> = {
     decay: 0.01,
     sustain: 0.08,
     release: 0.015,
+  },
+
+  // Chapter-cut whoosh. Present in AUDIO_FILE_MAP but was missing a SOUND_LIBRARY
+  // fallback — so during the cold-start window (before preloadAudioFiles has
+  // cached the MP3) callers like MenuScene's JACK IN and NarrativeScene's
+  // onAllComplete hit the synthesis branch, found nothing, and logged
+  // "Sound effect 'ctrlsTransition' not found in library". Descending sweep
+  // 660→220 Hz with bandpass + reverb reads as a terminal-cut whoosh that
+  // matches the file's character, so either path is sonically acceptable.
+  ctrlsTransition: {
+    type: 'ctrlsTransition',
+    frequency: { start: 660, end: 220 },
+    oscillatorType: 'sine',
+    duration: 0.45,
+    attack: 0.02,
+    decay: 0.1,
+    sustain: 0.35,
+    release: 0.25,
+    filterType: 'bandpass',
+    filterFreq: 900,
+    reverb: true,
   }
 };
 
