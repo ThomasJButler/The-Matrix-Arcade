@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import Phaser from 'phaser';
 import { SnakeGameScene } from './GameScene';
-import { GAME_CONFIG, ACHIEVEMENTS, DREAD_BUILDUP, MATRIX_FUNKINESS, POWERUP_DEFS, GLITCH_RAIN } from '../config';
+import { GAME_CONFIG, ACHIEVEMENTS, DEATH_CINEMATIC, DREAD_BUILDUP, MATRIX_FUNKINESS, POWERUP_DEFS, GLITCH_RAIN } from '../config';
 import { MATRIX_COLORS, SOUND_KEYS } from '@/lib/phaser/types';
 
 // Seed JustDown on the global Phaser mock from setup.ts so handleInput tests
@@ -82,6 +82,25 @@ function createMockTimer() {
   return { destroy: vi.fn(), remove: vi.fn() };
 }
 
+// R84.S5 — death cinematic spawns `Phaser.GameObjects.Rectangle` bars via
+// `scene.add.rectangle`. Chainable-setter mock mirrors the ones used for
+// graphics/image so tween + depth + alpha assertions can drive straight off
+// the returned object without a real Phaser instance.
+function createMockRectangle() {
+  const r: Record<string, any> = {};
+  const self = () => r;
+  r.setOrigin = vi.fn(self);
+  r.setAlpha = vi.fn(self);
+  r.setDepth = vi.fn(self);
+  r.destroy = vi.fn();
+  r.x = 0;
+  r.y = 0;
+  r.width = 0;
+  r.height = 0;
+  r.fillColor = 0;
+  return r;
+}
+
 function collectPrototypeMethods(cls: any): string[] {
   const methods = new Set<string>();
   let proto = cls.prototype;
@@ -159,6 +178,18 @@ function createTestScene(): SnakeGameScene {
     image: vi.fn(() => createMockImage()),
     circle: vi.fn(() => ({ destroy: vi.fn() })),
     text: vi.fn(() => createMockText()),
+    // R84.S5 — death cinematic needs `add.rectangle(x, y, w, h, color)`.
+    // Seed constructor args onto the returned object so tests can read
+    // position/size/colour without relying on spy-call inspection.
+    rectangle: vi.fn((x: number, y: number, w: number, h: number, color: number) => {
+      const r = createMockRectangle();
+      r.x = x;
+      r.y = y;
+      r.width = w;
+      r.height = h;
+      r.fillColor = color;
+      return r;
+    }),
   };
   scene.make = { graphics: vi.fn(() => createMockGraphics()) };
   scene.scale = { width: GAME_CONFIG.WIDTH, height: GAME_CONFIG.HEIGHT };
@@ -1829,6 +1860,215 @@ describe('SnakeGameScene', () => {
           dreadActive: true,
           dreadIntensity: 0.72,
         });
+      });
+    });
+  });
+
+  // ─── R84.S5 — Snake death cinematic ────────────────────
+
+  describe('R84.S5 — Snake death cinematic', () => {
+    // Tween configs are captured via scene.tweens.add.mock.calls so tests can
+    // inspect duration/delay/yoyo without running the tween to completion.
+    const tweenConfigs = (): any[] =>
+      ((scene as any).tweens.add as any).mock.calls.map((c: any[]) => c[0]);
+
+    describe('config sanity', () => {
+      it('should use a bar count in Tom\'s 4-6 range', () => {
+        expect(DEATH_CINEMATIC.BAR_COUNT).toBeGreaterThanOrEqual(4);
+        expect(DEATH_CINEMATIC.BAR_COUNT).toBeLessThanOrEqual(6);
+      });
+
+      it('should hit the plan brief 300 ms total duration', () => {
+        expect(DEATH_CINEMATIC.TOTAL_DURATION_MS).toBe(300);
+      });
+
+      it('should fit each strobe inside the total duration', () => {
+        expect(DEATH_CINEMATIC.BAR_STROBE_MS).toBeGreaterThan(0);
+        expect(DEATH_CINEMATIC.BAR_STROBE_MS).toBeLessThanOrEqual(
+          DEATH_CINEMATIC.TOTAL_DURATION_MS,
+        );
+      });
+
+      it('should match R83.CTRLS.12 red palette (0xff2040) for visual consistency', () => {
+        expect(DEATH_CINEMATIC.BAR_COLOR).toBe(0xff2040);
+      });
+
+      it('should peak alpha below fully opaque so dead-head stays visible beneath', () => {
+        expect(DEATH_CINEMATIC.BAR_ALPHA).toBeGreaterThan(0);
+        expect(DEATH_CINEMATIC.BAR_ALPHA).toBeLessThan(1);
+      });
+
+      it('should render above the baseline + dread scanlines (depths 100/101)', () => {
+        expect(DEATH_CINEMATIC.DEPTH).toBeGreaterThan(DREAD_BUILDUP.SCANLINE_DEPTH);
+        expect(DEATH_CINEMATIC.DEPTH).toBeGreaterThan(100);
+      });
+
+      it('should keep margin positive so bars never clip canvas edges', () => {
+        expect(DEATH_CINEMATIC.MARGIN_Y).toBeGreaterThan(0);
+        expect(DEATH_CINEMATIC.MARGIN_Y * 2).toBeLessThan(GAME_CONFIG.HEIGHT);
+      });
+
+      it('should align stagger so last bar finishes at TOTAL_DURATION_MS', () => {
+        const delayStep =
+          (DEATH_CINEMATIC.TOTAL_DURATION_MS - DEATH_CINEMATIC.BAR_STROBE_MS) /
+          (DEATH_CINEMATIC.BAR_COUNT - 1);
+        const lastBarDelay = (DEATH_CINEMATIC.BAR_COUNT - 1) * delayStep;
+        const lastBarEnd = lastBarDelay + DEATH_CINEMATIC.BAR_STROBE_MS;
+        expect(lastBarEnd).toBeCloseTo(DEATH_CINEMATIC.TOTAL_DURATION_MS, 5);
+      });
+    });
+
+    describe('playDeathCinematic() — spawning', () => {
+      it('should spawn DEATH_CINEMATIC.BAR_COUNT rectangles', () => {
+        (scene as any).deathCinematicBars = [];
+        call('playDeathCinematic');
+        expect(((scene as any).add.rectangle as any)).toHaveBeenCalledTimes(
+          DEATH_CINEMATIC.BAR_COUNT,
+        );
+        expect((scene as any).deathCinematicBars.length).toBe(
+          DEATH_CINEMATIC.BAR_COUNT,
+        );
+      });
+
+      it('should paint each bar in the CTRLS.12 red at BAR_HEIGHT + full width', () => {
+        (scene as any).deathCinematicBars = [];
+        call('playDeathCinematic');
+        const bars = (scene as any).deathCinematicBars as any[];
+        for (const bar of bars) {
+          expect(bar.fillColor).toBe(DEATH_CINEMATIC.BAR_COLOR);
+          expect(bar.width).toBe(GAME_CONFIG.WIDTH);
+          expect(bar.height).toBe(DEATH_CINEMATIC.BAR_HEIGHT);
+          expect(bar.setOrigin).toHaveBeenCalledWith(0, 0.5);
+          expect(bar.setDepth).toHaveBeenCalledWith(DEATH_CINEMATIC.DEPTH);
+          expect(bar.setAlpha).toHaveBeenCalledWith(0);
+        }
+      });
+
+      it('should evenly space bars vertically between MARGIN_Y and HEIGHT-MARGIN_Y', () => {
+        (scene as any).deathCinematicBars = [];
+        call('playDeathCinematic');
+        const bars = (scene as any).deathCinematicBars as any[];
+        const expectedStep =
+          (GAME_CONFIG.HEIGHT - DEATH_CINEMATIC.MARGIN_Y * 2) /
+          (DEATH_CINEMATIC.BAR_COUNT - 1);
+        expect(bars[0].y).toBeCloseTo(DEATH_CINEMATIC.MARGIN_Y, 5);
+        expect(bars[bars.length - 1].y).toBeCloseTo(
+          GAME_CONFIG.HEIGHT - DEATH_CINEMATIC.MARGIN_Y,
+          5,
+        );
+        for (let i = 1; i < bars.length; i++) {
+          expect(bars[i].y - bars[i - 1].y).toBeCloseTo(expectedStep, 5);
+        }
+      });
+
+      it('should queue one yoyo tween per bar with half-strobe duration', () => {
+        call('playDeathCinematic');
+        const configs = tweenConfigs();
+        expect(configs.length).toBe(DEATH_CINEMATIC.BAR_COUNT);
+        for (const cfg of configs) {
+          expect(cfg.yoyo).toBe(true);
+          expect(cfg.duration).toBe(DEATH_CINEMATIC.BAR_STROBE_MS / 2);
+          expect(cfg.alpha).toEqual({ from: 0, to: DEATH_CINEMATIC.BAR_ALPHA });
+        }
+      });
+
+      it('should stagger tween delays linearly across the cascade window', () => {
+        call('playDeathCinematic');
+        const configs = tweenConfigs();
+        const delayStep =
+          (DEATH_CINEMATIC.TOTAL_DURATION_MS - DEATH_CINEMATIC.BAR_STROBE_MS) /
+          (DEATH_CINEMATIC.BAR_COUNT - 1);
+        configs.forEach((cfg, i) => {
+          expect(cfg.delay).toBeCloseTo(i * delayStep, 5);
+        });
+      });
+    });
+
+    describe('reduced-motion a11y gate', () => {
+      const originalMatchMedia = window.matchMedia;
+
+      beforeEach(() => {
+        (window as any).matchMedia = vi.fn().mockReturnValue({ matches: true });
+      });
+
+      afterEach(() => {
+        (window as any).matchMedia = originalMatchMedia;
+      });
+
+      it('should skip spawning entirely under prefers-reduced-motion', () => {
+        (scene as any).deathCinematicBars = [];
+        call('playDeathCinematic');
+        expect(((scene as any).add.rectangle as any)).not.toHaveBeenCalled();
+        expect((scene as any).deathCinematicBars.length).toBe(0);
+        expect(((scene as any).tweens.add as any)).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('tween onComplete — bar self-destruct', () => {
+      it('should remove each bar from the list + destroy it on strobe end', () => {
+        call('playDeathCinematic');
+        const configs = tweenConfigs();
+        const bars = [...((scene as any).deathCinematicBars as any[])];
+        expect(bars.length).toBe(DEATH_CINEMATIC.BAR_COUNT);
+        // Fire each tween's onComplete in order.
+        configs.forEach(cfg => cfg.onComplete());
+        expect((scene as any).deathCinematicBars.length).toBe(0);
+        bars.forEach(b => expect(b.destroy).toHaveBeenCalled());
+      });
+    });
+
+    describe('destroyDeathCinematicBars() — mass teardown', () => {
+      it('should destroy every bar + empty the list', () => {
+        call('playDeathCinematic');
+        const bars = [...((scene as any).deathCinematicBars as any[])];
+        expect(bars.length).toBe(DEATH_CINEMATIC.BAR_COUNT);
+        call('destroyDeathCinematicBars');
+        expect((scene as any).deathCinematicBars.length).toBe(0);
+        bars.forEach(b => expect(b.destroy).toHaveBeenCalled());
+      });
+
+      it('should no-op safely when list is already empty', () => {
+        (scene as any).deathCinematicBars = [];
+        expect(() => call('destroyDeathCinematicBars')).not.toThrow();
+        expect((scene as any).deathCinematicBars.length).toBe(0);
+      });
+    });
+
+    describe('handleGameOver — cinematic wiring', () => {
+      it('should fire playDeathCinematic before the 600 ms gameOver delay', () => {
+        const spy = vi.spyOn(scene as any, 'playDeathCinematic');
+        (scene as any).gameTimer = 0;
+        (scene as any).score = 50;
+        call('handleGameOver');
+        expect(spy).toHaveBeenCalledTimes(1);
+        // Verify the gameOver panel is still gated on the delayedCall, not the
+        // cinematic — the cascade runs *inside* the 600 ms buffer, not before it.
+        expect(((scene as any).time.delayedCall as any)).toHaveBeenCalledWith(
+          600,
+          expect.any(Function),
+        );
+        // playDeathCinematic must have been called before the delayedCall was
+        // registered (mock call-order comparison).
+        const cinematicOrder = spy.mock.invocationCallOrder[0];
+        const delayedOrder = ((scene as any).time.delayedCall as any).mock
+          .invocationCallOrder[0];
+        expect(cinematicOrder).toBeLessThan(delayedOrder);
+      });
+    });
+
+    describe('shutdown — cinematic teardown', () => {
+      it('should destroy any live bars so a restart mid-strobe doesn\'t leak', () => {
+        call('playDeathCinematic');
+        const bars = [...((scene as any).deathCinematicBars as any[])];
+        expect(bars.length).toBe(DEATH_CINEMATIC.BAR_COUNT);
+        (scene as any).moveTimer = null;
+        (scene as any).fieldPowerUp = null;
+        (scene as any).powerUpIndicators = new Map();
+        (scene as any).powerUpLegend = [];
+        (scene as any).achievementsUnlocked = new Set();
+        call('shutdown');
+        expect((scene as any).deathCinematicBars.length).toBe(0);
+        bars.forEach(b => expect(b.destroy).toHaveBeenCalled());
       });
     });
   });

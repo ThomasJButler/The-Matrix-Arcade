@@ -162,6 +162,50 @@ export const DREAD_BUILDUP = {
   SHAKE_MAX_INTENSITY: 0.003,
 } as const;
 
+// R84.S5 — Snake death cinematic. 300 ms glitch-cascade bridging the moment
+// of collision and the Game Over screen, mirroring the R83.CTRLS.12
+// "buffer-flushed" failure juice in `CtrlSWorld/scenes/NarrativeScene.ts`
+// so the Matrix-collapse visual language stays consistent across the arcade.
+//
+// Why a cinematic at all: prior to S5, Snake snapped straight from the last
+// frame into `gameOver()` after a 600 ms pause filled only by a flat red
+// camera flash + shake. Tom's testing doc note "could be more dramatic when
+// dying" (line 137 prose) flagged it as under-telegraphed — the eye hasn't
+// had time to register WHAT killed the snake before the Game Over panel
+// takes over. The cascade occupies the first 300 ms of that 600 ms buffer
+// so the dead-head freeze-frame is still visible underneath the bars
+// (visual parity with R83.CTRLS.12 which leaves the terminal UI visible
+// behind its cascade).
+//
+// Design choices:
+//  - 5 bars (mid of Tom's 4-6 range) evenly spaced vertically. Even spacing
+//    (not random Y like CTRLS.12) reads as a top-to-bottom "buffer flush"
+//    rather than sparse noise, which suits Snake's shorter 300 ms window.
+//  - BAR_COLOR `0xff2040` matches CTRLS.12 exactly — same red hue forms the
+//    arcade's "catastrophic failure" palette across both games.
+//  - BAR_ALPHA `0.65` slightly above CTRLS.12's 0.6 because the shorter
+//    window needs a touch more density to read in half the duration.
+//  - Each bar strobes via a yoyo alpha tween (fade-in 60 ms → fade-out 60 ms
+//    = 120 ms per bar). Stagger step = (300 - 120) / (5 - 1) = 45 ms so
+//    delays are [0, 45, 90, 135, 180] and the last bar ends at exactly
+//    300 ms — hits the plan brief to the millisecond.
+//  - DEPTH 110 sits above both the baseline scanline (100) and the dread
+//    scanline (101) so the bars read *on top* of the CRT mesh, not beneath.
+//  - prefers-reduced-motion skips the whole cinematic. Death is already
+//    conveyed by GAME_OVER sound, red camera flash, snake head tint → dead
+//    sprite; the cascade is supplemental juice that strobes fast enough to
+//    warrant a11y-gating for sensitive users.
+export const DEATH_CINEMATIC = {
+  BAR_COUNT: 5,
+  TOTAL_DURATION_MS: 300,
+  BAR_STROBE_MS: 120,
+  BAR_ALPHA: 0.65,
+  BAR_COLOR: 0xff2040,
+  BAR_HEIGHT: 5,
+  DEPTH: 110,
+  MARGIN_Y: 40,
+} as const;
+
 export const ACHIEVEMENTS = {
   FIRST_APPLE: 'snake_first_apple',
   SCORE_100: 'snake_score_100',
