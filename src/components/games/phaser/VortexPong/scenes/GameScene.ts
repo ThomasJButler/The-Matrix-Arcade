@@ -98,12 +98,22 @@ export class VortexPongGameScene extends BaseScene {
   private impactEffects: ImpactEffect[] = [];
   private rainGroup?: Phaser.GameObjects.Group;
 
+  // R84.P4 — atmosphere layers (see ATMOSPHERE block in config.ts for why).
+  private vortexBackdrop?: Phaser.GameObjects.Graphics;
+  private scanlineOverlay?: Phaser.GameObjects.Graphics;
+  private playerPaddleGlow?: Phaser.GameObjects.Rectangle;
+  private aiPaddleGlow?: Phaser.GameObjects.Rectangle;
+
   constructor() {
     super(SCENE_KEYS.GAME);
   }
 
   create(): void {
     this.createMatrixBackground();
+    // R84.P4: the rotating vortex backdrop sits on the deepest layer so rain
+    // and gameplay overlay it. Must be created *before* the optional `board`
+    // image so the board still reads as a faint arena overlay on top.
+    this.createVortexBackdrop();
     if (this.textures.exists('board')) {
       const board = this.add.image(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, 'board');
       board.setAlpha(0.15);
@@ -120,9 +130,15 @@ export class VortexPongGameScene extends BaseScene {
     }
 
     this.drawCenterLine();
+    this.createPaddleGlows();
     this.createPaddles();
     this.spawnBall();
     this.createUI();
+    // R84.P4: scanline overlay is created last so it paints above every
+    // gameplay object but below countdown/score text (text uses default depth
+    // with no explicit setDepth, scanline is at depth 90 → text at depth 200
+    // still wins).
+    this.createScanlineOverlay();
     this.setupInput();
     this.setupCommonInputs();
     this.startPowerUpTimer();
@@ -146,6 +162,10 @@ export class VortexPongGameScene extends BaseScene {
     this.checkGoals();
     this.checkPowerUpCollisions();
     this.updateImpactEffects(dt);
+    // R84.P4 atmosphere: rotate backdrop (unless reduced-motion) and pulse
+    // the paddle glow brighter as the nearest ball approaches each paddle.
+    this.updateVortexRotation(dt);
+    this.updatePaddleGlows();
 
     this.exposeTestState({
       playerScore: this.playerScore,
@@ -178,6 +198,16 @@ export class VortexPongGameScene extends BaseScene {
     this.impactEffects = [];
     this.powerUpIndicators.forEach((t) => t.destroy());
     this.powerUpIndicators = [];
+    // R84.P4 atmosphere cleanup — these are nullable because create() has an
+    // early failure path in test environments where make.graphics is a stub.
+    this.vortexBackdrop?.destroy();
+    this.vortexBackdrop = undefined;
+    this.scanlineOverlay?.destroy();
+    this.scanlineOverlay = undefined;
+    this.playerPaddleGlow?.destroy();
+    this.playerPaddleGlow = undefined;
+    this.aiPaddleGlow?.destroy();
+    this.aiPaddleGlow = undefined;
     if (this.input.keyboard) this.input.keyboard.removeAllKeys(true);
     super.shutdown();
   }
@@ -996,5 +1026,145 @@ export class VortexPongGameScene extends BaseScene {
     if (this.sound && typeof this.sound.stopAll === 'function') {
       this.sound.stopAll();
     }
+  }
+
+  // ── R84.P4 atmosphere amp-up ─────────────────────────────────
+  // Three procedural layers: rotating radial-gradient backdrop (depth -20),
+  // paddle-glow rectangles that pulse on ball approach (depth -5, behind
+  // paddles), and a denser scanline overlay above gameplay (depth 90).
+  // Reduced-motion users keep the static gradient + static scanline but get
+  // no rotation and a flat non-pulsing glow.
+
+  /**
+   * Paint concentric rings of DARK_GREEN over a NEAR_BLACK base, stretched
+   * into an ellipse so rotation is visible. Larger circle → fainter alpha;
+   * each smaller circle over-paints the centre at a higher alpha, producing
+   * stepped bands from dim edges to a bright core.
+   */
+  private createVortexBackdrop(): void {
+    const w = GAME_CONFIG.WIDTH;
+    const h = GAME_CONFIG.HEIGHT;
+    const vx = GAME_CONFIG.ATMOSPHERE.VORTEX;
+
+    const g = this.add.graphics();
+    g.setPosition(w / 2, h / 2);
+    g.setDepth(-20);
+    g.setAlpha(vx.BASE_ALPHA);
+
+    // NEAR_BLACK base disc slightly larger than the rotation footprint so
+    // the corners never reveal the bare 0x000000 canvas background when the
+    // ellipse sweeps round.
+    g.fillStyle(MATRIX_COLORS.NEAR_BLACK, 0.6);
+    g.fillCircle(0, 0, vx.OUTER_RADIUS * 1.15);
+
+    // Outer → inner: each smaller ring is brighter so the visible annulus
+    // between two successive radii steps up in intensity toward the centre.
+    for (let i = vx.RING_COUNT; i >= 0; i--) {
+      const t = i / vx.RING_COUNT; // 1 = outermost, 0 = innermost
+      const radius = vx.INNER_RADIUS + (vx.OUTER_RADIUS - vx.INNER_RADIUS) * t;
+      const alpha = vx.RING_OUTER_ALPHA + (vx.RING_INNER_ALPHA - vx.RING_OUTER_ALPHA) * (1 - t);
+      g.fillStyle(MATRIX_COLORS.DARK_GREEN, alpha);
+      g.fillCircle(0, 0, radius);
+    }
+
+    g.setScale(vx.ASPECT_X, vx.ASPECT_Y);
+    this.vortexBackdrop = g;
+  }
+
+  private updateVortexRotation(dt: number): void {
+    if (!this.vortexBackdrop) return;
+    if (this.prefersReducedMotion()) return;
+    const vx = GAME_CONFIG.ATMOSPHERE.VORTEX;
+    const radsPerSecond = (Math.PI * 2) / vx.ROTATION_SECONDS;
+    this.vortexBackdrop.rotation += radsPerSecond * dt;
+  }
+
+  /**
+   * Static horizontal scanline overlay — mirrors SnakeClassic's R83.S1
+   * pattern at a 30% denser alpha (0.18 → 0.23). Skipped under
+   * prefers-reduced-motion so layered CRT noise doesn't bother sensitive
+   * users.
+   */
+  private createScanlineOverlay(): void {
+    const g = this.add.graphics();
+    g.setDepth(90);
+    this.scanlineOverlay = g;
+
+    if (this.prefersReducedMotion()) return;
+
+    const w = GAME_CONFIG.WIDTH;
+    const h = GAME_CONFIG.HEIGHT;
+    const stride = GAME_CONFIG.ATMOSPHERE.SCANLINE.STRIDE_PX;
+    const alpha = GAME_CONFIG.ATMOSPHERE.SCANLINE.ALPHA;
+
+    g.fillStyle(MATRIX_COLORS.BACKGROUND, alpha);
+    for (let y = 0; y < h; y += stride) {
+      g.fillRect(0, y, w, 1);
+    }
+  }
+
+  /**
+   * Invisible-at-rest glow rectangles sitting directly behind each paddle.
+   * `updatePaddleGlows()` drives alpha + scale each frame from the nearest
+   * ball's horizontal distance.
+   */
+  private createPaddleGlows(): void {
+    const pg = GAME_CONFIG.ATMOSPHERE.PADDLE_GLOW;
+    const w = GAME_CONFIG.PADDLE.WIDTH + pg.WIDTH_PAD;
+    const h = GAME_CONFIG.PADDLE.HEIGHT + pg.HEIGHT_PAD;
+
+    const playerX = GAME_CONFIG.PADDLE.OFFSET_X + GAME_CONFIG.PADDLE.WIDTH / 2;
+    const aiX = GAME_CONFIG.WIDTH - GAME_CONFIG.PADDLE.OFFSET_X - GAME_CONFIG.PADDLE.WIDTH / 2;
+    const midY = GAME_CONFIG.HEIGHT / 2;
+
+    this.playerPaddleGlow = this.add.rectangle(playerX, midY, w, h, pg.COLOR, pg.MIN_ALPHA);
+    this.playerPaddleGlow.setDepth(-5);
+
+    this.aiPaddleGlow = this.add.rectangle(aiX, midY, w, h, pg.COLOR, pg.MIN_ALPHA);
+    this.aiPaddleGlow.setDepth(-5);
+  }
+
+  /**
+   * Each frame: track the nearest ball's x-distance to each paddle and drive
+   * both paddle-glow rectangles' alpha + scale. At THRESHOLD_PX away the
+   * glow is at MIN_ALPHA with no swell; when the ball is at the paddle the
+   * glow is at MAX_ALPHA with SCALE_BOOST extra size. Linear interpolation —
+   * keeps the pulse readable without strobing.
+   */
+  private updatePaddleGlows(): void {
+    if (!this.playerPaddleGlow || !this.aiPaddleGlow) return;
+    const pg = GAME_CONFIG.ATMOSPHERE.PADDLE_GLOW;
+
+    // Keep the glow rectangles tracking paddle Y each frame.
+    this.playerPaddleGlow.y = this.playerPaddle.y;
+    this.aiPaddleGlow.y = this.aiPaddle.y;
+
+    if (this.balls.length === 0) {
+      this.playerPaddleGlow.setAlpha(pg.MIN_ALPHA);
+      this.aiPaddleGlow.setAlpha(pg.MIN_ALPHA);
+      this.playerPaddleGlow.setScale(1);
+      this.aiPaddleGlow.setScale(1);
+      return;
+    }
+
+    // Nearest ball horizontally toward each paddle.
+    let playerDist = Number.POSITIVE_INFINITY;
+    let aiDist = Number.POSITIVE_INFINITY;
+    for (const ball of this.balls) {
+      const dp = Math.abs(ball.sprite.x - this.playerPaddle.x);
+      const da = Math.abs(ball.sprite.x - this.aiPaddle.x);
+      if (dp < playerDist) playerDist = dp;
+      if (da < aiDist) aiDist = da;
+    }
+
+    const driveGlow = (glow: Phaser.GameObjects.Rectangle, dist: number): void => {
+      const norm = clamp(1 - dist / pg.THRESHOLD_PX, 0, 1);
+      const alpha = pg.MIN_ALPHA + (pg.MAX_ALPHA - pg.MIN_ALPHA) * norm;
+      const scale = 1 + pg.SCALE_BOOST * norm * (this.prefersReducedMotion() ? 0 : 1);
+      glow.setAlpha(alpha);
+      glow.setScale(scale);
+    };
+    driveGlow(this.playerPaddleGlow, playerDist);
+    driveGlow(this.aiPaddleGlow, aiDist);
   }
 }
