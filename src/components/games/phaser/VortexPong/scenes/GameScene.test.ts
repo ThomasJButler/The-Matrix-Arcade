@@ -753,6 +753,140 @@ describe('VortexPongGameScene', () => {
     });
   });
 
+  // -----------------------------------------------------------------------
+  // R84.P11 — Paddle ease-in ramp (100ms linear 0 → max).
+  // Tom's testing-doc line 130: "Keyboard controls are a bit dodgy ... It's
+  // quite often conflicted about what to do." R83.V1 fixed the springs-back
+  // issue; this block covers the ramp that gives the paddle a weighted
+  // feel instead of a binary on/off.
+  // -----------------------------------------------------------------------
+  describe('R84.P11 paddle ease-in ramp', () => {
+    beforeEach(() => {
+      scene.upKey = { isDown: false };
+      scene.downKey = { isDown: false };
+      scene.wKey = { isDown: false };
+      scene.sKey = { isDown: false };
+      scene.input.activePointer = { isDown: false, wasTouch: false, y: 100, event: undefined };
+      scene.lastPointerY = 100;
+      scene.lastPointerMoveTime = 0;
+      scene.keyboardSpeedRatio = 0;
+    });
+
+    it('config ACCELERATION_MS is the documented 100ms', () => {
+      expect(GAME_CONFIG.PADDLE.ACCELERATION_MS).toBe(100);
+    });
+
+    it('ramp starts at 0 from resetState', () => {
+      scene.keyboardSpeedRatio = 0.7;
+      scene.resetState();
+      expect(scene.keyboardSpeedRatio).toBe(0);
+    });
+
+    it('ramps up linearly — half ratio after half the ramp window', () => {
+      scene.upKey = { isDown: true };
+      scene.handlePlayerInput(0.050);
+      expect(scene.keyboardSpeedRatio).toBeCloseTo(0.5, 5);
+    });
+
+    it('reaches full ratio at exactly the ramp window', () => {
+      scene.upKey = { isDown: true };
+      scene.handlePlayerInput(0.050);
+      scene.handlePlayerInput(0.050);
+      expect(scene.keyboardSpeedRatio).toBe(1);
+    });
+
+    it('clamps ratio at 1 when held beyond ramp window', () => {
+      scene.upKey = { isDown: true };
+      scene.handlePlayerInput(0.200);
+      expect(scene.keyboardSpeedRatio).toBe(1);
+    });
+
+    it('snaps ratio to 0 on key release', () => {
+      scene.upKey = { isDown: true };
+      scene.handlePlayerInput(0.200);
+      scene.upKey = { isDown: false };
+      scene.handlePlayerInput(0.016);
+      expect(scene.keyboardSpeedRatio).toBe(0);
+    });
+
+    it('one-frame 100ms press from rest moves half the old snappy distance', () => {
+      // Trapezoidal integration: avg ratio = (0 + 1) / 2 = 0.5.
+      // moveAmount = 480 * 0.5 * 0.1 = 24px.
+      scene.playerPaddle.y = 250;
+      scene.upKey = { isDown: true };
+      scene.handlePlayerInput(0.1);
+      expect(250 - scene.playerPaddle.y).toBeCloseTo(24, 1);
+    });
+
+    it('once ramp is complete, subsequent frame moves at full speed', () => {
+      scene.upKey = { isDown: true };
+      scene.handlePlayerInput(0.100); // reach ratio 1
+      scene.playerPaddle.y = 250;
+      scene.handlePlayerInput(0.016); // pure full-speed frame
+      // moveAmount = 480 * 1 * 0.016 = 7.68px
+      expect(250 - scene.playerPaddle.y).toBeCloseTo(7.68, 1);
+    });
+
+    it('down key ramps symmetrically to up', () => {
+      scene.playerPaddle.y = 200;
+      scene.downKey = { isDown: true };
+      scene.handlePlayerInput(0.1);
+      expect(scene.playerPaddle.y - 200).toBeCloseTo(24, 1);
+    });
+
+    it('direction flip mid-ramp preserves ratio (either key keeps it active)', () => {
+      scene.upKey = { isDown: true };
+      scene.handlePlayerInput(0.050); // ratio = 0.5
+      scene.upKey = { isDown: false };
+      scene.downKey = { isDown: true };
+      scene.handlePlayerInput(0.050); // still active → ramp to 1
+      expect(scene.keyboardSpeedRatio).toBe(1);
+    });
+
+    it('key release between frames resets ramp so re-press starts from 0', () => {
+      scene.upKey = { isDown: true };
+      scene.handlePlayerInput(0.200); // full
+      scene.upKey = { isDown: false };
+      scene.handlePlayerInput(0.016); // release → 0
+      scene.upKey = { isDown: true };
+      scene.handlePlayerInput(0.050);
+      expect(scene.keyboardSpeedRatio).toBeCloseTo(0.5, 5);
+    });
+
+    it('prefers-reduced-motion bypasses ramp — first frame moves at full speed', () => {
+      const original = window.matchMedia;
+      // @ts-expect-error overriding for test
+      window.matchMedia = vi.fn().mockReturnValue({ matches: true });
+      try {
+        scene.playerPaddle.y = 250;
+        scene.upKey = { isDown: true };
+        scene.handlePlayerInput(0.016);
+        expect(scene.keyboardSpeedRatio).toBe(1);
+        // full speed: 480 * 1 * 0.016 = 7.68px
+        expect(250 - scene.playerPaddle.y).toBeCloseTo(7.68, 1);
+      } finally {
+        window.matchMedia = original;
+      }
+    });
+
+    it('pointer-driven movement is unaffected by ramp — snap direct', () => {
+      scene.keyboardSpeedRatio = 0.5;
+      scene.playerPaddle.y = 250;
+      scene.input.activePointer.y = 320;
+      scene.input.activePointer.isDown = true;
+      scene.handlePlayerInput(0.016);
+      expect(scene.playerPaddle.y).toBe(320);
+      expect(scene.keyboardSpeedRatio).toBe(0);
+    });
+
+    it('ramp clamps paddle against the top wall', () => {
+      scene.playerPaddle.y = GAME_CONFIG.PADDLE.HEIGHT / 2 + 1;
+      scene.upKey = { isDown: true };
+      scene.handlePlayerInput(0.5); // long frame
+      expect(scene.playerPaddle.y).toBeGreaterThanOrEqual(GAME_CONFIG.PADDLE.HEIGHT / 2);
+    });
+  });
+
   describe('R83.V1a AI predictive lookahead', () => {
     it('uses extrapolated intercept rather than raw ball Y', () => {
       // Ball at x=400 y=100 moving down-right; intercept at AI x≈784.

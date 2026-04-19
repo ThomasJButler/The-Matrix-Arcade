@@ -24,6 +24,14 @@ export const GAME_CONFIG = {
     OFFSET_X: 10,
     SPEED: 480,
     BIGGER_MULTIPLIER: 1.5,
+    // R84.P11 — keyboard ease-in ramp. R83.V1 fixed the "springs back to
+    // centre" bug, but Tom's doc line 130 still reads the paddle as
+    // "conflicted" / "a bit dodgy" — a symptom of the paddle jumping to full
+    // speed on the first key-down frame. 100ms linear ramp from 0 → max
+    // gives the paddle a weighted feel without adding perceptible input
+    // latency (< 2 frames at 60fps). prefers-reduced-motion bypasses the
+    // ramp so users who prefer predictable motion get instant full speed.
+    ACCELERATION_MS: 100,
   },
 
   BALL: {

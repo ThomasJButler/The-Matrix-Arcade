@@ -85,6 +85,11 @@ export class VortexPongGameScene extends BaseScene {
   private previousPlayerY = 0;
   private lastPointerMoveTime = 0;
   private lastPointerY = 0;
+  // R84.P11 — keyboard ease-in ramp state. 0 when no key held; ramps linearly
+  // toward 1 over PADDLE.ACCELERATION_MS while Up/Down/W/S is held; snaps
+  // back to 0 the frame the key is released. prefers-reduced-motion skips
+  // the ramp (set to 1 immediately on key-down).
+  private keyboardSpeedRatio = 0;
 
   // Input
   private upKey?: Phaser.Input.Keyboard.Key;
@@ -264,6 +269,9 @@ export class VortexPongGameScene extends BaseScene {
     // R84.P9 — reset goal-flash throttle so an R-restart doesn't carry a
     // stale timestamp that suppresses the first flash of the new match.
     this.lastGoalFlashAt = 0;
+    // R84.P11 — reset keyboard ramp so an R-restart mid-press doesn't
+    // resume at full speed before the player can react.
+    this.keyboardSpeedRatio = 0;
   }
 
   // ── Drawing ──────────────────���───────────────────────────────
@@ -343,9 +351,9 @@ export class VortexPongGameScene extends BaseScene {
   }
 
   private handlePlayerInput(dt: number): void {
-    const moveAmount = GAME_CONFIG.PADDLE.SPEED * dt;
     const kbUp = this.upKey?.isDown || this.wKey?.isDown;
     const kbDown = this.downKey?.isDown || this.sKey?.isDown;
+    const kbActive = kbUp || kbDown;
 
     // Track pointer movement so a stationary cursor stops fighting the keyboard.
     // R83.V1: previously the paddle snapped to pointer-Y on every frame the
@@ -361,6 +369,29 @@ export class VortexPongGameScene extends BaseScene {
     const now = Date.now();
     const pointerActive = pointer.isDown || pointer.wasTouch ||
       (now - this.lastPointerMoveTime < 600 && this.lastPointerMoveTime > 0);
+
+    // R84.P11 — ease-in ramp. Trapezoidal integration (average of pre- and
+    // post-frame ratios) keeps distance correct regardless of frame rate:
+    // one coarse 100ms frame from rest moves exactly half the old snappy
+    // distance, 16ms frames integrate smoothly to the same endpoint.
+    const prevRatio = this.keyboardSpeedRatio;
+    let effectiveRatio: number;
+    if (kbActive) {
+      if (this.prefersReducedMotion()) {
+        // No ramp — predictable full-speed response from frame one.
+        this.keyboardSpeedRatio = 1;
+        effectiveRatio = 1;
+      } else {
+        const rampStep = dt / (GAME_CONFIG.PADDLE.ACCELERATION_MS / 1000);
+        this.keyboardSpeedRatio = Math.min(1, prevRatio + rampStep);
+        effectiveRatio = (prevRatio + this.keyboardSpeedRatio) / 2;
+      }
+    } else {
+      // Key released — snap to 0 so a re-press restarts from rest.
+      this.keyboardSpeedRatio = 0;
+      effectiveRatio = 0;
+    }
+    const moveAmount = GAME_CONFIG.PADDLE.SPEED * effectiveRatio * dt;
 
     if (kbUp) {
       this.playerPaddle.y -= moveAmount;
