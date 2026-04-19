@@ -94,6 +94,58 @@ describe('PhaserGame SR announcement region', () => {
   });
 });
 
+// R84.CI-6: focus-visible refinement. Before this iteration, the wrapper
+// painted the 2 px green focus ring via a `hasFocus` useState flipped by
+// `onFocus`/`onBlur`. The ring fired on every focus event — including the
+// programmatic `.focus()` calls inside `onClick` and `onMouseEnter` — so
+// mouse users saw a bright ring flash whenever they clicked or hovered the
+// game. These specs pin the new CSS-driven approach: the container exposes
+// a `phaser-game-container` class so the shared animations.css rule can
+// target `:focus-visible`, and the inline `box-shadow`/`outline` props are
+// gone so nothing paints unconditionally.
+describe('PhaserGame focus-visible ring wiring (R84.CI-6)', () => {
+  it('applies the phaser-game-container class for the CSS focus-visible rule', () => {
+    // The class must match the selector in `src/styles/animations.css`
+    // (`.phaser-game-container:focus-visible`) — rename this class and the
+    // CSS rule becomes a dead selector, so this test is also a
+    // keep-in-sync tripwire for a rename across the two files.
+    const { container } = render(
+      <PhaserGame gameId="vortexPong" config={{ type: 0, width: 800, height: 600 }} />,
+    );
+    const root = container.querySelector('[data-phaser-game="true"]');
+    expect(root).not.toBeNull();
+    expect(root?.classList.contains('phaser-game-container')).toBe(true);
+  });
+
+  it('does not paint an inline box-shadow focus ring', () => {
+    // A future regression re-introducing `style={{ boxShadow: hasFocus ?
+    // ... }}` would bypass `:focus-visible` and re-flash the ring on every
+    // mouse click. Pinning "no inline box-shadow on the container" catches
+    // that at unit-test time rather than waiting for an a11y audit.
+    const { container } = render(
+      <PhaserGame gameId="vortexPong" config={{ type: 0, width: 800, height: 600 }} />,
+    );
+    const root = container.querySelector('[data-phaser-game="true"]') as HTMLElement;
+    expect(root.style.boxShadow).toBe('');
+    // The previous implementation used a transparent 2 px outline as a
+    // layout hack around the old ring — now unused, so any inline outline
+    // would be dead code or a regression.
+    expect(root.style.outline).toBe('');
+  });
+
+  it('preserves tabIndex=0 so keyboard users can Tab into the container', () => {
+    // tabIndex=0 is load-bearing: Phaser's keyboard plugin subscribes on
+    // `window` (see PhaserGame.tsx useEffect input config) but the
+    // container is still the first DOM surface a Tab key lands on.
+    // Dropping tabIndex would leave Tab users stranded on the page chrome.
+    const { container } = render(
+      <PhaserGame gameId="vortexPong" config={{ type: 0, width: 800, height: 600 }} />,
+    );
+    const root = container.querySelector('[data-phaser-game="true"]') as HTMLElement;
+    expect(root.tabIndex).toBe(0);
+  });
+});
+
 // R84.CI-2: short pattern-matched announcement so AT users hear the same
 // milestone beats sighted players hear as a COLLECTIBLE stinger. The
 // builder returns '' (not a guess string) when the payload is malformed so
