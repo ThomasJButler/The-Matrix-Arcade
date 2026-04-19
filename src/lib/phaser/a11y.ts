@@ -38,3 +38,25 @@ export function buildScoreMilestoneAnnouncement(data?: { value?: number }): stri
   if (typeof value !== 'number' || !Number.isFinite(value)) return '';
   return `Score milestone ${value}.`;
 }
+
+/**
+ * R84.CI-5 (a11y priority 2): build the screen-reader announcement for a
+ * `matchPoint` event. Vortex Pong fires exactly one per side per run — the
+ * first time playerScore or aiScore reaches WIN_SCORE - 1. Sighted players
+ * see the score digit flip to 9; AT users previously had no surface for
+ * the tension beat, leaving gameOver as their only Pong-specific live-region
+ * cue. Short phrase so it clears before the next goal SFX could land.
+ *
+ * Side-aware phrasing matches how sports announcers say it in natural
+ * speech: player side reads "Match point." (the player's tension moment);
+ * opponent side reads "Opponent match point." (the AI's tension moment).
+ *
+ * Defensive shape matches the other builders — malformed payload returns an
+ * empty string which the wrapper's `if (msg)` guard treats as a no-op.
+ */
+export function buildMatchPointAnnouncement(data?: { side?: 'player' | 'opponent' }): string {
+  const side = data?.side;
+  if (side === 'player') return 'Match point.';
+  if (side === 'opponent') return 'Opponent match point.';
+  return '';
+}
