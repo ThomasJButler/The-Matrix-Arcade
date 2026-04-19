@@ -69,6 +69,20 @@ export const GAME_CONFIG = {
     GAME_OVER: { intensity: 0.018, duration: 150 },
   },
 
+  // R84.P7 — paddle-hit particle trail tuning. R83.V1e shipped a flat
+  // 10-particle burst; Tom's doc line 112 wants the top-tier speed to feel
+  // like a hot rally. Count now ramps from BASE_COUNT (12 at mult=1.0) to
+  // MAX_COUNT (20 at the game's BALL.MAX_SPEED / INITIAL_SPEED cap, ≈ 2.14x).
+  PADDLE_TRAIL: {
+    BASE_COUNT: 12,
+    MAX_COUNT: 20,
+    DURATION_MS: 300,
+    PARTICLE_RADIUS: 2,
+    PARTICLE_ALPHA: 0.85,
+    SPEED_BASE: 30,
+    SPEED_JITTER: 20,
+  },
+
   MAX_IMPACT_EFFECTS: 10,
 
   // R84.P4 — vortex atmosphere amp-up. Tom's testing-doc verdict: the "vortex"

@@ -1202,15 +1202,16 @@ describe('VortexPongGameScene', () => {
     });
   });
 
-  describe('R83.V1e paddle-hit particle trail', () => {
-    it('emits 10 particles on player paddle hit', () => {
+  describe('R83.V1e + R84.P7 paddle-hit particle trail', () => {
+    it('emits at least BASE_COUNT particles on a fresh-serve player hit', () => {
       const before = scene.add.circle.mock.calls.length;
       const paddleRight = scene.playerPaddle.x + GAME_CONFIG.PADDLE.WIDTH / 2;
       createBall(scene, paddleRight, scene.playerPaddle.y, -420, 0);
+      scene.timeSinceLastGoal = 0;
       scene.checkPaddleCollisions();
       const after = scene.add.circle.mock.calls.length;
-      // Impact effect creates 2 circles (ring + glow); trail adds 10 more.
-      expect(after - before).toBeGreaterThanOrEqual(10);
+      // Impact effect creates 2 circles; trail adds BASE_COUNT (12) more.
+      expect(after - before).toBeGreaterThanOrEqual(GAME_CONFIG.PADDLE_TRAIL.BASE_COUNT);
     });
 
     it('skips particle trail under prefers-reduced-motion', () => {
@@ -1224,9 +1225,76 @@ describe('VortexPongGameScene', () => {
         scene.checkPaddleCollisions();
         const after = scene.add.circle.mock.calls.length;
         // Only the impact effect (2 circles) — no trail.
-        expect(after - before).toBeLessThan(10);
+        expect(after - before).toBeLessThan(GAME_CONFIG.PADDLE_TRAIL.BASE_COUNT);
       } finally {
         window.matchMedia = original;
+      }
+    });
+  });
+
+  // ----------------------------------------------------------------------
+  // R84.P7 — Trail count scales with ball speed tier
+  // ----------------------------------------------------------------------
+  describe('R84.P7 — Trail amplification', () => {
+    it('config defines BASE_COUNT and MAX_COUNT with amplification headroom', () => {
+      expect(GAME_CONFIG.PADDLE_TRAIL.BASE_COUNT).toBe(12);
+      expect(GAME_CONFIG.PADDLE_TRAIL.MAX_COUNT).toBe(20);
+      expect(GAME_CONFIG.PADDLE_TRAIL.MAX_COUNT).toBeGreaterThan(GAME_CONFIG.PADDLE_TRAIL.BASE_COUNT);
+    });
+
+    it('computeTrailParticleCount returns BASE_COUNT at fresh-serve multiplier (1.0)', () => {
+      scene.isSlowBall = false;
+      scene.timeSinceLastGoal = 0;
+      expect(scene.computeTrailParticleCount()).toBe(GAME_CONFIG.PADDLE_TRAIL.BASE_COUNT);
+    });
+
+    it('computeTrailParticleCount returns MAX_COUNT at ball speed cap', () => {
+      scene.isSlowBall = false;
+      // Push well past the speed ramp cap; clamp should bind to MAX_COUNT.
+      scene.timeSinceLastGoal = 1000;
+      expect(scene.computeTrailParticleCount()).toBe(GAME_CONFIG.PADDLE_TRAIL.MAX_COUNT);
+    });
+
+    it('computeTrailParticleCount scales linearly between base and max', () => {
+      scene.isSlowBall = false;
+      // Halfway through the speed ramp. MAX/INITIAL = 900/420 ≈ 2.143.
+      // Target multiplier ≈ 1 + 0.5*(2.143 - 1) = 1.5715 → t = 5.715 seconds.
+      scene.timeSinceLastGoal = 5.715;
+      const count = scene.computeTrailParticleCount();
+      const midpoint = (GAME_CONFIG.PADDLE_TRAIL.BASE_COUNT + GAME_CONFIG.PADDLE_TRAIL.MAX_COUNT) / 2;
+      // Allow ±1 particle due to rounding.
+      expect(Math.abs(count - midpoint)).toBeLessThanOrEqual(1);
+    });
+
+    it('slower_ball power-up holds trail at BASE_COUNT (never thins below base)', () => {
+      scene.isSlowBall = true;
+      scene.timeSinceLastGoal = 0;
+      expect(scene.computeTrailParticleCount()).toBe(GAME_CONFIG.PADDLE_TRAIL.BASE_COUNT);
+    });
+
+    it('player hit at top-tier speed emits MAX_COUNT particles', () => {
+      scene.timeSinceLastGoal = 1000;
+      const before = scene.add.circle.mock.calls.length;
+      const paddleRight = scene.playerPaddle.x + GAME_CONFIG.PADDLE.WIDTH / 2;
+      createBall(scene, paddleRight, scene.playerPaddle.y, -420, 0);
+      scene.checkPaddleCollisions();
+      const after = scene.add.circle.mock.calls.length;
+      // Impact effect (2) + MAX_COUNT (20) — expected ≥ 22.
+      expect(after - before).toBeGreaterThanOrEqual(GAME_CONFIG.PADDLE_TRAIL.MAX_COUNT);
+    });
+
+    it('every particle uses the configured radius + alpha', () => {
+      scene.timeSinceLastGoal = 0;
+      const before = scene.add.circle.mock.calls.length;
+      const paddleRight = scene.playerPaddle.x + GAME_CONFIG.PADDLE.WIDTH / 2;
+      createBall(scene, paddleRight, scene.playerPaddle.y, -420, 0);
+      scene.checkPaddleCollisions();
+      const trailCalls = scene.add.circle.mock.calls.slice(before).filter(
+        (c: any[]) => c[2] === GAME_CONFIG.PADDLE_TRAIL.PARTICLE_RADIUS,
+      );
+      expect(trailCalls.length).toBe(GAME_CONFIG.PADDLE_TRAIL.BASE_COUNT);
+      for (const c of trailCalls) {
+        expect(c[4]).toBe(GAME_CONFIG.PADDLE_TRAIL.PARTICLE_ALPHA);
       }
     });
   });
