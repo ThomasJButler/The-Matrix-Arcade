@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Phaser from 'phaser';
 import { SnakeGameScene } from './GameScene';
-import { GAME_CONFIG, ACHIEVEMENTS, MATRIX_FUNKINESS, POWERUP_DEFS, GLITCH_RAIN } from '../config';
+import { GAME_CONFIG, ACHIEVEMENTS, DREAD_BUILDUP, MATRIX_FUNKINESS, POWERUP_DEFS, GLITCH_RAIN } from '../config';
 import { MATRIX_COLORS, SOUND_KEYS } from '@/lib/phaser/types';
 
 // Seed JustDown on the global Phaser mock from setup.ts so handleInput tests
@@ -25,6 +25,10 @@ function createMockGraphics() {
   g.clear = vi.fn(self);
   g.generateTexture = vi.fn(self);
   g.setDepth = vi.fn(self);
+  // R84.S4 — dread scanline drives its opacity via setAlpha() rather than a
+  // per-frame redraw; stub it so update paths can be asserted without needing
+  // a real Phaser Graphics instance.
+  g.setAlpha = vi.fn(self);
   g.destroy = vi.fn();
   return g;
 }
@@ -123,6 +127,13 @@ function createTestScene(): SnakeGameScene {
   });
   scene.exposeTestState = vi.fn();
   scene.setupCommonInputs = vi.fn();
+  // R84.S4 — BaseScene audio helpers the dread build-up calls through.
+  // Stubbed so unit tests can assert invocation counts without a real
+  // AudioContext.
+  scene.playBackgroundMusic = vi.fn();
+  scene.stopBackgroundMusic = vi.fn();
+  scene.playAmbientDrone = vi.fn();
+  scene.stopAmbientDrone = vi.fn();
 
   // Phaser APIs
   scene.cameras = { main: { shake: vi.fn(), flash: vi.fn(), setBackgroundColor: vi.fn() } };
@@ -188,6 +199,11 @@ describe('SnakeGameScene', () => {
     (scene as any).snakeHeadGlow = createMockGraphics();
     (scene as any).bonusFoodText = null;
     (scene as any).playAreaRainGroup = { destroy: vi.fn(), getChildren: () => [] };
+    // R84.S4 — seed the dread scanline so update paths that call setAlpha()
+    // never hit undefined. Tests that need to inspect the real graphics just
+    // overwrite this in their own beforeEach.
+    (scene as any).dreadScanlineOverlay = createMockGraphics();
+    (scene as any).dreadShakeTimer = null;
   });
 
   // ─── Initial State ──────────────────────────────────────
@@ -1573,6 +1589,246 @@ describe('SnakeGameScene', () => {
         call('shutdown');
         expect(a.destroy).toHaveBeenCalled();
         expect((scene as any).glitchOverlay).toEqual([]);
+      });
+    });
+  });
+
+  // ─── R84.S4 — Speed-tier dread build-up ───────────────
+
+  describe('R84.S4 — Speed-tier dread build-up', () => {
+    describe('config sanity', () => {
+      it('should start dread strictly below INITIAL_SPEED and end at MIN_SPEED', () => {
+        expect(DREAD_BUILDUP.START_SPEED).toBeLessThan(GAME_CONFIG.INITIAL_SPEED);
+        expect(DREAD_BUILDUP.MAX_SPEED).toBe(GAME_CONFIG.MIN_SPEED);
+        expect(DREAD_BUILDUP.START_SPEED).toBeGreaterThan(DREAD_BUILDUP.MAX_SPEED);
+      });
+
+      it('should cap scanline intensifier below a fully-opaque black overlay', () => {
+        expect(DREAD_BUILDUP.SCANLINE_MAX_ALPHA).toBeGreaterThan(0);
+        expect(DREAD_BUILDUP.SCANLINE_MAX_ALPHA).toBeLessThan(1);
+      });
+
+      it('should stack the dread scanline above the baseline scanline depth', () => {
+        // Baseline scanline overlay is at depth 100 (GameScene.createScanlineOverlay).
+        expect(DREAD_BUILDUP.SCANLINE_DEPTH).toBeGreaterThan(100);
+      });
+
+      it('should keep the shake amplitude well below the death shake (0.012)', () => {
+        expect(DREAD_BUILDUP.SHAKE_MAX_INTENSITY).toBeGreaterThan(0);
+        expect(DREAD_BUILDUP.SHAKE_MAX_INTENSITY).toBeLessThan(0.012);
+      });
+
+      it('should space the shake loop at a cadence perceptible but not jittery', () => {
+        expect(DREAD_BUILDUP.SHAKE_INTERVAL_MS).toBeGreaterThanOrEqual(250);
+        expect(DREAD_BUILDUP.SHAKE_DURATION_MS).toBeLessThan(DREAD_BUILDUP.SHAKE_INTERVAL_MS);
+      });
+
+      it('should keep the drone volume subtle so it reads as felt, not mixed', () => {
+        expect(DREAD_BUILDUP.DRONE_VOLUME).toBeGreaterThan(0);
+        expect(DREAD_BUILDUP.DRONE_VOLUME).toBeLessThan(0.25);
+      });
+    });
+
+    describe('computeDreadIntensity()', () => {
+      it('should return 0 above START_SPEED (pre-dread tier)', () => {
+        expect(call('computeDreadIntensity', GAME_CONFIG.INITIAL_SPEED)).toBe(0);
+        expect(call('computeDreadIntensity', DREAD_BUILDUP.START_SPEED + 1)).toBe(0);
+      });
+
+      it('should clamp to 0 at exactly START_SPEED (threshold edge)', () => {
+        expect(call('computeDreadIntensity', DREAD_BUILDUP.START_SPEED)).toBe(0);
+      });
+
+      it('should return 1 at or below MAX_SPEED (fully-peaked tier)', () => {
+        expect(call('computeDreadIntensity', DREAD_BUILDUP.MAX_SPEED)).toBe(1);
+        expect(call('computeDreadIntensity', DREAD_BUILDUP.MAX_SPEED - 10)).toBe(1);
+      });
+
+      it('should ramp linearly between START_SPEED and MAX_SPEED', () => {
+        const mid = (DREAD_BUILDUP.START_SPEED + DREAD_BUILDUP.MAX_SPEED) / 2;
+        expect(call('computeDreadIntensity', mid)).toBeCloseTo(0.5, 5);
+      });
+    });
+
+    describe('resetState() zeroing', () => {
+      it('should zero dread flag + intensity on restart', () => {
+        (scene as any).dreadActive = true;
+        (scene as any).dreadIntensity = 0.75;
+        call('resetState');
+        expect((scene as any).dreadActive).toBe(false);
+        expect((scene as any).dreadIntensity).toBe(0);
+      });
+    });
+
+    describe('updateDreadBuildup() — threshold transitions', () => {
+      it('should leave dread inactive while speed stays above the threshold', () => {
+        (scene as any).currentSpeed = GAME_CONFIG.INITIAL_SPEED;
+        call('updateDreadBuildup');
+        expect((scene as any).dreadActive).toBe(false);
+        expect((scene as any).dreadIntensity).toBe(0);
+        expect((scene as any).playAmbientDrone).not.toHaveBeenCalled();
+      });
+
+      it('should activate the dread cohort once speed crosses START_SPEED', () => {
+        (scene as any).currentSpeed = DREAD_BUILDUP.START_SPEED - 5;
+        call('updateDreadBuildup');
+        expect((scene as any).dreadActive).toBe(true);
+        expect((scene as any).dreadIntensity).toBeGreaterThan(0);
+        expect((scene as any).playAmbientDrone).toHaveBeenCalledWith({
+          volume: DREAD_BUILDUP.DRONE_VOLUME,
+        });
+      });
+
+      it('should tear down the cohort when speed climbs back above START_SPEED', () => {
+        (scene as any).currentSpeed = DREAD_BUILDUP.MAX_SPEED;
+        call('updateDreadBuildup');
+        expect((scene as any).dreadActive).toBe(true);
+        // Slow power-up bumps speed back into the safe zone.
+        (scene as any).currentSpeed = GAME_CONFIG.INITIAL_SPEED;
+        call('updateDreadBuildup');
+        expect((scene as any).dreadActive).toBe(false);
+        expect((scene as any).stopAmbientDrone).toHaveBeenCalledTimes(1);
+      });
+
+      it('should fire startDrone exactly once per activation edge (not per tick)', () => {
+        (scene as any).currentSpeed = DREAD_BUILDUP.MAX_SPEED;
+        call('updateDreadBuildup');
+        call('updateDreadBuildup');
+        call('updateDreadBuildup');
+        expect((scene as any).playAmbientDrone).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    describe('updateDreadBuildup() — scanline ramp', () => {
+      it('should scale dread scanline alpha proportional to intensity', () => {
+        const overlay = createMockGraphics();
+        (scene as any).dreadScanlineOverlay = overlay;
+        (scene as any).currentSpeed = DREAD_BUILDUP.MAX_SPEED;
+        call('updateDreadBuildup');
+        expect(overlay.setAlpha).toHaveBeenLastCalledWith(DREAD_BUILDUP.SCANLINE_MAX_ALPHA);
+      });
+
+      it('should zero scanline alpha when below threshold', () => {
+        const overlay = createMockGraphics();
+        (scene as any).dreadScanlineOverlay = overlay;
+        (scene as any).currentSpeed = GAME_CONFIG.INITIAL_SPEED;
+        call('updateDreadBuildup');
+        expect(overlay.setAlpha).toHaveBeenLastCalledWith(0);
+      });
+    });
+
+    describe('startDreadShakeLoop()', () => {
+      it('should register a looping TimerEvent at SHAKE_INTERVAL_MS', () => {
+        const timer = { destroy: vi.fn(), remove: vi.fn() };
+        (scene as any).time.addEvent = vi.fn(() => timer);
+        call('startDreadShakeLoop');
+        expect((scene as any).time.addEvent).toHaveBeenCalledTimes(1);
+        const cfg = (scene as any).time.addEvent.mock.calls[0][0];
+        expect(cfg.delay).toBe(DREAD_BUILDUP.SHAKE_INTERVAL_MS);
+        expect(cfg.loop).toBe(true);
+        expect(typeof cfg.callback).toBe('function');
+      });
+
+      it('should scale shake amplitude by current dread intensity', () => {
+        let capturedCallback: (() => void) | null = null;
+        (scene as any).time.addEvent = vi.fn((cfg: any) => {
+          capturedCallback = cfg.callback;
+          return { destroy: vi.fn() };
+        });
+        (scene as any).dreadActive = true;
+        (scene as any).dreadIntensity = 0.5;
+        call('startDreadShakeLoop');
+        capturedCallback?.();
+        expect((scene as any).cameras.main.shake).toHaveBeenCalledWith(
+          DREAD_BUILDUP.SHAKE_DURATION_MS,
+          DREAD_BUILDUP.SHAKE_MAX_INTENSITY * 0.5,
+        );
+      });
+
+      it('should no-op if the callback fires after dread deactivates (race guard)', () => {
+        let capturedCallback: (() => void) | null = null;
+        (scene as any).time.addEvent = vi.fn((cfg: any) => {
+          capturedCallback = cfg.callback;
+          return { destroy: vi.fn() };
+        });
+        (scene as any).dreadActive = false;
+        call('startDreadShakeLoop');
+        capturedCallback?.();
+        expect((scene as any).cameras.main.shake).not.toHaveBeenCalled();
+      });
+
+      it('should not register a second timer if one is already running', () => {
+        (scene as any).dreadShakeTimer = { destroy: vi.fn() };
+        call('startDreadShakeLoop');
+        expect((scene as any).time.addEvent).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('stopDreadShakeLoop()', () => {
+      it('should destroy and null the timer', () => {
+        const timer = { destroy: vi.fn() };
+        (scene as any).dreadShakeTimer = timer;
+        call('stopDreadShakeLoop');
+        expect(timer.destroy).toHaveBeenCalled();
+        expect((scene as any).dreadShakeTimer).toBeNull();
+      });
+
+      it('should be a safe no-op when no timer is active', () => {
+        (scene as any).dreadShakeTimer = null;
+        expect(() => call('stopDreadShakeLoop')).not.toThrow();
+      });
+    });
+
+    describe('teardownDreadBuildup()', () => {
+      it('should stop the shake loop + drone and destroy the overlay', () => {
+        const timer = { destroy: vi.fn() };
+        const overlay = createMockGraphics();
+        (scene as any).dreadShakeTimer = timer;
+        (scene as any).dreadScanlineOverlay = overlay;
+        (scene as any).dreadActive = true;
+        call('teardownDreadBuildup');
+        expect(timer.destroy).toHaveBeenCalled();
+        expect((scene as any).stopAmbientDrone).toHaveBeenCalledTimes(1);
+        expect(overlay.destroy).toHaveBeenCalled();
+        expect((scene as any).dreadIntensity).toBe(0);
+        expect((scene as any).dreadActive).toBe(false);
+      });
+
+      it('should skip stopAmbientDrone when dread was never active (no spurious stop)', () => {
+        (scene as any).dreadActive = false;
+        call('teardownDreadBuildup');
+        expect((scene as any).stopAmbientDrone).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('shutdown lifecycle', () => {
+      it('should call teardownDreadBuildup on scene shutdown', () => {
+        const timer = { destroy: vi.fn() };
+        const overlay = createMockGraphics();
+        (scene as any).dreadShakeTimer = timer;
+        (scene as any).dreadScanlineOverlay = overlay;
+        (scene as any).dreadActive = true;
+        (scene as any).moveTimer = null;
+        (scene as any).fieldPowerUp = null;
+        (scene as any).powerUpIndicators = new Map();
+        (scene as any).powerUpLegend = [];
+        (scene as any).achievementsUnlocked = new Set();
+        call('shutdown');
+        expect(timer.destroy).toHaveBeenCalled();
+        expect(overlay.destroy).toHaveBeenCalled();
+        expect((scene as any).stopAmbientDrone).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    describe('getTestState() exposure', () => {
+      it('should surface dreadActive + dreadIntensity for Playwright hooks', () => {
+        (scene as any).dreadActive = true;
+        (scene as any).dreadIntensity = 0.72;
+        const state = call('getTestState');
+        expect(state).toMatchObject({
+          dreadActive: true,
+          dreadIntensity: 0.72,
+        });
       });
     });
   });
