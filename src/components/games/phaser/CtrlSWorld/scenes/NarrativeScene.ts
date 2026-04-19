@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
 import { MATRIX_COLORS, MATRIX_FONTS } from '../../../../../lib/phaser/types';
 import { CTRLS_SCENE_KEYS, GAME_CONFIG, CHARACTERS, PORTRAIT_CONFIG, PARALLAX_CONFIG, LAYOUT, CHARACTER_TICK_MAP, NARRATOR_TICK, STINGER_KEYS, type CharacterDef } from '../config';
+import { CHARACTER_PORTRAITS } from '../asciiArt';
 import { TypewriterEngine } from '../engine/TypewriterEngine';
 import { TerminalEntryState } from '../engine/TerminalEntryState';
 import {
@@ -1572,19 +1573,41 @@ export class CtrlSNarrativeScene extends BaseScene {
       this.portraitContainer.add(this.portraitGlitchGraphics);
       this.portraitGlitchTimer = 0;
     } else {
-      this.portraitMonogram = this.add.text(
-        Math.round(size / 2),
-        Math.round(size / 2),
-        character.initial,
-        {
-          fontFamily: MATRIX_FONTS.PRIMARY,
-          fontSize: '28px',
-          color: character.colourHex,
-        },
-      );
-      this.portraitMonogram.setOrigin(0.5);
-      this.portraitMonogram.setResolution(TEXT_RESOLUTION);
-      this.portraitContainer.add(this.portraitMonogram);
+      // R83.CTRLS.28 — ASCII portrait fallback. Replaces the single-letter
+      // placeholder (the "red-P bug" for Protector) with a proper ASCII sigil
+      // when CHARACTER_PORTRAITS contains art for this character. The art is
+      // rendered at 6px monospace, centred in the portrait box. If no ASCII
+      // portrait exists for this character, fall back to the initial letter.
+      const asciiPortrait = CHARACTER_PORTRAITS[character.id as keyof typeof CHARACTER_PORTRAITS];
+      if (asciiPortrait) {
+        this.portraitMonogram = this.add.text(
+          Math.round(size / 2),
+          Math.round(size / 2),
+          asciiPortrait,
+          {
+            fontFamily: MATRIX_FONTS.MONO,
+            fontSize: '6px',
+            color: character.colourHex,
+          },
+        );
+        this.portraitMonogram.setOrigin(0.5);
+        this.portraitMonogram.setResolution(TEXT_RESOLUTION);
+        this.portraitContainer.add(this.portraitMonogram);
+      } else {
+        this.portraitMonogram = this.add.text(
+          Math.round(size / 2),
+          Math.round(size / 2),
+          character.initial,
+          {
+            fontFamily: MATRIX_FONTS.PRIMARY,
+            fontSize: '28px',
+            color: character.colourHex,
+          },
+        );
+        this.portraitMonogram.setOrigin(0.5);
+        this.portraitMonogram.setResolution(TEXT_RESOLUTION);
+        this.portraitContainer.add(this.portraitMonogram);
+      }
     }
 
     this.portraitName = this.add.text(
