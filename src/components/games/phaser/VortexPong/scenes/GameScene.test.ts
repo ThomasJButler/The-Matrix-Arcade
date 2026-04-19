@@ -30,6 +30,34 @@ function collectPrototypeMethods(cls: any): string[] {
   return [...methods];
 }
 
+// R84.CI-9 — minimal Arc mock for the effect-circle pool tests. Mirrors the
+// Snake CI-8 createMockCircle helper: full chainable setters plus readable
+// isActive/isVisible/radius/scale/fillColor/fillAlpha fields so acquire-
+// retire round-trip specs can assert the re-dress contract end-to-end.
+function createMockCircle() {
+  const c: Record<string, any> = {};
+  const self = () => c;
+  c.setStrokeStyle = vi.fn(self);
+  c.setFillStyle = vi.fn((col: number, a?: number) => { c.fillColor = col; c.fillAlpha = a; return c; });
+  c.setAlpha = vi.fn((a: number) => { c.alpha = a; return c; });
+  c.setActive = vi.fn((v: boolean) => { c.isActive = v; return c; });
+  c.setVisible = vi.fn((v: boolean) => { c.isVisible = v; return c; });
+  c.setPosition = vi.fn((x: number, y: number) => { c.x = x; c.y = y; return c; });
+  c.setRadius = vi.fn((r: number) => { c.radius = r; return c; });
+  c.setScale = vi.fn((s: number) => { c.scale = s; return c; });
+  c.destroy = vi.fn();
+  c.x = 0;
+  c.y = 0;
+  c.radius = 0;
+  c.fillColor = 0;
+  c.fillAlpha = 0;
+  c.alpha = 1;
+  c.isActive = true;
+  c.isVisible = true;
+  c.scale = 1;
+  return c;
+}
+
 function createTestScene() {
   const scene = new VortexPongGameScene() as any;
 
@@ -152,13 +180,30 @@ function createTestScene() {
       };
       return s;
     }),
-    circle: vi.fn().mockImplementation((x: number, y: number, r: number) => ({
-      x, y, radius: r,
-      setStrokeStyle: vi.fn(),
-      setScale: vi.fn(),
-      setAlpha: vi.fn(),
-      destroy: vi.fn(),
-    })),
+    // R84.CI-9 — circle mock extended with the chainable setters used by
+    // the effect-circle pool (setActive/setVisible/setPosition/setRadius/
+    // setFillStyle). The previous shape (x/y/radius + setStrokeStyle/
+    // setScale/setAlpha/destroy) is preserved verbatim so existing specs
+    // that inspect those setters keep working; new state mutators let
+    // pool round-trip tests read back the re-dressed values.
+    circle: vi.fn().mockImplementation((x: number, y: number, r: number, color?: number, alpha?: number) => {
+      const c: any = {
+        x, y, radius: r, fillColor: color, fillAlpha: alpha,
+        isActive: true, isVisible: true, scale: 1, alpha: alpha ?? 1,
+        setStrokeStyle: vi.fn(function (this: any) { return this; }),
+        setFillStyle: vi.fn(function (this: any, col: number, a?: number) {
+          this.fillColor = col; this.fillAlpha = a; return this;
+        }),
+        setActive: vi.fn(function (this: any, v: boolean) { this.isActive = v; return this; }),
+        setVisible: vi.fn(function (this: any, v: boolean) { this.isVisible = v; return this; }),
+        setPosition: vi.fn(function (this: any, nx: number, ny: number) { this.x = nx; this.y = ny; return this; }),
+        setRadius: vi.fn(function (this: any, nr: number) { this.radius = nr; return this; }),
+        setScale: vi.fn(function (this: any, s: number) { this.scale = s; return this; }),
+        setAlpha: vi.fn(function (this: any, a: number) { this.alpha = a; return this; }),
+        destroy: vi.fn(),
+      };
+      return c;
+    }),
     // R84.P5 — fresh text instance per call so per-line state (alpha/depth/
     // origin/style) on the 4-row power-up legend can be asserted separately.
     text: vi.fn().mockImplementation((x: number, y: number, content?: string, style?: any) => {
@@ -2256,6 +2301,247 @@ describe('VortexPongGameScene', () => {
       scene.playerScore = GAME_CONFIG.WIN_SCORE;
       scene.checkMatchPointAnnouncement('player');
       expect(matchPointEmits(scene)).toEqual([]);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // R84.CI-9 — effect-circle object pool
+  // -----------------------------------------------------------------------
+  //
+  // Pins the same contract Snake CI-8 shipped for its Arc pool:
+  //   1. retireEffectCircle parks instead of destroying (hide + push + clear
+  //      stroke so a pooled ring doesn't leak a stroke into a pooled trail
+  //      particle).
+  //   2. acquireEffectCircle pops from the pool when available, re-dresses
+  //      the arc, and falls back to this.add.circle when empty.
+  //   3. drainEffectCirclePool hard-destroys every parked arc and empties
+  //      the pool — called from shutdown so nothing leaks into the next
+  //      scene.restart() cycle.
+  // Plus round-trip tripwire specs: a second paddle-trail / impact after
+  // the first retires issues ZERO new this.add.circle calls. This is the
+  // load-bearing regression guard — a future refactor that reverts pooling
+  // breaks these specs at unit-test speed rather than waiting on a frame-
+  // budget regression in production.
+  describe('R84.CI-9 — effect-circle object pool', () => {
+    let originalMatchMedia: typeof window.matchMedia;
+
+    beforeEach(() => {
+      originalMatchMedia = window.matchMedia;
+      // Reduced-motion off so createPaddleHitTrail runs its full path —
+      // otherwise the gate early-returns and masks the pool contract.
+      // @ts-expect-error overriding for test
+      window.matchMedia = vi.fn().mockReturnValue({ matches: false });
+      scene.effectCirclePool = [];
+    });
+
+    afterEach(() => {
+      // @ts-expect-error restoring overridden global
+      window.matchMedia = originalMatchMedia;
+    });
+
+    describe('retireEffectCircle', () => {
+      it('hides the arc via setActive(false) + setVisible(false) and parks it in the pool', () => {
+        const arc = createMockCircle();
+        scene.retireEffectCircle(arc);
+        expect(arc.setActive).toHaveBeenCalledWith(false);
+        expect(arc.setVisible).toHaveBeenCalledWith(false);
+        expect(scene.effectCirclePool).toContain(arc);
+      });
+
+      it('does not destroy the retired arc — destroy is reserved for shutdown drain', () => {
+        const arc = createMockCircle();
+        scene.retireEffectCircle(arc);
+        expect(arc.destroy).not.toHaveBeenCalled();
+      });
+
+      it('clears any prior stroke so a pool-acquired particle does not inherit a retired ring stroke', () => {
+        const arc = createMockCircle();
+        scene.retireEffectCircle(arc);
+        // Bare `setStrokeStyle()` call strips the stroke — Phaser Arc treats
+        // missing args as "strip stroke entirely", matches Snake CI-8.
+        expect(arc.setStrokeStyle).toHaveBeenCalledWith();
+      });
+    });
+
+    describe('acquireEffectCircle', () => {
+      it('falls back to this.add.circle when the pool is empty', () => {
+        const arc = scene.acquireEffectCircle(10, 20, 3, 0xff00ff, 0.9);
+        expect(scene.add.circle).toHaveBeenCalledWith(10, 20, 3, 0xff00ff, 0.9);
+        expect(arc).toBeTruthy();
+      });
+
+      it('pops a pooled arc when available and skips this.add.circle', () => {
+        const parked = createMockCircle();
+        scene.effectCirclePool = [parked];
+        scene.add.circle.mockClear();
+        const arc = scene.acquireEffectCircle(42, 43, 5, 0x00ff00, 0.8);
+        expect(arc).toBe(parked);
+        expect(scene.add.circle).not.toHaveBeenCalled();
+        expect(scene.effectCirclePool).toHaveLength(0);
+      });
+
+      it('re-dresses a pooled arc (reactivate + reposition + re-style + reset scale)', () => {
+        const parked = createMockCircle();
+        scene.effectCirclePool = [parked];
+        scene.acquireEffectCircle(42, 43, 5, 0x00ff00, 0.8);
+        expect(parked.setActive).toHaveBeenCalledWith(true);
+        expect(parked.setVisible).toHaveBeenCalledWith(true);
+        expect(parked.setPosition).toHaveBeenCalledWith(42, 43);
+        expect(parked.setRadius).toHaveBeenCalledWith(5);
+        expect(parked.setFillStyle).toHaveBeenCalledWith(0x00ff00, 0.8);
+        expect(parked.setAlpha).toHaveBeenCalledWith(0.8);
+        expect(parked.setScale).toHaveBeenCalledWith(1);
+      });
+    });
+
+    describe('drainEffectCirclePool', () => {
+      it('destroys every parked arc and empties the pool', () => {
+        const a = createMockCircle();
+        const b = createMockCircle();
+        scene.effectCirclePool = [a, b];
+        scene.drainEffectCirclePool();
+        expect(a.destroy).toHaveBeenCalled();
+        expect(b.destroy).toHaveBeenCalled();
+        expect(scene.effectCirclePool).toHaveLength(0);
+      });
+
+      it('is safe to call when the pool is already empty', () => {
+        scene.effectCirclePool = [];
+        expect(() => scene.drainEffectCirclePool()).not.toThrow();
+        expect(scene.effectCirclePool).toHaveLength(0);
+      });
+    });
+
+    describe('integration — createPaddleHitTrail routes through the pool', () => {
+      it('on tween complete every trail particle is parked (not destroyed) in effectCirclePool', () => {
+        scene.createPaddleHitTrail(100, 200, 0x00ff00);
+        const tweens = scene.tweens.add.mock.calls as any[][];
+        const particles = scene.add.circle.mock.results.map((r: any) => r.value);
+        // Drive every tween's onComplete — every particle should be pooled.
+        tweens.forEach((t) => t[0].onComplete());
+        particles.forEach((p: any) => expect(p.destroy).not.toHaveBeenCalled());
+        particles.forEach((p: any) => expect(scene.effectCirclePool).toContain(p));
+        expect(scene.effectCirclePool).toHaveLength(particles.length);
+      });
+    });
+
+    describe('integration — addImpactEffect routes through the pool', () => {
+      it('cap-overflow retires the oldest ring + glow (not destroyed) and the next impact reuses them via the pool', () => {
+        // Fill to cap (10).
+        for (let i = 0; i < GAME_CONFIG.MAX_IMPACT_EFFECTS; i++) {
+          scene.addImpactEffect(i * 10, 100, 5);
+        }
+        scene.effectCirclePool = []; // reset so only cap-overflow arcs transit here
+        const oldestRing = scene.impactEffects[0].ring;
+        const oldestGlow = scene.impactEffects[0].glow;
+        const addCallsBefore = scene.add.circle.mock.calls.length;
+        // One more triggers the cap-overflow branch — the oldest is retired
+        // to the pool (not destroyed), then the new impact's acquire pops
+        // straight from the pool so zero new add.circle calls fire.
+        scene.addImpactEffect(999, 999, 5);
+        const addCallsAfter = scene.add.circle.mock.calls.length;
+        expect(oldestRing.destroy).not.toHaveBeenCalled();
+        expect(oldestGlow.destroy).not.toHaveBeenCalled();
+        // The newest impact's visuals are the retired oldest, re-dressed.
+        const newest = scene.impactEffects[scene.impactEffects.length - 1];
+        // Set contains both — order within the pool is LIFO so one of
+        // ring/glow pairs to each of the acquisitions, but both newest
+        // values must come from the retired set.
+        const retiredSet = new Set([oldestRing, oldestGlow]);
+        expect(retiredSet.has(newest.ring)).toBe(true);
+        expect(retiredSet.has(newest.glow)).toBe(true);
+        // Load-bearing — cap-overflow recycles the arcs rather than
+        // allocating fresh ones.
+        expect(addCallsAfter).toBe(addCallsBefore);
+      });
+    });
+
+    describe('integration — updateImpactEffects life-expiry routes through the pool', () => {
+      it('expired effects retire their ring and glow to the pool (no destroy)', () => {
+        scene.addImpactEffect(100, 200, 10);
+        const ring = scene.impactEffects[0].ring;
+        const glow = scene.impactEffects[0].glow;
+        scene.impactEffects[0].life = 0.01; // force expiry on next tick
+        scene.updateImpactEffects(0.1);
+        expect(ring.destroy).not.toHaveBeenCalled();
+        expect(glow.destroy).not.toHaveBeenCalled();
+        expect(scene.effectCirclePool).toContain(ring);
+        expect(scene.effectCirclePool).toContain(glow);
+      });
+    });
+
+    describe('round-trip — spawn → retire → spawn reuses pooled arcs', () => {
+      it('second createPaddleHitTrail after the first retires issues zero new add.circle calls', () => {
+        // First trail — every particle fresh-allocates via the fallback
+        // path (pool empty).
+        scene.createPaddleHitTrail(100, 200, 0x00ff00);
+        const firstTweens = scene.tweens.add.mock.calls as any[][];
+        firstTweens.forEach((t) => t[0].onComplete()); // retire all
+        const addCallsAfterFirst = scene.add.circle.mock.calls.length;
+
+        // Second trail with the same count — pool now has N parked arcs,
+        // so zero new this.add.circle calls. **Load-bearing tripwire** —
+        // matches Snake CI-8's round-trip pin. A refactor that reverts
+        // pooling breaks this at unit-test speed.
+        scene.createPaddleHitTrail(500, 600, 0xff00ff);
+        const addCallsAfterSecond = scene.add.circle.mock.calls.length;
+        expect(addCallsAfterSecond).toBe(addCallsAfterFirst);
+      });
+
+      it('second addImpactEffect after a life-expiry retires the pool issues zero new add.circle calls', () => {
+        // First impact — 2 fresh allocations (ring + glow).
+        scene.addImpactEffect(100, 200, 10);
+        scene.impactEffects[0].life = 0.01;
+        scene.updateImpactEffects(0.1); // retire both
+        const addCallsAfterFirst = scene.add.circle.mock.calls.length;
+        expect(addCallsAfterFirst).toBe(2);
+
+        // Second impact — pool has 2 parked, so zero new allocations.
+        scene.addImpactEffect(500, 600, 15);
+        const addCallsAfterSecond = scene.add.circle.mock.calls.length;
+        expect(addCallsAfterSecond).toBe(2); // unchanged — tripwire
+      });
+    });
+
+    describe('shutdown drains the pool', () => {
+      it('shutdown calls drainEffectCirclePool so parked arcs do not leak across scene.restart()', () => {
+        // Pre-seed two parked arcs. Stub the upstream shutdown helpers
+        // Pong's shutdown touches so the pool drain is what's pinned here.
+        const a = createMockCircle();
+        const b = createMockCircle();
+        scene.effectCirclePool = [a, b];
+        scene.rainGroup = undefined;
+        scene.powerUpTimer = undefined;
+        scene.activePowerUps = new Map();
+        scene.balls = [];
+        scene.fieldPowerUps = [];
+        scene.impactEffects = [];
+        scene.powerUpIndicators = [];
+        scene.vortexBackdrop = undefined;
+        scene.scanlineOverlay = undefined;
+        scene.playerPaddleGlow = undefined;
+        scene.aiPaddleGlow = undefined;
+        scene.powerUpLegendHideTimer = undefined;
+        scene.powerUpLegend = [];
+        // BaseScene.shutdown reads this.input.keyboard.removeAllKeys.
+        scene.input.keyboard.removeAllKeys = vi.fn();
+        Object.setPrototypeOf(scene, VortexPongGameScene.prototype);
+        // Stub the BaseScene super.shutdown() chain — it's invoked but
+        // Phaser internals would otherwise fail on our mock scene.
+        const baseShutdownProto = Object.getPrototypeOf(VortexPongGameScene.prototype);
+        const originalSuperShutdown = baseShutdownProto.shutdown;
+        baseShutdownProto.shutdown = vi.fn();
+        const drainSpy = vi.spyOn(scene, 'drainEffectCirclePool');
+        try {
+          scene.shutdown();
+        } finally {
+          baseShutdownProto.shutdown = originalSuperShutdown;
+        }
+        expect(drainSpy).toHaveBeenCalled();
+        expect(a.destroy).toHaveBeenCalled();
+        expect(b.destroy).toHaveBeenCalled();
+        expect(scene.effectCirclePool).toHaveLength(0);
+      });
     });
   });
 });
