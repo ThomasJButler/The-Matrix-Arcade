@@ -55,7 +55,6 @@ import { useSoundSystem } from './hooks/useSoundSystem';
 import { useAchievementManager } from './hooks/useAchievementManager';
 import { useMobileDetection } from './hooks/useMobileDetection';
 import { useSaveSystem } from './hooks/useSaveSystem';
-import { GameStateProvider } from './contexts/GameStateContext';
 import About from './components/About';
 import { Scoreboard } from './components/scoreboard/Scoreboard';
 import { AttractMode } from './components/scoreboard/AttractMode';
@@ -509,7 +508,7 @@ function App() {
   }, [selectedGame, isPlaying, games]);
 
   return (
-    <GameStateProvider>
+    <>
       {/* Mobile Warning */}
       {showMobileWarning && <MobileWarning />}
       
@@ -814,7 +813,7 @@ function App() {
         /* Removed conflicting game-container styles that were causing nesting issues */
       `}</style>
     </div>
-    </GameStateProvider>
+    </>
   );
 }
 

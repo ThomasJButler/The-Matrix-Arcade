@@ -5,19 +5,18 @@
  * canvas: puzzles and inventory are Phaser scenes (see PuzzleScene, InventoryScene),
  * no React overlays live inside the game container.
  *
- * React's remaining responsibilities:
- *  - Mount the Phaser game and bridge props via Phaser registry
- *  - Listen for game events and run save-system side effects
- *  - Sync GameStateContext → Phaser registry (so scenes read live progress)
+ * R83.CTRLS.8: save system removed. CTRL-S is a linear session-only playthrough —
+ * progress lives in component state and is torn down when the portal closes. No
+ * persistence, no migration, no "Continue" entry point.
  */
 
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Phaser from 'phaser';
 import { PhaserGame } from '../../../../lib/phaser/PhaserGame';
 import { PHASER_CONFIG, CTRLS_REGISTRY_KEYS } from './config';
 import type { GameEvent } from '../../../../lib/phaser/types';
 import { getItemRewardsForPuzzle, getItemById } from '../../../../data/items';
-import { useGameState } from '../../../../contexts/GameStateContext';
+import { createDefaultCtrlSSessionState, type CtrlSSessionState } from './types';
 import { useSoundSystem } from '../../../../hooks/useSoundSystem';
 
 interface CtrlSWorldPhaserProps {
@@ -40,26 +39,26 @@ export default function CtrlSWorldPhaser({
   const gameInstanceRef = useRef<Phaser.Game | null>(null);
   const activePuzzleRef = useRef<ActivePuzzleRef | null>(null);
   const { playSFX } = useSoundSystem();
-  const gameState = useGameState();
+  const [session, setSession] = useState<CtrlSSessionState>(createDefaultCtrlSSessionState);
 
   const handleGameRef = useCallback((game: Phaser.Game | null) => {
     gameInstanceRef.current = game;
   }, []);
 
-  // Sync GameStateContext → Phaser registry so scenes read live progress + inventory.
+  // Mirror session state into the Phaser registry so scenes read live progress.
   useEffect(() => {
     const game = gameInstanceRef.current;
     if (!game) return;
 
-    game.registry.set(CTRLS_REGISTRY_KEYS.COMPLETED_CHAPTERS, gameState.state.completedChapters);
-    game.registry.set(CTRLS_REGISTRY_KEYS.COMPLETED_PUZZLES, gameState.state.completedPuzzles);
-    game.registry.set(CTRLS_REGISTRY_KEYS.CURRENT_CHAPTER, gameState.state.currentChapter);
-    game.registry.set(CTRLS_REGISTRY_KEYS.INVENTORY, gameState.state.inventory);
+    game.registry.set(CTRLS_REGISTRY_KEYS.COMPLETED_CHAPTERS, session.completedChapters);
+    game.registry.set(CTRLS_REGISTRY_KEYS.COMPLETED_PUZZLES, session.completedPuzzles);
+    game.registry.set(CTRLS_REGISTRY_KEYS.CURRENT_CHAPTER, session.currentChapter);
+    game.registry.set(CTRLS_REGISTRY_KEYS.INVENTORY, session.inventory);
   }, [
-    gameState.state.completedChapters,
-    gameState.state.completedPuzzles,
-    gameState.state.currentChapter,
-    gameState.state.inventory,
+    session.completedChapters,
+    session.completedPuzzles,
+    session.currentChapter,
+    session.inventory,
   ]);
 
   const handleGameEvent = useCallback((event: GameEvent) => {
@@ -91,29 +90,39 @@ export default function CtrlSWorldPhaser({
       }
 
       if (data.success && active) {
-        gameState.completePuzzle(active.puzzleId);
-
         const rewardIds = getItemRewardsForPuzzle(active.puzzleId);
-        for (const itemId of rewardIds) {
-          const itemData = getItemById(itemId);
-          if (itemData) {
-            gameState.addItem({ ...itemData, quantity: 1, acquiredAt: new Date().toISOString() });
-          }
-        }
+        const rewards = rewardIds
+          .map((id) => getItemById(id))
+          .filter((item): item is NonNullable<ReturnType<typeof getItemById>> => Boolean(item))
+          .map((item) => ({ ...item, quantity: 1, acquiredAt: new Date().toISOString() }));
 
-        gameState.saveGame();
+        setSession((prev) => ({
+          ...prev,
+          completedPuzzles: prev.completedPuzzles.includes(active.puzzleId)
+            ? prev.completedPuzzles
+            : [...prev.completedPuzzles, active.puzzleId],
+          inventory: rewards.length > 0 ? [...prev.inventory, ...rewards] : prev.inventory,
+        }));
       }
     } else if (data.action === 'chapterComplete' && data.chapterIndex !== undefined) {
-      gameState.completeChapter(data.chapterIndex);
-      gameState.saveGame();
+      const chapterIndex = data.chapterIndex;
+      setSession((prev) => ({
+        ...prev,
+        completedChapters: prev.completedChapters.includes(chapterIndex)
+          ? prev.completedChapters
+          : [...prev.completedChapters, chapterIndex],
+      }));
     } else if (data.action === 'chapterLaunch' && data.chapterIndex !== undefined) {
-      gameState.setChapter(data.chapterIndex);
-      gameState.saveGame();
+      const chapterIndex = data.chapterIndex;
+      setSession((prev) => ({ ...prev, currentChapter: chapterIndex }));
     } else if (data.action === 'choice' && data.choiceId && data.label) {
-      gameState.makeChoice(data.choiceId, data.label);
-      gameState.saveGame();
+      const { choiceId, label } = data;
+      setSession((prev) => ({
+        ...prev,
+        storyChoices: { ...prev.storyChoices, [choiceId]: label },
+      }));
     }
-  }, [gameState, isMuted, playSFX]);
+  }, [isMuted, playSFX]);
 
   return (
     <div className="relative w-full h-full bg-black">

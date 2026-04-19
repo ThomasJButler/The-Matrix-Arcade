@@ -855,29 +855,6 @@ describe('useSaveSystem', () => {
       expect(migrated.globalStats.totalPlayTime).toBe(1000);
     });
 
-    it('adds missing ctrlSWorld lifelineData and ctrlSGameState', () => {
-      const oldData: GlobalSaveData = {
-        version: '1.0.0',
-        games: {
-          snakeClassic: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
-          vortexPong: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
-          matrixCloud: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
-          ctrlSWorld: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
-          matrixInvaders: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() },
-          metris: { highScore: 0, level: 1, achievements: [], stats: { gamesPlayed: 0, totalScore: 0 }, lastPlayed: Date.now() }
-        },
-        globalStats: { totalPlayTime: 0, favoriteGame: '', globalAchievements: [], firstPlayDate: Date.now() },
-        settings: { autoSave: true }
-      };
-
-      const migrated = migrateSaveData(oldData);
-
-      expect(migrated.games.ctrlSWorld.lifelineData).toBeDefined();
-      expect(migrated.games.ctrlSWorld.lifelineData?.freeAnswersRemaining).toBe(10);
-      expect(migrated.games.ctrlSWorld.ctrlSGameState).toBeDefined();
-      expect(migrated.games.ctrlSWorld.ctrlSGameState?.currentChapter).toBe(1);
-    });
-
     it('adds missing playDates array to globalStats', () => {
       const oldData = {
         version: '1.0.0',

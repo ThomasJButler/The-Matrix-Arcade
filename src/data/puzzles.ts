@@ -1,4 +1,4 @@
-import { PuzzleData } from '../components/ui/PuzzleModal';
+import type { PuzzleData } from '../components/games/phaser/CtrlSWorld/types';
 
 // ============================================================================
 // PUZZLE DATABASE
