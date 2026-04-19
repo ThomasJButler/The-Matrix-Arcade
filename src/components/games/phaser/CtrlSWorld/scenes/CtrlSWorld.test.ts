@@ -42,6 +42,17 @@ describe('CTRL-S World Phaser — Config', () => {
     expect(GAME_CONFIG.CHAPTERS.TOTAL).toBe(6);
   });
 
+  it('explicitly opts out of WebGL mipmap generation and context PMA (R83.CTRLS.11)', () => {
+    // CTRL-S loaded textures are all NPOT, and Phaser's internal Graphics /
+    // text canvases are the source of the `generateMipmap: … lazy initialization`
+    // Firefox warning + Chrome's `Alpha-premult and y-flip are deprecated` chatter.
+    // The pair below silences both. If either value drifts, the console goes
+    // noisy again on CTRL-S launch.
+    const render = PHASER_CONFIG.render as { premultipliedAlpha?: boolean; mipmapFilter?: string };
+    expect(render.premultipliedAlpha).toBe(false);
+    expect(render.mipmapFilter).toBe('');
+  });
+
 });
 
 describe('CTRL-S World Phaser — Scene Construction', () => {
