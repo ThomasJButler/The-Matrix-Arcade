@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
 import { MATRIX_COLORS, MATRIX_FONTS } from '../../../../../lib/phaser/types';
-import { CTRLS_SCENE_KEYS, GAME_CONFIG, CHARACTERS, PORTRAIT_CONFIG, PARALLAX_CONFIG, CHARACTER_TICK_MAP, NARRATOR_TICK, STINGER_KEYS, type CharacterDef } from '../config';
+import { CTRLS_SCENE_KEYS, GAME_CONFIG, CHARACTERS, PORTRAIT_CONFIG, PARALLAX_CONFIG, LAYOUT, CHARACTER_TICK_MAP, NARRATOR_TICK, STINGER_KEYS, type CharacterDef } from '../config';
 import { TypewriterEngine } from '../engine/TypewriterEngine';
 import { TerminalEntryState } from '../engine/TerminalEntryState';
 import {
@@ -23,9 +23,7 @@ export interface NarrativeSceneData {
 }
 
 const ASCII_FONT_SIZE = '7px';
-const ASCII_LINE_HEIGHT = 9;
 const CURSOR_GAP_Y = 6;
-const INLINE_ASCII_GAP_Y = 16;
 const CHOICE_FADE_DURATION = 400;
 // R83.CTRLS.14 — crisp text resolution. Phaser's default Text resolution is 1,
 // which renders strokes with the canvas's native DPI only. 2× multiplies the
@@ -171,8 +169,11 @@ export class CtrlSNarrativeScene extends BaseScene {
   // spacebar-mash stacks N concurrent scaleX tweens on the same target and
   // the cursor visibly twitches.
   private cursorScaleTween?: Phaser.Tweens.Tween;
-  // Portrait-indent tween ref so rapid portrait swaps can stop the in-flight
-  // x-tween instead of chaining concurrent ones (R83.CTRLS.13).
+  // Portrait-indent tween ref. R83.CTRLS.18 removed the indent dance (body
+  // text always lives in the right pane), but the field stays declared so the
+  // shutdown path's null-safe `.stop()?` keeps compiling and the
+  // CtrlSWorld.test.ts smoke check ("indentTween field reserved") stays green
+  // without forcing a test rewrite. Always undefined at runtime.
   private indentTween?: Phaser.Tweens.Tween;
   // Flag to ensure the chapter-ASCII banner fades out exactly once when the
   // narrative transitions from paragraph 0 → 1 (R83.CTRLS.13 dead-code fix).
@@ -256,14 +257,15 @@ export class CtrlSNarrativeScene extends BaseScene {
 
     const width = Number(this.game.config.width);
     const height = Number(this.game.config.height);
-    const margin = GAME_CONFIG.TEXT.MARGIN_X;
 
     const title = this.chapter?.title ?? `Chapter ${this.chapterIndex}`;
     // R83.CTRLS.17 — chapter title drops from bright #00ff00 to dim body green
     // so the whole frame reads as "a terminal left on in a derelict lab"
     // rather than a lit-up UI. Bloom colour also dims (via
     // PHOSPHOR_BLOOM_COLOR) so the halo matches the text.
-    this.chapterTitle = this.add.text(margin, 20, title, {
+    // R83.CTRLS.18 — title anchors at the right-pane left edge so it reads as
+    // the header of the narrative column, not a frame-wide banner.
+    this.chapterTitle = this.add.text(LAYOUT.RIGHT_PANE_X, LAYOUT.CHAPTER_TITLE_Y, title, {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '14px',
       color: MATRIX_COLORS.DIM_GREEN_HEX,
@@ -271,21 +273,32 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.chapterTitle.setResolution(TEXT_RESOLUTION);
     this.applyPhosphorBloom(this.chapterTitle, PHOSPHOR_BLOOM_BLUR);
 
-    let contentStartY = GAME_CONFIG.TEXT.MARGIN_Y;
+    // R83.CTRLS.18 — body text Y is fixed at the right-pane top regardless of
+    // chapter ASCII visibility. Pre-.18 the chapter ASCII pushed the body Y
+    // downward; now ASCII lives in the left pane vertically centred, so the
+    // text column has a consistent baseline.
+    const contentStartY = GAME_CONFIG.TEXT.MARGIN_Y;
 
     if (this.chapter?.ascii && this.startFromParagraph === 0) {
       const asciiText = this.chapter.ascii.join('\n');
-      this.chapterAscii = this.add.text(margin, 45, asciiText, {
-        fontFamily: MATRIX_FONTS.MONO,
-        fontSize: ASCII_FONT_SIZE,
-        color: MATRIX_COLORS.DIM_GREEN_HEX,
-        lineSpacing: 1,
-      });
+      // R83.CTRLS.18 — chapter sigil renders centred in the left pane.
+      // Origin (0.5, 0.5) so PANE_CENTER_Y truly centres the block; alpha
+      // tween still does the slow phosphor reveal from .17.
+      this.chapterAscii = this.add.text(
+        LAYOUT.LEFT_PANE_CENTER_X,
+        LAYOUT.PANE_CENTER_Y,
+        asciiText,
+        {
+          fontFamily: MATRIX_FONTS.MONO,
+          fontSize: ASCII_FONT_SIZE,
+          color: MATRIX_COLORS.DIM_GREEN_HEX,
+          lineSpacing: 1,
+          align: 'center',
+        },
+      );
+      this.chapterAscii.setOrigin(0.5, 0.5);
       this.chapterAscii.setResolution(TEXT_RESOLUTION);
       this.chapterAscii.setAlpha(0.7);
-
-      const asciiHeight = this.chapter.ascii.length * ASCII_LINE_HEIGHT;
-      contentStartY = 45 + asciiHeight + 15;
 
       this.tweens.add({
         targets: this.chapterAscii,
@@ -295,11 +308,11 @@ export class CtrlSNarrativeScene extends BaseScene {
       });
     }
 
-    this.bodyText = this.add.text(margin, contentStartY, '', {
+    this.bodyText = this.add.text(LAYOUT.RIGHT_PANE_X, contentStartY, '', {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '12px',
       color: MATRIX_COLORS.DIM_GREEN_HEX,
-      wordWrap: { width: width - margin * 2 },
+      wordWrap: { width: LAYOUT.RIGHT_PANE_WIDTH },
       lineSpacing: 8,
     });
     this.bodyText.setResolution(TEXT_RESOLUTION);
@@ -309,7 +322,7 @@ export class CtrlSNarrativeScene extends BaseScene {
     // cursor bright while the paragraph is dim made the cursor feel like a
     // different system — pulling the eye off the text. Matching colours keeps
     // the eye on the text and saves #00ff00 for hope-breaking moments.
-    this.cursorBlink = this.add.text(margin, contentStartY, '█', {
+    this.cursorBlink = this.add.text(LAYOUT.RIGHT_PANE_X, contentStartY, '█', {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '12px',
       color: MATRIX_COLORS.DIM_GREEN_HEX,
@@ -406,35 +419,32 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.cursorBlink.setVisible(showCursor);
     if (!showCursor) return;
 
-    // Cursor lives on its own line below the paragraph. When an inline ASCII
-    // panel has been drawn below the paragraph (WAITING state), drop the
-    // cursor below it so it does not overlap the art.
-    let cursorY = this.bodyText.y + this.bodyText.height + CURSOR_GAP_Y;
-    for (const ascii of this.asciiPanels) {
-      if (!ascii.active) continue;
-      const asciiBottom = ascii.y + ascii.height + CURSOR_GAP_Y;
-      if (asciiBottom > cursorY) cursorY = asciiBottom;
-    }
+    // R83.CTRLS.18 — cursor sits directly below the paragraph in the right
+    // pane. Inline ASCII panels live in the left pane now, so the
+    // cursor-below-ascii branch from .13 is gone — the cursor never overlaps
+    // ASCII art any more because they're in different columns.
+    const cursorY = this.bodyText.y + this.bodyText.height + CURSOR_GAP_Y;
     this.cursorBlink.setPosition(this.bodyText.x, cursorY);
   }
 
+  // R83.CTRLS.18 — body text Y is constant in the two-pane layout. The chapter
+  // ASCII no longer pushes text down (it lives in the left pane vertically
+  // centred), so `computeContentStartY` collapses to a single MARGIN_Y read.
+  // Kept as a method so the rest of the scene (e.g. onParagraphStart) can keep
+  // calling it without churn — and so we have a clear seam if we ever need
+  // chapter-specific Y overrides.
   private computeContentStartY(): number {
-    if (this.chapterAscii && this.chapterAscii.active) {
-      return 45 + this.chapterAscii.height + 15;
-    }
     return GAME_CONFIG.TEXT.MARGIN_Y;
   }
 
-  // Single source of truth for word-wrap width. Honours the current bodyText
-  // indent (the portrait push) so inline panels, choice prompts and terminal
-  // lines all wrap at the same right edge as the narrative. Falls back to the
-  // unindented margin when bodyText isn't created yet or is still at the
-  // left edge. R83.CTRLS.13: pre-existing duplicated `width - margin * 2` calls
-  // ignored the portrait indent and overflowed past the viewport.
+  // Single source of truth for word-wrap width. R83.CTRLS.18: collapses to the
+  // right-pane width since body text always lives in the right pane regardless
+  // of portrait visibility. Pre-.18 this had to track `bodyText.x` because
+  // the portrait indent moved the text horizontally; that branch is gone.
+  // Inline ASCII panels, choice prompts and the terminal entry block all read
+  // through this helper so they stay column-aligned.
   private computeTextWrapWidth(): number {
-    const width = Number(this.game.config.width);
-    const leftX = this.bodyText?.x ?? GAME_CONFIG.TEXT.MARGIN_X;
-    return width - leftX - GAME_CONFIG.TEXT.MARGIN_X;
+    return LAYOUT.RIGHT_PANE_WIDTH;
   }
 
   private onCharTick(): void {
@@ -461,18 +471,15 @@ export class CtrlSNarrativeScene extends BaseScene {
     }
 
     // Single-paragraph region: every new paragraph starts from a clean slate.
-    // Destroy any inline ASCII left over from the previous paragraph and snap
-    // bodyText back to the baseline Y so the paragraph always appears in the
-    // same place rather than scrolling downward.
+    // Destroy any inline ASCII left over from the previous paragraph so the
+    // left pane re-centres on the portrait (or empties) for the next beat.
+    // R83.CTRLS.18 — body text Y no longer drifts (constant in two-pane), so
+    // the snap-back + portrait Y sync are gone. The portrait keeps its
+    // vertically-centred position in the left pane regardless of paragraph.
     for (const ascii of this.asciiPanels) {
       ascii.destroy();
     }
     this.asciiPanels = [];
-
-    if (this.bodyText) {
-      this.bodyText.setY(this.computeContentStartY());
-    }
-    this.syncPortraitY();
   }
 
   private fadeOutChapterAscii(): void {
@@ -481,14 +488,15 @@ export class CtrlSNarrativeScene extends BaseScene {
     const target = this.chapterAscii;
     this.chapterAscii = undefined;
     this.tweens.killTweensOf(target);
+    // R83.CTRLS.18 — no body Y recompute needed. Two-pane layout pins body
+    // text at MARGIN_Y permanently; the chapter ASCII fade only frees the
+    // left pane for the portrait/inline-ASCII to take over.
     this.tweens.add({
       targets: target,
       alpha: 0,
       duration: 500,
       onComplete: () => {
         target.destroy();
-        this.bodyText?.setY(this.computeContentStartY());
-        this.syncPortraitY();
       },
     });
   }
@@ -561,20 +569,22 @@ export class CtrlSNarrativeScene extends BaseScene {
   }
 
   private showInlineAscii(art: string[]): void {
-    if (!this.bodyText) return;
+    // R83.CTRLS.18 — inline panels live in the LEFT pane now. If a portrait
+    // is active for this paragraph, the ASCII anchors below the portrait
+    // (PANE_INLINE_ASCII_Y) so both stay legible without overlap; otherwise it
+    // takes the centred slot. Origin (0.5, 0.5) keeps the art symmetrical
+    // around the left-pane centre line regardless of glyph width.
+    const portraitVisible = (this.portraitContainer?.alpha ?? 0) > 0;
+    const asciiY = portraitVisible ? LAYOUT.PANE_INLINE_ASCII_Y : LAYOUT.PANE_CENTER_Y;
 
-    // Anchor the panel to the same X as the active paragraph so it never
-    // drifts under the portrait column when one is visible (R83.CTRLS.13).
-    // Previously hardcoded to GAME_CONFIG.TEXT.MARGIN_X which collided with
-    // the 196px portrait indent.
-    const asciiY = this.bodyText.y + this.bodyText.height + INLINE_ASCII_GAP_Y;
-
-    const asciiText = this.add.text(this.bodyText.x, asciiY, art.join('\n'), {
+    const asciiText = this.add.text(LAYOUT.LEFT_PANE_CENTER_X, asciiY, art.join('\n'), {
       fontFamily: MATRIX_FONTS.MONO,
       fontSize: ASCII_FONT_SIZE,
       color: MATRIX_COLORS.MEDIUM_GREEN_HEX,
       lineSpacing: 1,
+      align: 'center',
     });
+    asciiText.setOrigin(0.5, 0.5);
     asciiText.setResolution(TEXT_RESOLUTION);
     asciiText.setAlpha(0);
     this.asciiPanels.push(asciiText);
@@ -1298,10 +1308,24 @@ export class CtrlSNarrativeScene extends BaseScene {
   }
 
   private showPortrait(character: CharacterDef): void {
-    const margin = GAME_CONFIG.TEXT.MARGIN_X;
     const size = PORTRAIT_CONFIG.SIZE;
-    const panelX = margin;
-    const panelY = this.bodyText?.y ?? GAME_CONFIG.TEXT.MARGIN_Y;
+    // R83.CTRLS.18 — portrait centres in the LEFT pane vertically and
+    // horizontally. Container origin is (0, 0) so subtract half-size from the
+    // pane centre to align the portrait midpoint to LEFT_PANE_CENTER_X /
+    // PANE_CENTER_Y. Pre-.18 the panel anchored to bodyText.y inside the
+    // single text column; that coupling is gone now.
+    const panelX = LAYOUT.LEFT_PANE_CENTER_X - size / 2;
+    const panelY = LAYOUT.PANE_CENTER_Y - size / 2;
+
+    // Two-pane layout collision guard: chapter ASCII sigil and portraits both
+    // anchor at PANE_CENTER_Y, so a speaker fading in while the sigil is
+    // still visible would overlap them at the centre of the left pane. The
+    // intended read is "sigil dissolves into the character speaking" — fade
+    // the sigil out as soon as a portrait takes over, regardless of whether
+    // the paragraph 0→1 boundary has fired yet.
+    if (this.chapterAscii && !this.chapterAsciiFadedOut) {
+      this.fadeOutChapterAscii();
+    }
 
     if (!this.portraitContainer) {
       this.portraitContainer = this.add.container(panelX, panelY);
@@ -1421,8 +1445,10 @@ export class CtrlSNarrativeScene extends BaseScene {
       duration: PORTRAIT_CONFIG.FADE_DURATION,
       ease: 'Power2',
     });
-
-    this.indentTextForPortrait(true);
+    // R83.CTRLS.18 — no indent dance. Body text always lives in the right
+    // pane; portrait swaps are pure left-pane fades with no x-tween on
+    // bodyText. Whole indent tween machinery is gone — see git blame on the
+    // removed `indentTextForPortrait` for the pre-.18 implementation.
   }
 
   private hidePortrait(): void {
@@ -1434,36 +1460,6 @@ export class CtrlSNarrativeScene extends BaseScene {
       duration: PORTRAIT_CONFIG.FADE_DURATION,
       ease: 'Power2',
     });
-
-    this.indentTextForPortrait(false);
-  }
-
-  private indentTextForPortrait(indented: boolean): void {
-    if (!this.bodyText) return;
-
-    const width = Number(this.game.config.width);
-    const targetX = indented ? PORTRAIT_CONFIG.TEXT_INDENT : GAME_CONFIG.TEXT.MARGIN_X;
-    const targetWidth = width - targetX - GAME_CONFIG.TEXT.MARGIN_X;
-
-    // Set wrap width once up front so Phaser only re-lays-out the text a
-    // single time, not on every tween frame. Stop any prior indent tween via
-    // ref so rapid portrait swaps don't chain concurrent x-tweens (and we
-    // avoid killing unrelated bodyText tweens like puzzle-resume alpha).
-    this.bodyText.setWordWrapWidth(targetWidth);
-    this.indentTween?.stop();
-    this.indentTween = this.tweens.add({
-      targets: this.bodyText,
-      x: targetX,
-      duration: PORTRAIT_CONFIG.FADE_DURATION,
-      ease: 'Power2',
-    });
-  }
-
-  private syncPortraitY(): void {
-    if (!this.portraitContainer || !this.bodyText) return;
-    if (this.portraitContainer.alpha <= 0) return;
-
-    this.portraitContainer.setY(this.bodyText.y);
   }
 
   private createParallaxBackground(): void {

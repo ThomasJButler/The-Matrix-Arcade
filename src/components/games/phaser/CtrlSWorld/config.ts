@@ -151,7 +151,45 @@ export const PORTRAIT_CONFIG = {
   PANEL_PADDING: 10,
   NAME_OFFSET_Y: 8,
   FADE_DURATION: 300,
+  // R83.CTRLS.18 — kept for back-compat with the legacy single-pane layout
+  // tests; the new two-pane LAYOUT block below is the source of truth for
+  // narrative scene positioning. Body text now permanently lives in the
+  // right pane and no longer tweens around the portrait, so this value is
+  // no longer used at runtime.
   TEXT_INDENT: 130,
+} as const;
+
+// R83.CTRLS.18 — two-pane narrative layout. Tom's brief: "put the image or the
+// ASCII on the left-hand side, and the text on the right would be a better
+// layout." Left pane (40% of canvas width) holds character portrait, chapter
+// ASCII sigil, and per-paragraph inline ASCII panels — all vertically centred.
+// Right pane (60%) holds the chapter title, body paragraph, terminal cursor,
+// inline `>` choice prompts, and the terminal-entry climax block. The 24 px
+// gap between panes lets the scanline overlay + dread vignette breathe across
+// the divider without the eye reading a hard column rule.
+//
+// Width math (canvas WIDTH=800, MARGIN_X=40):
+//   PANE_DIVIDER_X = 320          (40% of 800)
+//   LEFT_PANE_X    = 40            (=MARGIN_X — left content padding)
+//   LEFT_PANE_WIDTH= 240           (PANE_DIVIDER_X - LEFT_PANE_X - 40 right inset)
+//   RIGHT_PANE_X   = 344           (PANE_DIVIDER_X + 24 gap)
+//   RIGHT_PANE_WIDTH = 416         (WIDTH - RIGHT_PANE_X - MARGIN_X)
+// 416 lands inside Tom's 360-420 px target wrap-width window.
+//
+// Vertical centring uses PANE_CENTER_Y (=300). The chapter ASCII sigil and
+// portrait both anchor here; per-paragraph inline ASCII anchors below the
+// portrait (PANE_INLINE_ASCII_Y) so a paragraph that triggers both stays
+// readable instead of overlapping.
+export const LAYOUT = {
+  PANE_DIVIDER_X: 320,
+  LEFT_PANE_X: 40,
+  LEFT_PANE_WIDTH: 240,
+  LEFT_PANE_CENTER_X: 160,
+  RIGHT_PANE_X: 344,
+  RIGHT_PANE_WIDTH: 416,
+  PANE_CENTER_Y: 300,
+  PANE_INLINE_ASCII_Y: 420,
+  CHAPTER_TITLE_Y: 20,
 } as const;
 
 export const CHARACTER_TICK_MAP: Record<string, string> = {

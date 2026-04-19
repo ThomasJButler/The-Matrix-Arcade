@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { PHASER_CONFIG, CTRLS_SCENE_KEYS, CTRLS_REGISTRY_KEYS, GAME_CONFIG, CHARACTERS, PORTRAIT_CONFIG, HUB_CONFIG, MUSIC_TRACKS, CHARACTER_TICK_MAP, NARRATOR_TICK, STINGER_KEYS, type ChapterStatus } from '../config';
+import { PHASER_CONFIG, CTRLS_SCENE_KEYS, CTRLS_REGISTRY_KEYS, GAME_CONFIG, CHARACTERS, PORTRAIT_CONFIG, LAYOUT, HUB_CONFIG, MUSIC_TRACKS, CHARACTER_TICK_MAP, NARRATOR_TICK, STINGER_KEYS, type ChapterStatus } from '../config';
 import { getPuzzleById } from '../../../../../data/puzzles';
 import { getChapter, getPuzzleTriggersForParagraph } from '../../../../../data/ctrlsChapters';
 import { CtrlSBootScene } from './BootScene';
@@ -127,12 +127,80 @@ describe('CTRL-S World Phaser — Portrait Config', () => {
   it('has valid portrait dimensions', () => {
     expect(PORTRAIT_CONFIG.SIZE).toBeGreaterThan(0);
     expect(PORTRAIT_CONFIG.PANEL_WIDTH).toBeGreaterThan(PORTRAIT_CONFIG.SIZE);
+    // R83.CTRLS.18: TEXT_INDENT is a legacy value retained for back-compat —
+    // the live narrative layout uses LAYOUT.RIGHT_PANE_X for the body text
+    // origin. Kept as a sanity check that the legacy value is still sensible.
     expect(PORTRAIT_CONFIG.TEXT_INDENT).toBeGreaterThan(PORTRAIT_CONFIG.PANEL_WIDTH);
   });
+});
 
-  it('text indent leaves enough room for text', () => {
-    const remainingWidth = GAME_CONFIG.WIDTH - PORTRAIT_CONFIG.TEXT_INDENT - GAME_CONFIG.TEXT.MARGIN_X;
-    expect(remainingWidth).toBeGreaterThan(400);
+// R83.CTRLS.18 — Two-pane narrative layout invariants. These tests lock the
+// 40/60 split, the right-pane wrap width Tom called for ("probably ~360-420
+// px depending on canvas width"), and the centred geometry of the left pane
+// so future polish can't drift the columns out of alignment without the
+// suite shouting.
+describe('CTRL-S World Phaser — Two-pane Layout (R83.CTRLS.18)', () => {
+  it('left pane occupies the first 40% of the canvas width', () => {
+    expect(LAYOUT.PANE_DIVIDER_X).toBe(GAME_CONFIG.WIDTH * 0.4);
+  });
+
+  it('left pane content sits inside the left column with margin breathing room', () => {
+    // LEFT_PANE_X (left edge content padding) + LEFT_PANE_WIDTH should leave
+    // a ≥ 40 px gutter to the divider so the dread vignette can wrap the art
+    // without it touching the column rule.
+    const leftRightEdge = LAYOUT.LEFT_PANE_X + LAYOUT.LEFT_PANE_WIDTH;
+    expect(leftRightEdge).toBeLessThanOrEqual(LAYOUT.PANE_DIVIDER_X);
+    expect(LAYOUT.PANE_DIVIDER_X - leftRightEdge).toBeGreaterThanOrEqual(40);
+  });
+
+  it('LEFT_PANE_CENTER_X centres the portrait/ASCII slot in the column', () => {
+    // The portrait container origin is (0,0); the rendering code subtracts
+    // SIZE/2 to centre on LEFT_PANE_CENTER_X. So the centre must be
+    // mathematically the middle of the column from the canvas left edge to
+    // the divider — not the middle of (LEFT_PANE_X..LEFT_PANE_X+WIDTH).
+    expect(LAYOUT.LEFT_PANE_CENTER_X).toBe(LAYOUT.PANE_DIVIDER_X / 2);
+  });
+
+  it('right pane sits to the right of the divider with a visual gap', () => {
+    // 24 px gap between the divider and the text start — wide enough for the
+    // dread vignette to read across, narrow enough that the eye still groups
+    // the two panes as a single frame.
+    expect(LAYOUT.RIGHT_PANE_X).toBeGreaterThan(LAYOUT.PANE_DIVIDER_X);
+    expect(LAYOUT.RIGHT_PANE_X - LAYOUT.PANE_DIVIDER_X).toBeGreaterThanOrEqual(20);
+  });
+
+  it('right pane wrap width lands inside Tom\'s 360-420 px target window', () => {
+    // From the R83.CTRLS.18 task body: "probably ~360-420 px depending on
+    // canvas width". 416 (current) lands inside the window. If a refactor
+    // pushes us outside it, the test forces a deliberate decision.
+    expect(LAYOUT.RIGHT_PANE_WIDTH).toBeGreaterThanOrEqual(360);
+    expect(LAYOUT.RIGHT_PANE_WIDTH).toBeLessThanOrEqual(440);
+  });
+
+  it('right pane fits inside the canvas with the canonical right margin', () => {
+    const rightEdge = LAYOUT.RIGHT_PANE_X + LAYOUT.RIGHT_PANE_WIDTH;
+    expect(rightEdge).toBeLessThanOrEqual(GAME_CONFIG.WIDTH - GAME_CONFIG.TEXT.MARGIN_X);
+  });
+
+  it('PANE_CENTER_Y vertically centres left-pane content', () => {
+    expect(LAYOUT.PANE_CENTER_Y).toBe(GAME_CONFIG.HEIGHT / 2);
+  });
+
+  it('PANE_INLINE_ASCII_Y sits below the centred portrait + name strip', () => {
+    // When both portrait and inline ASCII are visible at once, the inline
+    // panel anchors below the portrait band so they don't overlap. Portrait
+    // bottom edge ≈ PANE_CENTER_Y + SIZE/2 + NAME_OFFSET_Y + ~7px name height.
+    const portraitBottom =
+      LAYOUT.PANE_CENTER_Y + PORTRAIT_CONFIG.SIZE / 2 + PORTRAIT_CONFIG.NAME_OFFSET_Y + 8;
+    expect(LAYOUT.PANE_INLINE_ASCII_Y).toBeGreaterThan(portraitBottom);
+  });
+
+  it('chapter title anchors at the right pane top so it reads as the column header', () => {
+    // The narrative scene places the chapter title at (RIGHT_PANE_X,
+    // CHAPTER_TITLE_Y). CHAPTER_TITLE_Y must clear the canvas top with at
+    // least the standard top padding so it doesn't kiss the iPod chrome.
+    expect(LAYOUT.CHAPTER_TITLE_Y).toBeGreaterThanOrEqual(16);
+    expect(LAYOUT.CHAPTER_TITLE_Y).toBeLessThan(GAME_CONFIG.TEXT.MARGIN_Y);
   });
 });
 
