@@ -62,10 +62,13 @@ export const GameHighScores: React.FC<GameHighScoresProps> = ({
   const saveKey = REGISTRY_TO_SAVE_KEY[game.id];
   const gameSave: GameSaveData | undefined = saveKey ? saveData.games[saveKey] : undefined;
 
+  // R83.G6: achievements are tagged with the registry display title (e.g.
+  // 'Matrix Bird') in GAME_ACHIEVEMENTS, not the save key. Comparing against
+  // the save key returned an empty list for every game — the achievements
+  // section was effectively dead UI.
   const gameAchievements = useMemo(() => {
-    const saveKeyForAchievements = saveKey;
-    return achievements.filter(a => a.game === saveKeyForAchievements);
-  }, [achievements, saveKey]);
+    return achievements.filter(a => a.game === game.title);
+  }, [achievements, game.title]);
 
   const unlockedCount = gameAchievements.filter(a => a.unlocked).length;
 

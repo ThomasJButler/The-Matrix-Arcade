@@ -89,4 +89,56 @@ describe('GameHighScores', () => {
       expect(container.innerHTML).toBe('');
     });
   });
+
+  describe('R83.G6 — achievements filter matches by registry display title', () => {
+    it('lists achievements whose game field equals the registry title', () => {
+      const achievements = [
+        { id: 'snake_first_apple', name: 'First Bite', description: 'Eat the first', unlocked: true, game: 'Snake Classic' },
+        { id: 'cloud_first_flight', name: 'Digital Pilot', description: 'Fly first', unlocked: false, game: 'Matrix Bird' },
+      ];
+      render(<GameHighScores {...defaultProps} achievements={achievements} />);
+      expect(screen.getByText('First Bite')).toBeInTheDocument();
+      expect(screen.queryByText('Digital Pilot')).not.toBeInTheDocument();
+    });
+
+    it('does NOT match the save key against the achievement game field', () => {
+      // Regression: the broken filter compared `a.game` (display title) against
+      // the camelCase save key, so it never matched anything.
+      const achievements = [
+        { id: 'snake_first_apple', name: 'First Bite', description: 'Eat the first', unlocked: true, game: 'snakeClassic' },
+      ];
+      render(<GameHighScores {...defaultProps} achievements={achievements} />);
+      expect(screen.queryByText('First Bite')).not.toBeInTheDocument();
+    });
+
+    it('renders the persisted high score from the matching save slot', () => {
+      // Matrix Bird carries id `matrix-cloud` for storage stability after the
+      // R83.B1 rename — verify the save slot lookup still resolves via the id.
+      const matrixBirdGame: GameEntry = {
+        id: 'matrix-cloud',
+        title: 'Matrix Bird',
+        description: 'Through the storm',
+        preview: '/preview.png',
+        category: 'Arcade',
+        inspiration: 'Flappy Bird',
+        inspirationNote: '',
+        controls: 'Space',
+      };
+      const saveData: GlobalSaveData = {
+        ...mockSaveData,
+        games: {
+          ...mockSaveData.games,
+          matrixCloud: { highScore: 4242, lastPlayed: Date.now(), stats: { gamesPlayed: 7, totalScore: 9999 } },
+        },
+      };
+      render(
+        <GameHighScores
+          {...defaultProps}
+          game={matrixBirdGame}
+          saveData={saveData}
+        />,
+      );
+      expect(screen.getByText('4,242')).toBeInTheDocument();
+    });
+  });
 });

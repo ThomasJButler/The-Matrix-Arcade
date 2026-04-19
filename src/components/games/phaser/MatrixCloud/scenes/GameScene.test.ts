@@ -370,6 +370,28 @@ describe('MatrixCloudGameScene', () => {
       call(scene, 'scorePipe');
       expect(scene.playSound).toHaveBeenCalledWith('score');
     });
+
+    // R83.G6: regression — Matrix Bird used to leak its new high score
+    // because scorePipe reported `this.highScore` without first lifting it
+    // to match `this.score`. Without this guard the dashbar trophy modal
+    // shows the previously-loaded value forever.
+    it('lifts highScore when score exceeds it before reporting', () => {
+      scene.highScore = 10;
+      scene.score = 50;
+      call(scene, 'scorePipe');
+      expect(scene.highScore).toBeGreaterThanOrEqual(scene.score);
+      const lastReport = scene.reportScore.mock.calls.at(-1) as [number, number];
+      expect(lastReport[1]).toBe(scene.highScore);
+    });
+
+    it('keeps highScore intact when score is still below it', () => {
+      scene.highScore = 10_000;
+      scene.score = 100;
+      call(scene, 'scorePipe');
+      expect(scene.highScore).toBe(10_000);
+      const lastReport = scene.reportScore.mock.calls.at(-1) as [number, number];
+      expect(lastReport[1]).toBe(10_000);
+    });
   });
 
   describe('Level Progression', () => {
