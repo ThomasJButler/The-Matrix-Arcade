@@ -69,6 +69,37 @@ export const GAME_CONFIG = {
     GAME_OVER: { intensity: 0.018, duration: 150 },
   },
 
+  // R84.P9 — Goal-flash epilepsy safety. R83.V1c already halved channel
+  // intensity from 255 → 128; this block centralises the values so callers
+  // cannot drift back up, and adds a PEAT-safe throttle floor.
+  //
+  // WCAG 2.3.1 General Flash Threshold caps flashes at ≤ 3/second; a
+  // multi-ball 3-goal storm can fire three goal flashes in <500ms which
+  // would breach that, so `MIN_INTERVAL_MS` suppresses back-to-back regular
+  // flashes (the WIN/LOSS flash uses `overrideThrottle` so the game-over
+  // moment still plays).
+  //
+  // `MAX_CHANNEL_VALUE` (160) is the observed ceiling across current
+  // presets (the WIN flashes at 160, regular goals at 128). Clamping to
+  // this cap in `goalFlash()` means a future caller passing e.g. 255
+  // cannot re-introduce a full-brightness strobe. Only one channel is
+  // saturated per preset — no white/yellow flashes — which keeps overall
+  // relative luminance change well below the PEAT saturated-red + general
+  // flash thresholds.
+  //
+  // `MAX_DURATION_MS` (200) caps the camera-flash fade so even the longest
+  // win flash still decays within a single PEAT 1-second window. The
+  // regular goal flashes (100ms) are well below this.
+  GOAL_FLASH: {
+    MAX_CHANNEL_VALUE: 160,
+    MAX_DURATION_MS: 200,
+    MIN_INTERVAL_MS: 334,
+    PLAYER_GOAL: { rgb: [0, 128, 0] as const, durationMs: 100 },
+    AI_GOAL:     { rgb: [128, 0, 0] as const, durationMs: 100 },
+    PLAYER_WIN:  { rgb: [0, 160, 0] as const, durationMs: 200 },
+    AI_WIN:      { rgb: [160, 0, 0] as const, durationMs: 150 },
+  },
+
   // R84.P7 — paddle-hit particle trail tuning. R83.V1e shipped a flat
   // 10-particle burst; Tom's doc line 112 wants the top-tier speed to feel
   // like a hot rally. Count now ramps from BASE_COUNT (12 at mult=1.0) to
@@ -140,6 +171,15 @@ export const GAME_CONFIG = {
     },
   },
 } as const;
+
+// R84.P9 — structural type for the four GOAL_FLASH preset entries. Scene
+// code accepts `GoalFlashPreset` so the callsites read self-documenting
+// (`goalFlash(GOAL_FLASH.PLAYER_WIN, ...)`). The rgb tuple is `readonly`
+// so callers cannot mutate a shared preset in place.
+export interface GoalFlashPreset {
+  readonly rgb: readonly [number, number, number];
+  readonly durationMs: number;
+}
 
 export const ACHIEVEMENTS = {
   FIRST_POINT: 'pong_first_point',
