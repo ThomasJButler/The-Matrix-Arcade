@@ -140,11 +140,18 @@ function createTestScene() {
       setAlpha: vi.fn(),
       destroy: vi.fn(),
     })),
-    sprite: vi.fn().mockImplementation((x: number, y: number) => ({
-      x, y,
-      setAlpha: vi.fn(),
-      destroy: vi.fn(),
-    })),
+    // R84.P6 — sprite mock tracks `setTint` + `tint` so multi-ball cyan-tint
+    // assertions can read the applied colour directly from the mock instance.
+    sprite: vi.fn().mockImplementation((x: number, y: number, texture?: string) => {
+      const s: any = {
+        x, y, texture,
+        tint: 0xffffff,
+        setAlpha: vi.fn(),
+        setTint: vi.fn(function (this: any, colour: number) { this.tint = colour; return this; }),
+        destroy: vi.fn(),
+      };
+      return s;
+    }),
     circle: vi.fn().mockImplementation((x: number, y: number, r: number) => ({
       x, y, radius: r,
       setStrokeStyle: vi.fn(),
@@ -191,9 +198,9 @@ function createTestScene() {
   return scene;
 }
 
-function createBall(scene: any, x = 400, y = 225, vx = 420, vy = 0) {
-  const sprite = { x, y, destroy: vi.fn() };
-  const ball = { sprite, vx, vy };
+function createBall(scene: any, x = 400, y = 225, vx = 420, vy = 0, isMultiBall = false) {
+  const sprite = { x, y, destroy: vi.fn(), setTint: vi.fn() };
+  const ball = { sprite, vx, vy, isMultiBall };
   scene.balls.push(ball);
   return ball;
 }
@@ -1429,6 +1436,84 @@ describe('VortexPongGameScene', () => {
         expect(scene.powerUpLegend).toHaveLength(0);
         expect(scene.tweens.killTweensOf).toHaveBeenCalledWith(cohort);
       });
+    });
+  });
+
+  // ----------------------------------------------------------------------
+  // R84.P6 — Multi-ball visual distinction (CYAN tint)
+  // ----------------------------------------------------------------------
+  describe('R84.P6 — Multi-ball CYAN tint', () => {
+    beforeEach(() => {
+      scene.balls = [];
+    });
+
+    it('spawnBall with no options flags the ball as primary (isMultiBall=false)', () => {
+      scene.spawnBall();
+      expect(scene.balls).toHaveLength(1);
+      expect(scene.balls[0].isMultiBall).toBe(false);
+    });
+
+    it('primary ball sprite does NOT receive setTint', () => {
+      scene.spawnBall();
+      expect(scene.balls[0].sprite.setTint).not.toHaveBeenCalled();
+    });
+
+    it('spawnBall with isMultiBall:true flags the ball as multi', () => {
+      scene.spawnBall(200, 200, 100, 50, { isMultiBall: true });
+      expect(scene.balls[0].isMultiBall).toBe(true);
+    });
+
+    it('multi-ball sprite receives setTint(CYAN=0x00ffff)', () => {
+      scene.spawnBall(200, 200, 100, 50, { isMultiBall: true });
+      expect(scene.balls[0].sprite.setTint).toHaveBeenCalledWith(0x00ffff);
+      expect(scene.balls[0].sprite.tint).toBe(0x00ffff);
+    });
+
+    it('spawnMultiBalls produces tinted balls only', () => {
+      // Seed a primary ball so spawnMultiBalls adds 2 extras.
+      scene.spawnBall();
+      const countBefore = scene.balls.length;
+      scene.spawnMultiBalls();
+      const spawned = scene.balls.slice(countBefore);
+      expect(spawned.length).toBeGreaterThan(0);
+      for (const b of spawned) {
+        expect(b.isMultiBall).toBe(true);
+        expect(b.sprite.setTint).toHaveBeenCalledWith(0x00ffff);
+      }
+    });
+
+    it('original primary ball keeps its green sprite after spawnMultiBalls', () => {
+      scene.spawnBall();
+      const primary = scene.balls[0];
+      scene.spawnMultiBalls();
+      expect(primary.isMultiBall).toBe(false);
+      expect(primary.sprite.setTint).not.toHaveBeenCalled();
+    });
+
+    it('post-goal respawn (empty balls array) spawns untinted primary ball', () => {
+      // Simulate a multi-ball run being cleared out.
+      scene.spawnBall();
+      scene.spawnMultiBalls();
+      scene.balls.forEach((b: any) => b.sprite.destroy());
+      scene.balls = [];
+      scene.spawnBall();
+      expect(scene.balls).toHaveLength(1);
+      expect(scene.balls[0].isMultiBall).toBe(false);
+      expect(scene.balls[0].sprite.setTint).not.toHaveBeenCalled();
+    });
+
+    it('spawnMultiBalls caps at min(2, 3 - balls.length) — starts with 1, adds 2', () => {
+      scene.spawnBall();
+      scene.spawnMultiBalls();
+      expect(scene.balls).toHaveLength(3);
+    });
+
+    it('spawnMultiBalls caps at 1 extra when 2 balls already in play', () => {
+      scene.spawnBall();
+      scene.spawnBall(100, 100, 100, 0, { isMultiBall: true });
+      expect(scene.balls).toHaveLength(2);
+      scene.spawnMultiBalls();
+      expect(scene.balls).toHaveLength(3);
     });
   });
 });

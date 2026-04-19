@@ -30,6 +30,10 @@ interface PongBall {
   sprite: Phaser.GameObjects.Sprite;
   vx: number;
   vy: number;
+  // R84.P6 — multi-ball spawns tint CYAN so the 200-pt High Score weighting
+  // reads visually at a glance and rally replays can tell the primary ball
+  // (green) apart from multi-ball balls that award the achievement.
+  isMultiBall: boolean;
 }
 
 interface FieldPowerUp {
@@ -455,10 +459,17 @@ export class VortexPongGameScene extends BaseScene {
     y = GAME_CONFIG.HEIGHT / 2,
     vx?: number,
     vy?: number,
+    options: { isMultiBall?: boolean } = {},
   ): void {
-    const isExtra = this.balls.length > 0;
-    const textureKey = isExtra && this.textures?.exists('ball_multi') ? 'ball_multi' : 'ball';
+    const isMultiBall = options.isMultiBall === true;
+    // R84.P6 — prefer the bespoke ball_multi texture when preloaded; fall back
+    // to tinting the procedural ball sprite so the CYAN read survives even if
+    // the PNG asset is missing (headless/offline test harnesses).
+    const textureKey = isMultiBall && this.textures?.exists('ball_multi') ? 'ball_multi' : 'ball';
     const sprite = this.add.sprite(x, y, textureKey);
+    if (isMultiBall && typeof sprite.setTint === 'function') {
+      sprite.setTint(MATRIX_COLORS.CYAN);
+    }
 
     if (vx === undefined || vy === undefined) {
       const angle = (Math.random() - 0.5) * 1.2;
@@ -467,7 +478,7 @@ export class VortexPongGameScene extends BaseScene {
       vy = Math.sin(angle) * GAME_CONFIG.BALL.INITIAL_SPEED;
     }
 
-    this.balls.push({ sprite, vx, vy });
+    this.balls.push({ sprite, vx, vy, isMultiBall });
   }
 
   private getSpeedMultiplier(): number {
@@ -889,7 +900,8 @@ export class VortexPongGameScene extends BaseScene {
       const dir = Math.random() < 0.5 ? 1 : -1;
       const vx = dir * (GAME_CONFIG.BALL.INITIAL_SPEED + Math.random() * 120);
       const vy = (Math.random() - 0.5) * GAME_CONFIG.BALL.INITIAL_SPEED * 1.5;
-      this.spawnBall(x, y, vx, vy);
+      // R84.P6 — tag these as multi-ball so spawnBall applies the CYAN tint.
+      this.spawnBall(x, y, vx, vy, { isMultiBall: true });
       this.addImpactEffect(x, y, 15);
     }
   }
