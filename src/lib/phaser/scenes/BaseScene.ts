@@ -333,6 +333,26 @@ export abstract class BaseScene extends Phaser.Scene {
   }
 
   /**
+   * Play a procedural ambient drone under the scene (R83.CTRLS.17). Routes
+   * through useSoundSystem's masterGain so the global mute toggle silences it.
+   * Pair with `stopAmbientDrone()` in the scene's `shutdown()` to avoid the
+   * drone leaking into the next scene.
+   */
+  protected playAmbientDrone(options?: { volume?: number }): void {
+    const soundSystem = this.registry?.get(REGISTRY_KEYS.SOUND_SYSTEM);
+    if (soundSystem && typeof soundSystem.playAmbientDrone === 'function') {
+      soundSystem.playAmbientDrone(options);
+    }
+  }
+
+  protected stopAmbientDrone(): void {
+    const soundSystem = this.registry?.get(REGISTRY_KEYS.SOUND_SYSTEM);
+    if (soundSystem && typeof soundSystem.stopAmbientDrone === 'function') {
+      soundSystem.stopAmbientDrone();
+    }
+  }
+
+  /**
    * Unlock achievement via both manager and save system
    */
   protected unlockAchievement(achievementId: string): void {

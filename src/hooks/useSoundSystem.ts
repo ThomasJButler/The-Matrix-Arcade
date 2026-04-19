@@ -998,6 +998,150 @@ export function useSoundSystem() {
     }
   }, []);
 
+  // R83.CTRLS.17 — ambient dread drone. Procedural sub-bass drone used under
+  // CTRL-S narrative scenes to give the game its "lost in time" undercurrent.
+  // Routed through masterGain so the global mute toggle silences it alongside
+  // everything else. All nodes are held on refs so `stopAmbientDrone()` can
+  // tear them down deterministically; callers keep the drone alive by simply
+  // not stopping it — there's no polling loop.
+  //
+  // Recipe (from task .17(d)):
+  //   - 55 Hz low-saw fundamental + 55 Hz sine (one octave sub fused in) —
+  //     saw alone sounds like a radio hum, sine alone disappears on small
+  //     speakers; the pair reads as "felt" on laptops while staying subtle.
+  //   - Lowpass at 180 Hz so any higher harmonics from the saw don't clash
+  //     with dialogue or the BGM track the chapter plays on top.
+  //   - Amplitude LFO at 0.1 Hz (one full breath every ~10 s) between 0.55×
+  //     and 1.0× — reads as "something is breathing behind the terminal."
+  //   - Occasional minor-6th stab: a 440→140 Hz sine pluck every 12-22 s,
+  //     panned centre, 0.5 s tail. Gives the ear something to catch onto so
+  //     the drone doesn't dissolve into white noise of inattention.
+  const ambientDroneNodesRef = useRef<{
+    oscLow: OscillatorNode;
+    oscSub: OscillatorNode;
+    gain: GainNode;
+    lfo: OscillatorNode;
+    lfoGain: GainNode;
+    filter: BiquadFilterNode;
+    stabTimer: ReturnType<typeof setInterval> | null;
+  } | null>(null);
+
+  const playAmbientDrone = useCallback(async (options?: { volume?: number }) => {
+    if (ambientDroneNodesRef.current) return; // already running
+    const audioContext = await initializeAudio();
+    if (!audioContext || !masterGainRef.current) return;
+    if (audioContext.state === 'closed') return;
+
+    const now = audioContext.currentTime;
+    const targetVolume = Math.max(0, Math.min(1, options?.volume ?? 0.18));
+
+    const gain = audioContext.createGain();
+    gain.gain.setValueAtTime(0, now);
+    // Fade in over 2 s so the drone slips under the player's awareness rather
+    // than announcing itself.
+    gain.gain.linearRampToValueAtTime(targetVolume, now + 2);
+
+    const filter = audioContext.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(180, now);
+    filter.Q.setValueAtTime(0.8, now);
+
+    const oscLow = audioContext.createOscillator();
+    oscLow.type = 'sawtooth';
+    oscLow.frequency.setValueAtTime(55, now);
+
+    const oscSub = audioContext.createOscillator();
+    oscSub.type = 'sine';
+    oscSub.frequency.setValueAtTime(55, now);
+
+    const lfo = audioContext.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.setValueAtTime(0.1, now);
+
+    const lfoGain = audioContext.createGain();
+    // LFO depth: ±0.225 × targetVolume → amplitude wobble between 0.55× and
+    // 1.0× baseline. Keeping the floor > 0 stops the drone audibly "popping"
+    // back in on each cycle.
+    lfoGain.gain.setValueAtTime(targetVolume * 0.225, now);
+
+    oscLow.connect(filter);
+    oscSub.connect(filter);
+    filter.connect(gain);
+    lfo.connect(lfoGain);
+    lfoGain.connect(gain.gain);
+    gain.connect(masterGainRef.current);
+
+    oscLow.start(now);
+    oscSub.start(now);
+    lfo.start(now);
+
+    // Minor-6th stab every 12-22 s. setInterval gives us irregular-ish timing
+    // because JS timers drift slightly; fine for atmosphere work.
+    const scheduleStab = () => {
+      if (!ambientDroneNodesRef.current) return;
+      const ctx = audioContextRef.current;
+      const master = masterGainRef.current;
+      if (!ctx || !master || ctx.state === 'closed') return;
+
+      const stabTime = ctx.currentTime;
+      const stabGain = ctx.createGain();
+      stabGain.gain.setValueAtTime(0, stabTime);
+      stabGain.gain.linearRampToValueAtTime(targetVolume * 0.3, stabTime + 0.02);
+      stabGain.gain.exponentialRampToValueAtTime(0.0001, stabTime + 0.5);
+
+      const stabOsc = ctx.createOscillator();
+      stabOsc.type = 'sine';
+      // Minor-sixth above the drone root = ~88 Hz, but we pitch-down-sweep for
+      // the "stab" feel. Starts around A3 (220 Hz) and sweeps to F2 (~87 Hz)
+      // — the minor-sixth landing point.
+      stabOsc.frequency.setValueAtTime(220, stabTime);
+      stabOsc.frequency.exponentialRampToValueAtTime(87.3, stabTime + 0.45);
+
+      stabOsc.connect(stabGain);
+      stabGain.connect(master);
+      stabOsc.start(stabTime);
+      stabOsc.stop(stabTime + 0.55);
+    };
+    const stabTimer = setInterval(() => {
+      // 50% chance each tick so the cadence feels uneven.
+      if (Math.random() < 0.5) scheduleStab();
+    }, 10_000);
+
+    ambientDroneNodesRef.current = {
+      oscLow,
+      oscSub,
+      gain,
+      lfo,
+      lfoGain,
+      filter,
+      stabTimer,
+    };
+  }, [initializeAudio]);
+
+  const stopAmbientDrone = useCallback(() => {
+    const nodes = ambientDroneNodesRef.current;
+    if (!nodes) return;
+    ambientDroneNodesRef.current = null;
+
+    const ctx = audioContextRef.current;
+    if (nodes.stabTimer) clearInterval(nodes.stabTimer);
+    if (!ctx || ctx.state === 'closed') return;
+
+    const now = ctx.currentTime;
+    try {
+      // 1 s fade-out then stop — prevents the DC click that a hard stop on a
+      // sawtooth at non-zero phase produces.
+      nodes.gain.gain.cancelScheduledValues(now);
+      nodes.gain.gain.setValueAtTime(nodes.gain.gain.value, now);
+      nodes.gain.gain.linearRampToValueAtTime(0, now + 1);
+      nodes.oscLow.stop(now + 1.05);
+      nodes.oscSub.stop(now + 1.05);
+      nodes.lfo.stop(now + 1.05);
+    } catch {
+      // Oscillators already stopped — safe to ignore.
+    }
+  }, []);
+
   // Update config using functional updater to avoid stale closure
   const updateConfig = useCallback((newConfig: Partial<SoundConfig>) => {
     setConfig(prev => {
@@ -1075,11 +1219,12 @@ export function useSoundSystem() {
   useEffect(() => {
     return () => {
       stopMusic();
+      stopAmbientDrone();
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close();
       }
     };
-  }, [stopMusic]);
+  }, [stopMusic, stopAmbientDrone]);
 
   // Update MP3 volume when config changes
   useEffect(() => {
@@ -1100,12 +1245,14 @@ export function useSoundSystem() {
       stopMusic,
       playBackgroundMP3,
       stopBackgroundMP3,
+      playAmbientDrone,
+      stopAmbientDrone,
       toggleMute,
       isMuted,
       isInitialized: !!audioContextRef.current,
       soundLibrary: Object.keys(SOUND_LIBRARY),
       musicSequences: Object.keys(MUSIC_SEQUENCES)
     }),
-    [config, updateConfig, playSFX, playMusic, stopMusic, playBackgroundMP3, stopBackgroundMP3, toggleMute, isMuted]
+    [config, updateConfig, playSFX, playMusic, stopMusic, playBackgroundMP3, stopBackgroundMP3, playAmbientDrone, stopAmbientDrone, toggleMute, isMuted]
   );
 }
