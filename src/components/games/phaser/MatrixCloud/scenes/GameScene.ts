@@ -100,6 +100,13 @@ export class MatrixCloudGameScene extends BaseScene {
   private isGameOver: boolean = false;
   private achievementsUnlocked: Set<string> = new Set();
 
+  // R84.B11: early-run score milestones — the existing LEVEL_UP stinger
+  // only fires every 500 pts (LEVEL_THRESHOLD), so 50/100/250 had no cue at
+  // all and the first two minutes of a run felt audibly flat. 500+ is still
+  // covered by onLevelUp; we stop at 250 here to avoid double-stingers.
+  private static readonly SCORE_MILESTONES = [50, 100, 250] as const;
+  private milestonesHit: Set<number> = new Set();
+
   // R83.B1(f): all Matrix Bird SFX play below full envelope so the mix sits
   // behind the ambient BGM rather than on top of it. Applied via a scene-local
   // playSound override that forwards volumeScale through the soundSystem
@@ -205,6 +212,7 @@ export class MatrixCloudGameScene extends BaseScene {
     this.hasJumped = false;
     this.isGameOver = false;
     this.achievementsUnlocked = new Set();
+    this.milestonesHit = new Set();
   }
 
   private createGround(): void {
@@ -867,6 +875,18 @@ export class MatrixCloudGameScene extends BaseScene {
 
     if (this.combo >= 2.0 && Math.floor((this.combo - GAME_CONFIG.COMBO_INCREMENT) * 10) < Math.floor(this.combo * 10) && this.combo % 1.0 < GAME_CONFIG.COMBO_INCREMENT + 0.01) {
       this.playSound(SOUND_KEYS.COMBO);
+    }
+
+    // R84.B11: fire a one-shot COLLECTIBLE stinger the first time score
+    // crosses each early milestone. We use COLLECTIBLE (not LEVEL_UP) so the
+    // cue reads as a smaller-but-earned beat, distinct from the 500-pt level
+    // transition. 500/1000 are intentionally NOT in SCORE_MILESTONES to avoid
+    // overlapping with onLevelUp's own LEVEL_UP stinger.
+    for (const threshold of MatrixCloudGameScene.SCORE_MILESTONES) {
+      if (this.score >= threshold && !this.milestonesHit.has(threshold)) {
+        this.milestonesHit.add(threshold);
+        this.playSound(SOUND_KEYS.COLLECTIBLE);
+      }
     }
 
     const prevLevel = this.level;
