@@ -1104,27 +1104,45 @@ export class VortexPongGameScene extends BaseScene {
   }
 
   /**
-   * R83.V1e: Paddle-hit particle trail. 10 small dots radiate outward from
-   * the impact point and fade over 300ms. Skipped under reduced-motion.
+   * R83.V1e + R84.P7: Paddle-hit particle trail. Count ramps BASE_COUNT → MAX_COUNT
+   * as the ball's current speed multiplier climbs from 1.0 → ball.MAX/INITIAL
+   * (~2.14x), so a hot late-rally hit throws 20 particles vs. 12 on a fresh
+   * serve. Skipped entirely under reduced-motion.
    */
   private createPaddleHitTrail(x: number, y: number, colour: number): void {
     if (this.prefersReducedMotion()) return;
-    const count = 10;
+    const count = this.computeTrailParticleCount();
+    const cfg = GAME_CONFIG.PADDLE_TRAIL;
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
-      const speed = 30 + Math.random() * 20;
-      const particle = this.add.circle(x, y, 2, colour, 0.85);
+      const speed = cfg.SPEED_BASE + Math.random() * cfg.SPEED_JITTER;
+      const particle = this.add.circle(x, y, cfg.PARTICLE_RADIUS, colour, cfg.PARTICLE_ALPHA);
       this.tweens.add({
         targets: particle,
         x: x + Math.cos(angle) * speed,
         y: y + Math.sin(angle) * speed,
         alpha: 0,
         scale: { from: 1, to: 0.2 },
-        duration: 300,
+        duration: cfg.DURATION_MS,
         ease: 'Quad.easeOut',
         onComplete: () => particle.destroy(),
       });
     }
+  }
+
+  /**
+   * Linearly scale BASE_COUNT → MAX_COUNT across the ball-speed range.
+   * Multiplier 1.0 (fresh serve) → BASE; multiplier caps at
+   * `MAX_SPEED/INITIAL_SPEED` (~2.14) → MAX. Values below base (e.g. under
+   * slower_ball power-up at 0.6×) clamp to BASE so the juice never thins
+   * out on slow rallies.
+   */
+  private computeTrailParticleCount(): number {
+    const cfg = GAME_CONFIG.PADDLE_TRAIL;
+    const maxMultiplier = GAME_CONFIG.BALL.MAX_SPEED / GAME_CONFIG.BALL.INITIAL_SPEED;
+    const currentMultiplier = this.getSpeedMultiplier();
+    const normalised = clamp((currentMultiplier - 1) / (maxMultiplier - 1), 0, 1);
+    return Math.round(cfg.BASE_COUNT + normalised * (cfg.MAX_COUNT - cfg.BASE_COUNT));
   }
 
   /**
