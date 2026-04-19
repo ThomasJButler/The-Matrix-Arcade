@@ -6,6 +6,7 @@ import {
   ACHIEVEMENTS,
   DEATH_CINEMATIC,
   DREAD_BUILDUP,
+  FOOD_PICKUP_JUICE,
   GLITCH_RAIN,
   MATRIX_FUNKINESS,
   POWERUP_DEFS,
@@ -729,6 +730,15 @@ export class SnakeGameScene extends BaseScene {
   private createScorePopup(pos: Position, points: number): void {
     const { x, y } = this.gridToPixel(pos.x, pos.y);
     const text = this.createMatrixText(x, y, `+${points}`, 10, MATRIX_COLORS.PRIMARY_HEX);
+    // R84.S6 — scale-pop entry gives the "+N" a visible impact frame. End
+    // state matches the old static size so no reduced-motion gate is needed.
+    text.setScale(FOOD_PICKUP_JUICE.SCORE_POPUP_SCALE_FROM);
+    this.tweens.add({
+      targets: text,
+      scale: FOOD_PICKUP_JUICE.SCORE_POPUP_SCALE_TO,
+      duration: FOOD_PICKUP_JUICE.SCORE_POPUP_SCALE_DURATION_MS,
+      ease: 'Back.easeOut',
+    });
     this.tweens.add({
       targets: text,
       y: y - 30,
@@ -1110,14 +1120,54 @@ export class SnakeGameScene extends BaseScene {
 
   private createEatBurst(pos: Position): void {
     const { x, y } = this.gridToPixel(pos.x, pos.y);
-    this.createParticleBurst(x, y, MATRIX_COLORS.PRIMARY, 6);
+    // R84.S6 — amplification. `createEatRing` fires first so the expanding
+    // pulse reads under the particle burst, not over it. Particle count now
+    // sourced from config so a future tuning pass touches one constant.
+    this.createEatRing(x, y);
+    this.createParticleBurst(x, y, MATRIX_COLORS.PRIMARY, FOOD_PICKUP_JUICE.BURST_COUNT);
     this.createChromaticAberrationFlash(x, y);
+  }
+
+  /**
+   * R84.S6 — Expanding green stroked ring on every food pickup. Scale tween
+   * 1 → SCALE_END with alpha fade mirrors the `createShieldBreakEffect`
+   * pattern so the arcade's "pickup pulse" visual grammar stays consistent.
+   * Skipped under prefers-reduced-motion — the ring expands rapidly enough
+   * to read as motion even with the alpha fade (same rationale as the
+   * chromatic-aberration flash gate).
+   */
+  private createEatRing(x: number, y: number): void {
+    if (typeof window !== 'undefined' &&
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
+    // Transparent fill; the visible ring is the stroke. Arc's `scale` is
+    // tweenable (Phaser Shape inherits from GameObject) — `radius` is only
+    // set at construction, so the scale-tween approach mirrors the existing
+    // shield-break and particle-burst effects.
+    const ring = this.add.circle(x, y, FOOD_PICKUP_JUICE.EAT_RING_RADIUS, 0x000000, 0);
+    ring.setStrokeStyle(
+      FOOD_PICKUP_JUICE.EAT_RING_STROKE_WIDTH,
+      MATRIX_COLORS.PRIMARY,
+    );
+    ring.setAlpha(FOOD_PICKUP_JUICE.EAT_RING_INITIAL_ALPHA);
+    ring.setDepth(FOOD_PICKUP_JUICE.EAT_RING_DEPTH);
+    this.tweens.add({
+      targets: ring,
+      scale: FOOD_PICKUP_JUICE.EAT_RING_SCALE_END,
+      alpha: 0,
+      duration: FOOD_PICKUP_JUICE.EAT_RING_DURATION_MS,
+      ease: 'Quad.easeOut',
+      onComplete: () => ring.destroy(),
+    });
   }
 
   /**
    * Two offset ghost copies (red/cyan) tween outward and fade — gives the
    * pickup a subtle CRT-glitch feel without overwhelming the playfield.
-   * Skipped under prefers-reduced-motion to keep the a11y contract.
+   * R84.S6 widened the offset from ±3 px to ±CHROMATIC_OFFSET_PX (5) because
+   * the prior split was barely perceptible at 640×400 scale. Skipped under
+   * prefers-reduced-motion to keep the a11y contract.
    */
   private createChromaticAberrationFlash(x: number, y: number): void {
     if (typeof window !== 'undefined' &&
@@ -1126,6 +1176,7 @@ export class SnakeGameScene extends BaseScene {
     }
     const key = this.spriteMode ? 'food_sprite' : 'food';
     const visual = this.spriteMode ? GAME_CONFIG.CELL_SIZE * 0.75 : GAME_CONFIG.CELL_SIZE;
+    const offset = FOOD_PICKUP_JUICE.CHROMATIC_OFFSET_PX;
 
     const makeGhost = (tint: number, dx: number) => {
       const ghost = this.add.image(x, y, key).setDepth(5);
@@ -1141,8 +1192,8 @@ export class SnakeGameScene extends BaseScene {
         onComplete: () => ghost.destroy(),
       });
     };
-    makeGhost(0xff3333, -3);
-    makeGhost(0x33ffff, 3);
+    makeGhost(0xff3333, -offset);
+    makeGhost(0x33ffff, offset);
   }
 
   /**

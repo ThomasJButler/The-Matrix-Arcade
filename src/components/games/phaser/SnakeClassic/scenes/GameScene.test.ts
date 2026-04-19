@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import Phaser from 'phaser';
 import { SnakeGameScene } from './GameScene';
-import { GAME_CONFIG, ACHIEVEMENTS, DEATH_CINEMATIC, DREAD_BUILDUP, MATRIX_FUNKINESS, POWERUP_DEFS, GLITCH_RAIN } from '../config';
+import { GAME_CONFIG, ACHIEVEMENTS, DEATH_CINEMATIC, DREAD_BUILDUP, FOOD_PICKUP_JUICE, MATRIX_FUNKINESS, POWERUP_DEFS, GLITCH_RAIN } from '../config';
 import { MATRIX_COLORS, SOUND_KEYS } from '@/lib/phaser/types';
 
 // Seed JustDown on the global Phaser mock from setup.ts so handleInput tests
@@ -80,6 +80,26 @@ function createMockText() {
 
 function createMockTimer() {
   return { destroy: vi.fn(), remove: vi.fn() };
+}
+
+// R84.S6 — `createEatRing` spawns a Phaser Arc (from `add.circle`) then
+// chains `setStrokeStyle` + `setAlpha` + `setDepth` on it. Tests need to
+// read back radius/colour + the chain-call destinations, so the mock now
+// captures constructor args + supports the full chain.
+function createMockCircle() {
+  const c: Record<string, any> = {};
+  const self = () => c;
+  c.setStrokeStyle = vi.fn(self);
+  c.setFillStyle = vi.fn(self);
+  c.setAlpha = vi.fn(self);
+  c.setDepth = vi.fn(self);
+  c.destroy = vi.fn();
+  c.x = 0;
+  c.y = 0;
+  c.radius = 0;
+  c.fillColor = 0;
+  c.fillAlpha = 0;
+  return c;
 }
 
 // R84.S5 — death cinematic spawns `Phaser.GameObjects.Rectangle` bars via
@@ -176,7 +196,17 @@ function createTestScene(): SnakeGameScene {
   scene.add = {
     graphics: vi.fn(() => createMockGraphics()),
     image: vi.fn(() => createMockImage()),
-    circle: vi.fn(() => ({ destroy: vi.fn() })),
+    // R84.S6 — richer mock so `createEatRing` assertions can read back
+    // radius/colour + verify the setStrokeStyle/setAlpha/setDepth chain.
+    circle: vi.fn((x: number, y: number, radius: number, color: number, alpha?: number) => {
+      const c = createMockCircle();
+      c.x = x;
+      c.y = y;
+      c.radius = radius;
+      c.fillColor = color;
+      c.fillAlpha = alpha ?? 1;
+      return c;
+    }),
     text: vi.fn(() => createMockText()),
     // R84.S5 — death cinematic needs `add.rectangle(x, y, w, h, color)`.
     // Seed constructor args onto the returned object so tests can read
@@ -2069,6 +2099,233 @@ describe('SnakeGameScene', () => {
         call('shutdown');
         expect((scene as any).deathCinematicBars.length).toBe(0);
         bars.forEach(b => expect(b.destroy).toHaveBeenCalled());
+      });
+    });
+  });
+
+  // ─── R84.S6 — Food pickup juice amplification ───────────
+  //
+  // Two legs: (1) regression guard proving the apple's 0.75 × CELL_SIZE
+  // footprint fits inside the play area on all four cell edges post-R84.S1
+  // wall-shift (GRID_OFFSET_Y 20 → 40), (2) wiring + config sanity for the
+  // new eat-ring pulse + amped particle burst + widened chromatic split +
+  // score-popup scale-pop.
+
+  describe('R84.S6 — Food pickup juice amplification', () => {
+    describe('config sanity', () => {
+      it('should set EAT_RING_SCALE_END > 1 so the ring actually expands', () => {
+        expect(FOOD_PICKUP_JUICE.EAT_RING_SCALE_END).toBeGreaterThan(1);
+      });
+
+      it('should set EAT_RING_DURATION_MS in the 150..500 "pickup pulse" band', () => {
+        expect(FOOD_PICKUP_JUICE.EAT_RING_DURATION_MS).toBeGreaterThanOrEqual(150);
+        expect(FOOD_PICKUP_JUICE.EAT_RING_DURATION_MS).toBeLessThanOrEqual(500);
+      });
+
+      it('should set EAT_RING_INITIAL_ALPHA in (0, 1]', () => {
+        expect(FOOD_PICKUP_JUICE.EAT_RING_INITIAL_ALPHA).toBeGreaterThan(0);
+        expect(FOOD_PICKUP_JUICE.EAT_RING_INITIAL_ALPHA).toBeLessThanOrEqual(1);
+      });
+
+      it('should set BURST_COUNT > 6 so R84.S6 is an amplification over the pre-S6 baseline', () => {
+        expect(FOOD_PICKUP_JUICE.BURST_COUNT).toBeGreaterThan(6);
+      });
+
+      it('should set CHROMATIC_OFFSET_PX > 3 so R84.S6 widens the pre-S6 split', () => {
+        expect(FOOD_PICKUP_JUICE.CHROMATIC_OFFSET_PX).toBeGreaterThan(3);
+      });
+
+      it('should set SCORE_POPUP_SCALE_FROM < SCORE_POPUP_SCALE_TO so the text grows', () => {
+        expect(FOOD_PICKUP_JUICE.SCORE_POPUP_SCALE_FROM)
+          .toBeLessThan(FOOD_PICKUP_JUICE.SCORE_POPUP_SCALE_TO);
+      });
+
+      it('should end score-popup scale at 1 so it matches the static text size', () => {
+        expect(FOOD_PICKUP_JUICE.SCORE_POPUP_SCALE_TO).toBe(1);
+      });
+    });
+
+    describe('apple geometry fits inside play area post-R84.S1 wall shift', () => {
+      // Apple displaySize = CELL_SIZE * 0.75 (R83.S1 shrink) — half-size is
+      // 0.375 × CELL_SIZE from centre. gridToPixel places the centre at
+      // GRID_OFFSET + gridIndex × CELL_SIZE + CELL_SIZE/2. Top wall tile
+      // spans [GRID_OFFSET_Y − CELL_SIZE, GRID_OFFSET_Y]; bottom wall tile
+      // spans [GRID_OFFSET_Y + GRID_ROWS × CELL_SIZE, GRID_OFFSET_Y +
+      // (GRID_ROWS + 1) × CELL_SIZE]. Apple edges must stay strictly
+      // inside the play area (between the two wall tiles).
+      const HALF_APPLE = GAME_CONFIG.CELL_SIZE * 0.75 / 2;
+      const PLAY_AREA_TOP = GAME_CONFIG.GRID_OFFSET_Y;
+      const PLAY_AREA_BOTTOM = GAME_CONFIG.GRID_OFFSET_Y + GAME_CONFIG.GRID_ROWS * GAME_CONFIG.CELL_SIZE;
+      const PLAY_AREA_LEFT = GAME_CONFIG.GRID_OFFSET_X;
+      const PLAY_AREA_RIGHT = GAME_CONFIG.GRID_OFFSET_X + GAME_CONFIG.GRID_COLS * GAME_CONFIG.CELL_SIZE;
+
+      it('should fit top-row apple (grid y=0) above the bottom of the top wall tile', () => {
+        const topRowCentreY = GAME_CONFIG.GRID_OFFSET_Y + 0 * GAME_CONFIG.CELL_SIZE + GAME_CONFIG.CELL_SIZE / 2;
+        expect(topRowCentreY - HALF_APPLE).toBeGreaterThanOrEqual(PLAY_AREA_TOP);
+      });
+
+      it('should fit bottom-row apple (grid y=GRID_ROWS-1) above the top of the bottom wall tile', () => {
+        const bottomRowCentreY = GAME_CONFIG.GRID_OFFSET_Y
+          + (GAME_CONFIG.GRID_ROWS - 1) * GAME_CONFIG.CELL_SIZE
+          + GAME_CONFIG.CELL_SIZE / 2;
+        expect(bottomRowCentreY + HALF_APPLE).toBeLessThanOrEqual(PLAY_AREA_BOTTOM);
+      });
+
+      it('should fit leftmost-col apple (grid x=0) right of the left wall tile', () => {
+        const leftColCentreX = GAME_CONFIG.GRID_OFFSET_X + 0 * GAME_CONFIG.CELL_SIZE + GAME_CONFIG.CELL_SIZE / 2;
+        expect(leftColCentreX - HALF_APPLE).toBeGreaterThanOrEqual(PLAY_AREA_LEFT);
+      });
+
+      it('should fit rightmost-col apple (grid x=GRID_COLS-1) left of the right wall tile', () => {
+        const rightColCentreX = GAME_CONFIG.GRID_OFFSET_X
+          + (GAME_CONFIG.GRID_COLS - 1) * GAME_CONFIG.CELL_SIZE
+          + GAME_CONFIG.CELL_SIZE / 2;
+        expect(rightColCentreX + HALF_APPLE).toBeLessThanOrEqual(PLAY_AREA_RIGHT);
+      });
+
+      it('should leave at least 1 px clearance between apple edge and wall on every side', () => {
+        // Regression guard: a future GRID_OFFSET tweak that shrinks the
+        // margin to 0 would visually re-introduce the R83.S1 "apple
+        // touches wall" read the shrink was meant to prevent.
+        const topRowCentreY = GAME_CONFIG.GRID_OFFSET_Y + GAME_CONFIG.CELL_SIZE / 2;
+        const clearance = topRowCentreY - HALF_APPLE - PLAY_AREA_TOP;
+        expect(clearance).toBeGreaterThanOrEqual(1);
+      });
+    });
+
+    describe('createEatRing() spawning', () => {
+      // Save/restore matchMedia directly rather than via vi.spyOn — the
+      // global mock in src/test/setup.ts is a `vi.fn().mockImplementation`,
+      // so `mockRestore` on a spy over it leaves a bare `vi.fn()` behind
+      // that returns undefined (breaking every subsequent `.matches` read).
+      // R84.S5 uses this manual save/restore pattern for the same reason.
+      let originalMatchMedia: typeof window.matchMedia;
+
+      beforeEach(() => {
+        originalMatchMedia = window.matchMedia;
+      });
+
+      afterEach(() => {
+        (window as any).matchMedia = originalMatchMedia;
+      });
+
+      it('should spawn a circle at the given pixel with EAT_RING_RADIUS', () => {
+        call('createEatRing', 100, 200);
+        expect((scene as any).add.circle).toHaveBeenCalledWith(
+          100,
+          200,
+          FOOD_PICKUP_JUICE.EAT_RING_RADIUS,
+          expect.any(Number),
+          expect.any(Number),
+        );
+      });
+
+      it('should paint the ring with a PRIMARY-green stroke and zero fill alpha', () => {
+        call('createEatRing', 100, 200);
+        const call0 = ((scene as any).add.circle as any).mock.calls[0];
+        // alpha arg (5th) is 0 — the visible ring is the stroke
+        expect(call0[4]).toBe(0);
+        const circle = ((scene as any).add.circle as any).mock.results[0].value;
+        expect(circle.setStrokeStyle).toHaveBeenCalledWith(
+          FOOD_PICKUP_JUICE.EAT_RING_STROKE_WIDTH,
+          MATRIX_COLORS.PRIMARY,
+        );
+      });
+
+      it('should set alpha to EAT_RING_INITIAL_ALPHA and depth to EAT_RING_DEPTH', () => {
+        call('createEatRing', 100, 200);
+        const circle = ((scene as any).add.circle as any).mock.results[0].value;
+        expect(circle.setAlpha).toHaveBeenCalledWith(FOOD_PICKUP_JUICE.EAT_RING_INITIAL_ALPHA);
+        expect(circle.setDepth).toHaveBeenCalledWith(FOOD_PICKUP_JUICE.EAT_RING_DEPTH);
+      });
+
+      it('should register a tween that scales to SCALE_END, alphas to 0, and destroys on complete', () => {
+        call('createEatRing', 100, 200);
+        const tween = ((scene as any).tweens.add as any).mock.calls[0][0];
+        const circle = ((scene as any).add.circle as any).mock.results[0].value;
+        expect(tween.targets).toBe(circle);
+        expect(tween.scale).toBe(FOOD_PICKUP_JUICE.EAT_RING_SCALE_END);
+        expect(tween.alpha).toBe(0);
+        expect(tween.duration).toBe(FOOD_PICKUP_JUICE.EAT_RING_DURATION_MS);
+        tween.onComplete();
+        expect(circle.destroy).toHaveBeenCalled();
+      });
+
+      it('should early-return under prefers-reduced-motion with no circle spawned', () => {
+        (window as any).matchMedia = vi.fn().mockReturnValue({ matches: true });
+        call('createEatRing', 100, 200);
+        expect((scene as any).add.circle).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('createEatBurst() wiring', () => {
+      it('should call createEatRing + createParticleBurst + createChromaticAberrationFlash in order', () => {
+        const ringSpy = vi.spyOn(scene as any, 'createEatRing');
+        const burstSpy = vi.spyOn(scene as any, 'createParticleBurst');
+        const chromaticSpy = vi.spyOn(scene as any, 'createChromaticAberrationFlash');
+        call('createEatBurst', { x: 5, y: 5 });
+        expect(ringSpy).toHaveBeenCalledTimes(1);
+        expect(burstSpy).toHaveBeenCalledTimes(1);
+        expect(chromaticSpy).toHaveBeenCalledTimes(1);
+        // Ring first (under the particles), then particles, then chromatic
+        expect(ringSpy.mock.invocationCallOrder[0])
+          .toBeLessThan(burstSpy.mock.invocationCallOrder[0]);
+        expect(burstSpy.mock.invocationCallOrder[0])
+          .toBeLessThan(chromaticSpy.mock.invocationCallOrder[0]);
+      });
+
+      it('should pass FOOD_PICKUP_JUICE.BURST_COUNT to createParticleBurst', () => {
+        const burstSpy = vi.spyOn(scene as any, 'createParticleBurst');
+        call('createEatBurst', { x: 5, y: 5 });
+        const args = burstSpy.mock.calls[0];
+        // (x, y, colour, count)
+        expect(args[2]).toBe(MATRIX_COLORS.PRIMARY);
+        expect(args[3]).toBe(FOOD_PICKUP_JUICE.BURST_COUNT);
+      });
+    });
+
+    describe('createChromaticAberrationFlash() — widened offset', () => {
+      it('should spawn two ghosts offset by ±CHROMATIC_OFFSET_PX on the x-axis', () => {
+        (scene as any).spriteMode = false;
+        call('createChromaticAberrationFlash', 100, 200);
+        const tweens = ((scene as any).tweens.add as any).mock.calls.map((c: any[]) => c[0]);
+        // Two tweens registered (one per ghost). Each tween targets x = 100 ± offset.
+        const xTargets = tweens.map((t: any) => t.x);
+        expect(xTargets).toContain(100 - FOOD_PICKUP_JUICE.CHROMATIC_OFFSET_PX);
+        expect(xTargets).toContain(100 + FOOD_PICKUP_JUICE.CHROMATIC_OFFSET_PX);
+      });
+    });
+
+    describe('createScorePopup() — scale-pop entry', () => {
+      it('should seed text at SCORE_POPUP_SCALE_FROM before the scale tween', () => {
+        const capturedTexts: any[] = [];
+        (scene as any).createMatrixText = vi.fn(() => {
+          const t = createMockText();
+          capturedTexts.push(t);
+          return t;
+        });
+        call('createScorePopup', { x: 5, y: 5 }, 10);
+        expect(capturedTexts[0].setScale).toHaveBeenCalledWith(
+          FOOD_PICKUP_JUICE.SCORE_POPUP_SCALE_FROM,
+        );
+      });
+
+      it('should register a scale tween to SCORE_POPUP_SCALE_TO with Back.easeOut', () => {
+        call('createScorePopup', { x: 5, y: 5 }, 10);
+        const tweens = ((scene as any).tweens.add as any).mock.calls.map((c: any[]) => c[0]);
+        const scaleTween = tweens.find((t: any) => t.scale === FOOD_PICKUP_JUICE.SCORE_POPUP_SCALE_TO);
+        expect(scaleTween).toBeDefined();
+        expect(scaleTween.ease).toBe('Back.easeOut');
+        expect(scaleTween.duration).toBe(FOOD_PICKUP_JUICE.SCORE_POPUP_SCALE_DURATION_MS);
+      });
+
+      it('should still register the 500 ms rise+fade tween alongside the scale-pop', () => {
+        call('createScorePopup', { x: 5, y: 5 }, 10);
+        const tweens = ((scene as any).tweens.add as any).mock.calls.map((c: any[]) => c[0]);
+        const riseTween = tweens.find((t: any) => t.alpha === 0 && t.duration === 500);
+        expect(riseTween).toBeDefined();
+        // Rises 30 px — value lives in gridToPixel's y-output minus 30.
+        expect(typeof riseTween.y).toBe('number');
       });
     });
   });
