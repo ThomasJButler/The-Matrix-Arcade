@@ -1289,6 +1289,24 @@ main:has(.ipod-body--playing) {
   }
 }
 
+/* R84.CI-6 — Phaser game container focus-visible ring. Before this, the
+   wrapper painted the 2 px green box-shadow on every focus event (via an
+   `onFocus`/`onBlur` state flip), so the ring flashed on every mouse click
+   and every mouse-enter because both handlers programmatically focus the
+   container to keep Phaser's keyboard plugin alive. Moving the ring onto
+   `:focus-visible` lets the UA heuristic decide: keyboard Tab-navigation
+   still paints it, pointer-initiated `.focus()` does not. Matches the
+   existing iPod chrome pattern (`.ipod-dashbar:focus-visible` etc.). */
+.phaser-game-container:focus {
+  outline: none;
+}
+
+.phaser-game-container:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #00ff00;
+  transition: box-shadow 0.2s ease;
+}
+
 /* Windows High Contrast Mode / macOS Increase Contrast.
    HCM strips box-shadow + gradients + most backgrounds and substitutes its
    own palette. The iPod chrome relies on those strips for its entire sense
@@ -1319,7 +1337,8 @@ main:has(.ipod-body--playing) {
   .clickwheel-zone:focus-visible,
   .clickwheel-centre:focus-visible,
   .dashbar-btn:focus-visible:not(:disabled),
-  .dashbar-centre:focus-visible:not(:disabled) {
+  .dashbar-centre:focus-visible:not(:disabled),
+  .phaser-game-container:focus-visible {
     outline: 2px solid Highlight;
     outline-offset: 2px;
   }

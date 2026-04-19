@@ -62,7 +62,6 @@ export function PhaserGame({
 }: PhaserGameWrapperProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
-  const [hasFocus, setHasFocus] = useState(false);
   // R84.CI (a11y priority 1): screen-reader announcement for `gameOver`
   // events emitted by any Phaser scene. Nonce forces a fresh DOM update
   // even when a replay ends on the same score, so aria-live re-reads rather
@@ -328,19 +327,11 @@ export function PhaserGame({
         data-phaser-game="true"
         role="application"
         aria-label={`${gameId} game`}
-        className={`w-full h-full ${className}`}
-        style={{
-          minHeight: '400px',
-          outline: '2px solid transparent',
-          boxShadow: hasFocus ? '0 0 0 2px #00ff00' : 'none',
-          transition: 'box-shadow 0.2s ease',
-          position: 'relative',
-        }}
+        className={`phaser-game-container w-full h-full ${className}`}
+        style={{ minHeight: '400px', position: 'relative' }}
         tabIndex={0}
         onClick={handleContainerClick}
         onMouseEnter={handleMouseEnter}
-        onFocus={() => setHasFocus(true)}
-        onBlur={() => setHasFocus(false)}
       />
       <div
         data-testid="phaser-sr-announcement"
