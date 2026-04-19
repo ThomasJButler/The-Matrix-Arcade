@@ -96,6 +96,9 @@ export class VortexPongGameScene extends BaseScene {
   private playerScoreText!: Phaser.GameObjects.Text;
   private aiScoreText!: Phaser.GameObjects.Text;
   private comboText!: Phaser.GameObjects.Text;
+  // R84.P8 — top-centre rally counter. Hidden (alpha 0) at rallyCount 0,
+  // fades in + pulses on every player paddle return, hides on any goal.
+  private rallyCounterText!: Phaser.GameObjects.Text;
   private powerUpIndicators: Phaser.GameObjects.Text[] = [];
   private centerLineGraphics!: Phaser.GameObjects.Graphics;
 
@@ -561,6 +564,10 @@ export class VortexPongGameScene extends BaseScene {
     // Rally tracking
     this.rallyCount++;
     this.maxRally = Math.max(this.maxRally, this.rallyCount);
+    // R84.P8 — pulse the top-centre counter on every player return so the
+    // rally length reads at a glance and feeds the P2 High Score weighting
+    // visually.
+    this.updateRallyCounter();
 
     this.playSound(SOUND_KEYS.HIT);
     this.cameras.main.shake(GAME_CONFIG.SHAKE.PLAYER_HIT.duration, GAME_CONFIG.SHAKE.PLAYER_HIT.intensity);
@@ -642,6 +649,9 @@ export class VortexPongGameScene extends BaseScene {
       this.combo = 0;
       this.rallyCount = 0;
       this.timeSinceLastGoal = 0;
+      // R84.P8 — rally just broke; hide the counter so the next serve starts
+      // from a clean HUD. The scale pulse from the last hit is killed too.
+      this.hideRallyCounter();
 
       if (!this.prefersReducedMotion()) {
         this.cameras.main.shake(GAME_CONFIG.SHAKE.GOAL.duration, GAME_CONFIG.SHAKE.GOAL.intensity);
@@ -958,6 +968,13 @@ export class VortexPongGameScene extends BaseScene {
 
     this.comboText = this.createMatrixText(GAME_CONFIG.WIDTH / 2, 60, '', 14, MATRIX_COLORS.YELLOW_HEX);
     this.comboText.setAlpha(0);
+
+    // R84.P8 — rally counter sits above the score digits (y=14) so it reads
+    // as the "how long has this rally been going" metric without competing
+    // with the score. Hidden on fresh serve (no rally yet).
+    const rc = GAME_CONFIG.RALLY_COUNTER;
+    this.rallyCounterText = this.createMatrixText(GAME_CONFIG.WIDTH / 2, rc.Y, '', rc.FONT_SIZE, rc.COLOR);
+    this.rallyCounterText.setAlpha(0);
   }
 
   private updateScoreDisplay(): void {
@@ -979,6 +996,42 @@ export class VortexPongGameScene extends BaseScene {
       duration: 250,
       ease: 'Back.easeOut',
     });
+  }
+
+  /**
+   * R84.P8 — Refresh the top-centre rally counter on every player paddle
+   * return. Sets text to `RALLY x{count}`, snaps alpha to 1, and fires a
+   * scale-pulse tween so the HUD reads like a satisfying drum-hit. The
+   * prior tween (if any) is killed first so back-to-back rapid returns
+   * don't stack conflicting scale tweens. Reduced-motion skips the tween
+   * but still updates text + alpha so the metric stays readable.
+   */
+  private updateRallyCounter(): void {
+    if (!this.rallyCounterText) return;
+    const rc = GAME_CONFIG.RALLY_COUNTER;
+    this.rallyCounterText.setText(`RALLY x${this.rallyCount}`);
+    this.rallyCounterText.setAlpha(1);
+    if (this.prefersReducedMotion()) return;
+    this.tweens.killTweensOf(this.rallyCounterText);
+    this.tweens.add({
+      targets: this.rallyCounterText,
+      scale: { from: rc.PULSE_FROM, to: rc.PULSE_TO },
+      duration: rc.PULSE_DURATION_MS,
+      ease: rc.PULSE_EASE,
+    });
+  }
+
+  /**
+   * R84.P8 — Called on goal (either direction). Kills any in-flight pulse
+   * tween and hides the counter so the next serve starts clean. Text is
+   * cleared to '' rather than 'RALLY x0' so a flicker between alpha 1→0
+   * can never briefly expose the placeholder copy.
+   */
+  private hideRallyCounter(): void {
+    if (!this.rallyCounterText) return;
+    this.tweens.killTweensOf(this.rallyCounterText);
+    this.rallyCounterText.setAlpha(0);
+    this.rallyCounterText.setText('');
   }
 
   private updatePowerUpIndicators(): void {

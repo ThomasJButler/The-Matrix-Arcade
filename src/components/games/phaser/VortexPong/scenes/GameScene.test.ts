@@ -226,6 +226,14 @@ describe('VortexPongGameScene', () => {
     scene.playerScoreText = { setText: vi.fn(), setAlpha: vi.fn(), destroy: vi.fn() };
     scene.aiScoreText = { setText: vi.fn(), setAlpha: vi.fn(), destroy: vi.fn() };
     scene.comboText = { setText: vi.fn(), setAlpha: vi.fn(), destroy: vi.fn() };
+    // R84.P8 — top-centre rally counter. updateRallyCounter/hideRallyCounter
+    // read setText/setAlpha; scale is stored as a mutable field for assertion.
+    scene.rallyCounterText = {
+      text: '', alpha: 0, scale: 1,
+      setText: vi.fn(function (this: any, s: string) { this.text = s; return this; }),
+      setAlpha: vi.fn(function (this: any, a: number) { this.alpha = a; return this; }),
+      destroy: vi.fn(),
+    };
     scene.centerLineGraphics = { destroy: vi.fn() };
     scene.rainGroup = undefined;
     scene.previousPlayerY = 225;
@@ -1582,6 +1590,186 @@ describe('VortexPongGameScene', () => {
       expect(scene.balls).toHaveLength(2);
       scene.spawnMultiBalls();
       expect(scene.balls).toHaveLength(3);
+    });
+  });
+
+  // ----------------------------------------------------------------------
+  // R84.P8 — Ball rally counter UI
+  // ----------------------------------------------------------------------
+  describe('R84.P8 — Rally counter UI', () => {
+    describe('config sanity', () => {
+      it('RALLY_COUNTER block is present with all pulse fields', () => {
+        const rc = GAME_CONFIG.RALLY_COUNTER;
+        expect(rc.Y).toBeGreaterThan(0);
+        expect(rc.FONT_SIZE).toBeGreaterThan(0);
+        expect(rc.COLOR).toMatch(/^#[0-9a-f]{6}$/i);
+        expect(rc.PULSE_FROM).toBeGreaterThan(rc.PULSE_TO);
+        expect(rc.PULSE_DURATION_MS).toBeGreaterThan(0);
+      });
+
+      it('counter sits above the score digits (y=30)', () => {
+        expect(GAME_CONFIG.RALLY_COUNTER.Y).toBeLessThan(30);
+      });
+
+      it('colour is the CYAN rally/multi-ball family', () => {
+        expect(GAME_CONFIG.RALLY_COUNTER.COLOR.toLowerCase()).toBe('#00ffff');
+      });
+    });
+
+    describe('updateRallyCounter', () => {
+      beforeEach(() => {
+        scene.tweens.add.mockClear();
+        scene.tweens.killTweensOf.mockClear();
+      });
+
+      it('renders "RALLY xN" for the current rallyCount', () => {
+        scene.rallyCount = 3;
+        scene.updateRallyCounter();
+        expect(scene.rallyCounterText.text).toBe('RALLY x3');
+      });
+
+      it('snaps alpha to 1 when the counter updates', () => {
+        scene.rallyCount = 1;
+        scene.updateRallyCounter();
+        expect(scene.rallyCounterText.alpha).toBe(1);
+      });
+
+      it('fires a scale-pulse tween keyed at PULSE_FROM → PULSE_TO', () => {
+        scene.rallyCount = 2;
+        scene.updateRallyCounter();
+        const rc = GAME_CONFIG.RALLY_COUNTER;
+        const pulseCall = scene.tweens.add.mock.calls.find(
+          (c: any[]) => c[0].targets === scene.rallyCounterText
+            && c[0].scale?.from === rc.PULSE_FROM
+            && c[0].scale?.to === rc.PULSE_TO,
+        );
+        expect(pulseCall).toBeTruthy();
+        expect(pulseCall[0].duration).toBe(rc.PULSE_DURATION_MS);
+        expect(pulseCall[0].ease).toBe(rc.PULSE_EASE);
+      });
+
+      it('kills any in-flight pulse before spawning a new one', () => {
+        scene.rallyCount = 1;
+        scene.updateRallyCounter();
+        scene.rallyCount = 2;
+        scene.updateRallyCounter();
+        expect(scene.tweens.killTweensOf).toHaveBeenCalledWith(scene.rallyCounterText);
+      });
+
+      it('skips the tween under prefers-reduced-motion but still updates text + alpha', () => {
+        const original = window.matchMedia;
+        // @ts-expect-error overriding for test
+        window.matchMedia = vi.fn().mockReturnValue({ matches: true });
+        try {
+          scene.rallyCount = 4;
+          scene.updateRallyCounter();
+          expect(scene.tweens.add).not.toHaveBeenCalled();
+          expect(scene.rallyCounterText.text).toBe('RALLY x4');
+          expect(scene.rallyCounterText.alpha).toBe(1);
+        } finally {
+          window.matchMedia = original;
+        }
+      });
+
+      it('is a safe no-op when rallyCounterText is not yet created', () => {
+        scene.rallyCounterText = undefined;
+        expect(() => scene.updateRallyCounter()).not.toThrow();
+      });
+    });
+
+    describe('paddle-hit integration', () => {
+      it('player paddle hit pulses the counter with the incremented count', () => {
+        scene.tweens.add.mockClear();
+        const paddleRight = scene.playerPaddle.x + GAME_CONFIG.PADDLE.WIDTH / 2;
+        createBall(scene, paddleRight, scene.playerPaddle.y, -420, 0);
+        scene.checkPaddleCollisions();
+        expect(scene.rallyCounterText.text).toBe('RALLY x1');
+        expect(scene.rallyCounterText.alpha).toBe(1);
+      });
+
+      it('AI paddle hit does NOT touch the rally counter (rallyCount unchanged)', () => {
+        // onAIPaddleHit doesn't increment rallyCount by design, so the
+        // counter should stay at whatever the last player-hit state was.
+        scene.rallyCount = 3;
+        scene.rallyCounterText.text = 'RALLY x3';
+        const paddleLeft = scene.aiPaddle.x - GAME_CONFIG.PADDLE.WIDTH / 2;
+        createBall(scene, paddleLeft, scene.aiPaddle.y, 420, 0);
+        scene.checkPaddleCollisions();
+        expect(scene.rallyCount).toBe(3);
+        expect(scene.rallyCounterText.text).toBe('RALLY x3');
+      });
+
+      it('counter advances across successive player returns', () => {
+        for (let i = 1; i <= 3; i++) {
+          // Re-seed a ball each return (previous one was bounced back past the paddle).
+          scene.balls = [];
+          const paddleRight = scene.playerPaddle.x + GAME_CONFIG.PADDLE.WIDTH / 2;
+          createBall(scene, paddleRight, scene.playerPaddle.y, -420, 0);
+          scene.checkPaddleCollisions();
+          expect(scene.rallyCounterText.text).toBe(`RALLY x${i}`);
+        }
+      });
+    });
+
+    describe('hide on goal', () => {
+      it('player-goal resets counter text + alpha to hidden', () => {
+        scene.rallyCount = 7;
+        scene.rallyCounterText.setText('RALLY x7');
+        scene.rallyCounterText.setAlpha(1);
+        createBall(scene, GAME_CONFIG.WIDTH + 10, 225, 420, 0);
+        scene.checkGoals();
+        expect(scene.rallyCounterText.alpha).toBe(0);
+        expect(scene.rallyCounterText.text).toBe('');
+      });
+
+      it('AI-goal also resets counter text + alpha to hidden', () => {
+        scene.rallyCount = 4;
+        scene.rallyCounterText.setText('RALLY x4');
+        scene.rallyCounterText.setAlpha(1);
+        createBall(scene, -10, 225, -420, 0);
+        scene.checkGoals();
+        expect(scene.rallyCounterText.alpha).toBe(0);
+        expect(scene.rallyCounterText.text).toBe('');
+      });
+
+      it('hideRallyCounter kills any lingering pulse tween', () => {
+        scene.tweens.killTweensOf.mockClear();
+        scene.hideRallyCounter();
+        expect(scene.tweens.killTweensOf).toHaveBeenCalledWith(scene.rallyCounterText);
+      });
+
+      it('hideRallyCounter is a safe no-op when the text is not yet created', () => {
+        scene.rallyCounterText = undefined;
+        expect(() => scene.hideRallyCounter()).not.toThrow();
+      });
+    });
+
+    describe('createUI wiring', () => {
+      it('createUI creates the rally counter and hides it on fresh serve', () => {
+        // Use a fresh createMatrixText that yields per-call instances so we
+        // can inspect the 4th (rally) call independently from score/combo.
+        const created: any[] = [];
+        scene.createMatrixText = vi.fn().mockImplementation((x: number, y: number, content: string, size: number, colour: string) => {
+          const t: any = {
+            x, y, text: content, size, colour,
+            alpha: 1, scale: 1,
+            setText: vi.fn(function (this: any, s: string) { this.text = s; return this; }),
+            setAlpha: vi.fn(function (this: any, a: number) { this.alpha = a; return this; }),
+            destroy: vi.fn(),
+          };
+          created.push(t);
+          return t;
+        });
+        scene.createUI();
+        // 4 texts: playerScore, aiScore, combo, rally
+        expect(created).toHaveLength(4);
+        const rally = created[3];
+        expect(rally.x).toBe(GAME_CONFIG.WIDTH / 2);
+        expect(rally.y).toBe(GAME_CONFIG.RALLY_COUNTER.Y);
+        expect(rally.size).toBe(GAME_CONFIG.RALLY_COUNTER.FONT_SIZE);
+        expect(rally.colour).toBe(GAME_CONFIG.RALLY_COUNTER.COLOR);
+        expect(rally.alpha).toBe(0);
+      });
     });
   });
 });
