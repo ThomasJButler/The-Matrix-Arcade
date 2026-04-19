@@ -29,6 +29,55 @@ interface ChapterProgress {
   puzzlesTotal: number;
 }
 
+/**
+ * R83.CTRLS.15 — pure unlock-status derivation. Extracted so the invariant
+ * "completing chapter N unlocks chapter N+1" has a direct unit-test surface
+ * without mocking a live Phaser scene.
+ *
+ * The original logic gated the 'available' branch on `i <= currentChapter`.
+ * `currentChapter` only advances on chapter *launch* (from the hub), not on
+ * completion — so finishing chapter 0 left chapter 1 stuck at 'locked' until
+ * the player manually picked it (which they couldn't, because it was locked).
+ * Fix: derive `highestUnlocked` from the max completed index too, so the next
+ * unplayed chapter is always reachable once its predecessor is `[x]`.
+ */
+export interface ComputeChapterProgressInput {
+  completedChapters: number[];
+  completedPuzzles: string[];
+  currentChapter: number;
+  totalChapters: number;
+}
+
+export function computeChapterProgress(input: ComputeChapterProgressInput): ChapterProgress[] {
+  const { completedChapters, completedPuzzles, currentChapter, totalChapters } = input;
+
+  const maxCompletedIndex = completedChapters.length > 0
+    ? Math.max(...completedChapters)
+    : -1;
+  const highestUnlocked = Math.max(currentChapter, maxCompletedIndex + 1);
+
+  return Array.from({ length: totalChapters }, (_, i) => {
+    const puzzlesTotal = getChapterPuzzleCount(i);
+    const chapterPuzzlePrefix = i === 0 ? 'prologue_' : `ch${i}_`;
+    const puzzlesCompleted = completedPuzzles.filter(
+      (p: string) => p.startsWith(chapterPuzzlePrefix),
+    ).length;
+
+    let status: ChapterStatus;
+    if (completedChapters.includes(i)) {
+      status = 'complete';
+    } else if (i === currentChapter) {
+      status = 'in-progress';
+    } else if (i <= highestUnlocked) {
+      status = 'available';
+    } else {
+      status = 'locked';
+    }
+
+    return { status, puzzlesCompleted, puzzlesTotal };
+  });
+}
+
 const STATUS_COLOURS: Record<ChapterStatus, { fill: number; border: number; text: string; label: string }> = {
   'locked':      { fill: 0x111111, border: 0x333333, text: '#555555', label: 'LOCKED' },
   'available':   { fill: 0x001a00, border: 0x006600, text: '#00aa00', label: 'AVAILABLE' },
@@ -124,25 +173,11 @@ export class CtrlSChapterHubScene extends BaseScene {
     const completedPuzzles: string[] = this.registry.get(CTRLS_REGISTRY_KEYS.COMPLETED_PUZZLES) ?? [];
     const currentChapter: number = this.registry.get(CTRLS_REGISTRY_KEYS.CURRENT_CHAPTER) ?? 0;
 
-    return Array.from({ length: TOTAL_CHAPTERS }, (_, i) => {
-      const puzzlesTotal = getChapterPuzzleCount(i);
-      const chapterPuzzlePrefix = i === 0 ? 'prologue_' : `ch${i}_`;
-      const puzzlesCompleted = completedPuzzles.filter(
-        (p: string) => p.startsWith(chapterPuzzlePrefix),
-      ).length;
-
-      let status: ChapterStatus;
-      if (completedChapters.includes(i)) {
-        status = 'complete';
-      } else if (i === currentChapter) {
-        status = 'in-progress';
-      } else if (i <= currentChapter) {
-        status = 'available';
-      } else {
-        status = 'locked';
-      }
-
-      return { status, puzzlesCompleted, puzzlesTotal };
+    return computeChapterProgress({
+      completedChapters,
+      completedPuzzles,
+      currentChapter,
+      totalChapters: TOTAL_CHAPTERS,
     });
   }
 
