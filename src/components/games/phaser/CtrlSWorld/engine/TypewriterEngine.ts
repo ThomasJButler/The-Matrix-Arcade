@@ -13,7 +13,16 @@ export class TypewriterEngine {
   private currentParagraphIndex = 0;
   private currentCharIndex = 0;
   private _state: TypewriterState = 'IDLE';
-  private speed = 15;
+  private speedMin = 15;
+  private speedMax = 15;
+  // Burst-flush state (R83.CTRLS.16). When burstChance > 0 each char has a
+  // small chance to kick off a 2-3 char window at 2-5 ms/char — mimics a real
+  // typist flushing a memorised phrase in a single motion before slowing again.
+  // When disabled (min === max, burstChance === 0) behaviour is fully
+  // deterministic and all existing fixed-speed tests stay green.
+  private burstChance = 0;
+  private burstLengthRemaining = 0;
+  private nextCharDelay = 15;
   private elapsed = 0;
   private callbacks: TypewriterCallbacks = {};
   private completedParagraphs: string[] = [];
@@ -58,7 +67,38 @@ export class TypewriterEngine {
   }
 
   setSpeed(msPerChar: number): void {
-    this.speed = msPerChar;
+    this.speedMin = msPerChar;
+    this.speedMax = msPerChar;
+    this.burstChance = 0;
+    this.burstLengthRemaining = 0;
+    this.nextCharDelay = msPerChar;
+  }
+
+  /**
+   * Enable variable-speed typing with optional buffer-flush bursts
+   * (R83.CTRLS.16). Each char's delay is sampled from `[minMs, maxMs]`; with
+   * probability `burstChance` on a given char, the next 2-3 chars reveal at
+   * 2-5 ms each (the "flush"). Setting min === max and burstChance === 0 is
+   * equivalent to the fixed-speed `setSpeed` path.
+   */
+  setVariableSpeed(minMs: number, maxMs: number, burstChance = 0): void {
+    this.speedMin = Math.max(1, Math.min(minMs, maxMs));
+    this.speedMax = Math.max(this.speedMin, maxMs);
+    this.burstChance = Math.max(0, Math.min(1, burstChance));
+    this.burstLengthRemaining = 0;
+    this.nextCharDelay = this.rollNextDelay();
+  }
+
+  private rollNextDelay(): number {
+    if (this.burstLengthRemaining > 0) {
+      this.burstLengthRemaining--;
+      return 2 + Math.random() * 3;
+    }
+    if (this.burstChance > 0 && Math.random() < this.burstChance) {
+      this.burstLengthRemaining = 2 + Math.floor(Math.random() * 2);
+    }
+    if (this.speedMin === this.speedMax) return this.speedMin;
+    return this.speedMin + Math.random() * (this.speedMax - this.speedMin);
   }
 
   load(paragraphs: string[]): void {
@@ -76,6 +116,7 @@ export class TypewriterEngine {
     this.currentCharIndex = 0;
     this.elapsed = 0;
     this.completedParagraphs = [];
+    this.nextCharDelay = this.rollNextDelay();
     this.setState('TYPING');
     this.callbacks.onParagraphStart?.(0, this.paragraphs[0]);
   }
@@ -86,6 +127,7 @@ export class TypewriterEngine {
     this.currentCharIndex = 0;
     this.elapsed = 0;
     this.completedParagraphs = [];
+    this.nextCharDelay = this.rollNextDelay();
     this.setState('TYPING');
     this.callbacks.onParagraphStart?.(index, this.paragraphs[index]);
   }
@@ -94,9 +136,10 @@ export class TypewriterEngine {
     if (this._state !== 'TYPING') return;
 
     this.elapsed += deltaMs;
-    while (this.elapsed >= this.speed && this._state === 'TYPING') {
-      this.elapsed -= this.speed;
+    while (this.elapsed >= this.nextCharDelay && this._state === 'TYPING') {
+      this.elapsed -= this.nextCharDelay;
       this.revealNextChar();
+      this.nextCharDelay = this.rollNextDelay();
     }
   }
 
@@ -149,6 +192,7 @@ export class TypewriterEngine {
     this.currentParagraphIndex++;
     this.currentCharIndex = 0;
     this.elapsed = 0;
+    this.nextCharDelay = this.rollNextDelay();
     this.setState('TYPING');
     this.callbacks.onParagraphStart?.(this.currentParagraphIndex, this.paragraphs[this.currentParagraphIndex]);
   }
