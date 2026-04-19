@@ -10,7 +10,7 @@
 
 import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import Phaser from 'phaser';
-import { useSoundSystem } from '../../hooks/useSoundSystem';
+import { useSoundSystem, type SoundEffect } from '../../hooks/useSoundSystem';
 import { useSaveSystem } from '../../hooks/useSaveSystem';
 import {
   REGISTRY_KEYS,
@@ -62,11 +62,14 @@ export function PhaserGame({
   const { playSFX, playBackgroundMP3, stopBackgroundMP3, toggleMute } = useSoundSystem();
   const { saveData, updateGameSave, unlockAchievement: unlockSaveAchievement, addScore } = useSaveSystem();
 
-  // Sound wrapper that respects mute state
+  // Sound wrapper that respects mute state.
+  // `customConfig` forwards through to `playSFX` so a scene can pass per-call
+  // overrides (e.g. R83.B1(f) volumeScale for Matrix Bird) without needing to
+  // reach into useSoundSystem directly.
   const playSound = useCallback(
-    (key: string) => {
+    (key: string, customConfig?: Partial<SoundEffect>) => {
       if (!isMuted) {
-        playSFX(key);
+        playSFX(key, customConfig);
       }
     },
     [isMuted, playSFX]

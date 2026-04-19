@@ -298,12 +298,15 @@ export abstract class BaseScene extends Phaser.Scene {
   }
 
   /**
-   * Play sound effect via React's sound system
+   * Play sound effect via React's sound system.
+   * `customConfig` lets a scene pass per-call envelope overrides (e.g. the
+   * `volumeScale` Matrix Bird uses under R83.B1(f)) without the scene having
+   * to reach through the Phaser registry directly.
    */
-  protected playSound(key: string): void {
+  protected playSound(key: string, customConfig?: Record<string, unknown>): void {
     const soundSystem = this.registry.get(REGISTRY_KEYS.SOUND_SYSTEM);
     if (soundSystem && typeof soundSystem.play === 'function' && !soundSystem.isMuted) {
-      soundSystem.play(key);
+      soundSystem.play(key, customConfig);
     }
   }
 
