@@ -2624,4 +2624,255 @@ describe('SnakeGameScene', () => {
       });
     });
   });
+
+  // ─── R84.S10 — Coverage refresh gap-fills ──────────────
+  //
+  // S10 is a test-only iteration swept after Streams C S1..S9 shipped. It
+  // fills in boundaries the per-feature pins left implicit:
+  //
+  //  (a) R84.S1 drew a new `GRID_OFFSET_Y = 40` invariant but only pinned the
+  //      symmetry of the wall margins. The actual drawing paths
+  //      (`drawGrid` / `getPlayAreaBounds`) still referenced the config via
+  //      destructure — a silent offset regression would slip past S1's
+  //      margin test. Pin the geometry at the render call layer.
+  //
+  //  (b) R84.S3 tested `activatePowerUp('glitch')` timer-destroy idempotency
+  //      but left the `reverse` / `hyper` equivalents as presumed-same. They
+  //      live in separate case blocks with their own `if (timer) destroy`
+  //      guards — a future refactor that touches the glitch branch could
+  //      regress the other two in isolation.
+  //
+  //  (c) `updatePowerUpIndicators` renders up to 7 stacked indicators when
+  //      every effect overlaps. The per-type label/colour pins cover each in
+  //      isolation but no test exercised the stride or the simultaneous
+  //      render — the 30px `y += 30` stride is where a future regression
+  //      would overlap labels.
+  //
+  //  (d) `showGlitchOverlay` had zero direct tests — the R84.S3 block tested
+  //      `updateGlitchOverlay` + `destroyGlitchOverlay` but never the
+  //      spawn-side seams (`__TEST__` skip + prefers-reduced-motion skip +
+  //      destroy-prior-overlay prefix). A regression that removed either
+  //      guard would break visual baselines without failing a unit test.
+  //
+  //  (e) `collectPowerUp` integration for the three new types was only
+  //      spot-checked via SFX-map assertions. The full pipeline
+  //      (powerUpsCollected++ → activatePowerUp → field teardown) wasn't
+  //      end-to-end pinned for reverse/glitch.
+  describe('R84.S10 — Coverage refresh gap-fills', () => {
+    describe('(a) R84.S1 — draw-layer geometry pins', () => {
+      it('should compute play-area bounds anchored to GRID_OFFSET_Y=40 (post-S1)', () => {
+        const bounds = call('getPlayAreaBounds');
+        expect(bounds.top).toBe(GAME_CONFIG.GRID_OFFSET_Y);
+        expect(bounds.top).toBe(40);
+        expect(bounds.bottom).toBe(
+          GAME_CONFIG.GRID_OFFSET_Y + GAME_CONFIG.GRID_ROWS * GAME_CONFIG.CELL_SIZE,
+        );
+        expect(bounds.bottom).toBe(360);
+      });
+
+      it('should draw 21 vertical + 21 horizontal grid lines (GRID_COLS+1 × GRID_ROWS+1)', () => {
+        const graphics = createMockGraphics();
+        (scene as any).add.graphics = vi.fn(() => graphics);
+        call('drawGrid');
+        const expected = (GAME_CONFIG.GRID_COLS + 1) + (GAME_CONFIG.GRID_ROWS + 1);
+        expect(graphics.lineBetween).toHaveBeenCalledTimes(expected);
+      });
+
+      it('should anchor the top horizontal grid line at GRID_OFFSET_Y (tripwire for pre-S1 y=20)', () => {
+        const graphics = createMockGraphics();
+        (scene as any).add.graphics = vi.fn(() => graphics);
+        call('drawGrid');
+        // First horizontal line = GRID_COLS+1 vertical lines first, then
+        // horizontals start. The first horizontal spans across the play area
+        // at y = GRID_OFFSET_Y + 0 * CELL_SIZE = 40.
+        const horizontals = (graphics.lineBetween as any).mock.calls.slice(
+          GAME_CONFIG.GRID_COLS + 1,
+        );
+        expect(horizontals[0][1]).toBe(GAME_CONFIG.GRID_OFFSET_Y);
+        expect(horizontals[0][3]).toBe(GAME_CONFIG.GRID_OFFSET_Y);
+      });
+
+      it('should anchor the bottom horizontal grid line at GRID_OFFSET_Y + GRID_ROWS*CELL_SIZE', () => {
+        const graphics = createMockGraphics();
+        (scene as any).add.graphics = vi.fn(() => graphics);
+        call('drawGrid');
+        const horizontals = (graphics.lineBetween as any).mock.calls.slice(
+          GAME_CONFIG.GRID_COLS + 1,
+        );
+        const lastY = GAME_CONFIG.GRID_OFFSET_Y + GAME_CONFIG.GRID_ROWS * GAME_CONFIG.CELL_SIZE;
+        expect(horizontals[horizontals.length - 1][1]).toBe(lastY);
+        expect(horizontals[horizontals.length - 1][3]).toBe(lastY);
+        expect(lastY).toBe(360);
+      });
+
+      it('should span vertical grid lines from GRID_OFFSET_Y to GRID_OFFSET_Y + GRID_ROWS*CELL_SIZE', () => {
+        const graphics = createMockGraphics();
+        (scene as any).add.graphics = vi.fn(() => graphics);
+        call('drawGrid');
+        const verticals = (graphics.lineBetween as any).mock.calls.slice(
+          0,
+          GAME_CONFIG.GRID_COLS + 1,
+        );
+        const top = GAME_CONFIG.GRID_OFFSET_Y;
+        const bottom = top + GAME_CONFIG.GRID_ROWS * GAME_CONFIG.CELL_SIZE;
+        verticals.forEach((args: number[]) => {
+          expect(args[1]).toBe(top);
+          expect(args[3]).toBe(bottom);
+        });
+      });
+    });
+
+    describe('(b) R84.S3 — reverse/hyper re-activation timer idempotency', () => {
+      it('should destroy the prior reverse timer before scheduling a new one', () => {
+        const priorTimer = createMockTimer();
+        (scene as any).reversePowerUpTimer = priorTimer;
+        call('activatePowerUp', 'reverse');
+        expect(priorTimer.destroy).toHaveBeenCalled();
+        expect((scene as any).reversePowerUpTimer).not.toBe(priorTimer);
+      });
+
+      it('should destroy the prior hyper timer before scheduling a new one', () => {
+        const priorTimer = createMockTimer();
+        (scene as any).hyperPowerUpTimer = priorTimer;
+        call('activatePowerUp', 'hyper');
+        expect(priorTimer.destroy).toHaveBeenCalled();
+        expect((scene as any).hyperPowerUpTimer).not.toBe(priorTimer);
+      });
+    });
+
+    describe('(c) R84.S3 — updatePowerUpIndicators simultaneous render', () => {
+      beforeEach(() => {
+        (scene as any).powerUpIndicators = new Map();
+        (scene as any).createMatrixText.mockClear();
+      });
+
+      it('should render every active indicator when all 7 effects overlap', () => {
+        (scene as any).speedSlowed = true;
+        (scene as any).doublePointsRemaining = 3;
+        (scene as any).shieldActive = true;
+        (scene as any).ghostActive = true;
+        (scene as any).reverseActive = true;
+        (scene as any).hyperActive = true;
+        (scene as any).glitchActive = true;
+        call('updatePowerUpIndicators');
+        expect((scene as any).powerUpIndicators.size).toBe(7);
+      });
+
+      it('should stack indicator y-coords at a 30px stride when all 7 active', () => {
+        (scene as any).speedSlowed = true;
+        (scene as any).doublePointsRemaining = 3;
+        (scene as any).shieldActive = true;
+        (scene as any).ghostActive = true;
+        (scene as any).reverseActive = true;
+        (scene as any).hyperActive = true;
+        (scene as any).glitchActive = true;
+        call('updatePowerUpIndicators');
+        // createMatrixText(rightX, y, label, size, color) — column index 1 is y.
+        const ys = (scene as any).createMatrixText.mock.calls.map((c: any[]) => c[1]);
+        expect(ys).toEqual([70, 100, 130, 160, 190, 220, 250]);
+      });
+    });
+
+    describe('(d) R84.S3 — showGlitchOverlay entry-guard seams', () => {
+      let addText: ReturnType<typeof vi.fn>;
+
+      beforeEach(() => {
+        (scene as any).glitchOverlay = [];
+        addText = vi.fn(() => createMockText());
+        (scene as any).add.text = addText;
+      });
+
+      it('should skip spawning under window.__TEST__ (determinism for Playwright baselines)', () => {
+        (window as { __TEST__?: boolean }).__TEST__ = true;
+        try {
+          call('showGlitchOverlay');
+          expect(addText).not.toHaveBeenCalled();
+          expect((scene as any).glitchOverlay).toEqual([]);
+        } finally {
+          delete (window as { __TEST__?: boolean }).__TEST__;
+        }
+      });
+
+      it('should skip spawning under prefers-reduced-motion', () => {
+        const originalMatchMedia = window.matchMedia;
+        (window as any).matchMedia = vi.fn().mockReturnValue({
+          matches: true,
+          media: '(prefers-reduced-motion: reduce)',
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        });
+        try {
+          call('showGlitchOverlay');
+          expect(addText).not.toHaveBeenCalled();
+          expect((scene as any).glitchOverlay).toEqual([]);
+        } finally {
+          (window as any).matchMedia = originalMatchMedia;
+        }
+      });
+
+      it('should destroy any prior overlay texts before the guard checks run (no leak on re-entry)', () => {
+        const prior = createMockText();
+        (scene as any).glitchOverlay = [prior];
+        (window as { __TEST__?: boolean }).__TEST__ = true;
+        try {
+          call('showGlitchOverlay');
+          // destroyGlitchOverlay runs before the early-return, so the prior
+          // text is torn down even when the spawn is skipped. Critical for
+          // the back-to-back glitch pickup case (prior overlay must not
+          // linger past the new activation).
+          expect(prior.destroy).toHaveBeenCalled();
+          expect((scene as any).glitchOverlay).toEqual([]);
+        } finally {
+          delete (window as { __TEST__?: boolean }).__TEST__;
+        }
+      });
+    });
+
+    describe('(e) R84.S3 — collectPowerUp integration for new types', () => {
+      beforeEach(() => {
+        (scene as any).fieldPowerUp = null;
+        (scene as any).powerUpSprite = null;
+        (scene as any).createParticleBurst = vi.fn();
+        (scene as any).powerUpsCollected = 0;
+      });
+
+      it('should flip reverseActive + award REVERSE_PICKUP_BONUS via collectPowerUp → activatePowerUp', () => {
+        (scene as any).score = 0;
+        (scene as any).highScore = 0;
+        call('collectPowerUp', 'reverse');
+        expect((scene as any).powerUpsCollected).toBe(1);
+        expect((scene as any).reverseActive).toBe(true);
+        expect((scene as any).score).toBe(GAME_CONFIG.REVERSE_PICKUP_BONUS);
+      });
+
+      it('should flip glitchActive + award GLITCH_PICKUP_BONUS via collectPowerUp → activatePowerUp', () => {
+        // activatePowerUp('glitch') → showGlitchOverlay runs its spawn path
+        // which dereferences Phaser.Math.Between. The production guard that
+        // short-circuits the spawn under `window.__TEST__ = true` is the
+        // intended test seam, so flip it for the duration of the call.
+        (window as { __TEST__?: boolean }).__TEST__ = true;
+        try {
+          (scene as any).score = 0;
+          (scene as any).highScore = 0;
+          call('collectPowerUp', 'glitch');
+          expect((scene as any).powerUpsCollected).toBe(1);
+          expect((scene as any).glitchActive).toBe(true);
+          expect((scene as any).score).toBe(GAME_CONFIG.GLITCH_PICKUP_BONUS);
+        } finally {
+          delete (window as { __TEST__?: boolean }).__TEST__;
+        }
+      });
+
+      it('should flip hyperActive without touching score via collectPowerUp → activatePowerUp', () => {
+        (scene as any).score = 123;
+        (scene as any).highScore = 500;
+        call('collectPowerUp', 'hyper');
+        expect((scene as any).powerUpsCollected).toBe(1);
+        expect((scene as any).hyperActive).toBe(true);
+        // hyper multiplier applies at eatFood-time only — the pickup must
+        // leave the running score untouched.
+        expect((scene as any).score).toBe(123);
+      });
+    });
+  });
 });
