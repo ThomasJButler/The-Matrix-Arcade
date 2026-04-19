@@ -146,6 +146,23 @@ describe('useSoundSystem', () => {
     expect(mockOscillator.frequency.exponentialRampToValueAtTime).toHaveBeenCalledWith(900, 0.3);
   });
 
+  // R84.B6 — the Matrix Bird flap SFX is a 20%-narrower pitch sweep than
+  // R83.B1 shipped. Locking the exact end frequency (480, not 400) stops
+  // a well-meaning "octave drop sounds better" revert from regressing the
+  // tuning after Tom's "still the worst" playtest. Duration stays 80ms so
+  // the pluck envelope character is preserved.
+  it('birdFlap sweeps 800→480Hz on a triangle wave over 80ms', async () => {
+    const { result } = renderHook(() => useSoundSystem());
+
+    await act(async () => {
+      await result.current.playSFX('birdFlap');
+    });
+
+    expect(mockOscillator.type).toBe('triangle');
+    expect(mockOscillator.frequency.setValueAtTime).toHaveBeenCalledWith(800, 0);
+    expect(mockOscillator.frequency.exponentialRampToValueAtTime).toHaveBeenCalledWith(480, 0.08);
+  });
+
   // R83.CTRLS.19 — the CTRL-S paragraph-advance click must be a procedural
   // square wave at 1200 Hz through a 2 kHz lowpass, 20 ms total, scaled to
   // 0.15. If any of these shift, the SFX stops reading as a soft terminal

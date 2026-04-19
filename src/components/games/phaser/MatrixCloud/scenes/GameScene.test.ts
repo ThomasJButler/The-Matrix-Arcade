@@ -304,6 +304,47 @@ describe('MatrixCloudGameScene', () => {
     });
   });
 
+  // R84.B6 (2026-04-19): Tom's post-R83.B1 playtest still flagged the flap SFX
+  // as "the worst". The playSound override now drops BIRD_FLAP another 20%
+  // (0.75 × 0.8 = 0.60) while leaving score/hit/etc at the shared 0.75 so the
+  // louder cues Tom liked stay intact. These tests are the only guard against
+  // a regression that mixes the jump back up to the 0.75 baseline.
+  describe('playSound override (R84.B6)', () => {
+    // Build a minimal scene that keeps the real playSound override intact —
+    // createTestScene stubs `playSound = vi.fn()` for the rest of the suite so
+    // unrelated tests can assert on the key alone.
+    const buildScene = () => {
+      const s: any = new MatrixCloudGameScene();
+      const playSoundFn = (MatrixCloudGameScene.prototype as any).playSound;
+      s.playSound = playSoundFn.bind(s);
+      const soundSystem = { play: vi.fn(), isMuted: false };
+      s.registry = {
+        get: vi.fn().mockImplementation((k: string) =>
+          k === 'soundSystem' ? soundSystem : undefined,
+        ),
+      };
+      return { scene: s, soundSystem };
+    };
+
+    it('passes 0.6 volumeScale for BIRD_FLAP', () => {
+      const { scene, soundSystem } = buildScene();
+      scene.playSound('birdFlap');
+      expect(soundSystem.play).toHaveBeenCalledWith('birdFlap', { volumeScale: 0.6 });
+    });
+
+    it('passes 0.75 volumeScale for non-flap SFX (score)', () => {
+      const { scene, soundSystem } = buildScene();
+      scene.playSound('score');
+      expect(soundSystem.play).toHaveBeenCalledWith('score', { volumeScale: 0.75 });
+    });
+
+    it('passes 0.75 volumeScale for hit', () => {
+      const { scene, soundSystem } = buildScene();
+      scene.playSound('hit');
+      expect(soundSystem.play).toHaveBeenCalledWith('hit', { volumeScale: 0.75 });
+    });
+  });
+
   describe('Pipe Collision', () => {
     it('detects top pipe collision', () => {
       const pipe: any = {
