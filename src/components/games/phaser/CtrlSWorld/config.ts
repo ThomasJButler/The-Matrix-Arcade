@@ -208,6 +208,17 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
   render: {
     pixelArt: false,
     antialias: true,
+    // R83.CTRLS.11 — silence the two WebGL console warnings on CTRL-S launch.
+    // `premultipliedAlpha: false` disables the WebGL context's UNPACK_PREMULTIPLY_ALPHA
+    // default; Chrome has been deprecating non-DOM-Element uploads with premult+y-flip,
+    // which surfaced as `texImage: Alpha-premult and y-flip are deprecated…`.
+    // `mipmapFilter: ''` is the Phaser 3.60+ explicit opt-out of mipmap generation —
+    // CTRL-S's loaded textures are all NPOT (24×24 portraits, 800×600 backdrops,
+    // ~32px icons) so mipmaps would never sample anyway, and the empty string
+    // stops Firefox's `generateMipmap: Tex image TEXTURE_2D level 0 is incurring
+    // lazy initialization` chatter on the internal Graphics/text canvases.
+    premultipliedAlpha: false,
+    mipmapFilter: '',
   },
   scale: {
     mode: Phaser.Scale.FIT,
