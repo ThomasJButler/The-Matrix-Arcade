@@ -112,6 +112,21 @@ export class VortexPongGameScene extends BaseScene {
   private impactEffects: ImpactEffect[] = [];
   private rainGroup?: Phaser.GameObjects.Group;
 
+  // R84.CI-9: effect-circle object pool. `createPaddleHitTrail` spawns
+  // 12–20 Arcs per paddle-hit (all destroyed on tween complete), and
+  // `addImpactEffect` spawns a ring + glow per impact destroyed on
+  // life-expiry or cap overflow. At a moderate rally (~2 hits/sec, 20
+  // particles each + ~2 impacts/sec, 2 circles each) that churns 2,800+
+  // Arc allocations per minute all into short-lived destroy paths. The
+  // pool parks retired arcs (setActive/setVisible false + push) and
+  // `acquireEffectCircle` re-dresses them via setPosition/setRadius/
+  // setFillStyle/setAlpha/setScale(1) — the acquire path clears stroke via
+  // the retire's bare `setStrokeStyle()` so an impact-ring retired-then-
+  // acquired-as-trail-particle doesn't inherit the ring's stroke. Drained
+  // in `shutdown()` via `drainEffectCirclePool()` to avoid leaks across a
+  // `scene.restart()`. Mirrors the Snake CI-8 single-Arc-pool contract.
+  private effectCirclePool: Phaser.GameObjects.Arc[] = [];
+
   // R84.P4 — atmosphere layers (see ATMOSPHERE block in config.ts for why).
   private vortexBackdrop?: Phaser.GameObjects.Graphics;
   private scanlineOverlay?: Phaser.GameObjects.Graphics;
@@ -230,6 +245,9 @@ export class VortexPongGameScene extends BaseScene {
     this.fieldPowerUps = [];
     this.impactEffects.forEach((e) => { e.ring.destroy(); e.glow.destroy(); });
     this.impactEffects = [];
+    // R84.CI-9: drain the effect-circle pool so retired arcs from this run
+    // don't leak into the next scene instance via scene.restart().
+    this.drainEffectCirclePool();
     this.powerUpIndicators.forEach((t) => t.destroy());
     this.powerUpIndicators = [];
     // R84.P4 atmosphere cleanup — these are nullable because create() has an
@@ -993,17 +1011,85 @@ export class VortexPongGameScene extends BaseScene {
 
   // ── Impact Effects ─────────────────────────────────���─────────
 
+  // R84.CI-9: hide + park a retired effect arc for reuse. Called from the
+  // paddle-trail tween `onComplete`, from `addImpactEffect`'s cap-overflow
+  // branch, and from `updateImpactEffects`' life-expiry cleanup — every
+  // runtime path that used to call `.destroy()` on an impact ring/glow or
+  // trail particle now routes here instead. Bare `setStrokeStyle()` strips
+  // any prior stroke so a retired ring doesn't carry one when re-acquired
+  // as a fill-only trail particle. Destroy is reserved for scene shutdown
+  // via `drainEffectCirclePool()` below.
+  protected retireEffectCircle(arc: Phaser.GameObjects.Arc): void {
+    const a = arc as Phaser.GameObjects.Arc & {
+      setActive?: (v: boolean) => unknown;
+      setVisible?: (v: boolean) => unknown;
+      setStrokeStyle?: (w?: number, c?: number) => unknown;
+    };
+    a.setActive?.(false);
+    a.setVisible?.(false);
+    a.setStrokeStyle?.();
+    this.effectCirclePool.push(arc);
+  }
+
+  // R84.CI-9: pop a pooled arc and re-dress it for reuse. Falls back to
+  // `this.add.circle` when the pool is empty so the first few spawns in a
+  // run still fresh-allocate — long-running rallies reuse thereafter.
+  // Duck-typed setters match the Snake CI-8 / Bird CI-7 pool pattern —
+  // jsdom unit-test mocks are plain objects, so `instanceof` checks
+  // wouldn't work; optional-chaining guards keep the runtime correct and
+  // let the mocks pin the contract without a real Phaser class tree.
+  protected acquireEffectCircle(
+    x: number,
+    y: number,
+    radius: number,
+    color: number,
+    alpha: number,
+  ): Phaser.GameObjects.Arc {
+    const pooled = this.effectCirclePool.pop();
+    if (pooled) {
+      const p = pooled as Phaser.GameObjects.Arc & {
+        setActive?: (v: boolean) => unknown;
+        setVisible?: (v: boolean) => unknown;
+        setPosition?: (x: number, y: number) => unknown;
+        setRadius?: (r: number) => unknown;
+        setFillStyle?: (c: number, a?: number) => unknown;
+        setAlpha?: (a: number) => unknown;
+        setScale?: (s: number) => unknown;
+      };
+      p.setActive?.(true);
+      p.setVisible?.(true);
+      p.setPosition?.(x, y);
+      p.setRadius?.(radius);
+      p.setFillStyle?.(color, alpha);
+      p.setAlpha?.(alpha);
+      p.setScale?.(1);
+      return pooled;
+    }
+    return this.add.circle(x, y, radius, color, alpha);
+  }
+
+  // R84.CI-9: drain the pool (hard destroy). Called from `shutdown()` so
+  // pooled arcs from the dying scene don't survive into the next scene
+  // instance — Phaser `scene.restart()` invokes `shutdown()` → `create()`
+  // which would otherwise leak the pooled arc array forward.
+  protected drainEffectCirclePool(): void {
+    for (const arc of this.effectCirclePool) arc.destroy();
+    this.effectCirclePool = [];
+  }
+
   private addImpactEffect(x: number, y: number, intensity: number): void {
     while (this.impactEffects.length >= GAME_CONFIG.MAX_IMPACT_EFFECTS) {
       const oldest = this.impactEffects.shift()!;
-      oldest.ring.destroy();
-      oldest.glow.destroy();
+      // R84.CI-9: route cap-overflow cleanup through the pool instead of
+      // destroying — the next addImpactEffect can reuse these arcs.
+      this.retireEffectCircle(oldest.ring);
+      this.retireEffectCircle(oldest.glow);
     }
 
-    const ring = this.add.circle(x, y, intensity, MATRIX_COLORS.PRIMARY, 0);
+    const ring = this.acquireEffectCircle(x, y, intensity, MATRIX_COLORS.PRIMARY, 0);
     ring.setStrokeStyle(2, MATRIX_COLORS.PRIMARY, 1);
 
-    const glow = this.add.circle(x, y, intensity * 0.5, MATRIX_COLORS.WHITE, 0.4);
+    const glow = this.acquireEffectCircle(x, y, intensity * 0.5, MATRIX_COLORS.WHITE, 0.4);
 
     this.impactEffects.push({ ring, glow, life: 1.0 });
   }
@@ -1026,8 +1112,10 @@ export class VortexPongGameScene extends BaseScene {
     }
 
     for (const effect of toRemove) {
-      effect.ring.destroy();
-      effect.glow.destroy();
+      // R84.CI-9: life-expiry cleanup parks both visuals in the pool instead
+      // of hard-destroying — the next impact or paddle-trail can reuse them.
+      this.retireEffectCircle(effect.ring);
+      this.retireEffectCircle(effect.glow);
       this.impactEffects = this.impactEffects.filter((e) => e !== effect);
     }
   }
@@ -1269,7 +1357,10 @@ export class VortexPongGameScene extends BaseScene {
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
       const speed = cfg.SPEED_BASE + Math.random() * cfg.SPEED_JITTER;
-      const particle = this.add.circle(x, y, cfg.PARTICLE_RADIUS, colour, cfg.PARTICLE_ALPHA);
+      // R84.CI-9: route through the effect-circle pool so burst particles
+      // reuse retired arcs instead of allocating a fresh Arc per spawn and
+      // destroying each on tween complete.
+      const particle = this.acquireEffectCircle(x, y, cfg.PARTICLE_RADIUS, colour, cfg.PARTICLE_ALPHA);
       this.tweens.add({
         targets: particle,
         x: x + Math.cos(angle) * speed,
@@ -1278,7 +1369,7 @@ export class VortexPongGameScene extends BaseScene {
         scale: { from: 1, to: 0.2 },
         duration: cfg.DURATION_MS,
         ease: 'Quad.easeOut',
-        onComplete: () => particle.destroy(),
+        onComplete: () => this.retireEffectCircle(particle),
       });
     }
   }
