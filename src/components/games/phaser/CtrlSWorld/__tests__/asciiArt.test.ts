@@ -16,9 +16,11 @@ import {
   TRANSITION_BEATS,
   DECORATIVE_GLYPHS,
   assertMonospace,
+  buildMonogramCard,
   type ChapterId,
   type CharacterId,
 } from '../asciiArt';
+import { CHARACTERS } from '../config';
 
 const CHAPTER_IDS: ChapterId[] = [
   'prologue',
@@ -109,6 +111,84 @@ describe('DECORATIVE_GLYPHS', () => {
     for (const [key, value] of Object.entries(DECORATIVE_GLYPHS)) {
       expect(value.length, `glyph "${key}" is empty`).toBeGreaterThan(0);
     }
+  });
+});
+
+// R83.CTRLS.26 — parity guard. Every character registered in the
+// CHARACTERS config must have an explicit portrait entry. This closes the
+// loop on the red-P bug: adding a new character without a portrait fails
+// CI before it can ship. The `buildMonogramCard` fallback in
+// NarrativeScene.showPortrait() is a safety net for regressions, not a
+// substitute for explicit art.
+describe('CHARACTER_PORTRAITS vs config.CHARACTERS parity (R83.CTRLS.26)', () => {
+  it('every CHARACTERS entry has a non-empty CHARACTER_PORTRAITS entry', () => {
+    for (const id of Object.keys(CHARACTERS)) {
+      expect(
+        CHARACTER_PORTRAITS,
+        `CHARACTERS["${id}"] has no portrait — would fall through to the monogram-card fallback. Add a dedicated entry to CHARACTER_PORTRAITS.`,
+      ).toHaveProperty(id);
+      expect(CHARACTER_PORTRAITS[id as CharacterId].length).toBeGreaterThan(0);
+    }
+  });
+
+  it('CharacterId union and CHARACTERS keys match (no orphan portraits)', () => {
+    const portraitIds = new Set(Object.keys(CHARACTER_PORTRAITS));
+    const configIds = new Set(Object.keys(CHARACTERS));
+    expect(portraitIds).toEqual(configIds);
+  });
+});
+
+// R83.CTRLS.26 — monogram-card fallback. Unreachable in production today
+// (parity test above asserts every character has a dedicated portrait) but
+// must render as an intentional Matrix-terminal card rather than a raw
+// letter if ever reached.
+describe('buildMonogramCard (R83.CTRLS.26 defensive fallback)', () => {
+  it('produces a monospace 10-column card for a single-char initial', () => {
+    const card = buildMonogramCard('X', 'TEST');
+    expect(() => assertMonospace(card)).not.toThrow();
+    const firstLine = card.split('\n')[0];
+    expect(firstLine).toHaveLength(10);
+  });
+
+  it('doubles a 1-char initial into a centred stencil glyph', () => {
+    const card = buildMonogramCard('Z', 'ZED');
+    expect(card).toContain('## ZZ ##');
+  });
+
+  it('keeps a 2-char initial as-is without re-doubling', () => {
+    const card = buildMonogramCard('AB', 'ALPHA');
+    expect(card).toContain('## AB ##');
+  });
+
+  it('falls back to "?" when initial is empty', () => {
+    const card = buildMonogramCard('', '');
+    expect(() => assertMonospace(card)).not.toThrow();
+    expect(card).toContain('## ?? ##');
+    expect(card).toContain('UNKNOW');
+  });
+
+  it('centres a short label in the 6-char name slot', () => {
+    const card = buildMonogramCard('H', 'HI');
+    const nameLine = card.split('\n')[9];
+    expect(nameLine).toBe('|   HI   |');
+  });
+
+  it('truncates a long label to 6 chars', () => {
+    const card = buildMonogramCard('X', 'THISISLONG');
+    const nameLine = card.split('\n')[9];
+    expect(nameLine).toBe('| THISIS |');
+  });
+
+  it('uppercases the initial and label', () => {
+    const card = buildMonogramCard('a', 'neo');
+    expect(card).toContain('## AA ##');
+    expect(card).toContain('|  NEO   |');
+  });
+
+  it('matches the 11-line height of the fixed character portraits', () => {
+    const card = buildMonogramCard('X', 'TEST');
+    const fixed = CHARACTER_PORTRAITS.protector;
+    expect(card.split('\n').length).toBe(fixed.split('\n').length);
   });
 });
 

@@ -343,6 +343,64 @@ export const CHARACTER_PORTRAITS: Record<CharacterId, string> = {
   ].join('\n'),
 };
 
+// ─── Monogram Card Fallback (R83.CTRLS.26) ───────────────────────────────────
+//
+// Defensive fallback for the NarrativeScene portrait path.
+//
+// Tom's Round 2 image 1 flagged "Protector" rendering as a single red letter
+// `P` in a red box — a raw-letter placeholder that read as a bug rather than
+// an intentional design. R83.CTRLS.28 killed the direct case by adding a
+// dedicated `CHARACTER_PORTRAITS.protector` entry. This helper closes the
+// loop: if a future character is added to `CHARACTERS` without a matching
+// portrait entry, the else-branch in `showPortrait()` will render this
+// procedurally-generated monogram card instead of the old big-letter-in-box.
+//
+// The card matches the layout of the dedicated portraits (10 cols × 11
+// lines, MATRIX_FONTS.MONO at ~6px, tinted with character.colourHex) so
+// falling through reads as "a character with a placeholder ID tag" rather
+// than "a broken render". Dithered `#` frame + stencil-style double-letter
+// token `## XX ##` are the terminal-aesthetic signifiers — no emoji, no
+// decorative flourishes, just Matrix-green frame chrome that survives any
+// colour tint applied at render time.
+//
+// The parity test in `__tests__/asciiArt.test.ts` asserts this path stays
+// unreachable in practice: every `CHARACTERS` entry must have an explicit
+// `CHARACTER_PORTRAITS` entry. Adding a new character without a portrait
+// fails CI — this helper is the safety net, not the target.
+
+/**
+ * Procedurally generates a 10×11 ASCII monogram card for a character whose
+ * `CHARACTER_PORTRAITS` entry is missing. Layout-compatible with the fixed
+ * portraits (same bounding box, same MONO font assumption) so the render
+ * pipeline needs no special casing.
+ *
+ * @param initial — 1 or 2 letter stencil glyph. Empty/missing → `?`.
+ * @param label  — up to 6-char name label rendered at the foot of the card.
+ *                 Longer names truncated to 6 chars; shorter centred.
+ */
+export function buildMonogramCard(initial: string, label: string): string {
+  const raw = (initial || '?').toUpperCase().slice(0, 2);
+  const stencil = raw.length === 1 ? raw + raw : raw;
+  const rawLabel = (label || 'UNKNOWN').toUpperCase().slice(0, 6);
+  const padTotal = 6 - rawLabel.length;
+  const padLeft = Math.max(0, Math.floor(padTotal / 2));
+  const padRight = Math.max(0, padTotal - padLeft);
+  const paddedLabel = ' '.repeat(padLeft) + rawLabel + ' '.repeat(padRight);
+  return [
+    '+--------+',
+    '|########|',
+    '|##    ##|',
+    '|#  ..  #|',
+    `|## ${stencil} ##|`,
+    '|#  ..  #|',
+    '|##    ##|',
+    '|########|',
+    '+--------+',
+    `| ${paddedLabel} |`,
+    '+--------+',
+  ].join('\n');
+}
+
 // ─── Transition Beats ─────────────────────────────────────────────────────────
 //
 // Short 3-5 line interstitials between paragraphs or chapter breaks.
