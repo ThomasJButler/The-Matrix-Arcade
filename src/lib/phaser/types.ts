@@ -19,6 +19,7 @@ export interface PhaserGameProps {
 /** Game events emitted from Phaser scenes to React */
 export type GameEventType =
   | 'score'
+  | 'scoreMilestone'
   | 'achievement'
   | 'gameOver'
   | 'highScoreEntry'
@@ -53,6 +54,17 @@ export interface GameOverStat {
 export interface GameOverEventData {
   score: number;
   reason?: string;
+}
+
+/**
+ * Score milestone event data. Scenes emit one of these the first time a run
+ * crosses each threshold it cares about (Matrix Bird: 50/100/250). The React
+ * wrapper surfaces the milestone to screen readers so AT users get the same
+ * beat-by-beat progression feedback sighted players get from the stinger SFX.
+ */
+export interface ScoreMilestoneEventData {
+  /** The threshold value that was just crossed (e.g. 50, 100, 250). */
+  value: number;
 }
 
 /**

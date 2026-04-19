@@ -12,13 +12,14 @@ import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import Phaser from 'phaser';
 import { useSoundSystem, type SoundEffect } from '../../hooks/useSoundSystem';
 import { useSaveSystem } from '../../hooks/useSaveSystem';
-import { buildGameOverAnnouncement } from './a11y';
+import { buildGameOverAnnouncement, buildScoreMilestoneAnnouncement } from './a11y';
 import {
   GAME_TRANSITION_READY_EVENT,
   REGISTRY_KEYS,
   type AchievementManager,
   type GameEvent,
   type ScoreEventData,
+  type ScoreMilestoneEventData,
   type AchievementEventData,
 } from './types';
 
@@ -110,6 +111,18 @@ export function PhaserGame({
             msg: buildGameOverAnnouncement(event.data as { score?: number; reason?: string } | undefined),
             nonce: prev.nonce + 1,
           }));
+          break;
+        }
+        case 'scoreMilestone': {
+          // R84.CI-2: broadcast the threshold crossing to the shared SR live
+          // region so AT users hear `Score milestone 100.` alongside the
+          // sighted player's COLLECTIBLE stinger. Builder returns '' for a
+          // malformed payload so the region no-ops rather than announcing
+          // garbage — matches the `buildGameOverAnnouncement` guard shape.
+          const msg = buildScoreMilestoneAnnouncement(event.data as ScoreMilestoneEventData | undefined);
+          if (msg) {
+            setSrAnnouncement(prev => ({ msg, nonce: prev.nonce + 1 }));
+          }
           break;
         }
         case 'exit': {
