@@ -59,7 +59,7 @@ function renderTextLine(text: string): string[] {
 
 const TITLE_LINES: Record<string, string[]> = {
   'ctrl-s-world': ['CTRL-S', 'THE WORLD'],
-  'snake-classic': ['SNAKE', 'CLASSIC'],
+  'snake-classic': ['MATRIX', 'SNAKE'],
   'vortex-pong': ['VORTEX', 'PONG'],
   'matrix-cloud': ['MATRIX', 'BIRD'],
   'matrix-invaders': ['MATRIX', 'INVADERS'],

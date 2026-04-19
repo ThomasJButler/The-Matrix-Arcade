@@ -145,13 +145,13 @@ export interface Achievement {
 // Achievement definitions with icons
 export const GAME_ACHIEVEMENTS: Record<string, Achievement[]> = {
   snakeClassic: [
-    { id: 'snake_first_apple', name: 'First Bite', description: 'Eat your first data fragment', game: 'Snake Classic' },
-    { id: 'snake_score_100', name: 'Century Mark', description: 'Score 100 points', game: 'Snake Classic' },
-    { id: 'snake_score_500', name: 'Data Hoarder', description: 'Score 500 points', game: 'Snake Classic' },
-    { id: 'snake_combo_10', name: 'Chain Reaction', description: 'Achieve 10x combo', game: 'Snake Classic' },
-    { id: 'snake_power_master', name: 'Power User', description: 'Collect 10 power-ups in one game', game: 'Snake Classic' },
-    { id: 'snake_survivor', name: 'Survival Expert', description: 'Survive for 5 minutes', game: 'Snake Classic' },
-    { id: 'snake_speed_demon', name: 'Speed Demon', description: 'Score 100 points on max speed', game: 'Snake Classic' }
+    { id: 'snake_first_apple', name: 'First Bite', description: 'Eat your first data fragment', game: 'Matrix Snake' },
+    { id: 'snake_score_100', name: 'Century Mark', description: 'Score 100 points', game: 'Matrix Snake' },
+    { id: 'snake_score_500', name: 'Data Hoarder', description: 'Score 500 points', game: 'Matrix Snake' },
+    { id: 'snake_combo_10', name: 'Chain Reaction', description: 'Achieve 10x combo', game: 'Matrix Snake' },
+    { id: 'snake_power_master', name: 'Power User', description: 'Collect 10 power-ups in one game', game: 'Matrix Snake' },
+    { id: 'snake_survivor', name: 'Survival Expert', description: 'Survive for 5 minutes', game: 'Matrix Snake' },
+    { id: 'snake_speed_demon', name: 'Speed Demon', description: 'Score 100 points on max speed', game: 'Matrix Snake' }
   ],
   vortexPong: [
     { id: 'pong_first_point', name: 'First Strike', description: 'Score your first point', game: 'Vortex Pong' },

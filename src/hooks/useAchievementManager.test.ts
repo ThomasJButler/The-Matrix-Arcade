@@ -276,9 +276,9 @@ describe('useAchievementManager', () => {
 
       await waitFor(() => {
         expect(result.current.stats.byGame).toBeDefined();
-        expect(result.current.stats.byGame['Snake Classic']).toBeDefined();
-        expect(result.current.stats.byGame['Snake Classic'].total).toBeGreaterThan(0);
-        expect(result.current.stats.byGame['Snake Classic'].unlocked).toBe(0);
+        expect(result.current.stats.byGame['Matrix Snake']).toBeDefined();
+        expect(result.current.stats.byGame['Matrix Snake'].total).toBeGreaterThan(0);
+        expect(result.current.stats.byGame['Matrix Snake'].unlocked).toBe(0);
       });
     });
 
@@ -286,7 +286,7 @@ describe('useAchievementManager', () => {
       const { result } = renderHook(() => useAchievementManager());
 
       await waitFor(() => {
-        expect(result.current.stats.byGame['Snake Classic'].unlocked).toBe(0);
+        expect(result.current.stats.byGame['Matrix Snake'].unlocked).toBe(0);
       });
 
       act(() => {
@@ -294,7 +294,7 @@ describe('useAchievementManager', () => {
       });
 
       await waitFor(() => {
-        expect(result.current.stats.byGame['Snake Classic'].unlocked).toBe(1);
+        expect(result.current.stats.byGame['Matrix Snake'].unlocked).toBe(1);
       });
     });
 
