@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
 import { MATRIX_COLORS, MATRIX_FONTS } from '../../../../../lib/phaser/types';
 import { CTRLS_SCENE_KEYS, CTRLS_REGISTRY_KEYS } from '../config';
-import type { CtrlSGameItem } from '../../../../../hooks/useSaveSystem';
+import type { CtrlSGameItem } from '../types';
 
 const PANEL_WIDTH = 560;
 const PANEL_HEIGHT = 440;
@@ -25,11 +25,8 @@ const TYPE_GLYPH: Record<CtrlSGameItem['type'], string> = {
 
 /**
  * Phaser-native inventory panel. Launched in parallel on top of NarrativeScene.
- * Reads `inventory` from the Phaser registry — React side syncs the array on
- * every GameStateContext change.
- *
- * R83.CTRLS.1: replaces the React `InventoryPanel` overlay so the game
- * container is pure-Phaser.
+ * Reads `inventory` from the Phaser registry — React side writes session state
+ * in on every update (see CtrlSWorld/index.tsx).
  */
 export class CtrlSInventoryScene extends BaseScene {
   private selectedIndex = 0;

@@ -1,101 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 
-// Lifeline data structure for CTRL-S World
-export interface LifelineData {
-  freeAnswersRemaining: number;
-  usedLifelines: {
-    fiftyFifty: string[];      // puzzle IDs where 50/50 was used (stored as array for JSON)
-    sentientAI: string[];       // puzzle IDs where AI was asked
-    characters: string[];       // puzzle IDs where characters were asked
-  };
-  stats: {
-    totalFreeAnswersUsed: number;
-    totalFiftyFiftyUsed: number;
-    totalSentientAIUsed: number;
-    totalCharactersUsed: number;
-    totalPuzzlesCompletedWithHelp: number;
-  };
-}
-
-// Player stats for CTRL-S World
-export interface CtrlSPlayerStats {
-  coffeeLevel: number;      // 0-200% (can go over 100!)
-  hackerRep: number;        // 0-100
-  wisdomPoints: number;     // Accumulates from choices
-  teamMorale: number;       // 0-100
-}
-
-// Inventory item for CTRL-S World
-export interface CtrlSGameItem {
-  id: string;
-  name: string;
-  description: string;
-  type: 'quest' | 'consumable' | 'collectible' | 'special';
-  usable: boolean;
-  effect?: string;
-  quantity?: number;
-  acquiredAt?: string;
-}
-
-// Full game state for CTRL-S World - enables single source of truth for all game data
-export interface CtrlSGameState {
-  // Progress tracking
-  currentChapter: number;
-  currentSection: string;
-  completedPuzzles: string[];
-  completedChapters: number[];
-
-  // Player stats
-  stats: CtrlSPlayerStats;
-
-  // Inventory
-  inventory: CtrlSGameItem[];
-
-  // Story choices made
-  storyChoices: Record<string, string>;
-
-  // Achievements tracked locally (also synced to global achievements)
-  unlockedAchievements: string[];
-  achievementProgress: Record<string, number>;
-
-  // Settings
-  difficulty: 'easy' | 'normal' | 'hard';
-  hintsEnabled: boolean;
-
-  // Meta
-  playtime: number; // in seconds
-  startDate: string;
-  lastSaved: string;
-}
-
-// Create default CTRL-S game state
-export const createDefaultCtrlSGameState = (): CtrlSGameState => ({
-  currentChapter: 1,
-  currentSection: 'intro',
-  completedPuzzles: [],
-  completedChapters: [],
-
-  stats: {
-    coffeeLevel: 50,
-    hackerRep: 0,
-    wisdomPoints: 0,
-    teamMorale: 50
-  },
-
-  inventory: [],
-  storyChoices: {},
-
-  unlockedAchievements: [],
-  achievementProgress: {},
-
-  difficulty: 'normal',
-  hintsEnabled: true,
-
-  playtime: 0,
-  startDate: new Date().toISOString(),
-  lastSaved: new Date().toISOString()
-});
-
 // Scoreboard entry for high-score tables
 export interface ScoreEntry {
   initials: string;       // 3 chars [A-Z]
@@ -135,8 +39,6 @@ export interface GameSaveData {
   };
   lastPlayed: number;
   preferences?: Record<string, unknown>;
-  lifelineData?: LifelineData;  // CTRL-S World lifeline tracking
-  ctrlSGameState?: CtrlSGameState;  // CTRL-S World full game state (story progress, inventory, etc.)
 }
 
 // Global save data structure
@@ -177,23 +79,6 @@ export interface GlobalSaveData {
   lastInitials: string;
 }
 
-// Default lifeline data for CTRL-S World
-export const createDefaultLifelineData = (): LifelineData => ({
-  freeAnswersRemaining: 10,
-  usedLifelines: {
-    fiftyFifty: [],
-    sentientAI: [],
-    characters: []
-  },
-  stats: {
-    totalFreeAnswersUsed: 0,
-    totalFiftyFiftyUsed: 0,
-    totalSentientAIUsed: 0,
-    totalCharactersUsed: 0,
-    totalPuzzlesCompletedWithHelp: 0
-  }
-});
-
 // Default save data
 const createDefaultGameSave = (): GameSaveData => ({
   highScore: 0,
@@ -216,7 +101,7 @@ const createDefaultGlobalSave = (): GlobalSaveData => ({
     snakeClassic: createDefaultGameSave(),
     vortexPong: createDefaultGameSave(),
     matrixCloud: createDefaultGameSave(),
-    ctrlSWorld: { ...createDefaultGameSave(), lifelineData: createDefaultLifelineData(), ctrlSGameState: createDefaultCtrlSGameState() },
+    ctrlSWorld: createDefaultGameSave(),
     matrixInvaders: createDefaultGameSave(),
     metris: createDefaultGameSave(),
     matrixFrogger: createDefaultGameSave(),
@@ -413,7 +298,6 @@ const migrations: Record<string, MigrationFunction> = {
   /**
    * Migrate from 1.0.0 to 1.1.0:
    * - Ensures all game entries have proper default structures
-   * - Adds missing ctrlSWorld-specific fields (lifelineData, ctrlSGameState)
    * - Adds playDates array if missing from globalStats
    * - Ensures stats objects are complete with all expected fields
    */
@@ -449,14 +333,6 @@ const migrations: Record<string, MigrationFunction> = {
           migratedData.games[gameId].achievements = [];
         }
       }
-    }
-
-    // Ensure ctrlSWorld has lifelineData and ctrlSGameState
-    if (!migratedData.games.ctrlSWorld.lifelineData) {
-      migratedData.games.ctrlSWorld.lifelineData = createDefaultLifelineData();
-    }
-    if (!migratedData.games.ctrlSWorld.ctrlSGameState) {
-      migratedData.games.ctrlSWorld.ctrlSGameState = createDefaultCtrlSGameState();
     }
 
     // Ensure globalStats has playDates array

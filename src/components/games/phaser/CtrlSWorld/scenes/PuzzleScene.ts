@@ -3,7 +3,7 @@ import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
 import { MATRIX_COLORS, MATRIX_FONTS } from '../../../../../lib/phaser/types';
 import { CTRLS_SCENE_KEYS, STINGER_KEYS } from '../config';
 import { getPuzzleById } from '../../../../../data/puzzles';
-import type { PuzzleData } from '../../../../ui/PuzzleModal';
+import type { PuzzleData } from '../types';
 
 export interface PuzzleSceneData {
   puzzleId: string;
