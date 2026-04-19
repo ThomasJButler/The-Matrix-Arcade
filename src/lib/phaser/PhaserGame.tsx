@@ -8,13 +8,12 @@
  * - Integrates with useSoundSystem for audio
  */
 
-import React, { useEffect, useRef, useCallback, useMemo, useState } from 'react';
+import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import Phaser from 'phaser';
 import { useSoundSystem } from '../../hooks/useSoundSystem';
 import { useSaveSystem } from '../../hooks/useSaveSystem';
 import {
   REGISTRY_KEYS,
-  MATRIX_FONTS,
   type AchievementManager,
   type GameEvent,
   type ScoreEventData,
@@ -60,8 +59,6 @@ export function PhaserGame({
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
   const [hasFocus, setHasFocus] = useState(false);
-  const [isHovering, setIsHovering] = useState(false);
-  const [hasEverFocused, setHasEverFocused] = useState(false);
   const { playSFX, playBackgroundMP3, stopBackgroundMP3, toggleMute } = useSoundSystem();
   const { saveData, updateGameSave, unlockAchievement: unlockSaveAchievement, addScore } = useSaveSystem();
 
@@ -247,15 +244,10 @@ export function PhaserGame({
     containerRef.current?.focus();
   }, []);
 
-  // Auto-refocus when hovering over the game — prevents keyboard input
-  // from silently failing after the user clicks outside the game area
+  // Auto-refocus when hovering over the game — keyboard input silently
+  // fails if the container loses focus, so recover focus on mouse re-entry.
   const handleMouseEnter = useCallback(() => {
-    setIsHovering(true);
     containerRef.current?.focus();
-  }, []);
-
-  const handleMouseLeave = useCallback(() => {
-    setIsHovering(false);
   }, []);
 
   return (
@@ -275,46 +267,9 @@ export function PhaserGame({
       tabIndex={0}
       onClick={handleContainerClick}
       onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      onFocus={() => {
-        setHasFocus(true);
-        setHasEverFocused(true);
-      }}
+      onFocus={() => setHasFocus(true)}
       onBlur={() => setHasFocus(false)}
-    >
-      {/* Click-to-play overlay shown only after the container has had focus
-          at least once and subsequently lost it — prevents the overlay from
-          flashing on initial mount before auto-focus resolves, which was
-          reported as a "floating dark rectangle near top-centre." */}
-      {hasEverFocused && !hasFocus && !isHovering && (
-        <div
-          onClick={handleContainerClick}
-          role="button"
-          aria-label="Click to play"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            zIndex: 10,
-            cursor: 'pointer',
-          }}
-        >
-          <span
-            style={{
-              fontFamily: MATRIX_FONTS.PRIMARY,
-              fontSize: '16px',
-              color: '#00ff00',
-              textShadow: '0 0 10px #00ff00',
-            }}
-          >
-            Click to play
-          </span>
-        </div>
-      )}
-    </div>
+    />
   );
 }
 
