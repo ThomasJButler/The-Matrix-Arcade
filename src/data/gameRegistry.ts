@@ -52,7 +52,7 @@ export const GAME_REGISTRY: GameEntry[] = [
     id: 'matrix-cloud',
     title: 'Matrix Bird',
     description: 'Flap between pipes in the code cascade — one missed beat and gravity wins.',
-    preview: 'https://res.cloudinary.com/depqttzlt/image/upload/v1776587192/A_surreal_thumbnail_of_a_glowing_neon_green_vortex_spiraling__e2f84ec0-7c65-4f60-af75-634675ca0999_2_gyatls.png',
+    preview: '/assets/matrix-cloud/preview.svg',
     category: 'Arcade',
     inspiration: 'Flappy Bird (2013)',
     inspirationNote: 'The brutally addictive one-tap classic, wrapped in cascading code rain.',
