@@ -206,6 +206,50 @@ export const DEATH_CINEMATIC = {
   MARGIN_Y: 40,
 } as const;
 
+// R84.S6 — Food pickup juice amplification. Tom's Snake testing doc line 124
+// `[X] Food pickup juice feels satisfying (R81 pass)` was ticked, but the
+// pre-S6 pickup sensory envelope was shallow: 6 radial particles + 2
+// chromatic-aberration ghost sprites at ±3 px + a shake of 0.004g + a flat
+// "+10" score popup that rose and faded with no impact frame. Post-R84.S1
+// wall-shift the apple geometry stayed clean (2 px gaps on every side of
+// each grid cell) so no clip/scale fix was needed — the S6 brief reduced
+// to "amp pickup juice if shallow", and it was.
+//
+// Amplifications:
+//   - EAT_RING — new expanding stroked-green circle on pickup, scale tween
+//     1 → SCALE_END over 280 ms with alpha fade, mirrors the existing
+//     `createShieldBreakEffect` pattern so the visual grammar stays
+//     consistent. Reads as a single "pickup pulse" that radiates from the
+//     eaten food pixel. Gated under prefers-reduced-motion (the ring is
+//     rapidly-expanding additive motion; the chromatic flash is already
+//     gated for the same reason).
+//   - BURST_COUNT 6 → 10 — denser particle ring so regular pickups still
+//     feel weighty compared to the R84.S2 bonus-food pulse.
+//   - CHROMATIC_OFFSET 3 → 5 px — the prior offset was barely perceptible
+//     at 640×400 scale; ±5 makes the red/cyan split legible as a discrete
+//     pickup flash frame.
+//   - SCORE_POPUP scale pop 0.5 → 1 via Back.easeOut over 220 ms — the
+//     "+10" now has a visible impact frame before the 500 ms rise/fade.
+//     End-state is scale=1 (same as old static text) so no reduced-motion
+//     gate needed — the start-state is only held for a fraction of the
+//     rise duration.
+//
+// All additions stay in MATRIX_COLORS.PRIMARY so the green pickup language
+// remains consistent with the existing eat-particle-burst + chromatic flash.
+export const FOOD_PICKUP_JUICE = {
+  EAT_RING_RADIUS: 4,
+  EAT_RING_SCALE_END: 5.5,
+  EAT_RING_STROKE_WIDTH: 2,
+  EAT_RING_INITIAL_ALPHA: 0.85,
+  EAT_RING_DURATION_MS: 280,
+  EAT_RING_DEPTH: 4,
+  BURST_COUNT: 10,
+  CHROMATIC_OFFSET_PX: 5,
+  SCORE_POPUP_SCALE_FROM: 0.5,
+  SCORE_POPUP_SCALE_TO: 1,
+  SCORE_POPUP_SCALE_DURATION_MS: 220,
+} as const;
+
 export const ACHIEVEMENTS = {
   FIRST_APPLE: 'snake_first_apple',
   SCORE_100: 'snake_score_100',
