@@ -973,19 +973,46 @@ export function useSoundSystem() {
   const isMuted = !config.music && !config.sfx;
 
   // Toggle mute for all sounds (preserves individual music/sfx settings)
+  //
+  // Why we silence via masterGain instead of stopping: calling stopMusic() on
+  // mute pauses the BGM HTMLAudioElement AND rewinds its currentTime to 0, so
+  // there was no symmetrical "resume" on unmute and every game stayed silent
+  // after the second M press (R83.G1). Setting masterGain to 0 silences every
+  // Web Audio oscillator routed through it while leaving the graph intact, and
+  // the HTMLAudioElement's own `muted` flag (applied via the useEffect below)
+  // keeps BGM playback position so unmute is simply "restore gain + unmute
+  // element". We also defensively resume() the AudioContext in case the
+  // browser's autoplay policy or a tab-blur suspended it while muted.
   const toggleMute = useCallback(() => {
     if (!isMuted) {
-      // Save current settings before muting
       preMuteConfigRef.current = { music: config.music, sfx: config.sfx };
       updateConfig({ music: false, sfx: false });
-      stopMusic();
+      const ctx = audioContextRef.current;
+      if (masterGainRef.current && ctx && ctx.state !== 'closed') {
+        masterGainRef.current.gain.setValueAtTime(0, ctx.currentTime);
+      }
     } else {
-      // Restore pre-mute settings, or default to both on
       const restored = preMuteConfigRef.current || { music: true, sfx: true };
       updateConfig(restored);
       preMuteConfigRef.current = null;
+
+      const ctx = audioContextRef.current;
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+      if (masterGainRef.current && ctx && ctx.state !== 'closed') {
+        masterGainRef.current.gain.setValueAtTime(config.masterVolume, ctx.currentTime);
+      }
+      // If BGM was paused while muted (some browsers pause on masterGain=0
+      // or on tab-blur), nudge it back into play. The element's `muted`
+      // flag is cleared by the useEffect once `config.music` re-flips.
+      const bgm = backgroundMusicRef.current;
+      if (restored.music && bgm && bgm.src && bgm.paused) {
+        bgm.muted = false;
+        bgm.play().catch(() => {});
+      }
     }
-  }, [config.music, config.sfx, isMuted, updateConfig, stopMusic]);
+  }, [config.music, config.sfx, config.masterVolume, isMuted, updateConfig]);
 
   // Cleanup on unmount
   useEffect(() => {
