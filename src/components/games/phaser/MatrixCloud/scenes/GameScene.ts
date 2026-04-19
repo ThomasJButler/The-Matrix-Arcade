@@ -105,7 +105,13 @@ export class MatrixCloudGameScene extends BaseScene {
   // scene-local playSound override that forwards volumeScale through the
   // soundSystem bridge; no global useSoundSystem change needed because the
   // other 11 games keep the default 1.0 scale.
+  //
+  // R84.B6 (2026-04-19): Tom's post-R83.B1 playtest flagged the jump SFX
+  // specifically as still too prominent. Jump key now drops an additional
+  // 20% (0.75 × 0.8 = 0.60) while other SFX keep the 0.75 baseline — dropping
+  // the master further would flatten scoring / level-up cues that Tom liked.
   private static readonly SFX_VOLUME_SCALE = 0.75;
+  private static readonly JUMP_VOLUME_SCALE = 0.6;
 
   constructor() {
     super({ key: SCENE_KEYS.GAME });
@@ -389,9 +395,18 @@ export class MatrixCloudGameScene extends BaseScene {
    * through the shared volumeScale (0.75). Centralising here means every
    * callsite in this scene — jump, score, hit, level-up, collectible — drops
    * by the same 25% without peppering config objects through the file.
+   *
+   * R84.B6 (2026-04-19): BIRD_FLAP gets an extra 20% drop (0.60 total) on top
+   * of the scene baseline. Branching on the key rather than per-callsite keeps
+   * `jump()` readable and means any future flap call (attract-mode preview,
+   * boss-intro, etc.) inherits the quieter level automatically.
    */
   protected override playSound(key: string): void {
-    super.playSound(key, { volumeScale: MatrixCloudGameScene.SFX_VOLUME_SCALE });
+    const volumeScale =
+      key === SOUND_KEYS.BIRD_FLAP
+        ? MatrixCloudGameScene.JUMP_VOLUME_SCALE
+        : MatrixCloudGameScene.SFX_VOLUME_SCALE;
+    super.playSound(key, { volumeScale });
   }
 
   /**

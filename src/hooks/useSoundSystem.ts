@@ -59,12 +59,21 @@ const SOUND_LIBRARY: Record<string, SoundEffect> = {
   },
   // R83.B1(d): Matrix Bird flap — procedural-only (not in AUDIO_FILE_MAP) so
   // the "horrendous" sfx_landing.mp3 that Tom flagged stays out of the Bird
-  // flap path. Short 80ms triangle pluck sliding 800→400Hz reads as a clean,
+  // flap path. Short 80ms triangle pluck sliding 800→480Hz reads as a clean,
   // birdy wingbeat rather than a thud. Neo Jump / Cloud Jumper still call the
   // original `jump` MP3 path and are unaffected.
+  //
+  // R84.B6 (2026-04-19): Tom's post-R83.B1 playtest still flagged the jump
+  // SFX as "the worst". Sweep depth narrowed 20% (400→320Hz → end moved
+  // 400→480Hz) so the pluck lands gentler; the steep full-octave drop of the
+  // original sweep was reading as "whooshy" rather than birdy. Scene-level
+  // volume drop of another 20% is applied via
+  // MatrixCloudGameScene.playSound (0.75 → 0.60 for this key only) rather
+  // than a library-level volumeScale so other games that might one day
+  // borrow `birdFlap` are not silently quieter.
   birdFlap: {
     type: 'birdFlap',
-    frequency: { start: 800, end: 400 },
+    frequency: { start: 800, end: 480 },
     oscillatorType: 'triangle',
     duration: 0.08,
     attack: 0.005,
