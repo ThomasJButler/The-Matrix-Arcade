@@ -272,6 +272,60 @@ export const FOOD_PICKUP_JUICE = {
   SCORE_POPUP_SCALE_DURATION_MS: 220,
 } as const;
 
+// R84.S8 — Food / power-up sprite polish. Two issues surfaced during the
+// Stream C audit post-R84.S2/S3/S5/S6:
+//
+// (1) R83.S1 apple-shrink *nullified by pulse*. `createFoodSprite` called
+//     `foodSprite.setDisplaySize(CELL_SIZE*0.75, CELL_SIZE*0.75)` — which under
+//     the hood writes scaleX=scaleY=0.75. The yoyo pulse tween
+//     `scale: { from: 0.85, to: 1.05 }` then wrote raw scale values on top,
+//     overriding the shrink: apple rendered at 16*0.85..16*1.05 = 13.6..16.8 px,
+//     back to overspilling the 16-px cell that R83.S1 was meant to fix.
+//     Tom's repeated "apple is too big" complaint (testing-doc lines 94, 132)
+//     was actually still live post-R83.S1 because the motion defeated the
+//     one-time display-size call.
+//
+// (2) Power-up pulse peaks at 19.2 px in a 16-px cell. `scale: { from: 0.8,
+//     to: 1.2 }` on a native-16 texture — overspills by 3.2 px each side at
+//     peak. Reads as "sprite bumping against neighbouring cells".
+//
+// (3) Bonus-food glyph pulse `scale: { from: 0.9, to: 1.15 }` on an 18-px
+//     font = 20.7 px peak. Same overspill pattern.
+//
+// Fix strategy (single source of truth here):
+//   - Express each pulse as `scale: { from: MIN, to: MAX }` with
+//     MAX ≤ BASE_SCALE so the peak never exceeds the cell-fit baseline.
+//   - Migrate `setDisplaySize` → `setScale(BASE_SCALE)` so the baseline lives
+//     on the same scale track the pulse writes to (no more override).
+//   - Grid-snap is already correct (gridToPixel returns integer pixel
+//     centres — verified by test — and Phaser `pixelArt: true` forces
+//     NEAREST filtering), so no position change is needed. The "not crisp"
+//     perception was motion, not position.
+//
+// Pulse amplitudes chosen conservative enough that peak = baseline (quiet
+// pulse that reads as breathing, never as overspill). Regular food pulses
+// 90..100 % of 0.75 baseline = 10.8..12 px in the 16-px cell. Power-up
+// pulses 80..100 % of 1.0 baseline = 12.8..16 px (cell-exact at peak).
+// Bonus glyph pulses 90..100 % of the font baseline.
+export const SPRITE_POLISH = {
+  FOOD_BASE_SCALE: 0.75,
+  FOOD_PULSE_MIN: 0.675, // 0.9 × 0.75 baseline — 10.8 px
+  FOOD_PULSE_MAX: 0.75, //  1.0 × 0.75 baseline — 12 px (cell-safe)
+  FOOD_PULSE_DURATION_MS: 600,
+  FOOD_POP_IN_DURATION_MS: 200,
+  POWERUP_BASE_SCALE: 1.0,
+  POWERUP_PULSE_MIN: 0.8, // 12.8 px
+  POWERUP_PULSE_MAX: 1.0, // 16 px (cell-exact at peak)
+  POWERUP_PULSE_DURATION_MS: 500,
+  POWERUP_ALPHA_MIN: 0.7,
+  POWERUP_ALPHA_MAX: 1.0,
+  BONUS_FOOD_PULSE_MIN: 0.9,
+  BONUS_FOOD_PULSE_MAX: 1.0,
+  BONUS_FOOD_PULSE_DURATION_MS: 450,
+  BONUS_FOOD_ALPHA_MIN: 0.7,
+  BONUS_FOOD_ALPHA_MAX: 1.0,
+} as const;
+
 export const ACHIEVEMENTS = {
   FIRST_APPLE: 'snake_first_apple',
   SCORE_100: 'snake_score_100',

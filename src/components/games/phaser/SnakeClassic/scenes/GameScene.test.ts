@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import Phaser from 'phaser';
 import { SnakeGameScene } from './GameScene';
-import { GAME_CONFIG, ACHIEVEMENTS, DEATH_CINEMATIC, DREAD_BUILDUP, FOOD_PICKUP_JUICE, HUD_X, MATRIX_FUNKINESS, POWERUP_DEFS, GLITCH_RAIN } from '../config';
+import { GAME_CONFIG, ACHIEVEMENTS, DEATH_CINEMATIC, DREAD_BUILDUP, FOOD_PICKUP_JUICE, HUD_X, MATRIX_FUNKINESS, POWERUP_DEFS, GLITCH_RAIN, SPRITE_POLISH } from '../config';
 import { MATRIX_COLORS, SOUND_KEYS } from '@/lib/phaser/types';
 
 // Seed JustDown on the global Phaser mock from setup.ts so handleInput tests
@@ -2440,6 +2440,187 @@ describe('SnakeGameScene', () => {
         for (const x of xs) {
           expect(x).toBe(HUD_X.RIGHT_X);
         }
+      });
+    });
+  });
+
+  // ─── R84.S8 — Food / power-up sprite polish ──────────────
+  // Regression tripwires for the three overspill bugs addressed in S8:
+  //   (1) apple pulse overriding R83.S1 shrink
+  //   (2) power-up pulse peaking at 19.2 px in a 16-px cell
+  //   (3) bonus-food glyph pulse peaking at 20.7 px
+  // All three root-caused by pulse `scale: { from, to }` tweens writing raw
+  // scale values over a baseline that had no shared source of truth. The
+  // fix: single SPRITE_POLISH config block with `*_PULSE_MAX ≤ *_BASE_SCALE`,
+  // and dereference the block at every call site. Tests below pin the
+  // invariant at the config level + the call-site level so any future magic
+  // number regresses visibly.
+  describe('R84.S8 — Sprite polish', () => {
+    describe('config sanity — pulse amplitudes cell-safe', () => {
+      it('should pin FOOD_PULSE_MAX ≤ FOOD_BASE_SCALE (apple never exceeds shrunk cell-fit)', () => {
+        expect(SPRITE_POLISH.FOOD_PULSE_MAX).toBeLessThanOrEqual(SPRITE_POLISH.FOOD_BASE_SCALE);
+      });
+
+      it('should pin FOOD_PULSE_MIN > 0 and < FOOD_PULSE_MAX (non-degenerate, visible)', () => {
+        expect(SPRITE_POLISH.FOOD_PULSE_MIN).toBeGreaterThan(0);
+        expect(SPRITE_POLISH.FOOD_PULSE_MIN).toBeLessThan(SPRITE_POLISH.FOOD_PULSE_MAX);
+      });
+
+      it('should pin POWERUP_PULSE_MAX ≤ POWERUP_BASE_SCALE (peak cell-fit, no overspill)', () => {
+        expect(SPRITE_POLISH.POWERUP_PULSE_MAX).toBeLessThanOrEqual(SPRITE_POLISH.POWERUP_BASE_SCALE);
+      });
+
+      it('should pin POWERUP_PULSE_MIN < POWERUP_PULSE_MAX (non-degenerate pulse)', () => {
+        expect(SPRITE_POLISH.POWERUP_PULSE_MIN).toBeLessThan(SPRITE_POLISH.POWERUP_PULSE_MAX);
+      });
+
+      it('should pin BONUS_FOOD_PULSE_MAX ≤ 1.0 (glyph never enlarged past font baseline)', () => {
+        expect(SPRITE_POLISH.BONUS_FOOD_PULSE_MAX).toBeLessThanOrEqual(1.0);
+        expect(SPRITE_POLISH.BONUS_FOOD_PULSE_MIN).toBeLessThan(SPRITE_POLISH.BONUS_FOOD_PULSE_MAX);
+      });
+
+      it('should keep all pulse durations positive', () => {
+        expect(SPRITE_POLISH.FOOD_PULSE_DURATION_MS).toBeGreaterThan(0);
+        expect(SPRITE_POLISH.FOOD_POP_IN_DURATION_MS).toBeGreaterThan(0);
+        expect(SPRITE_POLISH.POWERUP_PULSE_DURATION_MS).toBeGreaterThan(0);
+        expect(SPRITE_POLISH.BONUS_FOOD_PULSE_DURATION_MS).toBeGreaterThan(0);
+      });
+    });
+
+    describe('grid snapping — gridToPixel returns integer pixel centres', () => {
+      // With GRID_OFFSET_X=180, GRID_OFFSET_Y=40, CELL_SIZE=16, every cell
+      // centre falls on an integer. Non-integer positions would break
+      // Phaser's NEAREST filter crispness on pixelArt sprites. These tests
+      // tripwire any future offset/cell-size change that would introduce
+      // sub-pixel positions.
+      const gridToPixel = (gx: number, gy: number) => ({
+        x: GAME_CONFIG.GRID_OFFSET_X + gx * GAME_CONFIG.CELL_SIZE + GAME_CONFIG.CELL_SIZE / 2,
+        y: GAME_CONFIG.GRID_OFFSET_Y + gy * GAME_CONFIG.CELL_SIZE + GAME_CONFIG.CELL_SIZE / 2,
+      });
+
+      it('should return integer pixel centres at cell (0, 0)', () => {
+        const { x, y } = gridToPixel(0, 0);
+        expect(Number.isInteger(x)).toBe(true);
+        expect(Number.isInteger(y)).toBe(true);
+      });
+
+      it('should return integer pixel centres at cell (GRID_COLS-1, GRID_ROWS-1)', () => {
+        const { x, y } = gridToPixel(GAME_CONFIG.GRID_COLS - 1, GAME_CONFIG.GRID_ROWS - 1);
+        expect(Number.isInteger(x)).toBe(true);
+        expect(Number.isInteger(y)).toBe(true);
+      });
+    });
+
+    describe('createFoodSprite — baseline scale + pulse wiring', () => {
+      it('should call setScale(FOOD_BASE_SCALE) rather than setDisplaySize (R83.S1 fix on the same track as the pulse)', () => {
+        const apple = createMockImage();
+        (scene as any).add.image = vi.fn(() => apple);
+        (scene as any).food = { x: 5, y: 5 };
+
+        call('createFoodSprite');
+
+        expect(apple.setScale).toHaveBeenCalledWith(SPRITE_POLISH.FOOD_BASE_SCALE);
+        // The pre-S8 call was `setDisplaySize(12, 12)` — it must be gone
+        // otherwise it co-exists with setScale and a future refactor could
+        // re-introduce the override bug.
+        expect(apple.setDisplaySize).not.toHaveBeenCalled();
+      });
+
+      it('should register a pulse tween with scale clamped to [FOOD_PULSE_MIN, FOOD_PULSE_MAX]', () => {
+        const apple = createMockImage();
+        (scene as any).add.image = vi.fn(() => apple);
+        (scene as any).food = { x: 5, y: 5 };
+        (scene as any).tweens.add.mockClear();
+
+        call('createFoodSprite');
+
+        const tweens = (scene as any).tweens.add.mock.calls.map((c: any[]) => c[0]);
+        const pulse = tweens.find((t: any) => t.targets === apple && t.yoyo === true);
+        expect(pulse).toBeDefined();
+        expect(pulse.scale).toEqual({
+          from: SPRITE_POLISH.FOOD_PULSE_MIN,
+          to: SPRITE_POLISH.FOOD_PULSE_MAX,
+        });
+        expect(pulse.duration).toBe(SPRITE_POLISH.FOOD_PULSE_DURATION_MS);
+      });
+    });
+
+    describe('spawnFood — non-bonus pop-in targets FOOD_BASE_SCALE', () => {
+      it('should tween foodSprite scale up to FOOD_BASE_SCALE (not magic 1) on regular food spawn', () => {
+        const apple = createMockImage();
+        (scene as any).foodSprite = apple;
+        (scene as any).isBonusFood = false;
+        (scene as any).getRandomEmptyCell = vi.fn(() => ({ x: 4, y: 4 }));
+        (scene as any).tweens.add.mockClear();
+
+        call('spawnFood');
+
+        const tweens = (scene as any).tweens.add.mock.calls.map((c: any[]) => c[0]);
+        const popIn = tweens.find((t: any) => t.targets === apple && typeof t.scale === 'number');
+        expect(popIn).toBeDefined();
+        expect(popIn.scale).toBe(SPRITE_POLISH.FOOD_BASE_SCALE);
+        expect(popIn.duration).toBe(SPRITE_POLISH.FOOD_POP_IN_DURATION_MS);
+      });
+    });
+
+    describe('spawnFood — bonus glyph pulse clamped to cell', () => {
+      it('should pulse bonus glyph with clamped SPRITE_POLISH ranges (peak ≤ 1.0, no overspill)', () => {
+        const apple = createMockImage();
+        const glyph = createMockText();
+        (scene as any).foodSprite = apple;
+        (scene as any).add.text = vi.fn(() => glyph);
+        (scene as any).isBonusFood = true;
+        (scene as any).getRandomEmptyCell = vi.fn(() => ({ x: 7, y: 7 }));
+        (scene as any).tweens.add.mockClear();
+
+        call('spawnFood');
+
+        const tweens = (scene as any).tweens.add.mock.calls.map((c: any[]) => c[0]);
+        const pulse = tweens.find((t: any) => t.targets === glyph && t.yoyo === true);
+        expect(pulse).toBeDefined();
+        expect(pulse.scale).toEqual({
+          from: SPRITE_POLISH.BONUS_FOOD_PULSE_MIN,
+          to: SPRITE_POLISH.BONUS_FOOD_PULSE_MAX,
+        });
+        expect(pulse.alpha).toEqual({
+          from: SPRITE_POLISH.BONUS_FOOD_ALPHA_MIN,
+          to: SPRITE_POLISH.BONUS_FOOD_ALPHA_MAX,
+        });
+        expect(pulse.duration).toBe(SPRITE_POLISH.BONUS_FOOD_PULSE_DURATION_MS);
+      });
+    });
+
+    describe('spawnFieldPowerUp — baseline scale + clamped pulse', () => {
+      it('should call setScale(POWERUP_BASE_SCALE) on the spawned sprite before the pulse', () => {
+        const sprite = createMockImage();
+        (scene as any).add.image = vi.fn(() => sprite);
+        (scene as any).getRandomEmptyCell = vi.fn(() => ({ x: 3, y: 3 }));
+
+        call('spawnFieldPowerUp');
+
+        expect(sprite.setScale).toHaveBeenCalledWith(SPRITE_POLISH.POWERUP_BASE_SCALE);
+      });
+
+      it('should pulse power-up sprite scale within [POWERUP_PULSE_MIN, POWERUP_PULSE_MAX] (peak cell-fit)', () => {
+        const sprite = createMockImage();
+        (scene as any).add.image = vi.fn(() => sprite);
+        (scene as any).getRandomEmptyCell = vi.fn(() => ({ x: 3, y: 3 }));
+        (scene as any).tweens.add.mockClear();
+
+        call('spawnFieldPowerUp');
+
+        const tweens = (scene as any).tweens.add.mock.calls.map((c: any[]) => c[0]);
+        const pulse = tweens.find((t: any) => t.targets === sprite && t.yoyo === true);
+        expect(pulse).toBeDefined();
+        expect(pulse.scale).toEqual({
+          from: SPRITE_POLISH.POWERUP_PULSE_MIN,
+          to: SPRITE_POLISH.POWERUP_PULSE_MAX,
+        });
+        expect(pulse.alpha).toEqual({
+          from: SPRITE_POLISH.POWERUP_ALPHA_MIN,
+          to: SPRITE_POLISH.POWERUP_ALPHA_MAX,
+        });
+        expect(pulse.duration).toBe(SPRITE_POLISH.POWERUP_PULSE_DURATION_MS);
       });
     });
   });

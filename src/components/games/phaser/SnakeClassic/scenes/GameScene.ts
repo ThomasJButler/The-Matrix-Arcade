@@ -11,6 +11,7 @@ import {
   HUD_X,
   MATRIX_FUNKINESS,
   POWERUP_DEFS,
+  SPRITE_POLISH,
   OPPOSITE_DIRECTIONS,
   type Direction,
   type PowerUpType,
@@ -587,19 +588,21 @@ export class SnakeGameScene extends BaseScene {
     const { x, y } = this.gridToPixel(this.food.x, this.food.y);
     const key = this.spriteMode ? 'food_sprite' : 'food';
     this.foodSprite = this.add.image(x, y, key);
-    if (this.spriteMode) {
-      // Shrunk to 75% of the grid cell (R83.S1) — Tom reported the apple was
-      // overspilling and causing missed pickups; collision is grid-based so
-      // smaller display has no gameplay effect, only visual fit.
-      const visual = GAME_CONFIG.CELL_SIZE * 0.75;
-      this.foodSprite.setDisplaySize(visual, visual);
-    }
+    // R84.S8 — migrate R83.S1 shrink from setDisplaySize to setScale so the
+    // baseline lives on the same scale track the yoyo pulse writes to. The
+    // old `setDisplaySize(CELL_SIZE*0.75)` call was being overwritten by the
+    // pulse `scale: { from: 0.85, to: 1.05 }`, re-enlarging the apple to
+    // 13.6..16.8 px (overspilling the 16-px cell). The new pulse band
+    // [FOOD_PULSE_MIN, FOOD_PULSE_MAX] has its peak equal to FOOD_BASE_SCALE,
+    // so the apple never exceeds its shrunk cell-fit size. See
+    // SnakeClassic/config.ts SPRITE_POLISH block for the full rationale.
+    this.foodSprite.setScale(SPRITE_POLISH.FOOD_BASE_SCALE);
     this.tweens.add({
       targets: this.foodSprite,
-      scale: { from: 0.85, to: 1.05 },
+      scale: { from: SPRITE_POLISH.FOOD_PULSE_MIN, to: SPRITE_POLISH.FOOD_PULSE_MAX },
       yoyo: true,
       repeat: -1,
-      duration: 600,
+      duration: SPRITE_POLISH.FOOD_PULSE_DURATION_MS,
     });
   }
 
@@ -624,22 +627,29 @@ export class SnakeGameScene extends BaseScene {
       this.bonusFoodText
         .setOrigin(0.5)
         .setDepth(MATRIX_FUNKINESS.BONUS_FOOD_DEPTH);
+      // R84.S8 — pulse peak clamped to 1.0 so the glyph never enlarges past
+      // its baseline font-size (pre-S8 the 0.9..1.15 band peaked at 20.7 px
+      // on an 18-px font, overspilling the 16-px cell by ~5 px each side).
       this.tweens.add({
         targets: this.bonusFoodText,
-        alpha: { from: 0.7, to: 1 },
-        scale: { from: 0.9, to: 1.15 },
+        alpha: { from: SPRITE_POLISH.BONUS_FOOD_ALPHA_MIN, to: SPRITE_POLISH.BONUS_FOOD_ALPHA_MAX },
+        scale: { from: SPRITE_POLISH.BONUS_FOOD_PULSE_MIN, to: SPRITE_POLISH.BONUS_FOOD_PULSE_MAX },
         yoyo: true,
         repeat: -1,
-        duration: 450,
+        duration: SPRITE_POLISH.BONUS_FOOD_PULSE_DURATION_MS,
       });
     } else {
       this.foodSprite.setAlpha(1);
       this.foodSprite.setPosition(x, y);
       this.foodSprite.setScale(0);
+      // R84.S8 — pop-in target = FOOD_BASE_SCALE, not magic 1. Before S8 this
+      // tween wrote scale=1 which drove the apple to its full 16-px native
+      // texture size for one frame before the pulse tween from
+      // createFoodSprite reclaimed it — noticeable flash of overspill.
       this.tweens.add({
         targets: this.foodSprite,
-        scale: 1,
-        duration: 200,
+        scale: SPRITE_POLISH.FOOD_BASE_SCALE,
+        duration: SPRITE_POLISH.FOOD_POP_IN_DURATION_MS,
         ease: 'Back.easeOut',
       });
     }
@@ -766,13 +776,18 @@ export class SnakeGameScene extends BaseScene {
 
     const { x, y } = this.gridToPixel(position.x, position.y);
     this.powerUpSprite = this.add.image(x, y, `powerup_${type}`);
+    // R84.S8 — baseline + clamped pulse (peak = 1.0 = cell-fit). Pre-S8 the
+    // pulse peaked at 1.2× native (19.2 px), overspilling the 16-px cell by
+    // 3.2 px each side. New band [POWERUP_PULSE_MIN, POWERUP_PULSE_MAX]
+    // reads as "breathing" without crossing into neighbouring cells.
+    this.powerUpSprite.setScale(SPRITE_POLISH.POWERUP_BASE_SCALE);
     this.tweens.add({
       targets: this.powerUpSprite,
-      scale: { from: 0.8, to: 1.2 },
-      alpha: { from: 0.7, to: 1 },
+      scale: { from: SPRITE_POLISH.POWERUP_PULSE_MIN, to: SPRITE_POLISH.POWERUP_PULSE_MAX },
+      alpha: { from: SPRITE_POLISH.POWERUP_ALPHA_MIN, to: SPRITE_POLISH.POWERUP_ALPHA_MAX },
       yoyo: true,
       repeat: -1,
-      duration: 500,
+      duration: SPRITE_POLISH.POWERUP_PULSE_DURATION_MS,
     });
 
     this.fieldPowerUpTimer = this.time.delayedCall(GAME_CONFIG.POWERUP_FIELD_DURATION, () => {
