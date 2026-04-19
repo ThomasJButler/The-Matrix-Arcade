@@ -579,6 +579,58 @@ describe('MatrixCloudGameScene', () => {
     });
   });
 
+  // R84.CI-2 (a11y priority 2): pin that the scene emits `scoreMilestone`
+  // alongside the R84.B11 COLLECTIBLE stinger, so the shared PhaserGame SR
+  // live region can announce `Score milestone 100.` to AT users. Without
+  // these tests, a future refactor could drop the emit and leave the
+  // sighted-only audio cue in place with no symbolic equivalent.
+  describe('R84.CI-2 — Score milestone SR event emission', () => {
+    const milestoneEmits = (s: any) =>
+      (s.emitGameEvent.mock.calls as any[][]).filter((c) => c[0]?.type === 'scoreMilestone');
+
+    it('emits scoreMilestone with the threshold value the first time 50 is crossed', () => {
+      scene.score = C.SCORE_PER_PIPE * 4; // 40 → 50 after scorePipe
+      scene.combo = 1.0;
+      call(scene, 'scorePipe');
+      const emits = milestoneEmits(scene);
+      expect(emits).toHaveLength(1);
+      // `value` pins the threshold, not the current score — the round number
+      // is what the SR announcement pattern-matches on.
+      expect(emits[0][0].data).toEqual({ value: 50 });
+    });
+
+    it('emits scoreMilestone for 100 only when that threshold is freshly crossed', () => {
+      scene.score = 90;
+      scene.combo = 1.0;
+      scene.milestonesHit = new Set([50]);
+      call(scene, 'scorePipe');
+      const emits = milestoneEmits(scene);
+      expect(emits).toHaveLength(1);
+      expect(emits[0][0].data).toEqual({ value: 100 });
+    });
+
+    it('does not emit scoreMilestone once the threshold has been hit earlier in the run', () => {
+      scene.score = 60;
+      scene.combo = 1.0;
+      scene.milestonesHit = new Set([50]);
+      call(scene, 'scorePipe');
+      // SFX regression guard already lives in the R84.B11 block; this pins
+      // that the React bridge also stays silent on a repeat pass.
+      expect(milestoneEmits(scene)).toHaveLength(0);
+    });
+
+    it('does not emit scoreMilestone on the 500-pt level boundary', () => {
+      // 500/1000 live on LEVEL_UP, not the milestone list. If someone adds
+      // them here, AT users would hear `Score milestone 500.` immediately
+      // followed by the level-up cue — double-narrating the same beat.
+      scene.score = 490;
+      scene.combo = 1.0;
+      scene.milestonesHit = new Set([50, 100, 250]);
+      call(scene, 'scorePipe');
+      expect(milestoneEmits(scene)).toHaveLength(0);
+    });
+  });
+
   describe('Level Progression', () => {
     it('level increases at LEVEL_THRESHOLD', () => {
       scene.score = C.LEVEL_THRESHOLD - C.SCORE_PER_PIPE;

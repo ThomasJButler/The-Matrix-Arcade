@@ -916,10 +916,18 @@ export class MatrixCloudGameScene extends BaseScene {
     // cue reads as a smaller-but-earned beat, distinct from the 500-pt level
     // transition. 500/1000 are intentionally NOT in SCORE_MILESTONES to avoid
     // overlapping with onLevelUp's own LEVEL_UP stinger.
+    //
+    // R84.CI-2: also emit `scoreMilestone` to the React bridge so the shared
+    // SR live region announces `Score milestone 50` to assistive tech. The
+    // sighted player's audible cue stays the COLLECTIBLE SFX; AT users now
+    // get a symbolic equivalent instead of silence. `value: threshold` (not
+    // the current score) is deliberate — the pattern-matched round number
+    // is what makes the announcement legible.
     for (const threshold of MatrixCloudGameScene.SCORE_MILESTONES) {
       if (this.score >= threshold && !this.milestonesHit.has(threshold)) {
         this.milestonesHit.add(threshold);
         this.playSound(SOUND_KEYS.COLLECTIBLE);
+        this.emitGameEvent({ type: 'scoreMilestone', data: { value: threshold } });
       }
     }
 

@@ -12,7 +12,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { PhaserGame } from './PhaserGame';
-import { buildGameOverAnnouncement } from './a11y';
+import { buildGameOverAnnouncement, buildScoreMilestoneAnnouncement } from './a11y';
 
 // The shared Phaser mock in src/test/setup.ts wires `events.on / .off` but
 // not `.once`, and PhaserGame.tsx subscribes to `game.events.once('ready', …)`
@@ -91,5 +91,44 @@ describe('PhaserGame SR announcement region', () => {
     expect(region).toHaveAttribute('aria-atomic', 'true');
     expect(region.className).toContain('sr-only');
     expect(region.textContent).toBe('');
+  });
+});
+
+// R84.CI-2: short pattern-matched announcement so AT users hear the same
+// milestone beats sighted players hear as a COLLECTIBLE stinger. The
+// builder returns '' (not a guess string) when the payload is malformed so
+// the wrapper's `if (msg)` guard can no-op rather than announce garbage.
+describe('buildScoreMilestoneAnnouncement', () => {
+  it('renders a full-stop terminated phrase for a valid threshold', () => {
+    // Trailing period gives the screen reader an audible pause before the
+    // next live-region update, matching the gameOver announcement shape.
+    expect(buildScoreMilestoneAnnouncement({ value: 100 })).toBe('Score milestone 100.');
+  });
+
+  it('echoes the threshold value rather than a current-score proxy', () => {
+    // Bird fires the 50 milestone the moment score crosses 50 — which can
+    // land at 55 or 60 depending on combo. The announcement must always
+    // read the round threshold so AT users pattern-match the milestone,
+    // not the noisy current score.
+    expect(buildScoreMilestoneAnnouncement({ value: 50 })).toBe('Score milestone 50.');
+    expect(buildScoreMilestoneAnnouncement({ value: 250 })).toBe('Score milestone 250.');
+  });
+
+  it('returns an empty string for undefined data', () => {
+    // Defensive: a scene that forgets the payload shouldn't trigger a
+    // garbled announcement. Empty string fails the `if (msg)` guard in
+    // PhaserGame.tsx so the region stays on its previous announcement.
+    expect(buildScoreMilestoneAnnouncement()).toBe('');
+  });
+
+  it('returns an empty string for an empty-object payload', () => {
+    expect(buildScoreMilestoneAnnouncement({})).toBe('');
+  });
+
+  it('returns an empty string for a non-finite value', () => {
+    // NaN or Infinity sneaking through a future emitter mishap shouldn't
+    // render `Score milestone NaN.` into the live region.
+    expect(buildScoreMilestoneAnnouncement({ value: Number.NaN })).toBe('');
+    expect(buildScoreMilestoneAnnouncement({ value: Number.POSITIVE_INFINITY })).toBe('');
   });
 });
