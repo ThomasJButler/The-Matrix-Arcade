@@ -105,7 +105,7 @@ export class CtrlSMenuScene extends BaseScene {
       ease: 'Power2',
     });
 
-    const buttonY = height * 0.72;
+    const buttonY = height * BaseScene.MENU_START_BUTTON_Y_RATIO;
     const button = this.createStartButton(centerX, buttonY);
     button.setAlpha(0);
     this.tweens.add({
@@ -116,7 +116,7 @@ export class CtrlSMenuScene extends BaseScene {
       ease: 'Power2',
     });
 
-    const controls = this.add.text(centerX, height * 0.88, 'ESC: Exit  ·  P: Pause  ·  M: Mute', {
+    const controls = this.add.text(centerX, height * BaseScene.MENU_CONTROLS_HINT_Y_RATIO, 'ESC: Exit  ·  P: Pause  ·  M: Mute', {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '8px',
       color: MATRIX_COLORS.DIM_GREEN_HEX,

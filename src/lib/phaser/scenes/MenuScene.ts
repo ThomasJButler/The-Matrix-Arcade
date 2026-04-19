@@ -48,13 +48,16 @@ export class MenuScene extends BaseScene {
     // Subtitle
     this.createMatrixText(centerX, height * 0.4, this.subtitle, 12, MATRIX_COLORS.CYAN_HEX);
 
-    // Start button
-    this.createStartButton(centerX, height * 0.6);
+    // Start button — dropped from 0.60 → shared BaseScene ratio (R83.G4) so the
+    // button stops overlapping the conventional 0.52–0.64 instruction band
+    // that subclasses stack above it via createMatrixText.
+    this.createStartButton(centerX, height * BaseScene.MENU_START_BUTTON_Y_RATIO);
 
-    // Controls info
+    // Controls info — pushed lower in tandem so the button still has breathing
+    // room below it (especially at 400-px canvas heights like Snake).
     this.createMatrixText(
       centerX,
-      height * 0.85,
+      height * BaseScene.MENU_CONTROLS_HINT_Y_RATIO,
       'ESC: Exit  P: Pause  M: Mute',
       10,
       MATRIX_COLORS.PRIMARY_HEX

@@ -24,6 +24,18 @@ import {
 import { MAX_BOARD_SIZE } from '../../../hooks/useSaveSystem';
 
 export abstract class BaseScene extends Phaser.Scene {
+  /**
+   * Shared menu layout constants — override per-game only when the menu has
+   * non-standard content stacking above the button. The defaults are tuned so
+   * that a subclass rendering instruction text at the conventional 0.52–0.64
+   * ratio band leaves clear air above the start button (which is ~50 px tall
+   * and centred on this ratio). Previous default of 0.60 put the button
+   * physically on top of those instruction rows on every canvas height 400–600
+   * — see R83.G4 (Tom 2026-04-19 playtest).
+   */
+  protected static readonly MENU_START_BUTTON_Y_RATIO = 0.75;
+  protected static readonly MENU_CONTROLS_HINT_Y_RATIO = 0.92;
+
   protected isPaused = false;
   protected allowPause = true;
   protected gameStartTime = 0;
