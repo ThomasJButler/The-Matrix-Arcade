@@ -91,6 +91,61 @@ export const POWERUP_DEFS: Record<PowerUpType, { color: number; label: string }>
   multi_ball:       { color: 0xff00ff, label: 'MULTI' },
 };
 
+// R84.P3 — AI difficulty second pass (Tom: "too easy" verdict survived R83.V1).
+// Three tiers scale four AI params together so the feel differs by reaction
+// speed *and* prediction accuracy, not just one knob. Normal mirrors the
+// R83.V1a baseline (trackingMultiplier=1 keeps baseTracking at 4.0, etc.) so
+// existing scene behaviour is unchanged when the default tier is active.
+export type DifficultyTier = 'easy' | 'normal' | 'hard';
+
+export interface DifficultyTierParams {
+  label: string;
+  trackingMultiplier: number;
+  maxSpeedFactor: number;
+  errorMultiplier: number;
+  outgoingTrackingFactor: number;
+}
+
+export const DIFFICULTY_TIERS: Record<DifficultyTier, DifficultyTierParams> = {
+  easy:   { label: 'EASY',   trackingMultiplier: 0.60, maxSpeedFactor: 0.75, errorMultiplier: 2.5, outgoingTrackingFactor: 0.25 },
+  normal: { label: 'NORMAL', trackingMultiplier: 1.00, maxSpeedFactor: 0.95, errorMultiplier: 1.0, outgoingTrackingFactor: 0.45 },
+  hard:   { label: 'HARD',   trackingMultiplier: 1.40, maxSpeedFactor: 1.15, errorMultiplier: 0.3, outgoingTrackingFactor: 0.60 },
+};
+
+export const DIFFICULTY_ORDER: DifficultyTier[] = ['easy', 'normal', 'hard'];
+export const DEFAULT_DIFFICULTY: DifficultyTier = 'normal';
+export const DIFFICULTY_STORAGE_KEY = 'matrixArcade.vortexPong.difficulty';
+
+function isDifficultyTier(value: unknown): value is DifficultyTier {
+  return value === 'easy' || value === 'normal' || value === 'hard';
+}
+
+export function readStoredDifficulty(): DifficultyTier {
+  if (typeof window === 'undefined' || !window.localStorage) return DEFAULT_DIFFICULTY;
+  try {
+    const raw = window.localStorage.getItem(DIFFICULTY_STORAGE_KEY);
+    return isDifficultyTier(raw) ? raw : DEFAULT_DIFFICULTY;
+  } catch {
+    // localStorage access denied (private browsing, blocked cookies) —
+    // fall through to default rather than crashing the scene load.
+    return DEFAULT_DIFFICULTY;
+  }
+}
+
+export function writeStoredDifficulty(tier: DifficultyTier): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    window.localStorage.setItem(DIFFICULTY_STORAGE_KEY, tier);
+  } catch {
+    // Ignore write failures; selector still works in-session via registry.
+  }
+}
+
+export function cycleDifficulty(current: DifficultyTier): DifficultyTier {
+  const idx = DIFFICULTY_ORDER.indexOf(current);
+  return DIFFICULTY_ORDER[(idx + 1) % DIFFICULTY_ORDER.length];
+}
+
 export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   width: GAME_CONFIG.WIDTH,
