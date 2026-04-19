@@ -14,7 +14,12 @@ import {
   ACHIEVEMENTS,
   POWERUP_DEFS,
   type PowerUpType,
+  type DifficultyTier,
+  DIFFICULTY_TIERS,
+  DEFAULT_DIFFICULTY,
+  readStoredDifficulty,
 } from '../config';
+import { DIFFICULTY_REGISTRY_KEY } from './MenuScene';
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -58,6 +63,9 @@ export class VortexPongGameScene extends BaseScene {
   private rallyCount = 0;
   private maxRally = 0;
   private aiDifficulty = GAME_CONFIG.AI.INITIAL_DIFFICULTY;
+  // R84.P3 — selected tier from MenuScene (registry) or localStorage fallback.
+  // Default mirrors 'normal' so headless/auto-start entry keeps prior behaviour.
+  private aiDifficultyTier: DifficultyTier = DEFAULT_DIFFICULTY;
   private timeSinceLastGoal = 0;
   private lastPaddleHit: 'player' | 'ai' | null = null;
   private hasFirstPoint = false;
@@ -183,6 +191,7 @@ export class VortexPongGameScene extends BaseScene {
     this.rallyCount = 0;
     this.maxRally = 0;
     this.aiDifficulty = GAME_CONFIG.AI.INITIAL_DIFFICULTY;
+    this.aiDifficultyTier = this.loadDifficultyTier();
     this.timeSinceLastGoal = 0;
     this.lastPaddleHit = null;
     this.hasFirstPoint = false;
@@ -314,20 +323,42 @@ export class VortexPongGameScene extends BaseScene {
     );
   }
 
+  /**
+   * R84.P3 — tier loader. Prefers the MenuScene-seeded registry value so a
+   * cycle in Menu is honoured without a page reload; falls back to
+   * localStorage for auto-start / headless entry; finally defaults to
+   * `normal` which preserves the exact R83.V1a numbers.
+   */
+  private loadDifficultyTier(): DifficultyTier {
+    const fromRegistry = this.registry.get(DIFFICULTY_REGISTRY_KEY);
+    if (fromRegistry === 'easy' || fromRegistry === 'normal' || fromRegistry === 'hard') {
+      return fromRegistry;
+    }
+    return readStoredDifficulty();
+  }
+
   private updateAI(dt: number): void {
     const targetBall = this.getClosestBallToAI();
     if (!targetBall) return;
+
+    // R84.P3: tier params scale the R83.V1a baseline. Normal keeps the
+    // exact numbers shipped in R83.V1a (trackingMultiplier=1, maxSpeedFactor
+    // =0.95, errorMultiplier=1, outgoingTrackingFactor=0.45).
+    const tier = DIFFICULTY_TIERS[this.aiDifficultyTier];
 
     // R83.V1a: AI was a pushover (Tom: "AI is not very responsive"). Bumped
     // baseTracking 2.5 → 4.0, raised maxSpeed factor 0.85 → 0.95, and
     // shrank rally-driven jitter so the paddle holds its line under pressure.
     const difficultyBonus = Math.min(this.playerScore * 0.08, 0.6);
-    const baseTracking = 4.0;
+    const baseTracking = 4.0 * tier.trackingMultiplier;
     const trackingSpeed = baseTracking + difficultyBonus;
 
-    // When the ball is heading away, drift lazily toward center.
+    // When the ball is heading away, drift lazily toward center — tier
+    // controls how lazy (Hard = 0.6, Normal = 0.45, Easy = 0.25).
     const ballMovingToward = targetBall.vx > 0;
-    const effectiveTracking = ballMovingToward ? trackingSpeed : trackingSpeed * 0.45;
+    const effectiveTracking = ballMovingToward
+      ? trackingSpeed
+      : trackingSpeed * tier.outgoingTrackingFactor;
 
     // Predictive lookahead — extrapolate the ball's intercept Y at the AI
     // paddle's X column, accounting for any number of top/bottom wall
@@ -345,16 +376,17 @@ export class VortexPongGameScene extends BaseScene {
     }
 
     // Stable, low-amplitude error offset (rally + score seeded — same every
-    // frame within a rally so the AI doesn't twitch).
+    // frame within a rally so the AI doesn't twitch). Tier scales amplitude
+    // so Hard is near-perfect (×0.3) and Easy is visibly fallible (×2.5).
     const errorOffset = Math.sin(this.rallyCount * 1.7 + this.aiScore * 2.3) *
-      GAME_CONFIG.AI.ERROR_MARGIN * 0.18;
+      GAME_CONFIG.AI.ERROR_MARGIN * 0.18 * tier.errorMultiplier;
     const targetY = ballMovingToward
       ? predictedY + errorOffset
       : GAME_CONFIG.HEIGHT / 2;
 
     const diff = targetY - this.aiPaddle.y;
 
-    const maxSpeed = GAME_CONFIG.PADDLE.SPEED * 0.95;
+    const maxSpeed = GAME_CONFIG.PADDLE.SPEED * tier.maxSpeedFactor;
     let moveAmount = diff * effectiveTracking * dt;
 
     // Minimum speed floor so the paddle always visibly tracks even at small

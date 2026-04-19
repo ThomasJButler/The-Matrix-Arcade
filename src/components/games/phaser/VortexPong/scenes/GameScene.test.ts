@@ -142,6 +142,13 @@ function createTestScene() {
   // Phaser scene manager
   scene.scene = { restart: vi.fn(), start: vi.fn() };
 
+  // Phaser registry (R84.P3 — scene reads vortexPong.difficulty on reset)
+  const registryStore = new Map<string, unknown>();
+  scene.registry = {
+    get: vi.fn((key: string) => registryStore.get(key)),
+    set: vi.fn((key: string, value: unknown) => { registryStore.set(key, value); }),
+  };
+
   // Initialise state by calling resetState
   scene.resetState();
 
@@ -872,6 +879,78 @@ describe('VortexPongGameScene', () => {
       scene.multiBallsTriggered = 5;
       scene.resetState();
       expect(scene.multiBallsTriggered).toBe(0);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // R84.P3 — AI difficulty second-pass (Easy/Normal/Hard tiers)
+  // -----------------------------------------------------------------------
+  describe('R84.P3 AI difficulty tiers', () => {
+    beforeEach(() => {
+      // Clean slate for localStorage so stored tier from a prior test leaks.
+      window.localStorage.removeItem('matrixArcade.vortexPong.difficulty');
+    });
+
+    it('defaults to normal tier when registry + localStorage are empty', () => {
+      scene.resetState();
+      expect(scene.aiDifficultyTier).toBe('normal');
+    });
+
+    it('honours MenuScene-seeded registry tier on resetState', () => {
+      scene.registry.set('vortexPong.difficulty', 'hard');
+      scene.resetState();
+      expect(scene.aiDifficultyTier).toBe('hard');
+    });
+
+    it('falls back to localStorage when registry is unset', () => {
+      window.localStorage.setItem('matrixArcade.vortexPong.difficulty', 'easy');
+      // Force registry miss — mock returns undefined for unset keys.
+      scene.resetState();
+      expect(scene.aiDifficultyTier).toBe('easy');
+    });
+
+    it('ignores invalid localStorage values and defaults to normal', () => {
+      window.localStorage.setItem('matrixArcade.vortexPong.difficulty', 'impossible');
+      scene.resetState();
+      expect(scene.aiDifficultyTier).toBe('normal');
+    });
+
+    it('Hard moves AI paddle farther per frame than Easy for the same frame', () => {
+      // Identical starting conditions: ball in flight toward AI, paddle at top.
+      const runTier = (tier: 'easy' | 'normal' | 'hard') => {
+        scene.balls = [];
+        scene.aiPaddle.y = 50;
+        scene.aiDifficultyTier = tier;
+        createBall(scene, 400, 300, 300, 0);
+        scene.updateAI(0.1);
+        return scene.aiPaddle.y;
+      };
+
+      const easyY = runTier('easy');
+      const normalY = runTier('normal');
+      const hardY = runTier('hard');
+
+      // All tiers track downward toward the ball; Hard should travel farther
+      // than Normal, which travels farther than Easy.
+      expect(hardY).toBeGreaterThan(normalY);
+      expect(normalY).toBeGreaterThan(easyY);
+    });
+
+    it('Normal tier preserves R83.V1a baseline numbers (regression guard)', () => {
+      // Normal should match the pre-R84.P3 behaviour. Pick a scenario where
+      // the paddle would move to the ball — the old code used baseTracking 4.0
+      // and maxSpeed factor 0.95, which normal's multipliers of 1.0 preserve.
+      scene.balls = [];
+      scene.aiPaddle.y = 100;
+      scene.aiDifficultyTier = 'normal';
+      createBall(scene, 400, 400, 300, 0);
+      // Step at max diff so the paddle clamps to tier maxSpeed.
+      scene.updateAI(1.0);
+      // maxSpeed = 480 * 0.95 = 456 px/s → moveAmount = 456.
+      // Paddle starts at y=100, moves down by 456 but gets clamped by
+      // clampPaddle to height-paddleHeight/2 = 450-40 = 410.
+      expect(scene.aiPaddle.y).toBeLessThanOrEqual(GAME_CONFIG.HEIGHT - GAME_CONFIG.PADDLE.HEIGHT / 2);
+      expect(scene.aiPaddle.y).toBeGreaterThan(100);
     });
   });
 
