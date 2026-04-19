@@ -62,8 +62,8 @@ const mockAudioContext = {
   destination: {},
   state: 'running' as AudioContextState,
   close: vi.fn(),
-  resume: vi.fn(),
-  suspend: vi.fn(),
+  resume: vi.fn(() => Promise.resolve()),
+  suspend: vi.fn(() => Promise.resolve()),
   sampleRate: 48000,
 };
 
@@ -193,6 +193,150 @@ describe('useSoundSystem', () => {
     expect(result.current.isMuted).toBe(false);
     expect(result.current.config.music).toBe(true);
     expect(result.current.config.sfx).toBe(true);
+  });
+
+  // R83.G1 — mute/unmute round-trip regression cover. Before the fix, the
+  // second toggleMute() left BGM paused and SFX inaudible because stopMusic()
+  // had rewound HTMLAudio and no path resumed it. Guards against re-breaking.
+  it('plays SFX again after mute -> unmute cycle', async () => {
+    const { result } = renderHook(() => useSoundSystem());
+
+    await act(async () => {
+      await result.current.playSFX('jump');
+    });
+    expect(mockOscillator.start).toHaveBeenCalled();
+
+    act(() => {
+      result.current.toggleMute();
+    });
+    expect(result.current.isMuted).toBe(true);
+
+    vi.clearAllMocks();
+
+    act(() => {
+      result.current.toggleMute();
+    });
+    expect(result.current.isMuted).toBe(false);
+
+    await act(async () => {
+      await result.current.playSFX('jump');
+    });
+    expect(mockOscillator.start).toHaveBeenCalled();
+  });
+
+  it('silences masterGain on mute and restores it on unmute', async () => {
+    const { result } = renderHook(() => useSoundSystem());
+
+    // Initialise audio graph so masterGainRef is populated.
+    await act(async () => {
+      await result.current.playSFX('menu');
+    });
+
+    vi.clearAllMocks();
+
+    act(() => {
+      result.current.toggleMute();
+    });
+    // At least one setValueAtTime(0, ...) call on a gain — masterGain ramps to 0.
+    const muteCalls = mockGainNode.gain.setValueAtTime.mock.calls;
+    expect(muteCalls.some(([v]) => v === 0)).toBe(true);
+
+    vi.clearAllMocks();
+
+    act(() => {
+      result.current.toggleMute();
+    });
+    // Restoration must push masterVolume (default 0.7) back onto the gain node.
+    const unmuteCalls = mockGainNode.gain.setValueAtTime.mock.calls;
+    expect(unmuteCalls.some(([v]) => v === 0.7)).toBe(true);
+  });
+
+  it('keeps BGM resumable through mute -> unmute cycle', async () => {
+    // Mock HTMLAudioElement — track pause/play/muted transitions so we can
+    // assert the round-trip leaves the element audible again.
+    type MockAudio = {
+      src: string;
+      paused: boolean;
+      muted: boolean;
+      volume: number;
+      loop: boolean;
+      currentTime: number;
+      play: ReturnType<typeof vi.fn>;
+      pause: ReturnType<typeof vi.fn>;
+    };
+    const mockAudio: MockAudio = {
+      src: '',
+      paused: true,
+      muted: false,
+      volume: 0,
+      loop: false,
+      currentTime: 0,
+      play: vi.fn(),
+      pause: vi.fn(),
+    };
+    mockAudio.play.mockImplementation(() => {
+      mockAudio.paused = false;
+      return Promise.resolve();
+    });
+    mockAudio.pause.mockImplementation(() => {
+      mockAudio.paused = true;
+    });
+    const originalAudio = (global as unknown as Record<string, unknown>).Audio;
+    (global as unknown as Record<string, unknown>).Audio = vi.fn(() => mockAudio);
+
+    try {
+      const { result } = renderHook(() => useSoundSystem());
+
+      act(() => {
+        result.current.playBackgroundMP3('/audio/track.mp3');
+      });
+      expect(mockAudio.play).toHaveBeenCalled();
+      expect(mockAudio.paused).toBe(false);
+
+      // Mute: BGM must go silent but stay resumable (muted=true, not paused
+      // with currentTime=0 as the pre-fix code did).
+      act(() => {
+        result.current.toggleMute();
+      });
+      expect(result.current.isMuted).toBe(true);
+
+      // Unmute: BGM must be audible again. Either it stayed playing with
+      // muted flipped back to false, OR toggleMute called play() to resume.
+      act(() => {
+        result.current.toggleMute();
+      });
+      expect(result.current.isMuted).toBe(false);
+      expect(mockAudio.muted).toBe(false);
+      expect(mockAudio.paused).toBe(false);
+    } finally {
+      (global as unknown as Record<string, unknown>).Audio = originalAudio;
+    }
+  });
+
+  it('resumes a suspended audio context on unmute', async () => {
+    const { result } = renderHook(() => useSoundSystem());
+
+    // Initialise audio context with a real (mocked) sound.
+    await act(async () => {
+      await result.current.playSFX('jump');
+    });
+
+    act(() => {
+      result.current.toggleMute();
+    });
+
+    // Simulate the browser suspending the context while muted (tab blur,
+    // autoplay policy, etc.) — this is the exact scenario Tom reported.
+    mockAudioContext.state = 'suspended';
+    mockAudioContext.resume.mockClear();
+
+    act(() => {
+      result.current.toggleMute();
+    });
+
+    expect(mockAudioContext.resume).toHaveBeenCalled();
+
+    mockAudioContext.state = 'running';
   });
 
   it('updates config and saves to localStorage', () => {
