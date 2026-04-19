@@ -54,6 +54,37 @@ const TERMINAL_HINT_FONT_SIZE = '9px';
 const TERMINAL_ENDING_LINE_DELAY_MS = 900;
 const TERMINAL_ENDING_HOLD_MS = 1400;
 
+// R83.CTRLS.16 — terminal atmosphere upgrade. These settings make the narrative
+// scene feel like an authentic phosphor CRT terminal (not a web typewriter).
+// Authored from Tom's brief: "Make it look like an actual matrix terminal.
+// Better typing. Flicker like we're inside the matrix or something."
+const PHOSPHOR_BLOOM_COLOR = MATRIX_COLORS.PRIMARY_HEX;
+const PHOSPHOR_BLOOM_BLUR = 6;        // soft halo on terminal/cursor lines
+const PHOSPHOR_BLOOM_BLUR_BODY = 4;   // subtler halo on long paragraph text
+// Typewriter variance: each char picks a delay from [20, 45] ms; ~6% of chars
+// trigger a 2-3 char "buffer flush" at 2-5 ms each (see TypewriterEngine).
+const TYPEWRITER_MIN_MS = 20;
+const TYPEWRITER_MAX_MS = 45;
+const TYPEWRITER_BURST_CHANCE = 0.06;
+// Scanline overlay jitters 1 px vertically at ~3 Hz — the ~333 ms cadence
+// matches a CRT frame lock wobble. Alpha stays low so it's a suggestion, not
+// a wall of noise.
+const SCANLINE_TILE_SIZE = 4;
+const SCANLINE_ALPHA_HEX = 'rgba(0, 255, 0, 0.06)';
+const SCANLINE_NUDGE_INTERVAL_MS = 333;
+const SCANLINE_DEPTH = 1000;
+// Idle glyph flicker: every ~5-7 s while typing/waiting, swap 1-2 random chars
+// in the revealed paragraph to a random Matrix glyph for 80 ms then revert.
+// Preserves engine state — only the rendered string is mutated.
+const FLICKER_HOLD_MS = 80;
+const FLICKER_MIN_INTERVAL_MS = 5000;
+const FLICKER_MAX_INTERVAL_MS = 7000;
+const MATRIX_FLICKER_GLYPHS = [
+  'ﾊ', 'ﾐ', 'ﾋ', 'ｰ', 'ｳ', 'ｼ', 'ﾅ', 'ﾓ', 'ﾆ', 'ｻ', 'ﾜ', 'ﾂ', 'ｵ', 'ﾘ',
+  'ｱ', 'ﾎ', 'ﾃ', 'ﾏ', 'ｹ', 'ﾑ', 'ｴ', 'ｶ', 'ｷ', 'ﾁ', 'ｲ',
+  '0', '1', '2', '3', '4', '5', '7', '8', '9', 'Z', ':', '<', '>', '=', '+',
+];
+
 export class CtrlSNarrativeScene extends BaseScene {
   private chapterIndex = 0;
   private chapter?: Chapter;
@@ -115,6 +146,17 @@ export class CtrlSNarrativeScene extends BaseScene {
   // Flag to ensure the chapter-ASCII banner fades out exactly once when the
   // narrative transitions from paragraph 0 → 1 (R83.CTRLS.13 dead-code fix).
   private chapterAsciiFadedOut = false;
+  // R83.CTRLS.16 terminal atmosphere state. Scanline overlay is a repeating
+  // 1-line-per-2-rows pattern drawn into a TileSprite; we jitter tilePositionY
+  // by ±1 px at SCANLINE_NUDGE_INTERVAL_MS to simulate a CRT vertical-hold
+  // wobble. Glyph flicker tracks an index → replacement-char map applied at
+  // render time so the engine's revealedText stays authoritative.
+  private scanlineOverlay?: Phaser.GameObjects.TileSprite;
+  private scanlineNudgeTimer = 0;
+  private flickerMap: Map<number, string> = new Map();
+  private flickerUntilMs = 0;
+  private nextFlickerAtMs = 0;
+  private sceneElapsedMs = 0;
 
   constructor() {
     super(CTRLS_SCENE_KEYS.NARRATIVE);
@@ -131,8 +173,18 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.terminalResolved = false;
     this.chapterAsciiFadedOut = false;
 
-    this.engine.setSpeed(GAME_CONFIG.TEXT.TYPEWRITER_SPEED_MEDIUM);
+    // R83.CTRLS.16 — variable-speed typewriter replaces the fixed 15 ms/char
+    // cadence. Recipe (from the task body): 20-45 ms/char with occasional
+    // 2-3 char buffer-flush bursts. Without this the terminal reads like a
+    // web typewriter; with it, the cadence mimics someone actually typing a
+    // mix of familiar and unfamiliar words.
+    this.engine.setVariableSpeed(TYPEWRITER_MIN_MS, TYPEWRITER_MAX_MS, TYPEWRITER_BURST_CHANCE);
     this.tickCounter = 0;
+    this.flickerMap.clear();
+    this.flickerUntilMs = 0;
+    this.nextFlickerAtMs = 0;
+    this.sceneElapsedMs = 0;
+    this.scanlineNudgeTimer = 0;
     this.engine.setCallbacks({
       onCharRevealed: () => this.onCharTick(),
       onParagraphStart: () => this.onParagraphStart(),
@@ -172,6 +224,7 @@ export class CtrlSNarrativeScene extends BaseScene {
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
     this.chapterTitle.setResolution(TEXT_RESOLUTION);
+    this.applyPhosphorBloom(this.chapterTitle, PHOSPHOR_BLOOM_BLUR);
 
     let contentStartY = GAME_CONFIG.TEXT.MARGIN_Y;
 
@@ -205,6 +258,7 @@ export class CtrlSNarrativeScene extends BaseScene {
       lineSpacing: 8,
     });
     this.bodyText.setResolution(TEXT_RESOLUTION);
+    this.applyPhosphorBloom(this.bodyText, PHOSPHOR_BLOOM_BLUR_BODY);
 
     this.cursorBlink = this.add.text(margin, contentStartY, '█', {
       fontFamily: MATRIX_FONTS.PRIMARY,
@@ -212,6 +266,7 @@ export class CtrlSNarrativeScene extends BaseScene {
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
     this.cursorBlink.setResolution(TEXT_RESOLUTION);
+    this.applyPhosphorBloom(this.cursorBlink, PHOSPHOR_BLOOM_BLUR);
     this.cursorTween = this.tweens.add({
       targets: this.cursorBlink,
       alpha: { from: 1, to: 0 },
@@ -235,6 +290,7 @@ export class CtrlSNarrativeScene extends BaseScene {
       repeat: -1,
     });
 
+    this.createScanlineOverlay();
     this.setupNarrativeInput();
     this.setupCommonInputs();
 
@@ -257,8 +313,11 @@ export class CtrlSNarrativeScene extends BaseScene {
       return;
     }
 
+    this.sceneElapsedMs += delta;
     this.updateParallaxBackground(delta);
     this.updateThemeParticles(delta);
+    this.updateScanlineOverlay(delta);
+    this.updateGlyphFlicker(this.sceneElapsedMs);
 
     if (this.rainGroup) {
       this.updateMatrixRain(this.rainGroup, delta);
@@ -281,7 +340,10 @@ export class CtrlSNarrativeScene extends BaseScene {
     if (!this.bodyText || !this.cursorBlink) return;
 
     const revealed = this.engine.revealedText;
-    this.bodyText.setText(revealed);
+    // R83.CTRLS.16: the flicker transform only touches the rendered string —
+    // engine state (revealedText, charIndex, state) is unchanged, so tests and
+    // advance-logic behave exactly as before.
+    this.bodyText.setText(this.applyFlickerMap(revealed));
 
     const showCursor = this.engine.state === 'TYPING' || this.engine.state === 'WAITING';
     this.cursorBlink.setVisible(showCursor);
@@ -626,6 +688,7 @@ export class CtrlSNarrativeScene extends BaseScene {
       wordWrap: { width: wrapWidth },
     });
     this.terminalPromptLabel.setResolution(TEXT_RESOLUTION);
+    this.applyPhosphorBloom(this.terminalPromptLabel, PHOSPHOR_BLOOM_BLUR);
     this.terminalContainer.add(this.terminalPromptLabel);
     cursorY += this.terminalPromptLabel.height + TERMINAL_LINE_GAP_Y;
 
@@ -635,6 +698,7 @@ export class CtrlSNarrativeScene extends BaseScene {
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
     this.terminalInputLine.setResolution(TEXT_RESOLUTION);
+    this.applyPhosphorBloom(this.terminalInputLine, PHOSPHOR_BLOOM_BLUR);
     this.terminalContainer.add(this.terminalInputLine);
     cursorY += this.terminalInputLine.height + TERMINAL_LINE_GAP_Y;
 
@@ -644,6 +708,7 @@ export class CtrlSNarrativeScene extends BaseScene {
       color: MATRIX_COLORS.MEDIUM_GREEN_HEX,
     });
     this.terminalStatusLine.setResolution(TEXT_RESOLUTION);
+    this.applyPhosphorBloom(this.terminalStatusLine, PHOSPHOR_BLOOM_BLUR_BODY);
     this.terminalContainer.add(this.terminalStatusLine);
     cursorY += this.terminalStatusLine.height + TERMINAL_LINE_GAP_Y;
 
@@ -654,6 +719,7 @@ export class CtrlSNarrativeScene extends BaseScene {
       wordWrap: { width: wrapWidth },
     });
     this.terminalHintLabel.setResolution(TEXT_RESOLUTION);
+    this.applyPhosphorBloom(this.terminalHintLabel, PHOSPHOR_BLOOM_BLUR_BODY);
     this.terminalHintLabel.setAlpha(0.85);
     this.terminalContainer.add(this.terminalHintLabel);
 
@@ -824,6 +890,11 @@ export class CtrlSNarrativeScene extends BaseScene {
         wordWrap: { width: wrapWidth },
       });
       line.setResolution(TEXT_RESOLUTION);
+      this.applyPhosphorBloom(
+        line,
+        PHOSPHOR_BLOOM_BLUR,
+        outcome === 'success' ? MATRIX_COLORS.PRIMARY_HEX : MATRIX_COLORS.DIM_GREEN_HEX,
+      );
       line.setAlpha(0);
       this.terminalEndingLines.push(line);
       this.terminalContainer!.add(line);
@@ -912,6 +983,7 @@ export class CtrlSNarrativeScene extends BaseScene {
         wordWrap: { width: wrapWidth },
       });
       this.choicePromptLabel.setResolution(TEXT_RESOLUTION);
+      this.applyPhosphorBloom(this.choicePromptLabel, PHOSPHOR_BLOOM_BLUR_BODY);
       this.choicePromptLabel.setAlpha(0);
       this.choiceContainer.add(this.choicePromptLabel);
       this.tweens.add({
@@ -986,6 +1058,7 @@ export class CtrlSNarrativeScene extends BaseScene {
       wordWrap: { width: wrapWidth },
     });
     text.setResolution(TEXT_RESOLUTION);
+    this.applyPhosphorBloom(text, PHOSPHOR_BLOOM_BLUR_BODY);
     text.setInteractive({ useHandCursor: true });
     text.on('pointerover', () => {
       this.selectedChoiceIndex = index;
@@ -1389,6 +1462,105 @@ export class CtrlSNarrativeScene extends BaseScene {
     }
   }
 
+  /**
+   * R83.CTRLS.16 — phosphor CRT glow. Phaser's built-in setShadow renders the
+   * text with a blurred coloured drop-shadow; passing 0 offsets and
+   * shadowStroke=true + shadowFill=true turns it into a symmetric halo that
+   * reads as CRT bloom on green monochrome text. Cheap (text atlas only
+   * rebuilds once) and works without a post-fx pipeline, so runs on the jsdom
+   * mock in tests without extra setup.
+   */
+  private applyPhosphorBloom(
+    target: Phaser.GameObjects.Text,
+    blur: number,
+    colour: string = PHOSPHOR_BLOOM_COLOR,
+  ): void {
+    target.setShadow(0, 0, colour, blur, true, true);
+  }
+
+  /**
+   * R83.CTRLS.16 — jittering CRT scanline overlay. Generates a 4×4 pixel
+   * texture with a single low-alpha green row, then wraps it as a full-screen
+   * TileSprite at depth 1000. The overlay doesn't intercept pointer events
+   * (no setInteractive) so clicks on choice lines pass through. Gets nudged
+   * ±1 px vertically every ~333 ms in update() to mimic a CRT vertical-hold
+   * wobble.
+   */
+  private createScanlineOverlay(): void {
+    const width = Number(this.game.config.width);
+    const height = Number(this.game.config.height);
+    const key = 'ctrls-scanline-pattern';
+
+    if (!this.textures.exists(key)) {
+      const tex = this.textures.createCanvas(key, SCANLINE_TILE_SIZE, SCANLINE_TILE_SIZE);
+      if (tex) {
+        const ctx = tex.getContext();
+        if (ctx) {
+          ctx.clearRect(0, 0, SCANLINE_TILE_SIZE, SCANLINE_TILE_SIZE);
+          ctx.fillStyle = SCANLINE_ALPHA_HEX;
+          ctx.fillRect(0, 1, SCANLINE_TILE_SIZE, 1);
+        }
+        tex.refresh();
+      }
+    }
+
+    this.scanlineOverlay = this.add.tileSprite(0, 0, width, height, key);
+    this.scanlineOverlay.setOrigin(0, 0);
+    this.scanlineOverlay.setDepth(SCANLINE_DEPTH);
+    this.scanlineOverlay.setScrollFactor(0);
+  }
+
+  private updateScanlineOverlay(delta: number): void {
+    if (!this.scanlineOverlay) return;
+    this.scanlineNudgeTimer += delta;
+    if (this.scanlineNudgeTimer < SCANLINE_NUDGE_INTERVAL_MS) return;
+    this.scanlineNudgeTimer = 0;
+    const nudge = Phaser.Math.Between(-1, 1);
+    this.scanlineOverlay.setTilePosition(0, nudge);
+  }
+
+  /**
+   * R83.CTRLS.16 — idle glyph flicker. Every ~5-7 s while the typewriter is
+   * active, replace 1-2 random characters in the revealed paragraph with a
+   * random Matrix glyph for 80 ms, then revert. Writes into `flickerMap`
+   * (index → replacement-char) which is applied in renderCurrentText() as a
+   * display transform — the engine's revealedText stays authoritative and
+   * tests never see the mutation. Skipped in modal states (puzzle/choice/
+   * terminal) so the flicker isn't overlaid on frozen text.
+   */
+  private updateGlyphFlicker(nowMs: number): void {
+    if (this.flickerMap.size > 0 && nowMs >= this.flickerUntilMs) {
+      this.flickerMap.clear();
+    }
+    if (this.waitingForPuzzle || this.waitingForChoice || this.waitingForInventory || this.waitingForTerminal) {
+      return;
+    }
+    if (this.engine.state !== 'TYPING' && this.engine.state !== 'WAITING') return;
+    if (nowMs < this.nextFlickerAtMs) return;
+
+    const revealed = this.engine.revealedText;
+    if (revealed.length > 4) {
+      const count = Phaser.Math.Between(1, 2);
+      for (let i = 0; i < count; i++) {
+        const idx = Phaser.Math.Between(0, revealed.length - 1);
+        if (/\s/.test(revealed[idx])) continue;
+        const glyph = MATRIX_FLICKER_GLYPHS[Phaser.Math.Between(0, MATRIX_FLICKER_GLYPHS.length - 1)];
+        this.flickerMap.set(idx, glyph);
+      }
+      this.flickerUntilMs = nowMs + FLICKER_HOLD_MS;
+    }
+    this.nextFlickerAtMs = nowMs + Phaser.Math.Between(FLICKER_MIN_INTERVAL_MS, FLICKER_MAX_INTERVAL_MS);
+  }
+
+  private applyFlickerMap(source: string): string {
+    if (this.flickerMap.size === 0) return source;
+    const chars = source.split('');
+    this.flickerMap.forEach((g, i) => {
+      if (i < chars.length) chars[i] = g;
+    });
+    return chars.join('');
+  }
+
   protected handleExit(): void {
     this.scene.start(CTRLS_SCENE_KEYS.CHAPTER_HUB);
   }
@@ -1427,6 +1599,13 @@ export class CtrlSNarrativeScene extends BaseScene {
     this.themeParticles = [];
     this.rainGroup?.destroy(true);
     this.rainGroup = undefined;
+    this.scanlineOverlay?.destroy();
+    this.scanlineOverlay = undefined;
+    this.flickerMap.clear();
+    this.flickerUntilMs = 0;
+    this.nextFlickerAtMs = 0;
+    this.sceneElapsedMs = 0;
+    this.scanlineNudgeTimer = 0;
     this.chapterTitle?.destroy();
     this.chapterAscii?.destroy();
     this.chapterAscii = undefined;
