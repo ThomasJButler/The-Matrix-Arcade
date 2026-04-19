@@ -16,6 +16,7 @@ import {
   POWERUP_LEGEND,
   type PowerUpType,
   type DifficultyTier,
+  type GoalFlashPreset,
   DIFFICULTY_TIERS,
   DEFAULT_DIFFICULTY,
   readStoredDifficulty,
@@ -117,6 +118,11 @@ export class VortexPongGameScene extends BaseScene {
   // repeat pickups re-arm the same window rather than stacking timers.
   private powerUpLegend: Phaser.GameObjects.Text[] = [];
   private powerUpLegendHideTimer?: Phaser.Time.TimerEvent;
+
+  // R84.P9 — timestamp of last goal flash (ms since epoch via Date.now()).
+  // Used to enforce `GOAL_FLASH.MIN_INTERVAL_MS` between consecutive regular
+  // flashes so a multi-ball 3-goal storm cannot breach WCAG 2.3.1 ≤3Hz.
+  private lastGoalFlashAt = 0;
 
   constructor() {
     super(SCENE_KEYS.GAME);
@@ -255,6 +261,9 @@ export class VortexPongGameScene extends BaseScene {
     this.previousPlayerY = GAME_CONFIG.HEIGHT / 2;
     this.lastPointerMoveTime = 0;
     this.lastPointerY = 0;
+    // R84.P9 — reset goal-flash throttle so an R-restart doesn't carry a
+    // stale timestamp that suppresses the first flash of the new match.
+    this.lastGoalFlashAt = 0;
   }
 
   // ── Drawing ──────────────────���───────────────────────────────
@@ -613,7 +622,7 @@ export class VortexPongGameScene extends BaseScene {
         this.aiScore += 1;
         this.playSound('hit');
         this.addImpactEffect(0, ball.sprite.y, 20);
-        this.goalFlash(128, 0, 0, 100);
+        this.goalFlash(GAME_CONFIG.GOAL_FLASH.AI_GOAL);
         this.popScoreText(this.aiScoreText);
         toRemove.push(ball);
       } else if (ball.sprite.x - GAME_CONFIG.BALL.RADIUS > GAME_CONFIG.WIDTH) {
@@ -626,7 +635,7 @@ export class VortexPongGameScene extends BaseScene {
         if (this.combo >= 3 && this.scoreMultiplier === 1) this.playSound('combo');
         this.playSound('score');
         this.addImpactEffect(GAME_CONFIG.WIDTH, ball.sprite.y, 20);
-        this.goalFlash(0, 128, 0, 100);
+        this.goalFlash(GAME_CONFIG.GOAL_FLASH.PLAYER_GOAL);
         this.popScoreText(this.playerScoreText);
 
         if (!this.hasFirstPoint) {
@@ -728,7 +737,11 @@ export class VortexPongGameScene extends BaseScene {
       if (!this.prefersReducedMotion()) {
         this.cameras.main.shake(GAME_CONFIG.SHAKE.GAME_OVER.duration, GAME_CONFIG.SHAKE.GAME_OVER.intensity);
       }
-      this.goalFlash(0, 160, 0, 200);
+      // R84.P9 — override the 3Hz throttle so the brighter win flash always
+      // plays even when it lands <334ms after the goal flash that clinched
+      // the match; the win flash only fires once per match so re-trigger
+      // cannot happen.
+      this.goalFlash(GAME_CONFIG.GOAL_FLASH.PLAYER_WIN, { overrideThrottle: true });
       const finalHighScore = this.computeHighScore();
       if (finalHighScore > this.highScore) this.highScore = finalHighScore;
       this.reportScore(finalHighScore, this.highScore);
@@ -747,7 +760,7 @@ export class VortexPongGameScene extends BaseScene {
       if (!this.prefersReducedMotion()) {
         this.cameras.main.shake(GAME_CONFIG.SHAKE.GAME_OVER.duration, GAME_CONFIG.SHAKE.GAME_OVER.intensity);
       }
-      this.goalFlash(160, 0, 0, 150);
+      this.goalFlash(GAME_CONFIG.GOAL_FLASH.AI_WIN, { overrideThrottle: true });
       const finalHighScore = this.computeHighScore();
       if (finalHighScore > this.highScore) this.highScore = finalHighScore;
       this.reportScore(finalHighScore, this.highScore);
@@ -1147,13 +1160,38 @@ export class VortexPongGameScene extends BaseScene {
   }
 
   /**
-   * R83.V1c: Tom flagged the original full-brightness goal flash as an
-   * epilepsy concern. We halve the rgb values from 255 to 128, and skip
-   * the flash entirely under prefers-reduced-motion.
+   * R83.V1c + R84.P9: Centralised goal-flash helper.
+   *
+   * Callers pass one of the four `GOAL_FLASH` presets from config.ts
+   * (PLAYER_GOAL / AI_GOAL / PLAYER_WIN / AI_WIN). Each channel is clamped
+   * to `GOAL_FLASH.MAX_CHANNEL_VALUE` and duration to `MAX_DURATION_MS` so
+   * a future regression that bumps a preset's rgb up to 255 cannot punch
+   * past the epilepsy-safe ceiling. `prefers-reduced-motion` skips the
+   * flash entirely.
+   *
+   * A PEAT-safe throttle (`MIN_INTERVAL_MS`, ~3Hz) suppresses back-to-back
+   * regular flashes — e.g. a multi-ball 3-goal storm would otherwise fire
+   * three flashes in <500ms, breaching WCAG 2.3.1. Win/loss callsites pass
+   * `overrideThrottle: true` so the game-over moment always plays (it only
+   * fires once per match, so cannot re-trigger rapidly).
    */
-  private goalFlash(r: number, g: number, b: number, duration: number): void {
+  private goalFlash(preset: GoalFlashPreset, options?: { overrideThrottle?: boolean }): void {
     if (this.prefersReducedMotion()) return;
-    this.cameras.main.flash(duration, r, g, b, false);
+    const now = Date.now();
+    if (!options?.overrideThrottle && now - this.lastGoalFlashAt < GAME_CONFIG.GOAL_FLASH.MIN_INTERVAL_MS) {
+      return;
+    }
+    this.lastGoalFlashAt = now;
+    const cap = GAME_CONFIG.GOAL_FLASH.MAX_CHANNEL_VALUE;
+    const [r, g, b] = preset.rgb;
+    const duration = Math.min(preset.durationMs, GAME_CONFIG.GOAL_FLASH.MAX_DURATION_MS);
+    this.cameras.main.flash(
+      duration,
+      Math.min(r, cap),
+      Math.min(g, cap),
+      Math.min(b, cap),
+      false,
+    );
   }
 
   /**

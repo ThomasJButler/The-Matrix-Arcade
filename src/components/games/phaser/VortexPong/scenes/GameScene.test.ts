@@ -6,9 +6,9 @@
  * helpers and Phaser APIs. This lets us test game logic in isolation.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { VortexPongGameScene } from './GameScene';
-import { GAME_CONFIG, ACHIEVEMENTS, POWERUP_LEGEND } from '../config';
+import { GAME_CONFIG, ACHIEVEMENTS, POWERUP_LEGEND, type GoalFlashPreset } from '../config';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -810,6 +810,143 @@ describe('VortexPongGameScene', () => {
       scene.stopAllAudio();
       expect(scene.stopBackgroundMusic).toHaveBeenCalled();
       expect(scene.sound.stopAll).toHaveBeenCalled();
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // R84.P9 — Goal-flash epilepsy safety floor (config cap + PEAT throttle)
+  // -----------------------------------------------------------------------
+  describe('R84.P9 goal-flash safety', () => {
+    const GOAL_FLASH = GAME_CONFIG.GOAL_FLASH;
+
+    describe('config sanity', () => {
+      it('MAX_CHANNEL_VALUE is 160 — matches the boosted-win ceiling', () => {
+        expect(GOAL_FLASH.MAX_CHANNEL_VALUE).toBe(160);
+      });
+
+      it('MAX_DURATION_MS is ≤ 200 (below PEAT 1s window)', () => {
+        expect(GOAL_FLASH.MAX_DURATION_MS).toBeLessThanOrEqual(200);
+      });
+
+      it('MIN_INTERVAL_MS is ≥ 334 (enforces ≤ 3Hz WCAG 2.3.1 cap)', () => {
+        expect(GOAL_FLASH.MIN_INTERVAL_MS).toBeGreaterThanOrEqual(334);
+      });
+
+      it('every preset rgb channel stays ≤ MAX_CHANNEL_VALUE', () => {
+        for (const preset of [GOAL_FLASH.PLAYER_GOAL, GOAL_FLASH.AI_GOAL, GOAL_FLASH.PLAYER_WIN, GOAL_FLASH.AI_WIN]) {
+          for (const channel of preset.rgb) {
+            expect(channel).toBeLessThanOrEqual(GOAL_FLASH.MAX_CHANNEL_VALUE);
+          }
+        }
+      });
+
+      it('every preset saturates at most one channel (no white/yellow flashes)', () => {
+        for (const preset of [GOAL_FLASH.PLAYER_GOAL, GOAL_FLASH.AI_GOAL, GOAL_FLASH.PLAYER_WIN, GOAL_FLASH.AI_WIN]) {
+          const nonZero = preset.rgb.filter((c) => c > 0).length;
+          expect(nonZero).toBe(1);
+        }
+      });
+
+      it('every preset duration stays ≤ MAX_DURATION_MS', () => {
+        for (const preset of [GOAL_FLASH.PLAYER_GOAL, GOAL_FLASH.AI_GOAL, GOAL_FLASH.PLAYER_WIN, GOAL_FLASH.AI_WIN]) {
+          expect(preset.durationMs).toBeLessThanOrEqual(GOAL_FLASH.MAX_DURATION_MS);
+        }
+      });
+    });
+
+    describe('PEAT throttle', () => {
+      let dateNowSpy: ReturnType<typeof vi.spyOn>;
+
+      beforeEach(() => {
+        dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_000_000);
+      });
+
+      afterEach(() => {
+        dateNowSpy.mockRestore();
+      });
+
+      it('fires the first flash after resetState (lastGoalFlashAt starts at 0)', () => {
+        scene.goalFlash(GOAL_FLASH.PLAYER_GOAL);
+        expect(scene.cameras.main.flash).toHaveBeenCalledTimes(1);
+      });
+
+      it('suppresses a second flash within MIN_INTERVAL_MS', () => {
+        scene.goalFlash(GOAL_FLASH.PLAYER_GOAL);
+        dateNowSpy.mockReturnValue(1_000_000 + GOAL_FLASH.MIN_INTERVAL_MS - 1);
+        scene.goalFlash(GOAL_FLASH.AI_GOAL);
+        expect(scene.cameras.main.flash).toHaveBeenCalledTimes(1);
+      });
+
+      it('fires a second flash after MIN_INTERVAL_MS has elapsed', () => {
+        scene.goalFlash(GOAL_FLASH.PLAYER_GOAL);
+        dateNowSpy.mockReturnValue(1_000_000 + GOAL_FLASH.MIN_INTERVAL_MS + 1);
+        scene.goalFlash(GOAL_FLASH.AI_GOAL);
+        expect(scene.cameras.main.flash).toHaveBeenCalledTimes(2);
+      });
+
+      it('overrideThrottle bypasses the suppression window (win flash path)', () => {
+        scene.goalFlash(GOAL_FLASH.PLAYER_GOAL);
+        dateNowSpy.mockReturnValue(1_000_000 + 50);
+        scene.goalFlash(GOAL_FLASH.PLAYER_WIN, { overrideThrottle: true });
+        expect(scene.cameras.main.flash).toHaveBeenCalledTimes(2);
+        const winCall = scene.cameras.main.flash.mock.calls[1];
+        // flash(duration, r, g, b, force) — PLAYER_WIN is [0, 160, 0], 200ms
+        expect(winCall).toEqual([200, 0, 160, 0, false]);
+      });
+    });
+
+    describe('clamping', () => {
+      it('clamps rgb channels above MAX_CHANNEL_VALUE down to the cap', () => {
+        const rogue: GoalFlashPreset = {
+          rgb: [255, 0, 0],
+          durationMs: 100,
+        };
+        scene.goalFlash(rogue);
+        const call = scene.cameras.main.flash.mock.calls[0];
+        expect(call[1]).toBe(GOAL_FLASH.MAX_CHANNEL_VALUE);
+      });
+
+      it('clamps duration above MAX_DURATION_MS down to the cap', () => {
+        const rogue: GoalFlashPreset = {
+          rgb: [0, 128, 0],
+          durationMs: 900,
+        };
+        scene.goalFlash(rogue);
+        const call = scene.cameras.main.flash.mock.calls[0];
+        expect(call[0]).toBe(GOAL_FLASH.MAX_DURATION_MS);
+      });
+    });
+
+    describe('reduced-motion + resetState', () => {
+      it('resetState clears lastGoalFlashAt so R-restart does not suppress the first flash', () => {
+        const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(2_000_000);
+        try {
+          scene.goalFlash(GOAL_FLASH.PLAYER_GOAL);
+          expect(scene.lastGoalFlashAt).toBe(2_000_000);
+          scene.resetState();
+          expect(scene.lastGoalFlashAt).toBe(0);
+          // First post-restart flash fires even though Date.now hasn't advanced.
+          dateNowSpy.mockReturnValue(2_000_050);
+          scene.goalFlash(GOAL_FLASH.AI_GOAL);
+          expect(scene.cameras.main.flash).toHaveBeenCalledTimes(2);
+        } finally {
+          dateNowSpy.mockRestore();
+        }
+      });
+
+      it('reduced-motion path returns before touching lastGoalFlashAt', () => {
+        const original = window.matchMedia;
+        // @ts-expect-error overriding for test
+        window.matchMedia = vi.fn().mockReturnValue({ matches: true });
+        try {
+          scene.lastGoalFlashAt = 0;
+          scene.goalFlash(GOAL_FLASH.PLAYER_GOAL);
+          expect(scene.cameras.main.flash).not.toHaveBeenCalled();
+          expect(scene.lastGoalFlashAt).toBe(0);
+        } finally {
+          window.matchMedia = original;
+        }
+      });
     });
   });
 
