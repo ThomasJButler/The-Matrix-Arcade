@@ -62,6 +62,7 @@ export class VortexPongGameScene extends BaseScene {
   private lastPaddleHit: 'player' | 'ai' | null = null;
   private hasFirstPoint = false;
   private powerUpsCollected = 0;
+  private multiBallsTriggered = 0;
   private scoreMultiplier = 1;
   private currentPaddleHeight = GAME_CONFIG.PADDLE.HEIGHT;
   private isSlowBall = false;
@@ -143,9 +144,12 @@ export class VortexPongGameScene extends BaseScene {
       aiScore: this.aiScore,
       combo: this.combo,
       rallyCount: this.rallyCount,
+      maxRally: this.maxRally,
       ballCount: this.balls.length,
       aiDifficulty: this.aiDifficulty,
       powerUpsCollected: this.powerUpsCollected,
+      multiBallsTriggered: this.multiBallsTriggered,
+      projectedHighScore: this.computeHighScore(),
       activePowerUps: Array.from(this.activePowerUps.keys()),
       countdownValue: this.countdownValue,
     });
@@ -183,6 +187,7 @@ export class VortexPongGameScene extends BaseScene {
     this.lastPaddleHit = null;
     this.hasFirstPoint = false;
     this.powerUpsCollected = 0;
+    this.multiBallsTriggered = 0;
     this.scoreMultiplier = 1;
     this.currentPaddleHeight = GAME_CONFIG.PADDLE.HEIGHT;
     this.isSlowBall = false;
@@ -250,8 +255,12 @@ export class VortexPongGameScene extends BaseScene {
       this.sKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
       this.rKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
       this.rKey.on('down', () => {
-        if (this.playerScore > this.highScore) this.highScore = this.playerScore;
-        this.reportScore(this.playerScore, this.highScore);
+        // R84.P2: report the weighted High Score on mid-match restart too, so
+        // a partial run that accrued big rally + power-up bonuses still lands
+        // on the leaderboard if it beats the session best.
+        const finalHighScore = this.computeHighScore();
+        if (finalHighScore > this.highScore) this.highScore = finalHighScore;
+        this.reportScore(finalHighScore, this.highScore);
         this.stopAllAudio();
         this.scene.restart();
       });
@@ -505,18 +514,23 @@ export class VortexPongGameScene extends BaseScene {
     for (const ball of this.balls) {
       if (ball.sprite.x + GAME_CONFIG.BALL.RADIUS < 0) {
         // Ball exits left — AI scores
-        this.aiScore += this.scoreMultiplier;
+        // R84.P2: match score is tight classic-Pong (+1 per goal, first to 10).
+        // The scoreMultiplier / combo bonuses now feed the weighted High Score
+        // at game-over (see computeHighScore) rather than doubling goals.
+        this.aiScore += 1;
         this.playSound('hit');
         this.addImpactEffect(0, ball.sprite.y, 20);
         this.goalFlash(128, 0, 0, 100);
         this.popScoreText(this.aiScoreText);
         toRemove.push(ball);
       } else if (ball.sprite.x - GAME_CONFIG.BALL.RADIUS > GAME_CONFIG.WIDTH) {
-        // Ball exits right — Player scores
-        const comboBonus = this.scoreMultiplier === 1 ? Math.floor(this.combo / 3) : 0;
-        this.playerScore += this.scoreMultiplier + comboBonus;
+        // Ball exits right — Player scores (+1, classic Pong).
+        this.playerScore += 1;
 
-        if (comboBonus > 0) this.playSound('combo');
+        // Combo still fires its audio stinger to keep paddle-hit streaks
+        // satisfying; the numeric reward lives in the High Score formula
+        // via longest_rally × 10.
+        if (this.combo >= 3 && this.scoreMultiplier === 1) this.playSound('combo');
         this.playSound('score');
         this.addImpactEffect(GAME_CONFIG.WIDTH, ball.sprite.y, 20);
         this.goalFlash(0, 128, 0, 100);
@@ -557,6 +571,53 @@ export class VortexPongGameScene extends BaseScene {
     }
   }
 
+  /**
+   * R84.P2 — Weighted High Score formula (leaderboard).
+   *
+   * Match score stays tight classic-Pong 1-per-goal (first to 10 wins).
+   * Leaderboard ranking uses this composite so three 10-0 shutouts can
+   * still be differentiated by how they were played.
+   *
+   *   high_score = max(0, playerScore - aiScore)  × 100
+   *              + powerUpsCollected               ×  50
+   *              + multiBallsTriggered             × 200
+   *              + maxRally                        ×  10
+   *              + (playerScore ≥ WIN_SCORE ? 500 : 0)   // win bonus
+   *
+   * Tuning notes for Tom:
+   * - match_score_diff is clamped to ≥ 0 so losses do not produce
+   *   negative high scores; they still accrue power-up / rally bonuses.
+   * - Win bonus (500) rewards finishing a match; dominant shutouts pair
+   *   it with a 1000-point match diff for a 1500 floor before juice.
+   * - Example: 10-4 win, 5 power-ups, 1 multi-ball, longest rally 12
+   *   → 600 + 250 + 200 + 120 + 500 = 1670.
+   * - Example: 10-0 flawless, 8 power-ups, 2 multi-balls, rally 20
+   *   → 1000 + 400 + 400 + 200 + 500 = 2500.
+   * - Loss example: 4-10, 3 power-ups, 0 multi-balls, rally 6
+   *   →   0 + 150 +   0 +  60 +   0 = 210.
+   */
+  protected computeHighScore(): number {
+    const matchDiff = Math.max(0, this.playerScore - this.aiScore);
+    const winBonus = this.playerScore >= GAME_CONFIG.WIN_SCORE ? 500 : 0;
+    return (
+      matchDiff * 100 +
+      this.powerUpsCollected * 50 +
+      this.multiBallsTriggered * 200 +
+      this.maxRally * 10 +
+      winBonus
+    );
+  }
+
+  private buildGameOverStats(): { label: string; value: number }[] {
+    return [
+      { label: 'You', value: this.playerScore },
+      { label: 'AI', value: this.aiScore },
+      { label: 'Best Rally', value: this.maxRally },
+      { label: 'Power-ups', value: this.powerUpsCollected },
+      { label: 'Multi-balls', value: this.multiBallsTriggered },
+    ];
+  }
+
   private checkWinCondition(ballCountBeforeRemoval: number): boolean {
     if (this.playerScore >= GAME_CONFIG.WIN_SCORE) {
       this.unlockAchievement(ACHIEVEMENTS.BEAT_AI);
@@ -572,15 +633,12 @@ export class VortexPongGameScene extends BaseScene {
         this.cameras.main.shake(GAME_CONFIG.SHAKE.GAME_OVER.duration, GAME_CONFIG.SHAKE.GAME_OVER.intensity);
       }
       this.goalFlash(0, 160, 0, 200);
-      if (this.playerScore > this.highScore) this.highScore = this.playerScore;
-      this.reportScore(this.playerScore, this.highScore);
+      const finalHighScore = this.computeHighScore();
+      if (finalHighScore > this.highScore) this.highScore = finalHighScore;
+      this.reportScore(finalHighScore, this.highScore);
       this.time.delayedCall(600, () => {
-        this.gameOver(this.playerScore, 'YOU WIN!', this.highScore, [
-          { label: 'You', value: this.playerScore },
-          { label: 'AI', value: this.aiScore },
-          { label: 'Best Rally', value: this.maxRally },
-          { label: 'Power-ups', value: this.powerUpsCollected },
-        ], this.playerScore, this.getGameDuration());
+        this.gameOver(finalHighScore, 'YOU WIN!', this.highScore, this.buildGameOverStats(),
+          finalHighScore, this.getGameDuration());
       });
       return true;
     }
@@ -594,15 +652,12 @@ export class VortexPongGameScene extends BaseScene {
         this.cameras.main.shake(GAME_CONFIG.SHAKE.GAME_OVER.duration, GAME_CONFIG.SHAKE.GAME_OVER.intensity);
       }
       this.goalFlash(160, 0, 0, 150);
-      if (this.playerScore > this.highScore) this.highScore = this.playerScore;
-      this.reportScore(this.playerScore, this.highScore);
+      const finalHighScore = this.computeHighScore();
+      if (finalHighScore > this.highScore) this.highScore = finalHighScore;
+      this.reportScore(finalHighScore, this.highScore);
       this.time.delayedCall(600, () => {
-        this.gameOver(this.playerScore, 'AI WINS', this.highScore, [
-          { label: 'You', value: this.playerScore },
-          { label: 'AI', value: this.aiScore },
-          { label: 'Best Rally', value: this.maxRally },
-          { label: 'Power-ups', value: this.powerUpsCollected },
-        ], this.playerScore, this.getGameDuration());
+        this.gameOver(finalHighScore, 'AI WINS', this.highScore, this.buildGameOverStats(),
+          finalHighScore, this.getGameDuration());
       });
       return true;
     }
@@ -712,6 +767,7 @@ export class VortexPongGameScene extends BaseScene {
         this.scoreMultiplier = 2;
         break;
       case 'multi_ball':
+        this.multiBallsTriggered++;
         this.spawnMultiBalls();
         this.cameras.main.shake(GAME_CONFIG.SHAKE.MULTI_BALL.duration, GAME_CONFIG.SHAKE.MULTI_BALL.intensity);
         break;

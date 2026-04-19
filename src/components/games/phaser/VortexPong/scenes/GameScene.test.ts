@@ -379,33 +379,29 @@ describe('VortexPongGameScene', () => {
       expect(scene.timeSinceLastGoal).toBe(0);
     });
 
-    it('applies scoreMultiplier to player score', () => {
+    // R84.P2: match score is tight classic-Pong (+1 per goal). scoreMultiplier
+    // and combo bonuses no longer inflate the match score — they feed the
+    // weighted High Score formula instead. See "R84.P2 High Score formula"
+    // describe block below.
+    it('player goal is always +1 regardless of scoreMultiplier', () => {
       scene.scoreMultiplier = 2;
       createBall(scene, GAME_CONFIG.WIDTH + 10, 225, 420, 0);
       scene.checkGoals();
-      expect(scene.playerScore).toBe(2);
+      expect(scene.playerScore).toBe(1);
     });
 
-    it('applies combo bonus when no score multiplier', () => {
+    it('player goal is always +1 regardless of combo', () => {
       scene.combo = 6;
       createBall(scene, GAME_CONFIG.WIDTH + 10, 225, 420, 0);
       scene.checkGoals();
-      expect(scene.playerScore).toBe(3); // 1 base + floor(6/3) = 3
+      expect(scene.playerScore).toBe(1);
     });
 
-    it('does not apply combo bonus when score multiplier active', () => {
-      scene.scoreMultiplier = 2;
-      scene.combo = 6;
-      createBall(scene, GAME_CONFIG.WIDTH + 10, 225, 420, 0);
-      scene.checkGoals();
-      expect(scene.playerScore).toBe(2); // 2x multiplier, no combo
-    });
-
-    it('applies scoreMultiplier to AI score', () => {
+    it('AI goal is always +1 regardless of scoreMultiplier', () => {
       scene.scoreMultiplier = 2;
       createBall(scene, -10, 225, -420, 0);
       scene.checkGoals();
-      expect(scene.aiScore).toBe(2);
+      expect(scene.aiScore).toBe(1);
     });
 
     it('removes scored ball from array', () => {
@@ -469,7 +465,9 @@ describe('VortexPongGameScene', () => {
       scene.aiScore = GAME_CONFIG.WIN_SCORE - 1;
       createBall(scene, -10, 225, -420, 0);
       scene.checkGoals();
-      expect(scene.reportScore).toHaveBeenCalledWith(scene.playerScore, expect.any(Number));
+      // R84.P2: reportScore receives the computed weighted High Score, not
+      // the raw match playerScore. Both args are numeric.
+      expect(scene.reportScore).toHaveBeenCalledWith(expect.any(Number), expect.any(Number));
     });
   });
 
@@ -754,6 +752,126 @@ describe('VortexPongGameScene', () => {
       scene.stopAllAudio();
       expect(scene.stopBackgroundMusic).toHaveBeenCalled();
       expect(scene.sound.stopAll).toHaveBeenCalled();
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // R84.P2 — Weighted High Score formula + multi-ball counter
+  // -----------------------------------------------------------------------
+  describe('R84.P2 High Score formula', () => {
+    it('multiBallsTriggered starts at 0', () => {
+      expect(scene.multiBallsTriggered).toBe(0);
+    });
+
+    it('increments multiBallsTriggered each time multi_ball power-up fires', () => {
+      createBall(scene);
+      scene.activatePowerUp('multi_ball');
+      scene.activatePowerUp('multi_ball');
+      expect(scene.multiBallsTriggered).toBe(2);
+    });
+
+    it('computes 0 at initial state', () => {
+      expect(scene.computeHighScore()).toBe(0);
+    });
+
+    it('weights match_score_diff at 100 per point', () => {
+      scene.playerScore = 5;
+      scene.aiScore = 2;
+      expect(scene.computeHighScore()).toBe(3 * 100);
+    });
+
+    it('clamps negative match_score_diff to 0 on losses', () => {
+      scene.playerScore = 2;
+      scene.aiScore = 8;
+      scene.powerUpsCollected = 3;
+      expect(scene.computeHighScore()).toBe(3 * 50);
+    });
+
+    it('weights powerUpsCollected at 50 each', () => {
+      scene.powerUpsCollected = 4;
+      expect(scene.computeHighScore()).toBe(4 * 50);
+    });
+
+    it('weights multiBallsTriggered at 200 each', () => {
+      scene.multiBallsTriggered = 2;
+      expect(scene.computeHighScore()).toBe(2 * 200);
+    });
+
+    it('weights maxRally at 10 per hit', () => {
+      scene.maxRally = 15;
+      expect(scene.computeHighScore()).toBe(15 * 10);
+    });
+
+    it('awards 500 win bonus when playerScore >= WIN_SCORE', () => {
+      scene.playerScore = GAME_CONFIG.WIN_SCORE;
+      scene.aiScore = GAME_CONFIG.WIN_SCORE;
+      expect(scene.computeHighScore()).toBe(500);
+    });
+
+    it('does not award win bonus below WIN_SCORE', () => {
+      scene.playerScore = GAME_CONFIG.WIN_SCORE - 1;
+      scene.aiScore = 0;
+      expect(scene.computeHighScore()).toBe(9 * 100);
+    });
+
+    it('combines all components correctly for a 10-4 win', () => {
+      scene.playerScore = 10;
+      scene.aiScore = 4;
+      scene.powerUpsCollected = 5;
+      scene.multiBallsTriggered = 1;
+      scene.maxRally = 12;
+      // 6 × 100 + 5 × 50 + 1 × 200 + 12 × 10 + 500 = 600 + 250 + 200 + 120 + 500
+      expect(scene.computeHighScore()).toBe(1670);
+    });
+
+    it('combines all components correctly for a 10-0 flawless win', () => {
+      scene.playerScore = 10;
+      scene.aiScore = 0;
+      scene.powerUpsCollected = 8;
+      scene.multiBallsTriggered = 2;
+      scene.maxRally = 20;
+      // 10 × 100 + 8 × 50 + 2 × 200 + 20 × 10 + 500 = 1000 + 400 + 400 + 200 + 500
+      expect(scene.computeHighScore()).toBe(2500);
+    });
+
+    it('reports the computed high score at player win (not raw playerScore)', () => {
+      scene.playerScore = GAME_CONFIG.WIN_SCORE - 1;
+      scene.powerUpsCollected = 3;
+      scene.multiBallsTriggered = 1;
+      scene.maxRally = 8;
+      createBall(scene, GAME_CONFIG.WIDTH + 10, 225, 420, 0);
+      scene.checkGoals();
+      // After the goal: playerScore = WIN_SCORE, matchDiff = 10,
+      // formula = 1000 + 150 + 200 + 80 + 500 = 1930
+      expect(scene.reportScore).toHaveBeenCalledWith(1930, 1930);
+    });
+
+    it('reports the computed high score on AI win (weighted, not 0)', () => {
+      scene.aiScore = GAME_CONFIG.WIN_SCORE - 1;
+      scene.powerUpsCollected = 2;
+      scene.maxRally = 5;
+      createBall(scene, -10, 225, -420, 0);
+      scene.checkGoals();
+      // matchDiff clamped to 0 (player lost), + 2 × 50 + 0 + 5 × 10 + 0 = 150
+      expect(scene.reportScore).toHaveBeenCalledWith(150, expect.any(Number));
+    });
+
+    it('highScore persists the session best after a win', () => {
+      scene.highScore = 500;
+      scene.playerScore = GAME_CONFIG.WIN_SCORE - 1;
+      scene.powerUpsCollected = 5;
+      scene.multiBallsTriggered = 1;
+      scene.maxRally = 10;
+      createBall(scene, GAME_CONFIG.WIDTH + 10, 225, 420, 0);
+      scene.checkGoals();
+      // Computed = 1000 + 250 + 200 + 100 + 500 = 2050 > 500, so highScore updates.
+      expect(scene.highScore).toBe(2050);
+    });
+
+    it('resets multiBallsTriggered on scene reset', () => {
+      scene.multiBallsTriggered = 5;
+      scene.resetState();
+      expect(scene.multiBallsTriggered).toBe(0);
     });
   });
 
