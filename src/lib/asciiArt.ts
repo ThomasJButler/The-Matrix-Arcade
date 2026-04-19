@@ -57,7 +57,7 @@ function renderTextLine(text: string): string[] {
   return rows;
 }
 
-const TITLE_LINES: Record<string, string[]> = {
+export const TITLE_LINES: Record<string, string[]> = {
   'ctrl-s-world': ['CTRL-S', 'THE WORLD'],
   'snake-classic': ['MATRIX', 'SNAKE'],
   'vortex-pong': ['VORTEX', 'PONG'],

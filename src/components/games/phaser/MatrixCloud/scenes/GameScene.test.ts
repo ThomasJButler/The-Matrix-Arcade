@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import Phaser from 'phaser';
 import { MatrixCloudGameScene } from './GameScene';
 import { GAME_CONFIG, ACHIEVEMENTS, SLOW_MODE, POWERUP_DEFS, PIPE_VARIANTS, PARALLAX } from '../config';
@@ -1908,6 +1908,192 @@ describe('MatrixCloudGameScene', () => {
         // Deliberately INSIDE the pipe's horizontal footprint — this is the
         // bonus-reward contract, not a PG4 violation.
         expect(pu.x).toBeLessThan(pipe.x + C.PIPE_WIDTH);
+      });
+    });
+  });
+
+  // R84.B12: gap-fill coverage refresh for the B1/B3/B4/B5 surfaces. The
+  // per-feature tests above cover each piece in isolation; these pins the
+  // BOUNDARY contracts that get silently broken by refactors — (1) resetState
+  // clears all three power-up flags together so a mid-run retry lands clean,
+  // (2) moving-pipe drift scales through the updatePipes speedMult seam (not
+  // just when updateMovingPipe is called directly), (3) pickPipeKind admits
+  // the full partial-unlock set at the ZAPPER tier but still holds bonus out,
+  // (4) bonus × doublePoints stacking is 6× base so the peak-reward moment
+  // stays intact, (5) createParallaxRainLayer short-circuits under the
+  // __TEST__ seam to keep Playwright visual baselines stable.
+  describe('R84.B12 — Coverage refresh gap-fills', () => {
+    describe('B3 resetState power-up flag clears', () => {
+      it('clears timeSlowActive when previously active', () => {
+        scene.timeSlowActive = true;
+        call(scene, 'resetState');
+        expect(scene.timeSlowActive).toBe(false);
+      });
+
+      it('clears doublePointsActive when previously active', () => {
+        scene.doublePointsActive = true;
+        call(scene, 'resetState');
+        expect(scene.doublePointsActive).toBe(false);
+      });
+
+      it('clears shieldActive when previously active', () => {
+        scene.shieldActive = true;
+        call(scene, 'resetState');
+        expect(scene.shieldActive).toBe(false);
+      });
+
+      it('clears all three together so a mid-run restart lands clean', () => {
+        // Without this contract, a death-retry while holding power-ups would
+        // leak stale flags into the new run — the shield-dead state is the
+        // most visible (player renders tinted magenta with no collision
+        // forgiveness) but all three silently skew the difficulty curve.
+        scene.timeSlowActive = true;
+        scene.doublePointsActive = true;
+        scene.shieldActive = true;
+        call(scene, 'resetState');
+        expect(scene.timeSlowActive).toBe(false);
+        expect(scene.doublePointsActive).toBe(false);
+        expect(scene.shieldActive).toBe(false);
+      });
+    });
+
+    describe('B4 updatePipes → updateMovingPipe speedMult routing', () => {
+      function seedMovingPipe() {
+        return {
+          topRect: createMockRect(),
+          bottomRect: createMockRect(),
+          x: C.WIDTH * 0.5,
+          gapY: 150,
+          baseGapY: 150,
+          passed: false,
+          hit: false,
+          kind: 'moving' as const,
+          gap: C.PIPE_GAP,
+        };
+      }
+
+      it('passes dt × 1000 × speedMult as deltaMs to updateMovingPipe', () => {
+        // The direct updateMovingPipe tests above pass deltaMs unscaled; this
+        // pins the INTEGRATION boundary where updatePipes applies speedMult
+        // so moving-pipe drift dampens coherently with horizontal scroll,
+        // parallax, and player physics under the time-slow power-up.
+        const spy = vi.spyOn(scene, 'updateMovingPipe').mockImplementation(() => {});
+        vi.spyOn(scene, 'checkPipeCollision').mockImplementation(() => {});
+        vi.spyOn(scene, 'spawnPipe').mockImplementation(() => {});
+        scene.pipes = [seedMovingPipe()];
+        scene.lastPipeX = C.WIDTH + 100;
+        call(scene, 'updatePipes', 0.05, C.TIME_SLOW_FACTOR);
+        expect(spy).toHaveBeenCalledWith(scene.pipes[0], 0.05 * 1000 * C.TIME_SLOW_FACTOR);
+      });
+
+      it('passes dt × 1000 unscaled when speedMult is 1.0 (no slow power-up)', () => {
+        const spy = vi.spyOn(scene, 'updateMovingPipe').mockImplementation(() => {});
+        vi.spyOn(scene, 'checkPipeCollision').mockImplementation(() => {});
+        vi.spyOn(scene, 'spawnPipe').mockImplementation(() => {});
+        scene.pipes = [seedMovingPipe()];
+        scene.lastPipeX = C.WIDTH + 100;
+        call(scene, 'updatePipes', 0.05, 1.0);
+        expect(spy).toHaveBeenCalledWith(scene.pipes[0], 50);
+      });
+    });
+
+    describe('B4 pickPipeKind partial unlock at ZAPPER tier', () => {
+      it('admits normal / moving / zapper at ZAPPER_UNLOCK_SCORE (pre-bonus tier)', () => {
+        // Walk the bag buckets explicitly: bag total = 10+3+2 = 15. Normal
+        // roll = 0, moving roll ≥ 10/15, zapper roll ≥ 13/15. We hit all
+        // three and none should return 'bonus' because score < BONUS_UNLOCK.
+        scene.score = PIPE_VARIANTS.ZAPPER_UNLOCK_SCORE;
+        const kinds = new Set<string>();
+        const rolls = [0, 10 / 15 + 0.001, 13 / 15 + 0.001];
+        for (const r of rolls) {
+          vi.spyOn(Math, 'random').mockReturnValueOnce(r);
+          kinds.add(call(scene, 'pickPipeKind'));
+        }
+        expect(kinds).toEqual(new Set(['normal', 'moving', 'zapper']));
+      });
+
+      it('never picks "bonus" at ZAPPER_UNLOCK_SCORE even on max rolls', () => {
+        scene.score = PIPE_VARIANTS.ZAPPER_UNLOCK_SCORE;
+        for (let i = 0; i < 20; i++) {
+          vi.spyOn(Math, 'random').mockReturnValueOnce(0.999);
+          expect(call(scene, 'pickPipeKind')).not.toBe('bonus');
+        }
+      });
+    });
+
+    describe('B4 scorePipe bonus × doublePoints stacking', () => {
+      it('applies both multipliers: SCORE_PER_PIPE × combo × 2 × BONUS_SCORE_MULT', () => {
+        // The score formula stacks doublePoints (×2) with bonus pipe (×3) so
+        // a clean bonus thread while holding double-points yields 6× the base
+        // reward. Pinning the product because losing either multiplier
+        // silently flattens the peak-reward moment that makes double + bonus
+        // a meaningful "go for it" decision for the player.
+        scene.score = 0;
+        scene.combo = 1.0;
+        scene.doublePointsActive = true;
+        const expected = Math.floor(
+          C.SCORE_PER_PIPE * 1.0 * 2 * PIPE_VARIANTS.BONUS_SCORE_MULT,
+        );
+        call(scene, 'scorePipe', { kind: 'bonus' } as any);
+        expect(scene.score).toBe(expected);
+        expect(scene.score).toBe(60);
+      });
+
+      it('without doublePoints, bonus alone yields BONUS_SCORE_MULT × base (30)', () => {
+        scene.score = 0;
+        scene.combo = 1.0;
+        scene.doublePointsActive = false;
+        call(scene, 'scorePipe', { kind: 'bonus' } as any);
+        expect(scene.score).toBe(
+          Math.floor(C.SCORE_PER_PIPE * 1.0 * PIPE_VARIANTS.BONUS_SCORE_MULT),
+        );
+        expect(scene.score).toBe(30);
+      });
+
+      it('without bonus, doublePoints alone yields 2 × base (20)', () => {
+        scene.score = 0;
+        scene.combo = 1.0;
+        scene.doublePointsActive = true;
+        call(scene, 'scorePipe');
+        expect(scene.score).toBe(Math.floor(C.SCORE_PER_PIPE * 1.0 * 2));
+        expect(scene.score).toBe(20);
+      });
+    });
+
+    describe('B5 createParallaxRainLayer __TEST__ seam', () => {
+      afterEach(() => {
+        delete (window as unknown as { __TEST__?: boolean }).__TEST__;
+      });
+
+      it('returns empty group when window.__TEST__ is truthy (playwright seed path)', () => {
+        // The guard matches BaseScene.addMatrixRain and SnakeClassic's
+        // play-area rain: under E2E visual-regression runs Phaser's RNG
+        // isn't seeded, so spawning random glyphs would break baselines.
+        // Pinning the short-circuit so a refactor can't accidentally
+        // reintroduce character spawns and re-break the visual suite.
+        (window as unknown as { __TEST__?: boolean }).__TEST__ = true;
+        const mockGroup: any = { add: vi.fn(), getChildren: () => [] };
+        scene.add.group = vi.fn().mockReturnValue(mockGroup);
+        scene.add.text = vi.fn();
+        const group = call(scene, 'createParallaxRainLayer', PARALLAX.MID);
+        expect(group).toBe(mockGroup);
+        expect(scene.add.text).not.toHaveBeenCalled();
+        expect(mockGroup.add).not.toHaveBeenCalled();
+      });
+
+      it('spawns cfg.DENSITY text children when __TEST__ is absent', () => {
+        delete (window as unknown as { __TEST__?: boolean }).__TEST__;
+        const mockGroup: any = { add: vi.fn(), getChildren: () => [] };
+        scene.add.group = vi.fn().mockReturnValue(mockGroup);
+        const mockText: any = {
+          setAlpha: vi.fn().mockReturnThis(),
+          setDepth: vi.fn().mockReturnThis(),
+          setData: vi.fn().mockReturnThis(),
+        };
+        scene.add.text = vi.fn().mockReturnValue(mockText);
+        (Phaser as any).Math.Between = vi.fn().mockReturnValue(0);
+        call(scene, 'createParallaxRainLayer', PARALLAX.MID);
+        expect(scene.add.text).toHaveBeenCalledTimes(PARALLAX.MID.DENSITY);
       });
     });
   });
