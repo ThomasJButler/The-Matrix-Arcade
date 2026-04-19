@@ -1572,4 +1572,128 @@ describe('MatrixCloudGameScene', () => {
       });
     });
   });
+
+  // R84.B8: pause→resume 5-second countdown. BaseScene's togglePause() routes
+  // the un-pause branch through resumeGame(); MatrixCloudGameScene overrides
+  // that to re-run startCountdown(5,...) after super unfreezes physics. The
+  // override was shipped in R83.B1(c) but had zero test coverage — these pins
+  // the contract so a future refactor can't silently drop the countdown and
+  // leave the bird plummeting from an invisible spawn the instant the overlay
+  // lifts. Tests stub the BaseScene super call's missing-from-global-mock
+  // touch-points (physics/tweens.resumeAll/canvas.focus) inline rather than
+  // adding them to createTestScene, because the 150+ unrelated existing tests
+  // assume the minimal surface.
+  describe('R84.B8 — Pause→resume 5s countdown', () => {
+    beforeEach(() => {
+      scene.physics = { world: {}, resume: vi.fn(), pause: vi.fn() };
+      scene.tweens.resumeAll = vi.fn();
+      scene.tweens.pauseAll = vi.fn();
+      scene.game.canvas = { focus: vi.fn() };
+      scene.isGameOver = false;
+      scene.isCountingDown = false;
+      scene.isPaused = true;
+    });
+
+    it('starts a 5-second countdown when not gameOver and not already counting', () => {
+      scene.startCountdown = vi.fn();
+      call(scene, 'resumeGame');
+      expect(scene.startCountdown).toHaveBeenCalledTimes(1);
+      expect(scene.startCountdown).toHaveBeenCalledWith(5, expect.any(Function));
+    });
+
+    it('skips countdown when isGameOver is true', () => {
+      scene.isGameOver = true;
+      scene.startCountdown = vi.fn();
+      call(scene, 'resumeGame');
+      expect(scene.startCountdown).not.toHaveBeenCalled();
+    });
+
+    it('skips countdown when a countdown is already running', () => {
+      // Super's resumeGame doesn't touch isCountingDown — the override guard
+      // is the only protection against stacking a second countdown on a
+      // rapid double-resume (e.g. dashbar click while initial countdown is
+      // still ticking). Pinning the guard here blocks a refactor from
+      // inverting the early-return.
+      scene.isCountingDown = true;
+      scene.startCountdown = vi.fn();
+      call(scene, 'resumeGame');
+      expect(scene.startCountdown).not.toHaveBeenCalled();
+    });
+
+    it('unfreezes physics/tweens/time BEFORE starting the countdown', () => {
+      // The ordering invariant matters: startCountdown uses time.delayedCall
+      // to tick digits; if super ran AFTER it, time.paused would still be
+      // true and the countdown would hang on "5" forever. We verify order
+      // via invocationCallOrder on the super-side side-effects.
+      const order: string[] = [];
+      scene.physics.resume = vi.fn(() => order.push('physics.resume'));
+      scene.tweens.resumeAll = vi.fn(() => order.push('tweens.resumeAll'));
+      const originalDescriptor = Object.getOwnPropertyDescriptor(scene.time, 'paused');
+      let timePausedValue = true;
+      Object.defineProperty(scene.time, 'paused', {
+        configurable: true,
+        get: () => timePausedValue,
+        set: (v: boolean) => {
+          timePausedValue = v;
+          if (!v) order.push('time.paused=false');
+        },
+      });
+      scene.startCountdown = vi.fn(() => order.push('startCountdown'));
+
+      try {
+        call(scene, 'resumeGame');
+      } finally {
+        if (originalDescriptor) {
+          Object.defineProperty(scene.time, 'paused', originalDescriptor);
+        }
+      }
+
+      const countdownIdx = order.indexOf('startCountdown');
+      expect(countdownIdx).toBeGreaterThan(-1);
+      expect(order.indexOf('physics.resume')).toBeLessThan(countdownIdx);
+      expect(order.indexOf('tweens.resumeAll')).toBeLessThan(countdownIdx);
+      expect(order.indexOf('time.paused=false')).toBeLessThan(countdownIdx);
+    });
+
+    it('update() early-returns while countdown is active so physics stays frozen', () => {
+      // With isCountingDown=true, update() must skip its physics/pipe/HUD
+      // pipeline — the player shouldn't fall and pipes shouldn't scroll
+      // during the 5-second re-orient window. exposeTestState is the last
+      // line of update(), so its absence proves the early-return fired.
+      scene.isCountingDown = true;
+      scene.isPaused = false;
+      scene.isGameOver = false;
+      scene.exposeTestState.mockClear();
+      scene.handleInput = vi.fn();
+      scene.updatePlayer = vi.fn();
+      scene.updatePipes = vi.fn();
+      scene.updateHUD = vi.fn();
+      scene.updateParallaxLayers = vi.fn();
+
+      call(scene, 'update', 1000, 16);
+
+      expect(scene.exposeTestState).not.toHaveBeenCalled();
+      expect(scene.updatePlayer).not.toHaveBeenCalled();
+      expect(scene.updatePipes).not.toHaveBeenCalled();
+      expect(scene.updateHUD).not.toHaveBeenCalled();
+    });
+
+    it('passes a no-op onComplete callback (countdown merely gates, no post-tick logic)', () => {
+      // The override intentionally passes `() => {}` — unlike the initial-run
+      // create() countdown that might fire extra onComplete logic, the
+      // pause-resume path just needs the isCountingDown gate released, which
+      // BaseScene.tickCountdownStep already does internally. If a future
+      // refactor accidentally forwards a non-noop callback here, it'd fire
+      // a second time after the bird has been playing for 5s — nonsensical
+      // state. This test pins the noop.
+      const spy = vi.fn();
+      scene.startCountdown = spy;
+      call(scene, 'resumeGame');
+      const callback = spy.mock.calls[0]?.[1];
+      expect(typeof callback).toBe('function');
+      expect(() => callback()).not.toThrow();
+      // Noop: returns undefined, produces no observable side-effect on scene.
+      expect(callback()).toBeUndefined();
+    });
+  });
 });
