@@ -37,6 +37,16 @@ export class MatrixCloudGameScene extends BaseScene {
   private pipes: PipePair[] = [];
   private lastPipeX: number = 0;
 
+  // R84.CI-7: pipe-visual object pools. Off-screen pipes (and the boss-battle
+  // field-clear path) route through `retirePipe` which hides the visuals and
+  // parks them here; the next `spawnPipe` pops and re-dresses them instead of
+  // allocating fresh Rectangle/TileSprite/Graphics objects. Pool survives a
+  // round within a single scene lifetime; Phaser's `scene.restart()` triggers
+  // `shutdown()` which drains the pool, so baseline allocations per session
+  // are unchanged — the win is avoided GC churn DURING a long session.
+  private pipeRectPool: PipeVisual[] = [];
+  private pipeArcPool: Phaser.GameObjects.Graphics[] = [];
+
   // Power-ups
   private fieldPowerUps: FieldPowerUp[] = [];
   private shieldActive: boolean = false;
@@ -631,7 +641,10 @@ export class MatrixCloudGameScene extends BaseScene {
       if (pipe.kind === 'zapper') this.updateZapperPipe(pipe, deltaMs);
 
       if (pipe.x + GAME_CONFIG.PIPE_WIDTH < 0) {
-        this.destroyPipe(pipe);
+        // R84.CI-7: retire (pool) rather than destroy so the next spawn
+        // reuses these GameObjects — off-screen cleanup is the hottest
+        // allocation path at steady state (1 pipe every 1.2s minimum).
+        this.retirePipe(pipe);
         this.pipes.splice(i, 1);
         continue;
       }
@@ -764,6 +777,85 @@ export class MatrixCloudGameScene extends BaseScene {
     pipe.arc?.destroy();
   }
 
+  // R84.CI-7: hide + park a retired pipe's visuals for reuse. Called when a
+  // pipe scrolls off-screen or the field is cleared at boss-spawn. Keeps the
+  // `.destroy()`-oriented `destroyPipe` intact for the scene-shutdown path
+  // (where we want real Phaser cleanup, not pool accumulation).
+  private retirePipe(pipe: PipePair): void {
+    const top = pipe.topRect as PipeVisual & { setActive?: (v: boolean) => unknown; setVisible?: (v: boolean) => unknown };
+    const bot = pipe.bottomRect as PipeVisual & { setActive?: (v: boolean) => unknown; setVisible?: (v: boolean) => unknown };
+    top.setActive?.(false);
+    top.setVisible?.(false);
+    bot.setActive?.(false);
+    bot.setVisible?.(false);
+    this.pipeRectPool.push(pipe.topRect, pipe.bottomRect);
+    if (pipe.arc) {
+      pipe.arc.clear();
+      pipe.arc.setActive(false);
+      pipe.arc.setVisible(false);
+      this.pipeArcPool.push(pipe.arc);
+    }
+  }
+
+  // R84.CI-7: drain pooled pipe visuals (hard destroy). Called from
+  // `shutdown()` alongside the in-flight pipe destruction so pooled entries
+  // don't leak into the next scene instance.
+  private drainPipePools(): void {
+    for (const rect of this.pipeRectPool) rect.destroy();
+    this.pipeRectPool = [];
+    for (const arc of this.pipeArcPool) arc.destroy();
+    this.pipeArcPool = [];
+  }
+
+  // R84.CI-7: duck-typed re-dress helper. Rectangle has `setFillStyle` /
+  // `setStrokeStyle`; TileSprite has `setTint`. Instanceof won't work because
+  // the unit-test mocks are plain objects — duck-typing keeps runtime correct
+  // and lets tests pin the pool reset path without a jsdom Phaser class tree.
+  private redressPipeVisual(visual: PipeVisual, style: { fill: number; stroke: number }): void {
+    const v = visual as PipeVisual & {
+      setFillStyle?: (c: number) => unknown;
+      setStrokeStyle?: (w: number, c: number) => unknown;
+      setTint?: (c: number) => unknown;
+    };
+    if (typeof v.setFillStyle === 'function') {
+      v.setFillStyle(style.fill);
+      v.setStrokeStyle?.(2, style.stroke);
+    } else if (typeof v.setTint === 'function') {
+      v.setTint(style.fill);
+    }
+  }
+
+  private acquirePipeVisual(x: number, y: number, width: number, height: number, kind: PipeKind = 'normal'): PipeVisual {
+    const style = this.getPipeStyle(kind);
+    const pooled = this.pipeRectPool.pop();
+    if (pooled) {
+      const p = pooled as PipeVisual & {
+        setActive?: (v: boolean) => unknown;
+        setVisible?: (v: boolean) => unknown;
+        setPosition?: (x: number, y: number) => unknown;
+        setSize?: (w: number, h: number) => unknown;
+      };
+      p.setActive?.(true);
+      p.setVisible?.(true);
+      p.setPosition?.(x, y);
+      p.setSize?.(width, height);
+      this.redressPipeVisual(pooled, style);
+      return pooled;
+    }
+    return this.createPipeVisual(x, y, width, height, kind);
+  }
+
+  private acquirePipeArc(): Phaser.GameObjects.Graphics {
+    const pooled = this.pipeArcPool.pop();
+    if (pooled) {
+      pooled.setActive(true);
+      pooled.setVisible(true);
+      pooled.clear();
+      return pooled;
+    }
+    return this.add.graphics();
+  }
+
   private createPipeVisual(x: number, y: number, width: number, height: number, kind: PipeKind = 'normal'): PipeVisual {
     const style = this.getPipeStyle(kind);
     if (this.game.registry.get('spriteMode') === true) {
@@ -814,12 +906,14 @@ export class MatrixCloudGameScene extends BaseScene {
     const x = GAME_CONFIG.WIDTH;
 
     const topHeight = gapY;
-    const topRect = this.createPipeVisual(x + GAME_CONFIG.PIPE_WIDTH / 2, topHeight / 2, GAME_CONFIG.PIPE_WIDTH, topHeight, kind);
+    // R84.CI-7: acquirePipeVisual pops from the pipe pool when available,
+    // otherwise falls back to createPipeVisual (the original allocation path).
+    const topRect = this.acquirePipeVisual(x + GAME_CONFIG.PIPE_WIDTH / 2, topHeight / 2, GAME_CONFIG.PIPE_WIDTH, topHeight, kind);
     topRect.setDepth(3);
 
     const bottomY = gapY + gap;
     const bottomHeight = playableHeight - bottomY;
-    const bottomRect = this.createPipeVisual(x + GAME_CONFIG.PIPE_WIDTH / 2, bottomY + bottomHeight / 2, GAME_CONFIG.PIPE_WIDTH, bottomHeight, kind);
+    const bottomRect = this.acquirePipeVisual(x + GAME_CONFIG.PIPE_WIDTH / 2, bottomY + bottomHeight / 2, GAME_CONFIG.PIPE_WIDTH, bottomHeight, kind);
     bottomRect.setDepth(3);
 
     const pipe: PipePair = {
@@ -843,7 +937,8 @@ export class MatrixCloudGameScene extends BaseScene {
     };
 
     if (kind === 'zapper') {
-      const arc = this.add.graphics();
+      // R84.CI-7: reuse a pooled arc graphic if one is available.
+      const arc = this.acquirePipeArc();
       arc.setDepth(6);
       pipe.arc = arc;
     }
@@ -1288,8 +1383,11 @@ export class MatrixCloudGameScene extends BaseScene {
     this.bossAttackCooldown = 0;
     this.bossAttacks = [];
 
+    // R84.CI-7: retire (pool) rather than destroy — boss battle ends and the
+    // next scrolling phase resumes within the same scene, so pooled visuals
+    // get reused when the field refills after the boss defeat.
     for (const pipe of this.pipes) {
-      this.destroyPipe(pipe);
+      this.retirePipe(pipe);
     }
     this.pipes = [];
 
@@ -1599,6 +1697,10 @@ export class MatrixCloudGameScene extends BaseScene {
       this.destroyPipe(pipe);
     }
     this.pipes = [];
+    // R84.CI-7: pool accumulates across a session but must not leak into the
+    // next scene instance — drain on shutdown so Phaser's scene teardown
+    // sees a zero pending-GameObject count for pooled visuals.
+    this.drainPipePools();
 
     for (const pu of this.fieldPowerUps) {
       pu.sprite.destroy();

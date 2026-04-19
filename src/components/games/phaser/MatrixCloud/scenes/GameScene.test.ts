@@ -38,6 +38,9 @@ function createMockGraphics() {
     clear: vi.fn().mockReturnThis(),
     destroy: vi.fn(),
     setDepth: vi.fn().mockReturnThis(),
+    // R84.CI-7: pool recycle path flips visibility/active on retire → spawn.
+    setActive: vi.fn().mockReturnThis(),
+    setVisible: vi.fn().mockReturnThis(),
     generateTexture: vi.fn().mockReturnThis(),
   };
   return g;
@@ -82,12 +85,20 @@ function createMockSprite(x = 0, y = 0) {
 function createMockRect(x = 0, y = 0, w = 0, h = 0) {
   return {
     x, y, width: w, height: h,
+    active: true,
+    visible: true,
     setX: vi.fn().mockImplementation(function (this: any, v: number) { this.x = v; return this; }),
     // R84.B4: moving pipes call setY/setSize every frame to animate their
     // vertical drift, so the mock rect has to expose both. The previous mock
     // only had setX because pre-variant pipes were purely horizontal.
     setY: vi.fn().mockImplementation(function (this: any, v: number) { this.y = v; return this; }),
+    // R84.CI-7: pool recycle path calls setPosition/setSize to relocate + resize
+    // pooled rects on reuse, and setActive/setVisible on retire to hide them.
+    setPosition: vi.fn().mockImplementation(function (this: any, nx: number, ny: number) { this.x = nx; this.y = ny; return this; }),
     setSize: vi.fn().mockImplementation(function (this: any, nw: number, nh: number) { this.width = nw; this.height = nh; return this; }),
+    setActive: vi.fn().mockImplementation(function (this: any, v: boolean) { this.active = v; return this; }),
+    setVisible: vi.fn().mockImplementation(function (this: any, v: boolean) { this.visible = v; return this; }),
+    setFillStyle: vi.fn().mockReturnThis(),
     setStrokeStyle: vi.fn().mockReturnThis(),
     setDepth: vi.fn().mockReturnThis(),
     destroy: vi.fn(),
@@ -1533,6 +1544,186 @@ describe('MatrixCloudGameScene', () => {
           bottomRect: createMockRect(),
         };
         expect(() => call(scene, 'destroyPipe', pipe)).not.toThrow();
+      });
+    });
+
+    // R84.CI-7: pipe-visual object pool. Off-screen pipes + boss-battle
+    // field-clear route through retirePipe which parks visuals for reuse;
+    // spawnPipe's acquire helpers pop from the pool before allocating.
+    // These tests pin the contract so a refactor that reverts to allocate-
+    // -per-spawn surfaces at unit-test speed rather than in a perf regression.
+    describe('R84.CI-7 — pipe-visual object pool', () => {
+      describe('retirePipe', () => {
+        it('parks topRect + bottomRect in the pool and hides them (no destroy)', () => {
+          const topRect = createMockRect();
+          const bottomRect = createMockRect();
+          const pipe: any = { topRect, bottomRect };
+
+          call(scene, 'retirePipe', pipe);
+
+          expect(scene.pipeRectPool).toHaveLength(2);
+          expect(scene.pipeRectPool).toContain(topRect);
+          expect(scene.pipeRectPool).toContain(bottomRect);
+          expect(topRect.destroy).not.toHaveBeenCalled();
+          expect(bottomRect.destroy).not.toHaveBeenCalled();
+          expect(topRect.setVisible).toHaveBeenCalledWith(false);
+          expect(bottomRect.setVisible).toHaveBeenCalledWith(false);
+          expect(topRect.setActive).toHaveBeenCalledWith(false);
+          expect(bottomRect.setActive).toHaveBeenCalledWith(false);
+        });
+
+        it('pools the arc graphic separately when the retired pipe is a zapper', () => {
+          const arc = createMockGraphics();
+          const pipe: any = { topRect: createMockRect(), bottomRect: createMockRect(), arc };
+
+          call(scene, 'retirePipe', pipe);
+
+          expect(scene.pipeArcPool).toHaveLength(1);
+          expect(scene.pipeArcPool[0]).toBe(arc);
+          expect(arc.destroy).not.toHaveBeenCalled();
+          expect(arc.clear).toHaveBeenCalled();
+          expect(arc.setVisible).toHaveBeenCalledWith(false);
+          expect(arc.setActive).toHaveBeenCalledWith(false);
+        });
+
+        it('does not touch the arc pool when the retired pipe has no arc', () => {
+          const pipe: any = { topRect: createMockRect(), bottomRect: createMockRect() };
+          call(scene, 'retirePipe', pipe);
+          expect(scene.pipeArcPool).toHaveLength(0);
+        });
+      });
+
+      describe('spawnPipe reuses pooled visuals', () => {
+        it('pops from pipeRectPool on spawn and does NOT allocate via add.rectangle', () => {
+          // Seed pool with 2 entries (one full pipe-pair's worth).
+          const pooledTop = createMockRect();
+          const pooledBottom = createMockRect();
+          scene.pipeRectPool = [pooledTop, pooledBottom];
+          scene.add.rectangle.mockClear();
+
+          call(scene, 'spawnPipe');
+
+          expect(scene.pipeRectPool).toHaveLength(0);
+          expect(scene.add.rectangle).not.toHaveBeenCalled();
+          expect(scene.pipes).toHaveLength(1);
+          const pipe = scene.pipes[0];
+          // Both pooled rects were reused (order is pop-order from end).
+          expect([pooledTop, pooledBottom]).toContain(pipe.topRect);
+          expect([pooledTop, pooledBottom]).toContain(pipe.bottomRect);
+        });
+
+        it('re-dresses pooled rect with new kind fill + stroke + visibility', () => {
+          const pooled = createMockRect();
+          scene.pipeRectPool = [pooled, createMockRect()];
+          scene.add.rectangle.mockClear();
+          scene.score = PIPE_VARIANTS.MOVING_UNLOCK_SCORE;
+          // Force kind by stubbing pickPipeKind — avoids randomness in this spec.
+          vi.spyOn(scene, 'pickPipeKind').mockReturnValue('moving');
+
+          call(scene, 'spawnPipe');
+
+          expect(pooled.setVisible).toHaveBeenCalledWith(true);
+          expect(pooled.setActive).toHaveBeenCalledWith(true);
+          expect(pooled.setFillStyle).toHaveBeenCalledWith(PIPE_VARIANTS.MOVING_FILL);
+          expect(pooled.setStrokeStyle).toHaveBeenCalledWith(2, PIPE_VARIANTS.MOVING_STROKE);
+        });
+
+        it('falls back to add.rectangle when the pool is empty', () => {
+          scene.pipeRectPool = [];
+          scene.add.rectangle.mockClear();
+
+          call(scene, 'spawnPipe');
+
+          expect(scene.add.rectangle).toHaveBeenCalledTimes(2);
+        });
+
+        it('pops from pipeArcPool when spawning a zapper pipe', () => {
+          const pooledArc = createMockGraphics();
+          scene.pipeArcPool = [pooledArc];
+          scene.add.graphics.mockClear();
+          scene.score = PIPE_VARIANTS.ZAPPER_UNLOCK_SCORE;
+          vi.spyOn(scene, 'pickPipeKind').mockReturnValue('zapper');
+
+          call(scene, 'spawnPipe');
+
+          expect(scene.pipeArcPool).toHaveLength(0);
+          expect(scene.add.graphics).not.toHaveBeenCalled();
+          expect(pooledArc.setVisible).toHaveBeenCalledWith(true);
+          expect(pooledArc.setActive).toHaveBeenCalledWith(true);
+          expect(pooledArc.clear).toHaveBeenCalled();
+          expect(scene.pipes[0].arc).toBe(pooledArc);
+        });
+      });
+
+      describe('updatePipes off-screen cleanup → pool (not destroy)', () => {
+        it('retires the pipe into the pool and splices it out of pipes[] without destroying visuals', () => {
+          const topRect = createMockRect();
+          const bottomRect = createMockRect();
+          const pipe: any = {
+            topRect,
+            bottomRect,
+            // Sits just past the left edge; after one frame tick x decrements
+            // further so `pipe.x + PIPE_WIDTH < 0` predicate trips.
+            x: -GAME_CONFIG.PIPE_WIDTH - 1,
+            gapY: 100,
+            passed: true,
+            hit: false,
+            kind: 'normal',
+          };
+          scene.pipes = [pipe];
+          // Stub spawnPipe so the spawn-cadence branch doesn't fire and
+          // dirty the pool mid-assertion.
+          vi.spyOn(scene, 'spawnPipe').mockImplementation(() => {});
+
+          call(scene, 'updatePipes', 0.0167, 1);
+
+          expect(scene.pipes).toHaveLength(0);
+          expect(scene.pipeRectPool).toContain(topRect);
+          expect(scene.pipeRectPool).toContain(bottomRect);
+          expect(topRect.destroy).not.toHaveBeenCalled();
+          expect(bottomRect.destroy).not.toHaveBeenCalled();
+        });
+      });
+
+      describe('drainPipePools', () => {
+        it('destroys every pooled rect + arc and empties both pools', () => {
+          const r1 = createMockRect();
+          const r2 = createMockRect();
+          const a1 = createMockGraphics();
+          scene.pipeRectPool = [r1, r2];
+          scene.pipeArcPool = [a1];
+
+          call(scene, 'drainPipePools');
+
+          expect(r1.destroy).toHaveBeenCalled();
+          expect(r2.destroy).toHaveBeenCalled();
+          expect(a1.destroy).toHaveBeenCalled();
+          expect(scene.pipeRectPool).toHaveLength(0);
+          expect(scene.pipeArcPool).toHaveLength(0);
+        });
+      });
+
+      describe('spawn → retire → spawn round-trip reuses the same instances', () => {
+        it('one spawn → retire → next spawn recycles both rects with zero new allocations', () => {
+          scene.add.rectangle.mockClear();
+
+          call(scene, 'spawnPipe');
+          const first = scene.pipes[0];
+          const topRef = first.topRect;
+          const bottomRef = first.bottomRect;
+          expect(scene.add.rectangle).toHaveBeenCalledTimes(2);
+
+          call(scene, 'retirePipe', first);
+          scene.pipes = [];
+          scene.lastPipeX = GAME_CONFIG.WIDTH + 100;
+          scene.add.rectangle.mockClear();
+
+          call(scene, 'spawnPipe');
+          expect(scene.add.rectangle).not.toHaveBeenCalled();
+          const second = scene.pipes[0];
+          expect([topRef, bottomRef]).toContain(second.topRect);
+          expect([topRef, bottomRef]).toContain(second.bottomRect);
+        });
       });
     });
   });
