@@ -280,4 +280,42 @@ describe('TypewriterEngine', () => {
       expect(onStateChange).toHaveBeenCalledWith('DONE');
     });
   });
+
+  describe('rapid advance (spacebar mash) — R83.CTRLS.13', () => {
+    it('survives a sequence of advance() calls faster than the typewriter cadence', () => {
+      // Spacebar-mash simulation: the user taps advance every few ms through
+      // a 3-paragraph chapter. Each tap must be absorbed correctly regardless
+      // of current state (TYPING → skip, WAITING → next). Paragraphs must
+      // deliver in order and the engine must land cleanly on DONE.
+      const onParagraphStart = vi.fn();
+      const engine = createEngine(['First line', 'Second line', 'Third line'], 10);
+      engine.setCallbacks({ onParagraphStart });
+      engine.start();
+
+      for (let i = 0; i < 20; i++) {
+        engine.advance();
+        engine.update(1);
+      }
+
+      expect(engine.state).toBe('DONE');
+      expect(engine.completed).toEqual(['First line', 'Second line', 'Third line']);
+      expect(onParagraphStart).toHaveBeenCalledTimes(3);
+    });
+
+    it('does not corrupt charIndex when advance is called repeatedly mid-TYPING', () => {
+      const engine = createEngine(['Hello world'], 10);
+      engine.start();
+      engine.update(10);
+      expect(engine.charIndex).toBe(1);
+
+      engine.advance();
+      engine.advance();
+      engine.advance();
+
+      // After the first advance skips to end, subsequent advances in WAITING
+      // or DONE state must not roll charIndex backward or past bounds.
+      expect(engine.revealedText).toBe('Hello world');
+      expect(engine.state).toBe('DONE');
+    });
+  });
 });
