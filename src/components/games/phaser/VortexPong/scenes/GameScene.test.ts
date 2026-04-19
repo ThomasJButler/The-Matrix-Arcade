@@ -1202,6 +1202,70 @@ describe('VortexPongGameScene', () => {
       scene.resetState();
       expect(scene.multiBallsTriggered).toBe(0);
     });
+
+    // R84.P12 — coverage refresh across the 4-component formula.
+    // Existing tests above cover each weight in isolation + 10-4 + 10-0 wins;
+    // the gap is the plan's 4-10 loss reference example (210) and the reset
+    // contract for the counters the formula depends on (powerUpsCollected,
+    // rallyCount, maxRally — only multiBallsTriggered's reset was guarded).
+    it('matches plan reference for a 4-10 loss (210 points)', () => {
+      // Plan worked example: "4-10 loss=210". Formula when playerScore < aiScore:
+      // max(0, diff) = 0 → 0 + P*50 + M*200 + R*10 + 0. Pick P=2, R=11 → 100+110=210.
+      scene.playerScore = 4;
+      scene.aiScore = 10;
+      scene.powerUpsCollected = 2;
+      scene.multiBallsTriggered = 0;
+      scene.maxRally = 11;
+      expect(scene.computeHighScore()).toBe(210);
+    });
+
+    it('resetState zeroes powerUpsCollected (R84.P12 coverage)', () => {
+      scene.powerUpsCollected = 7;
+      scene.resetState();
+      expect(scene.powerUpsCollected).toBe(0);
+    });
+
+    it('resetState zeroes rallyCount and maxRally (R84.P12 coverage)', () => {
+      scene.rallyCount = 9;
+      scene.maxRally = 14;
+      scene.resetState();
+      expect(scene.rallyCount).toBe(0);
+      expect(scene.maxRally).toBe(0);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // R84.P12 — Countdown update gating (R84.P1 is verified behaviourally via
+  // `startCountdown(5, ...)` in create(); the unit gap is the update() early
+  // return contract — nothing in the test suite confirmed that balls, AI and
+  // telemetry all freeze while `isCountingDown = true`. If a future refactor
+  // removed the early-return these tests would catch it immediately.
+  // -----------------------------------------------------------------------
+  describe('R84.P12 — Countdown update gating', () => {
+    it('update short-circuits while isCountingDown so balls do not move', () => {
+      const ball = createBall(scene, 300, 200, 420, 0);
+      scene.isCountingDown = true;
+      scene.update(0, 16);
+      expect(ball.sprite.x).toBe(300);
+      expect(ball.sprite.y).toBe(200);
+    });
+
+    it('update short-circuits while isCountingDown so exposeTestState is not called', () => {
+      scene.isCountingDown = true;
+      scene.exposeTestState.mockClear();
+      scene.update(0, 16);
+      expect(scene.exposeTestState).not.toHaveBeenCalled();
+    });
+
+    it('update proceeds normally after countdown completes', () => {
+      const ball = createBall(scene, 300, 200, 420, 0);
+      scene.isCountingDown = false;
+      scene.exposeTestState.mockClear();
+      scene.update(0, 16);
+      // Ball advanced by vx * dt ≈ 420 * 0.016 = 6.72px.
+      expect(ball.sprite.x).toBeGreaterThan(300);
+      expect(scene.exposeTestState).toHaveBeenCalled();
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -1782,6 +1846,41 @@ describe('VortexPongGameScene', () => {
         for (const d of destroyFns) expect(d).toHaveBeenCalled();
         expect(scene.powerUpLegend).toHaveLength(0);
         expect(scene.tweens.killTweensOf).toHaveBeenCalledWith(cohort);
+      });
+    });
+
+    // R84.P12 — coverage refresh. The legend rendering block above tests the
+    // visual contract; these tests pin the trigger path (`collectPowerUp` is
+    // what the live game invokes) and the hide-timer callback contract.
+    describe('R84.P12 — trigger + timer coverage', () => {
+      it('row order matches POWERUP_LEGEND.ENTRIES order (consistency guard)', () => {
+        // Swap in a tracking showPowerUpLegend spy so we can prove the row
+        // ordering in the rendered cohort is a 1:1 copy of the ENTRIES array.
+        collectFresh('multi_ball');
+        const rendered = scene.powerUpLegend.map((t: any) => t.text);
+        POWERUP_LEGEND.ENTRIES.forEach((entry, i) => {
+          expect(rendered[i]).toContain(entry.name);
+          expect(rendered[i]).toContain(entry.effect);
+        });
+      });
+
+      it('hide timer callback destroys cohort when fired', () => {
+        collectFresh('bigger_paddle');
+        const cohort = scene.powerUpLegend;
+        const destroyFns = cohort.map((t: any) => t.destroy);
+        const timerCb = scene.powerUpLegendHideTimer?.callback;
+        expect(typeof timerCb).toBe('function');
+        // Simulate the Phaser delayedCall firing at DISPLAY_MS.
+        timerCb();
+        // Under the default motion path, hidePowerUpLegend schedules a fade
+        // tween rather than destroying synchronously. Invoke the fade's
+        // onComplete to confirm the terminal cleanup path destroys everything.
+        const fadeCall = scene.tweens.add.mock.calls.find(
+          (c: any[]) => c[0].alpha === 0 && c[0].targets === cohort,
+        );
+        expect(fadeCall).toBeTruthy();
+        fadeCall[0].onComplete?.();
+        for (const d of destroyFns) expect(d).toHaveBeenCalled();
       });
     });
   });

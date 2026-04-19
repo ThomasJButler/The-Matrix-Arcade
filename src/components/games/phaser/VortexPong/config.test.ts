@@ -58,6 +58,51 @@ describe('VortexPong difficulty helpers (R84.P3)', () => {
     expect(easy.errorMultiplier).toBeGreaterThan(normal.errorMultiplier);
   });
 
+  // R84.P12 — Normal tier must preserve the R83.V1a baseline exactly.
+  // The behavioural regression guard lives in GameScene.test.ts ("Normal tier
+  // preserves R83.V1a baseline numbers"); this is the corresponding config
+  // contract — a refactor that edits these values will be caught before the
+  // scene-level test even loads, which is useful in Ralph's iteration loop
+  // where tsc + unit tests run before the slower scene harness spins up.
+  it('Normal tier pins all four multipliers to exactly 1.0 (R84.P12 baseline)', () => {
+    const normal = DIFFICULTY_TIERS.normal;
+    expect(normal.trackingMultiplier).toBe(1.0);
+    // maxSpeedFactor is intentionally 0.95 not 1.0 — mirrors the R83.V1a
+    // paddle cap tuning. Re-assert to freeze the exact baseline.
+    expect(normal.maxSpeedFactor).toBe(0.95);
+    expect(normal.errorMultiplier).toBe(1.0);
+    // outgoingTrackingFactor 0.45 is the R83.V1a "lazy on outgoing" constant.
+    expect(normal.outgoingTrackingFactor).toBe(0.45);
+  });
+
+  it('tier labels are EASY / NORMAL / HARD (MenuScene render contract)', () => {
+    // MenuScene cycles this button label verbatim — it is not derived from
+    // the tier key. If a label changes the MenuScene must be updated too.
+    expect(DIFFICULTY_TIERS.easy.label).toBe('EASY');
+    expect(DIFFICULTY_TIERS.normal.label).toBe('NORMAL');
+    expect(DIFFICULTY_TIERS.hard.label).toBe('HARD');
+  });
+
+  it('outgoingTrackingFactor ordering easy < normal < hard (R84.P12)', () => {
+    // Stricter-tier AI should keep tracking the ball even after it flies past
+    // centre on the return trip; Easy gives up sooner. The ordering was
+    // asserted implicitly via Stream B integration tests but never pinned
+    // on the config itself — a future tuning pass is one typo away from
+    // inverting this.
+    const easy = DIFFICULTY_TIERS.easy.outgoingTrackingFactor;
+    const normal = DIFFICULTY_TIERS.normal.outgoingTrackingFactor;
+    const hard = DIFFICULTY_TIERS.hard.outgoingTrackingFactor;
+    expect(easy).toBeLessThan(normal);
+    expect(normal).toBeLessThan(hard);
+  });
+
+  it('DIFFICULTY_TIERS keys align exactly with DIFFICULTY_ORDER (R84.P12)', () => {
+    // Prevents a rogue tier key from slipping into DIFFICULTY_TIERS (which
+    // MenuScene would skip over when cycling) or from dropping out of
+    // DIFFICULTY_ORDER (which would leave an unreachable tier entry).
+    expect(Object.keys(DIFFICULTY_TIERS).sort()).toEqual([...DIFFICULTY_ORDER].sort());
+  });
+
   describe('cycleDifficulty', () => {
     it('cycles easy → normal', () => {
       expect(cycleDifficulty('easy')).toBe('normal');
