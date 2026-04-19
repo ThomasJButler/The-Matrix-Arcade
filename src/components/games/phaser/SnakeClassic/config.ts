@@ -6,7 +6,14 @@ import { SnakeGameOverScene } from './scenes/GameOverScene';
 import { HighScoreEntryScene } from '../../../../lib/phaser/scenes/HighScoreEntryScene';
 
 export type Direction = 'up' | 'down' | 'left' | 'right';
-export type PowerUpType = 'speed' | 'double' | 'shield' | 'ghost';
+export type PowerUpType =
+  | 'speed'
+  | 'double'
+  | 'shield'
+  | 'ghost'
+  | 'reverse'
+  | 'hyper'
+  | 'glitch';
 
 export interface Position {
   x: number;
@@ -40,6 +47,18 @@ export const GAME_CONFIG = {
   SPEED_POWERUP_BONUS: 30,
   DOUBLE_POWERUP_COUNT: 3,
   GHOST_POWERUP_DURATION: 7000,
+  // R84.S3 — Power-up variety expansion. Tom: "needs more power-up variety".
+  // Durations chosen to match the plan brief (reverse 5s, hyper 10s, glitch 3s)
+  // and to stay inside the short feedback loop of a Snake run — a 10s hyper
+  // is long enough to rack up meaningful 2× points, a 5s reverse is long
+  // enough to sting but short enough to recover from, and a 3s glitch is
+  // short enough that obscuring the screen reads as "risk sacrifice for
+  // bonus points" rather than "unplayable".
+  REVERSE_POWERUP_DURATION: 5000,
+  HYPER_POWERUP_DURATION: 10000,
+  GLITCH_POWERUP_DURATION: 3000,
+  GLITCH_PICKUP_BONUS: 100,
+  REVERSE_PICKUP_BONUS: 50,
 } as const;
 
 export const POWERUP_DEFS: Record<PowerUpType, { color: number; label: string }> = {
@@ -47,7 +66,28 @@ export const POWERUP_DEFS: Record<PowerUpType, { color: number; label: string }>
   double: { color: 0x0099ff, label: '2X' },
   shield: { color: 0xff00ff, label: 'SHIELD' },
   ghost: { color: 0x00ffff, label: 'GHOST' },
+  // R84.S3 — reverse (RED 0xff3333 — signals "challenge/danger"),
+  // hyper (GOLD 0xffaa00 — distinct from YELLOW used by SLOW),
+  // glitch (VIOLET 0xaa00ff — distinct from shield's MAGENTA).
+  reverse: { color: 0xff3333, label: 'REVERSE' },
+  hyper: { color: 0xffaa00, label: 'HYPER' },
+  glitch: { color: 0xaa00ff, label: 'GLITCH' },
 };
+
+// R84.S3 — Glitch rain overlay parameters. Denser than the R84.S2 play-area
+// rain and higher alpha so the 3s effect reads as "screen momentarily taken
+// over by raw code" — the risk/reward tradeoff for the +GLITCH_PICKUP_BONUS
+// score bump is that gameplay continues behind the overlay (grid collisions
+// unchanged) and the player must remember the snake's trajectory.
+export const GLITCH_RAIN = {
+  DENSITY: 80,
+  ALPHA: 0.55,
+  FONT_SIZE: 14,
+  DEPTH: 200,
+  SPEED_MIN: 120,
+  SPEED_MAX: 260,
+  GLYPHS: 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモ0123456789',
+} as const;
 
 // R84.S2 — Matrix funkiness depth pass. Three atmospheric layers stacked on
 // top of the R83.S1 background rain + scanline + chromatic aberration. Tom's
