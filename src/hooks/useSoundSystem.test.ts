@@ -513,10 +513,38 @@ describe('useSoundSystem', () => {
     expect(result.current.soundLibrary).toContain('jump');
     expect(result.current.soundLibrary).toContain('powerup');
     expect(result.current.soundLibrary).toContain('gameOver');
-    
+
     expect(result.current.musicSequences).toContain('menu');
     expect(result.current.musicSequences).toContain('gameplay');
     expect(result.current.musicSequences).toContain('intense');
+  });
+
+  // R83.CTRLS.10: chapter-cut whoosh is mapped to an MP3 but must also have a
+  // procedural synth fallback — without it, the cold-start window (before
+  // preloadAudioFiles finishes) warned "Sound effect 'ctrlsTransition' not
+  // found in library" on every JACK IN and chapter-complete transition.
+  it('includes ctrlsTransition synth fallback for the cold-start window', () => {
+    const { result } = renderHook(() => useSoundSystem());
+    expect(result.current.soundLibrary).toContain('ctrlsTransition');
+  });
+
+  // R83.CTRLS.10: plays cleanly without warning even if the AudioBuffer cache
+  // is empty (simulating the race between scene start and preload completion).
+  it('plays ctrlsTransition via synth without warnings when the buffer cache is cold', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { result } = renderHook(() => useSoundSystem());
+
+    await act(async () => {
+      await result.current.playSFX('ctrlsTransition');
+    });
+
+    expect(
+      warnSpy.mock.calls.some(
+        ([msg]) => typeof msg === 'string' && msg.includes("'ctrlsTransition'") && msg.includes('not found')
+      )
+    ).toBe(false);
+    expect(mockOscillator.start).toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 
   it('handles closed audio context gracefully', async () => {
