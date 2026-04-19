@@ -221,6 +221,62 @@ describe('GamePortal paused-state indicator', () => {
   });
 });
 
+// R83.G5 — CRT-boot overlay masks Phaser's Scale.FIT mount flicker. Lock in
+// that the overlay mounts on play-boundary, clears after the 400 ms timer, and
+// never leaks outside play mode. Timer-based — these tests use fake timers so
+// the 400 ms cover is deterministic without slowing the suite.
+describe('GamePortal CRT boot-cover (R83.G5)', () => {
+  const makeGames = () => [
+    {
+      id: 'snake-classic',
+      title: 'Snake Classic',
+      description: 'test',
+      preview: 'preview.png',
+      category: 'Arcade' as const,
+      inspiration: '',
+      inspirationNote: '',
+      controls: '',
+      component: () => null,
+      icon: null,
+    },
+  ];
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('mounts the boot overlay immediately when isPlaying goes true', () => {
+    render(<GamePortal {...makeProps({ games: makeGames(), isPlaying: true })} />);
+    const overlay = screen.getByTestId('ipod-boot-overlay');
+    expect(overlay).toBeInTheDocument();
+    expect(overlay).toHaveTextContent('Snake Classic');
+    expect(overlay).toHaveTextContent(/INITIALISING MATRIX/);
+    expect(overlay).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('unmounts the boot overlay after the 400 ms cover elapses', () => {
+    render(<GamePortal {...makeProps({ games: makeGames(), isPlaying: true })} />);
+    expect(screen.getByTestId('ipod-boot-overlay')).toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(screen.queryByTestId('ipod-boot-overlay')).not.toBeInTheDocument();
+  });
+
+  it('never renders the boot overlay outside of play mode', () => {
+    render(<GamePortal {...makeProps({ games: makeGames(), isPlaying: false })} />);
+    expect(screen.queryByTestId('ipod-boot-overlay')).not.toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+    expect(screen.queryByTestId('ipod-boot-overlay')).not.toBeInTheDocument();
+  });
+});
+
 describe('GamePortal dashbar mute toggle', () => {
   const makeGames = () => [
     {

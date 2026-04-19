@@ -186,6 +186,26 @@ export function GamePortal({
     prevIsPlaying.current = isPlaying;
   }, [isPlaying, shouldReduceMotion, containerRef]);
 
+  // R83.G5: CRT-boot overlay masks Phaser's Scale.FIT mount flicker (canvas
+  // attaches at native size, then asynchronously resizes to fill the parent —
+  // the 1-2 intermediate frames read as "snap from left/middle then expand").
+  // Cover is time-based, independent of Suspense: fires on every play boundary
+  // even for already-loaded games. 400 ms is the upper of Tom's 300–400 ms
+  // range; long enough to swallow the Scale.FIT tick + Phaser `ready` event
+  // on a cold launch, short enough to feel snappy. Keyed on game.id so
+  // switching games mid-session would re-trigger, but that can't happen
+  // (dashbar lacks prev/next in play mode). Cleared on unmount + on exit.
+  const [isBooting, setIsBooting] = useState(false);
+  useEffect(() => {
+    if (!isPlaying) {
+      setIsBooting(false);
+      return;
+    }
+    setIsBooting(true);
+    const handle = window.setTimeout(() => setIsBooting(false), 400);
+    return () => window.clearTimeout(handle);
+  }, [isPlaying, selectedGame]);
+
   // R82.13: debounce screen-reader announcements of carousel navigation so
   // rapid arrow-keying / held jump-nav keys don't spam assistive tech with
   // every transient game the user skates past. `aria-live="polite"` alone
@@ -558,6 +578,24 @@ export function GamePortal({
                       />
                     </Suspense>
                   </GameErrorBoundary>
+                  {/* R83.G5: time-based boot overlay hides Phaser's Scale.FIT
+                      mount flicker. See the `isBooting` effect above for why. */}
+                  {isBooting && (
+                    <div
+                      className="ipod-boot-overlay"
+                      data-testid="ipod-boot-overlay"
+                      aria-hidden="true"
+                    >
+                      <div className="ipod-boot-scanline" />
+                      <div className="ipod-boot-rain" aria-hidden="true">
+                        {Array.from({ length: 12 }).map((_, i) => (
+                          <span key={i} className="ipod-boot-rain-col" style={{ animationDelay: `${i * 30}ms` }} />
+                        ))}
+                      </div>
+                      <div className="ipod-boot-title">{game.title}</div>
+                      <div className="ipod-boot-status">INITIALISING MATRIX…</div>
+                    </div>
+                  )}
                   {/* Screen-level pause scrim — mirrors the amber `.dashbar-centre.is-paused`
                       hue so eyes-on-screen players see the same affordance. Pointer-events
                       disabled so the underlying game canvas keeps its native cursor and
