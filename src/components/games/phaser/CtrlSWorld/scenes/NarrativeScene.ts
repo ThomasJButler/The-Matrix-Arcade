@@ -711,7 +711,12 @@ export class CtrlSNarrativeScene extends BaseScene {
       this.waitingForTerminal
     ) return;
 
-    this.playSound('menu');
+    // R83.CTRLS.19 — replace the tonal `menu` blip with a soft matrix click
+    // that reads as a terminal key tap. Fires on both the skip-to-done press
+    // (TYPING state) and the advance-to-next press (WAITING state) — the
+    // early-return above already suppresses it while puzzle/choice/terminal
+    // overlays own the SPACE key, so rapid taps during gameplay don't stack.
+    this.playSound('ctrlsAdvance');
     if (this.cursorBlink && this.cursorBlink.visible) {
       this.cursorScaleTween?.stop();
       this.cursorBlink.setScale(1);

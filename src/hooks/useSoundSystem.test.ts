@@ -146,6 +146,28 @@ describe('useSoundSystem', () => {
     expect(mockOscillator.frequency.exponentialRampToValueAtTime).toHaveBeenCalledWith(900, 0.3);
   });
 
+  // R83.CTRLS.19 — the CTRL-S paragraph-advance click must be a procedural
+  // square wave at 1200 Hz through a 2 kHz lowpass, 20 ms total, scaled to
+  // 0.15. If any of these shift, the SFX stops reading as a soft terminal
+  // tap and starts fighting the dread drone mix. Lock the whole recipe.
+  it('ctrlsAdvance fires as a 20ms square-wave click through a 2kHz lowpass', async () => {
+    const { result } = renderHook(() => useSoundSystem());
+
+    await act(async () => {
+      await result.current.playSFX('ctrlsAdvance');
+    });
+
+    expect(mockOscillator.type).toBe('square');
+    expect(mockOscillator.frequency.setValueAtTime).toHaveBeenCalledWith(1200, 0);
+    expect(mockOscillator.frequency.exponentialRampToValueAtTime).toHaveBeenCalledWith(1200, 0.02);
+    expect(mockFilter.type).toBe('lowpass');
+    expect(mockFilter.frequency.setValueAtTime).toHaveBeenCalledWith(2000, 0);
+    // volumeScale 0.15 multiplies the attack peak, so the first linear ramp
+    // target on the envelope gain must land at 0.15 (not the default 1).
+    const gainRamps = mockGainNode.gain.linearRampToValueAtTime.mock.calls;
+    expect(gainRamps.some(([v]) => v === 0.15)).toBe(true);
+  });
+
   it('plays background music when enabled', async () => {
     const { result } = renderHook(() => useSoundSystem());
 
