@@ -103,6 +103,19 @@ export class SnakeGameScene extends BaseScene {
 
   private achievementsUnlocked: Set<string> = new Set();
 
+  // R84.CI-4: SR score-milestone announcements. Mirrors Matrix Bird's CI-2
+  // pattern via the shared `scoreMilestone` bridge event. Unlike Bird we do
+  // NOT fire an extra SFX here — Snake's `levelUp` stinger already fires at
+  // every POINTS_PER_SPEED_UP (50 pts) boundary, which matches the 50/100/250
+  // thresholds; layering a second sighted cue on top would crowd the mix. The
+  // 500 threshold sits beyond the first speed-up wave and marks the longest-
+  // run landmark Tom observed during V2 playtest. Set membership is keyed on
+  // the threshold (not the current score) so a reverse/glitch pickup that
+  // jumps 45 → 120 pts fires both the 50 and 100 announcements on the same
+  // frame without repeats on the next food tick.
+  private static readonly SCORE_MILESTONES = [50, 100, 250, 500] as const;
+  private milestonesHit: Set<number> = new Set();
+
   constructor() {
     super({ key: SCENE_KEYS.GAME });
   }
@@ -204,6 +217,23 @@ export class SnakeGameScene extends BaseScene {
     this.dreadActive = false;
     this.dreadIntensity = 0;
     this.achievementsUnlocked = new Set();
+    // R84.CI-4: clear milestone tracker so a restart re-announces the early
+    // thresholds to AT users just like the sighted levelUp SFX re-plays.
+    this.milestonesHit = new Set();
+  }
+
+  // R84.CI-4: emit `scoreMilestone` events for each newly-crossed threshold.
+  // Called from every path that mutates `this.score` (eatFood, reverse pickup
+  // bonus, glitch pickup bonus). Safe to call even if no thresholds were
+  // crossed — the set guard makes it idempotent. The React bridge
+  // (PhaserGame.tsx) routes the event into the shared SR live region.
+  private checkScoreMilestones(): void {
+    for (const threshold of SnakeGameScene.SCORE_MILESTONES) {
+      if (this.score >= threshold && !this.milestonesHit.has(threshold)) {
+        this.milestonesHit.add(threshold);
+        this.emitGameEvent({ type: 'scoreMilestone', data: { value: threshold } });
+      }
+    }
   }
 
   // ─── Grid ──────────────────────────────────────────────
@@ -723,6 +753,10 @@ export class SnakeGameScene extends BaseScene {
       this.highScore = this.score;
     }
     this.reportScore(this.score, this.highScore);
+    // R84.CI-4: AT users hear silence on the 50/100/250/500-pt landmarks
+    // otherwise; emit before the bonus-food cadence block so the SR update
+    // lands in the same frame as the levelUp stinger sighted players hear.
+    this.checkScoreMilestones();
 
     // Seed the next spawn as bonus on a fixed food-count cadence. Evaluated
     // here (not in spawnFood) so the cadence is deterministic w.r.t. food
@@ -873,6 +907,7 @@ export class SnakeGameScene extends BaseScene {
         this.score += GAME_CONFIG.REVERSE_PICKUP_BONUS;
         if (this.score > this.highScore) this.highScore = this.score;
         this.reportScore(this.score, this.highScore);
+        this.checkScoreMilestones();
         if (this.reversePowerUpTimer) this.reversePowerUpTimer.destroy();
         this.reversePowerUpTimer = this.time.delayedCall(
           GAME_CONFIG.REVERSE_POWERUP_DURATION,
@@ -902,6 +937,7 @@ export class SnakeGameScene extends BaseScene {
         this.score += GAME_CONFIG.GLITCH_PICKUP_BONUS;
         if (this.score > this.highScore) this.highScore = this.score;
         this.reportScore(this.score, this.highScore);
+        this.checkScoreMilestones();
         this.showGlitchOverlay();
         if (this.glitchPowerUpTimer) this.glitchPowerUpTimer.destroy();
         this.glitchPowerUpTimer = this.time.delayedCall(
