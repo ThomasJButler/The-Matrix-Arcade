@@ -8,6 +8,7 @@ import {
   DREAD_BUILDUP,
   FOOD_PICKUP_JUICE,
   GLITCH_RAIN,
+  HUD_X,
   MATRIX_FUNKINESS,
   POWERUP_DEFS,
   OPPOSITE_DIRECTIONS,
@@ -356,8 +357,8 @@ export class SnakeGameScene extends BaseScene {
   // ─── HUD ───────────────────────────────────────────────
 
   private createHUD(): void {
-    const leftX = 100;
-    const rightX = 700;
+    const leftX = HUD_X.LEFT_X;
+    const rightX = HUD_X.RIGHT_X;
 
     this.createMatrixText(leftX, 40, 'SCORE', 10, MATRIX_COLORS.PRIMARY_HEX);
     this.scoreText = this.createMatrixText(leftX, 65, '00000', 12, MATRIX_COLORS.PRIMARY_HEX);
@@ -399,7 +400,7 @@ export class SnakeGameScene extends BaseScene {
     this.powerUpIndicators.forEach(t => t.destroy());
     this.powerUpIndicators.clear();
 
-    const rightX = 700;
+    const rightX = HUD_X.RIGHT_X;
     let y = 70;
 
     if (this.speedSlowed) {
