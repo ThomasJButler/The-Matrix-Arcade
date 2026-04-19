@@ -467,6 +467,11 @@ export class MatrixCloudGameScene extends BaseScene {
       this.onLevelUp(prevLevel);
     }
 
+    // R83.G6: lift this.highScore before reporting so the persisted save grows
+    // with the run. Without this, the dashbar trophy modal showed a stale value
+    // because reportScore would echo the loaded highScore back to the save.
+    // All 11 other Phaser games already follow this pattern; Matrix Bird drifted.
+    if (this.score > this.highScore) this.highScore = this.score;
     this.reportScore(this.score, this.highScore);
   }
 
