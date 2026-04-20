@@ -429,3 +429,119 @@ describe('AttractMode reduced-motion (R84.CI-11)', () => {
     }
   });
 });
+
+describe('AttractMode cycle-position dots (R84.CI-12)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    framerMock.reducedMotion = false;
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    framerMock.reducedMotion = false;
+  });
+
+  const renderBoards = (boards: Scoreboards) =>
+    render(<AttractMode scoreboards={boards} lastInitials="ABC" enabled />);
+
+  const activate = () => {
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+  };
+
+  it('renders one dot per cycle entry when the cycle has >1 entries', () => {
+    // Empty-arcade fallback forces the 3-entry priority trio, so a fresh
+    // install exercises the dots row out of the box.
+    const { getByTestId } = renderBoards(emptyBoards());
+    activate();
+    const dotsRow = getByTestId('attract-cycle-dots');
+    expect(dotsRow.children).toHaveLength(3);
+  });
+
+  it('marks the first dot as active on the first slide', () => {
+    // Tripwire: data-active wiring must track gameIndex. Without this pin a
+    // refactor that forgets to pass `i === gameIndex` would leave every dot
+    // in the dim colour and break the navigation signal.
+    const { getByTestId } = renderBoards(emptyBoards());
+    activate();
+    const dots = getByTestId('attract-cycle-dots').children;
+    expect(dots[0].getAttribute('data-active')).toBe('true');
+    expect(dots[1].getAttribute('data-active')).toBe('false');
+    expect(dots[2].getAttribute('data-active')).toBe('false');
+  });
+
+  it('shifts the active dot to the next index after a 5s cycle advance', () => {
+    // Regression pin: the dots must track cycle advancement so the user
+    // sees a visible "progress" signal during long idle.
+    const { getByTestId } = renderBoards(emptyBoards());
+    activate();
+    act(() => {
+      vi.advanceTimersByTime(5_000);
+    });
+    const dots = getByTestId('attract-cycle-dots').children;
+    expect(dots[0].getAttribute('data-active')).toBe('false');
+    expect(dots[1].getAttribute('data-active')).toBe('true');
+    expect(dots[2].getAttribute('data-active')).toBe('false');
+  });
+
+  it('hides the dots row entirely when the cycle has a single entry', () => {
+    // A lone populated non-trio game produces a 1-entry cycle. The dots row
+    // is a navigation indicator — one dot is visual noise, not a signal.
+    const boards = emptyBoards();
+    boards.metris = [entry(1)];
+    const { queryByTestId } = renderBoards(boards);
+    activate();
+    expect(queryByTestId('attract-cycle-dots')).toBeNull();
+  });
+
+  it('updates aria-label with the current position for screen-reader users', () => {
+    // Load-bearing a11y contract: a row of bullet chars is unreadable by
+    // screen readers, so the group-level label is the spoken signal. Must
+    // update on every cycle advance, not just mount.
+    const { getByTestId } = renderBoards(emptyBoards());
+    activate();
+    const dotsRow = getByTestId('attract-cycle-dots');
+    expect(dotsRow.getAttribute('aria-label')).toBe('Cycle position: slide 1 of 3');
+    act(() => {
+      vi.advanceTimersByTime(5_000);
+    });
+    expect(dotsRow.getAttribute('aria-label')).toBe('Cycle position: slide 2 of 3');
+  });
+
+  it('applies transition: none on dots under reduced motion', () => {
+    // CI-11 gates every direct motion under `shouldReduceMotion`; the new
+    // dots row has its own CSS transition (colour + text-shadow) that must
+    // follow the same contract. Tripwire for a future dots tweak that
+    // hard-codes a transition regardless of the hook.
+    framerMock.reducedMotion = true;
+    const { getByTestId } = renderBoards(emptyBoards());
+    activate();
+    const activeDot = getByTestId('attract-cycle-dots').children[0] as HTMLElement;
+    expect(activeDot.style.transition).toBe('none');
+  });
+
+  it('keeps the smooth colour transition on dots when motion is allowed', () => {
+    // Baseline pin: under motion-allowed the transition string must be the
+    // 200ms ease pair so a regression dropping transitions entirely goes red.
+    framerMock.reducedMotion = false;
+    const { getByTestId } = renderBoards(emptyBoards());
+    activate();
+    const activeDot = getByTestId('attract-cycle-dots').children[0] as HTMLElement;
+    expect(activeDot.style.transition).toContain('200ms');
+    expect(activeDot.style.transition).toContain('color');
+    expect(activeDot.style.transition).toContain('text-shadow');
+  });
+
+  it('marks individual dots aria-hidden so screen readers only read the group label', () => {
+    // Tripwire for a refactor that adds per-dot labels — the group label is
+    // the single spoken string, so dots stay hidden from AT.
+    const { getByTestId } = renderBoards(emptyBoards());
+    activate();
+    const dots = getByTestId('attract-cycle-dots').children;
+    for (const dot of Array.from(dots)) {
+      expect(dot.getAttribute('aria-hidden')).toBe('true');
+    }
+  });
+});
