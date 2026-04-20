@@ -3,10 +3,19 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { MatrixRainCanvas } from '../ui/MatrixRainCanvas';
 import { ScoreTable } from './ScoreTable';
 import type { ScoreboardGameId, ScoreEntry } from '../../hooks/useSaveSystem';
+import type { SoundEffect } from '../../hooks/useSoundSystem';
 import { R84_PRIORITY_TRIO, selectAttractCycle } from './attractCycle';
 
 const IDLE_TIMEOUT_MS = 10_000;
 const GAME_DISPLAY_MS = 5_000;
+
+// Ascending E5 → G5 → B5 mini-arpeggio (a minor triad in first inversion) — a
+// short, calm "turn of the page" cue shaped around the existing ctrlsAdvance
+// square-wave envelope. 70ms stagger gives a distinct three-note feel without
+// overlapping the previous note's tail. Exported for tests so the pin moves
+// with the constant rather than drifting into a separate magic number.
+export const CYCLE_ADVANCE_NOTES = [659, 784, 988] as const;
+export const CYCLE_ADVANCE_STAGGER_MS = 70;
 
 const GAME_LABELS: Record<ScoreboardGameId, string> = {
   snakeClassic: 'Matrix Snake',
@@ -26,12 +35,22 @@ interface AttractModeProps {
   scoreboards: Record<ScoreboardGameId, ScoreEntry[]>;
   lastInitials: string;
   enabled?: boolean;
+  /** Optional SFX sink. When omitted (or when muted) the cycle-advance pluck is
+   *  silent. Matches the shape of `useSoundSystem().playSFX` so App.tsx can
+   *  pass it straight through. */
+  playSFX?: (soundType: string, customConfig?: Partial<SoundEffect>) => void;
+  /** When true, the cycle-advance pluck is suppressed. playSFX already checks
+   *  its internal `config.sfx` flag, but an explicit prop keeps the contract
+   *  observable in tests and makes the "muted" branch unmistakable in code. */
+  isMuted?: boolean;
 }
 
 export const AttractMode: React.FC<AttractModeProps> = ({
   scoreboards,
   lastInitials,
   enabled = true,
+  playSFX,
+  isMuted = false,
 }) => {
   const cycle = useMemo(() => selectAttractCycle(scoreboards), [scoreboards]);
   const cycleLength = cycle.length;
@@ -39,6 +58,10 @@ export const AttractMode: React.FC<AttractModeProps> = ({
   const [gameIndex, setGameIndex] = useState(0);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cycleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Previous gameIndex tracker: null when attract is inactive so the first slide
+  // of a freshly-opened attract session is silent (the cue means "transition
+  // happened", not "attract exists").
+  const previousIndexRef = useRef<number | null>(null);
 
   // Attract is purely decorative — skip fades, slides, and the pulse CTA under
   // prefers-reduced-motion. Framer's hook returns `null` on the server / first
@@ -98,6 +121,39 @@ export const AttractMode: React.FC<AttractModeProps> = ({
     if (cycleLength === 0) return;
     setGameIndex(prev => (prev >= cycleLength ? 0 : prev));
   }, [cycleLength]);
+
+  // Cycle-advance pluck: 3-note ascending arpeggio fired whenever the scoreboard
+  // rotates to the next entry. The first slide after idle-activation stays
+  // silent (previousIndexRef is reset to null on deactivation, so the first run
+  // of this effect sees `previous === null` and skips). Staggered via setTimeout
+  // so the three notes are distinct; cleaned up on next fire / unmount so fake
+  // timers in the test suite don't leak across cases.
+  useEffect(() => {
+    if (!active) {
+      previousIndexRef.current = null;
+      return;
+    }
+    const previous = previousIndexRef.current;
+    previousIndexRef.current = gameIndex;
+    if (previous === null || previous === gameIndex) return;
+    if (isMuted || !playSFX) return;
+
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    CYCLE_ADVANCE_NOTES.forEach((freq, i) => {
+      timers.push(
+        setTimeout(() => {
+          playSFX('ctrlsAdvance', {
+            frequency: { start: freq, end: freq },
+            duration: 0.08,
+            volumeScale: 0.08,
+          });
+        }, i * CYCLE_ADVANCE_STAGGER_MS),
+      );
+    });
+    return () => {
+      timers.forEach(clearTimeout);
+    };
+  }, [active, gameIndex, isMuted, playSFX]);
 
   const currentGame: ScoreboardGameId =
     cycle[gameIndex] ?? cycle[0] ?? R84_PRIORITY_TRIO[0];

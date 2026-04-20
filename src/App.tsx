@@ -804,6 +804,8 @@ function App() {
         scoreboards={saveData.scoreboards}
         lastInitials={saveData.lastInitials}
         enabled={showLandingPage && !isPlaying && !showScoreboard}
+        playSFX={playSFX}
+        isMuted={isMuted}
       />
 
       {/* Achievement System */}

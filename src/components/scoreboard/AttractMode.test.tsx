@@ -27,7 +27,11 @@ vi.mock('../ui/MatrixRainCanvas', () => ({
   MatrixRainCanvas: () => <div data-testid="matrix-rain-stub" />,
 }));
 
-import { AttractMode } from './AttractMode';
+import {
+  AttractMode,
+  CYCLE_ADVANCE_NOTES,
+  CYCLE_ADVANCE_STAGGER_MS,
+} from './AttractMode';
 import { R84_PRIORITY_TRIO, selectAttractCycle } from './attractCycle';
 import {
   SCOREBOARD_GAME_IDS,
@@ -543,5 +547,211 @@ describe('AttractMode cycle-position dots (R84.CI-12)', () => {
     for (const dot of Array.from(dots)) {
       expect(dot.getAttribute('aria-hidden')).toBe('true');
     }
+  });
+});
+
+describe('AttractMode cycle-advance pluck (R84.CI-14)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    framerMock.reducedMotion = false;
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    framerMock.reducedMotion = false;
+  });
+
+  const renderWithSFX = (playSFX: ReturnType<typeof vi.fn>, isMuted = false) => {
+    const boards = emptyBoards();
+    boards.snakeClassic = [entry(100)];
+    boards.vortexPong = [entry(200)];
+    boards.matrixCloud = [entry(300)];
+    return render(
+      <AttractMode
+        scoreboards={boards}
+        lastInitials="ABC"
+        enabled
+        playSFX={playSFX}
+        isMuted={isMuted}
+      />,
+    );
+  };
+
+  const activate = () => {
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+  };
+
+  it('is silent on the first slide after attract activation', () => {
+    // The cue means "transition happened", not "attract exists". Firing on
+    // the initial slide would collide with whatever audio was playing in the
+    // last second of landing-page interaction.
+    const playSFX = vi.fn();
+    renderWithSFX(playSFX);
+    activate();
+    // Let any 0ms setTimeout flush.
+    act(() => {
+      vi.advanceTimersByTime(CYCLE_ADVANCE_STAGGER_MS * CYCLE_ADVANCE_NOTES.length);
+    });
+    expect(playSFX).not.toHaveBeenCalled();
+  });
+
+  it('fires the 3-note ascending pluck on the first cycle advance', () => {
+    // Load-bearing: without this pin the cue could silently disappear under a
+    // refactor that breaks the gameIndex-change effect.
+    const playSFX = vi.fn();
+    renderWithSFX(playSFX);
+    activate();
+    // 5s cycle advance schedules three setTimeouts at 0/70/140ms.
+    act(() => {
+      vi.advanceTimersByTime(5_000);
+    });
+    // Note 1 fires at t+0ms.
+    act(() => {
+      vi.advanceTimersByTime(0);
+    });
+    // Note 2 fires at t+70ms.
+    act(() => {
+      vi.advanceTimersByTime(CYCLE_ADVANCE_STAGGER_MS);
+    });
+    // Note 3 fires at t+140ms.
+    act(() => {
+      vi.advanceTimersByTime(CYCLE_ADVANCE_STAGGER_MS);
+    });
+    expect(playSFX).toHaveBeenCalledTimes(3);
+    const calls = playSFX.mock.calls;
+    expect(calls[0][0]).toBe('ctrlsAdvance');
+    expect(calls[1][0]).toBe('ctrlsAdvance');
+    expect(calls[2][0]).toBe('ctrlsAdvance');
+    expect(calls[0][1]?.frequency).toEqual({
+      start: CYCLE_ADVANCE_NOTES[0],
+      end: CYCLE_ADVANCE_NOTES[0],
+    });
+    expect(calls[1][1]?.frequency).toEqual({
+      start: CYCLE_ADVANCE_NOTES[1],
+      end: CYCLE_ADVANCE_NOTES[1],
+    });
+    expect(calls[2][1]?.frequency).toEqual({
+      start: CYCLE_ADVANCE_NOTES[2],
+      end: CYCLE_ADVANCE_NOTES[2],
+    });
+  });
+
+  it('pins notes as an ascending sequence (no regression to a flat chord)', () => {
+    // Constant-level pin: a future tweak that flattens the three notes to the
+    // same pitch would lose the "ascending arpeggio" character Tom asked for
+    // in the R83.G9-style cue — keep the increasing-frequency invariant.
+    for (let i = 1; i < CYCLE_ADVANCE_NOTES.length; i++) {
+      expect(CYCLE_ADVANCE_NOTES[i]).toBeGreaterThan(CYCLE_ADVANCE_NOTES[i - 1]);
+    }
+  });
+
+  it('is silent when isMuted is true, even after multiple advances', () => {
+    // Load-bearing mute contract: the "Audio muted" toast announces silence,
+    // so the attract cue must honour the toggle. playSFX also no-ops when the
+    // sound system is muted internally, but the explicit prop gate keeps the
+    // attract-side contract observable in tests.
+    const playSFX = vi.fn();
+    renderWithSFX(playSFX, /* isMuted */ true);
+    activate();
+    act(() => {
+      vi.advanceTimersByTime(5_000);
+    });
+    act(() => {
+      vi.advanceTimersByTime(CYCLE_ADVANCE_STAGGER_MS * CYCLE_ADVANCE_NOTES.length);
+    });
+    expect(playSFX).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when playSFX is not provided (optional prop)', () => {
+    // Regression pin for a reverted App.tsx wiring that drops the prop — the
+    // component must still operate visually without an audio sink.
+    const boards = emptyBoards();
+    boards.snakeClassic = [entry(1)];
+    boards.vortexPong = [entry(2)];
+    expect(() => {
+      render(<AttractMode scoreboards={boards} lastInitials="ABC" enabled />);
+      act(() => {
+        vi.advanceTimersByTime(10_000 + 5_000 + 200);
+      });
+    }).not.toThrow();
+  });
+
+  // Advance a cycle tick + flush the staggered note setTimeouts in two
+  // act() blocks so React effects fire between the interval callback and
+  // the resulting setTimeouts. A single combined advanceTimersByTime() would
+  // fire the cycle-interval callback (queueing the three 0/70/140ms timers)
+  // but the effect that schedules them runs after act() drains — so those
+  // setTimeouts don't exist yet when the bigger advance runs. Two act()s
+  // bridge the React → timer handoff.
+  const flushCycleAdvance = () => {
+    act(() => {
+      vi.advanceTimersByTime(5_000);
+    });
+    act(() => {
+      vi.advanceTimersByTime(CYCLE_ADVANCE_STAGGER_MS * CYCLE_ADVANCE_NOTES.length);
+    });
+  };
+
+  it('passes volumeScale=0.08 so the cue sits below in-game SFX levels', () => {
+    // Mix-balance pin: the attract screen is background ambience; the cue
+    // must not clip or overpower a returning user's next interaction audio.
+    const playSFX = vi.fn();
+    renderWithSFX(playSFX);
+    activate();
+    flushCycleAdvance();
+    for (const call of playSFX.mock.calls) {
+      expect(call[1]?.volumeScale).toBe(0.08);
+    }
+  });
+
+  it('resets the previous-index tracker when attract exits, so the next activation is silent', () => {
+    // Without the ref reset the cue would fire on the first slide of the
+    // next attract session (because previousIndexRef still holds the last
+    // seen gameIndex from the previous session). Pin prevents that leak.
+    const playSFX = vi.fn();
+    renderWithSFX(playSFX);
+    activate();
+    flushCycleAdvance();
+    expect(playSFX).toHaveBeenCalledTimes(3);
+    playSFX.mockClear();
+
+    // User interaction exits attract.
+    act(() => {
+      fireEvent(window, new Event('pointermove'));
+    });
+    // Next idle activation — should be silent on the first slide.
+    activate();
+    act(() => {
+      vi.advanceTimersByTime(CYCLE_ADVANCE_STAGGER_MS * CYCLE_ADVANCE_NOTES.length);
+    });
+    expect(playSFX).not.toHaveBeenCalled();
+  });
+
+  it('fires on every subsequent cycle advance, not just the first', () => {
+    // Regression tripwire for a refactor that caches "has fired once" and
+    // suppresses later advances — each 5s rotation is its own event.
+    const playSFX = vi.fn();
+    renderWithSFX(playSFX);
+    activate();
+    flushCycleAdvance();
+    expect(playSFX).toHaveBeenCalledTimes(3);
+    playSFX.mockClear();
+    flushCycleAdvance();
+    expect(playSFX).toHaveBeenCalledTimes(3);
+  });
+
+  it('still fires under reduced-motion (audio and motion are independent a11y dimensions)', () => {
+    // Reduced-motion suppresses visual transitions; it does NOT mute. AT users
+    // who rely on audio landmarks still benefit from the cue, and the WCAG
+    // reduced-motion contract is scoped to vestibular triggers, not audio.
+    framerMock.reducedMotion = true;
+    const playSFX = vi.fn();
+    renderWithSFX(playSFX);
+    activate();
+    flushCycleAdvance();
+    expect(playSFX).toHaveBeenCalledTimes(3);
   });
 });
