@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Play, Monitor, Keyboard, Trophy } from 'lucide-react';
 import type { GameCategory } from '../types/game';
 import { GAME_REGISTRY, type GameEntry } from '../data/gameRegistry';
@@ -24,6 +24,22 @@ export default function LandingPage({ onSelectGame, onClose, onShowScoreboard }:
   const [activeCategory, setActiveCategory] = useState<GameCategory | 'All'>('All');
   const [showControls, setShowControls] = useState(false);
   const inTestMode = typeof window !== 'undefined' && window.__TEST__;
+
+  // All landing-page animations are decorative chrome — stagger entries, hero
+  // y-translations, card hover scale, rain-backdrop pulse. Collapse every
+  // vestibular-adjacent transform when the UA advertises
+  // prefers-reduced-motion: reduce. Framer's hook returns null on SSR / first
+  // paint; coerce to false so default-to-motion-allowed stays explicit.
+  const shouldReduceMotion = useReducedMotion() ?? false;
+  const cardEntryY = shouldReduceMotion ? 0 : 30;
+  const heroEntryY = shouldReduceMotion ? 0 : 20;
+  const cardStaggerBase = shouldReduceMotion ? 0 : 0.05;
+  const cardStaggerStep = shouldReduceMotion ? 0 : 0.03;
+  const heroDelayStep = shouldReduceMotion ? 0 : 0.1;
+  // Keep the opacity fade on hover (not vestibular) but drop the scale transform.
+  const cardImageClass = shouldReduceMotion
+    ? 'w-full h-full object-cover opacity-70 group-hover:opacity-90 transition-opacity duration-500'
+    : 'w-full h-full object-cover opacity-70 group-hover:opacity-90 group-hover:scale-105 transition-all duration-500';
 
   // E2E ready marker so tests can wait on the landing grid being live.
   useEffect(() => {
@@ -46,9 +62,13 @@ export default function LandingPage({ onSelectGame, onClose, onShowScoreboard }:
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 bg-black overflow-y-auto"
+      data-reduced-motion={shouldReduceMotion ? 'true' : 'false'}
     >
-      {/* Matrix rain background effect — skipped in test mode for pixel-stable baselines */}
-      {!inTestMode && (
+      {/* Matrix rain background effect — skipped in test mode for pixel-stable
+          baselines AND under prefers-reduced-motion (continuous animate-pulse
+          across 20 overlapping text strips is exactly the kind of persistent
+          decorative motion WCAG 2.2.2 asks UAs to let users suppress). */}
+      {!inTestMode && !shouldReduceMotion && (
         <div className="fixed inset-0 opacity-5 pointer-events-none overflow-hidden">
           {Array.from({ length: 20 }).map((_, i) => (
             <div
@@ -135,18 +155,18 @@ export default function LandingPage({ onSelectGame, onClose, onShowScoreboard }:
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
           <div>
             <motion.h2
-              initial={{ y: 20, opacity: 0 }}
+              initial={{ y: heroEntryY, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.1 }}
+              transition={{ delay: heroDelayStep }}
               className="text-green-400 text-2xl md:text-3xl tracking-wide phosphor-glow mb-1"
               style={{ fontFamily: 'var(--matrix-font-title)' }}
             >
               Choose Your Program
             </motion.h2>
             <motion.p
-              initial={{ y: 20, opacity: 0 }}
+              initial={{ y: heroEntryY, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.2 }}
+              transition={{ delay: heroDelayStep * 2 }}
               className="text-green-500/70 font-mono text-xs"
             >
               {GAME_DATA.length} programs recovered from terminals inside the simulation
@@ -154,9 +174,9 @@ export default function LandingPage({ onSelectGame, onClose, onShowScoreboard }:
           </div>
 
           <motion.div
-            initial={{ y: 20, opacity: 0 }}
+            initial={{ y: heroEntryY, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.3 }}
+            transition={{ delay: heroDelayStep * 3 }}
             className="flex flex-wrap gap-2"
           >
             <button
@@ -198,9 +218,9 @@ export default function LandingPage({ onSelectGame, onClose, onShowScoreboard }:
           {filteredGames.map((game, index) => (
             <motion.div
               key={game.title}
-              initial={{ y: 30, opacity: 0 }}
+              initial={{ y: cardEntryY, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.05 + index * 0.03 }}
+              transition={{ delay: cardStaggerBase + index * cardStaggerStep }}
               onClick={() => onSelectGame(getOriginalIndex(index))}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectGame(getOriginalIndex(index)); } }}
               role="button"
@@ -215,7 +235,7 @@ export default function LandingPage({ onSelectGame, onClose, onShowScoreboard }:
                     src={game.preview}
                     alt=""
                     aria-hidden="true"
-                    className="w-full h-full object-cover opacity-70 group-hover:opacity-90 group-hover:scale-105 transition-all duration-500"
+                    className={cardImageClass}
                   />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-green-900/20 to-black" />
