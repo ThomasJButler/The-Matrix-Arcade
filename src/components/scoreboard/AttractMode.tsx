@@ -171,6 +171,37 @@ export const AttractMode: React.FC<AttractModeProps> = ({
               </motion.div>
             </AnimatePresence>
 
+            {cycleLength > 1 && (
+              <div
+                className="mt-4 flex justify-center gap-2"
+                role="group"
+                aria-label={`Cycle position: slide ${gameIndex + 1} of ${cycleLength}`}
+                data-testid="attract-cycle-dots"
+              >
+                {cycle.map((id, i) => {
+                  const isActive = i === gameIndex;
+                  return (
+                    <span
+                      key={id}
+                      data-active={isActive ? 'true' : 'false'}
+                      aria-hidden="true"
+                      style={{
+                        fontFamily: '"Press Start 2P", monospace',
+                        fontSize: '10px',
+                        color: isActive ? '#00ff00' : 'rgba(0, 255, 0, 0.3)',
+                        textShadow: isActive ? '0 0 6px #00ff00' : 'none',
+                        transition: shouldReduceMotion
+                          ? 'none'
+                          : 'color 200ms ease, text-shadow 200ms ease',
+                      }}
+                    >
+                      •
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
             <p
               className={insertCoinClass}
               style={{
