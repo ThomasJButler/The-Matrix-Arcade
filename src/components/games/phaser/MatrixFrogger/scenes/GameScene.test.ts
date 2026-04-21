@@ -762,6 +762,127 @@ describe('FroggerGameScene', () => {
   });
 
   // -----------------------------------------------------------------------
+  // R86.F2 — Countdown-gated spawn arming
+  //
+  // Tom repro (MANUAL_TESTING_CHECKLIST_Matrix_Frogger.md line 44):
+  // *"5-second countdown fires correctly after menu - no 5 second countdown"*
+  //
+  // Root cause (same cascade R85.M2 fixed for Metris): create() pre-spawned
+  // enemies + pills and armed 2s/3s interval spawn timers BEFORE calling
+  // startCountdown(). The countdown digit painted at depth 200 but the board
+  // already had moving traffic visible underneath, so the pre-game moment
+  // visually read as "gameplay already running" — even though `update()`
+  // gated enemy movement, new spawns fired mid-countdown, defeating the
+  // pre-game pause.
+  //
+  // Fix is two-pronged defence-in-depth: (a) gameplay arming is funnelled
+  // through `armGameplay()` which is passed as startCountdown's onComplete,
+  // so no spawn timer arms during the 5s window; (b) spawnEnemy/spawnPills
+  // themselves early-return on `isCountingDown || isGameOver || isLevelingUp`
+  // so a future refactor that rearms the timer pre-countdown cannot
+  // resurrect the original bug.
+  // -----------------------------------------------------------------------
+  describe('R86.F2 — Countdown-gated spawn arming', () => {
+    it('spawnEnemy no-ops while isCountingDown (pre-game moment is clean)', () => {
+      scene.isCountingDown = true;
+      scene.lanes = undefined; // would throw past the guard
+      scene.enemies = { get: vi.fn() };
+      expect(() => scene.spawnEnemy()).not.toThrow();
+      expect(scene.enemies.get).not.toHaveBeenCalled();
+    });
+
+    it('spawnEnemy no-ops while isGameOver (stray timer tick after death)', () => {
+      scene.isGameOver = true;
+      scene.lanes = undefined;
+      scene.enemies = { get: vi.fn() };
+      expect(() => scene.spawnEnemy()).not.toThrow();
+      expect(scene.enemies.get).not.toHaveBeenCalled();
+    });
+
+    it('spawnEnemy no-ops while isLevelingUp (pairs with R86.F1 level-up gate)', () => {
+      scene.isLevelingUp = true;
+      scene.lanes = undefined;
+      scene.enemies = { get: vi.fn() };
+      expect(() => scene.spawnEnemy()).not.toThrow();
+      expect(scene.enemies.get).not.toHaveBeenCalled();
+    });
+
+    it('spawnPills no-ops while isCountingDown', () => {
+      const getSpy = vi.fn();
+      scene.pills = { get: getSpy };
+      scene.isCountingDown = true;
+      scene.spawnPills();
+      expect(getSpy).not.toHaveBeenCalled();
+    });
+
+    it('spawnPills no-ops while isGameOver', () => {
+      const getSpy = vi.fn();
+      scene.pills = { get: getSpy };
+      scene.isGameOver = true;
+      scene.spawnPills();
+      expect(getSpy).not.toHaveBeenCalled();
+    });
+
+    it('spawnPills no-ops while isLevelingUp', () => {
+      const getSpy = vi.fn();
+      scene.pills = { get: getSpy };
+      scene.isLevelingUp = true;
+      scene.spawnPills();
+      expect(getSpy).not.toHaveBeenCalled();
+    });
+
+    it('armGameplay spawns the first wave and arms both interval timers', () => {
+      scene.isGameOver = false;
+      scene.spawnInitialEnemies = vi.fn();
+      scene.spawnPills = vi.fn();
+      const addEventSpy = vi.fn();
+      scene.time = { addEvent: addEventSpy };
+
+      scene.armGameplay();
+
+      expect(scene.spawnInitialEnemies).toHaveBeenCalledTimes(1);
+      expect(scene.spawnPills).toHaveBeenCalledTimes(1);
+      expect(addEventSpy).toHaveBeenCalledTimes(2);
+      const [enemyTimer, pillTimer] = addEventSpy.mock.calls.map((c: any[]) => c[0]);
+      expect(enemyTimer.delay).toBe(2000);
+      expect(enemyTimer.loop).toBe(true);
+      expect(pillTimer.delay).toBe(3000);
+      expect(pillTimer.loop).toBe(true);
+    });
+
+    it('armGameplay no-ops if the player dies during the countdown (isGameOver edge case)', () => {
+      scene.isGameOver = true;
+      scene.spawnInitialEnemies = vi.fn();
+      scene.spawnPills = vi.fn();
+      const addEventSpy = vi.fn();
+      scene.time = { addEvent: addEventSpy };
+
+      scene.armGameplay();
+
+      expect(scene.spawnInitialEnemies).not.toHaveBeenCalled();
+      expect(scene.spawnPills).not.toHaveBeenCalled();
+      expect(addEventSpy).not.toHaveBeenCalled();
+    });
+
+    it('spawnEnemy guard flips with isCountingDown (regression tripwire)', () => {
+      // With the guard tripped, spawnEnemy must short-circuit before reading
+      // `this.lanes`. With the guard off, it must proceed to `this.lanes.map()`.
+      // Using undefined `lanes` as the canary: bail-out = no throw, advance =
+      // TypeError. The post-guard body depends on `Phaser.Utils.Array.GetRandom`
+      // which is mocked out in jsdom, so a full end-to-end spawn is not testable
+      // here — but the guard transition IS, and that's what R86.F2 needs to lock.
+      scene.isCountingDown = true;
+      scene.isGameOver = false;
+      scene.isLevelingUp = false;
+      scene.lanes = undefined;
+      expect(() => scene.spawnEnemy()).not.toThrow();
+
+      scene.isCountingDown = false;
+      expect(() => scene.spawnEnemy()).toThrow();
+    });
+  });
+
+  // -----------------------------------------------------------------------
   // Achievement Thresholds
   // -----------------------------------------------------------------------
   describe('Achievement Thresholds', () => {
