@@ -145,17 +145,41 @@ export class MetrisGameScene extends BaseScene {
     this.nextGraphics = this.add.graphics();
     this.meterGraphics = this.add.graphics();
 
-    // Panel sprite backdrops for Hold and Next preview areas
+    // R85.M4 — symmetric preview-panel backdrops for HOLD (left) and NEXT
+    // (right). Both use the same 80×80 dimensions so the two HUD wings read
+    // as matched; the pre-R85.M4 NEXT panel was 80×240 (3× the HOLD height),
+    // which made the right column look top-heavy and the left cramped.
     if (this.textures?.exists('panel_tall')) {
-      this.add.image(C.HOLD_X, C.HOLD_Y + 40)
+      this.add.image(C.HOLD_X, C.HOLD_Y + C.PREVIEW_PANEL_Y_OFFSET)
         .setTexture('panel_tall')
-        .setDisplaySize(80, 80)
+        .setDisplaySize(C.PREVIEW_PANEL_W, C.PREVIEW_PANEL_H)
         .setAlpha(0.3)
         .setDepth(0);
-      this.add.image(C.NEXT_X, C.NEXT_Y + 120)
+      this.add.image(C.NEXT_X, C.NEXT_Y + C.PREVIEW_PANEL_Y_OFFSET)
         .setTexture('panel_tall')
-        .setDisplaySize(80, 240)
+        .setDisplaySize(C.PREVIEW_PANEL_W, C.PREVIEW_PANEL_H)
         .setAlpha(0.3)
+        .setDepth(0);
+
+      // Secondary backing panels — group the stats + bullet-time stack (left)
+      // and the HIGH SCORE + controls list (right) so they read as deliberate
+      // HUD blocks rather than loose text floating over black. 0.18 α keeps
+      // the primary focal points (previews + meter fill + value digits)
+      // clearly dominant; the panels just frame the eye.
+      // Left: top-edge 8 px above STATS_Y_START so the SCORE label has a little
+      // breathing room inside the panel.
+      const statsPanelTop = C.STATS_Y_START - 8;
+      this.add.image(C.HOLD_X, statsPanelTop + C.STATS_PANEL_H / 2)
+        .setTexture('panel_tall')
+        .setDisplaySize(C.STATS_PANEL_W, C.STATS_PANEL_H)
+        .setAlpha(0.18)
+        .setDepth(0);
+      // Right: top-edge aligned with HIGH_SCORE_LABEL_Y minus the same 8 px.
+      const controlsPanelTop = C.HIGH_SCORE_LABEL_Y - 8;
+      this.add.image(C.NEXT_X, controlsPanelTop + C.CONTROLS_PANEL_H / 2)
+        .setTexture('panel_tall')
+        .setDisplaySize(C.CONTROLS_PANEL_W, C.CONTROLS_PANEL_H)
+        .setAlpha(0.18)
         .setDepth(0);
     }
 
@@ -197,32 +221,48 @@ export class MetrisGameScene extends BaseScene {
     const font = { fontFamily: MATRIX_FONTS.PRIMARY, fontSize: '8px', color: MATRIX_COLORS.PRIMARY_HEX };
     const valFont = { ...font, fontSize: '10px' };
 
+    // --- LEFT WING: HOLD preview + stats stack + bullet-time meter ---
     this.add.text(C.HOLD_X, C.HOLD_Y, 'HOLD [C]', font).setOrigin(0.5, 0);
-    this.add.text(C.HOLD_X, 160, 'SCORE', font).setOrigin(0.5, 0);
-    this.scoreText = this.add.text(C.HOLD_X, 175, '0', valFont).setOrigin(0.5, 0);
-    this.add.text(C.HOLD_X, 200, 'LEVEL', font).setOrigin(0.5, 0);
-    this.levelText = this.add.text(C.HOLD_X, 215, '1', valFont).setOrigin(0.5, 0);
-    this.add.text(C.HOLD_X, 240, 'LINES', font).setOrigin(0.5, 0);
-    this.linesText = this.add.text(C.HOLD_X, 255, '0', valFont).setOrigin(0.5, 0);
-    this.add.text(C.HOLD_X, 280, 'COMBO', font).setOrigin(0.5, 0);
-    this.comboText = this.add.text(C.HOLD_X, 295, '0', valFont).setOrigin(0.5, 0);
 
-    this.meterLabel = this.add.text(C.HOLD_X, 330, 'BULLET TIME [B]', font).setOrigin(0.5, 0);
-    this.bulletTimeTimerText = this.add.text(C.HOLD_X, 370, '', { ...font, color: MATRIX_COLORS.CYAN_HEX }).setOrigin(0.5, 0);
+    // R85.M4 — stats use uniform STATS_ROW_H rhythm starting STATS_Y_START.
+    // Each row = label at `y`, value at `y + STATS_LABEL_VALUE_GAP`.
+    const statLabels = ['SCORE', 'LEVEL', 'LINES', 'COMBO'] as const;
+    const statValues: Phaser.GameObjects.Text[] = [];
+    statLabels.forEach((label, i) => {
+      const y = C.STATS_Y_START + i * C.STATS_ROW_H;
+      this.add.text(C.HOLD_X, y, label, font).setOrigin(0.5, 0);
+      const value = this.add.text(C.HOLD_X, y + C.STATS_LABEL_VALUE_GAP, '0', valFont).setOrigin(0.5, 0);
+      statValues.push(value);
+    });
+    this.scoreText = statValues[0];
+    this.levelText = statValues[1];
+    this.linesText = statValues[2];
+    this.comboText = statValues[3];
+    this.levelText.setText('1');
 
+    this.meterLabel = this.add.text(C.HOLD_X, C.BULLET_TIME_LABEL_Y, 'BULLET TIME [B]', font).setOrigin(0.5, 0);
+    this.bulletTimeTimerText = this.add.text(C.HOLD_X, C.BULLET_TIME_TIMER_Y, '', { ...font, color: MATRIX_COLORS.CYAN_HEX }).setOrigin(0.5, 0);
+
+    // --- RIGHT WING: NEXT preview + HIGH SCORE + controls list ---
     this.add.text(C.NEXT_X, C.NEXT_Y, 'NEXT', font).setOrigin(0.5, 0);
-    this.add.text(C.NEXT_X, 140, 'HIGH SCORE', font).setOrigin(0.5, 0);
-    this.highScoreText = this.add.text(C.NEXT_X, 158, String(this.highScore), { ...font, fontSize: '10px', color: MATRIX_COLORS.YELLOW_HEX }).setOrigin(0.5, 0);
+    this.add.text(C.NEXT_X, C.HIGH_SCORE_LABEL_Y, 'HIGH SCORE', font).setOrigin(0.5, 0);
+    this.highScoreText = this.add.text(C.NEXT_X, C.HIGH_SCORE_VALUE_Y, String(this.highScore), { ...font, fontSize: '10px', color: MATRIX_COLORS.YELLOW_HEX }).setOrigin(0.5, 0);
 
-    const ctrlFont = { ...font, fontSize: '7px', color: '#005500' };
-    const cx = C.NEXT_X;
-    this.add.text(cx, 200, '←→  MOVE', ctrlFont).setOrigin(0.5, 0);
-    this.add.text(cx, 215, '↑/X  ROTATE CW', ctrlFont).setOrigin(0.5, 0);
-    this.add.text(cx, 230, 'Z    ROTATE CCW', ctrlFont).setOrigin(0.5, 0);
-    this.add.text(cx, 245, '↓    SOFT DROP', ctrlFont).setOrigin(0.5, 0);
-    this.add.text(cx, 260, 'SPACE HARD DROP', ctrlFont).setOrigin(0.5, 0);
-    this.add.text(cx, 275, 'C    HOLD', ctrlFont).setOrigin(0.5, 0);
-    this.add.text(cx, 290, 'B    BULLET TIME', ctrlFont).setOrigin(0.5, 0);
+    // R85.M4 — control hints use DREAD_GREEN (brighter than pre-R85.M4's
+    // #005500) and tight CONTROLS_ROW_H rhythm starting at CONTROLS_Y_START.
+    const ctrlFont = { ...font, fontSize: '7px', color: MATRIX_COLORS.DREAD_GREEN_HEX };
+    const ctrlLines = [
+      '←→  MOVE',
+      '↑/X  ROTATE CW',
+      'Z    ROTATE CCW',
+      '↓    SOFT DROP',
+      'SPACE HARD DROP',
+      'C    HOLD',
+      'B    BULLET TIME',
+    ];
+    ctrlLines.forEach((line, i) => {
+      this.add.text(C.NEXT_X, C.CONTROLS_Y_START + i * C.CONTROLS_ROW_H, line, ctrlFont).setOrigin(0.5, 0);
+    });
   }
 
   private setupInput(): void {
@@ -913,10 +953,14 @@ export class MetrisGameScene extends BaseScene {
     const g = this.meterGraphics;
     g.clear();
 
-    const barX = C.HOLD_X - 60;
-    const barY = 345;
-    const barW = 120;
-    const barH = 12;
+    // R85.M4 — meter bar uses named BULLET_TIME_BAR_{W,H,Y} constants so
+    // the layout tests can assert (a) bar is horizontally centred under
+    // HOLD_X, and (b) bar y matches one STATS_ROW_H below the BULLET_TIME
+    // label — same rhythm as the stats stack.
+    const barX = C.HOLD_X - C.BULLET_TIME_BAR_W / 2;
+    const barY = C.BULLET_TIME_BAR_Y;
+    const barW = C.BULLET_TIME_BAR_W;
+    const barH = C.BULLET_TIME_BAR_H;
 
     g.lineStyle(1, MATRIX_COLORS.DARK_GREEN, 1);
     g.strokeRect(barX, barY, barW, barH);

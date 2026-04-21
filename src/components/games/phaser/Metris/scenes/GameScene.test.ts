@@ -1064,6 +1064,245 @@ describe('MetrisGameScene', () => {
     });
   });
 
+  describe('R85.M4 Column Spacing Layout', () => {
+    // These invariants lock the HUD's left/right "wing" layout so a future
+    // refactor can't regress the symmetry Tom's playtest note flagged. The
+    // pre-R85.M4 layout had an 80×240 NEXT panel (3× the HOLD panel height)
+    // which made the right column read as top-heavy + hollow; plus a 50 px
+    // gap between HOLD and SCORE; plus #005500 control hints that were
+    // effectively unreadable. Each test here pins one design choice.
+
+    describe('Preview-panel symmetry', () => {
+      it('PREVIEW_PANEL_W and PREVIEW_PANEL_H are equal (panels are square)', () => {
+        expect(C.PREVIEW_PANEL_W).toBe(C.PREVIEW_PANEL_H);
+      });
+
+      it('PREVIEW_PANEL_H is tripwire-floored — must NOT regress to the 240 pre-R85.M4 value', () => {
+        // 240 was the bug: right NEXT panel was 3× the HOLD panel height.
+        expect(C.PREVIEW_PANEL_H).toBeLessThan(240);
+        expect(C.PREVIEW_PANEL_H).toBeGreaterThanOrEqual(60);
+      });
+
+      it('HOLD_X and NEXT_X are symmetric around the grid centre', () => {
+        const gridCentreX = C.GRID_X + (C.COLS * C.CELL_SIZE) / 2;
+        const leftOffset = gridCentreX - C.HOLD_X;
+        const rightOffset = C.NEXT_X - gridCentreX;
+        expect(leftOffset).toBe(rightOffset);
+      });
+    });
+
+    describe('Left-column stats rhythm', () => {
+      it('STATS_Y_START starts close to the HOLD panel bottom (no dead air)', () => {
+        // HOLD panel bottom y = HOLD_Y + PREVIEW_PANEL_Y_OFFSET + PREVIEW_PANEL_H/2
+        const holdPanelBottom = C.HOLD_Y + C.PREVIEW_PANEL_Y_OFFSET + C.PREVIEW_PANEL_H / 2;
+        const gap = C.STATS_Y_START - holdPanelBottom;
+        // Allow a small breathing gap but no more than 20 px.
+        expect(gap).toBeGreaterThanOrEqual(0);
+        expect(gap).toBeLessThanOrEqual(20);
+      });
+
+      it('STATS_ROW_H is a small, uniform rhythm (12–24 px)', () => {
+        expect(C.STATS_ROW_H).toBeGreaterThanOrEqual(12);
+        expect(C.STATS_ROW_H).toBeLessThanOrEqual(24);
+      });
+
+      it('STATS_LABEL_VALUE_GAP is smaller than STATS_ROW_H (label-value pair is tighter than between-rows)', () => {
+        expect(C.STATS_LABEL_VALUE_GAP).toBeLessThan(C.STATS_ROW_H);
+      });
+    });
+
+    describe('Bullet-time block rhythm', () => {
+      it('BULLET_TIME_LABEL_Y sits below the last stat row with an even gap', () => {
+        const lastStatValueY = C.STATS_Y_START + 3 * C.STATS_ROW_H + C.STATS_LABEL_VALUE_GAP;
+        const gap = C.BULLET_TIME_LABEL_Y - lastStatValueY;
+        // Between one and two row heights — groups bullet-time with the stats
+        // block but still gives it its own breathing room.
+        expect(gap).toBeGreaterThanOrEqual(C.STATS_ROW_H / 2);
+        expect(gap).toBeLessThanOrEqual(C.STATS_ROW_H * 2);
+      });
+
+      it('BULLET_TIME_BAR_Y sits one STATS_LABEL_VALUE_GAP below its label', () => {
+        const gap = C.BULLET_TIME_BAR_Y - C.BULLET_TIME_LABEL_Y;
+        expect(gap).toBeGreaterThan(0);
+        expect(gap).toBeLessThanOrEqual(C.STATS_ROW_H);
+      });
+
+      it('BULLET_TIME_TIMER_Y sits below the bar (no overlap)', () => {
+        expect(C.BULLET_TIME_TIMER_Y).toBeGreaterThan(C.BULLET_TIME_BAR_Y + C.BULLET_TIME_BAR_H);
+      });
+
+      it('meter bar draws centred under HOLD_X', () => {
+        scene.bulletTimeMeter = 50;
+        scene.drawBulletTimeMeter();
+        const strokeRectCall = scene.meterGraphics.strokeRect.mock.calls[0];
+        const [barX, , barW] = strokeRectCall;
+        const barCentre = barX + barW / 2;
+        expect(barCentre).toBe(C.HOLD_X);
+      });
+
+      it('meter bar uses BULLET_TIME_BAR_W and BULLET_TIME_BAR_H from config', () => {
+        scene.bulletTimeMeter = 50;
+        scene.drawBulletTimeMeter();
+        const [, , barW, barH] = scene.meterGraphics.strokeRect.mock.calls[0];
+        expect(barW).toBe(C.BULLET_TIME_BAR_W);
+        expect(barH).toBe(C.BULLET_TIME_BAR_H);
+      });
+    });
+
+    describe('Right-column hierarchy', () => {
+      it('HIGH_SCORE_LABEL_Y aligns with STATS_Y_START on the left (matched horizontal rhythm)', () => {
+        expect(C.HIGH_SCORE_LABEL_Y).toBe(C.STATS_Y_START);
+      });
+
+      it('HIGH_SCORE_VALUE_Y sits one STATS_LABEL_VALUE_GAP below its label', () => {
+        const gap = C.HIGH_SCORE_VALUE_Y - C.HIGH_SCORE_LABEL_Y;
+        expect(gap).toBeGreaterThan(0);
+        expect(gap).toBeLessThanOrEqual(C.STATS_ROW_H);
+      });
+
+      it('CONTROLS_Y_START sits below the HIGH_SCORE value with breathing room', () => {
+        expect(C.CONTROLS_Y_START).toBeGreaterThan(C.HIGH_SCORE_VALUE_Y);
+      });
+
+      it('CONTROLS_ROW_H is tighter than STATS_ROW_H (controls are secondary)', () => {
+        expect(C.CONTROLS_ROW_H).toBeLessThan(C.STATS_ROW_H);
+      });
+
+      it('all 7 control rows fit above HIGHT_SCORE + CONTROLS_PANEL_H area', () => {
+        const lastCtrlY = C.CONTROLS_Y_START + 6 * C.CONTROLS_ROW_H;
+        const controlsPanelBottom = C.HIGH_SCORE_LABEL_Y - 8 + C.CONTROLS_PANEL_H;
+        expect(lastCtrlY).toBeLessThanOrEqual(controlsPanelBottom);
+      });
+    });
+
+    describe('createHUD wiring', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let hudScene: any;
+
+      beforeEach(() => {
+        hudScene = createTestScene();
+        hudScene.highScore = 0;
+      });
+
+      it('paints the 4 stat labels in order at uniform STATS_ROW_H rhythm from HOLD_X', () => {
+        hudScene.createHUD();
+        const calls = hudScene.add.text.mock.calls;
+        const statCalls = calls.filter((c: unknown[]) =>
+          c[0] === C.HOLD_X && ['SCORE', 'LEVEL', 'LINES', 'COMBO'].includes(c[2] as string),
+        );
+        expect(statCalls).toHaveLength(4);
+        // Labels are in the order SCORE, LEVEL, LINES, COMBO.
+        expect(statCalls.map((c: unknown[]) => c[2])).toEqual(['SCORE', 'LEVEL', 'LINES', 'COMBO']);
+        // Y positions follow the STATS_ROW_H rhythm.
+        for (let i = 0; i < 4; i++) {
+          expect(statCalls[i][1]).toBe(C.STATS_Y_START + i * C.STATS_ROW_H);
+        }
+      });
+
+      it('paints 7 control-hint rows at DREAD_GREEN_HEX (brighter than pre-R85.M4 #005500)', () => {
+        hudScene.createHUD();
+        const calls = hudScene.add.text.mock.calls;
+        const ctrlCalls = calls.filter((c: unknown[]) => {
+          const style = c[3] as { color?: string; fontSize?: string } | undefined;
+          return c[0] === C.NEXT_X && style?.fontSize === '7px';
+        });
+        expect(ctrlCalls).toHaveLength(7);
+        for (const call of ctrlCalls) {
+          const style = call[3] as { color: string };
+          expect(style.color).not.toBe('#005500');
+          // Must be MATRIX_COLORS.DREAD_GREEN_HEX or brighter
+          expect(style.color).toMatch(/^#00[79a-fA-F][0-9a-fA-F]00$|^#00ff00$/);
+        }
+      });
+
+      it('paints control hints at uniform CONTROLS_ROW_H rhythm from CONTROLS_Y_START', () => {
+        hudScene.createHUD();
+        const calls = hudScene.add.text.mock.calls;
+        const ctrlCalls = calls.filter((c: unknown[]) => {
+          const style = c[3] as { fontSize?: string } | undefined;
+          return c[0] === C.NEXT_X && style?.fontSize === '7px';
+        });
+        for (let i = 0; i < ctrlCalls.length; i++) {
+          expect(ctrlCalls[i][1]).toBe(C.CONTROLS_Y_START + i * C.CONTROLS_ROW_H);
+        }
+      });
+
+      it('BULLET TIME label paints at BULLET_TIME_LABEL_Y, timer at BULLET_TIME_TIMER_Y', () => {
+        hudScene.createHUD();
+        const calls = hudScene.add.text.mock.calls;
+        const bulletLabelCall = calls.find((c: unknown[]) => c[2] === 'BULLET TIME [B]');
+        expect(bulletLabelCall).toBeDefined();
+        expect(bulletLabelCall[0]).toBe(C.HOLD_X);
+        expect(bulletLabelCall[1]).toBe(C.BULLET_TIME_LABEL_Y);
+      });
+
+      it('HIGH SCORE block paints at HIGH_SCORE_LABEL_Y / HIGH_SCORE_VALUE_Y from NEXT_X', () => {
+        hudScene.createHUD();
+        const calls = hudScene.add.text.mock.calls;
+        const labelCall = calls.find((c: unknown[]) => c[2] === 'HIGH SCORE');
+        expect(labelCall).toBeDefined();
+        expect(labelCall[0]).toBe(C.NEXT_X);
+        expect(labelCall[1]).toBe(C.HIGH_SCORE_LABEL_Y);
+      });
+    });
+
+    describe('createGraphics panel symmetry', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let gScene: any;
+
+      beforeEach(() => {
+        gScene = createTestScene();
+        gScene.textures = { exists: vi.fn().mockReturnValue(true) };
+      });
+
+      it('HOLD and NEXT preview panels are drawn at equal displaySize', () => {
+        gScene.createGraphics();
+        // Find the two preview-panel images (they're the add.image calls
+        // at (HOLD_X, HOLD_Y + PREVIEW_PANEL_Y_OFFSET) / (NEXT_X, ...)).
+        const imageCalls = gScene.add.image.mock.results.map((r: { value: Record<string, unknown> }) => r.value);
+        const holdPanel = imageCalls.find((img: Record<string, unknown>) => {
+          const calls = (img.setDisplaySize as { mock: { calls: [number, number][] } }).mock.calls;
+          return calls.some(([w, h]) => w === C.PREVIEW_PANEL_W && h === C.PREVIEW_PANEL_H);
+        });
+        // There should be at least two panel-sized images (HOLD + NEXT preview).
+        const previewPanels = imageCalls.filter((img: Record<string, unknown>) => {
+          const calls = (img.setDisplaySize as { mock: { calls: [number, number][] } }).mock.calls;
+          return calls.some(([w, h]) => w === C.PREVIEW_PANEL_W && h === C.PREVIEW_PANEL_H);
+        });
+        expect(holdPanel).toBeDefined();
+        expect(previewPanels.length).toBeGreaterThanOrEqual(2);
+      });
+
+      it('NO panel is drawn at 80×240 (regression tripwire for pre-R85.M4 NEXT panel)', () => {
+        gScene.createGraphics();
+        const imageCalls = gScene.add.image.mock.results.map((r: { value: Record<string, unknown> }) => r.value);
+        for (const img of imageCalls) {
+          const calls = (img.setDisplaySize as { mock: { calls: [number, number][] } }).mock.calls;
+          for (const [, h] of calls) {
+            expect(h).not.toBe(240);
+          }
+        }
+      });
+
+      it('secondary stats + controls panels render with subtle alpha (≤ 0.25)', () => {
+        gScene.createGraphics();
+        const imageCalls = gScene.add.image.mock.results.map((r: { value: Record<string, unknown> }) => r.value);
+        // Secondary panels are larger than preview panels (STATS_PANEL_H > PREVIEW_PANEL_H).
+        const secondaries = imageCalls.filter((img: Record<string, unknown>) => {
+          const calls = (img.setDisplaySize as { mock: { calls: [number, number][] } }).mock.calls;
+          return calls.some(([, h]) => h === C.STATS_PANEL_H || h === C.CONTROLS_PANEL_H);
+        });
+        expect(secondaries.length).toBeGreaterThanOrEqual(2);
+        for (const img of secondaries) {
+          const alphaCalls = (img.setAlpha as { mock: { calls: [number][] } }).mock.calls;
+          for (const [alpha] of alphaCalls) {
+            expect(alpha).toBeLessThanOrEqual(0.25);
+          }
+        }
+      });
+    });
+  });
+
   describe('Cleanup', () => {
     it('should destroy drop timer', () => {
       const mockTimer = { destroy: vi.fn() };
