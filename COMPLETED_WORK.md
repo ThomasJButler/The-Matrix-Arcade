@@ -883,3 +883,51 @@ R84 entry: ~1,927 unit tests / 45 files. R84 exit: **2,459+ pass** / 49 files. N
 **Total R84 footprint**: 54 task commits across 5 streams + ~532 new unit tests + 1 failed terminator-sentinel bug-fix (accidentally-triggered by "Stream A COMPLETE" narrative word; resolved by guidance added to `PROMPT_build.md`). Plan grew from 585 → 1,042 lines during the loop (archive-pending); this append-and-trim pass returns it to ~500 lines.
 
 ---
+
+## R85 — Invaders + Metris Polish + 2 Globals (2026-04-20 → 2026-04-21)
+
+Batches-of-2 experiment started. Tom playtested Matrix Invaders + Metris (2 of 8 untested games) and surfaced 2 critical globals (G1 high-score persistence broken across games, G2 iPod dashbar trophy still wrong post R83.G6) + per-game polish. Phase ran under 20-iteration cap; all 17 scoped tasks shipped clean with perfect ordering discipline.
+
+### Stream G — NEW Globals (2 commits)
+
+- **G1 [P0] high-score persistence** — `9fbba53`. Scoreboard R77 regression where `games[id].highScore` wasn't being written on game-over across all games (confirmed on Invaders + Metris). Fix mirrors the `scoreboards` entry into `games[id].highScore` so both subsystems (new scoreboard modal + legacy `GamePortal` dashbar reads) see the same value. Regression tripwire tests lock the round-trip.
+- **G2 [P1] dashbar trophy ID parity** — `84cca2d`. Extracted `REGISTRY_TO_SAVE_KEY` constant as single-source-of-truth + ID-parity tripwire test prevents this class of bug forever.
+
+### Stream I — Matrix Invaders polish (9 commits)
+
+- **I1** enemy sprites redesign — procedural UFO/battleship silhouettes + PG6 per-row shrink + colour tint
+- **I2** bullet-time HUD — charge meter + key reminder + READY pulse + visible drain/refill
+- **I3** bigger enemy bullets — 8×18 + glow halo + motion trail
+- **I4** power-up shooter visibility — **3 contributing bugs identified**: `activatePowerUp('shield')` mutated player texture/tint, `updateHUD()` re-asserted that mutation every frame fighting the damage-blink tween, `spawnPowerUp()` created `repeat:-1` yoyo tweens with no cleanup on pickup (dangling tween corrupted shared tween manager over time). Fix: separation of concerns — player sprite canonical never-mutated, shield is own `shieldAura` Graphics halo layer; `restorePlayerVisuals()` invariant helper; tween cleanup at all three destroy sites. 14 regression tests.
+- **I5** menu hint band rejoin 0.52-0.64 arcade convention (Invaders was lone outlier at 0.72 overlapping the 0.75 START button)
+- **I6** power-up legend — 4-line HUD overlay on pickup (adopts Pong R84.P5 pattern — 4s display, 200/400ms fade, cancellation-token guard, prefers-reduced-motion branch). Discovered Tom mentioned "6 power-ups" but Invaders ships only 4 — legend covers all 4, scope-extension logged.
+- **I7** atmosphere amp-up — rain density 10→30, CRT scanline overlay, per-kill Matrix-green flash, every-5th-kill combo camera pulse
+- **I8** boss verify + enrage polish — static audit found 4 design bugs (fire cadence 6-7× lower than regular wave, no encounter scaling, no enrage mechanic despite red healthbar, hit/defeat juice mute). Fix: `BOSS_FIRE_CHANCE` 0.002→0.006, linear per-encounter ramp `BOSS_FIRE_CHANCE_PER_ENCOUNTER=0.3`, `BOSS_ENRAGE_THRESHOLD=0.25` with 2× fire-rate below HP ratio, shake + flash + particle-count-scaling juice
+- **I9** coverage refresh — +23 cross-cutting integration tests
+
+### Stream M — Metris polish (5 commits)
+
+- **M1+M2 batched** — `3a436dc`. Root cause: `create()` armed `startDropTimer` BEFORE `startCountdown`, so the 400ms level-1 drop timer raced the 5s countdown (first piece slid ~12 rows before player could react). Fix: move `startDropTimer()` into countdown's `onComplete` callback + defence-in-depth `if (this.isCountingDown || this.isPaused) return;` early-exit in `dropTick()`. 9 ordering/gate tests lock the contract.
+- **M3** bullet-time manual-only activation — deleted 3-line auto-trigger in `handleScoring`, HUD `meterLabel` flips YELLOW when full-but-idle (unmissable B-prompt)
+- **M4** column spacing — audit found 5 concrete issues behind Tom's vague note; centralised all layout into 15-constant block in `Metris/config.ts`; shrank NEXT panel 80×240→80×80 for symmetry with HOLD, uniform 20px `STATS_ROW_H` rhythm, `DREAD_GREEN_HEX` for control hints, α=0.18 secondary backdrop frames. 24 layout-invariant tests.
+- **M5** coverage refresh — +23 cross-cutting integration tests
+
+### Stream V — Verification + Baselines (1 commit)
+
+- **V1** full gate battery green on darwin (tsc clean, lint 0-err / 4 pre-existing warnings, build 7.64s with 292 PWA entries, unit 2754/2756 pass across 54 files in 14.65s, chromium E2E 74/77 in 4.3 min). Invaders + Metris darwin baselines refreshed.
+
+### Plan housekeeping (1 commit)
+
+- **Discovered-work log** — `839b55c`. Game-load snap transition polish (R83.G5 survives but sub-optimal per Metris testing doc) logged for post-R85 CI-bucket triage with concrete file hooks (`IpodBootOverlay.tsx`) + candidate polish levers (scanline-phase extend, green-phosphor bloom, audio-sting sync).
+
+### Test count trajectory
+
+Phase entry: ~2,459 unit tests / 49 files. Phase exit: **2,754+ pass** / 54 files. Net **+295 regression tripwires** across 17 commits.
+
+### Still-open at R85 exit
+
+- R85 terminator phrase — Tom-side; writes `R85 COMPLETE — Invaders + Metris polish + globals shipped` to Status after hand-playtest confirms the 2 games feel right
+
+**Total R85 footprint**: 18 commits across 4 streams + ~295 new unit tests + 2 discovered-work entries (I6 power-up count mismatch, R83.G5 snap-transition polish candidate).
+
+---

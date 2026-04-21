@@ -795,6 +795,30 @@ export class NeoJumpGameScene extends BaseScene {
       onComplete: () => {
         if (this.score > this.highScore) this.highScore = this.score;
         this.reportScore(this.score, this.highScore);
+
+        // R86.G1: defensive second write path — mirror Metris handleGameOver
+        // so highScore + stats land even if the React updateGameSave handler
+        // is stale when the 'score' event fires. Tom's playtest showed the
+        // persistence broken for Neo Jump while Frogger worked the same day,
+        // which points at a transient event-binding hiccup; a direct write
+        // here is the cheapest guarantee.
+        const saveSystem = this.registry.get(REGISTRY_KEYS.SAVE_SYSTEM);
+        if (saveSystem) {
+          const saveData = saveSystem.getSaveData();
+          const prev = (saveData?.games?.neoJump?.stats ?? {}) as Record<string, number>;
+          const sessionSeconds = Math.floor(this.getGameDuration() / 1000);
+          saveSystem.updateGameSave('neoJump', {
+            highScore: this.highScore,
+            level: Math.floor((this.lastMaxAltitude ?? 0) / 500),
+            stats: {
+              gamesPlayed: (prev.gamesPlayed ?? 0) + 1,
+              totalScore: (prev.totalScore ?? 0) + this.score,
+              bestCombo: Math.max(prev.bestCombo ?? 0, this.bounceCombo ?? 0),
+              longestSurvival: Math.max(prev.longestSurvival ?? 0, sessionSeconds),
+            },
+          });
+        }
+
         this.gameOver(this.score, `Altitude: ${this.lastMaxAltitude}m`, this.highScore, [
           { label: 'Enemies', value: this.enemiesKilled },
           { label: 'Collectibles', value: this.collectiblesCollected },
