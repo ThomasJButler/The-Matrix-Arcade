@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Phaser from 'phaser';
 import { MatrixInvadersGameScene } from './GameScene';
-import { GAME_CONFIG, ACHIEVEMENTS, ROW_TINTS } from '../config';
+import { GAME_CONFIG, ACHIEVEMENTS, POWERUP_DEFS, POWERUP_LEGEND, ROW_TINTS } from '../config';
 
 const C = GAME_CONFIG;
 
@@ -129,7 +129,16 @@ function createTestScene(): any {
   };
   scene.time = {
     addEvent: vi.fn().mockReturnValue({ destroy: vi.fn(), delay: 0 }),
-    delayedCall: vi.fn().mockReturnValue({ destroy: vi.fn() }),
+    // R85.I6: each delayedCall returns a fresh TimerEvent-like mock that
+    // captures the callback + delay so tests can fire the timer directly and
+    // assert its arguments. `remove` is included so clearPowerUpLegend's
+    // `timer.remove(false)` path is exercised rather than throwing.
+    delayedCall: vi.fn().mockImplementation((delay: number, callback: () => void) => ({
+      destroy: vi.fn(),
+      remove: vi.fn(),
+      callback,
+      delay,
+    })),
     removeAllEvents: vi.fn(),
   };
   scene.input = {
@@ -1551,6 +1560,317 @@ describe('MatrixInvadersGameScene', () => {
       call(scene, 'updateFieldPowerUps', 0);
       expect(scene.tweens.killTweensOf).toHaveBeenCalledWith(sprite);
       expect(sprite.destroy).toHaveBeenCalled();
+    });
+  });
+
+  // R85.I6 regression tripwires — "6 power-ups each collect + activate — need
+  // work and we need a key" (Tom's Matrix Invaders playtest, 2026-04-20). The
+  // legend teaches the power-up verbs on every pickup: the row for the picked
+  // type paints in its own colour at ACTIVE_ALPHA, the other rows dim to
+  // INACTIVE_ALPHA so the player still sees every option. Tests lock in the
+  // render contract (4 rows, colours, positions, depth), the cleanup contract
+  // (hide timer, tween kill, back-to-back refresh), and the reduced-motion
+  // contract (no fade tweens under `prefers-reduced-motion: reduce`).
+  describe('R85.I6 Power-up Legend HUD', () => {
+    beforeEach(() => {
+      scene.add.text.mockClear();
+      scene.tweens.add.mockClear();
+      scene.time.delayedCall.mockClear();
+    });
+
+    // Small helper: trigger showPowerUpLegend and return the mock.calls args
+    // array for `add.text`. Each call = [x, y, text, style].
+     
+    const show = (type: string) => {
+      call(scene, 'showPowerUpLegend', type);
+      return scene.add.text.mock.calls as [number, number, string, Record<string, unknown>][];
+    };
+
+    describe('rendering contract', () => {
+      it('spawns exactly 4 text instances per pickup (one per entry)', () => {
+        const calls = show('rapidFire');
+        expect(calls).toHaveLength(POWERUP_LEGEND.ENTRIES.length);
+        expect(scene.powerUpLegend).toHaveLength(4);
+      });
+
+      it('centres every row horizontally on canvas mid-x', () => {
+        const calls = show('bomb');
+        const cx = C.WIDTH / 2;
+        for (const callArgs of calls) {
+          expect(callArgs[0]).toBe(cx);
+        }
+      });
+
+      it('stacks rows vertically at LINE_HEIGHT spacing', () => {
+        const calls = show('shield');
+        const ys = calls.map((c) => c[1]);
+        expect(ys[1] - ys[0]).toBe(POWERUP_LEGEND.LINE_HEIGHT);
+        expect(ys[2] - ys[0]).toBe(POWERUP_LEGEND.LINE_HEIGHT * 2);
+        expect(ys[3] - ys[0]).toBe(POWERUP_LEGEND.LINE_HEIGHT * 3);
+      });
+
+      it('anchors the first row at BASE_Y_RATIO × canvas height', () => {
+        const calls = show('shield');
+        expect(calls[0][1]).toBeCloseTo(C.HEIGHT * POWERUP_LEGEND.BASE_Y_RATIO);
+      });
+
+      it('each row uses its power-up colour from POWERUP_DEFS', () => {
+        const calls = show('rapidFire');
+        const expectedColours = POWERUP_LEGEND.ENTRIES.map(
+          (e) => `#${POWERUP_DEFS[e.type].color.toString(16).padStart(6, '0')}`,
+        );
+        const actualColours = calls.map((c) => c[3].color);
+        expect(actualColours).toEqual(expectedColours);
+      });
+
+      it('row text includes name · effect · duration for each entry', () => {
+        const calls = show('bomb');
+        POWERUP_LEGEND.ENTRIES.forEach((entry, i) => {
+          expect(calls[i][2]).toContain(entry.name);
+          expect(calls[i][2]).toContain(entry.effect);
+          expect(calls[i][2]).toContain(entry.duration);
+        });
+      });
+
+      it('row order matches POWERUP_LEGEND.ENTRIES exactly (consistency guard)', () => {
+        const calls = show('shield');
+        const names = calls.map((c) => c[2].split(' · ')[0]);
+        expect(names).toEqual(POWERUP_LEGEND.ENTRIES.map((e) => e.name));
+      });
+
+      it('centres each row via setOrigin(0.5, 0.5)', () => {
+        show('rapidFire');
+        for (const t of scene.powerUpLegend) {
+          expect(t.setOrigin).toHaveBeenCalledWith(0.5, 0.5);
+        }
+      });
+
+      it('paints rows at render depth 100 (above gameplay)', () => {
+        show('bomb');
+        for (const t of scene.powerUpLegend) {
+          expect(t.setDepth).toHaveBeenCalledWith(100);
+        }
+      });
+
+      it('schedules an auto-hide timer for DISPLAY_MS', () => {
+        show('rapidFire');
+        const legendCall = scene.time.delayedCall.mock.calls.find(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (c: any[]) => c[0] === POWERUP_LEGEND.DISPLAY_MS,
+        );
+        expect(legendCall).toBeTruthy();
+      });
+    });
+
+    describe('active-row highlighting', () => {
+      it('fades activated row to ACTIVE_ALPHA via tween', () => {
+        show('scoreMultiplier');
+        const activeTweens = scene.tweens.add.mock.calls.filter(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (c: any[]) => c[0].alpha === POWERUP_LEGEND.ACTIVE_ALPHA,
+        );
+        expect(activeTweens).toHaveLength(1);
+      });
+
+      it('fades the other 3 rows to INACTIVE_ALPHA', () => {
+        show('scoreMultiplier');
+        const inactiveTweens = scene.tweens.add.mock.calls.filter(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (c: any[]) => c[0].alpha === POWERUP_LEGEND.INACTIVE_ALPHA,
+        );
+        expect(inactiveTweens).toHaveLength(3);
+      });
+
+      it('each power-up type highlights a single distinct row', () => {
+        for (const entry of POWERUP_LEGEND.ENTRIES) {
+          call(scene, 'clearPowerUpLegend');
+          scene.tweens.add.mockClear();
+          call(scene, 'showPowerUpLegend', entry.type);
+          const activeTweens = scene.tweens.add.mock.calls.filter(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (c: any[]) => c[0].alpha === POWERUP_LEGEND.ACTIVE_ALPHA,
+          );
+          expect(activeTweens).toHaveLength(1);
+        }
+      });
+    });
+
+    describe('back-to-back pickup refresh', () => {
+      it('clears prior cohort before spawning a new one', () => {
+        show('rapidFire');
+        const firstCohort = scene.powerUpLegend;
+        const firstDestroy = firstCohort.map(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (t: any) => t.destroy,
+        );
+        call(scene, 'showPowerUpLegend', 'shield');
+         
+        for (const d of firstDestroy) expect(d).toHaveBeenCalled();
+        expect(scene.powerUpLegend).not.toBe(firstCohort);
+        expect(scene.powerUpLegend).toHaveLength(4);
+      });
+
+      it('cancels the prior hide timer so it cannot fire on new cohort', () => {
+        show('rapidFire');
+        const firstTimer = scene.powerUpLegendHideTimer;
+        expect(firstTimer).toBeTruthy();
+        call(scene, 'showPowerUpLegend', 'shield');
+        expect(firstTimer.remove).toHaveBeenCalledWith(false);
+        expect(scene.powerUpLegendHideTimer).not.toBe(firstTimer);
+      });
+    });
+
+    describe('cleanup + shutdown', () => {
+      it('clearPowerUpLegend kills tweens + destroys all text', () => {
+        show('rapidFire');
+        const cohort = scene.powerUpLegend;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const destroyFns = cohort.map((t: any) => t.destroy);
+        call(scene, 'clearPowerUpLegend');
+         
+        for (const d of destroyFns) expect(d).toHaveBeenCalled();
+        expect(scene.powerUpLegend).toHaveLength(0);
+        expect(scene.tweens.killTweensOf).toHaveBeenCalledWith(cohort);
+      });
+
+      it('hidePowerUpLegend is a no-op when no legend is visible', () => {
+        scene.tweens.add.mockClear();
+        call(scene, 'hidePowerUpLegend');
+        expect(scene.tweens.add).not.toHaveBeenCalled();
+      });
+
+      it('hide-timer callback destroys the cohort via the fade onComplete', () => {
+        show('rapidFire');
+        const cohort = scene.powerUpLegend;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const destroyFns = cohort.map((t: any) => t.destroy);
+        scene.tweens.add.mockClear();
+        // Fire the delayedCall callback — this is what the Phaser scheduler
+        // would do at DISPLAY_MS.
+        const timer = scene.powerUpLegendHideTimer;
+        expect(typeof timer.callback).toBe('function');
+        timer.callback();
+        // Default-motion path: hidePowerUpLegend schedules a fade tween.
+        const fadeCall = scene.tweens.add.mock.calls.find(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (c: any[]) => c[0].alpha === 0 && c[0].targets === cohort,
+        );
+        expect(fadeCall).toBeTruthy();
+        // Simulate fade completion — this is the terminal destroy path.
+        fadeCall[0].onComplete?.();
+         
+        for (const d of destroyFns) expect(d).toHaveBeenCalled();
+      });
+
+      it('mid-fade onComplete does NOT destroy a newer cohort (cancellation-token guard)', () => {
+        show('rapidFire');
+        const staleCohort = scene.powerUpLegend;
+        // Fire the stale timer to schedule a fade tween against staleCohort.
+        scene.powerUpLegendHideTimer.callback();
+        const staleFade = scene.tweens.add.mock.calls.find(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (c: any[]) => c[0].alpha === 0 && c[0].targets === staleCohort,
+        );
+        expect(staleFade).toBeTruthy();
+        // Before the stale fade lands, a new pickup rebuilds the cohort. We
+        // explicitly clear the stale fade's destroy mocks so we can observe
+        // that firing the stale onComplete does NOT touch the fresh cohort.
+        call(scene, 'showPowerUpLegend', 'shield');
+        const freshCohort = scene.powerUpLegend;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const freshDestroy = freshCohort.map((t: any) => t.destroy);
+        for (const d of freshDestroy) d.mockClear();
+        // Now fire the stale fade's onComplete — it should NOT destroy the
+        // fresh cohort (only the stale targets, which it already captured).
+        staleFade[0].onComplete?.();
+         
+        for (const d of freshDestroy) expect(d).not.toHaveBeenCalled();
+        // Fresh cohort still tracked by the scene.
+        expect(scene.powerUpLegend).toBe(freshCohort);
+      });
+
+      it('shutdown tears down any active legend cohort', () => {
+        show('rapidFire');
+        const cohort = scene.powerUpLegend;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const destroyFns = cohort.map((t: any) => t.destroy);
+        // Provide a boss stub so shutdown's boss branch doesn't NPE; use
+        // `as any` because the test mocks stand in for a BossState.
+        scene.boss = null;
+        call(scene, 'shutdown');
+         
+        for (const d of destroyFns) expect(d).toHaveBeenCalled();
+        expect(scene.powerUpLegend).toHaveLength(0);
+      });
+
+      it('resetState clears any pre-existing legend (restart safety)', () => {
+        show('rapidFire');
+        const cohort = scene.powerUpLegend;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const destroyFns = cohort.map((t: any) => t.destroy);
+        call(scene, 'resetState');
+         
+        for (const d of destroyFns) expect(d).toHaveBeenCalled();
+        expect(scene.powerUpLegend).toHaveLength(0);
+      });
+    });
+
+    describe('reduced-motion handling', () => {
+      // Override window.matchMedia for the duration of a callback.
+      const withReducedMotion = (fn: () => void) => {
+        const original = window.matchMedia;
+        // @ts-expect-error overriding for test
+        window.matchMedia = vi.fn().mockReturnValue({ matches: true });
+        try { fn(); } finally { window.matchMedia = original; }
+      };
+
+      it('skips fade-in tweens and sets alpha directly', () => {
+        withReducedMotion(() => {
+          scene.tweens.add.mockClear();
+          call(scene, 'showPowerUpLegend', 'rapidFire');
+          expect(scene.tweens.add).not.toHaveBeenCalled();
+          // Active row set to ACTIVE_ALPHA; others to INACTIVE_ALPHA.
+          expect(scene.powerUpLegend[0].setAlpha).toHaveBeenCalledWith(POWERUP_LEGEND.ACTIVE_ALPHA);
+          expect(scene.powerUpLegend[1].setAlpha).toHaveBeenCalledWith(POWERUP_LEGEND.INACTIVE_ALPHA);
+        });
+      });
+
+      it('hidePowerUpLegend clears synchronously under reduced motion', () => {
+        withReducedMotion(() => {
+          call(scene, 'showPowerUpLegend', 'rapidFire');
+          const cohort = scene.powerUpLegend;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const destroyFns = cohort.map((t: any) => t.destroy);
+          scene.tweens.add.mockClear();
+          call(scene, 'hidePowerUpLegend');
+          expect(scene.tweens.add).not.toHaveBeenCalled();
+           
+          for (const d of destroyFns) expect(d).toHaveBeenCalled();
+          expect(scene.powerUpLegend).toHaveLength(0);
+        });
+      });
+    });
+
+    describe('pickup wiring', () => {
+      it('checkPowerUpCollisions triggers showPowerUpLegend for the picked type', () => {
+        const sprite = createMockSprite(scene.player.x, scene.player.y);
+        scene.fieldPowerUps = [{ sprite, type: 'rapidFire', vy: 0 }];
+        scene.add.text.mockClear();
+        call(scene, 'checkPowerUpCollisions');
+        // 4 legend rows spawned by the pickup path.
+        expect(scene.add.text).toHaveBeenCalledTimes(POWERUP_LEGEND.ENTRIES.length);
+        expect(scene.powerUpLegend).toHaveLength(POWERUP_LEGEND.ENTRIES.length);
+        // Active row is `rapidFire` — its tween alpha target must be ACTIVE_ALPHA.
+        // Row index for rapidFire comes from the config order.
+        const activeIdx = POWERUP_LEGEND.ENTRIES.findIndex((e) => e.type === 'rapidFire');
+        // Tween whose target is the rapidFire row should use ACTIVE_ALPHA.
+        const activeRow = scene.powerUpLegend[activeIdx];
+        const activeTween = scene.tweens.add.mock.calls.find(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (c: any[]) => c[0].targets === activeRow,
+        );
+        expect(activeTween[0].alpha).toBe(POWERUP_LEGEND.ACTIVE_ALPHA);
+      });
     });
   });
 });
