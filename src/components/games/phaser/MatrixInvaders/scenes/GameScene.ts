@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
 import { BaseScene } from '@/lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '@/lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, MATRIX_FONTS, SOUND_KEYS, REGISTRY_KEYS } from '@/lib/phaser/types';
 import {
   GAME_CONFIG,
   ACHIEVEMENTS,
   ENEMY_DEFS,
   POWERUP_DEFS,
+  POWERUP_LEGEND,
   ROW_TINTS,
   type EnemyState,
   type BossState,
@@ -88,6 +89,14 @@ export class MatrixInvadersGameScene extends BaseScene {
   private waveCompleteText!: Phaser.GameObjects.Text;
   private bossWarningText!: Phaser.GameObjects.Text;
   private healthLabel!: Phaser.GameObjects.Text;
+  // R85.I6: on-pickup power-up legend — 4 stacked Text nodes driven by
+  // POWERUP_LEGEND.ENTRIES. Owning them as an array (not individually) makes
+  // the back-to-back-pickup guard trivial: we compare the in-flight cohort
+  // against `this.powerUpLegend` by reference in the fade-out onComplete so
+  // a newer legend that took over while this one was mid-fade doesn't get
+  // its fresh text destroyed by a stale tween callback.
+  private powerUpLegend: Phaser.GameObjects.Text[] = [];
+  private powerUpLegendHideTimer?: Phaser.Time.TimerEvent;
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private spaceKey!: Phaser.Input.Keyboard.Key;
@@ -153,6 +162,11 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.enemyBullets = [];
     this.particles = [];
     this.fieldPowerUps = [];
+    // R85.I6: Phaser reuses the scene instance on restart, so class fields
+    // (including powerUpLegend + its hide timer) persist across resets. Clear
+    // defensively so a legend lingering from the prior run doesn't survive
+    // into the new game.
+    this.clearPowerUpLegend();
   }
 
   private createPlayer(): void {
@@ -649,6 +663,10 @@ export class MatrixInvadersGameScene extends BaseScene {
       const dy = this.player.y - pu.sprite.y;
       if (Math.sqrt(dx * dx + dy * dy) < pickupDist) {
         this.activatePowerUp(pu.type);
+        // R85.I6: on-pickup legend teaches the verb + effect + duration for
+        // each power-up. Picked-up row highlights, others dim. Rebuilt every
+        // pickup so repeat pickups refresh the timer instead of stacking.
+        this.showPowerUpLegend(pu.type);
         // R85.I4: kill the pickup's yoyo tween so it doesn't outlive the
         // sprite — pickup is the hot path where leaks accumulate fastest.
         this.tweens.killTweensOf(pu.sprite);
@@ -1226,6 +1244,99 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.enemyBullets = [];
   }
 
+  // ── R85.I6: power-up legend ─────────────────────────────────────────
+  //
+  // Three-method stack copied from Vortex Pong's R84.P5 implementation.
+  // `showPowerUpLegend` rebuilds from scratch on every pickup (the hot
+  // path), `hidePowerUpLegend` is the 4s-timer callback that fades the
+  // whole cohort out, `clearPowerUpLegend` is the synchronous teardown
+  // used by show-on-top-of-show and by scene shutdown.
+  //
+  // The critical invariant is that rapid back-to-back pickups must not leak
+  // Text nodes or fire a stale 4s-hide against a newer cohort. The guard is
+  // that hidePowerUpLegend captures the array reference in a local `targets`
+  // and only destroys those nodes; show() resets `this.powerUpLegend` to a
+  // fresh array so the stale tween sees a detached reference.
+
+  private showPowerUpLegend(activatedType: PowerUpType): void {
+    this.clearPowerUpLegend();
+    const cx = GAME_CONFIG.WIDTH / 2;
+    const baseY = GAME_CONFIG.HEIGHT * POWERUP_LEGEND.BASE_Y_RATIO;
+    const reducedMotion = this.prefersReducedMotion();
+
+    POWERUP_LEGEND.ENTRIES.forEach((entry, i) => {
+      const def = POWERUP_DEFS[entry.type];
+      const isActive = entry.type === activatedType;
+      const colour = `#${def.color.toString(16).padStart(6, '0')}`;
+      const text = this.add.text(
+        cx,
+        baseY + i * POWERUP_LEGEND.LINE_HEIGHT,
+        `${entry.name} · ${entry.effect} · ${entry.duration}`,
+        {
+          fontFamily: MATRIX_FONTS.PRIMARY,
+          fontSize: '10px',
+          color: colour,
+          align: 'center',
+        },
+      );
+      text.setOrigin(0.5, 0.5);
+      text.setDepth(100);
+      const targetAlpha = isActive ? POWERUP_LEGEND.ACTIVE_ALPHA : POWERUP_LEGEND.INACTIVE_ALPHA;
+      if (reducedMotion) {
+        text.setAlpha(targetAlpha);
+      } else {
+        text.setAlpha(0);
+        this.tweens.add({
+          targets: text,
+          alpha: targetAlpha,
+          duration: POWERUP_LEGEND.FADE_IN_MS,
+          ease: 'Quad.easeOut',
+        });
+      }
+      this.powerUpLegend.push(text);
+    });
+
+    this.powerUpLegendHideTimer = this.time.delayedCall(
+      POWERUP_LEGEND.DISPLAY_MS,
+      () => this.hidePowerUpLegend(),
+    );
+  }
+
+  private hidePowerUpLegend(): void {
+    if (this.powerUpLegend.length === 0) return;
+    const targets = this.powerUpLegend;
+    if (this.prefersReducedMotion()) {
+      this.clearPowerUpLegend();
+      return;
+    }
+    this.tweens.add({
+      targets,
+      alpha: 0,
+      duration: POWERUP_LEGEND.FADE_OUT_MS,
+      onComplete: () => {
+        // Guard: a second pickup landing mid-fade will have already rebuilt
+        // `this.powerUpLegend`; only destroy the original cohort.
+        targets.forEach((t) => t.destroy());
+        if (this.powerUpLegend === targets) this.powerUpLegend = [];
+      },
+    });
+  }
+
+  private clearPowerUpLegend(): void {
+    this.powerUpLegendHideTimer?.remove(false);
+    this.powerUpLegendHideTimer = undefined;
+    if (this.powerUpLegend.length > 0) {
+      this.tweens.killTweensOf(this.powerUpLegend);
+      this.powerUpLegend.forEach((t) => t.destroy());
+      this.powerUpLegend = [];
+    }
+  }
+
+  private prefersReducedMotion(): boolean {
+    return typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+  }
+
   private getTestState(): Record<string, unknown> {
     return {
       score: this.score,
@@ -1279,6 +1390,11 @@ export class MatrixInvadersGameScene extends BaseScene {
       this.boss.healthBg.destroy();
       this.boss = null;
     }
+
+    // R85.I6: tear down any active legend cohort + its pending hide timer so
+    // teardown doesn't leak Text nodes or fire a delayed-call after the scene
+    // is gone.
+    this.clearPowerUpLegend();
 
     this.input.keyboard?.removeAllKeys(true);
     super.shutdown();

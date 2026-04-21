@@ -85,6 +85,51 @@ export const POWERUP_DEFS: Record<PowerUpType, { color: number; label: string; d
   bomb:            { color: 0xff4400, label: 'BOMB',   duration: 0 },
 };
 
+// R85.I6 — On-pickup 4-line HUD legend that teaches the player what each
+// power-up does. Tom's playtest note: *"6 power-ups each collect + activate —
+// need work and we need a key"*. Pattern copied from Vortex Pong's R84.P5:
+// the row for the picked-up power-up paints at ACTIVE_ALPHA in that entry's
+// colour, the other three dim to INACTIVE_ALPHA so the player sees all
+// options but the eye tracks the highlighted row. Legend rebuilds on every
+// pickup (not stack) and auto-hides after DISPLAY_MS so it does not clutter
+// the HUD. Tom mentioned six power-ups; Invaders currently ships four — the
+// legend covers every implemented one. If R85.I6-follow-up or R86 adds the
+// other two, extend ENTRIES here and POWERUP_DEFS above in lockstep.
+export interface PowerUpLegendEntry {
+  type: PowerUpType;
+  name: string;
+  effect: string;
+  duration: string;
+}
+
+export const POWERUP_LEGEND: {
+  readonly ENTRIES: readonly PowerUpLegendEntry[];
+  readonly DISPLAY_MS: number;
+  readonly FADE_IN_MS: number;
+  readonly FADE_OUT_MS: number;
+  readonly LINE_HEIGHT: number;
+  readonly BASE_Y_RATIO: number;
+  readonly ACTIVE_ALPHA: number;
+  readonly INACTIVE_ALPHA: number;
+} = {
+  ENTRIES: [
+    { type: 'rapidFire',       name: 'RAPID',  effect: 'FIRE RATE 2.5X', duration: '8s'    },
+    { type: 'shield',          name: 'SHIELD', effect: 'BLOCKS 1 HIT',   duration: '1 HIT' },
+    { type: 'scoreMultiplier', name: '2X',     effect: 'SCORE DOUBLE',   duration: '8s'    },
+    { type: 'bomb',            name: 'BOMB',   effect: 'CLEAR SCREEN',   duration: 'NOW'   },
+  ],
+  DISPLAY_MS: 4000,
+  FADE_IN_MS: 200,
+  FADE_OUT_MS: 400,
+  LINE_HEIGHT: 12,
+  // ~315px on the 450px canvas — below the central active/ready banners
+  // (y=0.30, 0.40, 0.45) and above the player sprite zone (y=410). Leaves
+  // clear air for the 4-line block (~48px tall, spans y≈315-363).
+  BASE_Y_RATIO: 0.70,
+  ACTIVE_ALPHA: 1,
+  INACTIVE_ALPHA: 0.55,
+};
+
 export const GAME_CONFIG = {
   WIDTH: 800,
   HEIGHT: 450,
