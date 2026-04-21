@@ -1,6 +1,6 @@
 import { BootScene } from '@/lib/phaser/scenes/BootScene';
 import { SCENE_KEYS, MATRIX_COLORS } from '@/lib/phaser/types';
-import { GAME_CONFIG, ENEMY_DEFS, POWERUP_DEFS, type EnemyType, type PowerUpType } from '../config';
+import { GAME_CONFIG, POWERUP_DEFS, type EnemyType, type PowerUpType } from '../config';
 
 const SPRITE_ASSETS = [
   { key: 'sprite_player', path: 'assets/matrix-invaders/player.png' },
@@ -32,8 +32,12 @@ export class MatrixInvadersBootScene extends BootScene {
 
     if (!spritesLoaded) {
       this.createPlayerTextures();
-      this.createEnemyTextures();
     }
+    // R85.I1: enemies always use procedural UFO/battleship silhouettes.
+    // The PNG fallbacks render as face-like blobs at scale (Tom's
+    // "look like pigs" playtest note) — the procedural path is the
+    // canonical source so the sprite sheet is intentionally ignored here.
+    this.createEnemyTextures();
     this.createBossTexture();
     if (!this.textures.exists('sprite_bullet_player')) {
       this.createBulletTextures();
@@ -73,40 +77,104 @@ export class MatrixInvadersBootScene extends BootScene {
     gs.destroy();
   }
 
+  /**
+   * R85.I1: UFO / battleship silhouettes per enemy type.
+   *
+   * Drawn in pure white (0xffffff) with varying alpha — the GameScene applies
+   * ROW_TINTS via setTint(), and Phaser tint multiplies with the texture. A
+   * white base means each row comes through as its pure tint colour; tinting
+   * a green-filled texture would zero the non-green channels and hide the
+   * per-row variation entirely.
+   *
+   * Shapes intentionally avoid the round "eye" pairs that made the previous
+   * sprites read as faces at small scale. Silhouettes are symmetric around
+   * the horizontal centre so left/right marching motion stays readable.
+   */
   private createEnemyTextures(): void {
     const W = GAME_CONFIG.ENEMY_WIDTH;
     const H = GAME_CONFIG.ENEMY_HEIGHT;
+    const WHITE = MATRIX_COLORS.WHITE;
 
-    for (const [type, def] of Object.entries(ENEMY_DEFS) as [EnemyType, (typeof ENEMY_DEFS)[EnemyType]][]) {
+    const builders: Record<EnemyType, (g: Phaser.GameObjects.Graphics) => void> = {
+      // code — classic flying saucer: dome + disc + three portholes
+      code: (g) => {
+        // Lower disc body (wide ellipse approximated via two overlapping rounded rects)
+        g.fillStyle(WHITE, 1);
+        g.fillRoundedRect(2, Math.floor(H * 0.55), W - 4, Math.floor(H * 0.2), 4);
+        // Dome on top (smaller rounded rect)
+        g.fillStyle(WHITE, 0.85);
+        g.fillRoundedRect(Math.floor(W * 0.3), Math.floor(H * 0.25), Math.floor(W * 0.4), Math.floor(H * 0.35), 6);
+        // Rim highlight under the dome
+        g.fillStyle(WHITE, 0.55);
+        g.fillRect(2, Math.floor(H * 0.52), W - 4, 2);
+        // Three portholes along the disc bottom
+        g.fillStyle(WHITE, 0.4);
+        g.fillCircle(Math.floor(W * 0.28), Math.floor(H * 0.66), 2);
+        g.fillCircle(Math.floor(W * 0.5),  Math.floor(H * 0.66), 2);
+        g.fillCircle(Math.floor(W * 0.72), Math.floor(H * 0.66), 2);
+      },
+
+      // agent — twin-pod battleship: central V-hull, side gun pods, prow spike
+      agent: (g) => {
+        // Central V-shaped fuselage (two triangles joined at the waist)
+        g.fillStyle(WHITE, 1);
+        g.fillTriangle(W / 2, Math.floor(H * 0.15), Math.floor(W * 0.3), Math.floor(H * 0.5), Math.floor(W * 0.7), Math.floor(H * 0.5));
+        g.fillTriangle(Math.floor(W * 0.3), Math.floor(H * 0.5), Math.floor(W * 0.7), Math.floor(H * 0.5), W / 2, Math.floor(H * 0.85));
+        // Side gun pods
+        g.fillStyle(WHITE, 0.9);
+        g.fillRoundedRect(Math.floor(W * 0.05), Math.floor(H * 0.4), Math.floor(W * 0.18), Math.floor(H * 0.28), 2);
+        g.fillRoundedRect(Math.floor(W * 0.77), Math.floor(H * 0.4), Math.floor(W * 0.18), Math.floor(H * 0.28), 2);
+        // Gun barrels pointing down
+        g.fillStyle(WHITE, 0.7);
+        g.fillRect(Math.floor(W * 0.12), Math.floor(H * 0.68), 2, Math.floor(H * 0.18));
+        g.fillRect(Math.floor(W * 0.86), Math.floor(H * 0.68), 2, Math.floor(H * 0.18));
+        // Forward prow spike under fuselage
+        g.fillStyle(WHITE, 0.95);
+        g.fillTriangle(W / 2 - 2, Math.floor(H * 0.75), W / 2 + 2, Math.floor(H * 0.75), W / 2, Math.floor(H * 0.95));
+      },
+
+      // sentinel — heavy hex cruiser: armoured hull + corner spikes + turret
+      sentinel: (g) => {
+        // Hex body (approximated with a rectangle + two triangles per side)
+        g.fillStyle(WHITE, 1);
+        g.fillRect(Math.floor(W * 0.2), Math.floor(H * 0.3), Math.floor(W * 0.6), Math.floor(H * 0.5));
+        g.fillTriangle(Math.floor(W * 0.2), Math.floor(H * 0.3), Math.floor(W * 0.2), Math.floor(H * 0.8), Math.floor(W * 0.08), Math.floor(H * 0.55));
+        g.fillTriangle(Math.floor(W * 0.8), Math.floor(H * 0.3), Math.floor(W * 0.8), Math.floor(H * 0.8), Math.floor(W * 0.92), Math.floor(H * 0.55));
+        // Corner spikes (top-left + top-right)
+        g.fillStyle(WHITE, 0.95);
+        g.fillTriangle(Math.floor(W * 0.12), Math.floor(H * 0.3), Math.floor(W * 0.02), Math.floor(H * 0.08), Math.floor(W * 0.22), Math.floor(H * 0.22));
+        g.fillTriangle(Math.floor(W * 0.88), Math.floor(H * 0.3), Math.floor(W * 0.98), Math.floor(H * 0.08), Math.floor(W * 0.78), Math.floor(H * 0.22));
+        // Central turret dome
+        g.fillStyle(WHITE, 0.75);
+        g.fillCircle(W / 2, Math.floor(H * 0.55), Math.floor(H * 0.2));
+        // Engine bar along bottom
+        g.fillStyle(WHITE, 0.55);
+        g.fillRect(Math.floor(W * 0.3), Math.floor(H * 0.82), Math.floor(W * 0.4), 2);
+      },
+
+      // virus — crystalline diamond with four angular spikes and pulse core
+      virus: (g) => {
+        // Diamond core (four triangles meeting at centre)
+        g.fillStyle(WHITE, 1);
+        g.fillTriangle(W / 2, Math.floor(H * 0.15), Math.floor(W * 0.85), H / 2, W / 2, H / 2);
+        g.fillTriangle(Math.floor(W * 0.85), H / 2, W / 2, Math.floor(H * 0.85), W / 2, H / 2);
+        g.fillTriangle(W / 2, Math.floor(H * 0.85), Math.floor(W * 0.15), H / 2, W / 2, H / 2);
+        g.fillTriangle(Math.floor(W * 0.15), H / 2, W / 2, Math.floor(H * 0.15), W / 2, H / 2);
+        // Four diagonal spike protrusions
+        g.fillStyle(WHITE, 0.85);
+        g.fillTriangle(Math.floor(W * 0.25), Math.floor(H * 0.35), Math.floor(W * 0.05), Math.floor(H * 0.15), Math.floor(W * 0.2), Math.floor(H * 0.5));
+        g.fillTriangle(Math.floor(W * 0.75), Math.floor(H * 0.35), Math.floor(W * 0.95), Math.floor(H * 0.15), Math.floor(W * 0.8), Math.floor(H * 0.5));
+        g.fillTriangle(Math.floor(W * 0.25), Math.floor(H * 0.65), Math.floor(W * 0.05), Math.floor(H * 0.85), Math.floor(W * 0.2), Math.floor(H * 0.5));
+        g.fillTriangle(Math.floor(W * 0.75), Math.floor(H * 0.65), Math.floor(W * 0.95), Math.floor(H * 0.85), Math.floor(W * 0.8), Math.floor(H * 0.5));
+        // Inner pulse core (tint shows through brightest here)
+        g.fillStyle(WHITE, 0.5);
+        g.fillCircle(W / 2, H / 2, Math.floor(H * 0.15));
+      },
+    };
+
+    for (const type of Object.keys(builders) as EnemyType[]) {
       const g = this.make.graphics({ x: 0, y: 0 });
-
-      g.fillStyle(def.color, 0.8);
-      g.fillRoundedRect(2, 2, W - 4, H - 4, 4);
-      g.lineStyle(1, def.color, 1);
-      g.strokeRoundedRect(2, 2, W - 4, H - 4, 4);
-
-      g.fillStyle(0xffffff, 1);
-      g.fillCircle(Math.floor(W * 0.35), Math.floor(H * 0.35), 3);
-      g.fillCircle(Math.floor(W * 0.65), Math.floor(H * 0.35), 3);
-
-      if (type === 'virus') {
-        g.lineStyle(2, 0xffffff, 1);
-        g.lineBetween(W * 0.3, H * 0.55, W / 2, H * 0.8);
-        g.lineBetween(W / 2, H * 0.8, W * 0.7, H * 0.55);
-      } else if (type === 'agent') {
-        g.fillStyle(0xffffff, 0.8);
-        g.fillRect(Math.floor(W * 0.2), Math.floor(H * 0.55), Math.floor(W * 0.6), 3);
-        g.fillRect(Math.floor(W * 0.35), Math.floor(H * 0.62), Math.floor(W * 0.3), 3);
-      } else if (type === 'sentinel') {
-        g.fillStyle(0xffffff, 0.8);
-        g.fillRect(Math.floor(W * 0.3), Math.floor(H * 0.55), Math.floor(W * 0.4), 2);
-        g.fillRect(Math.floor(W * 0.3), Math.floor(H * 0.7), Math.floor(W * 0.4), 2);
-      } else {
-        g.fillStyle(0xffffff, 0.6);
-        g.fillCircle(Math.floor(W * 0.35), Math.floor(H * 0.65), 2);
-        g.fillCircle(Math.floor(W * 0.65), Math.floor(H * 0.65), 2);
-      }
-
+      builders[type](g);
       g.generateTexture(`enemy_${type}`, W, H);
       g.destroy();
     }
