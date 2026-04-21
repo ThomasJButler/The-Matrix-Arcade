@@ -2414,4 +2414,346 @@ describe('MatrixInvadersGameScene', () => {
       });
     });
   });
+
+  // ── R85.I9 — cross-cutting integration coverage refresh ─────────────
+  //
+  // Each I1-I8 task shipped with direct tripwires on its own contract.
+  // This block locks INTERACTIONS between those features — the seams where
+  // a seemingly-unrelated refactor to one feature quietly breaks another.
+  // Example: updateShieldAura (I4) must keep working when the player moves
+  // (bullet-time I2 scales movement, health-bar I2 draws at low HP, etc.).
+  // If one of these asserts fires, someone rewrote a feature without
+  // remembering it co-exists with the others in the same update frame.
+  describe('R85.I9 Integration coverage refresh', () => {
+    describe('drawHealthBar colour thresholds', () => {
+      it('paints fill green (PRIMARY 0x00ff00) at full health (>= 0.5)', () => {
+        scene.playerHealth = GAME_CONFIG.PLAYER_MAX_HEALTH;
+        call(scene, 'drawHealthBar', 1000);
+        const fillStyleCalls = scene.healthBarFill.fillStyle.mock.calls;
+        const [color] = fillStyleCalls[fillStyleCalls.length - 1];
+        expect(color).toBe(0x00ff00);
+        expect(scene.healthBarFill.setAlpha).toHaveBeenLastCalledWith(1);
+      });
+
+      it('paints fill yellow (0xffff00) in mid-health band [0.25, 0.5)', () => {
+        // 40 / 100 = 0.4 — squarely inside the YELLOW band.
+        scene.playerHealth = 40;
+        call(scene, 'drawHealthBar', 1000);
+        const fillStyleCalls = scene.healthBarFill.fillStyle.mock.calls;
+        const [color] = fillStyleCalls[fillStyleCalls.length - 1];
+        expect(color).toBe(0xffff00);
+        expect(scene.healthBarFill.setAlpha).toHaveBeenLastCalledWith(1);
+      });
+
+      it('paints fill red (0xff0000) with sine-pulse alpha below 0.25', () => {
+        // 10 / 100 = 0.1 — critical. Colour must be RED, alpha must pulse.
+        scene.playerHealth = 10;
+        call(scene, 'drawHealthBar', 1000);
+        const fillStyleCalls = scene.healthBarFill.fillStyle.mock.calls;
+        const [color] = fillStyleCalls[fillStyleCalls.length - 1];
+        expect(color).toBe(0xff0000);
+        // pulse = sin(1000 * 0.005) * 0.3 + 0.7 ≈ sin(5)*0.3+0.7 ≈ 0.412
+        const setAlphaCalls = scene.healthBarFill.setAlpha.mock.calls;
+        const lastAlpha = setAlphaCalls[setAlphaCalls.length - 1][0];
+        expect(lastAlpha).toBeGreaterThanOrEqual(0.4);
+        expect(lastAlpha).toBeLessThanOrEqual(1.0);
+        // Direct formula: 0.7 + sin(5)*0.3 ≈ 0.4124. Allow small fp slop.
+        const expected = Math.sin(1000 * 0.005) * 0.3 + 0.7;
+        expect(lastAlpha).toBeCloseTo(expected, 5);
+      });
+
+      it('fill width is proportional to healthPct', () => {
+        scene.playerHealth = GAME_CONFIG.PLAYER_MAX_HEALTH / 2;
+        call(scene, 'drawHealthBar', 0);
+        // The fill's fillRect(x, y, barW * healthPct, barH) call — capture w.
+        const lastFillRect = scene.healthBarFill.fillRect.mock.calls.slice(-1)[0];
+        // barW=200, healthPct=0.5 → 100.
+        expect(lastFillRect[2]).toBeCloseTo(100, 3);
+      });
+    });
+
+    describe('drawBulletTimeMeter fill behaviour', () => {
+      it('fill width is proportional to bulletTimeCharge', () => {
+        scene.bulletTimeCharge = 0.5;
+        scene.bulletTimeActive = false;
+        call(scene, 'drawBulletTimeMeter', 0);
+        const lastFillRect = scene.bulletTimeChargeFill.fillRect.mock.calls.slice(-1)[0];
+        // barW=140, charge=0.5 → 70.
+        expect(lastFillRect[2]).toBeCloseTo(70, 3);
+      });
+
+      it('pulses alpha via sin when ready-and-idle (charge=1, !active)', () => {
+        scene.bulletTimeCharge = 1;
+        scene.bulletTimeActive = false;
+        // Use time where sin(time * 0.008) is non-zero so the formula branch is
+        // demonstrably not returning the solid-1 fallback.
+        const t = Math.PI / (0.008 * 2); // sin(t*0.008) == 1 at this t
+        call(scene, 'drawBulletTimeMeter', t);
+        const fillStyleCalls = scene.bulletTimeChargeFill.fillStyle.mock.calls;
+        const [color, alpha] = fillStyleCalls[fillStyleCalls.length - 1];
+        expect(color).toBe(0xff00ff); // MAGENTA
+        // 0.75 + 0.25 * sin(t*0.008) = 0.75 + 0.25*1 = 1.0 (ceiling)
+        expect(alpha).toBeCloseTo(1.0, 5);
+      });
+
+      it('alpha stays in pulse envelope [0.5, 1.0] when ready-and-idle', () => {
+        scene.bulletTimeCharge = 1;
+        scene.bulletTimeActive = false;
+        for (let t = 0; t < 5000; t += 100) {
+          call(scene, 'drawBulletTimeMeter', t);
+        }
+        // All alpha calls must sit inside [0.5, 1.0] — never solid 1 outside
+        // the pulse, never below 0.5 (which would suggest a lost multiplier).
+        for (const [, alpha] of scene.bulletTimeChargeFill.fillStyle.mock.calls) {
+          expect(alpha).toBeGreaterThanOrEqual(0.5);
+          expect(alpha).toBeLessThanOrEqual(1.0);
+        }
+      });
+
+      it('uses solid alpha=1 during active bullet time (no pulse)', () => {
+        scene.bulletTimeCharge = 0.8; // mid-drain
+        scene.bulletTimeActive = true;
+        call(scene, 'drawBulletTimeMeter', 12345);
+        const fillStyleCalls = scene.bulletTimeChargeFill.fillStyle.mock.calls;
+        const [, alpha] = fillStyleCalls[fillStyleCalls.length - 1];
+        expect(alpha).toBe(1);
+      });
+
+      it('uses solid alpha=1 while charge is refilling (< 1)', () => {
+        scene.bulletTimeCharge = 0.4;
+        scene.bulletTimeActive = false;
+        call(scene, 'drawBulletTimeMeter', 12345);
+        const fillStyleCalls = scene.bulletTimeChargeFill.fillStyle.mock.calls;
+        const [, alpha] = fillStyleCalls[fillStyleCalls.length - 1];
+        expect(alpha).toBe(1);
+      });
+    });
+
+    describe('updateShieldAura integration', () => {
+      it('pins to player across multiple movement frames', () => {
+        scene.shieldActive = true;
+        const positions = [
+          [100, 410],
+          [250, 410],
+          [400, 410],
+          [650, 410],
+        ];
+        for (const [x, y] of positions) {
+          scene.player.x = x;
+          scene.player.y = y;
+          call(scene, 'updateShieldAura', 0);
+          expect(scene.shieldAura.x).toBe(x);
+          expect(scene.shieldAura.y).toBe(y);
+        }
+      });
+
+      it('pulse alpha matches 0.75 + 0.25 * sin(t*0.005) formula', () => {
+        scene.shieldActive = true;
+        const t = 1234;
+        call(scene, 'updateShieldAura', t);
+        const setAlphaCalls = scene.shieldAura.setAlpha.mock.calls;
+        const lastAlpha = setAlphaCalls[setAlphaCalls.length - 1][0];
+        const expected = 0.75 + 0.25 * Math.sin(t * 0.005);
+        expect(lastAlpha).toBeCloseTo(expected, 5);
+      });
+
+      it('pins player position even when shield is inactive (invisible aura)', () => {
+        // The aura must still track so that re-activation does not flash a
+        // stale position before the next update tick.
+        scene.shieldActive = false;
+        scene.player.x = 333;
+        scene.player.y = 420;
+        call(scene, 'updateShieldAura', 0);
+        expect(scene.shieldAura.x).toBe(333);
+        expect(scene.shieldAura.y).toBe(420);
+        expect(scene.shieldAura.visible).toBe(false);
+      });
+    });
+
+    describe('Bomb + boss integration', () => {
+      function armBoss(health = 50) {
+        scene.boss = {
+          sprite: createMockSprite(C.WIDTH / 2, C.BOSS_Y),
+          healthBar: createMockGraphics(),
+          healthBg: createMockGraphics(),
+          health,
+          maxHealth: health,
+          value: 500,
+          width: C.BOSS_WIDTH,
+          height: C.BOSS_HEIGHT,
+          barrelOffsets: [-30, 0, 30],
+          encounter: 1,
+        };
+        scene.isBossWave = true;
+      }
+
+      it('reduces boss health by 20 on bomb', () => {
+        armBoss(50);
+        call(scene, 'activateBomb');
+        // Boss either took 20 damage (50 → 30) or was defeated. With
+        // starting HP 50 > 20, boss survives.
+        expect(scene.boss.health).toBe(30);
+      });
+
+      it('triggers defeatBoss when bomb drops boss to 0 HP', () => {
+        armBoss(15); // 15 - 20 ≤ 0 → defeat
+        call(scene, 'activateBomb');
+        expect(s(scene, 'boss')).toBeNull();
+        // Boss defeat achievement is the cleanest observable side-effect.
+        expect(scene.unlockAchievement).toHaveBeenCalledWith(
+          ACHIEVEMENTS.BOSS_DEFEAT,
+        );
+      });
+
+      it('leaves boss alive when damage is non-lethal', () => {
+        armBoss(25);
+        call(scene, 'activateBomb');
+        expect(scene.boss).not.toBeNull();
+        expect(scene.boss.health).toBe(5);
+      });
+
+      it('bomb does NOT apply scoreMultiplier (panic-button design invariant)', () => {
+        // Enemy with value=100. scoreMultiplier=2 would yield 200 if the bomb
+        // respected the multiplier. The design intentionally pays raw value.
+        scene.scoreMultiplierActive = true;
+        scene.enemies = [
+          {
+            sprite: createMockSprite(100, 100),
+            type: 'code',
+            health: 1,
+            maxHealth: 1,
+            value: 100,
+            speedMultiplier: 1,
+            width: 32,
+            height: 24,
+          },
+        ];
+        const startScore = scene.score;
+        call(scene, 'activateBomb');
+        // Raw +100, not +200.
+        expect(scene.score).toBe(startScore + 100);
+      });
+    });
+
+    describe('Danger warning one-shot', () => {
+      function enemyAt(y: number) {
+        return {
+          sprite: createMockSprite(100, y),
+          type: 'code' as const,
+          health: 1,
+          maxHealth: 1,
+          value: 10,
+          speedMultiplier: 1,
+          width: 32,
+          height: 24,
+        };
+      }
+
+      it('fires danger SFX once when enemies cross 60% of HEIGHT', () => {
+        // 60% of 450 = 270. Seed an enemy below the threshold and a wall so
+        // updateEnemies runs its danger check.
+        scene.enemies = [enemyAt(300)];
+        scene.dangerWarningTriggered = false;
+        call(scene, 'updateEnemies', 0);
+        expect(scene.playSound).toHaveBeenCalledWith('dangerWarning');
+        expect(scene.dangerWarningTriggered).toBe(true);
+      });
+
+      it('does not fire when all enemies are above the 60% threshold', () => {
+        scene.enemies = [enemyAt(100)]; // well above threshold
+        scene.dangerWarningTriggered = false;
+        call(scene, 'updateEnemies', 0);
+        expect(scene.playSound).not.toHaveBeenCalledWith('dangerWarning');
+        expect(scene.dangerWarningTriggered).toBe(false);
+      });
+
+      it('does not re-fire on subsequent ticks once triggered', () => {
+        scene.enemies = [enemyAt(300)];
+        scene.dangerWarningTriggered = false;
+        call(scene, 'updateEnemies', 0);
+        // reset the call log so the tick after counts in isolation.
+        (scene.playSound as ReturnType<typeof vi.fn>).mockClear();
+        call(scene, 'updateEnemies', 0);
+        call(scene, 'updateEnemies', 0);
+        expect(scene.playSound).not.toHaveBeenCalledWith('dangerWarning');
+      });
+    });
+
+    describe('Wave-complete + transitioning integration', () => {
+      it('clearAllBullets fires on wave complete', () => {
+        // Push a player + enemy bullet, trigger wave complete.
+        const playerBullet = createMockSprite(100, 100);
+        const enemyBullet = createMockSprite(200, 100);
+        scene.playerBullets = [{ sprite: playerBullet, vy: -1, damage: 1, isPlayer: true }];
+        scene.enemyBullets = [{ sprite: enemyBullet, vy: 1, damage: 1, isPlayer: false }];
+        scene.enemies = []; // no enemies → wave complete path
+        scene.wave = 2; // past 1 so achievement branches engage
+        call(scene, 'checkWaveComplete');
+        expect(playerBullet.destroy).toHaveBeenCalled();
+        expect(enemyBullet.destroy).toHaveBeenCalled();
+        expect(scene.playerBullets).toHaveLength(0);
+        expect(scene.enemyBullets).toHaveLength(0);
+      });
+
+      it('stacks WAVE_5 + WAVE_10 + WAVE_20 achievements at wave 20', () => {
+        scene.enemies = [];
+        scene.wave = 20;
+        call(scene, 'checkWaveComplete');
+        expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.WAVE_5);
+        expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.WAVE_10);
+        expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.WAVE_20);
+      });
+
+      it('checkGameOverConditions is a no-op during wave transition', () => {
+        scene.waveTransitioning = true;
+        scene.enemies = [{
+          sprite: createMockSprite(100, GAME_CONFIG.HEIGHT - 10), // enemy at player
+          type: 'code' as const,
+          health: 1,
+          maxHealth: 1,
+          value: 10,
+          speedMultiplier: 1,
+          width: 32,
+          height: 24,
+        }];
+        call(scene, 'checkGameOverConditions');
+        expect(scene.gameOver).not.toHaveBeenCalled();
+        expect(scene.isGameOver).toBe(false);
+      });
+    });
+
+    describe('Bullet-time time-scale (I2 × enemy movement)', () => {
+      it('enemy advance distance shrinks by BULLET_TIME_SCALE under bullet time', () => {
+        // Seed a single enemy and compare one-frame advance with bullet-time
+        // off vs on. The production `update()` multiplies delta by
+        // BULLET_TIME_SCALE before passing to updateEnemies, so we pass the
+        // scaled dt directly here.
+        const enemy = {
+          sprite: createMockSprite(100, 100),
+          type: 'code' as const,
+          health: 1,
+          maxHealth: 1,
+          value: 10,
+          speedMultiplier: 1,
+          width: 32,
+          height: 24,
+        };
+        scene.enemies = [enemy];
+        scene.enemyDirection = 1;
+        const dt = 0.016;
+        // Normal tick
+        const startX = enemy.sprite.x;
+        call(scene, 'updateEnemies', dt);
+        const normalAdvance = enemy.sprite.x - startX;
+        // Reset and run scaled tick
+        enemy.sprite.x = startX;
+        call(scene, 'updateEnemies', dt * GAME_CONFIG.BULLET_TIME_SCALE);
+        const scaledAdvance = enemy.sprite.x - startX;
+        // scaledAdvance should be ~0.3× normal (BULLET_TIME_SCALE).
+        expect(scaledAdvance).toBeCloseTo(normalAdvance * GAME_CONFIG.BULLET_TIME_SCALE, 5);
+        // Sanity: direction preserved, not zeroed.
+        expect(scaledAdvance).toBeGreaterThan(0);
+      });
+    });
+  });
 });
