@@ -782,8 +782,25 @@ export function useSaveSystem() {
     const rank = qualified ? idx + 1 : null;
 
     if (qualified) {
+      // R85.G1: mirror the new high-score watermark into games[id].highScore
+      // so GameHighScores modal, per-game cards and the iPod dashbar trophy
+      // (which all read the legacy slice) stay in sync with the scoreboards
+      // slice. Math.max guards against a qualifying-but-not-personal-best
+      // entry silently lowering the previous best.
+      const existingGame = prev.games[gameId as keyof GlobalSaveData['games']];
+      const currentHighScore = existingGame?.highScore ?? 0;
+      const newHighScore = Math.max(currentHighScore, entry.score);
+
       const newData: GlobalSaveData = {
         ...prev,
+        games: {
+          ...prev.games,
+          [gameId]: {
+            ...existingGame,
+            highScore: newHighScore,
+            lastPlayed: Date.now(),
+          },
+        },
         scoreboards: { ...prev.scoreboards, [gameId]: board },
         lastInitials: entry.initials,
       };
