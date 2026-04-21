@@ -53,7 +53,9 @@ function createTestScene(): any {
     isGameOver: false,
     activePowerUps: [],
     shieldHits: 0,
-    // New state fields
+    // New state fields — mirror real FroggerGameScene class-field defaults.
+    isLevelingUp: false,
+    bufferedInput: null,
     level: 1,
     neoDestroyCount: 0,
     neoFlashTimer: 0,
@@ -1210,6 +1212,305 @@ describe('FroggerGameScene', () => {
       expect(GAME_CONFIG.HITBOX.WIDTH_RATIO).toBeGreaterThan(0.5);
       expect(GAME_CONFIG.HITBOX.HEIGHT_RATIO).toBeLessThanOrEqual(1);
       expect(GAME_CONFIG.HITBOX.HEIGHT_RATIO).toBeGreaterThan(0.5);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // R86.F7 — Coverage refresh
+  //
+  // F1–F5 each locked a specific polish fix. F7 sweeps the cross-cutting
+  // *guards* that keep those fixes closed — the single-line checks scattered
+  // through checkProgress / handleInput / update() that F1 relied on but
+  // never directly asserted. If any one of these guards is removed in a
+  // future refactor the game reverts to the Level-1 freeze Tom reported; the
+  // existing behaviour tests would still pass (because the side-channel they
+  // exercise re-blocks via a different guard). These tripwires pin each
+  // guard on its own, so a silent guard removal turns the gate red.
+  // -----------------------------------------------------------------------
+  describe('R86.F7 — Finish-line guards', () => {
+    // --- checkProgress must respect isGameOver as well as isLevelingUp -----
+    it('checkProgress does not trigger level-up when isGameOver is already true', () => {
+      // If the player's death tween lands them on row 0 (via reset-tween
+      // position) we must not double-trigger: the death path owns the scene.
+      scene.tweens = { add: vi.fn(), killTweensOf: vi.fn() };
+      scene.showLevelUpText = vi.fn();
+      scene.isGameOver = true;
+      scene.playerRow = 0;
+      const prevLevel = scene.level;
+      scene.checkProgress();
+      expect(scene.level).toBe(prevLevel);
+      expect(scene.isLevelingUp).toBe(false);
+    });
+
+    // --- handleInput must bail on both isLevelingUp AND isGameOver ---------
+    // These guards are what stop the player from re-hopping mid-reset-tween
+    // (which would stack a third tween onto the player sprite — the exact
+    // R86.F1 cascade). The existing F1 tests only verify indirect effects;
+    // these two lock the guard itself.
+    function makeCursors() {
+      // JustDown reads .isDown on a key; default false so no movement fires.
+      const key = { isDown: false };
+      return {
+        cursors: { up: key, down: key, left: key, right: key },
+        wasd: {
+          W: { isDown: false },
+          A: { isDown: false },
+          S: { isDown: false },
+          D: { isDown: false },
+        },
+      };
+    }
+
+    it('handleInput early-returns when isLevelingUp is true (no movePlayer, no bufferedInput)', () => {
+      const { cursors, wasd } = makeCursors();
+      scene.cursors = cursors;
+      scene.wasdKeys = wasd;
+      scene.movePlayer = vi.fn();
+      scene.isLevelingUp = true;
+      // If the guard is removed, the body below would read cursor.up etc. and
+      // potentially call movePlayer — assert neither happens.
+      scene.handleInput();
+      expect(scene.movePlayer).not.toHaveBeenCalled();
+      expect(scene.bufferedInput).toBeNull();
+    });
+
+    it('handleInput early-returns when isGameOver is true (input silenced)', () => {
+      const { cursors, wasd } = makeCursors();
+      scene.cursors = cursors;
+      scene.wasdKeys = wasd;
+      scene.movePlayer = vi.fn();
+      scene.isGameOver = true;
+      scene.handleInput();
+      expect(scene.movePlayer).not.toHaveBeenCalled();
+    });
+
+    // --- triggerLevelUp's juice --------------------------------------------
+    it('triggerLevelUp plays FROGGER_SCORE sound and flashes the camera green', () => {
+      // Juice was lost once in a refactor (commit pre-R86.F1) and never tested.
+      // Lock both signals: the celebratory sound + the green camera flash
+      // (r=0, g=255, b=0).
+      scene.tweens = { add: vi.fn(), killTweensOf: vi.fn() };
+      scene.showLevelUpText = vi.fn();
+      scene.playerRow = 0;
+      scene.checkProgress();
+
+      expect(scene.playSound).toHaveBeenCalledWith('froggerScore');
+      expect(scene.cameras.main.flash).toHaveBeenCalledWith(
+        150,
+        0,
+        255,
+        0,
+        false,
+        undefined,
+        undefined,
+        0.15,
+      );
+    });
+
+    // --- showLevelUpText reads POST-increment level number -----------------
+    it('renders LEVEL N banner with the post-increment number (lock R86.F1 ordering)', () => {
+      // The order inside triggerLevelUp is critical: this.level++ MUST run
+      // before showLevelUpText() so the banner displays the NEW level. If a
+      // future refactor flips the order, the first cross would show "LEVEL 1"
+      // instead of "LEVEL 2".
+      scene.tweens = { add: vi.fn(), killTweensOf: vi.fn() };
+      scene.level = 1;
+      scene.playerRow = 0;
+      // Let the real showLevelUpText run — scene.add.text is already mocked.
+      scene.checkProgress();
+
+      const textCalls = (scene.add.text as any).mock.calls;
+      const levelBanner = textCalls.find(
+        (c: unknown[]) => typeof c[2] === 'string' && (c[2] as string).startsWith('LEVEL '),
+      );
+      expect(levelBanner).toBeDefined();
+      expect(levelBanner![2]).toBe('LEVEL 2');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // R86.F7 — update-loop countdown gate
+  //
+  // F2 tests spawnEnemy / spawnPills guards directly. That catches one class
+  // of regression (spawn timers firing pre-game). But the top-level update()
+  // has ITS OWN `if (this.isCountingDown) return;` early-return before it
+  // calls updateEnemies / checkProgress / handleInput. Without this guard,
+  // enemies already on the board at countdown-start would still tick their
+  // positions and checkProgress could re-fire immediately. Pin both:
+  //   (a) update() short-circuits gameplay during the countdown.
+  //   (b) update() resumes gameplay once isCountingDown flips false.
+  // -----------------------------------------------------------------------
+  describe('R86.F7 — update() countdown gate', () => {
+    function stubUpdateLoopSpies(s: any) {
+      // Gameplay-tick methods that update() calls AFTER the isCountingDown guard.
+      s.updateMatrixRain = vi.fn();
+      s.rainGroup = {};
+      s.roadDashSprites = [];
+      s.cursors = { up: {}, down: {}, left: {}, right: {} };
+      s.handleInput = vi.fn();
+      s.updateEnemies = vi.fn();
+      s.updatePowerUps = vi.fn();
+      s.updateNeoFlash = vi.fn();
+      s.applyMagnetEffect = vi.fn();
+      s.updateCombo = vi.fn();
+      s.checkProgress = vi.fn();
+      s.exposeTestState = vi.fn();
+      s.isPaused = false;
+    }
+
+    it('update() skips gameplay ticks while isCountingDown is true', () => {
+      stubUpdateLoopSpies(scene);
+      scene.isCountingDown = true;
+      scene.update(1000, 16);
+
+      // Pre-guard side-effects still run (rain + road dashes are cosmetic).
+      expect(scene.updateMatrixRain).toHaveBeenCalled();
+
+      // Post-guard gameplay calls MUST all short-circuit.
+      expect(scene.handleInput).not.toHaveBeenCalled();
+      expect(scene.updateEnemies).not.toHaveBeenCalled();
+      expect(scene.updatePowerUps).not.toHaveBeenCalled();
+      expect(scene.updateNeoFlash).not.toHaveBeenCalled();
+      expect(scene.applyMagnetEffect).not.toHaveBeenCalled();
+      expect(scene.updateCombo).not.toHaveBeenCalled();
+      expect(scene.checkProgress).not.toHaveBeenCalled();
+      expect(scene.exposeTestState).not.toHaveBeenCalled();
+    });
+
+    it('update() resumes gameplay ticks once isCountingDown flips false', () => {
+      stubUpdateLoopSpies(scene);
+      scene.isCountingDown = false;
+      scene.update(1000, 16);
+
+      // All the post-guard methods must have been invoked exactly once.
+      expect(scene.handleInput).toHaveBeenCalledTimes(1);
+      expect(scene.updateEnemies).toHaveBeenCalledTimes(1);
+      expect(scene.updatePowerUps).toHaveBeenCalledTimes(1);
+      expect(scene.checkProgress).toHaveBeenCalledTimes(1);
+      expect(scene.exposeTestState).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // R86.F7 — Hit-box visible-bounds extensions
+  //
+  // F4 covers ratio + row-5 car geometry (16×16 frame at scale 2.55). F7
+  // extends coverage to:
+  //   • the 64×64 agent frames that populate the upper road lanes (rows 1-3)
+  //     at perspScale ≈ 0.6 — a materially different clamp regime
+  //   • the X-offset recentre maths (lateral forgiveness symmetry)
+  //   • defensive null-guards that have never had a test
+  // -----------------------------------------------------------------------
+  describe('R86.F7 — Hit-box visible-bounds extensions', () => {
+    function buildMockEnemy(opts: {
+      frameWidth: number;
+      frameHeight: number;
+      scaleX: number;
+      scaleY: number;
+      enemyType: 'agent' | 'sentinel' | 'chaser';
+    }) {
+      const body = {
+        size: { width: opts.frameWidth, height: opts.frameHeight },
+        offset: { x: 0, y: 0 },
+        setSize: vi.fn(function (this: any, w: number, h: number) {
+          this.size = { width: w, height: h };
+          return this;
+        }),
+        setOffset: vi.fn(function (this: any, x: number, y: number) {
+          this.offset = { x, y };
+          return this;
+        }),
+      };
+      return {
+        body,
+        frame: { width: opts.frameWidth, height: opts.frameHeight },
+        scaleX: opts.scaleX,
+        scaleY: opts.scaleY,
+        enemyType: opts.enemyType,
+      };
+    }
+
+    it('re-centres body laterally — offsetX equals (frame.width - bodyWidth) / 2', () => {
+      // Symmetric lateral forgiveness: the 0.75 width ratio takes equal bites
+      // off the left and right edges of the sprite, so the body stays
+      // horizontally centred on the sprite's own centre.
+      const enemy = buildMockEnemy({
+        frameWidth: 16,
+        frameHeight: 16,
+        scaleX: 2.55,
+        scaleY: 2.55,
+        enemyType: 'agent',
+      });
+      scene.laneH = Array(GAME_CONFIG.GRID_ROWS).fill(66.6);
+
+      scene.applyEnemyBody(enemy, 5);
+
+      const [bodyWidth] = enemy.body.setSize.mock.calls[0];
+      const [offsetX] = enemy.body.setOffset.mock.calls[0];
+      expect(offsetX).toBeCloseTo((16 - bodyWidth) / 2);
+    });
+
+    it('64×64 agent in a tight upper lane clamps body height via HEIGHT_RATIO', () => {
+      // Rows 1-3 carry the 64×64 agent/sentinel sprites at perspScale ~0.6,
+      // so display height ≈ 38.4 px. Upper-lane heights post-normalise to
+      // the mid-30s-to-40s range, so the lane × 0.85 clamp can bite below
+      // frame height (64). Lock that the clamp actually engages.
+      const frame = { width: 64, height: 64 };
+      const scale = 0.6; // laneScale(row 1) ≈ 0.6 + 1/8 * (1-0.6) = 0.65, use 0.6 for clarity
+      const tightLane = 40;
+      const enemy = buildMockEnemy({
+        frameWidth: frame.width,
+        frameHeight: frame.height,
+        scaleX: scale,
+        scaleY: scale,
+        enemyType: 'agent',
+      });
+      scene.laneH = Array(GAME_CONFIG.GRID_ROWS).fill(tightLane);
+
+      scene.applyEnemyBody(enemy, 1);
+
+      const [, bodyHeightSource] = enemy.body.setSize.mock.calls[0];
+      const expected = (tightLane * GAME_CONFIG.HITBOX.HEIGHT_RATIO) / scale;
+      expect(bodyHeightSource).toBeCloseTo(expected);
+      expect(bodyHeightSource).toBeLessThan(frame.height);
+    });
+
+    it('applyEnemyBody no-ops defensively when enemy.body is missing', () => {
+      // Phaser leaves body undefined until physics is added. If spawnEnemy
+      // ever pulls an object-pooled enemy that hasn't been attached to the
+      // arcade group yet, we must not throw — the guard `if (!body || !frame)
+      // return;` is the only thing that protects us.
+      const enemy = buildMockEnemy({
+        frameWidth: 16,
+        frameHeight: 16,
+        scaleX: 1,
+        scaleY: 1,
+        enemyType: 'agent',
+      });
+      const setSizeSpy = enemy.body.setSize;
+      (enemy as any).body = null;
+      scene.laneH = Array(GAME_CONFIG.GRID_ROWS).fill(60);
+
+      expect(() => scene.applyEnemyBody(enemy, 5)).not.toThrow();
+      expect(setSizeSpy).not.toHaveBeenCalled();
+    });
+
+    it('applyEnemyBody no-ops defensively when enemy.frame is missing', () => {
+      // A sprite without a live texture frame (e.g. destroyed mid-pool) will
+      // report frame=null. The guard must short-circuit before reading
+      // frame.width.
+      const enemy = buildMockEnemy({
+        frameWidth: 16,
+        frameHeight: 16,
+        scaleX: 1,
+        scaleY: 1,
+        enemyType: 'agent',
+      });
+      (enemy as any).frame = null;
+      scene.laneH = Array(GAME_CONFIG.GRID_ROWS).fill(60);
+
+      expect(() => scene.applyEnemyBody(enemy, 5)).not.toThrow();
+      expect(enemy.body.setSize).not.toHaveBeenCalled();
     });
   });
 });
