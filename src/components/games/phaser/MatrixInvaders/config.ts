@@ -101,8 +101,19 @@ export const GAME_CONFIG = {
   ENEMY_BULLET_SPEED: 300,
   PLAYER_BULLET_WIDTH: 3,
   PLAYER_BULLET_HEIGHT: 10,
-  ENEMY_BULLET_WIDTH: 3,
-  ENEMY_BULLET_HEIGHT: 6,
+  // R85.I3: enemy bullets bumped from 3×6 → 8×18 (Tom's playtest: *"enemy
+  // bullets Needs to be bigger"*). Height > PLAYER_BULLET_HEIGHT so threats
+  // read as distinct from player fire at a glance, and the procedural
+  // texture gets a halo that reads against scanline + matrix-rain backdrop.
+  // Single source of truth — GameScene no longer branches on sprite-mode
+  // or laser_red presence when sizing enemy bullets.
+  ENEMY_BULLET_WIDTH: 8,
+  ENEMY_BULLET_HEIGHT: 18,
+  // R85.I3: trail ghost rects spawn once every ~40ms per active enemy
+  // bullet to give peripheral-vision motion salience without drowning the
+  // particle pool (worst case ≈ 25 trails/sec × ~8 bullets = 200 rects/s,
+  // all lifetimes < 1s).
+  ENEMY_BULLET_TRAIL_INTERVAL: 0.04,
   FIRE_COOLDOWN: 250,
   RAPID_FIRE_COOLDOWN: 100,
 

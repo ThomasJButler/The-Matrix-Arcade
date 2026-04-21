@@ -216,10 +216,26 @@ export class MatrixInvadersBootScene extends BootScene {
     gp.generateTexture('bullet_player', GAME_CONFIG.PLAYER_BULLET_WIDTH, GAME_CONFIG.PLAYER_BULLET_HEIGHT);
     gp.destroy();
 
+    // R85.I3: enemy bullet as a layered threat — outer red halo, red body,
+    // bright white-hot core column. Three layers give the bullet edge
+    // anti-aliasing against the matrix-rain + scanline backdrop that the
+    // previous flat red 3×6 rect couldn't compete with.
+    const w = GAME_CONFIG.ENEMY_BULLET_WIDTH;
+    const h = GAME_CONFIG.ENEMY_BULLET_HEIGHT;
     const ge = this.make.graphics({ x: 0, y: 0 });
+    // Outer halo — full extent, low alpha (glow feel)
+    ge.fillStyle(MATRIX_COLORS.RED, 0.35);
+    ge.fillRoundedRect(0, 0, w, h, Math.min(3, Math.floor(w / 2)));
+    // Inner body — centre 60% of width, solid red
     ge.fillStyle(MATRIX_COLORS.RED, 1);
-    ge.fillRect(0, 0, GAME_CONFIG.ENEMY_BULLET_WIDTH, GAME_CONFIG.ENEMY_BULLET_HEIGHT);
-    ge.generateTexture('bullet_enemy', GAME_CONFIG.ENEMY_BULLET_WIDTH, GAME_CONFIG.ENEMY_BULLET_HEIGHT);
+    const bodyX = Math.floor(w * 0.2);
+    const bodyW = Math.max(2, Math.floor(w * 0.6));
+    ge.fillRect(bodyX, 1, bodyW, h - 2);
+    // Hot core — 2px bright white column for contrast
+    ge.fillStyle(0xffffff, 0.9);
+    const coreX = Math.max(0, Math.floor(w / 2) - 1);
+    ge.fillRect(coreX, 2, 2, h - 4);
+    ge.generateTexture('bullet_enemy', w, h);
     ge.destroy();
   }
 
