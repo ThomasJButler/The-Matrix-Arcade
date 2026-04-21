@@ -428,10 +428,6 @@ export class MetrisGameScene extends BaseScene {
         this.bulletTimeMeter + linesCleared * C.BULLET_TIME_METER_PER_LINE,
       );
 
-      if (!this.bulletTimeActive && this.bulletTimeMeter >= C.BULLET_TIME_MAX_METER) {
-        this.activateBulletTime();
-      }
-
       if (linesCleared === 4) {
         this.playSound(SOUND_KEYS.ACHIEVEMENT_UNLOCK);
         this.playSound(SOUND_KEYS.COMBO);
@@ -970,10 +966,11 @@ export class MetrisGameScene extends BaseScene {
       const remaining = Math.max(0, this.bulletTimeTimer / 1000);
       this.bulletTimeTimerText.setText(remaining.toFixed(1) + 's');
       this.meterLabel.setColor(MATRIX_COLORS.CYAN_HEX);
+    } else if (this.bulletTimeMeter >= C.BULLET_TIME_MAX_METER) {
+      this.bulletTimeTimerText.setText('READY!');
+      this.meterLabel.setColor(MATRIX_COLORS.YELLOW_HEX);
     } else {
-      this.bulletTimeTimerText.setText(
-        this.bulletTimeMeter >= C.BULLET_TIME_MAX_METER ? 'READY!' : '',
-      );
+      this.bulletTimeTimerText.setText('');
       this.meterLabel.setColor(MATRIX_COLORS.PRIMARY_HEX);
     }
   }

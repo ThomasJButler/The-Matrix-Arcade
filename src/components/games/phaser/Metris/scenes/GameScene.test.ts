@@ -639,17 +639,43 @@ describe('MetrisGameScene', () => {
       expect(scene.bulletTimeMeter).toBe(2 * C.BULLET_TIME_METER_PER_LINE);
     });
 
-    it('should auto-activate when meter reaches 100', () => {
+    it('should NOT auto-activate when line clears fill meter to 100 (R85.M3)', () => {
       scene.bulletTimeMeter = 90;
+      scene.bulletTimeActive = false;
       scene.handleScoring(4);
-      expect(scene.bulletTimeActive).toBe(true);
-      expect(scene.bulletTimeMeter).toBe(0);
+      expect(scene.bulletTimeActive).toBe(false);
+      expect(scene.bulletTimeMeter).toBe(C.BULLET_TIME_MAX_METER);
+    });
+
+    it('should NOT auto-activate when a single line clear tips meter over 100 (R85.M3)', () => {
+      scene.bulletTimeMeter = C.BULLET_TIME_MAX_METER - 1;
+      scene.bulletTimeActive = false;
+      scene.handleScoring(1);
+      expect(scene.bulletTimeActive).toBe(false);
+      expect(scene.bulletTimeMeter).toBe(C.BULLET_TIME_MAX_METER);
     });
 
     it('should not allow manual activation when meter is not full', () => {
       scene.bulletTimeMeter = 50;
       scene.tryManualBulletTime();
       expect(scene.bulletTimeActive).toBe(false);
+    });
+
+    it('should allow manual activation once meter reaches 100 (R85.M3)', () => {
+      scene.bulletTimeMeter = C.BULLET_TIME_MAX_METER;
+      scene.bulletTimeActive = false;
+      scene.tryManualBulletTime();
+      expect(scene.bulletTimeActive).toBe(true);
+      expect(scene.bulletTimeMeter).toBe(0);
+      expect(scene.bulletTimeTimer).toBe(C.BULLET_TIME_DURATION);
+    });
+
+    it('should no-op when manual activation is pressed while already active (R85.M3)', () => {
+      scene.bulletTimeActive = true;
+      scene.bulletTimeMeter = C.BULLET_TIME_MAX_METER;
+      const countBefore = scene.bulletTimeCount;
+      scene.tryManualBulletTime();
+      expect(scene.bulletTimeCount).toBe(countBefore);
     });
 
     it('should increment bullet time count', () => {
@@ -661,6 +687,52 @@ describe('MetrisGameScene', () => {
     it('should play sound on activation', () => {
       scene.activateBulletTime();
       expect(scene.playSound).toHaveBeenCalled();
+    });
+
+    it('meter label turns yellow when ready but idle (R85.M3)', async () => {
+      const { MATRIX_COLORS } = await import('@/lib/phaser/types');
+      scene.bulletTimeActive = false;
+      scene.bulletTimeMeter = C.BULLET_TIME_MAX_METER;
+      scene.updateHUD();
+      expect(scene.meterLabel.setColor).toHaveBeenCalledWith(MATRIX_COLORS.YELLOW_HEX);
+    });
+
+    it('meter label stays green below full threshold (R85.M3)', async () => {
+      const { MATRIX_COLORS } = await import('@/lib/phaser/types');
+      scene.bulletTimeActive = false;
+      scene.bulletTimeMeter = C.BULLET_TIME_MAX_METER - 1;
+      scene.updateHUD();
+      expect(scene.meterLabel.setColor).toHaveBeenCalledWith(MATRIX_COLORS.PRIMARY_HEX);
+    });
+
+    it('READY! text shown when meter full but idle (R85.M3)', () => {
+      scene.bulletTimeActive = false;
+      scene.bulletTimeMeter = C.BULLET_TIME_MAX_METER;
+      scene.updateHUD();
+      expect(scene.bulletTimeTimerText.setText).toHaveBeenCalledWith('READY!');
+    });
+
+    it('handleScoring source contains no auto-activateBulletTime call (R85.M3 tripwire)', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const src = fs.readFileSync(
+        path.resolve(__dirname, 'GameScene.ts'),
+        'utf-8',
+      );
+      const handleScoringMatch = src.match(/private handleScoring[\s\S]*?^ {2}\}/m);
+      expect(handleScoringMatch).not.toBeNull();
+      const body = handleScoringMatch![0];
+      expect(body).not.toMatch(/activateBulletTime\(\)/);
+    });
+
+    it('B key handler invokes tryManualBulletTime, not activateBulletTime directly (R85.M3 tripwire)', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const src = fs.readFileSync(
+        path.resolve(__dirname, 'GameScene.ts'),
+        'utf-8',
+      );
+      expect(src).toMatch(/JustDown\(this\.bKey\)\)\s*\{\s*\n\s*this\.tryManualBulletTime\(\)/);
     });
   });
 
