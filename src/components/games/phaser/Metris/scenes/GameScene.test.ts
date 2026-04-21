@@ -858,6 +858,140 @@ describe('MetrisGameScene', () => {
     });
   });
 
+  // R85.M1 / M2 — First piece must stay pinned at the spawn row throughout the
+  // 5-second countdown, and the countdown must actually feel present to the
+  // player. Tom's repro: *"the first block appears near the bottom and
+  // requires quick reactions"* + *"5-second countdown fires correctly after
+  // menu — nope"*. Root cause was a single-issue chain: the drop timer was
+  // armed in `create()` **before** `startCountdown()`, so at 400ms intervals
+  // it raced the 5s countdown and dropped the piece ~12 rows on a 20-row grid.
+  // Gameplay visually began during the countdown, which is why Tom perceived
+  // the countdown as missing even though the text was firing at depth 200.
+  //
+  // Fix is two-pronged defence-in-depth: (a) `create()` only calls
+  // `startDropTimer()` from the countdown's `onComplete` so no wasted ticks
+  // during the 5s window, (b) `dropTick()` itself early-returns on
+  // `isCountingDown || isPaused` so a future refactor that rearms the timer
+  // pre-countdown cannot resurrect the bug.
+  describe('R85.M1 / M2 Countdown-gated drop timer', () => {
+    it('dropTick no-ops while isCountingDown so the first piece stays at the spawn row', () => {
+      scene.currentPiece = scene.spawnPiece('T');
+      const origY = scene.currentPiece.y;
+      scene.isCountingDown = true;
+      for (let i = 0; i < 12; i++) scene.dropTick();
+      expect(scene.currentPiece.y).toBe(origY);
+      expect(origY).toBe(0);
+    });
+
+    it('dropTick no-ops while isPaused so a pause during gameplay cannot lock pieces', () => {
+      scene.currentPiece = scene.spawnPiece('T');
+      scene.currentPiece.y = 5;
+      scene.isPaused = true;
+      scene.dropTick();
+      expect(scene.currentPiece.y).toBe(5);
+    });
+
+    it('dropTick resumes normal fall once isCountingDown flips false', () => {
+      scene.currentPiece = scene.spawnPiece('T');
+      scene.isCountingDown = true;
+      scene.dropTick();
+      expect(scene.currentPiece.y).toBe(0);
+
+      scene.isCountingDown = false;
+      scene.dropTick();
+      expect(scene.currentPiece.y).toBe(1);
+    });
+
+    it('dropTick respects isGameOver gate independently of countdown state', () => {
+      scene.currentPiece = scene.spawnPiece('T');
+      scene.isCountingDown = false;
+      scene.isGameOver = true;
+      scene.dropTick();
+      expect(scene.currentPiece.y).toBe(0);
+    });
+
+    it('create() arms the drop timer from inside startCountdown onComplete, not before', () => {
+      const order: string[] = [];
+      const freshScene = createTestScene();
+      freshScene.createMatrixBackground = vi.fn(() => order.push('createMatrixBackground'));
+      freshScene.addMatrixRain = vi.fn(() => { order.push('addMatrixRain'); return { getChildren: () => [] }; });
+      freshScene.createGraphics = vi.fn(() => order.push('createGraphics'));
+      freshScene.createHUD = vi.fn(() => order.push('createHUD'));
+      freshScene.setupInput = vi.fn(() => order.push('setupInput'));
+      freshScene.setupCommonInputs = vi.fn(() => order.push('setupCommonInputs'));
+      freshScene.playBackgroundMusic = vi.fn(() => order.push('playBackgroundMusic'));
+      freshScene.startDropTimer = vi.fn(() => order.push('startDropTimer'));
+      freshScene.startCountdown = vi.fn((_s: number, cb: () => void) => {
+        order.push('startCountdown');
+        cb();
+      });
+
+      freshScene.create();
+
+      const startDropIdx = order.indexOf('startDropTimer');
+      const countdownIdx = order.indexOf('startCountdown');
+      expect(countdownIdx).toBeGreaterThanOrEqual(0);
+      expect(startDropIdx).toBeGreaterThan(countdownIdx);
+    });
+
+    it('startDropTimer is NOT called before startCountdown fires its onComplete (regression tripwire)', () => {
+      const freshScene = createTestScene();
+      const startDropSpy = vi.fn();
+      freshScene.startDropTimer = startDropSpy;
+      // startCountdown that never fires its callback (simulating a 5s wait).
+      freshScene.startCountdown = vi.fn();
+      freshScene.createMatrixBackground = vi.fn();
+      freshScene.addMatrixRain = vi.fn().mockReturnValue({ getChildren: () => [] });
+      freshScene.createGraphics = vi.fn();
+      freshScene.createHUD = vi.fn();
+      freshScene.setupInput = vi.fn();
+      freshScene.setupCommonInputs = vi.fn();
+      freshScene.playBackgroundMusic = vi.fn();
+
+      freshScene.create();
+
+      expect(startDropSpy).not.toHaveBeenCalled();
+    });
+
+    it('create() passes 5 seconds to startCountdown to match the arcade-wide convention', () => {
+      const freshScene = createTestScene();
+      const countdownSpy = vi.fn();
+      freshScene.startCountdown = countdownSpy;
+      freshScene.startDropTimer = vi.fn();
+      freshScene.createMatrixBackground = vi.fn();
+      freshScene.addMatrixRain = vi.fn().mockReturnValue({ getChildren: () => [] });
+      freshScene.createGraphics = vi.fn();
+      freshScene.createHUD = vi.fn();
+      freshScene.setupInput = vi.fn();
+      freshScene.setupCommonInputs = vi.fn();
+      freshScene.playBackgroundMusic = vi.fn();
+
+      freshScene.create();
+
+      expect(countdownSpy).toHaveBeenCalledTimes(1);
+      expect(countdownSpy).toHaveBeenCalledWith(5, expect.any(Function));
+    });
+
+    it('first spawned piece sits at y=0 (top of board) regardless of tetromino type', () => {
+      for (const type of TETROMINO_TYPES) {
+        const piece = scene.spawnPiece(type);
+        expect(piece.y).toBe(0);
+      }
+    });
+
+    it('first piece stays at y=0 across a full countdown window (12 timer ticks @ 400ms = 4.8s)', () => {
+      // Level-1 drop speed is 400ms; over the 5s countdown a racing timer would
+      // fire ~12 times. This is the exact pathological case Tom reported.
+      scene.currentPiece = scene.spawnPiece('T');
+      scene.isCountingDown = true;
+      for (let i = 0; i < 12; i++) scene.dropTick();
+      expect(scene.currentPiece.y).toBe(0);
+      // Regression tripwire: at level 1, 12 unguarded ticks would land the
+      // piece around row 12 (below the grid midpoint of row 10).
+      expect(scene.currentPiece.y).toBeLessThan(C.ROWS / 2);
+    });
+  });
+
   describe('Cleanup', () => {
     it('should destroy drop timer', () => {
       const mockTimer = { destroy: vi.fn() };
