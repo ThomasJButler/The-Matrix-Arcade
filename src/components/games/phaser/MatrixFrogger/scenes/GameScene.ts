@@ -194,11 +194,30 @@ export class FroggerGameScene extends BaseScene {
     // Setup collisions
     this.setupCollisions();
 
-    // Spawn enemies (frozen during countdown)
+    // Background music starts immediately so the menu-to-game handoff isn't silent.
+    this.playBackgroundMusic('/assets/matrix-frogger/audio/soundtrack.mp3');
+
+    // R86.F2 — gameplay arms ONLY when the countdown resolves. Pre-spawning
+    // enemies and arming 2s/3s spawn timers here would fire mid-countdown
+    // (enemies appearing at t=2s/3s of the 5s window), making the pre-game
+    // moment read as live gameplay even though BaseScene paints the digit at
+    // depth 200. Tom's "no 5 second countdown" report on Frogger is the same
+    // cascade symptom R85.M2 fixed for Metris.
+    this.startCountdown(GAME_CONFIG.COUNTDOWN.DURATION, () => this.armGameplay());
+  }
+
+  /**
+   * Arm gameplay after the 5s countdown resolves. Called from
+   * startCountdown's onComplete so the countdown plays on a clean board
+   * (lanes + labels + player only) — the first wave spawns the instant the
+   * player regains control.
+   */
+  private armGameplay(): void {
+    if (this.isGameOver) return;
+
     this.spawnInitialEnemies();
     this.spawnPills();
 
-    // Spawn timers
     this.time.addEvent({
       delay: 2000,
       callback: () => this.spawnEnemy(),
@@ -210,12 +229,6 @@ export class FroggerGameScene extends BaseScene {
       callback: () => this.spawnPills(),
       loop: true,
     });
-
-    // Start countdown
-    this.startCountdown(GAME_CONFIG.COUNTDOWN.DURATION, () => {});
-
-    // Background music
-    this.playBackgroundMusic('/assets/matrix-frogger/audio/soundtrack.mp3');
   }
 
   update(time: number, delta: number): void {
@@ -981,6 +994,11 @@ export class FroggerGameScene extends BaseScene {
   // ---------------------------------------------------------------------------
 
   private spawnEnemy(): void {
+    // R86.F2 defence-in-depth: if a future refactor re-arms the spawn timer
+    // before startCountdown (the pre-R86.F2 bug), this guard keeps gameplay
+    // off the board during the pre-game moment.
+    if (this.isCountingDown || this.isGameOver || this.isLevelingUp) return;
+
     const roadLanes = this.lanes
       .map((lane, index) => ({ ...lane, row: index }))
       .filter((lane) => lane.type === 'road');
@@ -1055,6 +1073,9 @@ export class FroggerGameScene extends BaseScene {
   }
 
   private spawnPills(): void {
+    // R86.F2 defence-in-depth — see spawnEnemy() comment.
+    if (this.isCountingDown || this.isGameOver || this.isLevelingUp) return;
+
     const col = Phaser.Math.Between(1, GAME_CONFIG.GRID_COLS - 2);
     const row = Phaser.Math.Between(1, GAME_CONFIG.GRID_ROWS - 2);
 
