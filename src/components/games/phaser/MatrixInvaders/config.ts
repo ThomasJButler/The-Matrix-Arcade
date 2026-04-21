@@ -30,6 +30,11 @@ export interface BossState {
   width: number;
   height: number;
   barrelOffsets: number[];
+  // R85.I8: 1-indexed encounter counter (wave 5 = 1, wave 10 = 2, ...).
+  // Lets updateBoss/defeatBoss scale fire cadence + particle count without
+  // re-reading `this.wave` — keeps boss behaviour determined by its own
+  // state, not a scene-level wave counter that might drift post-respawn.
+  encounter: number;
 }
 
 export interface BulletState {
@@ -181,7 +186,46 @@ export const GAME_CONFIG = {
   BOSS_HEALTH_PER_ENCOUNTER: 10,
   BOSS_BASE_VALUE: 500,
   BOSS_SPEED: 1.5,
-  BOSS_FIRE_CHANCE: 0.002,
+  // R85.I8: bumped 0.002 → 0.006 per barrel (3×). Pre-R85.I8 the boss fired
+  // ~0.36 shots/sec across 3 barrels — *less* than a regular wave of 40
+  // enemies (2.4 shots/sec via ENEMY_FIRE_CHANCE=0.001). Post-bump: ~1.08
+  // shots/sec at encounter 1, which is half-ish of a regular wave and feels
+  // like a credible climax. The per-encounter multiplier below then ramps it
+  // further so wave-25 bosses are materially nastier than wave-5 bosses.
+  BOSS_FIRE_CHANCE: 0.006,
+  // R85.I8: every encounter adds this fraction to the fire-rate multiplier.
+  // encounter 1 = 1.0×, encounter 2 = 1.3×, encounter 3 = 1.6×, encounter 5
+  // = 2.2×. Linear curve chosen (not exponential) so the wall never becomes
+  // unfair — a skilled player should still be able to dodge at wave 25.
+  BOSS_FIRE_CHANCE_PER_ENCOUNTER: 0.3,
+  // R85.I8: when boss HP drops below this ratio the fire rate multiplies
+  // by ENRAGE_FIRE_MULTIPLIER. Matches the RED healthbar colour threshold
+  // in drawBossHealthBar() so the visual warning the player already sees
+  // (bar flips red) now carries a real mechanical consequence — classic
+  // enrage phase, telegraphed via colour before it activates.
+  BOSS_ENRAGE_THRESHOLD: 0.25,
+  BOSS_ENRAGE_FIRE_MULTIPLIER: 2.0,
+  // R85.I8: camera shake on boss hit — small but consistent. Pre-fix the
+  // boss absorbed every hit with only a 100ms white tint, lost against
+  // its 120×60 sprite. 50ms × 0.003 is the quietest shake that still
+  // registers; anything stronger chains into nausea territory at rapid
+  // fire rates.
+  BOSS_HIT_SHAKE_DURATION: 50,
+  BOSS_HIT_SHAKE_INTENSITY: 0.003,
+  // R85.I8: defeat camera juice — parity with wave-complete (150ms, 0.006
+  // shake / 0.15 flash) but stronger because this is a multi-minute
+  // encounter's climax. 350ms shake + 300ms green flash at α=0.3 tops the
+  // wave-complete punctuation without overtaking game-over (500ms, 0.25α).
+  BOSS_DEFEAT_SHAKE_DURATION: 350,
+  BOSS_DEFEAT_SHAKE_INTENSITY: 0.012,
+  BOSS_DEFEAT_FLASH_DURATION: 300,
+  BOSS_DEFEAT_FLASH_ALPHA: 0.3,
+  // R85.I8: defeat explosion particle count scales with encounter — bigger
+  // bosses (wave 25 = encounter 5) get bigger death throes. Base 40 matches
+  // pre-fix main burst; per-encounter bonus of 8 keeps wave-25 at ~72 main
+  // particles (side bursts scale separately via spawnExplosion count args).
+  BOSS_DEFEAT_MAIN_PARTICLES_BASE: 40,
+  BOSS_DEFEAT_PARTICLES_PER_ENCOUNTER: 8,
   BOSS_Y: 60,
 
   BULLET_TIME_DURATION: 5000,
