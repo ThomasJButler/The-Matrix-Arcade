@@ -203,6 +203,10 @@ describe('MatrixInvadersGameScene', () => {
     scene.healthBarBg = createMockGraphics();
     scene.healthBarFill = createMockGraphics();
     scene.bulletTimeText = createMockText();
+    scene.bulletTimeLabel = createMockText();
+    scene.bulletTimeChargeBg = createMockGraphics();
+    scene.bulletTimeChargeFill = createMockGraphics();
+    scene.bulletTimeReadyPulse = createMockText();
     scene.waveCompleteText = createMockText();
     scene.bossWarningText = { ...createMockText(), visible: false };
     scene.matrixRainGroup = { getChildren: () => [] };
@@ -251,6 +255,15 @@ describe('MatrixInvadersGameScene', () => {
 
     it('starts with bullet time inactive', () => {
       expect(s(scene, 'bulletTimeActive')).toBe(false);
+    });
+
+    it('starts with bullet-time charge full', () => {
+      expect(s(scene, 'bulletTimeCharge')).toBe(1);
+    });
+
+    it('starts with bullet-time ready-latch armed', () => {
+      // `wasReady` guards the pulse edge — initially true so no pulse on spawn.
+      expect(s(scene, 'bulletTimeWasReady')).toBe(true);
     });
 
     it('starts with 0 enemies killed', () => {
@@ -399,6 +412,67 @@ describe('MatrixInvadersGameScene', () => {
       scene.bulletTimeKey = { isDown: true };
       call(scene, 'handleBulletTime');
       expect(scene.time.delayedCall).toHaveBeenCalledWith(C.BULLET_TIME_DURATION, expect.any(Function));
+    });
+
+    // R85.I2 — charge gate, drain, refill, READY pulse edge.
+    it('refuses activation while charge is below full', () => {
+      scene.bulletTimeCharge = 0.5;
+      (Phaser.Input.Keyboard as Record<string, unknown>).JustDown = vi.fn().mockReturnValue(true);
+      scene.bulletTimeKey = { isDown: true };
+      call(scene, 'handleBulletTime');
+      expect(s(scene, 'bulletTimeActive')).toBe(false);
+      expect(s(scene, 'bulletTimeUses')).toBe(0);
+    });
+
+    it('arms the ready-latch (wasReady→false) on activation so the next refill can pulse', () => {
+      (Phaser.Input.Keyboard as Record<string, unknown>).JustDown = vi.fn().mockReturnValue(true);
+      scene.bulletTimeKey = { isDown: true };
+      call(scene, 'handleBulletTime');
+      expect(s(scene, 'bulletTimeWasReady')).toBe(false);
+    });
+
+    it('drains charge during active at 1 / BULLET_TIME_DURATION per ms', () => {
+      scene.bulletTimeActive = true;
+      scene.bulletTimeCharge = 1;
+      call(scene, 'updateBulletTimeCharge', C.BULLET_TIME_DURATION / 2);
+      expect(s(scene, 'bulletTimeCharge')).toBeCloseTo(0.5, 5);
+    });
+
+    it('drain clamps at 0', () => {
+      scene.bulletTimeActive = true;
+      scene.bulletTimeCharge = 0.1;
+      call(scene, 'updateBulletTimeCharge', C.BULLET_TIME_DURATION);
+      expect(s(scene, 'bulletTimeCharge')).toBe(0);
+    });
+
+    it('refills charge while inactive at 1 / BULLET_TIME_COOLDOWN per ms', () => {
+      scene.bulletTimeActive = false;
+      scene.bulletTimeCharge = 0;
+      scene.bulletTimeWasReady = false;
+      call(scene, 'updateBulletTimeCharge', C.BULLET_TIME_COOLDOWN / 4);
+      expect(s(scene, 'bulletTimeCharge')).toBeCloseTo(0.25, 5);
+    });
+
+    it('refill clamps at 1 and fires READY pulse exactly once on the edge', () => {
+      scene.bulletTimeActive = false;
+      scene.bulletTimeCharge = 0.95;
+      scene.bulletTimeWasReady = false;
+      call(scene, 'updateBulletTimeCharge', C.BULLET_TIME_COOLDOWN); // overshoot
+      expect(s(scene, 'bulletTimeCharge')).toBe(1);
+      expect(s(scene, 'bulletTimeWasReady')).toBe(true);
+      expect(scene.tweens.add).toHaveBeenCalledTimes(1);
+
+      // Subsequent ticks at full charge must not re-trigger the pulse.
+      call(scene, 'updateBulletTimeCharge', 16);
+      expect(scene.tweens.add).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips pulse when already ready (no edge to trigger on)', () => {
+      scene.bulletTimeActive = false;
+      scene.bulletTimeCharge = 1;
+      scene.bulletTimeWasReady = true;
+      call(scene, 'updateBulletTimeCharge', 100);
+      expect(scene.tweens.add).not.toHaveBeenCalled();
     });
   });
 
@@ -1178,6 +1252,7 @@ describe('MatrixInvadersGameScene', () => {
       expect(state).toHaveProperty('scoreMultiplierActive');
       expect(state).toHaveProperty('bulletTimeActive');
       expect(state).toHaveProperty('bulletTimeUses');
+      expect(state).toHaveProperty('bulletTimeCharge');
       expect(state).toHaveProperty('enemiesKilled');
       expect(state).toHaveProperty('isGameOver');
       expect(state).toHaveProperty('isBossWave');

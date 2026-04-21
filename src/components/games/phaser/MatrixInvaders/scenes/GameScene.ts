@@ -49,6 +49,11 @@ export class MatrixInvadersGameScene extends BaseScene {
   private dangerWarningTriggered = false;
 
   private bulletTimeActive = false;
+  // R85.I2: charge ∈ [0,1]. 1 = ready, drains to 0 during active, refills
+  // back to 1 over BULLET_TIME_COOLDOWN. `wasReady` is an edge latch so the
+  // "READY" pulse only fires once per transition, not every frame at charge=1.
+  private bulletTimeCharge = 1;
+  private bulletTimeWasReady = true;
   private isGameOver = false;
   private waveTransitioning = false;
   private achievementsUnlocked = new Set<string>();
@@ -60,6 +65,13 @@ export class MatrixInvadersGameScene extends BaseScene {
   private healthBarBg!: Phaser.GameObjects.Graphics;
   private healthBarFill!: Phaser.GameObjects.Graphics;
   private bulletTimeText!: Phaser.GameObjects.Text;
+  // R85.I2: persistent bullet-time HUD — label + meter shown for the entire
+  // run so players learn the B-key verb through repeated glance. Pulse fires
+  // once per cooldown-complete edge.
+  private bulletTimeLabel!: Phaser.GameObjects.Text;
+  private bulletTimeChargeBg!: Phaser.GameObjects.Graphics;
+  private bulletTimeChargeFill!: Phaser.GameObjects.Graphics;
+  private bulletTimeReadyPulse!: Phaser.GameObjects.Text;
   private waveCompleteText!: Phaser.GameObjects.Text;
   private bossWarningText!: Phaser.GameObjects.Text;
   private healthLabel!: Phaser.GameObjects.Text;
@@ -101,6 +113,8 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.isInvulnerable = false;
     this.shieldActive = false;
     this.bulletTimeActive = false;
+    this.bulletTimeCharge = 1;
+    this.bulletTimeWasReady = true;
     this.bulletTimeUses = 0;
     this.rapidFireActive = false;
     this.scoreMultiplierActive = false;
@@ -161,6 +175,19 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.bulletTimeText.setVisible(false);
     this.bulletTimeText.setDepth(100);
 
+    // R85.I2: persistent key-reminder label + meter bar in the left HUD column
+    // below the combo readout. Magenta to match the active-banner + pulse.
+    this.bulletTimeLabel = this.createMatrixText(10, 68, '[B] BULLET TIME', 8, MATRIX_COLORS.MAGENTA_HEX);
+    this.bulletTimeLabel.setOrigin(0, 0);
+    this.bulletTimeChargeBg = this.add.graphics();
+    this.bulletTimeChargeFill = this.add.graphics();
+
+    this.bulletTimeReadyPulse = this.createMatrixText(
+      GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT * 0.3, 'BULLET TIME READY', 10, MATRIX_COLORS.MAGENTA_HEX
+    );
+    this.bulletTimeReadyPulse.setVisible(false);
+    this.bulletTimeReadyPulse.setDepth(100);
+
     this.waveCompleteText = this.createMatrixText(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT * 0.4, '', 12);
     this.waveCompleteText.setVisible(false);
     this.waveCompleteText.setDepth(100);
@@ -196,6 +223,7 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.handleMovement(scaledDt);
     this.handleShooting(time);
     this.handleBulletTime();
+    this.updateBulletTimeCharge(delta);
     this.updatePlayerBullets(scaledDt);
     this.updateEnemyBullets(scaledDt);
 
@@ -274,8 +302,13 @@ export class MatrixInvadersGameScene extends BaseScene {
   private handleBulletTime(): void {
     if (!this.bulletTimeKey || !Phaser.Input.Keyboard.JustDown(this.bulletTimeKey)) return;
     if (this.bulletTimeActive) return;
+    // R85.I2: gate activation on full charge so the meter is load-bearing,
+    // not decorative. Pressing B on empty/partial meter no-ops silently.
+    if (this.bulletTimeCharge < 1) return;
 
     this.bulletTimeActive = true;
+    this.bulletTimeCharge = 1;
+    this.bulletTimeWasReady = false;
     this.bulletTimeUses++;
     this.bulletTimeText.setVisible(true);
     this.playSound(SOUND_KEYS.POWERUP);
@@ -283,6 +316,34 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.time.delayedCall(GAME_CONFIG.BULLET_TIME_DURATION, () => {
       this.bulletTimeActive = false;
       this.bulletTimeText.setVisible(false);
+    });
+  }
+
+  // R85.I2: drain/refill drives the HUD meter + arms the READY pulse.
+  // Called unconditionally from update() — pause/gameover return before it,
+  // so charge correctly freezes with the rest of the world.
+  private updateBulletTimeCharge(delta: number): void {
+    if (this.bulletTimeActive) {
+      this.bulletTimeCharge = Math.max(0, this.bulletTimeCharge - delta / GAME_CONFIG.BULLET_TIME_DURATION);
+      return;
+    }
+    if (this.bulletTimeCharge >= 1) return;
+    this.bulletTimeCharge = Math.min(1, this.bulletTimeCharge + delta / GAME_CONFIG.BULLET_TIME_COOLDOWN);
+    if (this.bulletTimeCharge >= 1 && !this.bulletTimeWasReady) {
+      this.bulletTimeWasReady = true;
+      this.pulseBulletTimeReady();
+    }
+  }
+
+  private pulseBulletTimeReady(): void {
+    this.bulletTimeReadyPulse.setVisible(true).setAlpha(1);
+    this.playSound(SOUND_KEYS.POWERUP);
+    this.tweens.add({
+      targets: this.bulletTimeReadyPulse,
+      alpha: 0,
+      duration: 900,
+      ease: 'Sine.easeOut',
+      onComplete: () => this.bulletTimeReadyPulse.setVisible(false),
     });
   }
 
@@ -977,6 +1038,7 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.highScoreText.setText(`HI: ${this.highScore}`);
 
     this.drawHealthBar(time);
+    this.drawBulletTimeMeter(time);
 
     if (this._spriteMode) {
       if (this.shieldActive) {
@@ -1019,6 +1081,27 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.healthBarFill.fillRect(barX, barY, barW * healthPct, barH);
   }
 
+  // R85.I2: meter below the combo readout. Fill pulses gently when ready +
+  // idle so the eye catches it without being distracting during active play.
+  private drawBulletTimeMeter(time: number): void {
+    const barX = 10;
+    const barY = 80;
+    const barW = 140;
+    const barH = 6;
+
+    this.bulletTimeChargeBg.clear();
+    this.bulletTimeChargeBg.fillStyle(MATRIX_COLORS.DARK_GREY, 1);
+    this.bulletTimeChargeBg.fillRect(barX, barY, barW, barH);
+    this.bulletTimeChargeBg.lineStyle(1, MATRIX_COLORS.MAGENTA, 0.6);
+    this.bulletTimeChargeBg.strokeRect(barX, barY, barW, barH);
+
+    this.bulletTimeChargeFill.clear();
+    const isReady = this.bulletTimeCharge >= 1 && !this.bulletTimeActive;
+    const alpha = isReady ? 0.75 + 0.25 * Math.sin(time * 0.008) : 1;
+    this.bulletTimeChargeFill.fillStyle(MATRIX_COLORS.MAGENTA, alpha);
+    this.bulletTimeChargeFill.fillRect(barX, barY, barW * this.bulletTimeCharge, barH);
+  }
+
   // -- Achievements --
 
   private tryUnlockAchievement(id: string): void {
@@ -1057,6 +1140,7 @@ export class MatrixInvadersGameScene extends BaseScene {
       scoreMultiplierActive: this.scoreMultiplierActive,
       bulletTimeActive: this.bulletTimeActive,
       bulletTimeUses: this.bulletTimeUses,
+      bulletTimeCharge: this.bulletTimeCharge,
       enemiesKilled: this.enemiesKilled,
       waveDamageTaken: this.waveDamageTaken,
       isGameOver: this.isGameOver,

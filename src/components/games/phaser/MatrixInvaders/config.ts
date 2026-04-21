@@ -130,6 +130,10 @@ export const GAME_CONFIG = {
 
   BULLET_TIME_DURATION: 5000,
   BULLET_TIME_SCALE: 0.3,
+  // R85.I2: cooldown between activations drives the HUD meter's refill so
+  // players can see when the ability is ready again. 10s keeps the verb rare
+  // enough to feel earned but not so rare that the meter reads as broken.
+  BULLET_TIME_COOLDOWN: 10000,
 
   POWERUP_DROP_CHANCE: 0.05,
   POWERUP_SIZE: 20,
