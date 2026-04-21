@@ -1030,4 +1030,186 @@ describe('FroggerGameScene', () => {
       expect(scene.kungFuIcons).toHaveLength(GAME_CONFIG.KUNG_FU.MAX_CHARGES);
     });
   });
+
+  // -----------------------------------------------------------------------
+  // R86.F4 — Hit-box clamped to lane bounds
+  //
+  // Tom repro (MANUAL_TESTING_CHECKLIST_Matrix_Frogger.md line 135):
+  // *"Need to make sure the objects are not big enough to run into the
+  // safe area too."*
+  //
+  // Root cause (geometry, not art): enemies render with origin(0.5, 1) so
+  // their bottoms sit at the lane centre (rowToY) for the perspective lean.
+  // Phaser's body.setSize(center=true) then anchors the body on the
+  // sprite's DISPLAY centre — displayHeight/2 above the lane centre. For
+  // the cars at row 5 (baseScale 3.0 × perspScale 0.85 → display 40.8px,
+  // lane height 66.6px) that body.top lands 7.5px past row 5's top, inside
+  // the row 4 middle safe zone. Player resting on row 4 takes a "ghost"
+  // hit from a lane they aren't in.
+  //
+  // Fix: applyEnemyBody clamps body width to HITBOX.WIDTH_RATIO for lateral
+  // forgiveness, caps body height so it can never exceed HITBOX.HEIGHT_RATIO
+  // of the lane, and re-offsets the body so it centres on rowToY rather than
+  // the displaced sprite centre. Chasers are exempt (they legitimately
+  // cross lanes via verticalSpeed).
+  // -----------------------------------------------------------------------
+  describe('R86.F4 — Hit-box clamped to lane bounds', () => {
+    function buildMockEnemy(opts: {
+      frameWidth: number;
+      frameHeight: number;
+      scaleX: number;
+      scaleY: number;
+      enemyType: 'agent' | 'sentinel' | 'chaser';
+    }) {
+      const body = {
+        size: { width: opts.frameWidth, height: opts.frameHeight },
+        offset: { x: 0, y: 0 },
+        setSize: vi.fn(function (this: any, w: number, h: number) {
+          this.size = { width: w, height: h };
+          return this;
+        }),
+        setOffset: vi.fn(function (this: any, x: number, y: number) {
+          this.offset = { x, y };
+          return this;
+        }),
+      };
+      return {
+        body,
+        frame: { width: opts.frameWidth, height: opts.frameHeight },
+        scaleX: opts.scaleX,
+        scaleY: opts.scaleY,
+        enemyType: opts.enemyType,
+      };
+    }
+
+    it('clamps body width below frame.width for non-chasers (lateral forgiveness)', () => {
+      const enemy = buildMockEnemy({
+        frameWidth: 16,
+        frameHeight: 16,
+        scaleX: 2.55,
+        scaleY: 2.55,
+        enemyType: 'agent',
+      });
+      scene.laneH = Array(GAME_CONFIG.GRID_ROWS).fill(66.6);
+
+      scene.applyEnemyBody(enemy, 5);
+
+      expect(enemy.body.setSize).toHaveBeenCalledTimes(1);
+      const [width] = enemy.body.setSize.mock.calls[0];
+      expect(width).toBeCloseTo(16 * GAME_CONFIG.HITBOX.WIDTH_RATIO);
+      expect(width).toBeLessThan(16);
+    });
+
+    it('row 5 car body never extends past row 4 (Tom repro: safe-zone ghost hit)', () => {
+      // Measured lane geometry: row 4 bottom lands at rowToY(5) - row5H/2 =
+      // rowToY(5) - 33.3. With origin(0.5, 1) the enemy sits at rowToY(5)
+      // so body.top (world) = rowToY(5) - displayHeight + offsetY*scaleY.
+      const frame = { width: 16, height: 16 };
+      const scale = 2.55; // baseScale 3.0 × perspScale(row5) 0.85
+      const laneH5 = 66.6;
+      const enemy = buildMockEnemy({
+        frameWidth: frame.width,
+        frameHeight: frame.height,
+        scaleX: scale,
+        scaleY: scale,
+        enemyType: 'agent',
+      });
+      scene.laneH = Array(GAME_CONFIG.GRID_ROWS).fill(66.6);
+      scene.laneH[5] = laneH5;
+
+      scene.applyEnemyBody(enemy, 5);
+
+      const [, bodyHeightSource] = enemy.body.setSize.mock.calls[0];
+      const [, offsetY] = enemy.body.setOffset.mock.calls[0];
+      const displayHeight = frame.height * scale;
+      const bodyHeightWorld = bodyHeightSource * scale;
+
+      // Body top relative to sprite.y (= rowToY(5)):
+      //   body.position.y = sprite.y - displayHeight + offsetY * scale
+      const bodyTopRel = -displayHeight + offsetY * scale;
+      const bodyBottomRel = bodyTopRel + bodyHeightWorld;
+
+      // Row 5 occupies [rowToY - laneH5/2, rowToY + laneH5/2] relative to sprite.y=rowToY.
+      const rowTopRel = -laneH5 / 2;
+      const rowBottomRel = laneH5 / 2;
+
+      expect(bodyTopRel).toBeGreaterThanOrEqual(rowTopRel - 0.01);
+      expect(bodyBottomRel).toBeLessThanOrEqual(rowBottomRel + 0.01);
+    });
+
+    it('re-centres body on rowToY (lane centre), not sprite display centre', () => {
+      // With offsetY = frame.height - bodyHeight/2, Phaser's body world y is
+      //   sprite.y - displayHeight + offsetY * scaleY
+      // Body centre world y = body.top + bodyHeight*scale/2. For the body
+      // to centre on sprite.y (= rowToY), that must equal sprite.y.
+      const frame = { width: 16, height: 16 };
+      const scale = 2.55;
+      const enemy = buildMockEnemy({
+        frameWidth: frame.width,
+        frameHeight: frame.height,
+        scaleX: scale,
+        scaleY: scale,
+        enemyType: 'agent',
+      });
+      scene.laneH = Array(GAME_CONFIG.GRID_ROWS).fill(66.6);
+
+      scene.applyEnemyBody(enemy, 5);
+
+      const [, bodyHeightSource] = enemy.body.setSize.mock.calls[0];
+      const [, offsetY] = enemy.body.setOffset.mock.calls[0];
+      const displayHeight = frame.height * scale;
+      const bodyHeightWorld = bodyHeightSource * scale;
+
+      const bodyTopRel = -displayHeight + offsetY * scale;
+      const bodyCentreRel = bodyTopRel + bodyHeightWorld / 2;
+
+      expect(bodyCentreRel).toBeCloseTo(0, 5); // 0 == sprite.y == rowToY
+    });
+
+    it('clamps body height below frame when the lane is smaller than displayed sprite', () => {
+      // Force a tight lane: laneH * HEIGHT_RATIO < displayHeight so the
+      // clamp actually bites (otherwise bodyHeight defaults to frame.height).
+      const frame = { width: 32, height: 32 };
+      const scale = 3.0;
+      const tightLane = 40; // 40 * 0.85 = 34 < 32*3 = 96 display → clamp triggers
+      const enemy = buildMockEnemy({
+        frameWidth: frame.width,
+        frameHeight: frame.height,
+        scaleX: scale,
+        scaleY: scale,
+        enemyType: 'agent',
+      });
+      scene.laneH = Array(GAME_CONFIG.GRID_ROWS).fill(tightLane);
+
+      scene.applyEnemyBody(enemy, 2);
+
+      const [, bodyHeightSource] = enemy.body.setSize.mock.calls[0];
+      const expected = (tightLane * GAME_CONFIG.HITBOX.HEIGHT_RATIO) / scale;
+      expect(bodyHeightSource).toBeCloseTo(expected);
+      expect(bodyHeightSource).toBeLessThan(frame.height);
+    });
+
+    it('keeps full-frame body for chasers (they cross lanes legitimately)', () => {
+      const enemy = buildMockEnemy({
+        frameWidth: 64,
+        frameHeight: 64,
+        scaleX: 0.6,
+        scaleY: 0.6,
+        enemyType: 'chaser',
+      });
+      scene.laneH = Array(GAME_CONFIG.GRID_ROWS).fill(40); // intentionally tight
+
+      scene.applyEnemyBody(enemy, 3);
+
+      expect(enemy.body.setSize).toHaveBeenCalledWith(64, 64);
+      expect(enemy.body.setOffset).not.toHaveBeenCalled();
+    });
+
+    it('exposes HITBOX constants for the hit-box contract (prevents silent drift)', () => {
+      expect(GAME_CONFIG.HITBOX.WIDTH_RATIO).toBeLessThanOrEqual(1);
+      expect(GAME_CONFIG.HITBOX.WIDTH_RATIO).toBeGreaterThan(0.5);
+      expect(GAME_CONFIG.HITBOX.HEIGHT_RATIO).toBeLessThanOrEqual(1);
+      expect(GAME_CONFIG.HITBOX.HEIGHT_RATIO).toBeGreaterThan(0.5);
+    });
+  });
 });
