@@ -56,6 +56,7 @@ export class FroggerGameScene extends BaseScene {
   private lastComboTime = 0;
   private magnetCollected = 0;
   private isGameOver = false;
+  private isLevelingUp = false;
   private level = 1;
   private neoDestroyCount = 0;
 
@@ -148,7 +149,9 @@ export class FroggerGameScene extends BaseScene {
     this.activePowerUps = [];
     this.shieldHits = 0;
     this.isGameOver = false;
+    this.isLevelingUp = false;
     this.isMoving = false;
+    this.bufferedInput = null;
     this.level = 1;
     this.neoDestroyCount = 0;
     this.neoFlashTimer = 0;
@@ -555,6 +558,8 @@ export class FroggerGameScene extends BaseScene {
   }
 
   private handleInput(): void {
+    if (this.isGameOver || this.isLevelingUp) return;
+
     let newCol = this.playerCol;
     let newRow = this.playerRow;
 
@@ -663,6 +668,11 @@ export class FroggerGameScene extends BaseScene {
   }
 
   private handleEnemyCollision(enemy: Enemy): void {
+    // Level-up reset is in flight — the player sprite is being tweened back through
+    // the road lanes. Suppress collisions so the level reset can complete cleanly
+    // (was R86.F1: finish-line death/freeze crash where the player died mid-reset).
+    if (this.isLevelingUp || this.isGameOver) return;
+
     // NEO mode — destroy the enemy
     if (this.hasPowerUp('neo_mode')) {
       this.destroyEnemyWithNeo(enemy);
@@ -1154,37 +1164,11 @@ export class FroggerGameScene extends BaseScene {
   // ---------------------------------------------------------------------------
 
   private checkProgress(): void {
-    // Reached top row (finish line)
-    if (this.playerRow === 0) {
-      this.unlockAchievement(ACHIEVEMENTS.FIRST_CROSS);
-
-      // Level up
-      this.level++;
-      this.addScore(GAME_CONFIG.SCORING.CROSS_BONUS);
-      this.playSound(SOUND_KEYS.FROGGER_SCORE);
-      this.cameras.main.flash(150, 0, 255, 0, false, undefined, undefined, 0.15);
-
-      // Show level text
-      this.showLevelUpText();
-
-      if (this.level >= 5) {
-        this.unlockAchievement(ACHIEVEMENTS.LEVEL_5);
-      }
-
-      // Reset to start
-      this.playerRow = GAME_CONFIG.PLAYER.START_ROW;
-      this.playerCol = GAME_CONFIG.PLAYER.START_COL;
-
-      this.tweens.add({
-        targets: this.player,
-        x: this.colToX(this.playerCol, this.playerRow),
-        y: this.rowToY(this.playerRow),
-        duration: 300,
-        ease: 'Back.easeOut',
-        onComplete: () => this.applyPlayerPerspective(),
-      });
-
-      this.updateUI();
+    // Reached top row (finish line) — defer to the guarded level-up flow.
+    // Re-entry is blocked by isLevelingUp so this is safe even if update()
+    // fires repeatedly while the reset tween is in flight.
+    if (this.playerRow === 0 && !this.isLevelingUp && !this.isGameOver) {
+      this.triggerLevelUp();
     }
 
     // Score achievements
@@ -1199,6 +1183,77 @@ export class FroggerGameScene extends BaseScene {
     if (this.maxDistance >= 5) {
       this.unlockAchievement(ACHIEVEMENTS.DISTANCE_500);
     }
+  }
+
+  /**
+   * Safely transition to the next level when the player crosses the finish line.
+   *
+   * Why this exists (R86.F1): the previous inline handler had three cascading
+   * bugs that combined to either kill the player "after reaching the finish"
+   * or freeze the game:
+   *   1. movePlayer() sets playerRow = 0 before its tween starts, so checkProgress
+   *      fires on the same frame and started a *second* competing tween on
+   *      this.player. The two tweens fought for the sprite.
+   *   2. During the 300 ms reset tween, the player's physics body slid back
+   *      through road lanes 1-7 where physics.add.overlap happily fired
+   *      handleEnemyCollision → playerDeath, so the level-up became a death.
+   *   3. If playerDeath fired mid-reset-tween, its own alpha/scale/angle tween
+   *      conflicted with the reset, stalling the onComplete that eventually
+   *      calls gameOver() — hence the freeze.
+   *
+   * Fix: set isLevelingUp to block re-entry + input + collisions, kill any
+   * in-flight tweens on the player, disable the physics body for the duration
+   * of the reset, play the visual flourish, and re-enable everything once
+   * the sprite has landed back at START_ROW.
+   */
+  private triggerLevelUp(): void {
+    this.isLevelingUp = true;
+    this.bufferedInput = null;
+    this.isMoving = false;
+
+    this.unlockAchievement(ACHIEVEMENTS.FIRST_CROSS);
+
+    this.level++;
+    this.addScore(GAME_CONFIG.SCORING.CROSS_BONUS);
+    this.playSound(SOUND_KEYS.FROGGER_SCORE);
+    this.cameras.main.flash(150, 0, 255, 0, false, undefined, undefined, 0.15);
+
+    this.showLevelUpText();
+
+    if (this.level >= 5) {
+      this.unlockAchievement(ACHIEVEMENTS.LEVEL_5);
+    }
+
+    // Reset grid state first so checkProgress() doesn't re-fire on the next frame.
+    this.playerRow = GAME_CONFIG.PLAYER.START_ROW;
+    this.playerCol = GAME_CONFIG.PLAYER.START_COL;
+
+    // Kill any in-flight movePlayer tween so it can't fight the reset tween.
+    this.tweens.killTweensOf?.(this.player);
+
+    // Disable physics body for the duration of the reset — the sprite tweens
+    // through the road lanes, and the arcade body would otherwise trigger
+    // enemy overlaps and kill the player mid-reset.
+    const body = this.player.body as Phaser.Physics.Arcade.Body | undefined;
+    if (body) body.enable = false;
+
+    const targetX = this.colToX(this.playerCol, this.playerRow);
+    const targetY = this.rowToY(this.playerRow);
+
+    this.tweens.add({
+      targets: this.player,
+      x: targetX,
+      y: targetY,
+      duration: 300,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        this.applyPlayerPerspective();
+        if (body) body.enable = true;
+        this.isLevelingUp = false;
+      },
+    });
+
+    this.updateUI();
   }
 
   private showLevelUpText(): void {

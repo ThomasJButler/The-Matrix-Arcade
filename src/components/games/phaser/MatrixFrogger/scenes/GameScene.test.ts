@@ -658,6 +658,107 @@ describe('FroggerGameScene', () => {
       scene.checkProgress();
       expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.LEVEL_5);
     });
+
+    // -------------------------------------------------------------------------
+    // R86.F1 — finish-line death/freeze regression tripwires.
+    //
+    // The original bug: movePlayer() set playerRow = 0 before its tween started,
+    // so checkProgress fired on the same frame and spun up a second competing
+    // tween. The player's physics body then slid through road lanes 1-7 during
+    // the 300 ms reset, triggering an enemy overlap → playerDeath → a third
+    // tween that fought the reset and stalled, freezing the game on Level 1.
+    //
+    // These tests lock in the state-machine fix: while isLevelingUp is true
+    // the scene must refuse re-entry, refuse collision damage, refuse input,
+    // and re-arm itself only once the reset tween's onComplete fires.
+    // -------------------------------------------------------------------------
+    describe('Level-up safety (R86.F1)', () => {
+      it('should set isLevelingUp while the reset tween is in flight', () => {
+        scene.tweens = { add: vi.fn(), killTweensOf: vi.fn() };
+        scene.playerRow = 0;
+        scene.showLevelUpText = vi.fn();
+        scene.checkProgress();
+        expect(scene.isLevelingUp).toBe(true);
+      });
+
+      it('should kill any in-flight player tweens before starting the reset', () => {
+        const killSpy = vi.fn();
+        scene.tweens = { add: vi.fn(), killTweensOf: killSpy };
+        scene.playerRow = 0;
+        scene.showLevelUpText = vi.fn();
+        scene.checkProgress();
+        expect(killSpy).toHaveBeenCalledWith(scene.player);
+      });
+
+      it('should disable the player physics body for the duration of the reset', () => {
+        scene.tweens = { add: vi.fn(), killTweensOf: vi.fn() };
+        scene.player.body = { enable: true };
+        scene.playerRow = 0;
+        scene.showLevelUpText = vi.fn();
+        scene.checkProgress();
+        expect(scene.player.body.enable).toBe(false);
+      });
+
+      it('should re-enable physics and clear isLevelingUp when the reset tween completes', () => {
+        let capturedOnComplete: (() => void) | undefined;
+        scene.tweens = {
+          add: vi.fn((config: { onComplete?: () => void }) => {
+            capturedOnComplete = config.onComplete;
+          }),
+          killTweensOf: vi.fn(),
+        };
+        scene.player.body = { enable: true };
+        scene.applyPlayerPerspective = vi.fn();
+        scene.playerRow = 0;
+        scene.showLevelUpText = vi.fn();
+        scene.checkProgress();
+
+        expect(scene.isLevelingUp).toBe(true);
+        expect(scene.player.body.enable).toBe(false);
+
+        capturedOnComplete?.();
+        expect(scene.isLevelingUp).toBe(false);
+        expect(scene.player.body.enable).toBe(true);
+        expect(scene.applyPlayerPerspective).toHaveBeenCalled();
+      });
+
+      it('should not re-fire triggerLevelUp if checkProgress runs again mid-reset', () => {
+        scene.tweens = { add: vi.fn(), killTweensOf: vi.fn() };
+        scene.isLevelingUp = true;
+        scene.playerRow = 0;
+        scene.showLevelUpText = vi.fn();
+        const prevLevel = scene.level;
+        scene.checkProgress();
+        expect(scene.level).toBe(prevLevel);
+      });
+
+      it('should clear bufferedInput and isMoving when entering level-up', () => {
+        scene.tweens = { add: vi.fn(), killTweensOf: vi.fn() };
+        scene.bufferedInput = { col: 1, row: 1 };
+        scene.isMoving = true;
+        scene.playerRow = 0;
+        scene.showLevelUpText = vi.fn();
+        scene.checkProgress();
+        expect(scene.bufferedInput).toBeNull();
+        expect(scene.isMoving).toBe(false);
+      });
+
+      it('should suppress enemy collisions while isLevelingUp is true', () => {
+        scene.isLevelingUp = true;
+        const enemy = createMockEnemy();
+        scene.handleEnemyCollision(enemy);
+        expect(scene.isGameOver).toBe(false);
+        expect(scene.player.setTint).not.toHaveBeenCalledWith(MATRIX_COLORS.RED);
+      });
+
+      it('should suppress enemy collisions once isGameOver is set (belt-and-suspenders)', () => {
+        scene.isGameOver = true;
+        const enemy = createMockEnemy();
+        scene.handleEnemyCollision(enemy);
+        // Tint should not have been re-applied during the guard-blocked call
+        expect(scene.player.setTint).not.toHaveBeenCalled();
+      });
+    });
   });
 
   // -----------------------------------------------------------------------
