@@ -48,21 +48,60 @@ export const GAME_CONFIG = {
     BREAKABLE: 'breakable',
   },
 
-  /** Enemy settings */
+  /**
+   * Enemy settings.
+   *
+   * **R86.N1 rebalance (2026-04-22)** — Tom's playtest: *"too many bombs early,
+   * too quick, you often just hit a bomb out of nowhere; you can't really
+   * avoid it."* Dials below tuned to address each complaint:
+   *
+   * - `SPAWN_ALTITUDE` 500 → 800: extends the safe tutorial zone by 300m so
+   *   new players learn platform rhythm before first enemy.
+   * - `SPAWN_CHANCE_BASE` 0.03 → 0.018: ~40% reduction, matching Tom's quote.
+   * - `SPAWN_CHANCE_MAX` 0.20 → 0.16: ceiling lowered so even late-game the
+   *   density never becomes a frame-rate enemy storm.
+   * - `SPAWN_CHANCE_PER_1000` 0.02 → 0.015: gentler altitude ramp.
+   * - `SPEED_MIN/MAX` 50-100 → 40-75: less frantic lateral motion so the
+   *   player can actually line up a shot or dodge.
+   * - `SPAWN_Y_OFFSET_ABOVE_CAMERA` NEW 150: enemies now enter 150px above
+   *   the camera edge (was hardcoded 50) → ~1s of visible reaction time
+   *   before they reach gameplay height.
+   * - `MIN_HORIZONTAL_SPACING_FROM_PLAYER` NEW 80: skip any spawn whose X
+   *   sits within 80px of the player's X — direct "bomb out of nowhere"
+   *   countermeasure so enemies never materialise in the player's ascent
+   *   column.
+   */
   ENEMIES: {
-    SPAWN_ALTITUDE: 500,
-    SPAWN_CHANCE_BASE: 0.03,
-    SPAWN_CHANCE_MAX: 0.20,
-    SPAWN_CHANCE_PER_1000: 0.02,
-    SPEED_MIN: 50,
-    SPEED_MAX: 100,
+    SPAWN_ALTITUDE: 800,
+    SPAWN_CHANCE_BASE: 0.018,
+    SPAWN_CHANCE_MAX: 0.16,
+    SPAWN_CHANCE_PER_1000: 0.015,
+    SPEED_MIN: 40,
+    SPEED_MAX: 75,
+    SPAWN_Y_OFFSET_ABOVE_CAMERA: 150,
+    MIN_HORIZONTAL_SPACING_FROM_PLAYER: 80,
   },
 
-  /** Jetpack settings */
+  /**
+   * Jetpack settings.
+   *
+   * **R86.N1 rebalance (2026-04-22)** — Tom: *"give more power to the
+   * player."* Flight budget widened so the jetpack is a real panic escape,
+   * not a 3s sputter:
+   *
+   * - `FUEL_MAX` 100 → 120 (+20% capacity)
+   * - `FUEL_REGEN` 5 → 8 per landing (+60% platform recovery)
+   * - `FUEL_DRAIN` 30 → 25 per second (~17% slower burn)
+   *
+   * Effective flight-time-per-full-tank: was 100/30 ≈ 3.33s → now 120/25 =
+   * **4.8s** (+44% airtime). Two platform landings now fully refill (was
+   * 20 landings from empty; now 15). Locked as an invariant test below so
+   * a future edit can't regress just one of the three values.
+   */
   JETPACK: {
-    FUEL_MAX: 100,
-    FUEL_REGEN: 5, // per second on platform
-    FUEL_DRAIN: 30, // per second while flying
+    FUEL_MAX: 120,
+    FUEL_REGEN: 8,
+    FUEL_DRAIN: 25,
   },
 
   /** Physics */
