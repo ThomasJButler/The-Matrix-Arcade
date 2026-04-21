@@ -552,6 +552,82 @@ describe('MatrixInvadersGameScene', () => {
     });
   });
 
+  // R85.I3: Tom's playtest — "enemy bullets Needs to be bigger". These
+  // tests lock the contract so a future config tweak can't silently shrink
+  // them back to the pre-R85 3×6 pigeon-pellets. Size invariants first,
+  // then spawn-dimension parity, then the trail-ghost cadence.
+  describe('R85.I3 Enemy Bullet Size + Trail', () => {
+    it('enemy bullet width >= 8 (visibility floor)', () => {
+      expect(C.ENEMY_BULLET_WIDTH).toBeGreaterThanOrEqual(8);
+    });
+
+    it('enemy bullet height >= 16 (visibility floor)', () => {
+      expect(C.ENEMY_BULLET_HEIGHT).toBeGreaterThanOrEqual(16);
+    });
+
+    it('enemy bullet is taller than player bullet (threat hierarchy)', () => {
+      // Players read "incoming threat" partly from size; enemy projectiles
+      // must dominate their own visually.
+      expect(C.ENEMY_BULLET_HEIGHT).toBeGreaterThan(C.PLAYER_BULLET_HEIGHT);
+    });
+
+    it('spawned enemy bullet displaySize matches config exactly', () => {
+      const sprite = createMockSprite(200, 100);
+      scene.enemies = [{ sprite, type: 'code', health: 1, maxHealth: 1, value: 10, speedMultiplier: 1.0, width: 40, height: 30 }];
+      vi.spyOn(Math, 'random').mockReturnValue(0);
+      call(scene, 'handleEnemyShooting', 1 / 60);
+      const bullet = s(scene, 'enemyBullets')[0].sprite;
+      expect(bullet.displayWidth).toBe(C.ENEMY_BULLET_WIDTH);
+      expect(bullet.displayHeight).toBe(C.ENEMY_BULLET_HEIGHT);
+      vi.restoreAllMocks();
+    });
+
+    it('spawns a trail particle once per interval when bullets alive', () => {
+      scene.enemyBullets = [{ sprite: createMockRect(400, 200, C.ENEMY_BULLET_WIDTH, C.ENEMY_BULLET_HEIGHT), vy: C.ENEMY_BULLET_SPEED, damage: 5, isPlayer: false }];
+      scene.particles = [];
+      // First tick: accumulator crosses the interval, expect 1 trail.
+      call(scene, 'updateEnemyBullets', C.ENEMY_BULLET_TRAIL_INTERVAL + 0.001);
+      expect(scene.particles.length).toBe(1);
+    });
+
+    it('does not double-spawn trails within one interval', () => {
+      scene.enemyBullets = [{ sprite: createMockRect(400, 200, C.ENEMY_BULLET_WIDTH, C.ENEMY_BULLET_HEIGHT), vy: C.ENEMY_BULLET_SPEED, damage: 5, isPlayer: false }];
+      scene.particles = [];
+      // Two sub-interval ticks should spawn AT MOST one trail, not two.
+      const half = C.ENEMY_BULLET_TRAIL_INTERVAL * 0.4;
+      call(scene, 'updateEnemyBullets', half);
+      call(scene, 'updateEnemyBullets', half);
+      expect(scene.particles.length).toBeLessThanOrEqual(1);
+    });
+
+    it('does not spawn trails when no enemy bullets alive', () => {
+      scene.enemyBullets = [];
+      scene.particles = [];
+      // Even with a huge dt, an idle scene should allocate nothing.
+      call(scene, 'updateEnemyBullets', C.ENEMY_BULLET_TRAIL_INTERVAL * 10);
+      expect(scene.particles.length).toBe(0);
+    });
+
+    it('trail spawned below bullet follows bullet position', () => {
+      scene.enemyBullets = [{ sprite: createMockRect(400, 200, C.ENEMY_BULLET_WIDTH, C.ENEMY_BULLET_HEIGHT), vy: C.ENEMY_BULLET_SPEED, damage: 5, isPlayer: false }];
+      scene.particles = [];
+      call(scene, 'updateEnemyBullets', C.ENEMY_BULLET_TRAIL_INTERVAL + 0.001);
+      expect(scene.particles[0].rect.x).toBe(400);
+      // Trail is nudged upward by HEIGHT/2 so it sits "behind" the downward-moving bullet.
+      expect(scene.particles[0].rect.y).toBeLessThan(scene.enemyBullets[0].sprite.y);
+    });
+
+    it('trail rect uses particles pool (decays through updateParticles)', () => {
+      scene.enemyBullets = [{ sprite: createMockRect(400, 200, C.ENEMY_BULLET_WIDTH, C.ENEMY_BULLET_HEIGHT), vy: C.ENEMY_BULLET_SPEED, damage: 5, isPlayer: false }];
+      scene.particles = [];
+      call(scene, 'updateEnemyBullets', C.ENEMY_BULLET_TRAIL_INTERVAL + 0.001);
+      expect(scene.particles[0].life).toBeGreaterThan(0);
+      // Existing decay loop must strip the trail cleanly — no orphaned rects.
+      call(scene, 'updateParticles', 10);
+      expect(scene.particles.length).toBe(0);
+    });
+  });
+
   describe('Collision Detection', () => {
     it('detects AABB overlap', () => {
       const result = call(scene, 'aabbOverlap', 100, 100, 20, 20, 110, 110, 20, 20);

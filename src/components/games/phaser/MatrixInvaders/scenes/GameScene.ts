@@ -35,6 +35,11 @@ export class MatrixInvadersGameScene extends BaseScene {
   private lastFireTime = 0;
 
   private particles: ParticleState[] = [];
+  // R85.I3: accumulator that drives enemy-bullet trail spawning. Reset to 0
+  // each time we spawn a batch of trails so cadence is stable regardless of
+  // framerate. Trails are pushed into `particles` — reusing the existing
+  // decay loop means no new lifecycle machinery.
+  private enemyBulletTrailAccum = 0;
   private fieldPowerUps: FieldPowerUp[] = [];
   private rapidFireActive = false;
   private scoreMultiplierActive = false;
@@ -352,6 +357,9 @@ export class MatrixInvadersGameScene extends BaseScene {
 
     for (const enemy of this.enemies) {
       if (Math.random() < fireChance * dt) {
+        // R85.I3: single source of truth for bullet size. Texture-key
+        // selection still prefers the artwork PNGs, but dimensions come
+        // from config so all three render paths agree.
         const hasLaserRed = this.textures?.exists('laser_red') ?? false;
         const texKey = hasLaserRed
           ? 'laser_red'
@@ -361,10 +369,7 @@ export class MatrixInvadersGameScene extends BaseScene {
           enemy.sprite.y + enemy.height / 2,
           texKey
         );
-        img.setDisplaySize(
-          this._spriteMode || hasLaserRed ? 6 : GAME_CONFIG.ENEMY_BULLET_WIDTH,
-          this._spriteMode || hasLaserRed ? 14 : GAME_CONFIG.ENEMY_BULLET_HEIGHT
-        );
+        img.setDisplaySize(GAME_CONFIG.ENEMY_BULLET_WIDTH, GAME_CONFIG.ENEMY_BULLET_HEIGHT);
         img.setDepth(5);
 
         const bullet: BulletState = {
@@ -392,14 +397,35 @@ export class MatrixInvadersGameScene extends BaseScene {
   }
 
   private updateEnemyBullets(dt: number): void {
+    // R85.I3: spawn trail ghosts at a throttled cadence so peripheral motion
+    // reads without flooding the particle pool. Gate on actual bullets being
+    // alive — otherwise an idle scene would still allocate rects every tick.
+    this.enemyBulletTrailAccum += dt;
+    const shouldSpawnTrail =
+      this.enemyBullets.length > 0 &&
+      this.enemyBulletTrailAccum >= GAME_CONFIG.ENEMY_BULLET_TRAIL_INTERVAL;
+    if (shouldSpawnTrail) this.enemyBulletTrailAccum = 0;
+
     for (let i = this.enemyBullets.length - 1; i >= 0; i--) {
       const b = this.enemyBullets[i];
       b.sprite.y += b.vy * dt;
+      if (shouldSpawnTrail && b.sprite.y > 0 && b.sprite.y < GAME_CONFIG.HEIGHT) {
+        this.spawnEnemyBulletTrail(b.sprite.x, b.sprite.y - GAME_CONFIG.ENEMY_BULLET_HEIGHT / 2);
+      }
       if (b.sprite.y > GAME_CONFIG.HEIGHT + 10) {
         b.sprite.destroy();
         this.enemyBullets.splice(i, 1);
       }
     }
+  }
+
+  // R85.I3: trail ghost — small red rect that fades via the existing
+  // particle decay loop. Depth 4 keeps it below the bullet (depth 5) so
+  // the bright core stays readable on top of the glow tail.
+  private spawnEnemyBulletTrail(x: number, y: number): void {
+    const rect = this.add.rectangle(x, y, 3, 3, MATRIX_COLORS.RED, 0.7);
+    rect.setDepth(4);
+    this.particles.push({ rect, vx: 0, vy: 0, life: 0.5 });
   }
 
   private updateEnemies(dt: number): void {
@@ -454,6 +480,8 @@ export class MatrixInvadersGameScene extends BaseScene {
     const fireChance = GAME_CONFIG.BOSS_FIRE_CHANCE * 60;
     for (const offset of this.boss.barrelOffsets) {
       if (Math.random() < fireChance * dt) {
+        // R85.I3: boss bullets scale up from regular enemy bullets (+2 / +4)
+        // to preserve threat hierarchy now that regular bullets are 8×18.
         const hasLaserRed = this.textures?.exists('laser_red') ?? false;
         const texKey = hasLaserRed
           ? 'laser_red'
@@ -464,8 +492,8 @@ export class MatrixInvadersGameScene extends BaseScene {
           texKey
         );
         img.setDisplaySize(
-          this._spriteMode || hasLaserRed ? 8 : GAME_CONFIG.ENEMY_BULLET_WIDTH + 2,
-          this._spriteMode || hasLaserRed ? 18 : GAME_CONFIG.ENEMY_BULLET_HEIGHT + 2
+          GAME_CONFIG.ENEMY_BULLET_WIDTH + 2,
+          GAME_CONFIG.ENEMY_BULLET_HEIGHT + 4
         );
         img.setDepth(5);
 
