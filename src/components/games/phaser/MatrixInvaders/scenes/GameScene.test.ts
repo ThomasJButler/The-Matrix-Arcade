@@ -1023,17 +1023,18 @@ describe('MatrixInvadersGameScene', () => {
   });
 
   describe('Boss Battle', () => {
-    function createBoss() {
+    function createBoss(encounter = 1, health = 50) {
       scene.boss = {
         sprite: createMockSprite(C.WIDTH / 2, C.BOSS_Y),
         healthBar: createMockGraphics(),
         healthBg: createMockGraphics(),
-        health: 50,
-        maxHealth: 50,
-        value: 500,
+        health,
+        maxHealth: health,
+        value: 500 * encounter,
         width: C.BOSS_WIDTH,
         height: C.BOSS_HEIGHT,
         barrelOffsets: [-30, 0, 30],
+        encounter,
       };
       scene.isBossWave = true;
     }
@@ -1102,6 +1103,265 @@ describe('MatrixInvadersGameScene', () => {
       const startX = scene.boss.sprite.x;
       call(scene, 'updateBoss', 0.5);
       expect(scene.boss.sprite.x).not.toBe(startX);
+    });
+  });
+
+  // R85.I8 — Boss verify + polish. Tom's testing-doc note was *"Boss (if any)
+  // fires correctly — not got to boss yet"*. Static audit surfaced four bugs
+  // behind that deferred live-test:
+  //   (1) Boss fired 6-7× less often than a regular 40-enemy wave — climax
+  //       felt less threatening than the wave it replaces.
+  //   (2) Difficulty curve scaled health + value per encounter but fire rate
+  //       was fixed → wave-25 bosses felt like wave-5 bosses.
+  //   (3) No enrage mechanic — the RED healthbar at <25% HP was decorative.
+  //   (4) Hit + defeat juice was mute — no camera shake on hit, no shake or
+  //       flash on defeat; a trivial wave-complete beat the boss climax.
+  // These tests lock the fixes so future refactors that drop encounter/enrage
+  // scaling or remove camera feedback fail the gate.
+  describe('R85.I8 Boss Fire Cadence + Juice Scaling', () => {
+    function createBoss(encounter = 1, health = 50) {
+      scene.boss = {
+        sprite: createMockSprite(C.WIDTH / 2, C.BOSS_Y),
+        healthBar: createMockGraphics(),
+        healthBg: createMockGraphics(),
+        health,
+        maxHealth: health,
+        value: 500 * encounter,
+        width: C.BOSS_WIDTH,
+        height: C.BOSS_HEIGHT,
+        barrelOffsets: [-30, 0, 30],
+        encounter,
+      };
+      scene.isBossWave = true;
+    }
+
+    // ---- Config invariants ---------------------------------------------
+    // These tripwires lock the design intent so a future "balance pass"
+    // that accidentally reverts BOSS_FIRE_CHANCE to 0.002 fails CI.
+
+    it('fire-chance floor matches regular-wave-ish cadence', () => {
+      // Pre-R85.I8 was 0.002 → ~0.36 shots/sec total across 3 barrels.
+      // Post-fix floor of 0.005 gives ≥ ~0.9 shots/sec (3 × 0.005 × 60).
+      expect(C.BOSS_FIRE_CHANCE).toBeGreaterThanOrEqual(0.005);
+    });
+
+    it('per-encounter fire-rate multiplier is positive', () => {
+      // If this silently regresses to 0, the encounter-scaling test below
+      // still passes (both sides evaluate to 1×) but the ramp disappears.
+      expect(C.BOSS_FIRE_CHANCE_PER_ENCOUNTER).toBeGreaterThan(0);
+    });
+
+    it('enrage threshold matches the red healthbar (< 0.5)', () => {
+      // drawBossHealthBar paints the bar RED when health ratio < 0.25 and
+      // YELLOW < 0.5. Enrage must kick in inside the RED zone so the
+      // visual warning precedes the mechanical consequence.
+      expect(C.BOSS_ENRAGE_THRESHOLD).toBeGreaterThan(0);
+      expect(C.BOSS_ENRAGE_THRESHOLD).toBeLessThan(0.5);
+    });
+
+    it('enrage multiplier is > 1 (otherwise enrage is a no-op)', () => {
+      expect(C.BOSS_ENRAGE_FIRE_MULTIPLIER).toBeGreaterThan(1);
+    });
+
+    it('defeat shake intensity > hit shake intensity (hierarchy)', () => {
+      // Per-hit shake must not drown defeat shake — defeat is the
+      // climax so its kinetic feedback must dominate.
+      expect(C.BOSS_DEFEAT_SHAKE_INTENSITY).toBeGreaterThan(
+        C.BOSS_HIT_SHAKE_INTENSITY
+      );
+    });
+
+    it('defeat particle count scales per encounter', () => {
+      expect(C.BOSS_DEFEAT_PARTICLES_PER_ENCOUNTER).toBeGreaterThan(0);
+    });
+
+    // ---- Fire cadence scaling -----------------------------------------
+    // Uses deterministic Math.random mocks — we set the mock's return
+    // value to a threshold and assert whether a bullet spawns, rather
+    // than run dt-rollups statistically.
+
+    it('spawns bullets at encounter 1 given high-enough roll', () => {
+      createBoss(1);
+      // encounter 1, no enrage: rate = 0.006 * 60 * 1.0 * 1.0 = 0.36 / sec.
+      // At dt=1: 3 barrels each roll Math.random() < 0.36.
+      // Math.random() stub returns 0.1 < 0.36 → spawn on all three barrels.
+      const rng = vi.spyOn(Math, 'random').mockReturnValue(0.1);
+      try {
+        call(scene, 'updateBoss', 1);
+        expect(scene.enemyBullets.length).toBe(3);
+      } finally {
+        rng.mockRestore();
+      }
+    });
+
+    it('encounter 3 fires more often than encounter 1 at the same roll', () => {
+      // At encounter 1: rate = 0.006 * 60 * 1.0 = 0.36 per sec.
+      // At encounter 3: rate = 0.006 * 60 * 1.6 = 0.576 per sec.
+      // Pick a roll between the two (0.45) — encounter 3 fires, enc 1 doesn't.
+      const rng = vi.spyOn(Math, 'random').mockReturnValue(0.45);
+      try {
+        createBoss(1);
+        call(scene, 'updateBoss', 1);
+        const enc1Count = scene.enemyBullets.length;
+
+        scene.enemyBullets = [];
+        createBoss(3);
+        call(scene, 'updateBoss', 1);
+        const enc3Count = scene.enemyBullets.length;
+
+        expect(enc3Count).toBeGreaterThan(enc1Count);
+      } finally {
+        rng.mockRestore();
+      }
+    });
+
+    it('enrage doubles fire rate below health threshold', () => {
+      // Pick a roll that misses at nominal rate but hits at enraged rate.
+      // Nominal: 0.006 * 60 = 0.36. Enraged: × 2.0 = 0.72. Roll 0.5.
+      const rng = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+      try {
+        // Healthy boss — 50% HP, no enrage.
+        createBoss(1, 100);
+        scene.boss.health = 50;
+        call(scene, 'updateBoss', 1);
+        const healthyCount = scene.enemyBullets.length;
+
+        // Enraged boss — 10% HP, triggers enrage.
+        scene.enemyBullets = [];
+        createBoss(1, 100);
+        scene.boss.health = 10;
+        call(scene, 'updateBoss', 1);
+        const enragedCount = scene.enemyBullets.length;
+
+        expect(enragedCount).toBeGreaterThan(healthyCount);
+      } finally {
+        rng.mockRestore();
+      }
+    });
+
+    it('does not enrage at exactly the threshold', () => {
+      // Boundary test — < 0.25 enrages, == 0.25 does not. Prevents an
+      // accidental `<=` regression that would broaden enrage.
+      const rng = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+      try {
+        createBoss(1, 100);
+        scene.boss.health = 25; // exactly 25% HP
+        call(scene, 'updateBoss', 1);
+        // At threshold boundary, no enrage — same as healthy; roll 0.5
+        // exceeds nominal 0.36 rate, so no bullets.
+        expect(scene.enemyBullets.length).toBe(0);
+      } finally {
+        rng.mockRestore();
+      }
+    });
+
+    // ---- Per-hit juice -------------------------------------------------
+
+    it('hitBoss triggers camera shake', () => {
+      createBoss();
+      call(scene, 'hitBoss', 1);
+      expect(scene.cameras.main.shake).toHaveBeenCalledWith(
+        C.BOSS_HIT_SHAKE_DURATION,
+        C.BOSS_HIT_SHAKE_INTENSITY
+      );
+    });
+
+    it('hit shake fires even when damage does not defeat boss', () => {
+      // Regression tripwire — shake must NOT be gated on health > 0, it
+      // fires on every hit so the player always feels their shot land.
+      createBoss(1, 100);
+      scene.boss.health = 80; // plenty of HP left
+      call(scene, 'hitBoss', 1);
+      expect(scene.cameras.main.shake).toHaveBeenCalled();
+    });
+
+    // ---- Defeat juice + scaling ---------------------------------------
+
+    it('defeatBoss triggers camera shake', () => {
+      createBoss();
+      scene.boss.health = 1;
+      call(scene, 'hitBoss', 1);
+      // Shake is called twice — once for hit, once for defeat. Grab the
+      // defeat call (second) and assert its args match defeat config.
+      const defeatShakeCall = scene.cameras.main.shake.mock.calls.find(
+        (c: [number, number]) =>
+          c[0] === C.BOSS_DEFEAT_SHAKE_DURATION &&
+          c[1] === C.BOSS_DEFEAT_SHAKE_INTENSITY
+      );
+      expect(defeatShakeCall).toBeDefined();
+    });
+
+    it('defeatBoss triggers green camera flash', () => {
+      createBoss();
+      scene.boss.health = 1;
+      call(scene, 'hitBoss', 1);
+      const flashCall = scene.cameras.main.flash.mock.calls[0];
+      expect(flashCall[0]).toBe(C.BOSS_DEFEAT_FLASH_DURATION);
+      expect(flashCall[1]).toBe(0); // R
+      expect(flashCall[2]).toBe(255); // G — Matrix green
+      expect(flashCall[3]).toBe(0); // B
+    });
+
+    it('defeat particle count scales with encounter', () => {
+      const spy = vi.spyOn(scene, 'spawnExplosion');
+      try {
+        createBoss(1);
+        scene.boss.health = 1;
+        call(scene, 'hitBoss', 1);
+        const enc1Main = spy.mock.calls[0][3];
+
+        spy.mockClear();
+        createBoss(3);
+        scene.boss.health = 1;
+        call(scene, 'hitBoss', 1);
+        const enc3Main = spy.mock.calls[0][3];
+
+        expect(enc3Main).toBeGreaterThan(enc1Main);
+        expect(enc1Main).toBe(C.BOSS_DEFEAT_MAIN_PARTICLES_BASE);
+        expect(enc3Main).toBe(
+          C.BOSS_DEFEAT_MAIN_PARTICLES_BASE +
+            2 * C.BOSS_DEFEAT_PARTICLES_PER_ENCOUNTER
+        );
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it('side + bottom bursts scale proportionally to main burst', () => {
+      // Catches a regression where only the main burst scales but the side
+      // bursts stay at hard-coded 20/20/15.
+      const spy = vi.spyOn(scene, 'spawnExplosion');
+      try {
+        createBoss(3);
+        scene.boss.health = 1;
+        call(scene, 'hitBoss', 1);
+        const mainCount = spy.mock.calls[0][3];
+        const sideCount1 = spy.mock.calls[1][3];
+        const sideCount2 = spy.mock.calls[2][3];
+        const bottomCount = spy.mock.calls[3][3];
+
+        expect(sideCount1).toBe(Math.round(mainCount * 0.5));
+        expect(sideCount2).toBe(Math.round(mainCount * 0.5));
+        expect(bottomCount).toBe(Math.round(mainCount * 0.375));
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    // ---- spawnBossWave populates encounter ----------------------------
+
+    it('spawnBossWave populates encounter from wave number', () => {
+      scene.wave = 15; // encounter = 15 / 5 = 3
+      scene.bossWarningText = { ...createMockText(), visible: false };
+      call(scene, 'spawnBossWave');
+
+      // The boss is assigned inside a delayedCall — fire the stored callback.
+      const delayedCalls = scene.time.delayedCall.mock.calls;
+      const spawnCallback = delayedCalls[delayedCalls.length - 1][1];
+      spawnCallback();
+
+      expect(scene.boss).not.toBeNull();
+      expect(scene.boss.encounter).toBe(3);
     });
   });
 

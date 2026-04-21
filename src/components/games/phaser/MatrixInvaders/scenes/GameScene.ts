@@ -567,7 +567,20 @@ export class MatrixInvadersGameScene extends BaseScene {
 
     this.drawBossHealthBar();
 
-    const fireChance = GAME_CONFIG.BOSS_FIRE_CHANCE * 60;
+    // R85.I8: encounter + enrage scaling. encounterMult ramps fire rate per
+    // 5-wave encounter so wave-25 bosses are visibly nastier than wave-5.
+    // enrageMult doubles the rate when HP dips below 25% — the bar is already
+    // red at that threshold (drawBossHealthBar), so the visual warning the
+    // player was trained on pre-R85.I8 now carries real mechanical weight.
+    const encounterMult =
+      1 + (this.boss.encounter - 1) * GAME_CONFIG.BOSS_FIRE_CHANCE_PER_ENCOUNTER;
+    const healthPct = this.boss.maxHealth > 0
+      ? this.boss.health / this.boss.maxHealth
+      : 1;
+    const enrageMult = healthPct < GAME_CONFIG.BOSS_ENRAGE_THRESHOLD
+      ? GAME_CONFIG.BOSS_ENRAGE_FIRE_MULTIPLIER
+      : 1;
+    const fireChance = GAME_CONFIG.BOSS_FIRE_CHANCE * 60 * encounterMult * enrageMult;
     for (const offset of this.boss.barrelOffsets) {
       if (Math.random() < fireChance * dt) {
         // R85.I3: boss bullets scale up from regular enemy bullets (+2 / +4)
@@ -789,6 +802,17 @@ export class MatrixInvadersGameScene extends BaseScene {
       if (this.boss?.sprite.active) this.boss.sprite.clearTint();
     });
 
+    // R85.I8: short camera shake per hit — the 100ms white tint above is
+    // lost against the 120×60 boss silhouette, and players need kinetic
+    // confirmation they landed a hit. Intensity is small (0.003) so that
+    // rapid-fire shots don't chain the shake into motion sickness; duration
+    // is 50ms so overlapping shakes compose into a steady tremor rather
+    // than spike-spike-spike.
+    this.cameras.main.shake(
+      GAME_CONFIG.BOSS_HIT_SHAKE_DURATION,
+      GAME_CONFIG.BOSS_HIT_SHAKE_INTENSITY
+    );
+
     if (this.boss.health <= 0) {
       this.defeatBoss();
     }
@@ -799,11 +823,37 @@ export class MatrixInvadersGameScene extends BaseScene {
 
     const x = this.boss.sprite.x;
     const y = this.boss.sprite.y;
+    // R85.I8: scale particle counts by encounter so bigger bosses get
+    // bigger death throes. encounter 1 = 40/20/20/15 (pre-fix values),
+    // encounter 3 = 56/28/28/21, encounter 5 = 72/36/36/27. Side bursts
+    // and bottom burst scale in proportion via simple multipliers so the
+    // visual "weight" stays consistent across encounter sizes.
+    const encounter = this.boss.encounter;
+    const mainCount =
+      GAME_CONFIG.BOSS_DEFEAT_MAIN_PARTICLES_BASE +
+      (encounter - 1) * GAME_CONFIG.BOSS_DEFEAT_PARTICLES_PER_ENCOUNTER;
+    const sideCount = Math.round(mainCount * 0.5);
+    const bottomCount = Math.round(mainCount * 0.375);
 
-    this.spawnExplosion(x, y, MATRIX_COLORS.MAGENTA, 40);
-    this.spawnExplosion(x - 30, y, MATRIX_COLORS.RED, 20);
-    this.spawnExplosion(x + 30, y, MATRIX_COLORS.RED, 20);
-    this.spawnExplosion(x, y + 20, MATRIX_COLORS.WHITE, 15);
+    this.spawnExplosion(x, y, MATRIX_COLORS.MAGENTA, mainCount);
+    this.spawnExplosion(x - 30, y, MATRIX_COLORS.RED, sideCount);
+    this.spawnExplosion(x + 30, y, MATRIX_COLORS.RED, sideCount);
+    this.spawnExplosion(x, y + 20, MATRIX_COLORS.WHITE, bottomCount);
+
+    // R85.I8: camera juice — shake + green flash. Parity intent with
+    // wave-complete's camera feedback but stronger because defeating the
+    // boss is a multi-minute climax. Matrix-green flash matches the
+    // arcade-wide "success" colour (wave-complete, menu selects).
+    this.cameras.main.shake(
+      GAME_CONFIG.BOSS_DEFEAT_SHAKE_DURATION,
+      GAME_CONFIG.BOSS_DEFEAT_SHAKE_INTENSITY
+    );
+    this.cameras.main.flash(
+      GAME_CONFIG.BOSS_DEFEAT_FLASH_DURATION,
+      0, 255, 0,
+      false, undefined, undefined,
+      GAME_CONFIG.BOSS_DEFEAT_FLASH_ALPHA
+    );
 
     const bossValue = this.boss.value * (this.scoreMultiplierActive ? 2 : 1);
     this.score += bossValue;
@@ -965,6 +1015,10 @@ export class MatrixInvadersGameScene extends BaseScene {
         width: GAME_CONFIG.BOSS_WIDTH,
         height: GAME_CONFIG.BOSS_HEIGHT,
         barrelOffsets: [-30, 0, 30],
+        // R85.I8: stamp encounter so updateBoss/defeatBoss can scale
+        // without re-reading the scene's wave counter (which will tick
+        // past this encounter's value post-defeat).
+        encounter,
       };
 
       this.drawBossHealthBar();
