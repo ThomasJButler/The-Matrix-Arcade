@@ -814,3 +814,72 @@ Tom's Round 2 playtest verdict: *"play is generally better now and its just a bi
 **Total R83 footprint**: ~36 task commits across 3 rounds + 16 playtest screenshots (6 Round 2 + 10 Round 3) + 1 new project-scoped agent + 1 new Phaser module (`asciiArt.ts`, 523 lines with 14 smoke tests). Test count post-R83: ~1,927 unit across 45 files.
 
 ---
+
+## R84 — 3-Game Polish + Verification (2026-04-19 → 2026-04-20)
+
+Large 54-commit phase across five streams polishing the 3 playtested games (Vortex Pong + Matrix Snake + Matrix Bird). Built from Tom's testing-doc Known Issues blocks + prose notes. Ran under a 50-iteration cap; completed with 2 intentionally-open tasks (S7 boss-snake explicit `[DEFER]` to R85, CI bucket Tom-tick-only per R82.13 pattern).
+
+### Stream A — Verification (R84.V1-V3, 3 commits)
+
+Static code audits of R83.S1/V1/B1 polish items. Found 13 Discovered-Work entries (D1-D13) splitting into:
+- **7 likely-stale complaints** (D1-D5, D10, D12) — code reads correct, Tom's 2026-04-19 testing-doc notes likely predate same-day R83.G1/G2/G5 fix commits
+- **4 concrete code gaps** (D6 Snake ASCII rename, D7 Snake achievement labels, D8 Snake HUD clipping, D9 Bird vortex preview URL)
+- **2 scope-marker items** (D11 Bird perf directional, D13 Bird dead constant)
+
+Stream A's audit pattern was the load-bearing early win — prevented Streams B/C/D from polishing already-fixed features.
+
+### Stream B — Vortex Pong (R84.P1-P12, 12 commits)
+
+P1 countdown live-verified (already-shipped per D-P1), **P2 scoring model overhaul** (parallel High-Score formula: `match_diff × 100 + powerups × 50 + multiball × 200 + longest_rally × 10 + win_bonus 500`), P3 three AI difficulty tiers (Easy/Normal/Hard) persisted via localStorage, P4 atmosphere amp-up (rotating radial-gradient backdrop + scanline +30% + paddle-glow pulse), P5 power-up in-HUD legend on pickup, P6 multi-ball CYAN tint, P7 paddle-hit trail amplification (12 → 20 particles on top-tier ball speed), P8 ball rally counter UI, P9 goal-flash epilepsy safety floor, P10 pause-overlay regression closed via UP1, P11 paddle ease-in ramp (100ms linear 0 → max), P12 scoring + difficulty + countdown + legend unit-test refresh.
+
+### Stream C — Matrix Snake (R84.S1-S12, 11 commits, S7 `[DEFER]` to R85)
+
+**S1 yellow-wall spacing** (`GRID_OFFSET_Y: 20 → 40` for symmetric 24/24 margins per D-S1-math), S2 funkiness depth (in-play rain particles α 0.15 + head `setShadow` glow + per-food ASCII-glyph variants), **S3 power-up variety expansion** (reverse-controls 5s + hyper 10s + glitch-rain 3s), S4 speed-tier dread build-up (scanline + drone + micro-shake), S5 death cinematic (300ms red-bar glitch cascade), S6 food pickup juice amp, S8 food/power-up sprite polish + grid-snap proof, S10 coverage refresh (+15 tests), **S11 rename completeness** (D6 asciiArt.ts `SNAKE/CLASSIC` → `MATRIX/SNAKE` + D7 useSaveSystem.ts 7 hard-coded `'Snake Classic'` achievement labels → `'Matrix Snake'` + test expectations), **S12 HUD clipping fix** (`rightX: 700 → 580` per D8).
+
+**S7 boss-snake prototype `[DEFER]` to R85** per original plan brief (marked optional, time-constrained).
+
+### Stream D — Matrix Bird (R84.B1-B12, 12 commits)
+
+B1 display-name audit (live re-verify + description sharpening), **B2 preview image swap** (Cloudinary vortex URL → local SVG import per D9 path-b), **B3 slow-powerup momentum** (player-physics time-dilation + yellow trail), **B4 pipe variety** (moving sinusoidal / zapper electric-arc / bonus narrow-gap with power-up), **B5 3-layer parallax** (far city 0.1× / mid rain 0.3× / near rain 0.7×), B6 jump SFX tuning (sweep 800→480Hz, volume -20%), B7 ground-death live-retest, B8 pause-resume 5s countdown contract pin, B9 overall SFX volume -13% (master 0.75 → 0.65), B10 pipe+powerup spacing invariants pinned (8 regression tests), **B11 score milestone stingers** (50/100/250), B12 coverage refresh (+22 tests, Stream D 12/12).
+
+### Stream U — Upstream investigations (R84.UP1, UP2, 1 explicit + 1 implicit)
+
+**UP1 pause-overlay stale complaint CLOSED** — `BaseScene.togglePause` confirmed as single source of truth; no duplicate overlay found in GamePortal/App tree. Tom's "triple-stacked overlays" complaint confirmed as stale against pre-R83.G3 build. UP2 live-retest folded into B1/V-series live-checks rather than a dedicated commit.
+
+### Stream E — Baselines + CI (R84.BL + 15 CI iterations)
+
+**R84.BL baseline regen**: darwin green, zero drift. All R84 visual changes landed inside `maxDiffPixels: 200000` + `threshold: 0.5` tolerance — no baseline regeneration needed. One-commit win.
+
+**R84.CI-1 through CI-15 (15 polish iterations, bucket stays `[ ]` by R82.13 pattern)**:
+- **a11y lane (9)**: CI-1 Bird reduced-motion + shared SR game-over live region, CI-2 Bird SR score-milestones, CI-3 Bird object-scale tween reduced-motion, CI-4 Snake SR score-milestones, CI-5 Pong SR match-point announcements, **CI-6 focus-visible ring refinement** (moved `hasFocus` useState → CSS `:focus-visible` pseudo-class so programmatic `.focus()` no longer flashes ring for mouse users — respects UA keyboard/pointer distinction React state can't access), CI-11 AttractMode reduced-motion gating, CI-13 MatrixRainCanvas reduced-motion gate, CI-15 LandingPage reduced-motion gating (card cascade + hero stagger + hover scale + matrix-rain animate-pulse all gated behind `prefers-reduced-motion: reduce`).
+- **perf lane (3)**: **CI-7 Bird pipe-visual object pool** (Rectangle + Graphics pair, drainPools on shutdown), **CI-8 Snake effect-arc object pool** (single Arc pool covers rings + particle bursts, duck-typed setters for jsdom compat, 13 new pool-contract tests), **CI-9 Pong effect-circle object pool** (same pattern, prevents allocation churn in hot SFX paths).
+- **attract lane (2)**: CI-10 trio-first cycle + empty-board filter, CI-14 AttractMode cycle-advance pluck cue (subtle pulse signals rotation without visual glance).
+- **visual lane (1)**: CI-12 AttractMode cycle-position dots.
+
+### Test count trajectory
+
+R84 entry: ~1,927 unit tests / 45 files. R84 exit: **2,459+ pass** / 49 files. Net **+532 regression tripwires**. Every major change shipped with accompanying specs; object-pool round-trip pins specifically catch "second N-allocation burst issues zero new `add.circle` calls" — kind of test that flags perf regressions at PR time not in production.
+
+### Files touched
+
+- `src/components/games/phaser/VortexPong/**` — scoring overhaul, AI tiers, atmosphere, rally counter, effect-circle pool
+- `src/components/games/phaser/SnakeClassic/**` — wall offset, power-up expansion, dread build-up, death cinematic, HUD clipping fix, effect-arc pool
+- `src/components/games/phaser/MatrixCloud/**` — pipe variety, parallax, slow-powerup physics, SFX tuning, pipe-visual pool
+- `src/lib/asciiArt.ts` — D6 Snake rename fix
+- `src/hooks/useSaveSystem.ts` — D7 Snake achievement labels
+- `src/data/gameRegistry.ts` — Bird preview URL swap
+- `src/lib/phaser/PhaserGame.tsx` — CI-6 focus-visible refactor
+- `src/styles/animations.css` — `:focus-visible` rule + forced-colors extension
+- `src/components/LandingPage.tsx` — CI-15 reduced-motion gating
+- `src/components/AttractMode.tsx`, `MatrixRainCanvas.tsx` — CI-11 / CI-13 / CI-14 reduced-motion + pluck cue
+- `e2e/visual/` — BL regen sweep
+
+### Still-open at R84 exit
+
+- **R84.S7 [DEFER]** — boss-snake prototype, explicitly marked optional in original brief, deferred to R85 scope
+- **R84.CI [ ]** — continuous-improvement bucket, Tom-tick-only by design (R82.13 pattern). 15 iterations shipped under it
+- **R84 terminator phrase** — Tom-side; writes `R84 COMPLETE — 3-game polish + verification shipped` to Status after hand-playtest confirms the 3 games feel right
+
+**Total R84 footprint**: 54 task commits across 5 streams + ~532 new unit tests + 1 failed terminator-sentinel bug-fix (accidentally-triggered by "Stream A COMPLETE" narrative word; resolved by guidance added to `PROMPT_build.md`). Plan grew from 585 → 1,042 lines during the loop (archive-pending); this append-and-trim pass returns it to ~500 lines.
+
+---
