@@ -91,10 +91,12 @@ export class MetrisGameScene extends BaseScene {
     this.createHUD();
     this.setupInput();
     this.setupCommonInputs();
-    this.startDropTimer();
     this.playSound(SOUND_KEYS.MENU);
     this.playBackgroundMusic('/assets/audio/music/menu-theme.mp3');
-    this.startCountdown(5, () => {});
+    // First piece stays pinned at the spawn row throughout the 5s countdown —
+    // the drop timer only arms once the countdown resolves, so the player
+    // starts a fresh level from the top (R85.M1 / M2).
+    this.startCountdown(5, () => this.startDropTimer());
   }
 
   private resetState(): void {
@@ -305,6 +307,10 @@ export class MetrisGameScene extends BaseScene {
 
   private dropTick(): void {
     if (!this.currentPiece || this.isGameOver) return;
+    // Defence-in-depth: even if a future refactor arms the timer during the
+    // countdown, the tick stays inert so the first piece cannot drift off y=0
+    // while players are reading "5, 4, 3…" (R85.M1 / M2).
+    if (this.isCountingDown || this.isPaused) return;
 
     if (!this.checkCollision(this.currentPiece.shape, this.currentPiece.x, this.currentPiece.y + 1)) {
       this.currentPiece.y++;
