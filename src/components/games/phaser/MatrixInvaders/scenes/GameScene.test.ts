@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Phaser from 'phaser';
 import { MatrixInvadersGameScene } from './GameScene';
-import { GAME_CONFIG, ACHIEVEMENTS } from '../config';
+import { GAME_CONFIG, ACHIEVEMENTS, ROW_TINTS } from '../config';
 
 const C = GAME_CONFIG;
 
@@ -736,6 +736,68 @@ describe('MatrixInvadersGameScene', () => {
       scene.wave = 5;
       call(scene, 'spawnWave');
       expect(scene.bossWarningText.setVisible).toHaveBeenCalledWith(true);
+    });
+  });
+
+  // R85.I1 — enemy sprite contract regression tripwire.
+  //
+  // Guards three invariants that Tom's 2026-04-20 playtest surfaced:
+  //   1. Enemies use the procedural UFO textures (`enemy_<type>`) regardless
+  //      of `spriteMode`. The PNG fallbacks scaled as face-like blobs.
+  //   2. Per-row tint from ROW_TINTS applies for PG6 colour variation.
+  //   3. 20% visible shrink (PG6) lands via setScale(0.8), without touching
+  //      grid spacing or collision width/height.
+  // Virus children inherit the same contract so split enemies stay consistent.
+  describe('R85.I1 enemy sprite contract', () => {
+    it('spawns enemies with procedural enemy_<type> texture keys (not sprite_enemy_*)', () => {
+      scene.wave = 1;
+      scene._spriteMode = true; // even with sprite-mode on, enemies stay procedural
+      scene.add.sprite.mockClear();
+      call(scene, 'spawnWave');
+
+      const enemyCalls = scene.add.sprite.mock.calls.filter(
+        (args: unknown[]) => typeof args[2] === 'string' && String(args[2]).startsWith('enemy_')
+      );
+      expect(enemyCalls).toHaveLength(C.WAVE_COLS * C.WAVE_ROWS);
+      for (const args of enemyCalls) {
+        const key = String(args[2]);
+        expect(key).toMatch(/^enemy_(code|agent|sentinel|virus)$/);
+        expect(key.startsWith('sprite_enemy_')).toBe(false);
+      }
+    });
+
+    it('applies ROW_TINTS[row] to every spawned enemy', () => {
+      scene.wave = 1;
+      call(scene, 'spawnWave');
+      const enemies = s(scene, 'enemies') as Array<{ sprite: { setTint: ReturnType<typeof vi.fn> } }>;
+      for (let i = 0; i < enemies.length; i++) {
+        const row = Math.floor(i / C.WAVE_COLS);
+        expect(enemies[i].sprite.setTint).toHaveBeenCalledWith(ROW_TINTS[row % ROW_TINTS.length]);
+      }
+    });
+
+    it('shrinks every spawned enemy to 80% via setScale (PG6 20% shrink)', () => {
+      scene.wave = 1;
+      call(scene, 'spawnWave');
+      const enemies = s(scene, 'enemies') as Array<{ sprite: { setScale: ReturnType<typeof vi.fn> } }>;
+      for (const e of enemies) {
+        expect(e.sprite.setScale).toHaveBeenCalledWith(0.8);
+      }
+    });
+
+    it('virus split children use enemy_code texture with 20% shrink', () => {
+      const sprite = createMockSprite(200, 100);
+      scene.enemies = [{ sprite, type: 'virus', health: 1, maxHealth: 1, value: 20, speedMultiplier: 2.0, width: 40, height: 30 }];
+      scene.add.sprite.mockClear();
+      call(scene, 'killEnemy', 0);
+
+      const childCalls = scene.add.sprite.mock.calls.filter(
+        (args: unknown[]) => args[2] === 'enemy_code'
+      );
+      expect(childCalls).toHaveLength(2);
+      for (const child of s(scene, 'enemies') as Array<{ sprite: { setScale: ReturnType<typeof vi.fn> } }>) {
+        expect(child.sprite.setScale).toHaveBeenCalledWith(0.8);
+      }
     });
   });
 

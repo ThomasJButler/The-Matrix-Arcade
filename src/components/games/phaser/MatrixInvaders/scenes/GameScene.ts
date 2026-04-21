@@ -688,10 +688,13 @@ export class MatrixInvadersGameScene extends BaseScene {
         const x = GAME_CONFIG.GRID_START_X + col * GAME_CONFIG.GRID_COL_SPACING;
         const y = GAME_CONFIG.GRID_START_Y + row * GAME_CONFIG.GRID_ROW_SPACING;
 
-        const texKey = this._spriteMode ? `sprite_enemy_${type}` : `enemy_${type}`;
-        const sprite = this.add.sprite(x, y, texKey);
+        // R85.I1: enemies always use the procedural UFO/battleship
+        // textures — the PNG sprites read as faces at game scale.
+        // setScale(0.8) delivers the PG6 "visible 20% shrink" without
+        // changing grid spacing or collision bounds.
+        const sprite = this.add.sprite(x, y, `enemy_${type}`);
         sprite.setDepth(3);
-        if (this._spriteMode) sprite.setDisplaySize(GAME_CONFIG.ENEMY_WIDTH, GAME_CONFIG.ENEMY_HEIGHT);
+        sprite.setScale(0.8);
         sprite.setTint(ROW_TINTS[row % ROW_TINTS.length]);
 
         this.enemies.push({
@@ -947,11 +950,11 @@ export class MatrixInvadersGameScene extends BaseScene {
   }
 
   private spawnVirusChildren(x: number, y: number): void {
-    const texKey = this._spriteMode ? 'sprite_enemy_code' : 'enemy_code';
     for (const offsetX of [-20, 20]) {
-      const sprite = this.add.sprite(x + offsetX, y, texKey);
+      // R85.I1: children inherit the procedural UFO silhouette + 20% shrink.
+      const sprite = this.add.sprite(x + offsetX, y, 'enemy_code');
       sprite.setDepth(3);
-      if (this._spriteMode) sprite.setDisplaySize(GAME_CONFIG.ENEMY_WIDTH, GAME_CONFIG.ENEMY_HEIGHT);
+      sprite.setScale(0.8);
       this.enemies.push({
         sprite,
         type: 'code',
