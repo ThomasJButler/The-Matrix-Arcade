@@ -1002,8 +1002,29 @@ export class NeoJumpGameScene extends BaseScene {
 
     if (hasNearbyEnemy) return;
 
-    const x = Phaser.Math.Between(50, GAME_CONFIG.WIDTH - 50);
-    const y = cameraTop - 50;
+    // R86.N1 — fairness guard: retry a few times to place the enemy at least
+    // MIN_HORIZONTAL_SPACING_FROM_PLAYER away from the player's current X.
+    // Tom: "you often just hit a bomb out of nowhere; you can't really avoid
+    // it" — root cause was the old `Phaser.Math.Between(50, WIDTH-50)` could
+    // land directly above an ascending player. After 5 failed attempts we
+    // bail out of the spawn entirely (the player's column is denied this
+    // tick) rather than force an unfair spawn.
+    const playerX = this.player.x;
+    let x = Phaser.Math.Between(50, GAME_CONFIG.WIDTH - 50);
+    let attempts = 0;
+    while (
+      Math.abs(x - playerX) < GAME_CONFIG.ENEMIES.MIN_HORIZONTAL_SPACING_FROM_PLAYER &&
+      attempts < 5
+    ) {
+      x = Phaser.Math.Between(50, GAME_CONFIG.WIDTH - 50);
+      attempts++;
+    }
+    if (Math.abs(x - playerX) < GAME_CONFIG.ENEMIES.MIN_HORIZONTAL_SPACING_FROM_PLAYER) return;
+
+    // R86.N1 — enter 150px above the camera edge (was hardcoded 50) so the
+    // player sees the enemy for ~1s of descent before it reaches gameplay
+    // height, instead of materialising near the playfield.
+    const y = cameraTop - GAME_CONFIG.ENEMIES.SPAWN_Y_OFFSET_ABOVE_CAMERA;
 
     const enemyTexture = this.enemySpriteMode ? 'enemy_sprite' : 'enemy';
     const enemy = this.enemies.create(x, y, enemyTexture) as Enemy;

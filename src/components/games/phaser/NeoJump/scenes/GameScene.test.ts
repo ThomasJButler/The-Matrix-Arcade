@@ -14,6 +14,13 @@ import { GAME_CONFIG, ACHIEVEMENTS } from '../config';
 // Add JustDown mock — not provided by the global Phaser mock in setup.ts
 (Phaser.Input.Keyboard as unknown as Record<string, unknown>).JustDown = vi.fn().mockReturnValue(false);
 
+// R86.N1: `maybeSpawnEnemy` relies on Phaser.Math.Between for X placement.
+// Ensure Phaser.Math exists with a default Between before individual tests
+// override it — the global Phaser mock in setup.ts leaves Math undefined.
+const phaserMath = (Phaser as unknown as Record<string, Record<string, unknown>>).Math ?? {};
+phaserMath.Between = phaserMath.Between ?? vi.fn((min: number, max: number) => Math.floor((min + max) / 2));
+(Phaser as unknown as Record<string, unknown>).Math = phaserMath;
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
 /* ------------------------------------------------------------------ */
@@ -281,16 +288,16 @@ describe('NeoJumpGameScene', () => {
       expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.COMBO_BOUNCE);
     });
 
-    it('regenerates jetpack fuel by FUEL_REGEN (5)', () => {
+    it('regenerates jetpack fuel by FUEL_REGEN (R86.N1: 8)', () => {
       scene.jetpackFuel = 50;
       const platform = createMockPlatform('normal');
       scene.handlePlatformCollision(platform);
 
-      expect(scene.jetpackFuel).toBe(55);
+      expect(scene.jetpackFuel).toBe(50 + GAME_CONFIG.JETPACK.FUEL_REGEN);
     });
 
-    it('caps jetpack fuel at FUEL_MAX (100)', () => {
-      scene.jetpackFuel = 98;
+    it('caps jetpack fuel at FUEL_MAX (R86.N1: 120)', () => {
+      scene.jetpackFuel = GAME_CONFIG.JETPACK.FUEL_MAX - 2;
       const platform = createMockPlatform('normal');
       scene.handlePlatformCollision(platform);
 
@@ -392,11 +399,11 @@ describe('NeoJumpGameScene', () => {
   /*  Jetpack                                                       */
   /* -------------------------------------------------------------- */
   describe('Jetpack', () => {
-    it('starts at full fuel', () => {
-      expect(scene.jetpackFuel).toBe(100);
+    it('starts at full fuel (R86.N1: 120)', () => {
+      expect(scene.jetpackFuel).toBe(GAME_CONFIG.JETPACK.FUEL_MAX);
     });
 
-    it('drains fuel at FUEL_DRAIN (30) per second', () => {
+    it('drains fuel at FUEL_DRAIN (R86.N1: 25) per second', () => {
       // Simulate UP key held for 1 second (delta = 1000ms)
       scene.cursors = {
         left: { isDown: false },
@@ -408,10 +415,11 @@ describe('NeoJumpGameScene', () => {
         D: { isDown: false },
       };
 
+      const before = scene.jetpackFuel as number;
       scene.handleInput(1000);
 
-      // fuel should have decreased by 30
-      expect(scene.jetpackFuel).toBe(70);
+      // Fuel should have decreased by FUEL_DRAIN over 1s
+      expect(scene.jetpackFuel).toBe(before - GAME_CONFIG.JETPACK.FUEL_DRAIN);
     });
 
     it('fuel cannot go below 0', () => {
@@ -426,7 +434,7 @@ describe('NeoJumpGameScene', () => {
         D: { isDown: false },
       };
 
-      // 1 second drain at 30/s with only 10 fuel remaining
+      // 1 second drain at FUEL_DRAIN/s with only 10 fuel remaining — clamped to 0
       scene.handleInput(1000);
 
       expect(scene.jetpackFuel).toBe(0);
@@ -769,13 +777,16 @@ describe('NeoJumpGameScene', () => {
       expect(types.size).toBe(5);
     });
 
-    it('config GAME_CONFIG values match expected defaults', () => {
+    it('config GAME_CONFIG values match expected defaults (R86.N1 rebalance)', () => {
       expect(GAME_CONFIG.PLAYER.JUMP_VELOCITY).toBe(-550);
       expect(GAME_CONFIG.PLAYER.SPRING_VELOCITY).toBe(-800);
       expect(GAME_CONFIG.PLAYER.JETPACK_THRUST).toBe(-300);
-      expect(GAME_CONFIG.JETPACK.FUEL_MAX).toBe(100);
-      expect(GAME_CONFIG.JETPACK.FUEL_DRAIN).toBe(30);
-      expect(GAME_CONFIG.JETPACK.FUEL_REGEN).toBe(5);
+      // R86.N1: FUEL_MAX 100 → 120 (+20% capacity)
+      expect(GAME_CONFIG.JETPACK.FUEL_MAX).toBe(120);
+      // R86.N1: FUEL_DRAIN 30 → 25 (~17% slower burn)
+      expect(GAME_CONFIG.JETPACK.FUEL_DRAIN).toBe(25);
+      // R86.N1: FUEL_REGEN 5 → 8 (+60% platform recovery)
+      expect(GAME_CONFIG.JETPACK.FUEL_REGEN).toBe(8);
       expect(GAME_CONFIG.SCORING.ENEMY_KILL).toBe(100);
       expect(GAME_CONFIG.SCORING.ALTITUDE_DIVISOR).toBe(10);
     });
@@ -926,6 +937,186 @@ describe('NeoJumpGameScene', () => {
       expect(enemy.isDying).toBe(true);
       // Shield should still be active (stomp took priority)
       expect(scene.shieldActive).toBe(true);
+    });
+  });
+
+  /* -------------------------------------------------------------- */
+  /*  R86.N1 — Difficulty rebalance                                 */
+  /*                                                                */
+  /*  Tom's Neo Jump playtest (2026-04-21): "too difficult, too     */
+  /*  many bombs early, too quick ... you often just hit a bomb     */
+  /*  out of nowhere; you can't really avoid it."                   */
+  /*                                                                */
+  /*  These invariants lock the rebalance so a future tweak that    */
+  /*  restores the old hostile-to-newcomer feel fails the gate      */
+  /*  rather than silently re-landing on Tom's desk.                */
+  /* -------------------------------------------------------------- */
+  describe('R86.N1 — Difficulty rebalance', () => {
+    describe('Enemy spawn constants (softened early game)', () => {
+      it('SPAWN_ALTITUDE 500 → 800 (tutorial zone extended +300m)', () => {
+        expect(GAME_CONFIG.ENEMIES.SPAWN_ALTITUDE).toBe(800);
+      });
+
+      it('SPAWN_CHANCE_BASE 0.03 → 0.018 (~40% reduction per Tom)', () => {
+        expect(GAME_CONFIG.ENEMIES.SPAWN_CHANCE_BASE).toBe(0.018);
+      });
+
+      it('SPAWN_CHANCE_MAX 0.20 → 0.16 (late-game ceiling lowered)', () => {
+        expect(GAME_CONFIG.ENEMIES.SPAWN_CHANCE_MAX).toBe(0.16);
+      });
+
+      it('SPAWN_CHANCE_PER_1000 0.02 → 0.015 (gentler altitude ramp)', () => {
+        expect(GAME_CONFIG.ENEMIES.SPAWN_CHANCE_PER_1000).toBe(0.015);
+      });
+
+      it('SPEED_MIN 50 → 40 (less frantic side-to-side)', () => {
+        expect(GAME_CONFIG.ENEMIES.SPEED_MIN).toBe(40);
+      });
+
+      it('SPEED_MAX 100 → 75 (player can track + shoot)', () => {
+        expect(GAME_CONFIG.ENEMIES.SPEED_MAX).toBe(75);
+      });
+    });
+
+    describe('Jetpack constants (player buffed)', () => {
+      it('FUEL_MAX 100 → 120 (+20% capacity)', () => {
+        expect(GAME_CONFIG.JETPACK.FUEL_MAX).toBe(120);
+      });
+
+      it('FUEL_REGEN 5 → 8 per landing (+60% platform recovery)', () => {
+        expect(GAME_CONFIG.JETPACK.FUEL_REGEN).toBe(8);
+      });
+
+      it('FUEL_DRAIN 30 → 25 per second (~17% slower burn)', () => {
+        expect(GAME_CONFIG.JETPACK.FUEL_DRAIN).toBe(25);
+      });
+
+      it('effective flight time at new dials ≥ 4.8s (locked as derived invariant)', () => {
+        // Tripwire: if one of the three constants regresses, airtime
+        // collapses. FUEL_MAX / FUEL_DRAIN = 120/25 = 4.8 → lock floor.
+        const airtime = GAME_CONFIG.JETPACK.FUEL_MAX / GAME_CONFIG.JETPACK.FUEL_DRAIN;
+        expect(airtime).toBeGreaterThanOrEqual(4.8);
+      });
+    });
+
+    describe('Spawn fairness guards (new keys)', () => {
+      it('SPAWN_Y_OFFSET_ABOVE_CAMERA = 150 (was hardcoded 50)', () => {
+        // Enemies enter ~1s of visible descent BEFORE reaching gameplay
+        // height — direct counter to Tom's "bomb out of nowhere".
+        expect(GAME_CONFIG.ENEMIES.SPAWN_Y_OFFSET_ABOVE_CAMERA).toBe(150);
+      });
+
+      it('MIN_HORIZONTAL_SPACING_FROM_PLAYER = 80 (new fairness dial)', () => {
+        // Skips any spawn whose X is within 80px of the player's X so
+        // enemies never materialise in the player's ascent column.
+        expect(GAME_CONFIG.ENEMIES.MIN_HORIZONTAL_SPACING_FROM_PLAYER).toBe(80);
+      });
+    });
+
+    describe('maybeSpawnEnemy — behaviour', () => {
+      /** Wire the groups and RNG the spawn path needs. */
+      function setupSpawn(scene: Record<string, unknown>) {
+        scene.highestY = 0 - (GAME_CONFIG.ENEMIES.SPAWN_ALTITUDE + 200); // above threshold
+        scene.enemies = {
+          getChildren: vi.fn().mockReturnValue([]),
+          create: vi.fn().mockReturnValue({
+            direction: 0,
+            speed: 0,
+            isDying: false,
+            setDepth: vi.fn(),
+            setDisplaySize: vi.fn(),
+            setTint: vi.fn(),
+          }),
+        };
+        (scene.cameras as { main: { scrollY: number } }).main.scrollY = 0;
+      }
+
+      it('does NOT spawn below SPAWN_ALTITUDE even if RNG fires (guard)', () => {
+        setupSpawn(scene);
+        // Put player just below the new tutorial-zone threshold
+        scene.highestY = GAME_CONFIG.HEIGHT - (GAME_CONFIG.ENEMIES.SPAWN_ALTITUDE - 50);
+        const rand = vi.spyOn(Math, 'random').mockReturnValue(0); // force spawn
+
+        scene.maybeSpawnEnemy();
+
+        expect(
+          (scene.enemies as { create: ReturnType<typeof vi.fn> }).create
+        ).not.toHaveBeenCalled();
+        rand.mockRestore();
+      });
+
+      /** Replace Phaser.Math.Between + Math.random for the duration of a test. */
+      function stubRng(betweenValue: number, randomValue = 0) {
+        const origBetween = (Phaser.Math as unknown as Record<string, unknown>).Between;
+        const origRandom = Math.random;
+        (Phaser.Math as unknown as Record<string, unknown>).Between = vi.fn(() => betweenValue);
+        Math.random = vi.fn(() => randomValue);
+        return () => {
+          (Phaser.Math as unknown as Record<string, unknown>).Between = origBetween;
+          Math.random = origRandom;
+        };
+      }
+
+      it('spawns enemy at cameraTop - SPAWN_Y_OFFSET_ABOVE_CAMERA (150px above)', () => {
+        setupSpawn(scene);
+        scene.player.x = 50; // far enough left that spawn X (300) is outside the 80px zone
+        const restore = stubRng(300);
+
+        (scene.cameras as { main: { scrollY: number } }).main.scrollY = 1000;
+        scene.maybeSpawnEnemy();
+
+        const create = (scene.enemies as { create: ReturnType<typeof vi.fn> }).create;
+        expect(create).toHaveBeenCalled();
+        const [, y] = create.mock.calls[0];
+        expect(y).toBe(1000 - GAME_CONFIG.ENEMIES.SPAWN_Y_OFFSET_ABOVE_CAMERA);
+
+        restore();
+      });
+
+      it('skips spawn when all retry attempts land within MIN_HORIZONTAL_SPACING_FROM_PLAYER', () => {
+        setupSpawn(scene);
+        scene.player.x = 200;
+        // Between always returns 205 — 5px from player, well inside the
+        // 80px spacing zone. After 5 failed retries the spawn bails.
+        const restore = stubRng(205);
+
+        scene.maybeSpawnEnemy();
+
+        expect(
+          (scene.enemies as { create: ReturnType<typeof vi.fn> }).create
+        ).not.toHaveBeenCalled();
+
+        restore();
+      });
+
+      it('allows spawn when random X lands outside the spacing zone', () => {
+        setupSpawn(scene);
+        scene.player.x = 200;
+        // Between returns 320 — 120px away, outside the 80px zone.
+        const restore = stubRng(320);
+
+        scene.maybeSpawnEnemy();
+
+        expect(
+          (scene.enemies as { create: ReturnType<typeof vi.fn> }).create
+        ).toHaveBeenCalled();
+
+        restore();
+      });
+    });
+
+    describe('Constant bound sanity (anti-regression)', () => {
+      it('SPAWN_CHANCE_BASE strictly less than pre-R86 hostile value (0.03)', () => {
+        expect(GAME_CONFIG.ENEMIES.SPAWN_CHANCE_BASE).toBeLessThan(0.03);
+      });
+
+      it('FUEL_MAX strictly greater than pre-R86 value (100)', () => {
+        expect(GAME_CONFIG.JETPACK.FUEL_MAX).toBeGreaterThan(100);
+      });
+
+      it('SPEED_MAX strictly less than pre-R86 frantic value (100)', () => {
+        expect(GAME_CONFIG.ENEMIES.SPEED_MAX).toBeLessThan(100);
+      });
     });
   });
 });
