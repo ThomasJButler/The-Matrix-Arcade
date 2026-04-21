@@ -21,6 +21,9 @@ function collectPrototypeMethods(cls: new (...args: unknown[]) => unknown): stri
 
 function createMockGraphics() {
   const g: Record<string, unknown> = {
+    x: 0,
+    y: 0,
+    visible: true,
     fillStyle: vi.fn().mockReturnThis(),
     fillRect: vi.fn().mockReturnThis(),
     fillCircle: vi.fn().mockReturnThis(),
@@ -35,6 +38,8 @@ function createMockGraphics() {
     destroy: vi.fn(),
     setDepth: vi.fn().mockReturnThis(),
     setAlpha: vi.fn().mockReturnThis(),
+    setPosition: vi.fn(function (this: Record<string, unknown>, px: number, py: number) { this.x = px; this.y = py; return this; }),
+    setVisible: vi.fn(function (this: Record<string, unknown>, v: boolean) { this.visible = v; return this; }),
     generateTexture: vi.fn().mockReturnThis(),
   };
   return g;
@@ -210,6 +215,11 @@ describe('MatrixInvadersGameScene', () => {
     scene.waveCompleteText = createMockText();
     scene.bossWarningText = { ...createMockText(), visible: false };
     scene.matrixRainGroup = { getChildren: () => [] };
+    // R85.I4: shieldAura is created by createPlayer() in production; in tests
+    // we inject a mock Graphics directly so handler unit tests don't need the
+    // full create() lifecycle. Must carry x/y/visible state to survive round
+    // trips through updateShieldAura().
+    scene.shieldAura = createMockGraphics();
 
     scene.cursors = {
       left: { isDown: false },
@@ -1402,6 +1412,145 @@ describe('MatrixInvadersGameScene', () => {
       call(scene, 'shutdown');
       expect(sprite.destroy).toHaveBeenCalled();
       expect(scene.fieldPowerUps).toHaveLength(0);
+    });
+
+    // R85.I4: shutdown must also kill the infinite yoyo tween the pickup
+    // sprite was running. If the tween outlives the scene, the next run
+    // inherits a dangling target that the tween manager keeps ticking.
+    it('kills power-up tweens on shutdown', () => {
+      const sprite = createMockSprite();
+      scene.fieldPowerUps = [{ sprite }];
+      call(scene, 'shutdown');
+      expect(scene.tweens.killTweensOf).toHaveBeenCalledWith(sprite);
+    });
+  });
+
+  // R85.I4 regression tripwires — "when getting many power-ups, the shooter
+  // becomes invisible" (Tom's Matrix Invaders playtest, 2026-04-20). Root
+  // cause was that the shield power-up mutated the player sprite itself
+  // (setTexture/setTint in activatePowerUp + re-asserted every frame in
+  // updateHUD), leaving the player one bug away from vanishing if any other
+  // effect also touched alpha/visibility. The fix gives the shield its own
+  // Graphics aura layer; these tests lock in the invariant that power-up
+  // activation can never mutate the player's visual state.
+  describe('R85.I4 Power-up Shooter Visibility Invariant', () => {
+    // Outcome-based invariant: the restorePlayerVisuals() helper is allowed
+    // to call setVisible(true) / setAlpha(1) / clearTint() — what's
+    // forbidden is leaving the player in any non-visible / non-opaque /
+    // tinted / re-textured state after a power-up activation.
+    const assertPlayerVisibleAndOpaque = (player: { visible: boolean; setAlpha: { mock: { calls: unknown[][] } }; setVisible: { mock: { calls: unknown[][] } }; setTexture: { mock: { calls: unknown[][] } }; setTint: { mock: { calls: unknown[][] } } }) => {
+      expect(player.visible).toBe(true);
+      // Every setAlpha call must be with 1 (no dim/fade effects on the player).
+      for (const c of player.setAlpha.mock.calls) expect(c[0]).toBe(1);
+      // Every setVisible call must be with true (no hide effects on the player).
+      for (const c of player.setVisible.mock.calls) expect(c[0]).toBe(true);
+      // No texture swap, no tint — shield visuals live on the aura layer.
+      expect(player.setTexture).not.toHaveBeenCalled();
+      expect(player.setTint).not.toHaveBeenCalled();
+    };
+
+    it('shield activation leaves player visible, opaque, untinted, untextured', () => {
+      call(scene, 'activatePowerUp', 'shield');
+      assertPlayerVisibleAndOpaque(scene.player);
+    });
+
+    it('rapidFire activation leaves player visible, opaque, untinted, untextured', () => {
+      call(scene, 'activatePowerUp', 'rapidFire');
+      assertPlayerVisibleAndOpaque(scene.player);
+    });
+
+    it('scoreMultiplier activation leaves player visible, opaque, untinted, untextured', () => {
+      call(scene, 'activatePowerUp', 'scoreMultiplier');
+      assertPlayerVisibleAndOpaque(scene.player);
+    });
+
+    it('bomb activation leaves player visible, opaque, untinted, untextured', () => {
+      call(scene, 'activatePowerUp', 'bomb');
+      assertPlayerVisibleAndOpaque(scene.player);
+    });
+
+    // The canonical repro for Tom's note: collect every power-up type in
+    // rapid succession. After the stack, the player must still be visible
+    // with alpha = 1 and no residual tint.
+    it('stacking every power-up type leaves the player visible and opaque', () => {
+      call(scene, 'activatePowerUp', 'rapidFire');
+      call(scene, 'activatePowerUp', 'shield');
+      call(scene, 'activatePowerUp', 'scoreMultiplier');
+      call(scene, 'activatePowerUp', 'bomb');
+      assertPlayerVisibleAndOpaque(scene.player);
+      // clearTint is part of the invariant — called at least once via
+      // restorePlayerVisuals to guarantee no residual tint.
+      expect(scene.player.clearTint).toHaveBeenCalled();
+    });
+
+    // Repeated shield pickups exercise the pathological case where a
+    // per-activation mutation would accumulate. The aura layer owns the
+    // visual, so repeats are idempotent.
+    it('10 consecutive shield activations never hide the player', () => {
+      for (let i = 0; i < 10; i++) {
+        call(scene, 'activatePowerUp', 'shield');
+      }
+      assertPlayerVisibleAndOpaque(scene.player);
+    });
+
+    it('shield aura shows when shield is active', () => {
+      scene.shieldActive = true;
+      call(scene, 'updateShieldAura', 0);
+      expect(scene.shieldAura.visible).toBe(true);
+    });
+
+    it('shield aura hides when shield is inactive', () => {
+      scene.shieldActive = false;
+      scene.shieldAura.visible = true;
+      call(scene, 'updateShieldAura', 0);
+      expect(scene.shieldAura.visible).toBe(false);
+    });
+
+    it('shield aura pins to the player position', () => {
+      scene.player.x = 420;
+      scene.player.y = 240;
+      call(scene, 'updateShieldAura', 0);
+      expect(scene.shieldAura.x).toBe(420);
+      expect(scene.shieldAura.y).toBe(240);
+    });
+
+    // Shield-break via hitPlayer must clear shieldActive (so the next
+    // updateShieldAura tick hides the aura) and must not mutate the player
+    // sprite itself.
+    it('shield-break does not mutate player texture or tint', () => {
+      scene.shieldActive = true;
+      call(scene, 'hitPlayer');
+      expect(scene.shieldActive).toBe(false);
+      expect(scene.player.setTexture).not.toHaveBeenCalled();
+      expect(scene.player.setTint).not.toHaveBeenCalled();
+    });
+
+    // updateHUD used to re-assert shield texture/tint every frame. Locking
+    // in that it no longer touches the player stops a future regression
+    // from re-introducing the exact shape of Tom's bug.
+    it('updateHUD does not mutate player texture or tint', () => {
+      scene.shieldActive = true;
+      call(scene, 'updateHUD', 0);
+      expect(scene.player.setTexture).not.toHaveBeenCalled();
+      expect(scene.player.setTint).not.toHaveBeenCalled();
+    });
+
+    // Pickup destroys the power-up sprite; the yoyo tween must die with it.
+    it('power-up pickup kills the pickup tween before destroy', () => {
+      const sprite = createMockSprite(scene.player.x, scene.player.y);
+      scene.fieldPowerUps = [{ sprite, type: 'shield', vy: 0 }];
+      call(scene, 'checkPowerUpCollisions');
+      expect(scene.tweens.killTweensOf).toHaveBeenCalledWith(sprite);
+      expect(sprite.destroy).toHaveBeenCalled();
+    });
+
+    // Off-screen cleanup destroys the sprite; the tween must die with it.
+    it('off-screen power-up kills its tween before destroy', () => {
+      const sprite = createMockSprite(100, C.HEIGHT + 20);
+      scene.fieldPowerUps = [{ sprite, type: 'shield', vy: 0 }];
+      call(scene, 'updateFieldPowerUps', 0);
+      expect(scene.tweens.killTweensOf).toHaveBeenCalledWith(sprite);
+      expect(sprite.destroy).toHaveBeenCalled();
     });
   });
 });
