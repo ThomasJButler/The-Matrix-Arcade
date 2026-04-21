@@ -18,6 +18,14 @@ import {
 
 export class MatrixInvadersGameScene extends BaseScene {
   private player!: Phaser.GameObjects.Sprite;
+  // R85.I4: the shield is drawn as a separate Graphics GameObject that orbits
+  // the player. Before R85.I4, the shield power-up mutated the player sprite
+  // (setTexture/setTint re-asserted every frame in updateHUD) — Tom's playtest
+  // reported "when getting many power-ups, the shooter becomes invisible", and
+  // any future alpha- or texture-mutating effect layered on top of that was
+  // guaranteed to collide. Giving the shield its own layer makes power-up
+  // stacking provably incapable of hiding the player.
+  private shieldAura!: Phaser.GameObjects.Graphics;
   private playerHealth = GAME_CONFIG.PLAYER_MAX_HEALTH;
   private isInvulnerable = false;
   private shieldActive = false;
@@ -150,9 +158,42 @@ export class MatrixInvadersGameScene extends BaseScene {
   private createPlayer(): void {
     const key = this._spriteMode ? 'sprite_player' : 'player';
     this.player = this.add.sprite(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT - GAME_CONFIG.PLAYER_Y_OFFSET, key);
+    this.player.setDepth(3);
     if (this._spriteMode) {
       this.player.setDisplaySize(GAME_CONFIG.PLAYER_WIDTH, GAME_CONFIG.PLAYER_HEIGHT);
     }
+
+    // R85.I4: shield drawn as a ring + faint fill behind the player. Stays
+    // hidden until the shield power-up is active. Kept at a lower depth than
+    // the player so the ring pokes out as a halo while the inner fill is
+    // occluded by the ship itself — reads as a protective field without
+    // obscuring the player silhouette.
+    this.shieldAura = this.add.graphics();
+    this.shieldAura.setDepth(2);
+    this.drawShieldAura();
+    this.shieldAura.setVisible(false);
+    this.shieldAura.setPosition(this.player.x, this.player.y);
+  }
+
+  private drawShieldAura(): void {
+    const r = Math.max(GAME_CONFIG.PLAYER_WIDTH, GAME_CONFIG.PLAYER_HEIGHT) * 0.7;
+    this.shieldAura.clear();
+    this.shieldAura.fillStyle(MATRIX_COLORS.MAGENTA, 0.12);
+    this.shieldAura.fillCircle(0, 0, r);
+    this.shieldAura.lineStyle(2, MATRIX_COLORS.MAGENTA, 0.9);
+    this.shieldAura.strokeCircle(0, 0, r);
+  }
+
+  // R85.I4: hard invariant — after this runs the player is fully visible with
+  // no tint and no texture drift. Called at the end of any state window where
+  // player visuals might have been mutated (hit-blink cleanup, shield-hit
+  // cleanup, power-up activation). Cheap and idempotent, so stacking calls is
+  // safe.
+  private restorePlayerVisuals(): void {
+    if (!this.player?.active) return;
+    this.player.setVisible(true);
+    this.player.setAlpha(1);
+    this.player.clearTint();
   }
 
   private createHUD(): void {
@@ -529,6 +570,9 @@ export class MatrixInvadersGameScene extends BaseScene {
       pu.sprite.y += pu.vy * dt;
 
       if (pu.sprite.y > GAME_CONFIG.HEIGHT + 10) {
+        // R85.I4: kill the infinite yoyo tween before we destroy the sprite
+        // so it doesn't outlive its target in the tween manager.
+        this.tweens.killTweensOf(pu.sprite);
         pu.sprite.destroy();
         this.fieldPowerUps.splice(i, 1);
       }
@@ -605,6 +649,9 @@ export class MatrixInvadersGameScene extends BaseScene {
       const dy = this.player.y - pu.sprite.y;
       if (Math.sqrt(dx * dx + dy * dy) < pickupDist) {
         this.activatePowerUp(pu.type);
+        // R85.I4: kill the pickup's yoyo tween so it doesn't outlive the
+        // sprite — pickup is the hot path where leaks accumulate fastest.
+        this.tweens.killTweensOf(pu.sprite);
         pu.sprite.destroy();
         this.fieldPowerUps.splice(i, 1);
       }
@@ -710,17 +757,19 @@ export class MatrixInvadersGameScene extends BaseScene {
     if (this.isInvulnerable || this.isGameOver) return;
 
     if (this.shieldActive) {
+      // R85.I4: shield break no longer mutates the player sprite — the aura
+      // Graphics owns the visual, and the next updateShieldAura() tick hides
+      // it. restorePlayerVisuals() is defensive: if any future effect ever
+      // touches player alpha/tint, this guarantees the player returns to a
+      // clean state on shield-break.
       this.shieldActive = false;
       this.isInvulnerable = true;
       this.playSound(SOUND_KEYS.HIT);
       this.cameras.main.shake(200, 0.005);
-      if (this._spriteMode) {
-        this.player.clearTint();
-      } else {
-        this.player.setTexture('player');
-      }
+      this.restorePlayerVisuals();
       this.time.delayedCall(GAME_CONFIG.INVULNERABLE_DURATION, () => {
         this.isInvulnerable = false;
+        this.restorePlayerVisuals();
       });
       return;
     }
@@ -750,8 +799,11 @@ export class MatrixInvadersGameScene extends BaseScene {
 
     this.time.delayedCall(GAME_CONFIG.INVULNERABLE_DURATION, () => {
       this.isInvulnerable = false;
-      if (this.player.active) this.player.setVisible(true);
       flashEvent.destroy();
+      // R85.I4: hard-restore the player instead of relying on the flash-toggle
+      // parity landing on "visible". If anything ever throws mid-blink, this
+      // still returns the player to a clean visible/alpha=1 state.
+      this.restorePlayerVisuals();
     });
   }
 
@@ -948,6 +1000,10 @@ export class MatrixInvadersGameScene extends BaseScene {
     const sprite = this.add.sprite(x, y, `powerup_${type}`);
     sprite.setDepth(4);
 
+    // R85.I4: infinite yoyo tween. Before R85.I4 it was leaked — the sprite
+    // got destroyed on pickup but the tween kept running against a destroyed
+    // target forever, accumulating dangling targets across a run. Tweens are
+    // now killed at every destroy site (pickup + off-screen cleanup).
     this.tweens.add({
       targets: sprite,
       scaleX: 1.2,
@@ -973,12 +1029,12 @@ export class MatrixInvadersGameScene extends BaseScene {
         break;
 
       case 'shield':
+        // R85.I4: NO player-sprite mutation. The shield aura Graphics layer
+        // handles the visual (see updateShieldAura). Before this change, the
+        // shield call-site + updateHUD both setTexture/setTint on the player
+        // every frame, and stacking several power-ups created pathological
+        // interactions (Tom's "shooter becomes invisible" playtest note).
         this.shieldActive = true;
-        if (this._spriteMode) {
-          this.player.setTint(MATRIX_COLORS.MAGENTA);
-        } else {
-          this.player.setTexture('player_shield');
-        }
         break;
 
       case 'scoreMultiplier':
@@ -992,6 +1048,11 @@ export class MatrixInvadersGameScene extends BaseScene {
         this.activateBomb();
         break;
     }
+
+    // R85.I4: invariant — no power-up activation can leave the player with
+    // mutated alpha/tint/texture. Belt-and-braces for any future power-up
+    // that might add its own visual effect.
+    this.restorePlayerVisuals();
   }
 
   private activateBomb(): void {
@@ -1067,16 +1128,27 @@ export class MatrixInvadersGameScene extends BaseScene {
 
     this.drawHealthBar(time);
     this.drawBulletTimeMeter(time);
+    // R85.I4: shield visuals live on a separate layer — see updateShieldAura.
+    // updateHUD no longer touches the player sprite at all, which means no
+    // per-frame texture churn can interfere with the hit-blink setVisible()
+    // toggle or any future alpha effect.
+    this.updateShieldAura(time);
+  }
 
-    if (this._spriteMode) {
-      if (this.shieldActive) {
-        this.player.setTint(MATRIX_COLORS.MAGENTA);
-      } else {
-        this.player.clearTint();
-      }
-    } else {
-      this.player.setTexture(this.shieldActive ? 'player_shield' : 'player');
+  // R85.I4: keep the aura glued to the player and pulse alpha when active so
+  // the shield reads as a living field rather than a static ring. Hidden when
+  // shieldActive=false; the draw is skipped entirely in that case so the
+  // Graphics object costs nothing beyond its presence.
+  private updateShieldAura(time: number): void {
+    if (!this.shieldAura) return;
+    this.shieldAura.setPosition(this.player.x, this.player.y);
+    if (!this.shieldActive) {
+      if (this.shieldAura.visible) this.shieldAura.setVisible(false);
+      return;
     }
+    if (!this.shieldAura.visible) this.shieldAura.setVisible(true);
+    const pulse = 0.75 + 0.25 * Math.sin(time * 0.005);
+    this.shieldAura.setAlpha(pulse);
   }
 
   private drawHealthBar(time: number): void {
@@ -1193,7 +1265,12 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.enemyBullets = [];
     for (const p of this.particles) p.rect.destroy();
     this.particles = [];
-    for (const pu of this.fieldPowerUps) pu.sprite.destroy();
+    // R85.I4: kill lingering yoyo tweens so scene teardown doesn't leak tween
+    // targets into the next scene instance.
+    for (const pu of this.fieldPowerUps) {
+      this.tweens?.killTweensOf(pu.sprite);
+      pu.sprite.destroy();
+    }
     this.fieldPowerUps = [];
 
     if (this.boss) {
