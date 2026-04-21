@@ -122,10 +122,17 @@ function createTestScene(): any {
       y: 0,
       destroy: vi.fn(),
     }),
-    sprite: vi.fn().mockReturnValue({
+    sprite: vi.fn().mockImplementation(() => ({
       setName: vi.fn().mockReturnThis(),
+      setDepth: vi.fn().mockReturnThis(),
+      setAlpha: vi.fn().mockReturnThis(),
+      setTexture: vi.fn().mockReturnThis(),
+      setScale: vi.fn().mockReturnThis(),
+      setOrigin: vi.fn().mockReturnThis(),
+      destroy: vi.fn(),
       x: 0,
-    }),
+      y: 0,
+    })),
     text: vi.fn().mockReturnValue({
       setOrigin: vi.fn().mockReturnThis(),
       setDepth: vi.fn().mockReturnThis(),
@@ -937,6 +944,90 @@ describe('FroggerGameScene', () => {
       scene.nearMissCount = 9;
       scene.checkNearMiss();
       expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.DODGE_MASTER);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // R86.F3 — Kung Fu HUD positioning (regression tripwire)
+  //
+  // Tom's R86 playtest: the Kung Fu charge icons were "cut off" along the
+  // canvas floor (old baseY = HEIGHT-35 → icon bottoms at y=589, 11px clear
+  // of 600) and the 7px label fused with the START safe-zone backdrop. Fix
+  // moves the HUD into the top-left gutter alongside Score/Distance/Combo.
+  // These assertions pin the new layout so any future regression that drops
+  // the HUD back under the play area turns the gate red.
+  // -----------------------------------------------------------------------
+  describe('R86.F3 — Kung Fu HUD positioning', () => {
+    function addTextCalls(): Array<[number, number, string, Record<string, unknown>]> {
+      return (scene.add.text as any).mock.calls;
+    }
+    function addSpriteCalls(): Array<[number, number, string]> {
+      return (scene.add.sprite as any).mock.calls;
+    }
+    function parseFontPx(value: string | undefined): number | null {
+      const match = (value ?? '').match(/(\d+)px/);
+      return match ? Number(match[1]) : null;
+    }
+
+    it('renders the label in the top-left HUD stack, not the bottom', () => {
+      scene.createKungFuDisplay();
+      const labelCall = addTextCalls().find((c) => c[2] === 'KUNG FU [K]');
+      expect(labelCall).toBeDefined();
+      const [x, y] = labelCall!;
+      expect(x).toBe(10); // left gutter column (matches Score/Distance/Combo)
+      expect(y).toBeGreaterThanOrEqual(60); // below Combo (y=55)
+      expect(y).toBeLessThan(GAME_CONFIG.HEIGHT / 2); // squarely in top half
+    });
+
+    it('paints the label at a readable font size (>=10px)', () => {
+      scene.createKungFuDisplay();
+      const labelCall = addTextCalls().find((c) => c[2] === 'KUNG FU [K]');
+      const style = labelCall![3] as { fontSize?: string };
+      const px = parseFontPx(style.fontSize);
+      expect(px).not.toBeNull();
+      expect(px!).toBeGreaterThanOrEqual(10);
+    });
+
+    it('stacks all three charge icons in the top-left HUD gutter', () => {
+      scene.createKungFuDisplay();
+      const iconCalls = addSpriteCalls().filter((c) => c[2] === 'kung_fu_icon');
+      expect(iconCalls).toHaveLength(GAME_CONFIG.KUNG_FU.MAX_CHARGES);
+
+      const ys = iconCalls.map((c) => c[1]);
+      expect(new Set(ys).size).toBe(1); // all icons share a baseline
+
+      for (const [x, y] of iconCalls) {
+        // The 25° perspective taper keeps x<120 dark through rows 0-2, so
+        // icons here never paint over a road lane.
+        expect(x).toBeLessThan(120);
+        expect(y).toBeLessThan(GAME_CONFIG.HEIGHT / 2);
+      }
+    });
+
+    it('keeps every icon clear of the canvas floor (regression: no more clipping)', () => {
+      scene.createKungFuDisplay();
+      const iconCalls = addSpriteCalls().filter((c) => c[2] === 'kung_fu_icon');
+      // 24×24 icons, default origin 0.5/0.5 → bottom edge = centre y + 12.
+      // Require ≥100px of clearance from the canvas floor so that portal
+      // frame rounding / bezel padding cannot ever clip the HUD again.
+      for (const [, y] of iconCalls) {
+        expect(y + 12).toBeLessThanOrEqual(GAME_CONFIG.HEIGHT - 100);
+      }
+    });
+
+    it('orders label above icons (label.y < icon.y)', () => {
+      scene.createKungFuDisplay();
+      const labelCall = addTextCalls().find((c) => c[2] === 'KUNG FU [K]');
+      const iconCalls = addSpriteCalls().filter((c) => c[2] === 'kung_fu_icon');
+      const labelY = labelCall![1];
+      for (const [, iconY] of iconCalls) {
+        expect(iconY).toBeGreaterThan(labelY);
+      }
+    });
+
+    it('populates kungFuIcons with MAX_CHARGES sprites (wiring preserved)', () => {
+      scene.createKungFuDisplay();
+      expect(scene.kungFuIcons).toHaveLength(GAME_CONFIG.KUNG_FU.MAX_CHARGES);
     });
   });
 });
