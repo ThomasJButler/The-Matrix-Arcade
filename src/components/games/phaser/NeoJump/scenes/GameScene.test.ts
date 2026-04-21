@@ -1311,4 +1311,164 @@ describe('NeoJumpGameScene', () => {
       });
     });
   });
+
+  /* -------------------------------------------------------------- */
+  /*  R86.N3 — In-play controls overlay                             */
+  /* -------------------------------------------------------------- */
+  /**
+   * Why these tests exist: Tom 2026-04-22 Neo Jump playtest asked to see
+   * the controls in-game. The overlay lives only during the 5 s countdown
+   * and fades cleanly, so there are three failure modes to prevent:
+   *   1. overlay never appears (createControlsOverlay not called, or it
+   *      returned early the wrong way)
+   *   2. overlay outlives the countdown and clutters gameplay
+   *   3. overlay leaks if the player hits ESC mid-fade — shutdown() must
+   *      destroy the container even while its tween is mid-flight.
+   */
+  describe('R86.N3 — In-play controls overlay', () => {
+    interface MockText {
+      setOrigin: ReturnType<typeof vi.fn>;
+    }
+    interface MockContainer {
+      setScrollFactor: ReturnType<typeof vi.fn>;
+      setDepth: ReturnType<typeof vi.fn>;
+      setAlpha: ReturnType<typeof vi.fn>;
+      destroy: ReturnType<typeof vi.fn>;
+    }
+
+    function installAddMock(sceneInst: Record<string, unknown>) {
+      const text: MockText = { setOrigin: vi.fn() };
+      const container: MockContainer = {
+        setScrollFactor: vi.fn(),
+        setDepth: vi.fn(),
+        setAlpha: vi.fn(),
+        destroy: vi.fn(),
+      };
+      const addText = vi.fn(() => text);
+      const addContainer = vi.fn(() => container);
+      sceneInst.add = { text: addText, container: addContainer };
+      return { text, container, addText, addContainer };
+    }
+
+    function installTweensMock(sceneInst: Record<string, unknown>) {
+      const add = vi.fn();
+      sceneInst.tweens = { add };
+      return add;
+    }
+
+    it('creates an overlay container pinned to the camera at depth 150', () => {
+      const add = installAddMock(scene);
+      installTweensMock(scene);
+      (scene as Record<string, unknown>).controlsOverlay = null;
+
+      (scene.createControlsOverlay as () => void)();
+
+      // Two text lines + one container = 3 construct calls total.
+      expect(add.addText).toHaveBeenCalledTimes(2);
+      expect(add.addContainer).toHaveBeenCalledTimes(1);
+
+      expect(add.container.setScrollFactor).toHaveBeenCalledWith(0);
+      expect(add.container.setDepth).toHaveBeenCalledWith(150);
+      expect(add.container.setAlpha).toHaveBeenCalledWith(0);
+    });
+
+    it('stores the container on `controlsOverlay` so shutdown can destroy it', () => {
+      installAddMock(scene);
+      installTweensMock(scene);
+      (scene as Record<string, unknown>).controlsOverlay = null;
+
+      (scene.createControlsOverlay as () => void)();
+
+      expect((scene as Record<string, unknown>).controlsOverlay).not.toBeNull();
+    });
+
+    it('arms the fade-in tween immediately with a non-zero duration', () => {
+      installAddMock(scene);
+      const tween = installTweensMock(scene);
+      (scene as Record<string, unknown>).controlsOverlay = null;
+
+      (scene.createControlsOverlay as () => void)();
+
+      expect(tween).toHaveBeenCalledTimes(1);
+      const fadeIn = tween.mock.calls[0][0] as { alpha: number; duration: number };
+      expect(fadeIn.alpha).toBe(1);
+      expect(fadeIn.duration).toBeGreaterThan(0);
+    });
+
+    it('chains a fade-out tween after a multi-second hold (≤ 5 s total lifetime)', () => {
+      installAddMock(scene);
+      const tween = installTweensMock(scene);
+      (scene as Record<string, unknown>).controlsOverlay = null;
+
+      (scene.createControlsOverlay as () => void)();
+      // Trigger the fade-in onComplete to schedule the fade-out.
+      const fadeIn = tween.mock.calls[0][0] as {
+        duration: number;
+        onComplete: () => void;
+      };
+      fadeIn.onComplete();
+
+      expect(tween).toHaveBeenCalledTimes(2);
+      const fadeOut = tween.mock.calls[1][0] as {
+        alpha: number;
+        duration: number;
+        delay: number;
+      };
+      expect(fadeOut.alpha).toBe(0);
+      expect(fadeOut.duration).toBeGreaterThan(0);
+      // Total lifetime must fit inside the 5 s countdown so the overlay
+      // is gone before gameplay starts. 5000 ms is the absolute ceiling.
+      const total = fadeIn.duration + fadeOut.delay + fadeOut.duration;
+      expect(total).toBeLessThanOrEqual(5000);
+    });
+
+    it('destroys the container and nulls the reference on fade-out complete', () => {
+      const mocks = installAddMock(scene);
+      const tween = installTweensMock(scene);
+      (scene as Record<string, unknown>).controlsOverlay = null;
+
+      (scene.createControlsOverlay as () => void)();
+      // Run the tween chain to completion.
+      (tween.mock.calls[0][0] as { onComplete: () => void }).onComplete();
+      (tween.mock.calls[1][0] as { onComplete: () => void }).onComplete();
+
+      expect(mocks.container.destroy).toHaveBeenCalled();
+      expect((scene as Record<string, unknown>).controlsOverlay).toBeNull();
+    });
+
+    it('guards re-entry: a second call while overlay is live is a no-op', () => {
+      installAddMock(scene);
+      const tween = installTweensMock(scene);
+      (scene as Record<string, unknown>).controlsOverlay = null;
+
+      (scene.createControlsOverlay as () => void)();
+      const tweensAfterFirst = tween.mock.calls.length;
+
+      // Second call during live overlay — should NOT arm another tween or
+      // create another container, so no new calls should land on the
+      // tween/add mocks.
+      (scene.createControlsOverlay as () => void)();
+      expect(tween.mock.calls.length).toBe(tweensAfterFirst);
+    });
+
+    it('fade-out onComplete is safe if shutdown nulls the reference mid-flight', () => {
+      installAddMock(scene);
+      const tween = installTweensMock(scene);
+      (scene as Record<string, unknown>).controlsOverlay = null;
+
+      (scene.createControlsOverlay as () => void)();
+      // Fade-in onComplete schedules fade-out — run it to register it.
+      (tween.mock.calls[0][0] as { onComplete: () => void }).onComplete();
+
+      // Simulate ESC mid-fade: shutdown() nulls the reference before the
+      // fade-out tween's onComplete fires.
+      (scene as Record<string, unknown>).controlsOverlay = null;
+
+      // Firing the fade-out onComplete now must NOT throw (it uses the
+      // optional-chain guard when touching the already-nulled container).
+      expect(() =>
+        (tween.mock.calls[1][0] as { onComplete: () => void }).onComplete(),
+      ).not.toThrow();
+    });
+  });
 });

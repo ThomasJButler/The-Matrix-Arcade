@@ -90,6 +90,12 @@ export class NeoJumpGameScene extends BaseScene {
   private fuelLabel!: Phaser.GameObjects.Text;
   private shieldText: Phaser.GameObjects.Text | null = null;
 
+  // R86.N3: in-play controls overlay — lives only during the 5 s countdown
+  // so new players learn the keys before gameplay starts. Held in a
+  // container so the shutdown path can destroy the whole group even if
+  // the fade-out tween hasn't finished yet (e.g. player hits ESC early).
+  private controlsOverlay: Phaser.GameObjects.Container | null = null;
+
   // Camera tracking — highestY is the single source of truth for altitude
   private highestY = 0;
   private cameraBaseY = 0;
@@ -200,6 +206,11 @@ export class NeoJumpGameScene extends BaseScene {
 
     this.playBackgroundMusic('/assets/rhythm-hacker/tracks/enhancements.mp3');
     this.startCountdown(5, () => {});
+    // R86.N3: show the controls overlay while the countdown is running, then
+    // fade it out before gameplay begins. Must be called AFTER startCountdown
+    // so the countdown digit at depth 200 lands on top of the overlay (150)
+    // and the overlay disappears by the time `isCountingDown` flips false.
+    this.createControlsOverlay();
   }
 
   update(time: number, delta: number): void {
@@ -421,6 +432,71 @@ export class NeoJumpGameScene extends BaseScene {
     });
     this.fuelLabel.setScrollFactor(0);
     this.fuelLabel.setDepth(100);
+  }
+
+  /**
+   * R86.N3: in-play controls reminder rendered on top of the countdown.
+   *
+   * Layout: two stacked lines at the top of the canvas (y ≈ 60) so the big
+   * centred countdown digit (depth 200) stays readable. Line 1 lists movement
+   * + jetpack cues, line 2 lists shoot + pause — terser than the MenuScene
+   * panel because the player only has 5 s to scan it.
+   *
+   * Timing (total lifetime 4.1 s, fits inside the 5 s countdown):
+   *   0.0 s  container created at alpha 0
+   *   0.0 → 0.3 s  fade-in tween to alpha 1
+   *   0.3 → 3.3 s  hold (3 s is enough to read two short lines)
+   *   3.3 → 4.1 s  fade-out tween back to 0, destroy onComplete
+   *
+   * Scroll factor 0 pins it to the camera; depth 150 keeps it under the
+   * countdown digit (depth 200) but over the HUD chrome (100).
+   */
+  private createControlsOverlay(): void {
+    // Guard against re-entry — `create()` is invoked once per scene start,
+    // but this keeps the overlay safe if a future refactor rearms it.
+    if (this.controlsOverlay) return;
+
+    const line1 = this.add.text(0, 0, '← → MOVE  ·  ↑ JETPACK', {
+      fontFamily: MATRIX_FONTS.PRIMARY,
+      fontSize: '10px',
+      color: MATRIX_COLORS.CYAN_HEX,
+    });
+    line1.setOrigin(0.5, 0);
+
+    const line2 = this.add.text(0, 16, 'SPACE SHOOT  ·  P PAUSE', {
+      fontFamily: MATRIX_FONTS.PRIMARY,
+      fontSize: '10px',
+      color: MATRIX_COLORS.PRIMARY_HEX,
+    });
+    line2.setOrigin(0.5, 0);
+
+    const container = this.add.container(GAME_CONFIG.WIDTH / 2, 50, [line1, line2]);
+    container.setScrollFactor(0);
+    container.setDepth(150);
+    container.setAlpha(0);
+    this.controlsOverlay = container;
+
+    // Fade in → hold → fade out → destroy. A single chained tween keeps
+    // shutdown cleanup simple (we only need to null the reference; the
+    // tween manager auto-cancels its tweens when the target is destroyed).
+    this.tweens.add({
+      targets: container,
+      alpha: 1,
+      duration: 300,
+      onComplete: () => {
+        if (!this.controlsOverlay) return;
+        this.tweens.add({
+          targets: this.controlsOverlay,
+          alpha: 0,
+          duration: 800,
+          delay: 3000,
+          onComplete: () => {
+            this.controlsOverlay?.destroy();
+            this.controlsOverlay = null;
+          },
+        });
+      },
+    });
   }
 
   /**
@@ -1376,6 +1452,14 @@ export class NeoJumpGameScene extends BaseScene {
     if (this.shieldText) {
       this.shieldText.destroy();
       this.shieldText = null;
+    }
+
+    // R86.N3: tear down the controls overlay if it's still mid-fade when
+    // the scene shuts down (e.g. ESC pressed during the 5 s countdown).
+    // Destroying the container also cancels any in-flight alpha tweens.
+    if (this.controlsOverlay) {
+      this.controlsOverlay.destroy();
+      this.controlsOverlay = null;
     }
 
     super.shutdown();
