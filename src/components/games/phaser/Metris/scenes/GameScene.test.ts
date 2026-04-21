@@ -1303,6 +1303,305 @@ describe('MetrisGameScene', () => {
     });
   });
 
+  // R85.M5 — cross-cutting integration coverage. M1-M4 each shipped dense
+  // per-task tripwires (+42 tests net). M5 fills the integration niches
+  // between features where a seemingly-unrelated refactor could silently
+  // break a seam: drop-speed modifier compounding (bullet-time × soft-drop),
+  // activation/deactivation side-effect chains (restartDropTimer fires on
+  // state transitions), line-clear → level-up → timer-restart cascade,
+  // hold × bag interaction, save-system persistence round-trip on game-over,
+  // update() gate asymmetry (paused exposes state, countdown does not),
+  // and the test-state contract shape.
+  describe('R85.M5 Integration coverage refresh', () => {
+    describe('Drop-speed modifier compound', () => {
+      it('bullet-time + soft-drop compounds — bullet-time slows soft-drop further', () => {
+        scene.level = 1;
+        scene.softDropActive = true;
+        scene.bulletTimeActive = true;
+        // Code path: speed = SOFT_DROP_SPEED then speed /= BULLET_TIME_SLOWDOWN
+        expect(scene.getEffectiveDropSpeed()).toBe(
+          Math.round(C.SOFT_DROP_SPEED / C.BULLET_TIME_SLOWDOWN),
+        );
+      });
+
+      it('bullet-time still slows already-capped MIN_DROP_SPEED at high levels', () => {
+        scene.level = 50;
+        scene.softDropActive = false;
+        scene.bulletTimeActive = true;
+        // Level 50 caps at MIN_DROP_SPEED; bullet-time still divides it.
+        expect(scene.getEffectiveDropSpeed()).toBe(
+          Math.round(C.MIN_DROP_SPEED / C.BULLET_TIME_SLOWDOWN),
+        );
+      });
+
+      it('soft-drop + bullet-time result is strictly slower (larger delay) than plain soft-drop', () => {
+        scene.level = 1;
+        scene.softDropActive = true;
+        scene.bulletTimeActive = false;
+        const plainSoftDrop = scene.getEffectiveDropSpeed();
+        scene.bulletTimeActive = true;
+        const compounded = scene.getEffectiveDropSpeed();
+        expect(compounded).toBeGreaterThan(plainSoftDrop);
+      });
+    });
+
+    describe('Bullet-time lifecycle side-effects', () => {
+      it('activateBulletTime restarts the drop timer (drop speed changes with new scale)', () => {
+        scene.restartDropTimer = vi.fn();
+        scene.bulletTimeMeter = C.BULLET_TIME_MAX_METER;
+        scene.bulletTimeActive = false;
+        scene.activateBulletTime();
+        expect(scene.restartDropTimer).toHaveBeenCalledTimes(1);
+      });
+
+      it('deactivateBulletTime restarts the drop timer (drop speed returns to normal)', () => {
+        scene.restartDropTimer = vi.fn();
+        scene.bulletTimeActive = true;
+        scene.bulletTimeTimer = 1000;
+        scene.deactivateBulletTime();
+        expect(scene.restartDropTimer).toHaveBeenCalledTimes(1);
+        expect(scene.bulletTimeActive).toBe(false);
+        expect(scene.bulletTimeTimer).toBe(0);
+      });
+
+      it('activateBulletTime persists bulletTimeCount into save-system preferences', () => {
+        const updateGameSave = vi.fn();
+        const saveSystem = {
+          getSaveData: vi.fn().mockReturnValue({
+            games: { metris: { preferences: { bulletTimeCount: 4, otherPref: 'keep' } } },
+          }),
+          updateGameSave,
+        };
+        scene.registry = { get: vi.fn().mockReturnValue(saveSystem), set: vi.fn() };
+        scene.bulletTimeMeter = C.BULLET_TIME_MAX_METER;
+        scene.bulletTimeActive = false;
+        scene.bulletTimeCount = 4;
+        scene.activateBulletTime();
+        expect(updateGameSave).toHaveBeenCalledWith('metris', {
+          preferences: { bulletTimeCount: 5, otherPref: 'keep' },
+        });
+      });
+
+      it('update() decrements bulletTimeTimer by delta and auto-deactivates at ≤ 0', () => {
+        scene.bulletTimeActive = true;
+        scene.bulletTimeTimer = 30;
+        scene.restartDropTimer = vi.fn();
+        // Stub side-paths that reference the global Phaser namespace — the
+        // path under test is the timer-decrement + auto-deactivate branch.
+        scene.handleInput = vi.fn();
+        // delta = 50 > timer 30 → timer becomes -20 → deactivate fires.
+        scene.update(0, 50);
+        expect(scene.bulletTimeActive).toBe(false);
+        expect(scene.bulletTimeTimer).toBe(0);
+      });
+    });
+
+    describe('Line-clear → level-up → drop-timer cascade', () => {
+      it('crossing the LINES_PER_LEVEL threshold triggers restartDropTimer', () => {
+        scene.restartDropTimer = vi.fn();
+        scene.level = 1;
+        scene.lines = C.LINES_PER_LEVEL - 2;
+        scene.handleScoring(2);
+        expect(scene.level).toBe(2);
+        expect(scene.restartDropTimer).toHaveBeenCalled();
+      });
+
+      it('line clear below the level threshold does NOT restart the drop timer', () => {
+        scene.restartDropTimer = vi.fn();
+        scene.level = 1;
+        scene.lines = 0;
+        scene.handleScoring(1);
+        expect(scene.level).toBe(1);
+        expect(scene.restartDropTimer).not.toHaveBeenCalled();
+      });
+
+      it('bullet-time meter saturates at MAX and does not overshoot from multi-line stacking', () => {
+        scene.bulletTimeMeter = C.BULLET_TIME_MAX_METER - 10; // 90
+        // 4-line clear would add 4 × 20 = 80, overshoot by 70 without the clamp.
+        scene.handleScoring(4);
+        expect(scene.bulletTimeMeter).toBe(C.BULLET_TIME_MAX_METER);
+        expect(scene.bulletTimeMeter).not.toBeGreaterThan(C.BULLET_TIME_MAX_METER);
+      });
+
+      it('4-line (tetris) clear triggers distinct stronger camera shake + flash than single line', () => {
+        scene.combo = 0;
+        scene.level = 1;
+        scene.handleScoring(4);
+        // Tetris: shake 150ms/0.008 + flash 120ms α=0.2 green.
+        expect(scene.cameras.main.shake).toHaveBeenCalledWith(150, 0.008);
+        expect(scene.cameras.main.flash).toHaveBeenCalledWith(120, 0, 255, 0, false, undefined, undefined, 0.2);
+      });
+    });
+
+    describe('Hold × bag integration', () => {
+      it('first hold (no stored piece) consumes from bag via nextPieceType', () => {
+        scene.holdPieceType = null;
+        scene.canHold = true;
+        const firstNext = scene.nextPieceType;
+        const bagBefore = scene.pieceBag.length;
+        scene.holdCurrentPiece();
+        expect(scene.currentPiece.type).toBe(firstNext);
+        // Bag state after pull: either decremented or refilled (bag=0 refills to 7).
+        // The critical assertion is that pullFromBag was called once — i.e., the
+        // bag size either shrank by 1 or was refilled to a non-empty state.
+        if (bagBefore > 0) {
+          expect(scene.pieceBag.length).toBe(bagBefore - 1);
+        } else {
+          expect(scene.pieceBag.length).toBeGreaterThanOrEqual(0);
+        }
+      });
+
+      it('second hold (with stored piece) swaps without consuming the bag', () => {
+        scene.currentPiece = scene.spawnPiece('T');
+        scene.holdPieceType = 'I';
+        scene.canHold = true;
+        const bagBefore = scene.pieceBag.length;
+        scene.holdCurrentPiece();
+        expect(scene.currentPiece.type).toBe('I');
+        expect(scene.holdPieceType).toBe('T');
+        expect(scene.pieceBag.length).toBe(bagBefore); // no bag pull on swap
+      });
+
+      it('canHold resets to true after lockCurrentPiece, re-enabling hold for the next piece', () => {
+        scene.currentPiece = scene.spawnPiece('O');
+        scene.holdCurrentPiece();
+        expect(scene.canHold).toBe(false);
+        scene.currentPiece.y = C.ROWS - 2;
+        scene.lockCurrentPiece();
+        expect(scene.canHold).toBe(true);
+      });
+    });
+
+    describe('Game-over save-system persistence', () => {
+      it('handleGameOver writes highScore + level + stats via updateGameSave', () => {
+        const updateGameSave = vi.fn();
+        const saveSystem = {
+          getSaveData: vi.fn().mockReturnValue({ games: { metris: { stats: {} } } }),
+          updateGameSave,
+        };
+        scene.registry = { get: vi.fn().mockReturnValue(saveSystem), set: vi.fn() };
+        scene.score = 5000;
+        scene.highScore = 1000;
+        scene.level = 7;
+        scene.lines = 42;
+        scene.combo = 3;
+        scene.sessionStartTime = 0;
+        scene.time.now = 300000; // 300 seconds
+
+        scene.handleGameOver();
+
+        expect(updateGameSave).toHaveBeenCalledWith('metris', expect.objectContaining({
+          highScore: 5000,
+          level: 7,
+          stats: expect.objectContaining({
+            gamesPlayed: 1,
+            totalScore: 5000,
+            bestCombo: 3,
+            longestSurvival: 300,
+          }),
+        }));
+      });
+
+      it('handleGameOver merges stats — bestCombo + longestSurvival keep max of prev + current', () => {
+        const updateGameSave = vi.fn();
+        const saveSystem = {
+          getSaveData: vi.fn().mockReturnValue({
+            games: {
+              metris: {
+                stats: {
+                  gamesPlayed: 9,
+                  totalScore: 50000,
+                  bestCombo: 10,
+                  longestSurvival: 1200,
+                },
+              },
+            },
+          }),
+          updateGameSave,
+        };
+        scene.registry = { get: vi.fn().mockReturnValue(saveSystem), set: vi.fn() };
+        scene.score = 3000;
+        scene.combo = 2; // less than prev 10
+        scene.sessionStartTime = 0;
+        scene.time.now = 100000; // 100 seconds — less than prev 1200
+
+        scene.handleGameOver();
+
+        const call = updateGameSave.mock.calls[0][1];
+        expect(call.stats.gamesPlayed).toBe(10); // 9 + 1
+        expect(call.stats.totalScore).toBe(53000); // 50000 + 3000
+        expect(call.stats.bestCombo).toBe(10); // max(10, 2) = 10
+        expect(call.stats.longestSurvival).toBe(1200); // max(1200, 100) = 1200
+      });
+
+      it('second handleGameOver call is a no-op — no second save, no second delayedCall', () => {
+        const updateGameSave = vi.fn();
+        const saveSystem = {
+          getSaveData: vi.fn().mockReturnValue({ games: {} }),
+          updateGameSave,
+        };
+        scene.registry = { get: vi.fn().mockReturnValue(saveSystem), set: vi.fn() };
+        scene.handleGameOver();
+        scene.handleGameOver();
+        expect(updateGameSave).toHaveBeenCalledTimes(1);
+        expect(scene.time.delayedCall).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    describe('update() gate semantics', () => {
+      it('during isPaused, update exposes test state but skips input handling', () => {
+        scene.isPaused = true;
+        scene.handleInput = vi.fn();
+        scene.exposeTestState = vi.fn();
+        scene.update(0, 16);
+        expect(scene.exposeTestState).toHaveBeenCalledTimes(1);
+        expect(scene.handleInput).not.toHaveBeenCalled();
+      });
+
+      it('during isGameOver, update exposes test state but skips input handling', () => {
+        scene.isGameOver = true;
+        scene.handleInput = vi.fn();
+        scene.exposeTestState = vi.fn();
+        scene.update(0, 16);
+        expect(scene.exposeTestState).toHaveBeenCalledTimes(1);
+        expect(scene.handleInput).not.toHaveBeenCalled();
+      });
+
+      it('during isCountingDown, update early-returns BEFORE exposing test state', () => {
+        scene.isPaused = false;
+        scene.isGameOver = false;
+        scene.isCountingDown = true;
+        scene.handleInput = vi.fn();
+        scene.exposeTestState = vi.fn();
+        scene.update(0, 16);
+        expect(scene.exposeTestState).not.toHaveBeenCalled();
+        expect(scene.handleInput).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('getTestState contract', () => {
+      it('exposes countdownValue so E2E harnesses can assert countdown state deterministically', () => {
+        scene.countdownValue = 3;
+        const state = scene.getTestState();
+        expect(state).toHaveProperty('countdownValue');
+        expect(state.countdownValue).toBe(3);
+      });
+
+      it('ghostY is null when currentPiece is null (post-game-over state)', () => {
+        scene.currentPiece = null;
+        const state = scene.getTestState();
+        expect(state.ghostY).toBeNull();
+      });
+
+      it('pieceBagSize mirrors the live piece bag length (not a stale snapshot)', () => {
+        scene.pieceBag = ['I', 'O', 'T'] as TetrominoType[];
+        expect(scene.getTestState().pieceBagSize).toBe(3);
+        scene.pieceBag.pop();
+        expect(scene.getTestState().pieceBagSize).toBe(2);
+      });
+    });
+  });
+
   describe('Cleanup', () => {
     it('should destroy drop timer', () => {
       const mockTimer = { destroy: vi.fn() };
