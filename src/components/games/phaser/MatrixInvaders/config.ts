@@ -4,7 +4,7 @@ import { MatrixInvadersMenuScene } from './scenes/MenuScene';
 import { MatrixInvadersGameScene } from './scenes/GameScene';
 import { MatrixInvadersGameOverScene } from './scenes/GameOverScene';
 import { HighScoreEntryScene } from '../../../../lib/phaser/scenes/HighScoreEntryScene';
-import { MATRIX_COLORS } from '../../../../lib/phaser/types';
+import { MATRIX_COLORS, PHASER_RENDER_DEFAULTS } from '../../../../lib/phaser/types';
 
 export type EnemyType = 'code' | 'agent' | 'sentinel' | 'virus';
 export type PowerUpType = 'rapidFire' | 'shield' | 'scoreMultiplier' | 'bomb';
@@ -321,6 +321,7 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
   pixelArt: true,
   transparent: false,
   input: { keyboard: true },
+  render: { ...PHASER_RENDER_DEFAULTS },
   physics: {
     default: 'arcade',
     arcade: { gravity: { x: 0, y: 0 }, debug: false },

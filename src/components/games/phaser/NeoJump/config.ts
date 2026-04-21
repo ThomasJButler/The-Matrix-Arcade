@@ -6,7 +6,7 @@
  */
 
 import Phaser from 'phaser';
-import { MATRIX_COLORS } from '../../../../lib/phaser/types';
+import { MATRIX_COLORS, PHASER_RENDER_DEFAULTS } from '../../../../lib/phaser/types';
 import { NeoJumpBootScene } from './scenes/BootScene';
 import { NeoJumpMenuScene } from './scenes/MenuScene';
 import { NeoJumpGameScene } from './scenes/GameScene';
@@ -129,6 +129,7 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
     keyboard: true,
   },
   render: {
+    ...PHASER_RENDER_DEFAULTS,
     pixelArt: true,
     antialias: false,
   },
