@@ -653,6 +653,88 @@ describe('NeoJumpGameScene', () => {
       expect(scene.reportScore).toHaveBeenCalledWith(250, 250);
       expect(scene.gameOver).toHaveBeenCalledWith(250, 'Altitude: 42m', expect.any(Number), expect.any(Array), expect.any(Number), expect.any(Number));
     });
+
+    // R86.G1: Tom's playtest (2026-04-21) showed Neo Jump high-score
+    // persistence fully broken while Frogger (identical score path) worked
+    // the same day. The defensive write here is a second, independent route
+    // into saveSystem.updateGameSave — if it regresses the bug returns.
+    describe('R86.G1 — defensive save-system persistence on death', () => {
+      it('writes highScore + level + stats via updateGameSave inside onComplete', () => {
+        const updateGameSave = vi.fn();
+        const saveSystem = {
+          getSaveData: vi.fn().mockReturnValue({ games: { neoJump: { stats: {} } } }),
+          updateGameSave,
+        };
+        scene.registry = { get: vi.fn().mockReturnValue(saveSystem), set: vi.fn() };
+        scene.score = 2500;
+        scene.highScore = 1000;
+        scene.lastMaxAltitude = 1500;
+        scene.enemiesKilled = 3;
+        scene.collectiblesCollected = 4;
+        scene.bounceCombo = 7;
+        scene.getGameDuration = vi.fn().mockReturnValue(42_000); // 42s
+
+        scene.playerDeath();
+        const tweenConfig = scene.tweens.add.mock.calls[0][0];
+        tweenConfig.onComplete();
+
+        expect(updateGameSave).toHaveBeenCalledWith('neoJump', expect.objectContaining({
+          highScore: 2500,
+          level: 3, // floor(1500 / 500)
+          stats: expect.objectContaining({
+            gamesPlayed: 1,
+            totalScore: 2500,
+            bestCombo: 7,
+            longestSurvival: 42,
+          }),
+        }));
+      });
+
+      it('merges stats — gamesPlayed + totalScore accumulate, bestCombo + longestSurvival keep max', () => {
+        const updateGameSave = vi.fn();
+        const saveSystem = {
+          getSaveData: vi.fn().mockReturnValue({
+            games: {
+              neoJump: {
+                stats: {
+                  gamesPlayed: 9,
+                  totalScore: 50_000,
+                  bestCombo: 10,
+                  longestSurvival: 120,
+                },
+              },
+            },
+          }),
+          updateGameSave,
+        };
+        scene.registry = { get: vi.fn().mockReturnValue(saveSystem), set: vi.fn() };
+        scene.score = 3000;
+        scene.bounceCombo = 2; // less than prev 10
+        scene.lastMaxAltitude = 500;
+        scene.getGameDuration = vi.fn().mockReturnValue(30_000); // less than prev 120s
+
+        scene.playerDeath();
+        scene.tweens.add.mock.calls[0][0].onComplete();
+
+        const call = updateGameSave.mock.calls[0][1];
+        expect(call.stats.gamesPlayed).toBe(10); // 9 + 1
+        expect(call.stats.totalScore).toBe(53_000); // 50_000 + 3_000
+        expect(call.stats.bestCombo).toBe(10); // max(10, 2)
+        expect(call.stats.longestSurvival).toBe(120); // max(120, 30)
+      });
+
+      it('no-ops when save-system registry entry is missing (defensive guard)', () => {
+        scene.registry = { get: vi.fn().mockReturnValue(undefined), set: vi.fn() };
+        scene.score = 500;
+        scene.lastMaxAltitude = 100;
+
+        scene.playerDeath();
+        // Should not throw even with no saveSystem
+        expect(() => scene.tweens.add.mock.calls[0][0].onComplete()).not.toThrow();
+        // gameOver still fires so the player sees the end-of-run screen
+        expect(scene.gameOver).toHaveBeenCalled();
+      });
+    });
   });
 
   /* -------------------------------------------------------------- */
