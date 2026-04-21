@@ -4,6 +4,7 @@ import { SnakeMenuScene } from './scenes/MenuScene';
 import { SnakeGameScene } from './scenes/GameScene';
 import { SnakeGameOverScene } from './scenes/GameOverScene';
 import { HighScoreEntryScene } from '../../../../lib/phaser/scenes/HighScoreEntryScene';
+import { PHASER_RENDER_DEFAULTS } from '../../../../lib/phaser/types';
 
 export type Direction = 'up' | 'down' | 'left' | 'right';
 export type PowerUpType =
@@ -348,6 +349,7 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
   width: GAME_CONFIG.WIDTH,
   height: GAME_CONFIG.HEIGHT,
   pixelArt: true,
+  render: { ...PHASER_RENDER_DEFAULTS },
   physics: {
     default: 'arcade',
     arcade: {

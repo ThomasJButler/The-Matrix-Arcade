@@ -4,7 +4,7 @@ import { MatrixCloudMenuScene } from './scenes/MenuScene';
 import { MatrixCloudGameScene } from './scenes/GameScene';
 import { MatrixCloudGameOverScene } from './scenes/GameOverScene';
 import { HighScoreEntryScene } from '../../../../lib/phaser/scenes/HighScoreEntryScene';
-import { MATRIX_COLORS } from '@/lib/phaser/types';
+import { MATRIX_COLORS, PHASER_RENDER_DEFAULTS } from '@/lib/phaser/types';
 
 export type PowerUpType = 'shield' | 'timeSlow' | 'extraLife' | 'doublePoints';
 export type BossType = 'agent_smith' | 'sentinel' | 'architect';
@@ -302,6 +302,7 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
   height: GAME_CONFIG.HEIGHT,
   backgroundColor: MATRIX_COLORS.BACKGROUND,
   pixelArt: true,
+  render: { ...PHASER_RENDER_DEFAULTS },
   physics: {
     default: 'arcade',
     arcade: {

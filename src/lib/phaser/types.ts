@@ -124,6 +124,45 @@ export const GAME_TRANSITION_BEGIN_EVENT = 'matrix-arcade:game-transition-begin'
  */
 export const GAME_TRANSITION_READY_EVENT = 'matrix-arcade:game-transition-ready';
 
+/**
+ * R86.G3 — Shared Phaser render-config defaults, promoted arcade-wide.
+ *
+ * Silences two WebGL console warnings that fire on every Phaser game launch:
+ *
+ *   1. `texImage: Alpha-premult and y-flip are deprecated for non-DOM-Element
+ *      uploads` — Chrome deprecated the combination of
+ *      `UNPACK_PREMULTIPLY_ALPHA` and `UNPACK_FLIP_Y_WEBGL` on
+ *      canvas / ArrayBuffer / ImageData sources. Phaser's default WebGL
+ *      renderer sets both; `premultipliedAlpha: false` opts out of premult at
+ *      context-creation time and drops the warning for every subsequent
+ *      texture upload.
+ *
+ *   2. `generateMipmap: Tex image TEXTURE_2D level 0 is incurring lazy
+ *      initialization` — Firefox (and Chromium in strict mode) logs this
+ *      whenever mipmaps are lazily generated for textures that never sample
+ *      below 1:1. Our 12 games render at fixed canvas sizes with either
+ *      NEAREST (`pixelArt: true`) or LINEAR (`pixelArt: false`) filtering at
+ *      a 1:1 or upscaled ratio — mipmaps never improve quality and cost a
+ *      first-frame GPU stall. Setting `mipmapFilter: ''` is the Phaser
+ *      3.60+ explicit opt-out.
+ *
+ * Originally applied only to CtrlSWorld (R83.CTRLS.11). Tom's R86 playtest
+ * of Matrix Frogger + Neo Jump surfaced the same warnings on both, so the
+ * pair was promoted here as a single source of truth. Spread into each
+ * game's render config:
+ *
+ *   render: { ...PHASER_RENDER_DEFAULTS, pixelArt: true, antialias: false }
+ *
+ * Later keys win — games that need different `pixelArt` / `antialias` still
+ * override cleanly. Games without a `render` block can use it top-level:
+ *
+ *   render: { ...PHASER_RENDER_DEFAULTS }
+ */
+export const PHASER_RENDER_DEFAULTS = {
+  premultipliedAlpha: false,
+  mipmapFilter: '',
+} as const;
+
 /** Registry keys for passing data between React and Phaser */
 export const REGISTRY_KEYS = {
   ACHIEVEMENT_MANAGER: 'achievementManager',

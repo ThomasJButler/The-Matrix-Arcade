@@ -7,7 +7,7 @@
  */
 
 import Phaser from 'phaser';
-import { MATRIX_COLORS } from '../../../../lib/phaser/types';
+import { MATRIX_COLORS, PHASER_RENDER_DEFAULTS } from '../../../../lib/phaser/types';
 import { VortexPongBootScene } from './scenes/BootScene';
 import { VortexPongMenuScene } from './scenes/MenuScene';
 import { VortexPongGameScene } from './scenes/GameScene';
@@ -322,6 +322,7 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
     HighScoreEntryScene,
   ],
   render: {
+    ...PHASER_RENDER_DEFAULTS,
     pixelArt: true,
     antialias: false,
   },

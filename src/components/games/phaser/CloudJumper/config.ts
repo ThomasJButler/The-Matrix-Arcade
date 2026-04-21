@@ -11,7 +11,7 @@ import { CloudJumperMenuScene } from './scenes/MenuScene';
 import { CloudJumperGameScene } from './scenes/GameScene';
 import { CloudJumperGameOverScene } from './scenes/GameOverScene';
 import { HighScoreEntryScene } from '../../../../lib/phaser/scenes/HighScoreEntryScene';
-import { MATRIX_COLORS } from '../../../../lib/phaser/types';
+import { MATRIX_COLORS, PHASER_RENDER_DEFAULTS } from '../../../../lib/phaser/types';
 
 /** Game constants */
 export const GAME_CONFIG = {
@@ -107,6 +107,7 @@ export const PHASER_CONFIG: Phaser.Types.Core.GameConfig = {
     keyboard: true,
   },
   render: {
+    ...PHASER_RENDER_DEFAULTS,
     pixelArt: true,
     antialias: false,
   },
