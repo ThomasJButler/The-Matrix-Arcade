@@ -4,6 +4,7 @@ import { SCENE_KEYS, MATRIX_COLORS, MATRIX_FONTS, SOUND_KEYS, REGISTRY_KEYS } fr
 import {
   GAME_CONFIG,
   ACHIEVEMENTS,
+  ATMOSPHERE,
   ENEMY_DEFS,
   POWERUP_DEFS,
   POWERUP_LEGEND,
@@ -105,6 +106,13 @@ export class MatrixInvadersGameScene extends BaseScene {
   private bulletTimeKey!: Phaser.Input.Keyboard.Key;
 
   private matrixRainGroup!: Phaser.GameObjects.Group;
+  // R85.I7: CRT-style scanline overlay drawn once in create() and left alone
+  // for the scene lifetime. Owning a reference lets shutdown() destroy it
+  // cleanly if Phaser ever starts tracking Graphics as GC roots (currently
+  // the scene teardown handles this, but explicit ownership mirrors the
+  // shieldAura pattern from R85.I4 and removes the one untyped Graphics
+  // leak vector in this scene).
+  private scanlineOverlay?: Phaser.GameObjects.Graphics;
 
   private _spriteMode = false;
 
@@ -115,7 +123,14 @@ export class MatrixInvadersGameScene extends BaseScene {
   create(): void {
     this._spriteMode = this.game.registry.get('spriteMode') === true;
     this.createMatrixBackground();
-    this.matrixRainGroup = this.addMatrixRain(10);
+    // R85.I7: rain density tripled (10 → 30). Atmospheric backdrop density
+    // is the cheapest lever for "more jazz" — fills the dead-black zones
+    // between enemy rows with drifting glyphs. See ATMOSPHERE.RAIN_DENSITY.
+    this.matrixRainGroup = this.addMatrixRain(ATMOSPHERE.RAIN_DENSITY);
+    // R85.I7: scanline overlay painted once. Must sit after rain (so it
+    // covers the rain) but before any gameplay adds (so it's below them if
+    // their depth is higher) — depth gates the visual stack, not call order.
+    this.createScanlineOverlay();
     this.resetState();
     this.createPlayer();
     this.createHUD();
@@ -125,6 +140,26 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.playSound(SOUND_KEYS.MENU);
     this.playBackgroundMusic('/assets/audio/music/ostcrunch2-epic.mp3');
     this.startCountdown(5, () => {});
+  }
+
+  // R85.I7: horizontal CRT scanlines painted as a single Graphics object.
+  // Drawing is one-shot in create() — the overlay does not animate, so there
+  // is zero per-frame cost. Skipped in E2E test mode for the same reason
+  // BaseScene skips matrix rain: Phaser's RNG isn't seeded by the ?test=1
+  // seam, and while scanline geometry IS deterministic we want the backdrop
+  // stack fully controlled so visual baselines stay stable even if future
+  // changes add stochasticity to this method.
+  private createScanlineOverlay(): void {
+    if (typeof window !== 'undefined' && (window as { __TEST__?: boolean }).__TEST__) {
+      return;
+    }
+    const g = this.add.graphics();
+    g.setDepth(ATMOSPHERE.SCANLINE_DEPTH);
+    g.fillStyle(MATRIX_COLORS.PRIMARY, ATMOSPHERE.SCANLINE_ALPHA);
+    for (let y = 0; y < GAME_CONFIG.HEIGHT; y += ATMOSPHERE.SCANLINE_SPACING) {
+      g.fillRect(0, y, GAME_CONFIG.WIDTH, 1);
+    }
+    this.scanlineOverlay = g;
   }
 
   private resetState(): void {
@@ -710,6 +745,21 @@ export class MatrixInvadersGameScene extends BaseScene {
     this.cameras.main.shake(50, 0.003);
 
     this.spawnExplosion(x, y, def.color);
+    // R85.I7: Matrix-green halo on every kill — brands kills with the series
+    // palette rather than the per-enemy tint (which can be red/yellow/cyan).
+    // Decays via the existing particles[] loop so no new lifecycle code.
+    this.spawnKillFlash(x, y);
+    // R85.I7: every Nth kill in a combo chain fires a subtle green camera
+    // flash. combo is post-increment above, so `combo % N === 0` triggers
+    // on 5th/10th/15th/… kill without needing a separate counter. Shaping
+    // reward schedule — makes streak upkeep feel like a chain of punches.
+    if (this.combo > 0 && this.combo % ATMOSPHERE.COMBO_PULSE_EVERY === 0) {
+      this.cameras.main.flash(
+        ATMOSPHERE.COMBO_PULSE_DURATION,
+        0, 255, 0,
+        false, undefined, undefined, ATMOSPHERE.COMBO_PULSE_ALPHA,
+      );
+    }
 
     if (def.splits) {
       this.spawnVirusChildren(x, y);
@@ -1117,6 +1167,29 @@ export class MatrixInvadersGameScene extends BaseScene {
     }
   }
 
+  // R85.I7: Matrix-green kill flash — a single stationary rect spawned at the
+  // enemy's death position. Riding the existing particles[] pool means the
+  // decay loop (updateParticles) handles fade + teardown without bespoke
+  // lifecycle code. The distinct depth (7) keeps the flash above the
+  // explosion particles (6) so the bright halo visually sits on top of the
+  // debris cloud, reading as "killing energy" rather than another shard.
+  private spawnKillFlash(x: number, y: number): void {
+    const rect = this.add.rectangle(
+      x, y,
+      ATMOSPHERE.KILL_FLASH_SIZE,
+      ATMOSPHERE.KILL_FLASH_SIZE,
+      MATRIX_COLORS.PRIMARY,
+    );
+    rect.setAlpha(ATMOSPHERE.KILL_FLASH_INITIAL_ALPHA);
+    rect.setDepth(ATMOSPHERE.KILL_FLASH_DEPTH);
+    this.particles.push({
+      rect,
+      vx: 0,
+      vy: 0,
+      life: ATMOSPHERE.KILL_FLASH_LIFE,
+    });
+  }
+
   private spawnVirusChildren(x: number, y: number): void {
     for (const offsetX of [-20, 20]) {
       // R85.I1: children inherit the procedural UFO silhouette + 20% shrink.
@@ -1395,6 +1468,13 @@ export class MatrixInvadersGameScene extends BaseScene {
     // teardown doesn't leak Text nodes or fire a delayed-call after the scene
     // is gone.
     this.clearPowerUpLegend();
+
+    // R85.I7: scanline overlay Graphics cleanup. Phaser normally GCs scene
+    // game objects on shutdown, but explicit destroy mirrors the pattern
+    // used by shieldAura and the HUD bars so any future refactor that loses
+    // the implicit cleanup doesn't silently leak a 450-line Graphics.
+    this.scanlineOverlay?.destroy();
+    this.scanlineOverlay = undefined;
 
     this.input.keyboard?.removeAllKeys(true);
     super.shutdown();

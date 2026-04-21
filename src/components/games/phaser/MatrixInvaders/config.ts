@@ -205,6 +205,58 @@ export const GAME_CONFIG = {
   VIRUS_CHILD_VALUE: 5,
 } as const;
 
+// R85.I7 — Matrix-style atmosphere amp-up. Tom's playtest: *"just give the
+// game more jazz, I guess. Matrix style."* Before R85.I7 the backdrop was a
+// black fill + 10-char-rain only — the play field felt like a blank canvas
+// instead of a terminal inside the Matrix. This config centralises the four
+// procedural uplifts (rain density, CRT scanline overlay, per-kill Matrix-
+// green flash, combo-milestone camera pulse) so designer-level tweaks live
+// in one place rather than scattered magic numbers across the scene.
+//
+// Values were picked in pairs: each stat has a floor that makes the effect
+// land (tested via the unit specs below) and a ceiling that keeps gameplay
+// legible — pushing alpha/density past the ceiling drowns bullets or makes
+// the background compete with enemies for attention.
+export const ATMOSPHERE = {
+  // 30 is the sweet spot: the dead-black regions between enemy rows fill
+  // with drifting glyphs, but the screen doesn't look like a wall of rain
+  // that competes with bullet motion. < 20 looks sparse; > 40 starts
+  // choking readability on the 800×450 canvas.
+  RAIN_DENSITY: 30,
+  // CRT scanline overlay pixel constants. Spacing 3 keeps visible gaps so
+  // rain + gameplay read through; 2 reads as matte tint, 4 reads as stripes.
+  // Alpha 0.06 is below the threshold where bullets lose contrast (≥ 0.12
+  // starts hurting enemy-bullet reads from R85.I3) but above the vanishing
+  // threshold (≤ 0.03 reads as a rendering bug).
+  SCANLINE_SPACING: 3,
+  SCANLINE_ALPHA: 0.06,
+  // Scanline overlay depth: above gameplay (3-6) so the CRT effect sits
+  // on top like a real phosphor screen, below HUD text (100) so banners
+  // stay crisp. 8 leaves room for the kill-flash particle layer at 7.
+  SCANLINE_DEPTH: 8,
+  // Green kill flash spawned at enemy position on kill. Piggybacks on the
+  // particles[] decay loop — vx=vy=0 so it stays put, life=0.3 gives ~250ms
+  // fade with PARTICLE_DECAY=1.2 (0.3 / 1.2 × 1000 ≈ 250ms). Size 28 is
+  // slightly larger than the 25.6×19.2 scaled enemy sprite so the flash
+  // reads as a halo, not a silhouette replacement. Initial alpha 0.9 so
+  // the first frame pops before the decay loop takes over.
+  KILL_FLASH_SIZE: 28,
+  KILL_FLASH_LIFE: 0.3,
+  KILL_FLASH_INITIAL_ALPHA: 0.9,
+  KILL_FLASH_DEPTH: 7,
+  // Combo milestone pulse: every Nth combo kill fires a Matrix-green camera
+  // flash. Too frequent (every kill) → nausea / seizure risk; too rare
+  // (> 10) → the reward shaping disappears. 5 matches the COMBO_10 achievement
+  // halfway marker so players see a pulse exactly mid-achievement.
+  COMBO_PULSE_EVERY: 5,
+  COMBO_PULSE_DURATION: 80,
+  // 0.08 α keeps the pulse as ambience, not a full-screen flash. Compare
+  // to wave-clear flash (0.15) and game-over flash (0.25) — combo pulse
+  // intentionally sits below both so the wave-complete punctuation remains
+  // the strongest feedback moment.
+  COMBO_PULSE_ALPHA: 0.08,
+} as const;
+
 export const ACHIEVEMENTS = {
   FIRST_KILL: 'invaders_first_kill',
   ENEMIES_100: 'invaders_100_enemies',

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Phaser from 'phaser';
 import { MatrixInvadersGameScene } from './GameScene';
-import { GAME_CONFIG, ACHIEVEMENTS, POWERUP_DEFS, POWERUP_LEGEND, ROW_TINTS } from '../config';
+import { GAME_CONFIG, ACHIEVEMENTS, ATMOSPHERE, POWERUP_DEFS, POWERUP_LEGEND, ROW_TINTS } from '../config';
 
 const C = GAME_CONFIG;
 
@@ -1870,6 +1870,287 @@ describe('MatrixInvadersGameScene', () => {
           (c: any[]) => c[0].targets === activeRow,
         );
         expect(activeTween[0].alpha).toBe(POWERUP_LEGEND.ACTIVE_ALPHA);
+      });
+    });
+  });
+
+  // ── R85.I7: Matrix-style atmosphere amp-up ────────────────────────────
+  //
+  // Tom's playtest: *"Needs more Matrix-style jazz / atmosphere"*. The
+  // implementation bumps rain density 10 → 30, paints a CRT scanline
+  // overlay, spawns a Matrix-green kill flash on every enemy death, and
+  // fires a subtle green camera pulse every Nth combo kill. These tests
+  // lock the knobs that balance "visible atmosphere" against "legible
+  // gameplay" — if a future change drops rain density below 20 or pushes
+  // scanline alpha above 0.12, bullets/enemies start losing contrast. The
+  // floors/ceilings in these tests are the tuning guard rails.
+  describe('R85.I7 Atmosphere Amp-up', () => {
+    describe('ATMOSPHERE config invariants', () => {
+      it('RAIN_DENSITY >= 20 — atmosphere floor', () => {
+        // < 20 reads as sparse/empty; the R85.I7 uplift is specifically the
+        // 10 → 30 bump so 20 is the regression floor below which the change
+        // is effectively reverted.
+        expect(ATMOSPHERE.RAIN_DENSITY).toBeGreaterThanOrEqual(20);
+      });
+
+      it('RAIN_DENSITY <= 50 — readability ceiling', () => {
+        // > 50 on the 800×450 canvas starts choking bullet/enemy reads.
+        expect(ATMOSPHERE.RAIN_DENSITY).toBeLessThanOrEqual(50);
+      });
+
+      it('SCANLINE_ALPHA in (0.03, 0.12] — visible but not drowning', () => {
+        expect(ATMOSPHERE.SCANLINE_ALPHA).toBeGreaterThan(0.03);
+        expect(ATMOSPHERE.SCANLINE_ALPHA).toBeLessThanOrEqual(0.12);
+      });
+
+      it('SCANLINE_SPACING in [2, 6] — visible stripes without matte', () => {
+        expect(ATMOSPHERE.SCANLINE_SPACING).toBeGreaterThanOrEqual(2);
+        expect(ATMOSPHERE.SCANLINE_SPACING).toBeLessThanOrEqual(6);
+      });
+
+      it('SCANLINE_DEPTH > enemy depth (3) and < HUD depth (100)', () => {
+        // Scanlines must sit above gameplay for the authentic CRT-on-top
+        // look, but below HUD banners so score/wave text stays crisp.
+        expect(ATMOSPHERE.SCANLINE_DEPTH).toBeGreaterThan(3);
+        expect(ATMOSPHERE.SCANLINE_DEPTH).toBeLessThan(100);
+      });
+
+      it('KILL_FLASH_SIZE > ENEMY_WIDTH * 0.8 — reads as halo, not replacement', () => {
+        // Enemies render at scale 0.8 (R85.I1), so effective width ≈ 25.6.
+        // Flash must exceed that for halo effect, else it covers the sprite.
+        expect(ATMOSPHERE.KILL_FLASH_SIZE).toBeGreaterThan(C.ENEMY_WIDTH * 0.8);
+      });
+
+      it('KILL_FLASH_LIFE > 0 and <= 1 — decay loop compatibility', () => {
+        // Particles decay at PARTICLE_DECAY=1.2 per second. Life must be in
+        // a range where the decay loop cleans up within a reasonable frame
+        // budget. > 1 means > 833ms fade, which overstays its welcome.
+        expect(ATMOSPHERE.KILL_FLASH_LIFE).toBeGreaterThan(0);
+        expect(ATMOSPHERE.KILL_FLASH_LIFE).toBeLessThanOrEqual(1);
+      });
+
+      it('COMBO_PULSE_EVERY > 1 — must be a milestone, not every kill', () => {
+        // Every-kill pulses cause seizure/nausea risk. The whole point is
+        // reward shaping at streak milestones.
+        expect(ATMOSPHERE.COMBO_PULSE_EVERY).toBeGreaterThan(1);
+      });
+
+      it('COMBO_PULSE_ALPHA < wave-clear flash alpha (0.15)', () => {
+        // Combo pulses are ambient; wave-clear punctuation should remain
+        // the strongest single feedback moment. Keep combo below wave-clear.
+        expect(ATMOSPHERE.COMBO_PULSE_ALPHA).toBeLessThan(0.15);
+      });
+    });
+
+    describe('createScanlineOverlay', () => {
+      it('paints fillRect HEIGHT / SPACING times — one line per row', () => {
+        call(scene, 'createScanlineOverlay');
+        const graphics = scene.scanlineOverlay;
+        expect(graphics).toBeDefined();
+        const expectedLines = Math.ceil(C.HEIGHT / ATMOSPHERE.SCANLINE_SPACING);
+        expect(graphics.fillRect).toHaveBeenCalledTimes(expectedLines);
+      });
+
+      it('sets depth to SCANLINE_DEPTH — CRT stack position', () => {
+        call(scene, 'createScanlineOverlay');
+        expect(scene.scanlineOverlay.setDepth).toHaveBeenCalledWith(
+          ATMOSPHERE.SCANLINE_DEPTH,
+        );
+      });
+
+      it('uses Matrix PRIMARY green at SCANLINE_ALPHA', () => {
+        call(scene, 'createScanlineOverlay');
+        // fillStyle called exactly once for the whole pass — all scanlines
+        // share the same colour, so opening a single style is enough.
+        expect(scene.scanlineOverlay.fillStyle).toHaveBeenCalledTimes(1);
+        const [color, alpha] = scene.scanlineOverlay.fillStyle.mock.calls[0];
+        expect(color).toBe(0x00ff00);
+        expect(alpha).toBe(ATMOSPHERE.SCANLINE_ALPHA);
+      });
+
+      it('skips when window.__TEST__ is set — E2E visual baseline stability', () => {
+        // Mirrors the BaseScene.addMatrixRain skip — Phaser's RNG can't be
+        // seeded, so atmospheric layers need a test-mode escape hatch.
+        (window as { __TEST__?: boolean }).__TEST__ = true;
+        try {
+          const freshAddGraphics = vi.fn();
+          scene.add.graphics = freshAddGraphics;
+          scene.scanlineOverlay = undefined;
+          call(scene, 'createScanlineOverlay');
+          expect(freshAddGraphics).not.toHaveBeenCalled();
+          expect(scene.scanlineOverlay).toBeUndefined();
+        } finally {
+          delete (window as { __TEST__?: boolean }).__TEST__;
+        }
+      });
+    });
+
+    describe('spawnKillFlash', () => {
+      it('pushes exactly 1 particle into the pool', () => {
+        scene.particles = [];
+        call(scene, 'spawnKillFlash', 100, 200);
+        expect(scene.particles).toHaveLength(1);
+      });
+
+      it('kill flash has zero velocity — stays at death position', () => {
+        scene.particles = [];
+        call(scene, 'spawnKillFlash', 100, 200);
+        expect(scene.particles[0].vx).toBe(0);
+        expect(scene.particles[0].vy).toBe(0);
+      });
+
+      it('kill flash life = KILL_FLASH_LIFE — decays via existing loop', () => {
+        scene.particles = [];
+        call(scene, 'spawnKillFlash', 100, 200);
+        expect(scene.particles[0].life).toBe(ATMOSPHERE.KILL_FLASH_LIFE);
+      });
+
+      it('kill flash sized to KILL_FLASH_SIZE — matches config', () => {
+        scene.particles = [];
+        const rectSpy = vi.spyOn(scene.add, 'rectangle');
+        call(scene, 'spawnKillFlash', 100, 200);
+        const [, , w, h] = rectSpy.mock.calls[0];
+        expect(w).toBe(ATMOSPHERE.KILL_FLASH_SIZE);
+        expect(h).toBe(ATMOSPHERE.KILL_FLASH_SIZE);
+      });
+
+      it('kill flash uses Matrix PRIMARY green colour', () => {
+        scene.particles = [];
+        const rectSpy = vi.spyOn(scene.add, 'rectangle');
+        call(scene, 'spawnKillFlash', 100, 200);
+        const [, , , , color] = rectSpy.mock.calls[0];
+        expect(color).toBe(0x00ff00);
+      });
+
+      it('kill flash alpha = INITIAL_ALPHA — pops on first frame', () => {
+        scene.particles = [];
+        call(scene, 'spawnKillFlash', 100, 200);
+        expect(scene.particles[0].rect.setAlpha).toHaveBeenCalledWith(
+          ATMOSPHERE.KILL_FLASH_INITIAL_ALPHA,
+        );
+      });
+
+      it('kill flash depth = KILL_FLASH_DEPTH — above explosion particles (6)', () => {
+        scene.particles = [];
+        call(scene, 'spawnKillFlash', 100, 200);
+        expect(scene.particles[0].rect.setDepth).toHaveBeenCalledWith(
+          ATMOSPHERE.KILL_FLASH_DEPTH,
+        );
+      });
+
+      it('kill flash decays cleanly via existing updateParticles loop', () => {
+        // End-to-end: push a flash, tick enough frames to age it past life,
+        // confirm the pool cleans it up without bespoke teardown.
+        scene.particles = [];
+        call(scene, 'spawnKillFlash', 100, 200);
+        const rect = scene.particles[0].rect;
+        // PARTICLE_DECAY is 1.2/s; life 0.3 → needs 0.25s of dt to clear.
+        call(scene, 'updateParticles', 0.3);
+        expect(scene.particles).toHaveLength(0);
+        expect(rect.destroy).toHaveBeenCalled();
+      });
+    });
+
+    describe('killEnemy combo-milestone pulse', () => {
+      function seedEnemy(x = 200, y = 100) {
+        const sprite = createMockSprite(x, y);
+        scene.enemies = [{
+          sprite, type: 'code', health: 1, maxHealth: 1,
+          value: 10, speedMultiplier: 1.0,
+          width: C.ENEMY_WIDTH, height: C.ENEMY_HEIGHT,
+        }];
+      }
+
+      it('does NOT pulse on kill below combo milestone', () => {
+        seedEnemy();
+        // combo starts at 0, becomes 1 after kill (post-increment). 1 % 5 !== 0.
+        call(scene, 'killEnemy', 0);
+        expect(scene.cameras.main.flash).not.toHaveBeenCalled();
+      });
+
+      it('pulses on exact combo-milestone kill', () => {
+        seedEnemy();
+        // combo=4 pre-kill, becomes 5 post-kill, 5 % 5 === 0 → pulse fires.
+        scene.combo = ATMOSPHERE.COMBO_PULSE_EVERY - 1;
+        call(scene, 'killEnemy', 0);
+        expect(scene.cameras.main.flash).toHaveBeenCalledTimes(1);
+      });
+
+      it('combo pulse uses Matrix green with configured duration + alpha', () => {
+        seedEnemy();
+        scene.combo = ATMOSPHERE.COMBO_PULSE_EVERY - 1;
+        call(scene, 'killEnemy', 0);
+        const callArgs = scene.cameras.main.flash.mock.calls[0];
+        expect(callArgs[0]).toBe(ATMOSPHERE.COMBO_PULSE_DURATION);
+        // (duration, r=0, g=255, b=0, ...) — Matrix green
+        expect(callArgs[1]).toBe(0);
+        expect(callArgs[2]).toBe(255);
+        expect(callArgs[3]).toBe(0);
+        // Last arg is alpha intensity
+        expect(callArgs[callArgs.length - 1]).toBe(ATMOSPHERE.COMBO_PULSE_ALPHA);
+      });
+
+      it('pulses again on subsequent milestone (every Nth)', () => {
+        seedEnemy();
+        // combo=9 pre-kill, becomes 10 post-kill — 10 % 5 === 0.
+        scene.combo = ATMOSPHERE.COMBO_PULSE_EVERY * 2 - 1;
+        call(scene, 'killEnemy', 0);
+        expect(scene.cameras.main.flash).toHaveBeenCalledTimes(1);
+      });
+
+      it('does NOT pulse off-milestone even on large combos', () => {
+        seedEnemy();
+        // combo=5 pre-kill, becomes 6 post-kill — 6 % 5 === 1, no pulse.
+        scene.combo = ATMOSPHERE.COMBO_PULSE_EVERY;
+        call(scene, 'killEnemy', 0);
+        expect(scene.cameras.main.flash).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('killEnemy spawns kill flash + explosion particles', () => {
+      it('killEnemy produces PARTICLE_COUNT + 1 particles (explosion + flash)', () => {
+        const sprite = createMockSprite(200, 100);
+        scene.enemies = [{
+          sprite, type: 'code', health: 1, maxHealth: 1,
+          value: 10, speedMultiplier: 1.0,
+          width: C.ENEMY_WIDTH, height: C.ENEMY_HEIGHT,
+        }];
+        scene.particles = [];
+        call(scene, 'killEnemy', 0);
+        // Explosion adds PARTICLE_COUNT, kill flash adds 1.
+        expect(scene.particles).toHaveLength(C.PARTICLE_COUNT + 1);
+      });
+
+      it('kill flash particle sits at enemy death position, not radiating', () => {
+        // Explosion particles have non-zero vx/vy; kill flash alone has zero.
+        // The flash should be the only particle with vx=0 AND vy=0.
+        const sprite = createMockSprite(200, 100);
+        scene.enemies = [{
+          sprite, type: 'code', health: 1, maxHealth: 1,
+          value: 10, speedMultiplier: 1.0,
+          width: C.ENEMY_WIDTH, height: C.ENEMY_HEIGHT,
+        }];
+        scene.particles = [];
+        call(scene, 'killEnemy', 0);
+        const stationary = scene.particles.filter(
+          (p: { vx: number; vy: number }) => p.vx === 0 && p.vy === 0,
+        );
+        expect(stationary).toHaveLength(1);
+      });
+    });
+
+    describe('shutdown cleans scanline overlay', () => {
+      it('destroys scanlineOverlay if present', () => {
+        const overlay = createMockGraphics();
+        scene.scanlineOverlay = overlay;
+        call(scene, 'shutdown');
+        expect(overlay.destroy).toHaveBeenCalled();
+        expect(scene.scanlineOverlay).toBeUndefined();
+      });
+
+      it('does not throw when scanlineOverlay is undefined (test-mode path)', () => {
+        scene.scanlineOverlay = undefined;
+        expect(() => call(scene, 'shutdown')).not.toThrow();
       });
     });
   });
