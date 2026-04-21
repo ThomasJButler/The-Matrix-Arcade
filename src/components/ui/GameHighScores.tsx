@@ -4,21 +4,7 @@ import { X, Trophy, BarChart3, Clock, Target, Lock } from 'lucide-react';
 import type { GameEntry } from '../../data/gameRegistry';
 import type { GameSaveData, GlobalSaveData } from '../../hooks/useSaveSystem';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
-
-const REGISTRY_TO_SAVE_KEY: Record<string, keyof GlobalSaveData['games']> = {
-  'ctrl-s-world': 'ctrlSWorld',
-  'snake-classic': 'snakeClassic',
-  'vortex-pong': 'vortexPong',
-  'matrix-cloud': 'matrixCloud',
-  'matrix-invaders': 'matrixInvaders',
-  'metris': 'metris',
-  'matrix-frogger': 'matrixFrogger',
-  'neo-jump': 'neoJump',
-  'agent-chase': 'agentChase',
-  'rhythm-hacker': 'rhythmHacker',
-  'cloud-jumper': 'cloudJumper',
-  'code-breaker': 'codeBreaker',
-};
+import { getSaveKey } from '../../lib/saveKeys';
 
 interface GameHighScoresProps {
   isOpen: boolean;
@@ -59,7 +45,7 @@ export const GameHighScores: React.FC<GameHighScoresProps> = ({
   saveData,
   achievements,
 }) => {
-  const saveKey = REGISTRY_TO_SAVE_KEY[game.id];
+  const saveKey = getSaveKey(game.id);
   const gameSave: GameSaveData | undefined = saveKey ? saveData.games[saveKey] : undefined;
 
   // R83.G6: achievements are tagged with the registry display title (e.g.
