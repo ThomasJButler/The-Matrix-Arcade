@@ -95,6 +95,13 @@ export class NeoJumpGameScene extends BaseScene {
   private cameraBaseY = 0;
   private lastMaxAltitude = 0;
 
+  // R86.N2: fall-death tracker. `fallApexY` is the smallest `player.y` seen
+  // since the last platform landing (or game start). Fall distance at any
+  // moment = `player.y - fallApexY`. If this exceeds
+  // `PLAYER.MAX_FALL_DISTANCE_METRES × pixels-per-metre (10)`, the player
+  // dies even if the camera still sees them. Reset on platform collision.
+  private fallApexY = 0;
+
   // Matrix rain layers (parallax)
   private rainLayers: Phaser.GameObjects.Group[] = [];
   private parallaxSprites: Phaser.GameObjects.TileSprite[] = [];
@@ -132,6 +139,7 @@ export class NeoJumpGameScene extends BaseScene {
     this.hasUsedJetpack = false;
     this.facingRight = true;
     this.highestY = GAME_CONFIG.HEIGHT - 100;
+    this.fallApexY = GAME_CONFIG.HEIGHT - 100;
     this.cameraBaseY = 0;
     this.isGameOver = false;
     this.shieldActive = false;
@@ -515,6 +523,11 @@ export class NeoJumpGameScene extends BaseScene {
       this.highestY = this.player.y;
     }
 
+    // R86.N2: track local apex since last platform landing for fall-death
+    if (this.player.y < this.fallApexY) {
+      this.fallApexY = this.player.y;
+    }
+
     // Derive altitude from highestY
     const maxAltitude = Math.max(0, Math.floor((GAME_CONFIG.HEIGHT - 100 - this.highestY) / 10));
     if (maxAltitude > this.lastMaxAltitude) {
@@ -683,6 +696,12 @@ export class NeoJumpGameScene extends BaseScene {
       GAME_CONFIG.JETPACK.FUEL_MAX,
       this.jetpackFuel + GAME_CONFIG.JETPACK.FUEL_REGEN
     );
+
+    // R86.N2: successful platform touch resets the fall-death clock. Using
+    // `player.y` (not `platform.y`) anchors the new apex at the contact
+    // point so the next bounce's 50m budget starts from where Neo actually
+    // stood, not a sprite-Y above it.
+    this.fallApexY = this.player.y;
   }
 
   /**
@@ -1114,6 +1133,18 @@ export class NeoJumpGameScene extends BaseScene {
    */
   private checkGameOver(): void {
     if (this.isGameOver) return;
+
+    // R86.N2: Tom: "if the player falls over 50 m, they die." A drop greater
+    // than `MAX_FALL_DISTANCE_METRES` from the last apex/landing kills even
+    // while still on-camera. Checked before the off-screen guard so a
+    // mid-fall death animation plays while the player is still visible.
+    const fallPx = this.player.y - this.fallApexY;
+    const fallMetres = fallPx / GAME_CONFIG.SCORING.ALTITUDE_DIVISOR;
+    if (fallMetres > GAME_CONFIG.PLAYER.MAX_FALL_DISTANCE_METRES) {
+      this.playSound(SOUND_KEYS.FALL);
+      this.playerDeath();
+      return;
+    }
 
     const cameraBottom = this.cameras.main.scrollY + GAME_CONFIG.HEIGHT;
 

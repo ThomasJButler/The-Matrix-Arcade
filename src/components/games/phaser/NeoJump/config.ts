@@ -19,7 +19,24 @@ export const GAME_CONFIG = {
   WIDTH: 400,
   HEIGHT: 600,
 
-  /** Player settings */
+  /**
+   * Player settings.
+   *
+   * **R86.N2 (2026-04-22)** — new `MAX_FALL_DISTANCE_METRES` dial. Tom's
+   * playtest: *"Need to make it so if the player falls over 50 m, they die."*
+   *
+   * Before R86.N2, only an off-screen plunge (`player.y > cameraBottom + 50`)
+   * killed Neo. At high altitudes the camera followed him downward, so a
+   * missed-platform fall could last several seconds of free-fall with no
+   * consequence — Tom wanted a hard ceiling instead.
+   *
+   * Units: pixels-per-metre = `SCORING.ALTITUDE_DIVISOR` (10). The death
+   * check computes `(player.y - fallApexY) / 10` and triggers when the
+   * drop exceeds this value. `fallApexY` resets to `player.y` on every
+   * platform collision, so a successful bounce restarts the 50m clock.
+   * Picking the threshold in metres (not pixels) keeps the dial honest
+   * against the altitude HUD the player is already reading.
+   */
   PLAYER: {
     WIDTH: 32,
     HEIGHT: 40,
@@ -28,6 +45,7 @@ export const GAME_CONFIG = {
     JETPACK_THRUST: -300,
     MOVE_SPEED: 300,
     MAX_VELOCITY_Y: 600,
+    MAX_FALL_DISTANCE_METRES: 50,
   },
 
   /** Platform settings */
