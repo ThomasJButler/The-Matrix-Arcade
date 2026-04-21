@@ -125,6 +125,27 @@ export const GAME_CONFIG = {
     LANE_DASH_SPEED: 40,
     WATER_SHIMMER_SPEED: 15,
   },
+
+  /**
+   * R86.F4: Hit-box clamping for non-chaser enemies.
+   *
+   * Why this exists: enemies render with origin(0.5, 1) so their bottoms sit
+   * at the lane centre for the perspective lean. Phaser's body.setSize with
+   * center=true then anchors the body on the sprite's DISPLAY centre — which
+   * is displayHeight/2 ABOVE the lane centre — and at the bigger road lanes
+   * this pushes the hit-box past the lane top into the adjacent safe row
+   * (e.g. row 5 cars: 40.8px tall display, 66.6px lane → 7.5px poke into the
+   * row 4 middle safe zone). WIDTH_RATIO gives lateral forgiveness;
+   * HEIGHT_RATIO caps body height at 85% of lane height so it physically
+   * cannot exceed the lane. GameScene.spawnEnemy then re-offsets the body so
+   * it re-centres on rowToY (the lane centre), not the displaced sprite
+   * centre. Chasers are excluded — they cross lanes via verticalSpeed and
+   * need their full body.
+   */
+  HITBOX: {
+    WIDTH_RATIO: 0.75,
+    HEIGHT_RATIO: 0.85,
+  },
 } as const;
 
 /** Achievement IDs for Matrix Frogger */

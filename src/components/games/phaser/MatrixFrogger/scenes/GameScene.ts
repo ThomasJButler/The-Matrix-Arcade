@@ -1060,8 +1060,7 @@ export class FroggerGameScene extends BaseScene {
     }
 
     if (enemy.body) {
-      const frame = enemy.frame;
-      (enemy.body as Phaser.Physics.Arcade.Body).setSize(frame.width, frame.height);
+      this.applyEnemyBody(enemy, lane.row);
     }
 
     const config = GAME_CONFIG.ENEMIES[enemyType.toUpperCase() as 'AGENT' | 'SENTINEL'];
@@ -1084,6 +1083,42 @@ export class FroggerGameScene extends BaseScene {
     for (let i = 0; i < GAME_CONFIG.DIFFICULTY.ENEMY_COUNT_BASE * 2; i++) {
       this.spawnEnemy();
     }
+  }
+
+  /**
+   * R86.F4: Size and position the arcade body so hit-boxes never poke into
+   * adjacent safe rows.
+   *
+   * Why: enemies render with origin(0.5, 1) (bottom at rowToY for the 3D
+   * lean) so Phaser's default body.setSize(center=true) anchors the body
+   * on sprite display centre — displayHeight/2 ABOVE the lane centre. At
+   * row 5 with cars (baseScale 3.0, perspScale 0.85 → display 40.8px) that
+   * body.top lands 7.5px past row 5's top, clipping into the row 4 middle
+   * safe zone. Chasers move between lanes and keep the full frame body.
+   */
+  private applyEnemyBody(enemy: Enemy, row: number): void {
+    const body = enemy.body as Phaser.Physics.Arcade.Body;
+    const frame = enemy.frame;
+    if (!body || !frame) return;
+
+    if (enemy.enemyType === 'chaser') {
+      body.setSize(frame.width, frame.height);
+      return;
+    }
+
+    const laneHeight = this.laneH[row] ?? GAME_CONFIG.CELL_SIZE;
+    const scaleY = Math.abs(enemy.scaleY) || 1;
+    const { WIDTH_RATIO, HEIGHT_RATIO } = GAME_CONFIG.HITBOX;
+
+    const bodyWidth = frame.width * WIDTH_RATIO;
+    const maxBodyHeightWorld = laneHeight * HEIGHT_RATIO;
+    const bodyHeight = Math.min(frame.height, maxBodyHeightWorld / scaleY);
+
+    body.setSize(bodyWidth, bodyHeight);
+    // Re-centre body on rowToY (lane centre), not sprite display centre.
+    const offsetX = (frame.width - bodyWidth) / 2;
+    const offsetY = frame.height - bodyHeight / 2;
+    body.setOffset(offsetX, offsetY);
   }
 
   private spawnPills(): void {
