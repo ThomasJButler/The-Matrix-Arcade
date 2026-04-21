@@ -1471,4 +1471,247 @@ describe('NeoJumpGameScene', () => {
       ).not.toThrow();
     });
   });
+
+  /* -------------------------------------------------------------- */
+  /*  R86.N4 — Unit-test coverage refresh                           */
+  /*                                                                */
+  /*  Mirror of Frogger R86.F7: N1/N2/N3 landed +57 behaviour tests */
+  /*  for the rebalance + fall-death + controls legend. The single- */
+  /*  line invariants those blocks don't cover are the update-loop  */
+  /*  early-return gates, the death-juice literal RGB/duration      */
+  /*  values, the handleInput screen-wrap arithmetic, the one-way   */
+  /*  canCollideWithPlatform directional guard (pillar of Doodle    */
+  /*  Jump physics), and the defensive `isDying` short-circuits on  */
+  /*  the two enemy-collision code paths. Locking them as tripwires */
+  /*  means a refactor that re-introduces an F2-style cascade (or   */
+  /*  accidentally lets a dying enemy damage Neo) fails the gate    */
+  /*  rather than Tom's next playtest.                              */
+  /* -------------------------------------------------------------- */
+  describe('R86.N4 — unit-test coverage refresh', () => {
+    /**
+     * Stub every post-guard `update()` dependency so we can assert the
+     * top-level early-returns without needing a real Phaser runtime.
+     * Returns the spy handles the callers inspect.
+     */
+    function stubUpdateLoopSpies(scene: Record<string, unknown>) {
+      const spies = {
+        updateParallaxRain: vi.fn(),
+        updateParallaxBuildings: vi.fn(),
+        handleInput: vi.fn(),
+        updatePlayer: vi.fn(),
+        updatePlatforms: vi.fn(),
+        updateEnemies: vi.fn(),
+        updateProjectiles: vi.fn(),
+        updateCollectibles: vi.fn(),
+        updateShield: vi.fn(),
+        updateJetpackFlame: vi.fn(),
+        generateContent: vi.fn(),
+        checkGameOver: vi.fn(),
+        updateUI: vi.fn(),
+        exposeTestState: vi.fn(),
+      };
+      Object.assign(scene, spies);
+      // cursors is truthy so handleInput is invoked post-guard
+      scene.cursors = {
+        left: { isDown: false },
+        right: { isDown: false },
+        up: { isDown: false },
+      };
+      return spies;
+    }
+
+    describe('update() loop — top-level early-return gates', () => {
+      it('isCountingDown = true gates every post-guard method (zero calls)', () => {
+        // R86.F2 fixed a cascade where pre-countdown enemy spawns leaked into
+        // the countdown window because gameplay arming didn't honour the gate.
+        // NeoJump has the same shape at line 218; lock it so a future refactor
+        // that moves the countdown check inside a sub-method can't regress.
+        const spies = stubUpdateLoopSpies(scene);
+        scene.isPaused = false;
+        scene.isCountingDown = true;
+
+        (scene.update as (t: number, d: number) => void)(0, 16);
+
+        Object.values(spies).forEach((spy) => expect(spy).not.toHaveBeenCalled());
+      });
+
+      it('isPaused = true gates every post-guard method (zero calls)', () => {
+        // Pause gate ordered first in update(); this locks it independently of
+        // the countdown gate so a future tweak to the ordering still leaves
+        // both guards testable.
+        const spies = stubUpdateLoopSpies(scene);
+        scene.isPaused = true;
+        scene.isCountingDown = false;
+
+        (scene.update as (t: number, d: number) => void)(0, 16);
+
+        Object.values(spies).forEach((spy) => expect(spy).not.toHaveBeenCalled());
+      });
+
+      it('both gates false → each post-guard method fires exactly once', () => {
+        // Tripwire on the positive case: a refactor that wraps the whole body
+        // in an extra guard (e.g. `if (isGameOver) return` at top) would make
+        // the update loop silently no-op even during normal play.
+        const spies = stubUpdateLoopSpies(scene);
+        scene.isPaused = false;
+        scene.isCountingDown = false;
+
+        (scene.update as (t: number, d: number) => void)(0, 16);
+
+        Object.values(spies).forEach((spy) => expect(spy).toHaveBeenCalledTimes(1));
+      });
+    });
+
+    describe('playerDeath — juice contract literals', () => {
+      /** Install the minimal bits playerDeath touches before the tween fires. */
+      function primeDeath(scene: Record<string, unknown>) {
+        scene.isGameOver = false;
+        (scene.playSound as ReturnType<typeof vi.fn>).mockClear();
+        scene.cameras = {
+          main: {
+            scrollY: 0,
+            shake: vi.fn(),
+            flash: vi.fn(),
+            setDeadzone: vi.fn(),
+            startFollow: vi.fn(),
+            setBounds: vi.fn(),
+          },
+        };
+      }
+
+      it('camera shake uses (200 ms, 0.012) — feel dial locked', () => {
+        // Tom calibrated the death shake to be perceptible but not nauseating.
+        // If a future edit bumps intensity past 0.012 or stretches past 200 ms
+        // the gate fails before it reaches a playtest.
+        primeDeath(scene);
+        scene.playerDeath();
+
+        const shake = (scene.cameras as { main: { shake: ReturnType<typeof vi.fn> } }).main.shake;
+        expect(shake).toHaveBeenCalledWith(200, 0.012);
+      });
+
+      it('camera flash uses red (255,0,0) for 120 ms @ 0.25 alpha — RGB literal locked', () => {
+        // Death flash is the one red tint in the run — regression guard against
+        // a copy/paste from the green Frogger R86.F1 flash (0, 255, 0) that
+        // would silently swap lethal feedback for achievement feedback.
+        primeDeath(scene);
+        scene.playerDeath();
+
+        const flash = (scene.cameras as { main: { flash: ReturnType<typeof vi.fn> } }).main.flash;
+        expect(flash).toHaveBeenCalledWith(120, 255, 0, 0, false, undefined, undefined, 0.25);
+      });
+    });
+
+    describe('handleInput — screen-wrap arithmetic', () => {
+      /** Wire the input mocks handleInput touches (same pattern as Jetpack tests). */
+      function primeInput(scene: Record<string, unknown>) {
+        scene.cursors = {
+          left: { isDown: false },
+          right: { isDown: false },
+          up: { isDown: false },
+        };
+        scene.wasdKeys = { A: { isDown: false }, D: { isDown: false } };
+      }
+
+      it('player leaving left edge wraps to the right (x > WIDTH)', () => {
+        // Off-by-one guard: wrap condition is `x < -WIDTH/2`, new position is
+        // `WIDTH + WIDTH/2` (player width, NOT canvas width). Locking the
+        // arithmetic prevents a future "simpler" rewrite from dropping the
+        // half-width offset and making the player pop visibly.
+        primeInput(scene);
+        scene.player.x = -(GAME_CONFIG.PLAYER.WIDTH / 2 + 1); // just past the left threshold
+
+        scene.handleInput(16);
+
+        expect(scene.player.x).toBe(GAME_CONFIG.WIDTH + GAME_CONFIG.PLAYER.WIDTH / 2);
+      });
+
+      it('player leaving right edge wraps to the left (x < 0)', () => {
+        primeInput(scene);
+        scene.player.x = GAME_CONFIG.WIDTH + GAME_CONFIG.PLAYER.WIDTH / 2 + 1;
+
+        scene.handleInput(16);
+
+        expect(scene.player.x).toBe(-GAME_CONFIG.PLAYER.WIDTH / 2);
+      });
+    });
+
+    describe('canCollideWithPlatform — one-way collider (Doodle Jump core)', () => {
+      /** Return a minimal platform mock at a chosen Y. */
+      function platformAt(y: number) {
+        return { y } as unknown as Parameters<
+          Record<string, (...args: unknown[]) => unknown>[string]
+        >[1];
+      }
+
+      it('rising player (velocity.y ≤ 0) does NOT collide, even when above platform', () => {
+        // The pillar of Doodle Jump physics: you only land on platforms when
+        // coming down. A future refactor that drops the `velocity.y > 0` guard
+        // would turn the game into a ceiling-bonk simulator.
+        const player = {
+          y: 100,
+          body: { velocity: { y: -200 }, height: 40 },
+        } as unknown as Phaser.Physics.Arcade.Sprite;
+        const platform = platformAt(300);
+
+        expect(scene.canCollideWithPlatform(player, platform)).toBe(false);
+      });
+
+      it('falling player whose feet are below platform does NOT collide', () => {
+        // Second half of the one-way guard: even while falling, we only latch
+        // when `player.y + bodyHeight/2 < platform.y`. Locks the feet-above
+        // check so a future simplification can't make Neo grab platforms he's
+        // already passed.
+        const player = {
+          y: 320, // feet at 340 (y + 40/2), below platform at 300
+          body: { velocity: { y: 200 }, height: 40 },
+        } as unknown as Phaser.Physics.Arcade.Sprite;
+        const platform = platformAt(300);
+
+        expect(scene.canCollideWithPlatform(player, platform)).toBe(false);
+      });
+
+      it('falling player whose feet are above platform DOES collide', () => {
+        const player = {
+          y: 200, // feet at 220, above platform at 300
+          body: { velocity: { y: 200 }, height: 40 },
+        } as unknown as Phaser.Physics.Arcade.Sprite;
+        const platform = platformAt(300);
+
+        expect(scene.canCollideWithPlatform(player, platform)).toBe(true);
+      });
+    });
+
+    describe('Defensive isDying guards on collision paths', () => {
+      it('handleEnemyCollision bails on a dying enemy (no setTint, no enemiesKilled++)', () => {
+        // Dying enemies are mid-death-tween with their physics body still alive
+        // for a frame or two. Without the early-return an overlap tick could
+        // either kill Neo or double-count the kill.
+        const enemy = createMockEnemy();
+        enemy.isDying = true;
+        const killedBefore = scene.enemiesKilled as number;
+
+        scene.handleEnemyCollision(enemy);
+
+        expect(scene.isGameOver).toBe(false);
+        expect(scene.player.setTint).not.toHaveBeenCalled();
+        expect(scene.enemiesKilled).toBe(killedBefore);
+      });
+
+      it('handleProjectileHit bails on a dying enemy (projectile kept, no second kill)', () => {
+        // Same race one layer up: two projectiles fired 16 ms apart can both
+        // overlap a freshly-dying enemy. Without the guard the second projectile
+        // would destroy itself AND re-increment the score.
+        const enemy = createMockEnemy();
+        enemy.isDying = true;
+        const projectile = { destroy: vi.fn() };
+        const killedBefore = scene.enemiesKilled as number;
+
+        scene.handleProjectileHit(projectile, enemy);
+
+        expect(projectile.destroy).not.toHaveBeenCalled();
+        expect(scene.enemiesKilled).toBe(killedBefore);
+      });
+    });
+  });
 });
