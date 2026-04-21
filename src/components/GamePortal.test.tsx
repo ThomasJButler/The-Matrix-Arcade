@@ -731,3 +731,89 @@ describe('GamePortal ARIA keyboard-shortcut surface', () => {
       .toHaveAttribute('aria-keyshortcuts', 'P');
   });
 });
+
+// R86.G2: Tom's Frogger + Neo Jump playtest surfaced a click-to-focus regression
+// — arrow keys did nothing until the user clicked into the canvas. Root cause:
+// `handlePlayPress` auto-focused the dashbar toolbar, whose `onKeyDown` rove
+// eats ArrowLeft/Right/Enter/Space/Home/End with React's `stopPropagation`.
+// React 17+ delegated stopPropagation kills the native event before Phaser's
+// `window.addEventListener('keydown')` can see it, so every "direction" key
+// the game cares about was silently swallowed. The fix keeps the dashbar
+// Tab-reachable but routes post-play focus onto the Phaser game container
+// instead. These tests pin the new contract so a future refactor can't
+// silently restore the dashbar auto-focus.
+describe('GamePortal R86.G2 — focus routing after play press', () => {
+  const makeGames = () => [
+    {
+      id: 'snake-classic',
+      title: 'Snake Classic',
+      description: 'test',
+      preview: 'preview.png',
+      category: 'Arcade' as const,
+      inspiration: '',
+      inspirationNote: '',
+      controls: '',
+      // Stand-in for a lazy-loaded Phaser game wrapper — renders the same
+      // `data-phaser-game="true"` sentinel the real PhaserGame exposes so
+      // the MutationObserver path can resolve synchronously in the test.
+      component: () => (
+        <div data-phaser-game="true" tabIndex={0}>fake-phaser</div>
+      ),
+      icon: null,
+    },
+  ];
+
+  it('dashbar toolbar does not auto-focus when isPlaying flips true', () => {
+    // Historically, entering play mode focused the dashbar as a side-effect
+    // of the roving-tabindex swap pattern. That was a regression for the
+    // 99% use-case (keyboard input reaching the game); exits via ESC or
+    // Tab-to-dashbar still give keyboard users a path to the dashbar.
+    render(<GamePortal {...makeProps({ games: makeGames(), isPlaying: true })} />);
+    const toolbar = screen.getByRole('toolbar', { name: /in-game controls/i });
+    expect(document.activeElement).not.toBe(toolbar);
+  });
+
+  it('routes focus onto the Phaser container once it mounts into the portal', () => {
+    // When the click on PLAY → `setIsPlaying(true)` lands, `captureSurfaceFocusIntent('game')`
+    // sets the pending focus target. The MutationObserver installed in the
+    // `isPlaying` effect watches the portal subtree for the game element and
+    // focuses it the moment Suspense resolves. Using a synchronous test
+    // double component for the game surface means the observer's first tick
+    // resolves immediately.
+    const containerRef = createRef<HTMLDivElement>();
+    const { rerender } = render(
+      <GamePortal {...makeProps({ games: makeGames(), isPlaying: false, containerRef })} />,
+    );
+
+    // Prime the pending-focus intent as if the user clicked the clickwheel
+    // PLAY button — the real `handlePlayPress` does this alongside `onPlay`,
+    // which in production is the App.tsx setter that flips `isPlaying`.
+    act(() => {
+      const playBtn = screen.getByRole('button', { name: /play game/i });
+      playBtn.focus();
+      fireEvent.click(playBtn);
+    });
+
+    rerender(<GamePortal {...makeProps({ games: makeGames(), isPlaying: true, containerRef })} />);
+
+    const gameEl = containerRef.current?.querySelector<HTMLElement>(
+      '[data-phaser-game="true"]',
+    );
+    expect(gameEl).not.toBeNull();
+    expect(document.activeElement).toBe(gameEl);
+  });
+
+  it('wheel-focus capture on EXIT is unchanged (R86.G2 does not regress ESC → wheel)', () => {
+    // Guardrail: R86.G2 only touches the enter-play path. Exiting play via
+    // ESC must still land focus back on the clickwheel for keyboard users
+    // to continue browsing — this was R82.13 work we don't want to break.
+    const onExit = vi.fn();
+    render(
+      <GamePortal {...makeProps({ games: makeGames(), isPlaying: true, onExit })} />,
+    );
+    const toolbar = screen.getByRole('toolbar', { name: /in-game controls/i });
+    toolbar.focus();
+    fireEvent.keyDown(toolbar, { key: 'Escape' });
+    expect(onExit).toHaveBeenCalledTimes(1);
+  });
+});

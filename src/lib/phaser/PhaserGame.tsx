@@ -247,7 +247,13 @@ export function PhaserGame({
     // Focus the container as early as possible — use multiple strategies
     // to handle browser/timing variance. Without focus, Phaser's keyboard
     // plugin receives no DOM events and all input silently fails.
-    const focusContainer = () => containerRef.current?.focus();
+    //
+    // R86.G2: `preventScroll: true` stops the iPod portal from scrolling the
+    // container into view as a side-effect of `.focus()`. The iPod bezel is
+    // already positioned by the portal's layout spring — a scrollIntoView
+    // jolt on mount double-animates the entry and breaks the ipod-boot
+    // overlay's visual continuity.
+    const focusContainer = () => containerRef.current?.focus({ preventScroll: true });
 
     // Strategy 1: Focus immediately after game creation
     focusContainer();
@@ -309,15 +315,16 @@ export function PhaserGame({
   }, [handleGameEvent]);
 
   // Click handler to restore focus when user clicks on the game container
-  // (focus can be lost when clicking outside, this allows recovery)
+  // (focus can be lost when clicking outside, this allows recovery).
+  // `preventScroll: true` matches the mount-time focus strategy — see R86.G2.
   const handleContainerClick = useCallback(() => {
-    containerRef.current?.focus();
+    containerRef.current?.focus({ preventScroll: true });
   }, []);
 
   // Auto-refocus when hovering over the game — keyboard input silently
   // fails if the container loses focus, so recover focus on mouse re-entry.
   const handleMouseEnter = useCallback(() => {
-    containerRef.current?.focus();
+    containerRef.current?.focus({ preventScroll: true });
   }, []);
 
   return (
