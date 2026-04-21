@@ -101,11 +101,56 @@ export const GAME_CONFIG = {
 
   GLOW_DECAY: 0.02,
 
+  // R85.M4 column layout — symmetric left/right HUD wings flank the central grid.
+  // Each side uses an 80×80 preview panel at the top, a stats block below, and a
+  // secondary block at the bottom. Keeping HOLD/NEXT panel dimensions equal is
+  // the single biggest visual balance fix — the pre-R85.M4 NEXT panel was 80×240
+  // (3× the HOLD panel height) which made the right side read as top-heavy and
+  // the left as cramped.
   HOLD_X: 150,
   HOLD_Y: 30,
   NEXT_X: 650,
   NEXT_Y: 30,
   PREVIEW_CELL: 16,
+
+  // Preview panel dimensions — MUST match across both sides for symmetry.
+  PREVIEW_PANEL_W: 80,
+  PREVIEW_PANEL_H: 80,
+  PREVIEW_PANEL_Y_OFFSET: 40, // panel centre sits this far below HOLD_Y / NEXT_Y
+
+  // Left-side stats block (SCORE / LEVEL / LINES / COMBO) — tight 20 px row
+  // rhythm starts 10 px below the preview panel bottom so there's no dead air
+  // between the HOLD box and the stats.
+  STATS_Y_START: 120,
+  STATS_ROW_H: 20,
+  STATS_LABEL_VALUE_GAP: 12,
+
+  // Bullet-time section sits one full row-height below the last stat, using
+  // the same 20 px rhythm as the stats block so everything feels grouped.
+  BULLET_TIME_LABEL_Y: 220,
+  BULLET_TIME_BAR_Y: 238,
+  BULLET_TIME_BAR_W: 120,
+  BULLET_TIME_BAR_H: 12,
+  BULLET_TIME_TIMER_Y: 258,
+
+  // Right-side stats: HIGH SCORE matches the left-side STATS_Y_START rhythm.
+  HIGH_SCORE_LABEL_Y: 120,
+  HIGH_SCORE_VALUE_Y: 135,
+
+  // Right-side control hints — tight 14 px rhythm, brighter DREAD_GREEN for
+  // legibility (pre-R85.M4 used #005500 which read as barely-visible grey).
+  CONTROLS_Y_START: 165,
+  CONTROLS_ROW_H: 14,
+
+  // Backing panel dimensions for visual grouping. Left secondary panel covers
+  // the full stats + bullet-time region (y=112 → 268). Right secondary panel
+  // covers HIGH SCORE + the 7 control-hint rows (y=112 → 254). Both use a
+  // very subtle 0.18 alpha so the primary focal points (previews + meter +
+  // value text) stay dominant; the panels just give the eye a frame.
+  STATS_PANEL_W: 108,
+  STATS_PANEL_H: 156,
+  CONTROLS_PANEL_W: 120,
+  CONTROLS_PANEL_H: 142,
 } as const;
 
 export const ACHIEVEMENTS = {
