@@ -242,6 +242,44 @@ export function GamePortal({
   }, [selectedGame]);
   const announcedGame = games[announcedSelectedGame] ?? game;
 
+  // R86.G2: when `pendingSurfaceFocus.current === 'game'`, focus the Phaser
+  // container as soon as it mounts into the DOM. PhaserGame is lazy-loaded via
+  // Suspense, so on the first render after handlePlayPress the element isn't
+  // there yet — a straight `querySelector` + focus would no-op. MutationObserver
+  // watches the portal subtree for the `[data-phaser-game="true"]` element and
+  // focuses it the moment Suspense resolves. Safety timeout disconnects the
+  // observer after 2s so a stalled lazy chunk can't leave it dangling.
+  useEffect(() => {
+    if (!isPlaying) return;
+    if (pendingSurfaceFocus.current !== 'game') return;
+    const root = containerRef.current;
+    if (!root) return;
+
+    const tryFocus = (): boolean => {
+      const el = root.querySelector<HTMLElement>('[data-phaser-game="true"]');
+      if (el) {
+        pendingSurfaceFocus.current = null;
+        el.focus({ preventScroll: true });
+        return true;
+      }
+      return false;
+    };
+
+    if (tryFocus()) return;
+
+    const observer = new MutationObserver(() => {
+      if (tryFocus()) observer.disconnect();
+    });
+    observer.observe(root, { childList: true, subtree: true });
+
+    const safety = window.setTimeout(() => observer.disconnect(), 2000);
+
+    return () => {
+      observer.disconnect();
+      window.clearTimeout(safety);
+    };
+  }, [isPlaying, selectedGame, containerRef]);
+
   // R82.13: paused-state indicator. BaseScene dispatches PAUSE_STATE_CHANGED
   // whenever the active scene's pause state actually changes (P key, dashbar
   // request, or future trigger). The dashbar centre button mirrors the truth.
@@ -268,13 +306,20 @@ export function GamePortal({
 
   const wheelRef = useRef<HTMLDivElement | null>(null);
   const dashbarRef = useRef<HTMLDivElement | null>(null);
-  const pendingSurfaceFocus = useRef<'wheel' | 'dashbar' | null>(null);
+  // R86.G2: 'game' target routes keyboard-user focus onto the Phaser container
+  // rather than the dashbar toolbar when transitioning into play. The dashbar's
+  // onKeyDown rove eats ArrowLeft/Right/Enter/Space/Home/End with React's
+  // stopPropagation — which in React 17+ also stops the native event before it
+  // reaches Phaser's `window`-scoped keyboard plugin. Focusing the game
+  // container instead keeps the dashbar Tab-reachable while letting arrow keys
+  // reach the game without a click-to-activate interaction.
+  const pendingSurfaceFocus = useRef<'wheel' | 'dashbar' | 'game' | null>(null);
   const touchStart = useRef<{ x: number; y: number; time: number } | null>(null);
 
   // Capture "focus should follow the surface swap" ONLY when the portal
   // surface currently owns focus — prevents stealing focus from modals
   // or unrelated UI that may have triggered an exit indirectly.
-  const captureSurfaceFocusIntent = useCallback((target: 'wheel' | 'dashbar') => {
+  const captureSurfaceFocusIntent = useCallback((target: 'wheel' | 'dashbar' | 'game') => {
     const active = document.activeElement;
     if (containerRef.current && active instanceof Node && containerRef.current.contains(active)) {
       pendingSurfaceFocus.current = target;
@@ -358,7 +403,14 @@ export function GamePortal({
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent(GAME_TRANSITION_BEGIN_EVENT));
       }
-      captureSurfaceFocusIntent('dashbar');
+      // R86.G2: target the Phaser container, not the dashbar toolbar. Tom's
+      // playtest on Frogger + Neo Jump found that auto-focusing the dashbar
+      // forced a click-to-activate before arrow keys reached the game — the
+      // dashbar rove stopPropagation on LEFT/RIGHT kills them before they
+      // hit `window`. The deferred useEffect below lands focus on the game
+      // container once React mounts it (PhaserGame is lazy-loaded via
+      // Suspense, so it isn't in the DOM yet at this point).
+      captureSurfaceFocusIntent('game');
       playConfirm();
       onPlay();
     }
