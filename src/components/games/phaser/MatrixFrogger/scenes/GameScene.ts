@@ -520,20 +520,34 @@ export class FroggerGameScene extends BaseScene {
 
   private createKungFuDisplay(): void {
     this.kungFuIcons = [];
+    // R86.F3 — Kung Fu HUD relocated from the bottom-left (baseY = HEIGHT-35)
+    // into the top-left HUD stack alongside Score / Distance / Combo.
+    //
+    // Why: at the old bottom position the 3 icons rendered with their centres
+    // at y=577 (24×24, default origin 0.5/0.5) so their bottom edges sat at
+    // y=589 — only 11px clear of the 600-tall canvas floor, which inside the
+    // iPod portal bezel read as "cut off" per Tom's R86 playtest. The 7px
+    // label also sat at y=551 inside the player's START safe row (y=512-592),
+    // fusing visually with the lane background and the player sprite.
+    //
+    // Top-left gutter is safe: Frogger's 25° perspective taper leaves the
+    // x<120 strip dark through rows 0-2 (lane inset ≥120px), the same gutter
+    // Score/Distance/Combo already live in, so this placement doesn't obscure
+    // traffic and matches Tom's "needs moving up visually" note.
     const baseX = 10;
-    const baseY = GAME_CONFIG.HEIGHT - 35;
+    const iconY = 95;
+    const labelY = iconY - 20;
 
-    // Label
-    const label = this.add.text(baseX, baseY - 14, 'KUNG FU [K]', {
+    const label = this.add.text(baseX, labelY, 'KUNG FU [K]', {
       fontFamily: MATRIX_FONTS.PRIMARY,
-      fontSize: '7px',
+      fontSize: '10px',
       color: MATRIX_COLORS.PRIMARY_HEX,
     });
-    label.setAlpha(0.6);
+    label.setAlpha(0.8);
     label.setDepth(100);
 
     for (let i = 0; i < GAME_CONFIG.KUNG_FU.MAX_CHARGES; i++) {
-      const icon = this.add.sprite(baseX + 14 + i * 28, baseY + 12, 'kung_fu_icon');
+      const icon = this.add.sprite(baseX + 14 + i * 28, iconY, 'kung_fu_icon');
       icon.setDepth(100);
       this.kungFuIcons.push(icon);
     }
