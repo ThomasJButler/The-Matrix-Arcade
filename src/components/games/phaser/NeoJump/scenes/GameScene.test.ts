@@ -49,7 +49,9 @@ function createTestScene() {
 
   // Initialize state that create() would set
   scene.highestY = 500; // GAME_CONFIG.HEIGHT - 100
+  scene.fallApexY = 500; // R86.N2: matches player start Y so fall-death tests have a stable anchor
   scene.lastMaxAltitude = 0;
+  scene.isGameOver = false;
 
   // UI elements the scene writes to during updates
   scene.altitudeText = { setText: vi.fn() };
@@ -1116,6 +1118,196 @@ describe('NeoJumpGameScene', () => {
 
       it('SPEED_MAX strictly less than pre-R86 frantic value (100)', () => {
         expect(GAME_CONFIG.ENEMIES.SPEED_MAX).toBeLessThan(100);
+      });
+    });
+  });
+
+  /* -------------------------------------------------------------- */
+  /*  R86.N2 — Fall-death threshold (50 m)                          */
+  /*                                                                */
+  /*  Tom: "Need to make it so if the player falls over 50 m, they */
+  /*  die." Pre-R86.N2 only an off-screen plunge killed; at high   */
+  /*  altitudes that meant several seconds of consequence-free     */
+  /*  free-fall while the camera chased Neo down. The hard ceiling  */
+  /*  below makes a missed-platform drop of >50m unrecoverable      */
+  /*  even while the player is still visible.                      */
+  /*                                                                */
+  /*  Pixels-per-metre = SCORING.ALTITUDE_DIVISOR (10), so 50m =    */
+  /*  500px. Tests assert the constant, the apex-tracking logic,    */
+  /*  the reset-on-landing contract, and both sides of the death    */
+  /*  threshold (just under survives, just over dies).              */
+  /* -------------------------------------------------------------- */
+  describe('R86.N2 — Fall-death threshold', () => {
+    describe('Constant (locked dial)', () => {
+      it('MAX_FALL_DISTANCE_METRES = 50 (Tom: "falls over 50 m")', () => {
+        expect(GAME_CONFIG.PLAYER.MAX_FALL_DISTANCE_METRES).toBe(50);
+      });
+
+      it('pixel-threshold derives to 500px via SCORING.ALTITUDE_DIVISOR (10)', () => {
+        // Derived invariant — if either dial changes, both sides of the
+        // fall-death math must stay consistent. This guards against a
+        // future tweak to ALTITUDE_DIVISOR silently breaking the 50m feel.
+        const pixelsPerMetre = GAME_CONFIG.SCORING.ALTITUDE_DIVISOR;
+        const thresholdPx =
+          GAME_CONFIG.PLAYER.MAX_FALL_DISTANCE_METRES * pixelsPerMetre;
+        expect(thresholdPx).toBe(500);
+      });
+    });
+
+    describe('fallApexY — reset on platform landing', () => {
+      it('normal platform landing resets fallApexY to player.y', () => {
+        scene.fallApexY = 100; // player was at peak, high above
+        scene.player.y = 420;  // current contact point
+        const platform = createMockPlatform('normal');
+
+        scene.handlePlatformCollision(platform);
+
+        expect(scene.fallApexY).toBe(420);
+      });
+
+      it('spring platform landing also resets fallApexY', () => {
+        scene.fallApexY = 50;
+        scene.player.y = 380;
+        const platform = createMockPlatform('spring');
+
+        scene.handlePlatformCollision(platform);
+
+        expect(scene.fallApexY).toBe(380);
+      });
+
+      it('disappearing platform landing still resets fallApexY (pre-fade bounce counts)', () => {
+        // The bounce happens BEFORE the fade tween, so the fall-death
+        // clock must restart — otherwise a disappearing-platform chain
+        // would compound fall distance across bounces.
+        scene.fallApexY = 120;
+        scene.player.y = 440;
+        const platform = createMockPlatform('disappearing');
+
+        scene.handlePlatformCollision(platform);
+
+        expect(scene.fallApexY).toBe(440);
+      });
+    });
+
+    describe('checkGameOver — fall-distance death trigger', () => {
+      /** Install the bits checkGameOver needs that Game Over tests also use. */
+      function primeDeathTest(scene: Record<string, unknown>) {
+        scene.isGameOver = false;
+        scene.cameras = {
+          main: { scrollY: 0, setDeadzone: vi.fn(), startFollow: vi.fn(), setBounds: vi.fn(), shake: vi.fn(), flash: vi.fn() },
+        };
+      }
+
+      it('does NOT trigger death when fall distance is under threshold (49m)', () => {
+        primeDeathTest(scene);
+        scene.fallApexY = 100;
+        scene.player.y = 100 + 49 * 10; // 490px = 49m
+        const deathSpy = vi.spyOn(scene as { playerDeath: () => void }, 'playerDeath');
+
+        scene.checkGameOver();
+
+        expect(deathSpy).not.toHaveBeenCalled();
+      });
+
+      it('does NOT trigger death at exactly the threshold (50m — boundary)', () => {
+        // Check is `> MAX_FALL_DISTANCE_METRES`, so 50m exact survives.
+        // Locking boundary as strict-greater-than so future edits can't
+        // flip the relational operator without the gate catching it.
+        primeDeathTest(scene);
+        scene.fallApexY = 100;
+        scene.player.y = 100 + 50 * 10; // 500px = exactly 50m
+        const deathSpy = vi.spyOn(scene as { playerDeath: () => void }, 'playerDeath');
+
+        scene.checkGameOver();
+
+        expect(deathSpy).not.toHaveBeenCalled();
+      });
+
+      it('DOES trigger death just past the threshold (50.1m)', () => {
+        primeDeathTest(scene);
+        scene.fallApexY = 100;
+        scene.player.y = 100 + 501; // 501px = 50.1m
+        const deathSpy = vi.spyOn(scene as { playerDeath: () => void }, 'playerDeath');
+
+        scene.checkGameOver();
+
+        expect(deathSpy).toHaveBeenCalledTimes(1);
+      });
+
+      it('plays SOUND_KEYS.FALL alongside the fall-death trigger', () => {
+        primeDeathTest(scene);
+        scene.fallApexY = 0;
+        scene.player.y = 600; // 60m drop
+        (scene.playSound as ReturnType<typeof vi.fn>).mockClear();
+
+        scene.checkGameOver();
+
+        expect(scene.playSound).toHaveBeenCalledWith('fall');
+      });
+
+      it('fall-death fires EVEN WHILE PLAYER IS ON-CAMERA (Tom\'s scenario)', () => {
+        // The whole point of this task: Tom wanted a kill path that fires
+        // while the player is still technically visible. Camera at scrollY
+        // 0 means bottom-of-screen is y=600; player.y=550 is on-camera.
+        primeDeathTest(scene);
+        (scene.cameras as { main: { scrollY: number } }).main.scrollY = 0;
+        scene.fallApexY = 0;   // apex was at top of world
+        scene.player.y = 550;  // still on-camera (bottom is 600)
+        const deathSpy = vi.spyOn(scene as { playerDeath: () => void }, 'playerDeath');
+
+        scene.checkGameOver();
+
+        expect(deathSpy).toHaveBeenCalled();
+      });
+
+      it('off-screen check still works independently when fall is small', () => {
+        // Verifies the original off-screen death path still fires when
+        // fall distance alone wouldn't kill — regression guard against
+        // a refactor that accidentally gates the off-screen check behind
+        // the fall-distance one.
+        primeDeathTest(scene);
+        (scene.cameras as { main: { scrollY: number } }).main.scrollY = 0;
+        scene.fallApexY = 700; // apex BELOW where the player currently is
+        scene.player.y = 660;  // off-screen (> cameraBottom + 50 = 650)
+        const deathSpy = vi.spyOn(scene as { playerDeath: () => void }, 'playerDeath');
+
+        scene.checkGameOver();
+
+        expect(deathSpy).toHaveBeenCalled();
+      });
+
+      it('no-op when isGameOver is already true (double-trigger guard)', () => {
+        primeDeathTest(scene);
+        scene.isGameOver = true;
+        scene.fallApexY = 0;
+        scene.player.y = 1000; // 100m drop
+        const deathSpy = vi.spyOn(scene as { playerDeath: () => void }, 'playerDeath');
+
+        scene.checkGameOver();
+
+        expect(deathSpy).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('Anti-regression invariants', () => {
+      it('PLAYER.MAX_FALL_DISTANCE_METRES is a positive finite number', () => {
+        // Future "tuning" that sets this to 0, Infinity, or negative would
+        // silently break the feature in different ways; lock the shape.
+        const v = GAME_CONFIG.PLAYER.MAX_FALL_DISTANCE_METRES;
+        expect(Number.isFinite(v)).toBe(true);
+        expect(v).toBeGreaterThan(0);
+      });
+
+      it('fall-death threshold stays ≤ starting viewport height in metres', () => {
+        // Viewport is 600px = 60m. If the threshold ever exceeds the
+        // viewport height, a player could fall through the whole screen
+        // before dying — defeats the purpose. Lock at ≤60 so any bump
+        // past that must edit both the dial and this guardrail together.
+        const viewportMetres =
+          GAME_CONFIG.HEIGHT / GAME_CONFIG.SCORING.ALTITUDE_DIVISOR;
+        expect(GAME_CONFIG.PLAYER.MAX_FALL_DISTANCE_METRES).toBeLessThanOrEqual(
+          viewportMetres
+        );
       });
     });
   });
