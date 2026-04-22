@@ -34,9 +34,34 @@ export const GAME_CONFIG = {
     FRIGHTENED_DURATION: 8000,
     FRIGHTENED_WARNING: 3000,
     FRIGHTENED_MIN: 3000,
-    RELEASE_INTERVAL: 5000,
-    RELEASE_MIN: 2000,
     SPEED_INCREASE_PER_LEVEL: 0.05,
+  },
+
+  /**
+   * Ghost-house release + exit pathfinding (R86.A2).
+   *
+   * Classic Pac-Man bug fix: pure Euclidean scatter/chase targeting from
+   * inside the house does not reliably exit for all four agents. For
+   * example, johnson's scatter target is (0, 30); from (14, 13) directly
+   * below the gate, LEFT → (13, 13) has distance sqrt(13² + 13²) = 18.38,
+   * while UP → (14, 12) (gate) has distance sqrt(14² + 12²) = 18.44. The
+   * agent picks LEFT, hits the dead-end pocket at (13, 13), bounces back,
+   * and loops forever inside the house. Tom's 2026-04-22 playtest:
+   * "some enemies are trapped in the middle box and don't come out".
+   *
+   * Two-part fix:
+   *   (a) Staggered dot-count release replaces the 5s timer. First agent
+   *       immediate, second at 10 dots, third at 30, fourth at 60 — Tom's
+   *       preferred curve. Rapid dot-grinding still releases all four.
+   *   (b) While an agent is inside GHOST_HOUSE.BOUNDS, getAgentTarget()
+   *       overrides scatter/chase targets with GHOST_HOUSE.EXIT_TILE
+   *       (one tile above the gate). Returning agents still target home
+   *       so the "eat ghost → respawn in house" flow still works.
+   */
+  GHOST_HOUSE: {
+    RELEASE_DOT_THRESHOLDS: [0, 10, 30, 60] as const,
+    EXIT_TILE: { x: 14, y: 11 },
+    BOUNDS: { minRow: 13, maxRow: 15, minCol: 13, maxCol: 17 },
   },
 
   AGENT_TYPES: {
