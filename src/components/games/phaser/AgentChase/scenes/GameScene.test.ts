@@ -1624,4 +1624,110 @@ describe('AgentChaseGameScene', () => {
       });
     });
   });
+
+  /* ------------------------------------------------------------------ */
+  /*  R86.A3+ safety-net — releaseAgents signature purity + deleted-    */
+  /*  field triad completeness (pre-Tom-tick)                           */
+  /*                                                                    */
+  /*  A3 locks structural shape (while-loop, EXIT_TILE call-site, array */
+  /*  value equality). What stays unlocked is the releaseAgents method  */
+  /*  *signature* and the *full set* of fields deleted in the A2 commit */
+  /*  msg ("Dropped unused AGENTS.RELEASE_INTERVAL + RELEASE_MIN +      */
+  /*  nextReleaseTime field"). A3 only locks RELEASE_INTERVAL.          */
+  /*                                                                    */
+  /*  Three new invariants:                                             */
+  /*    (1) releaseAgents declared-arg count is 0 — a refactor that     */
+  /*        reintroduces `releaseAgents(time: number)` compiles (TS     */
+  /*        tolerates missing trailing args at callsites) but opens the */
+  /*        door to time-coupled release logic inside the body.         */
+  /*    (2) releaseAgents body does not mention `this.time` — a hidden  */
+  /*        time check alongside the dot-threshold guard would silently */
+  /*        revive the 5s timer bug the A2 fix explicitly removed.      */
+  /*    (3) Both bounds appear in the while-guard — dropping either     */
+  /*        arm turns a 5th agent / 5th threshold addition into an      */
+  /*        OOB read or a silent no-release.                            */
+  /*                                                                    */
+  /*  Plus two deleted-field partners to the existing RELEASE_INTERVAL  */
+  /*  lock, completing the triplet.                                     */
+  /* ------------------------------------------------------------------ */
+
+  describe('R86.A3+ safety-net — releaseAgents signature + deleted-field absence (pre-Tom-tick)', () => {
+    function readSceneSource(): string {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require('fs') as typeof import('fs');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require('path') as typeof import('path');
+      return fs.readFileSync(path.join(__dirname, 'GameScene.ts'), 'utf8');
+    }
+
+    describe('releaseAgents signature purity', () => {
+      it('declares zero arguments — the A2 commit explicitly dropped its time arg', () => {
+        // `.length` on a function returns the number of declared parameters
+        // before the first default value. A refactor that reintroduces
+        // `releaseAgents(time: number)` would bump this to 1 silently — the
+        // existing `this.releaseAgents()` callsite still compiles because
+        // TS tolerates missing trailing args, so the body can pivot back
+        // to time-coupled release without any gate catching it.
+        const proto = AgentChaseGameScene.prototype as unknown as {
+          releaseAgents: (...args: unknown[]) => void;
+        };
+        expect(typeof proto.releaseAgents).toBe('function');
+        expect(proto.releaseAgents.length).toBe(0);
+      });
+
+      it('method body contains no this.time reference — no time-based release', () => {
+        // The A2 bug was a 5s-interval timer gate; the fix replaced the
+        // timer with a dot-count threshold check. A plausible "helpful"
+        // refactor is to add `if (this.time.now - lastReleaseAt >= X)`
+        // alongside the dot check — preserves both behaviours but
+        // re-introduces the staggered-release bug on level-clear (timer
+        // resets, dotsCollected doesn't). Lock the body as time-free.
+        const src = readSceneSource();
+        const match = src.match(/private releaseAgents\(\): void \{([\s\S]*?)\n {2}\}/);
+        expect(match).not.toBeNull();
+        const body = match![1];
+        expect(body).not.toMatch(/\bthis\.time\b/);
+      });
+
+      it('while-guard locks BOTH bounds — thresholds.length AND agents.length', () => {
+        // A3 locks that the guard is a `while` not `if` at the top; what it
+        // does NOT lock is that BOTH bounds arms are present. A "single-
+        // bound simplification" is plausible either way:
+        //   - drop `< agents.length` — if a 5th threshold is ever added
+        //     without a 5th agent, the body reads agents[4] as undefined
+        //     and throws on `.isReleased =`.
+        //   - drop `< thresholds.length` — if a 5th agent is ever added
+        //     without a 5th threshold, the body reads thresholds[4] as
+        //     undefined; `dotsCollected >= undefined` is false, so the 5th
+        //     agent silently never releases. No test would catch this.
+        const src = readSceneSource();
+        const match = src.match(/private releaseAgents\(\): void \{([\s\S]*?)\n {2}\}/);
+        expect(match).not.toBeNull();
+        const body = match![1];
+        expect(body).toMatch(/this\.agentReleaseIndex\s*<\s*thresholds\.length/);
+        expect(body).toMatch(/this\.agentReleaseIndex\s*<\s*agents\.length/);
+      });
+    });
+
+    describe('Deleted-field absence — completes the RELEASE_INTERVAL triad', () => {
+      it('AGENTS.RELEASE_MIN was also dropped in A2 — not just RELEASE_INTERVAL', () => {
+        // A2 commit text: "Dropped unused AGENTS.RELEASE_INTERVAL +
+        // RELEASE_MIN + nextReleaseTime field." A3 locks only the first.
+        // RELEASE_MIN's absence is the second leg — restoring it suggests
+        // someone is reviving the timer-based release path.
+        expect('RELEASE_MIN' in GAME_CONFIG.AGENTS).toBe(false);
+      });
+
+      it('nextReleaseTime scene field absent from GameScene.ts source', () => {
+        // The third leg of the triplet. `nextReleaseTime` was a class
+        // field tracking the next allowed release timestamp. Its return
+        // would reintroduce time-coupled state even if the config constants
+        // stayed gone — class fields don't show up in `in GAME_CONFIG` checks.
+        // A plain substring scan catches both field declarations and
+        // internal read/write sites.
+        const src = readSceneSource();
+        expect(src).not.toMatch(/\bnextReleaseTime\b/);
+      });
+    });
+  });
 });
