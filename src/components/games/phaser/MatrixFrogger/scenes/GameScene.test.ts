@@ -1513,4 +1513,118 @@ describe('FroggerGameScene', () => {
       expect(enemy.body.setSize).not.toHaveBeenCalled();
     });
   });
+
+  // -----------------------------------------------------------------------
+  // R86.F6 safety-net — Multi-level state persistence invariants.
+  //
+  // R86.F6 (multi-level polish) is Tom-tick only; these tests pre-lock the
+  // state-persistence contract that a "scene-reset artefact" bug would
+  // violate. Frogger is a continuous-flow game: crossing the finish line
+  // resets the PLAYER position but everything else — score, combo, distance,
+  // kung-fu charges, in-flight power-ups — must carry over. If a future
+  // refactor accidentally re-initialises any of these on level-up, the
+  // game would feel like a reset at each cross instead of an escalating
+  // Frogger ascent, and Tom's playtest would catch it only after a slow
+  // manual read-back.
+  //
+  // Anti-regression ratchets live at the bottom of the block so future
+  // rebalances can tighten (but not remove) the level-gate boundaries.
+  // -----------------------------------------------------------------------
+  describe('R86.F6 safety-net — Multi-level state persistence invariants', () => {
+    beforeEach(() => {
+      // triggerLevelUp calls tweens.killTweensOf + tweens.add. Stub both so
+      // the tween doesn't try to dispatch real callbacks against mocks.
+      scene.tweens = { add: vi.fn(), killTweensOf: vi.fn() };
+      scene.showLevelUpText = vi.fn();
+    });
+
+    it('preserves score across level-up (CROSS_BONUS adds, does NOT reset)', () => {
+      // Regression guard: a naive "reset everything on level-up" refactor
+      // would zero the score. Frogger is continuous — score accumulates.
+      scene.score = 250;
+      scene.playerRow = 0;
+      scene.checkProgress();
+      expect(scene.score).toBe(250 + GAME_CONFIG.SCORING.CROSS_BONUS);
+    });
+
+    it('preserves combo across level-up (dodge streak is NOT broken by crossing)', () => {
+      // The 30-combo ascent streak is a major score multiplier. If combo
+      // zeroed on level-up, the 5× multiplier would be unreachable in
+      // practice. Lock that combo + lastComboTime survive the transition.
+      scene.combo = 12;
+      scene.lastComboTime = 4321;
+      scene.playerRow = 0;
+      scene.checkProgress();
+      expect(scene.combo).toBe(12);
+      expect(scene.lastComboTime).toBe(4321);
+    });
+
+    it('preserves maxDistance across level-up (distance bonus keeps accumulating)', () => {
+      // Distance drives enemy speed via difficultyBonus in spawnEnemy; if it
+      // zeroed on cross, Level 2 would start at Level 1 difficulty and the
+      // game would feel like it restarted.
+      scene.maxDistance = 7;
+      scene.playerRow = 0;
+      scene.checkProgress();
+      expect(scene.maxDistance).toBe(7);
+    });
+
+    it('does NOT refill kungFuCharges on level-up (charges are earned, not gifted)', () => {
+      // Kung Fu has MAX_CHARGES = 3 per RUN, not per level. If crossing the
+      // finish-line refilled them, the 3-charge economy would collapse to
+      // "grind Level 1 for infinite charges". Lock the one-way depletion.
+      scene.kungFuCharges = 1;
+      scene.playerRow = 0;
+      scene.checkProgress();
+      expect(scene.kungFuCharges).toBe(1);
+    });
+
+    it('preserves activePowerUps across level-up (buffs keep ticking)', () => {
+      // A shield picked up at row 3 should still protect Neo on Level 2's
+      // row 3. Power-up timers run on scene.time, which level-up doesn't
+      // touch, so the array reference must survive.
+      const pu = { type: 'shield', expiresAt: 9999 };
+      scene.activePowerUps = [pu];
+      scene.shieldHits = 1;
+      scene.playerRow = 0;
+      scene.checkProgress();
+      expect(scene.activePowerUps).toHaveLength(1);
+      expect(scene.activePowerUps[0]).toBe(pu);
+      expect(scene.shieldHits).toBe(1);
+    });
+
+    it('preserves nearMissCount across level-up (dodge-master progress is cumulative)', () => {
+      // The DODGE_MASTER achievement needs 10 near-misses across a RUN. If
+      // level-up zeroed the counter, the achievement would be unreachable
+      // for anyone hitting the threshold at e.g. misses 7 + 8 + 9 spread
+      // across three levels.
+      scene.nearMissCount = 7;
+      scene.playerRow = 0;
+      scene.checkProgress();
+      expect(scene.nearMissCount).toBe(7);
+    });
+
+    it('increments level monotonically across two sequential crossings (level 1 → 2 → 3)', () => {
+      // Each crossing is independent: no "cool-down" that blocks level
+      // progression. Tom repro for F6 would need to reach Level 3+ and
+      // see chasers; this locks the arithmetic prerequisite.
+      scene.playerRow = 0;
+      scene.checkProgress();
+      expect(scene.level).toBe(2);
+
+      // Simulate the reset tween landing + next finish-line cross.
+      scene.isLevelingUp = false;
+      scene.playerRow = 0;
+      scene.checkProgress();
+      expect(scene.level).toBe(3);
+    });
+
+    it('CHASING_AGENT_MIN_LEVEL is ≥ 2 (Level 1 MUST be chaser-free — difficulty-ramp anchor)', () => {
+      // Level 1 is the tutorial level; chasers (vertical-crossing agents)
+      // would turn the first 30 seconds into a panic response. Lock the
+      // minimum gate so a future rebalance can tighten (level 3, level 4)
+      // but never drop chasers into Level 1.
+      expect(GAME_CONFIG.DIFFICULTY.CHASING_AGENT_MIN_LEVEL).toBeGreaterThanOrEqual(2);
+    });
+  });
 });
