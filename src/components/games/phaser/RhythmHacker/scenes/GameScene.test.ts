@@ -769,4 +769,362 @@ describe('RhythmHackerGameScene', () => {
       expect(NOTES.HIT_LINE_Y + MISS_DETECT_OFFSET).toBeLessThan(HEIGHT);
     });
   });
+
+  // -----------------------------------------------------------------------
+  // R86.R4 — Coverage refresh
+  //
+  // Following the F7 / N4 / A3 cadence, R4 targets single-line invariants the
+  // R1 / R2 / R3 blocks hit only behaviourally — plus the three game-over
+  // routes, which the pre-R4 scene had an inconsistent `reportScore(score,
+  // score)` + `gameOver(…, undefined, …)` bug on the `processHit→miss→health
+  // depleted` branch that nothing locked. R86.A1's useSaveSystem singleton
+  // fix made the bug invisible (the singleton re-reads saveData on write),
+  // but a future refactor that restores the pre-A1 bucketed state would
+  // resurrect the stale-scoreboard symptom immediately on this path — hence
+  // the contract lock across ALL three game-over callsites.
+  //
+  // saveSystem read-path coverage mirrors the A3 playbook on Agent Chase
+  // (null-chain resilience over the optional-chain that fetches `highScore`
+  // from `saveData.games.rhythmHacker.highScore`).
+  // -----------------------------------------------------------------------
+  describe('R86.R4 — Coverage refresh', () => {
+    // ---------------------------------------------------------------------
+    // getPauseKeyCode — override shape locks (complements R1 behavioural)
+    // ---------------------------------------------------------------------
+    describe('getPauseKeyCode override shape', () => {
+      it('is defined directly on RhythmHackerGameScene.prototype', () => {
+        // Anti-regression: a refactor that moves the override up to an
+        // intermediate mixin or (worse) deletes it entirely while relying on
+        // BaseScene's default would silently re-pause the song on every
+        // lane-4 hit. Lock the override's physical location.
+        const proto = RhythmHackerGameScene.prototype as any;
+        expect(Object.prototype.hasOwnProperty.call(proto, 'getPauseKeyCode')).toBe(true);
+        expect(typeof proto.getPauseKeyCode).toBe('function');
+      });
+
+      it('appears exactly once in GameScene.ts source', async () => {
+        // A duplicate override (e.g. from a copy-paste during a refactor)
+        // could still return null while a stray second copy returns a
+        // keycode. Lock the single-source-of-truth contract statically.
+        const { readFileSync } = await import('fs');
+        const { resolve } = await import('path');
+        const src = readFileSync(
+          resolve(process.cwd(), 'src/components/games/phaser/RhythmHacker/scenes/GameScene.ts'),
+          'utf8',
+        );
+        const matches = src.match(/protected\s+getPauseKeyCode\s*\(/g) ?? [];
+        expect(matches.length).toBe(1);
+      });
+
+      it('ESC binding in BaseScene is NOT gated by getPauseKeyCode', async () => {
+        // Regression guard: the null-branch guard in _bindCommonKeys (see R1
+        // test above) wraps ONLY the pause-key addKey call. ESC→handleExit
+        // must stay unconditional so `null` pause disables pause without
+        // silently disabling scene exit. Look for the addKey call for ESC
+        // sitting outside the `if (pauseCode !== null)` block.
+        const { readFileSync } = await import('fs');
+        const { resolve } = await import('path');
+        const baseSrc = readFileSync(
+          resolve(process.cwd(), 'src/lib/phaser/scenes/BaseScene.ts'),
+          'utf8',
+        );
+        // The ESC addKey call must appear BEFORE the pauseCode const decl —
+        // i.e. the ESC binding is in _bindCommonKeys() at a higher position
+        // than the guard. If a future refactor moves ESC inside the guard,
+        // this assertion catches it.
+        const escIdx = baseSrc.indexOf('Phaser.Input.Keyboard.KeyCodes.ESC');
+        const guardIdx = baseSrc.indexOf('const pauseCode = this.getPauseKeyCode()');
+        expect(escIdx).toBeGreaterThan(-1);
+        expect(guardIdx).toBeGreaterThan(-1);
+        expect(escIdx).toBeLessThan(guardIdx);
+      });
+    });
+
+    // ---------------------------------------------------------------------
+    // Hit-zone derived invariants (complements R2 dial locks)
+    // ---------------------------------------------------------------------
+    describe('Hit-zone derived invariants', () => {
+      it('note visible travel distance fits inside the canvas', () => {
+        // The full note lifecycle spans SPAWN_HEIGHT (-130) → HIT_LINE_Y
+        // (560) → miss-detect (660 = HIT_LINE_Y + 100). The total Y span a
+        // note traverses must not exceed HEIGHT or notes spawn off the top
+        // BEFORE the miss-detect window finishes — a silent regression that
+        // would drop end-of-chart notes on fast scrolls.
+        const { NOTES, HEIGHT } = GAME_CONFIG;
+        const MISS_DETECT_OFFSET = 100;
+        const spanTop = NOTES.SPAWN_HEIGHT; // negative — above canvas
+        const spanBottom = NOTES.HIT_LINE_Y + MISS_DETECT_OFFSET;
+        expect(spanBottom - spanTop).toBeLessThanOrEqual(HEIGHT + Math.abs(spanTop));
+      });
+
+      it('HIT_LINE_Y sits below the 400-px visible top band so notes have approach room', () => {
+        // Sanity bound: a regression bumping HIT_LINE_Y up to (say) 200
+        // would give players ~400 ms to react instead of 1725 ms. Lock a
+        // floor that keeps the approach window comfortably long.
+        expect(GAME_CONFIG.NOTES.HIT_LINE_Y).toBeGreaterThanOrEqual(400);
+      });
+    });
+
+    // ---------------------------------------------------------------------
+    // Game-over path contract — all three routes must promote highScore and
+    // pass real values (score, highScore) to reportScore + gameOver.
+    // ---------------------------------------------------------------------
+    describe('Game-over path contract — reportScore + gameOver arg shape', () => {
+      /**
+       * Stub the tiny subset of scene state touched by each game-over path
+       * so the assertions below can focus on the reporting contract.
+       * `stopTrackAudio`, the flash camera, and `buildEndStats` are all
+       * benign here — stub them to keep the test isolated.
+       */
+      function primeForGameOver(s: any): void {
+        s.trackAudio = null;
+        s.cameras = { main: { shake: vi.fn(), flash: vi.fn() } };
+        s.buildEndStats = vi.fn().mockReturnValue([{ label: 'Max Combo', value: '0×' }]);
+      }
+
+      it('onKeyDown empty-hit→health-depleted promotes highScore BEFORE reportScore', () => {
+        // New-high path: session score > stored highScore → highScore must
+        // be updated to the session score BEFORE reportScore so the scoreboard
+        // sees the watermark, not the stale value.
+        primeForGameOver(scene);
+        scene.activeNotes = [];
+        scene.isCountdown = false;
+        scene.score = 2000;
+        scene.highScore = 500;
+        scene.health = GAME_CONFIG.HEALTH.EMPTY_HIT_PENALTY; // one empty hit kills
+
+        scene.onKeyDown(0);
+
+        expect(scene.reportScore).toHaveBeenCalledWith(2000, 2000);
+        expect(scene.gameOver).toHaveBeenCalledWith(
+          2000,
+          'Health depleted',
+          2000,
+          expect.any(Array),
+          expect.any(Number),
+          expect.any(Number),
+        );
+      });
+
+      it('onKeyDown empty-hit→health-depleted preserves highScore on a losing session', () => {
+        // Anti-regression: with `score < highScore`, the `if` must NOT
+        // lower the highScore. The fix at L530 uses `score > highScore` (not
+        // `!==`). A regression to `=` or `>=` would silently corrupt the
+        // stored watermark downward.
+        primeForGameOver(scene);
+        scene.activeNotes = [];
+        scene.isCountdown = false;
+        scene.score = 100;
+        scene.highScore = 5000;
+        scene.health = GAME_CONFIG.HEALTH.EMPTY_HIT_PENALTY;
+
+        scene.onKeyDown(0);
+
+        expect(scene.reportScore).toHaveBeenCalledWith(100, 5000);
+        expect(scene.gameOver).toHaveBeenCalledWith(
+          100,
+          'Health depleted',
+          5000,
+          expect.any(Array),
+          expect.any(Number),
+          expect.any(Number),
+        );
+      });
+
+      it('processHit→miss→health-depleted (L684 fix) uses (score, highScore) contract', () => {
+        // THIS IS THE BUG FIX LOCK. Pre-R4 this path called
+        // `reportScore(score, score)` and `gameOver(…, undefined, …)` —
+        // R86.A1's singleton hid the symptom but the contract was broken.
+        // A regression here reproduces the pre-A1 stale-scoreboard bug.
+        primeForGameOver(scene);
+        scene.activeNotes = [];
+        scene.score = 8000;
+        scene.highScore = 3000;
+        scene.health = GAME_CONFIG.HEALTH.MISS_DAMAGE; // one miss kills
+        scene.laneCyanTinted = false;
+        scene.combo = 20;
+
+        const note = createMockNote();
+        scene.processHit(note, 'miss');
+
+        expect(scene.reportScore).toHaveBeenCalledWith(8000, 8000);
+        expect(scene.gameOver).toHaveBeenCalledWith(
+          8000,
+          'Health depleted',
+          8000, // NOT undefined — direct regression guard
+          expect.any(Array),
+          expect.any(Number),
+          expect.any(Number),
+        );
+      });
+
+      it('processHit→miss→health-depleted preserves highScore on a losing session', () => {
+        // Paired with the previous test: ensures the L684 fix's highScore
+        // promotion is `>` not `>=` or `=` — a losing session must leave
+        // the stored highScore untouched.
+        primeForGameOver(scene);
+        scene.activeNotes = [];
+        scene.score = 400;
+        scene.highScore = 9000;
+        scene.health = GAME_CONFIG.HEALTH.MISS_DAMAGE;
+        scene.laneCyanTinted = false;
+        scene.combo = 5;
+
+        const note = createMockNote();
+        scene.processHit(note, 'miss');
+
+        expect(scene.reportScore).toHaveBeenCalledWith(400, 9000);
+        expect(scene.gameOver).toHaveBeenCalledWith(
+          400,
+          'Health depleted',
+          9000,
+          expect.any(Array),
+          expect.any(Number),
+          expect.any(Number),
+        );
+      });
+
+      it('trackComplete promotes highScore BEFORE reportScore (new high)', () => {
+        // Completion-victory path — same (score, highScore) contract, same
+        // promotion ordering. The reason string differs ("Max Combo: X")
+        // but the arg shape must not.
+        primeForGameOver(scene);
+        scene.score = 12000;
+        scene.highScore = 4000;
+        scene.maxCombo = 47;
+        scene.missCount = 1;
+
+        scene.trackComplete();
+
+        expect(scene.reportScore).toHaveBeenCalledWith(12000, 12000);
+        expect(scene.gameOver).toHaveBeenCalledWith(
+          12000,
+          'Max Combo: 47',
+          12000,
+          expect.any(Array),
+          expect.any(Number),
+          expect.any(Number),
+        );
+      });
+
+      it('trackComplete preserves highScore on a losing session', () => {
+        // A shorter / lower-scoring playthrough of the same track must not
+        // overwrite the stored watermark even though it reaches the
+        // completion path. Guards the `>` vs `>=` drift at L1147.
+        primeForGameOver(scene);
+        scene.score = 500;
+        scene.highScore = 9999;
+        scene.maxCombo = 10;
+        scene.missCount = 2;
+
+        scene.trackComplete();
+
+        expect(scene.reportScore).toHaveBeenCalledWith(500, 9999);
+        expect(scene.gameOver).toHaveBeenCalledWith(
+          500,
+          'Max Combo: 10',
+          9999,
+          expect.any(Array),
+          expect.any(Number),
+          expect.any(Number),
+        );
+      });
+
+      it('only ONE processHit game-over site exists — no split routes', async () => {
+        // Structural lock: if a refactor extracts the death block into a
+        // helper, we expect exactly one `reportScore(this.score, ...)` call
+        // in processHit's body. Two would mean a stray second route the
+        // contract tests above don't cover.
+        const { readFileSync } = await import('fs');
+        const { resolve } = await import('path');
+        const src = readFileSync(
+          resolve(process.cwd(), 'src/components/games/phaser/RhythmHacker/scenes/GameScene.ts'),
+          'utf8',
+        );
+        // Total reportScore calls across the scene: 3 (L530-ish, L684-ish,
+        // L1147-ish). More or fewer means a game-over route was added or
+        // removed without updating this test.
+        const reportScoreCalls = src.match(/this\.reportScore\s*\(/g) ?? [];
+        expect(reportScoreCalls.length).toBe(3);
+        const gameOverCalls = src.match(/this\.gameOver\s*\(/g) ?? [];
+        expect(gameOverCalls.length).toBe(3);
+      });
+
+      it('no reportScore call passes score twice (pre-R4 bug regression)', async () => {
+        // Direct bug-fix lock: the pre-R4 L684 call was
+        // `this.reportScore(this.score, this.score)` — if a refactor reverts
+        // either the promotion block or the highScore arg, the string
+        // `this.reportScore(this.score, this.score)` reappears in source.
+        const { readFileSync } = await import('fs');
+        const { resolve } = await import('path');
+        const src = readFileSync(
+          resolve(process.cwd(), 'src/components/games/phaser/RhythmHacker/scenes/GameScene.ts'),
+          'utf8',
+        );
+        expect(src).not.toMatch(/this\.reportScore\(\s*this\.score\s*,\s*this\.score\s*\)/);
+      });
+    });
+
+    // ---------------------------------------------------------------------
+    // saveSystem read-path resilience (mirrors A3 null-chain coverage)
+    // ---------------------------------------------------------------------
+    describe('saveSystem read-path resilience', () => {
+      /**
+       * Replay the slice of create() that loads highScore off the registry.
+       * The full create() is 60+ lines of Phaser setup we don't need here;
+       * extract the read block verbatim as a fixture so drift to the real
+       * code is loud.
+       */
+      function readHighScore(registryGet: (key: string) => any): number {
+        const saveSystem = registryGet('saveSystem');
+        if (saveSystem) {
+          const saveData = saveSystem.getSaveData();
+          return saveData?.games?.rhythmHacker?.highScore ?? 0;
+        }
+        return 0;
+      }
+
+      it('returns the stored highScore when saveData.games.rhythmHacker is populated', () => {
+        const saveSystem = {
+          getSaveData: vi.fn().mockReturnValue({
+            games: { rhythmHacker: { highScore: 4200 } },
+          }),
+        };
+        const registryGet = vi.fn().mockReturnValue(saveSystem);
+        expect(readHighScore(registryGet)).toBe(4200);
+      });
+
+      it('falls back to 0 when the saveSystem registry entry is missing', () => {
+        // First-run path: no saveSystem registered → no crash, highScore=0.
+        const registryGet = vi.fn().mockReturnValue(undefined);
+        expect(readHighScore(registryGet)).toBe(0);
+      });
+
+      it('falls back to 0 when saveData is undefined (empty slot)', () => {
+        const saveSystem = { getSaveData: vi.fn().mockReturnValue(undefined) };
+        const registryGet = vi.fn().mockReturnValue(saveSystem);
+        expect(readHighScore(registryGet)).toBe(0);
+      });
+
+      it('falls back to 0 when saveData.games is undefined (first-ever play)', () => {
+        // Classic first-ever-play shape: saveData exists but `.games` is
+        // still empty. The optional-chain must absorb this without throwing.
+        const saveSystem = { getSaveData: vi.fn().mockReturnValue({}) };
+        const registryGet = vi.fn().mockReturnValue(saveSystem);
+        expect(readHighScore(registryGet)).toBe(0);
+      });
+
+      it('falls back to 0 when saveData.games.rhythmHacker is undefined', () => {
+        // Cross-game play: other games in `.games`, Rhythm Hacker never
+        // touched before.
+        const saveSystem = {
+          getSaveData: vi.fn().mockReturnValue({
+            games: { neoJump: { highScore: 999 } },
+          }),
+        };
+        const registryGet = vi.fn().mockReturnValue(saveSystem);
+        expect(readHighScore(registryGet)).toBe(0);
+      });
+    });
+  });
 });

@@ -678,11 +678,19 @@ export class RhythmHackerGameScene extends BaseScene {
     }
 
     // Check health
+    //
+    // R86.R4 — this is the hitNote→miss→health-depleted path. Previously it
+    // reported `(score, score)` and passed `undefined` as highScore to
+    // `gameOver`, which lied to the scoreboard about the session result. The
+    // two other game-over paths (onKeyDown empty-hit at L530 and trackComplete
+    // at L1147) promote highScore before reporting — this one now matches so
+    // all three routes obey the same (score, highScore) contract.
     if (this.health <= 0) {
       this.stopTrackAudio();
       this.cameras.main.flash(150, 255, 0, 0, false, undefined, undefined, 0.2);
-      this.reportScore(this.score, this.score);
-      this.gameOver(this.score, 'Health depleted', undefined, this.buildEndStats(), this.trackIndex + 1, this.getGameDuration());
+      if (this.score > this.highScore) this.highScore = this.score;
+      this.reportScore(this.score, this.highScore);
+      this.gameOver(this.score, 'Health depleted', this.highScore, this.buildEndStats(), this.trackIndex + 1, this.getGameDuration());
     }
   }
 
