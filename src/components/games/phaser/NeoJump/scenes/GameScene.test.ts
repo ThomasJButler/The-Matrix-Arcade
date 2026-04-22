@@ -2022,4 +2022,171 @@ describe('NeoJumpGameScene', () => {
       });
     });
   });
+
+  /* -------------------------------------------------------------- */
+  /*  R86.N2+ safety-net — fallApexY reset isolation                */
+  /*                                                                */
+  /*  Ralph pre-Tom-tick tripwires shipped 2026-04-22 following the */
+  /*  F6 / N5 safety-net playbook. The existing N2 block locks the  */
+  /*  *positive* invariant — `handlePlatformCollision` resets the   */
+  /*  fall-death clock for all three platform types. This block     */
+  /*  locks the *negative* invariant: NO other gameplay path may    */
+  /*  reset `fallApexY`.                                            */
+  /*                                                                */
+  /*  Why this matters: a future refactor that "helpfully" treats   */
+  /*  stomp-kill (which gives Neo a JUMP_VELOCITY boost), shield    */
+  /*  block, or collectible pickup as a landing-equivalent would    */
+  /*  silently bypass the 50m fall-death rule. Stomping an enemy    */
+  /*  does NOT save Neo from the 50m cliff — the apex stays locked. */
+  /*  This matches Tom's N1 ask ("escape, not immunity") — jetpack  */
+  /*  buys altitude via the natural `player.y < fallApexY` update() */
+  /*  min-tracker only if the thrust actually carries Neo higher    */
+  /*  than the pre-fall apex.                                       */
+  /*                                                                */
+  /*  No production code touched — pure coverage refresh.           */
+  /* -------------------------------------------------------------- */
+  describe('R86.N2+ safety-net — fallApexY reset isolation (pre-Tom-tick)', () => {
+    // Baseline apex + fall-distance used across all negative tests. Apex at
+    // y=100, player currently at y=380 → 28m of in-progress fall. Tests
+    // assert fallApexY stays at 100 through various non-platform paths.
+    const APEX_Y = 100;
+    const PLAYER_Y_MID_FALL = 380;
+
+    describe('handleEnemyCollision — no path resets fallApexY', () => {
+      it('stomp kill does NOT reset fallApexY (velocity boost ≠ landing)', () => {
+        // Setup: player mid-fall, falling onto enemy with downward velocity.
+        // Stomp triggers `playerBody.setVelocityY(JUMP_VELOCITY)` — a boost
+        // but NOT a platform contact. Apex must stay locked.
+        scene.fallApexY = APEX_Y;
+        scene.player.y = PLAYER_Y_MID_FALL;
+        scene.player.body.velocity.y = 200; // descending
+        const enemy = createMockEnemy();
+        enemy.y = PLAYER_Y_MID_FALL + 20; // below player → stomp-kill geometry
+
+        scene.handleEnemyCollision(enemy);
+
+        expect(scene.fallApexY).toBe(APEX_Y);
+      });
+
+      it('shield block does NOT reset fallApexY', () => {
+        // Setup: player shielded, horizontal enemy contact (not stomp-geom).
+        // Shield absorbs the hit, kills the enemy, consumes the shield.
+        // fallApexY must be untouched — shield is a side-on protection,
+        // not a vertical landing.
+        scene.fallApexY = APEX_Y;
+        scene.player.y = PLAYER_Y_MID_FALL;
+        scene.player.body.velocity.y = 0; // not falling into enemy
+        scene.shieldActive = true;
+        const enemy = createMockEnemy();
+        enemy.y = PLAYER_Y_MID_FALL; // side-on, not below
+
+        scene.handleEnemyCollision(enemy);
+
+        expect(scene.fallApexY).toBe(APEX_Y);
+        // Sanity: shield was consumed (proves we went down the shield branch,
+        // not a silent no-op that would make this test vacuous).
+        expect(scene.shieldActive).toBe(false);
+      });
+
+      it('fatal unshielded collision does NOT reset fallApexY before death', () => {
+        // Setup: player unshielded + side-on enemy → playerDeath(). The
+        // reset-isolation matters even on death: if a future edit were to
+        // set fallApexY = player.y right before triggering death, debugging
+        // a "ghost bounce" regression would be harder. Defensive lock.
+        scene.fallApexY = APEX_Y;
+        scene.player.y = PLAYER_Y_MID_FALL;
+        scene.player.body.velocity.y = 0;
+        scene.shieldActive = false;
+        // Stub playerDeath so it doesn't cascade into gameOver plumbing
+        // we don't need for this test.
+        scene.playerDeath = vi.fn();
+        const enemy = createMockEnemy();
+        enemy.y = PLAYER_Y_MID_FALL;
+
+        scene.handleEnemyCollision(enemy);
+
+        expect(scene.fallApexY).toBe(APEX_Y);
+        expect(scene.playerDeath).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    describe('handleProjectileHit — projectile kill does NOT reset fallApexY', () => {
+      it('killing an enemy from below via SPACE-bullet leaves apex untouched', () => {
+        // A projectile hit is pure offensive play — no positional change for
+        // the player, no "landing" semantics. Apex must stay locked.
+        scene.fallApexY = APEX_Y;
+        scene.player.y = PLAYER_Y_MID_FALL;
+        const projectile = {
+          destroy: vi.fn(),
+        } as unknown as Phaser.Physics.Arcade.Sprite;
+        const enemy = createMockEnemy();
+
+        scene.handleProjectileHit(projectile, enemy);
+
+        expect(scene.fallApexY).toBe(APEX_Y);
+        // Sanity: projectile destroyed (proves we ran the happy path, not a
+        // guard early-return).
+        expect(projectile.destroy).toHaveBeenCalled();
+      });
+    });
+
+    describe('Non-platform code paths — static isolation audit', () => {
+      // Production references to `this.fallApexY` (comments + class-field
+      // decl excluded, since they use the bare identifier not `this.` prefix):
+      //   1. create() init   → `this.fallApexY = GAME_CONFIG.HEIGHT - 100`
+      //   2. update() guard  → `if (this.player.y < this.fallApexY)`
+      //   3. update() write  → `this.fallApexY = this.player.y` (monotonic
+      //                        min-tracker — only decreases fallApexY)
+      //   4. handlePlatformCollision → `this.fallApexY = this.player.y`
+      //                        (full reset on landing — the ONLY *reset*)
+      //   5. checkGameOver   → `const fallPx = this.player.y - this.fallApexY`
+      //
+      // Of these, two are WRITES to `this.player.y` (entries 3 + 4). The
+      // update() write is safe because it's gated on `player.y < fallApexY`
+      // (only decreases — pulls the apex UP as Neo climbs). The platform
+      // write is the intentional reset on landing. Any THIRD occurrence of
+      // `this.fallApexY = this.player.y` is almost certainly a refactor
+      // that silently bypasses the 50m rule — fail the gate.
+
+      /** eslint-disable-next-line @typescript-eslint/no-require-imports */
+      function readSceneSource(): string {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const fs = require('fs') as typeof import('fs');
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const path = require('path') as typeof import('path');
+        return fs.readFileSync(path.join(__dirname, 'GameScene.ts'), 'utf8');
+      }
+
+      it('has exactly 5 `this.fallApexY` runtime references', () => {
+        // Total runtime references (excludes comments + class-field decl
+        // which use the bare name). If this count drifts, a new code path
+        // now touches fallApexY — audit against the 50m fall-death rule.
+        const refs = readSceneSource().match(/this\.fallApexY/g) ?? [];
+        expect(refs.length).toBe(5);
+      });
+
+      it('has exactly 3 write-sites to this.fallApexY', () => {
+        // Writes (assignment, NOT equality `===`): init in create(),
+        // min-tracker in update(), reset in handlePlatformCollision. A
+        // 4th write is suspicious — either a new reset-equivalent path
+        // or a duplicated initialiser. Either way, demands an audit.
+        const src = readSceneSource();
+        // Assignment regex: `=` not followed by another `=` (rules out `==`/`===`).
+        const writes = src.match(/this\.fallApexY\s*=(?!=)/g) ?? [];
+        expect(writes.length).toBe(3);
+      });
+
+      it('only two code paths assign fallApexY directly to this.player.y', () => {
+        // The update() min-tracker (gated on `player.y < fallApexY`, which
+        // only DECREASES fallApexY as Neo climbs) and handlePlatformCollision
+        // (reset on landing). A 3rd assignment of this specific pattern is
+        // almost certainly a refactor that treats stomp/shield/collectible
+        // as a landing-equivalent, silently bypassing the 50m rule. Fail
+        // the gate to force review against N2's design intent.
+        const src = readSceneSource();
+        const assignments = src.match(/this\.fallApexY\s*=\s*this\.player\.y/g) ?? [];
+        expect(assignments.length).toBe(2);
+      });
+    });
+  });
 });
