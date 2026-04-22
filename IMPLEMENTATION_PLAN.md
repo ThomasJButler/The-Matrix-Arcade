@@ -5,7 +5,7 @@ This file is auto-generated and updated by Ralph during planning and building lo
 > **Completed work (R1–R50) is archived in [`COMPLETED_WORK.md`](COMPLETED_WORK.md).**
 > This live plan tracks only open / remaining work. Status snapshot, finished phases, and resolved bugs live in the archive.
 
-## Status: **R87 open** (2026-04-23 — CloudJumper + CodeBreaker polish + Agent Chase level-advance. Final per-game polish batch in the 4-batch cadence (R84 Pong/Snake/Bird → R85 Invaders/Metris → R86 Frogger/NeoJump/AgentChase/RhythmHacker → R87 last 2 games). Tom's 2026-04-22/23 hand-playtest notes surfaced **3 P0 blockers in CodeBreaker** — green-bomb power-up soft-lock (miss last ball + grab bomb → stuck, ball never respawns, Tom screenshot `codebreakerbug.png` confirms), green-bomb spontaneous mid-level game-over (same power-up terminates session), and dead keyboard/numpad paddle controls (only mouse works, Tom: *"keys get stuck"*). Plus **1 P1 Agent Chase level-advance** lifted from Tom's 2026-04-23 in-session screenshot (empty maze, 4 agents visible post-A2 release, SCORE 2570 / LVL 1, no level transition on dot-clear — Ralph's A2 release fix works but there's no dots-remaining=0 handler). Plus 5 P1 CodeBreaker polish (ball-speed rebound cap, L1→L3 difficulty retier, manual bullet-time on B key, power-up legend, brick-SFX dedup) and 5 P1 CloudJumper polish (single-jump gate only on cloud, jump-height cap off-screen prevention, braking mechanic, death SFX swap, movement-SFX removal) + C6 freeze-repro P2. Stream order: **K1+K2+K3 P0 blockers FIRST** → K4-K8 polish → AC1 (1 iteration) → C1-C6 CloudJumper → K9+C7 coverage → V1 verification. Loop cap: 22 iterations. Ralph never auto-writes the terminator phrase. **R86 awaiting sign-off** (Tom-tick only — phrase lives in R86 stub). R85/R84/R83 all also awaiting sign-off. Full R86 archive at [`COMPLETED_WORK.md § R86`](COMPLETED_WORK.md#r86--frogger--neo-jump--agent-chase--rhythm-hacker--3-globals-2026-04-21--2026-04-22). Test baseline at phase entry: 3,115 unit tests / 60 files.
+## Status: **R87 open** (2026-04-23 — CloudJumper + CodeBreaker polish + Agent Chase level-advance. Final per-game polish batch in the 4-batch cadence (R84 Pong/Snake/Bird → R85 Invaders/Metris → R86 Frogger/NeoJump/AgentChase/RhythmHacker → R87 last 2 games). Tom's 2026-04-22/23 hand-playtest notes surfaced **3 P0 blockers in CodeBreaker** — green-bomb power-up soft-lock (miss last ball + grab bomb → stuck, ball never respawns, Tom screenshot `codebreakerbug.png` confirms), green-bomb spontaneous mid-level game-over (same power-up terminates session), and dead keyboard/numpad paddle controls (only mouse works, Tom: *"keys get stuck"*). Plus **1 P1 Agent Chase level-advance** lifted from Tom's 2026-04-23 in-session screenshot (empty maze, 4 agents visible post-A2 release, SCORE 2570 / LVL 1, no level transition on dot-clear — Ralph's A2 release fix works but there's no dots-remaining=0 handler). Plus 5 P1 CodeBreaker polish (ball-speed rebound cap, L1→L3 difficulty retier, manual bullet-time on B key, power-up legend, brick-SFX dedup) and 5 P1 CloudJumper polish (single-jump gate only on cloud, jump-height cap off-screen prevention, braking mechanic, death SFX swap, movement-SFX removal) + C6 freeze-repro P2. Plus **2 P1 Rhythm Hacker** lifted 2026-04-23 late (RH1 track-complete / level-completed UX flow missing — Tom finished a track with no high-score or level-completed banner; RH2 cap all songs at 120s max). Stream order: **K1+K2+K3 P0 blockers FIRST** → K4-K8 polish → AC1 (1 iteration) → C1-C6 CloudJumper → RH1+RH2 Rhythm Hacker → K9+C7 coverage → V1 verification. Loop cap: 24 iterations. Ralph never auto-writes the terminator phrase. **R86 awaiting sign-off** (Tom-tick only — phrase lives in R86 stub). R85/R84/R83 all also awaiting sign-off. Full R86 archive at [`COMPLETED_WORK.md § R86`](COMPLETED_WORK.md#r86--frogger--neo-jump--agent-chase--rhythm-hacker--3-globals-2026-04-21--2026-04-22). Test baseline at phase entry: 3,115 unit tests / 60 files.
 
 ### Previous R86 Status (archive — see COMPLETED_WORK.md after phase closes)
 
@@ -52,13 +52,13 @@ R86 shipped G1-G3 + F1-F7 + N1-N4 + seven safety-net layers covering multi-level
 ---
 
 
-## R87 — CloudJumper + CodeBreaker Polish (+ Agent Chase level-advance) — **CURRENT ACTIVE PHASE** (MEDIUM — ~18 tasks, 22-loop cap)
+## R87 — CloudJumper + CodeBreaker Polish (+ Agent Chase level-advance + Rhythm Hacker track-complete) — **CURRENT ACTIVE PHASE** (MEDIUM — ~20 tasks, 24-loop cap)
 
-> **Scope source**: `manual-testing-sessions/MANUAL_TESTING_CHECKLIST_{Cloud_Jumper,Code_Breaker,Agent_Chase}.md`. Every task below traces back to a specific line in those 3 docs plus Tom's 2026-04-23 in-session Agent Chase level-advance report. When Ralph picks a task, re-read the corresponding doc first.
+> **Scope source**: `manual-testing-sessions/MANUAL_TESTING_CHECKLIST_{Cloud_Jumper,Code_Breaker,Agent_Chase,Rhythm_Hacker}.md`. Every task below traces back to a specific line in those 4 docs plus Tom's 2026-04-23 in-session Agent Chase level-advance report + 2026-04-23 Rhythm Hacker track-complete report. When Ralph picks a task, re-read the corresponding doc first.
 >
-> **Why this phase exists**: Final per-game polish batch in the 4-batch cadence (R84 did Pong/Snake/Bird; R85 did Invaders/Metris; R86 did Frogger/NeoJump/AgentChase/RhythmHacker; R87 closes with the last 2 untested games + 1 lifted Agent Chase bug). After R87 ships, the 11-game arcade is fully polish-passed and focus shifts to R88+ performance/ship-readiness.
+> **Why this phase exists**: Final per-game polish batch in the 4-batch cadence (R84 did Pong/Snake/Bird; R85 did Invaders/Metris; R86 did Frogger/NeoJump/AgentChase/RhythmHacker; R87 closes with the last 2 untested games + 2 lifted post-R86 bugs). After R87 ships, the 11-game arcade is fully polish-passed and focus shifts to R88+ performance/ship-readiness.
 >
-> **New for R87**: 2 P0 soft-locks in CodeBreaker (green-bomb power-up orphans ball or terminates game mid-level), 1 P0 dead-keyboard-input regression in CodeBreaker (only mouse controls paddle), 1 P1 Agent Chase level-advance bug (no transition on dot-clear — Tom 2026-04-23 screenshot confirms empty maze stuck on L1), plus 5 P1 CodeBreaker polish items and 5 P1 CloudJumper polish items.
+> **New for R87**: 2 P0 soft-locks in CodeBreaker (green-bomb power-up orphans ball or terminates game mid-level), 1 P0 dead-keyboard-input regression in CodeBreaker (only mouse controls paddle), 1 P1 Agent Chase level-advance bug (no transition on dot-clear — Tom 2026-04-23 screenshot confirms empty maze stuck on L1), 2 P1 Rhythm Hacker (track-complete flow missing post-R86.R4 + 120s song cap — Tom's 2026-04-23 late report), plus 5 P1 CodeBreaker polish items and 5 P1 CloudJumper polish items.
 
 ### R87 Ordering Rule (strict — do NOT jump ahead)
 
@@ -79,16 +79,18 @@ R86 shipped G1-G3 + F1-F7 + N1-N4 + seven safety-net layers covering multi-level
 13. **R87.C4 [P1]** CloudJumper death SFX swap — Tom: *"current sound is harrowing lol"*. Replace with something less jarring. Keep procedural / chip-tune style (no asset files).
 14. **R87.C5 [P1]** CloudJumper movement-SFX removal — Tom: *"Remove the brick breaking sound effects when moving along, please"*. Wrong SFX hooked to lateral movement. Delete the hook; movement should be silent (or emit a softer wind-whoosh if already defined).
 15. **R87.C6 [P2]** CloudJumper freeze repro — Tom: *"Sometimes the game freezes"*. Low-signal; needs repro case. Ralph audits update-loop for any unbounded-loop / re-entrancy / infinite-tween risk. If no smoking gun, log as R88+ perf-work.
-16. **R87.K9 [P1]** CodeBreaker unit-test coverage refresh — closes Stream K.
-17. **R87.C7 [P1]** CloudJumper unit-test coverage refresh — closes Stream C.
-18. **R87.V1 [P1]** Visual baseline regen + full gate battery — ship LAST after all K/AC/C `[x]`.
+16. **R87.RH1 [P1]** Rhythm Hacker track-complete flow — Tom 2026-04-23 post-R86: *"I have just completed a level and no high score came up or level completed"*. Audit `trackComplete()` (GameScene.ts:~1147): after R86.R4's highScore promotion fix the scoreboard writes correctly, but the UX hand-off (reportScore → gameOver with reason `"TRACK COMPLETE"` / initials-entry / "LEVEL COMPLETE" overlay) doesn't surface to the player. Compare against Metris M2 win-flow for the canonical pattern.
+17. **R87.RH2 [P1]** Rhythm Hacker 120s song cap — Tom: *"we need to make the songs 2 minutes at max, they are too long"*. Cap all 5 tracks at 120s playback. Pick one: (a) audio-side edit (shortens the file; cleanest UX) — requires re-rendering BGM assets, (b) scene-side early-end at t=120000ms triggering `trackComplete()` via the post-RH1 win-flow. (b) is the procedural/safer option — keeps the asset pipeline untouched. Regression test locks the cap + trackComplete firing at the boundary.
+18. **R87.K9 [P1]** CodeBreaker unit-test coverage refresh — closes Stream K.
+19. **R87.C7 [P1]** CloudJumper unit-test coverage refresh — closes Stream C.
+20. **R87.V1 [P1]** Visual baseline regen + full gate battery — ship LAST after all K/AC/C/RH `[x]`.
 
 **Guardrails**:
 - **R86 items OFF-LIMITS** — R86 is awaiting Tom's sign-off. Do NOT pick up R86 discovered-work entries.
 - **R85 items OFF-LIMITS** — R85 awaiting Tom's sign-off. Do NOT pick up R85 discovered-work entries.
 - **R84 items OFF-LIMITS** — R84.S7 + R84.CI bucket Tom-tick only.
 - **CTRL-S OFF-LIMITS** — R83.CTRLS umbrella Tom-tick only.
-- **9 other games OFF-LIMITS for per-game polish**: SnakeClassic, VortexPong, MatrixCloud/Bird, MatrixInvaders, Metris, MatrixFrogger, NeoJump, RhythmHacker. (Agent Chase is in R87 only for AC1 level-advance — do NOT revisit A1/A2/A3.) Shared-infrastructure changes (BaseScene, useSoundSystem, useSaveSystem, GamePortal) are fine.
+- **8 other games OFF-LIMITS for per-game polish**: SnakeClassic, VortexPong, MatrixCloud/Bird, MatrixInvaders, Metris, MatrixFrogger, NeoJump. (Agent Chase is in R87 only for AC1; Rhythm Hacker is in R87 only for RH1+RH2 — do NOT revisit A1/A2/A3 or R1/R2/R3/R4.) Shared-infrastructure changes (BaseScene, useSoundSystem, useSaveSystem, GamePortal) are fine.
 - **iPod portal (R82) locked** — no restructuring.
 - **Existing tests must stay green** (~3,115 unit / 60 files). Any red gate blocks commit.
 - **Loop-sentinel rule**: don't write `\bCOMPLETE\b` on Status line mid-phase (use "shipped" / "wrapped" / "all `[x]`" — `loop.sh` terminates on match at line 8).
@@ -121,9 +123,14 @@ R86 shipped G1-G3 + F1-F7 + N1-N4 + seven safety-net layers covering multi-level
 - [ ] **R87.C6 [P2]** **Freeze repro + fix** — Tom: *"Sometimes the game freezes."* Low-signal, no known repro. Audit `update()` for: unbounded loops (while-with-no-increment-guard), re-entrancy on tween onComplete, infinite-tween loops without `repeat: N` cap, missed `shutdown()` cleanup. If nothing smoking-gun, add `exposeTestState` hooks for future debugging and log freeze-hunt as R88+ perf-work.
 - [ ] **R87.C7 [P1]** **CloudJumper unit-test coverage refresh** — audit + tripwire single-line invariants surfaced during C1-C6. Follow F7/N4/A3/R4/K9 playbook. Closes Stream C.
 
+**Stream RH — Rhythm Hacker track-complete + 120s cap (lifted 2026-04-23 late, ~2 iterations):**
+
+- [ ] **R87.RH1 [P1]** **Track-complete / level-complete flow missing** — Tom 2026-04-23 post-R86: *"I have just completed a level and no high score came up or level completed"*. R86.R4 shipped a `processHit→miss→health-depleted` highScore-promotion fix but left the `trackComplete()` win-path UX hand-off unaudited. Audit `trackComplete()` (GameScene.ts:~1147 — route 3 of the game-over paths): after `reportScore` + `saveSystem.updateGameSave`, does it push a `'GameOverScene'` start with `reason='TRACK COMPLETE'` or equivalent? If the `gameOver()` call is there but the GameOverScene doesn't show on the Rhythm Hacker variant, audit `RhythmHacker/scenes/GameOverScene.ts` for a win-branch; if absent, add a `"LEVEL COMPLETE"` banner + initials-entry prompt on new-high-score (mirrors Metris / Frogger patterns). Regression tests: `trackComplete()` fires `gameOver(score, 'TRACK COMPLETE', highScore, stats, levelOrTrackNumber, durationMs)` once at natural track end, GameOverScene branches on `reason === 'TRACK COMPLETE'` for win-flavoured copy, initials-entry shows when score > prior highScore.
+- [ ] **R87.RH2 [P1]** **Song cap at 120s (2 minutes max)** — Tom: *"we need to make the songs 2 minutes at max, they are too long"*. Tracks currently overrun 2 minutes and sap engagement. Two candidate fixes: (a) audio-side — shorten BGM asset files (cleanest UX but touches asset pipeline), (b) scene-side — early-end timer: when `audioStartTimestamp + 120000ms ≤ Date.now()` (or Phaser's `scene.time.now` equivalent), fire `trackComplete()` early via the post-RH1 win-flow. **Pick (b)** — keeps the existing asset pipeline untouched, composes cleanly with RH1's win-flow (the same UX path fires whether track ends naturally at a chart end OR at the 120s guillotine), and is trivially testable. Config: new `TRACK.MAX_DURATION_MS = 120000` in Rhythm Hacker's `config.ts` with a full WHY block explaining the motivation. Regression tests: guard fires at exactly 120s (strict-boundary lock — `>=` vs `>` regression guard), fires only once (re-entry guard identical to RH1), does NOT fire before 120s, HUD shows clean track-progress bar scaled to 120s max (not the underlying track length).
+
 **Stream V — Verification + Baselines (ship last, 1 iteration):**
 
-- [ ] **R87.V1 [P1]** **Visual baseline regen + full gate battery** — same playbook as R86.V1: tsc + lint + build + unit + chromium E2E + darwin baseline regen with explicit `--update-snapshots=all` (plain `--update-snapshots` no-ops in Playwright 1.58+). CodeBreaker + CloudJumper baselines will have visible diffs (menu legend panels, HUD meter, difficulty re-tier); Agent Chase gains a LEVEL CLEAR overlay.
+- [ ] **R87.V1 [P1]** **Visual baseline regen + full gate battery** — same playbook as R86.V1: tsc + lint + build + unit + chromium E2E + darwin baseline regen with explicit `--update-snapshots=all` (plain `--update-snapshots` no-ops in Playwright 1.58+). CodeBreaker + CloudJumper baselines will have visible diffs (menu legend panels, HUD meter, difficulty re-tier); Agent Chase gains a LEVEL CLEAR overlay; Rhythm Hacker gains a LEVEL COMPLETE / track-end UX frame.
 
 ### R87 Verification Plan
 
@@ -131,9 +138,10 @@ R86 shipped G1-G3 + F1-F7 + N1-N4 + seven safety-net layers covering multi-level
 2. **Stream K P1s complete** → Tom plays CodeBreaker L1, confirms difficulty feels warm-up (not overwhelming), ball speed controllable, manual B activates bullet-time on demand, power-up legend visible in menu + HUD-flash on pickup, brick-SFX not grating.
 3. **AC1 complete** → Tom plays Agent Chase, eats all dots on L1, confirms LEVEL CLEAR overlay fires + L2 starts cleanly with dots respawned + agents re-housed for staggered release.
 4. **Stream C complete** → Tom plays CloudJumper, confirms single-jump gate (no mid-air double-jump), capped jump never goes off-screen, braking feels responsive, death SFX acceptable, movement silent.
-5. **Stream V complete** → visual baselines reviewed + committed, full gate battery green.
-6. **Automated gates per iteration**: `npx tsc --noEmit` + `npm run lint` + `npm run build` + `npm test --run`. Red blocks commit.
-7. **Post-phase playtest**: Tom hand-plays CloudJumper + CodeBreaker + Agent Chase end-to-end, ticks Known Issues, writes R87 terminator phrase to Status.
+5. **Stream RH complete** → Tom plays Rhythm Hacker, confirms a track completion fires the LEVEL COMPLETE / initials-entry UX (not silent), AND that any track caps at ~2 minutes (guillotine fires the same UX if the chart would otherwise overrun).
+6. **Stream V complete** → visual baselines reviewed + committed, full gate battery green.
+7. **Automated gates per iteration**: `npx tsc --noEmit` + `npm run lint` + `npm run build` + `npm test --run`. Red blocks commit.
+8. **Post-phase playtest**: Tom hand-plays CloudJumper + CodeBreaker + Agent Chase + Rhythm Hacker end-to-end, ticks Known Issues, writes R87 terminator phrase to Status.
 
 ### R87 Terminator
 
@@ -141,11 +149,12 @@ All of:
 - R87.K1 – R87.K9 `[x]`
 - R87.AC1 `[x]`
 - R87.C1 – R87.C7 `[x]`
+- R87.RH1, RH2 `[x]`
 - R87.V1 `[x]`
 - Gates green: lint + build + unit + E2E + visual
-- Tom manually writes **"R87 COMPLETE — CloudJumper + CodeBreaker polish + Agent Chase level-advance shipped"** to Status
+- Tom manually writes **"R87 COMPLETE — CloudJumper + CodeBreaker polish + Agent Chase level-advance + Rhythm Hacker track-complete shipped"** to Status
 
-`loop.sh` hard cap: **22 iterations**. Ralph **never auto-writes** the terminator phrase — Tom's sign-off only.
+`loop.sh` hard cap: **24 iterations**. Ralph **never auto-writes** the terminator phrase — Tom's sign-off only.
 
 ### R87 Discovered Work
 
