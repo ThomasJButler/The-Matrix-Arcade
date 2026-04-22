@@ -1746,4 +1746,189 @@ describe('FroggerGameScene', () => {
       expect(scene.levelText.setText).toHaveBeenCalledWith('LEVEL: 3');
     });
   });
+
+  // -----------------------------------------------------------------------
+  // R86.F6++ safety-net — Difficulty-ramp arithmetic + NEO level-gate.
+  //
+  // R86.F6 + F6+ lock state PERSISTENCE and TIMER ISOLATION across level-up.
+  // What stays unlocked is the ARITHMETIC that makes Level 2 feel harder
+  // than Level 1: the +15-speed-per-level bonus at GameScene.ts line 1068
+  // (`const levelBonus = (this.level - 1) * 15`) and the NEO-pill level
+  // gate at line 1139 (`roll < 0.10 && this.level >= 2`). Both are
+  // single-line magic numbers a future "cleanup" refactor could drop or
+  // drift, and Tom's F6 multi-level playtest would be the first signal
+  // (Level 2 that feels identical to Level 1, or NEO pills never appearing
+  // even after crossing the finish line).
+  //
+  // Static-source checks follow the N2+ safety-net playbook: fs.readFileSync
+  // greps GameScene.ts for literal formula substrings, failing the gate if
+  // the arithmetic moves or disappears. Behavioural tests drive spawnPills
+  // and spawnInitialEnemies directly — both have lightweight mock needs.
+  //
+  // Pure coverage refresh — no production code touched.
+  // -----------------------------------------------------------------------
+  describe('R86.F6++ safety-net — Difficulty-ramp arithmetic + NEO level-gate', () => {
+    function readSceneSource(): string {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require('fs') as typeof import('fs');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require('path') as typeof import('path');
+      return fs.readFileSync(path.join(__dirname, 'GameScene.ts'), 'utf8');
+    }
+
+    beforeEach(() => {
+      // spawnPills calls Phaser.Math.Between for col/row lookup. The global
+      // Phaser mock in setup.ts leaves Math undefined, so seed a
+      // deterministic Between locally (mirrors the NeoJump test-file idiom
+      // at the top of NeoJump/scenes/GameScene.test.ts).
+      const phaserMath =
+        (Phaser as unknown as Record<string, Record<string, unknown>>).Math ?? {};
+      phaserMath.Between =
+        phaserMath.Between ?? vi.fn((min: number) => min);
+      (Phaser as unknown as Record<string, unknown>).Math = phaserMath;
+    });
+
+    // --- spawnInitialEnemies doubling --------------------------------------
+    it('spawnInitialEnemies fires exactly ENEMY_COUNT_BASE * 2 times (first-wave density anchor)', () => {
+      // Line 1083: `for (let i = 0; i < ENEMY_COUNT_BASE * 2; i++) spawnEnemy()`.
+      // The `* 2` doubles the base count so the opening board is dense
+      // enough to feel arcade-y rather than sparse. A refactor that drops
+      // the multiplier (or bumps it to `* 3`) would shift early-game
+      // density without tripping any other gate.
+      scene.spawnEnemy = vi.fn();
+      scene.spawnInitialEnemies();
+      expect(scene.spawnEnemy).toHaveBeenCalledTimes(
+        GAME_CONFIG.DIFFICULTY.ENEMY_COUNT_BASE * 2,
+      );
+    });
+
+    // --- NEO pickup level-gate (behavioural) -------------------------------
+    it('spawnPills at level 1 does NOT drop a NEO pill (tutorial-level anchor)', () => {
+      // Tom's F6 brief specifically calls out "Level 2+ features". The
+      // line-1139 gate `roll < 0.10 && this.level >= 2` enforces it. If a
+      // refactor dropped the level check, level-1 runs would start
+      // collecting NEO pickups during the tutorial — breaking the
+      // escalation curve Tom's playtest is trying to validate.
+      scene.isCountingDown = false;
+      scene.level = 1;
+      const pillMock = {
+        setActive: vi.fn(),
+        setVisible: vi.fn(),
+        pillType: null as string | null,
+      };
+      scene.pills = { get: vi.fn().mockReturnValue(pillMock) };
+      scene.colToX = vi.fn().mockReturnValue(100);
+      scene.rowToY = vi.fn().mockReturnValue(100);
+      scene.tweens = { add: vi.fn() };
+
+      const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.05);
+      try {
+        scene.spawnPills();
+      } finally {
+        randomSpy.mockRestore();
+      }
+
+      expect(pillMock.pillType).not.toBe('neo');
+      expect(scene.pills.get).not.toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        'neo_pickup',
+      );
+    });
+
+    it('spawnPills at level 2 drops a NEO pill on the 0.10 roll (locks `>= 2` threshold)', () => {
+      // Mirror of the level-1 test: once level reaches 2, roll < 0.10
+      // must reach the NEO branch. A refactor tightening the gate to
+      // `>= 3` or `=== 2` would shift the level-2 drop rate invisibly.
+      scene.isCountingDown = false;
+      scene.level = 2;
+      const pillMock = {
+        setActive: vi.fn(),
+        setVisible: vi.fn(),
+        pillType: null as string | null,
+      };
+      scene.pills = { get: vi.fn().mockReturnValue(pillMock) };
+      scene.colToX = vi.fn().mockReturnValue(100);
+      scene.rowToY = vi.fn().mockReturnValue(100);
+      scene.tweens = { add: vi.fn() };
+
+      const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.05);
+      try {
+        scene.spawnPills();
+      } finally {
+        randomSpy.mockRestore();
+      }
+
+      expect(pillMock.pillType).toBe('neo');
+      expect(scene.pills.get).toHaveBeenCalledWith(100, 100, 'neo_pickup');
+    });
+
+    it('spawnPills at higher levels still drops NEO pills (locks `>=` operator, not `===`)', () => {
+      // A refactor from `>= 2` to `=== 2` would pass the level-2 test
+      // but silently lock NEO pickups to that one level. Level 5+ runs
+      // would mysteriously stop yielding NEO. This test fails the gate
+      // if the operator ever narrows to strict equality.
+      scene.isCountingDown = false;
+      scene.level = 7;
+      const pillMock = {
+        setActive: vi.fn(),
+        setVisible: vi.fn(),
+        pillType: null as string | null,
+      };
+      scene.pills = { get: vi.fn().mockReturnValue(pillMock) };
+      scene.colToX = vi.fn().mockReturnValue(100);
+      scene.rowToY = vi.fn().mockReturnValue(100);
+      scene.tweens = { add: vi.fn() };
+
+      const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.05);
+      try {
+        scene.spawnPills();
+      } finally {
+        randomSpy.mockRestore();
+      }
+
+      expect(pillMock.pillType).toBe('neo');
+    });
+
+    // --- Per-level speed ramp (static source tripwires) --------------------
+    it('spawnEnemy source contains the `(this.level - 1) * 15` level-bonus literal', () => {
+      // Primary difficulty-ramp dial at line 1068: +15 speed per completed
+      // level. A refactor that promotes the magic number to a config
+      // constant (or drops it entirely) would flatten the ramp without
+      // tripping any runtime gate. Static-check the literal as a tripwire.
+      const src = readSceneSource();
+      const matches = src.match(/\(this\.level\s*-\s*1\)\s*\*\s*15/g) ?? [];
+      expect(matches.length).toBe(1);
+    });
+
+    it('spawnEnemy assigns enemy.baseSpeed with BOTH `difficultyBonus` and `levelBonus`', () => {
+      // The arithmetic chain at line 1069:
+      //   enemy.baseSpeed = Between(SPEED_MIN, SPEED_MAX) + difficultyBonus + levelBonus;
+      // A refactor collapsing the two bonuses into one (e.g. dropping
+      // levelBonus while keeping difficultyBonus) would silently flatten
+      // per-level escalation while keeping distance-based scaling. Lock
+      // both terms appearing together in the same statement.
+      const src = readSceneSource();
+      expect(src).toMatch(
+        /enemy\.baseSpeed\s*=[^;]*difficultyBonus[^;]*levelBonus/,
+      );
+    });
+
+    // --- Distance-speed coupling constants ---------------------------------
+    it('DIFFICULTY.SPEED_INCREASE_PER_100 is locked at 10 (distance-speed dial)', () => {
+      // `difficultyBonus = floor(maxDistance / 100) * SPEED_INCREASE_PER_100`
+      // is the secondary ramp (distance-driven, not level-driven). The F6
+      // state-persistence tests already lock maxDistance survives across
+      // levels; this anchors the multiplier that weights it.
+      expect(GAME_CONFIG.DIFFICULTY.SPEED_INCREASE_PER_100).toBe(10);
+    });
+
+    it('DIFFICULTY.ENEMY_COUNT_BASE is locked at 3 (first-wave anchor)', () => {
+      // The `* 2` doubling test above hinges on this baseline. If the
+      // constant drifts (e.g. to 4), the doubling test still passes
+      // (still doubles SOMETHING) but early-game density shifts. Anchor
+      // the base so any rebalance has to explicitly update the test.
+      expect(GAME_CONFIG.DIFFICULTY.ENEMY_COUNT_BASE).toBe(3);
+    });
+  });
 });
