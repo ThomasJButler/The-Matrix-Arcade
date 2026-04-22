@@ -490,6 +490,121 @@ describe('AgentChaseGameScene', () => {
 
       expect(scene.gameOver).not.toHaveBeenCalled();
     });
+
+    // R86.A1 — defensive second write path on final death.
+    // Mirrors the R86.G1 contract Neo Jump locked down. The shared-state
+    // singleton in useSaveSystem now propagates updates across hook
+    // instances (so the Scoreboard modal stops showing stale data
+    // mid-session), but the defensive direct write is cheaper insurance
+    // than re-deriving the state from the React event handler.
+    describe('R86.A1 — defensive save-system persistence on final death', () => {
+      it('writes highScore + level + stats via updateGameSave before gameOver', () => {
+        const updateGameSave = vi.fn();
+        const saveSystem = {
+          getSaveData: vi.fn().mockReturnValue({ games: { agentChase: { stats: {} } } }),
+          updateGameSave,
+        };
+        scene.registry = { get: vi.fn().mockReturnValue(saveSystem), set: vi.fn() };
+        scene.lives = 1;
+        scene.score = 7500;
+        scene.highScore = 3000;
+        scene.level = 4;
+        scene.dotsCollected = 120;
+        scene.totalDots = 244;
+        scene.getGameDuration = vi.fn().mockReturnValue(86_000); // 86s
+
+        scene.playerDeath();
+
+        expect(updateGameSave).toHaveBeenCalledWith('agentChase', expect.objectContaining({
+          highScore: 7500,
+          level: 4,
+          stats: expect.objectContaining({
+            gamesPlayed: 1,
+            totalScore: 7500,
+            longestSurvival: 86,
+          }),
+        }));
+      });
+
+      it('writes BEFORE gameOver so scoreboard subscribers see the update on the same tick', () => {
+        const calls: string[] = [];
+        const updateGameSave = vi.fn().mockImplementation(() => calls.push('updateGameSave'));
+        const saveSystem = {
+          getSaveData: vi.fn().mockReturnValue({ games: { agentChase: { stats: {} } } }),
+          updateGameSave,
+        };
+        scene.registry = { get: vi.fn().mockReturnValue(saveSystem), set: vi.fn() };
+        scene.gameOver = vi.fn().mockImplementation(() => calls.push('gameOver'));
+        scene.lives = 1;
+        scene.score = 1200;
+        scene.getGameDuration = vi.fn().mockReturnValue(20_000);
+
+        scene.playerDeath();
+
+        // The defensive write MUST fire before the React gameOver event, so
+        // any subscriber rendered off the Zustand store sees the updated
+        // highScore the moment the game-over scene mounts.
+        expect(calls).toEqual(['updateGameSave', 'gameOver']);
+      });
+
+      it('merges stats — gamesPlayed + totalScore accumulate, longestSurvival keeps max', () => {
+        const updateGameSave = vi.fn();
+        const saveSystem = {
+          getSaveData: vi.fn().mockReturnValue({
+            games: {
+              agentChase: {
+                stats: {
+                  gamesPlayed: 4,
+                  totalScore: 12_000,
+                  longestSurvival: 180,
+                },
+              },
+            },
+          }),
+          updateGameSave,
+        };
+        scene.registry = { get: vi.fn().mockReturnValue(saveSystem), set: vi.fn() };
+        scene.lives = 1;
+        scene.score = 2500;
+        scene.level = 2;
+        scene.getGameDuration = vi.fn().mockReturnValue(60_000); // less than prev 180s
+
+        scene.playerDeath();
+
+        const call = updateGameSave.mock.calls[0][1];
+        expect(call.stats.gamesPlayed).toBe(5); // 4 + 1
+        expect(call.stats.totalScore).toBe(14_500); // 12_000 + 2_500
+        expect(call.stats.longestSurvival).toBe(180); // max(180, 60)
+      });
+
+      it('no-ops defensively when save-system registry entry is missing', () => {
+        scene.registry = { get: vi.fn().mockReturnValue(undefined), set: vi.fn() };
+        scene.lives = 1;
+        scene.score = 500;
+        scene.getGameDuration = vi.fn().mockReturnValue(10_000);
+
+        // Must not throw even with no saveSystem — gameOver still fires so
+        // the player sees the end-of-run screen.
+        expect(() => scene.playerDeath()).not.toThrow();
+        expect(scene.gameOver).toHaveBeenCalled();
+      });
+
+      it('does NOT fire the defensive write when lives remain', () => {
+        const updateGameSave = vi.fn();
+        const saveSystem = {
+          getSaveData: vi.fn().mockReturnValue({ games: { agentChase: { stats: {} } } }),
+          updateGameSave,
+        };
+        scene.registry = { get: vi.fn().mockReturnValue(saveSystem), set: vi.fn() };
+        scene.lives = 3;
+        scene.score = 1000;
+
+        scene.playerDeath();
+
+        // Still on 2 lives — no game-over, no save-system write.
+        expect(updateGameSave).not.toHaveBeenCalled();
+      });
+    });
   });
 
   /* ---------------------------------------------------------------- */

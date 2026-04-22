@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo, useSyncExternalStore } from 'react';
 
 // Scoreboard entry for high-score tables
 export interface ScoreEntry {
@@ -460,8 +460,77 @@ export function migrateSaveData(data: GlobalSaveData): GlobalSaveData {
   return migratedData;
 }
 
+// R86.A1 — cross-instance shared state.
+//
+// Before this module-level singleton, every `useSaveSystem()` call got its own
+// `useState` bucket. App.tsx's copy fed the Scoreboard + AttractMode modals,
+// while PhaserGame.tsx held an independent copy that received all game-end
+// writes. Writes flowed to localStorage (so a page refresh re-synced), but the
+// two in-memory copies never saw each other — so the Scoreboard modal showed
+// stale data for the entire session until Tom hit F5. Exactly the symptom
+// Tom flagged on Agent Chase + Neo Jump on 2026-04-22: *"scores DO persist,
+// but the modal only shows them after refresh"*.
+//
+// The fix is a single source of truth with a publish/subscribe model:
+//   - sharedSaveData holds the one true state
+//   - subscribeSaveData / getSaveDataSnapshot drive useSyncExternalStore so
+//     every hook instance re-renders together
+//   - setSharedSaveData is the write funnel — replaces every in-hook
+//     setSaveData call and notifies ALL subscribers
+//
+// `__resetSaveSystemForTest` is exported for vitest isolation: beforeEach
+// must clear both localStorage AND the module singleton, otherwise state
+// bleeds across tests within a file (a happy side-effect of the bug fix —
+// we now KNOW tests were relying on per-instance state leakage).
+let sharedSaveData: GlobalSaveData = createDefaultGlobalSave();
+const saveDataSubscribers = new Set<() => void>();
+
+function subscribeSaveData(callback: () => void): () => void {
+  saveDataSubscribers.add(callback);
+  return () => {
+    saveDataSubscribers.delete(callback);
+  };
+}
+
+function getSaveDataSnapshot(): GlobalSaveData {
+  return sharedSaveData;
+}
+
+type SaveDataSetter =
+  | GlobalSaveData
+  | ((prev: GlobalSaveData) => GlobalSaveData);
+
+function setSharedSaveData(updater: SaveDataSetter): GlobalSaveData {
+  const next =
+    typeof updater === 'function'
+      ? (updater as (prev: GlobalSaveData) => GlobalSaveData)(sharedSaveData)
+      : updater;
+  if (next === sharedSaveData) return sharedSaveData;
+  sharedSaveData = next;
+  saveDataSubscribers.forEach((fn) => fn());
+  return next;
+}
+
+/**
+ * Test-only: resets the cross-instance shared save state + subscriber list.
+ * Call from `beforeEach` alongside `localStorage.clear()` so each test sees
+ * a fresh module singleton. Not exported via the public useSaveSystem API.
+ */
+export function __resetSaveSystemForTest(): void {
+  sharedSaveData = createDefaultGlobalSave();
+  saveDataSubscribers.clear();
+}
+
 export function useSaveSystem() {
-  const [saveData, setSaveData] = useState<GlobalSaveData>(createDefaultGlobalSave);
+  const saveData = useSyncExternalStore(
+    subscribeSaveData,
+    getSaveDataSnapshot,
+    getSaveDataSnapshot,
+  );
+  // saveDataRef kept for addScore's lock-step read (see addScore below) —
+  // `sharedSaveData` is authoritative but saveDataRef preserves the historic
+  // pattern where addScore reads "the state at invocation time" and avoids
+  // a stale closure if a setter queues between reads.
   const saveDataRef = useRef(saveData);
   saveDataRef.current = saveData;
   const [isLoading, setIsLoading] = useState(true);
@@ -500,11 +569,11 @@ export function useSaveSystem() {
           }
         };
         
-        setSaveData(mergedData);
+        setSharedSaveData(mergedData);
       } else {
         // First time setup
         const defaultData = createDefaultGlobalSave();
-        setSaveData(defaultData);
+        setSharedSaveData(defaultData);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultData));
       }
       
@@ -515,7 +584,7 @@ export function useSaveSystem() {
         console.error('Failed to load save data:', err);
       }
       setError('Failed to load save data');
-      setSaveData(createDefaultGlobalSave());
+      setSharedSaveData(createDefaultGlobalSave());
     } finally {
       setIsLoading(false);
     }
@@ -550,7 +619,7 @@ export function useSaveSystem() {
 
   // Update game save data
   const updateGameSave = useCallback((gameId: keyof GlobalSaveData['games'], updates: Partial<GameSaveData>) => {
-    setSaveData(prev => {
+    setSharedSaveData(prev => {
       const newData = {
         ...prev,
         games: {
@@ -573,7 +642,7 @@ export function useSaveSystem() {
 
   // Unlock achievement
   const unlockAchievement = useCallback((gameId: keyof GlobalSaveData['games'], achievementId: string) => {
-    setSaveData(prev => {
+    setSharedSaveData(prev => {
       const gameData = prev.games[gameId] ?? createDefaultGameSave();
 
       const currentAchievements = gameData.achievements || [];
@@ -604,7 +673,7 @@ export function useSaveSystem() {
 
   // Update global stats
   const updateGlobalStats = useCallback((updates: Partial<GlobalSaveData['globalStats']>) => {
-    setSaveData(prev => {
+    setSharedSaveData(prev => {
       const newData = {
         ...prev,
         globalStats: {
@@ -660,7 +729,7 @@ export function useSaveSystem() {
             throw new Error('Invalid save file format');
           }
           
-          setSaveData(imported);
+          setSharedSaveData(imported);
           saveToDisk(imported);
           resolve(true);
         } catch (err) {
@@ -688,7 +757,7 @@ export function useSaveSystem() {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(BACKUP_KEY);
       const defaultData = createDefaultGlobalSave();
-      setSaveData(defaultData);
+      setSharedSaveData(defaultData);
       setError(null);
       return true;
     } catch (err) {
@@ -707,7 +776,7 @@ export function useSaveSystem() {
       const backup = localStorage.getItem(BACKUP_KEY);
       if (backup) {
         const parsed = JSON.parse(backup) as GlobalSaveData;
-        setSaveData(parsed);
+        setSharedSaveData(parsed);
         saveToDisk(parsed);
         setError(null);
         return true;
@@ -805,7 +874,7 @@ export function useSaveSystem() {
         lastInitials: entry.initials,
       };
       saveDataRef.current = newData;
-      setSaveData(newData);
+      setSharedSaveData(newData);
       if (newData.settings.autoSave) {
         saveToDisk(newData);
       }
@@ -815,7 +884,7 @@ export function useSaveSystem() {
   }, [saveToDisk]);
 
   const clearBoard = useCallback((gameId: ScoreboardGameId) => {
-    setSaveData(prev => {
+    setSharedSaveData(prev => {
       const newData: GlobalSaveData = {
         ...prev,
         scoreboards: { ...prev.scoreboards, [gameId]: [] },
