@@ -1387,4 +1387,241 @@ describe('AgentChaseGameScene', () => {
       });
     });
   });
+
+  /* ---------------------------------------------------------------- */
+  /*  R86.A3 — A1 save-path + A2 release coverage refresh              */
+  /*                                                                   */
+  /*  The 5 existing A1 tests lock the happy-path payload + ordering;  */
+  /*  the 20-odd A2 tests lock thresholds, bounds, and per-branch      */
+  /*  getAgentTarget behaviour. A3 closes three gaps the two safety-  */
+  /*  nets leave open:                                                 */
+  /*    (1) A1 defensive-write null-chain resilience — first-run        */
+  /*        scenarios where saveData / saveData.games is undefined.    */
+  /*    (2) A2 structural pairing invariants — every agent must have   */
+  /*        a release threshold; releaseAgents must actually be wired  */
+  /*        into update(); post-death index reset must stay at 1.      */
+  /*    (3) Static source anti-regression — the original A2 bug was a  */
+  /*        "helpful" timer-based release that silently bypassed the   */
+  /*        dot-count contract. Static checks lock the implementation  */
+  /*        shape (`while` loop, `isInsideGhostHouse` call-site)       */
+  /*        against future refactors of the same shape.                */
+  /* ---------------------------------------------------------------- */
+
+  describe('R86.A3 — A1 + A2 safety-net coverage', () => {
+    function readSceneSource(): string {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require('fs') as typeof import('fs');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require('path') as typeof import('path');
+      return fs.readFileSync(path.join(__dirname, 'GameScene.ts'), 'utf8');
+    }
+
+    /* ---- A1 defensive-write null-chain resilience ---- */
+
+    describe('A1 defensive-write null-chain resilience', () => {
+      it('survives saveData = undefined (first-ever play, no save file yet)', () => {
+        const updateGameSave = vi.fn();
+        const saveSystem = {
+          getSaveData: vi.fn().mockReturnValue(undefined),
+          updateGameSave,
+        };
+        scene.registry = { get: vi.fn().mockReturnValue(saveSystem), set: vi.fn() };
+        scene.lives = 1;
+        scene.score = 500;
+        scene.getGameDuration = vi.fn().mockReturnValue(15_000);
+
+        expect(() => scene.playerDeath()).not.toThrow();
+
+        // Defensive chain means prev defaults to {} so the optional-chain
+        // guards (`(saveData?.games?.agentChase?.stats ?? {})`) render the
+        // first-run case indistinguishable from a fresh stats merge.
+        expect(updateGameSave).toHaveBeenCalledTimes(1);
+        const call = updateGameSave.mock.calls[0][1];
+        expect(call.stats.gamesPlayed).toBe(1);
+        expect(call.stats.totalScore).toBe(500);
+      });
+
+      it('survives saveData.games = undefined (save file exists but no games slice)', () => {
+        const updateGameSave = vi.fn();
+        const saveSystem = {
+          getSaveData: vi.fn().mockReturnValue({ /* no games key */ }),
+          updateGameSave,
+        };
+        scene.registry = { get: vi.fn().mockReturnValue(saveSystem), set: vi.fn() };
+        scene.lives = 1;
+        scene.score = 1200;
+        scene.getGameDuration = vi.fn().mockReturnValue(30_000);
+
+        expect(() => scene.playerDeath()).not.toThrow();
+        expect(updateGameSave).toHaveBeenCalledTimes(1);
+      });
+
+      it('highScore promotion fires BEFORE updateGameSave — new-high path writes new watermark', () => {
+        // Internal ordering within playerDeath: `this.highScore = max(score, highScore)`
+        // MUST run before `updateGameSave({ highScore: this.highScore, ... })`,
+        // otherwise the save-file watermark lags the current session's high
+        // score by one death. A refactor that hoists the updateGameSave call
+        // above the max-assignment would silently regress this.
+        const updateGameSave = vi.fn();
+        const saveSystem = {
+          getSaveData: vi.fn().mockReturnValue({ games: { agentChase: { stats: {} } } }),
+          updateGameSave,
+        };
+        scene.registry = { get: vi.fn().mockReturnValue(saveSystem), set: vi.fn() };
+        scene.lives = 1;
+        scene.score = 5000;
+        scene.highScore = 2000; // lower than score — promotion must fire
+        scene.getGameDuration = vi.fn().mockReturnValue(40_000);
+
+        scene.playerDeath();
+
+        const call = updateGameSave.mock.calls[0][1];
+        expect(call.highScore).toBe(5000);
+      });
+
+      it('highScore preserved when session score is lower — writes pre-existing high', () => {
+        // The inverse invariant: `if (score > highScore) highScore = score`
+        // is a one-way raise; a death with a lower score must still write
+        // the pre-existing high, not overwrite it with the session value.
+        const updateGameSave = vi.fn();
+        const saveSystem = {
+          getSaveData: vi.fn().mockReturnValue({ games: { agentChase: { stats: {} } } }),
+          updateGameSave,
+        };
+        scene.registry = { get: vi.fn().mockReturnValue(saveSystem), set: vi.fn() };
+        scene.lives = 1;
+        scene.score = 300;
+        scene.highScore = 2000; // higher — no promotion
+        scene.getGameDuration = vi.fn().mockReturnValue(8_000);
+
+        scene.playerDeath();
+
+        const call = updateGameSave.mock.calls[0][1];
+        expect(call.highScore).toBe(2000);
+      });
+
+      it('sessionSeconds uses Math.floor (not round) — 86500ms writes 86, not 87', () => {
+        // Contract lock on the duration-to-seconds conversion. Round would
+        // break the longestSurvival max comparison: two back-to-back 86.5s
+        // runs would each write 87s, crossing a whole-second boundary that
+        // never actually occurred.
+        const updateGameSave = vi.fn();
+        const saveSystem = {
+          getSaveData: vi.fn().mockReturnValue({ games: { agentChase: { stats: {} } } }),
+          updateGameSave,
+        };
+        scene.registry = { get: vi.fn().mockReturnValue(saveSystem), set: vi.fn() };
+        scene.lives = 1;
+        scene.score = 100;
+        scene.getGameDuration = vi.fn().mockReturnValue(86_500);
+
+        scene.playerDeath();
+
+        const call = updateGameSave.mock.calls[0][1];
+        expect(call.stats.longestSurvival).toBe(86);
+      });
+    });
+
+    /* ---- A2 structural pairing invariants ---- */
+
+    describe('A2 structural pairing invariants', () => {
+      it('RELEASE_DOT_THRESHOLDS length matches AGENT_TYPES count — every agent has a threshold', () => {
+        // If a 5th agent type ever gets added to AGENT_TYPES without an
+        // accompanying threshold, releaseAgents's `agentReleaseIndex <
+        // thresholds.length` guard keeps the 5th trapped in the house
+        // forever. This test forces the contract explicitly.
+        const thresholds = GAME_CONFIG.GHOST_HOUSE.RELEASE_DOT_THRESHOLDS;
+        const agentTypeCount = Object.keys(GAME_CONFIG.AGENT_TYPES).length;
+        expect(thresholds.length).toBe(agentTypeCount);
+        expect(thresholds.length).toBe(4);
+      });
+
+      it('AGENT_TYPES names are distinct — no merge of Smith/Brown/Jones/Johnson', () => {
+        // The release-index → agent-identity mapping assumes a stable
+        // ordering at createAgents time. If two types ever collapse to
+        // the same `name`, the scatterTarget / behaviour pairing would
+        // silently shift, breaking both A2's override + the chase AI.
+        const names = Object.values(GAME_CONFIG.AGENT_TYPES).map((a) => a.name);
+        expect(new Set(names).size).toBe(names.length);
+        expect(names).toEqual(['Smith', 'Brown', 'Jones', 'Johnson']);
+      });
+
+      it('source: this.releaseAgents() is called from update() — not orphaned', () => {
+        // If releaseAgents ever gets removed from the update loop (e.g. by
+        // a refactor extracting "agent logic" into a sub-method that
+        // forgets to call it), the dot-count release never fires and
+        // agents[1..3] stay in the house for the entire game — direct
+        // revival of the original A2 symptom.
+        const src = readSceneSource();
+        const callSites = src.match(/this\.releaseAgents\(\)/g) ?? [];
+        expect(callSites.length).toBe(1);
+      });
+
+      it('source: agentReleaseIndex resets differently for game-start (0) vs post-death (1)', () => {
+        // Two distinct reset values for two distinct contexts:
+        //   - create() sets 0 so agents[0] releases via createAgents's
+        //     `index === 0` initialiser (agentReleaseIndex stays at 0
+        //     but the while-loop's threshold[0]=0 still releases it if
+        //     createAgents fails to do so — belt-and-braces).
+        //   - resetPositions() sets 1 so agents[1..3] need fresh dot
+        //     thresholds again after death.
+        // A refactor that unifies these to a single value would break
+        // either first-release (if unified to 1) or post-death release
+        // ordering (if unified to 0 and dotsCollected is already high).
+        const src = readSceneSource();
+        const zeroResets = src.match(/this\.agentReleaseIndex\s*=\s*0(?!\d)/g) ?? [];
+        const oneResets = src.match(/this\.agentReleaseIndex\s*=\s*1(?!\d)/g) ?? [];
+        expect(zeroResets.length).toBe(1);
+        expect(oneResets.length).toBe(1);
+      });
+    });
+
+    /* ---- static anti-regression: implementation shape ---- */
+
+    describe('Static anti-regression — implementation shape locks', () => {
+      it('playerDeath body has exactly one updateGameSave call — no double-write', () => {
+        // A future refactor that adds a second write path (e.g. "belt-and-
+        // braces" duplicate for stats vs highScore) would land a racy
+        // two-calls-per-death footprint. Single call is the invariant.
+        const src = readSceneSource();
+        // Isolate playerDeath method body via a simple regex slice (from
+        // `private playerDeath(): void {` to the next `private ` declaration).
+        const match = src.match(/private playerDeath\(\): void \{([\s\S]*?)\n {2}private /);
+        expect(match).not.toBeNull();
+        const body = match![1];
+        const calls = body.match(/\.updateGameSave\(/g) ?? [];
+        expect(calls.length).toBe(1);
+      });
+
+      it('releaseAgents uses `while` loop — not `if` (batch-release after death lock)', () => {
+        // The original A2 bug was partially a time-based release; a
+        // plausible but broken follow-up refactor is `if (dotsCollected
+        // >= thresholds[agentReleaseIndex])` — releases ONE agent per
+        // tick. After a mid-level death with dotsCollected=60 and
+        // agentReleaseIndex=1, that would take 3 ticks (3 frames) to
+        // release agents[1..3] — imperceptible, but fails the
+        // "batch-releases after death" behavioural test. This static
+        // check is a direct shape-lock on the working implementation.
+        const src = readSceneSource();
+        const match = src.match(/private releaseAgents\(\): void \{([\s\S]*?)\n {2}\}/);
+        expect(match).not.toBeNull();
+        const body = match![1];
+        expect(body).toMatch(/\bwhile\s*\(/);
+        expect(body).not.toMatch(/^\s*if\s*\(/m); // no top-level if at the release gate
+      });
+
+      it('getAgentTarget body calls isInsideGhostHouse — override is actually wired', () => {
+        // The override is the whole point of A2-(b). If a refactor
+        // inlines the bounds check or moves it to a caller, this test
+        // should fail so the author has to restate the invariant
+        // explicitly in the new shape.
+        const src = readSceneSource();
+        const match = src.match(/private getAgentTarget\([\s\S]*?\): \{ x: number; y: number \} \{([\s\S]*?)\n {2}\}/);
+        expect(match).not.toBeNull();
+        const body = match![1];
+        expect(body).toMatch(/this\.isInsideGhostHouse\(/);
+        expect(body).toMatch(/GAME_CONFIG\.GHOST_HOUSE\.EXIT_TILE/);
+      });
+    });
+  });
 });
