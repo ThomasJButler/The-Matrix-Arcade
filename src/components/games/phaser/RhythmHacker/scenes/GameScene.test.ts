@@ -597,4 +597,176 @@ describe('RhythmHackerGameScene', () => {
       }
     });
   });
+
+  // -----------------------------------------------------------------------
+  // R86.R1 — P-key conflict between QWOP lane 4 and global pause binding
+  //
+  // Tom's 2026-04-22 verdict: the global P→togglePause binding from
+  // BaseScene fires every time a player hits lane 4 (`P` in QWOP), pausing
+  // the song mid-play. Fix: RhythmHackerGameScene.getPauseKeyCode() returns
+  // null so BaseScene._bindCommonKeys skips the pause-key binding entirely.
+  // Pause stays reachable via the iPod dashbar's pause button (which routes
+  // through PAUSE_REQUEST_EVENT, independent of any keyboard binding).
+  // -----------------------------------------------------------------------
+  describe('R86.R1 — P-key pause override (QWOP lane 4)', () => {
+    it('getPauseKeyCode returns null so BaseScene skips the P→pause binding', () => {
+      // Direct invariant: this scene MUST opt out of the default pause key.
+      // If a future refactor restores the parent's binding, every P-press
+      // during gameplay will pause the song mid-note.
+      expect(scene.getPauseKeyCode()).toBeNull();
+    });
+
+    it('lane 4 (P) routes to onKeyDown(3), not togglePause', () => {
+      // Behavioural lock: simulate the lane-4 keypath by calling onKeyDown
+      // directly (which is what the Q/W/O/P key handlers wire to). After the
+      // call the scene must NOT have flipped to paused — even with no notes
+      // present, the only side-effect should be the empty-hit penalty / sound.
+      // togglePause is never reached because BaseScene's pause binding is gone.
+      scene.activeNotes = [];
+      scene.isCountdown = false;
+      scene.health = 100;
+      scene.isPaused = false;
+
+      scene.onKeyDown(3); // lane 4 = P
+
+      expect(scene.isPaused).toBe(false);
+      expect(scene.keyHeld[3]).toBe(true);
+      // Empty-hit penalty fires (no note + no countdown), confirming the
+      // lane-4 codepath ran instead of an early pause-toggle return.
+      expect(scene.health).toBe(100 - GAME_CONFIG.HEALTH.EMPTY_HIT_PENALTY);
+    });
+
+    it('all four lane keys route to onKeyDown including P (lane 3)', () => {
+      // Anti-regression: a "fix" that moves P out of QWOP entirely (e.g.
+      // rebinding lane 4 to `;` or `[`) would silently break the established
+      // R76.3 muscle-memory contract. Lock the QWOP order via config.
+      expect(GAME_CONFIG.LANES.KEYS).toEqual(['Q', 'W', 'O', 'P']);
+      expect(GAME_CONFIG.LANES.COUNT).toBe(4);
+    });
+
+    it('BaseScene.getPauseKeyCode default returns the P keycode', async () => {
+      // Static check: the default behaviour must remain `P→pause` for every
+      // other arcade game. Confirm the parent class ships the established
+      // binding so override is the exception, not the rule. Read source via
+      // fs to avoid pulling Phaser's runtime into the assertion.
+      const { readFileSync } = await import('fs');
+      const { resolve } = await import('path');
+      const baseSceneSrc = readFileSync(
+        resolve(process.cwd(), 'src/lib/phaser/scenes/BaseScene.ts'),
+        'utf8',
+      );
+      // Match the default-return line specifically (not the override hook).
+      expect(baseSceneSrc).toMatch(
+        /protected getPauseKeyCode\(\): number \| null\s*\{\s*return Phaser\.Input\.Keyboard\.KeyCodes\.P;/,
+      );
+    });
+
+    it('BaseScene._bindCommonKeys consults getPauseKeyCode and skips when null', async () => {
+      // Static check: the binding must be guarded so a `null` return actually
+      // suppresses the addKey call. A regression that drops the guard would
+      // reinstate the P→pause binding even with the override in place.
+      const { readFileSync } = await import('fs');
+      const { resolve } = await import('path');
+      const baseSceneSrc = readFileSync(
+        resolve(process.cwd(), 'src/lib/phaser/scenes/BaseScene.ts'),
+        'utf8',
+      );
+      // Look for `const pauseCode = this.getPauseKeyCode()` followed by a
+      // null-check guard before the addKey call.
+      expect(baseSceneSrc).toMatch(/const pauseCode = this\.getPauseKeyCode\(\);/);
+      expect(baseSceneSrc).toMatch(/if \(pauseCode !== null\)/);
+    });
+
+    it('MenuScene controls hint footer no longer advertises P: Pause', async () => {
+      // The menu footer used to read "ESC: Exit  P: Pause  M: Mute" — keeping
+      // that string after the override would mislead players into pressing P
+      // for pause and rediscovering the QWOP collision. Tom's "P: Pause" line
+      // must be gone.
+      const { readFileSync } = await import('fs');
+      const { resolve } = await import('path');
+      const menuSrc = readFileSync(
+        resolve(process.cwd(), 'src/components/games/phaser/RhythmHacker/scenes/MenuScene.ts'),
+        'utf8',
+      );
+      expect(menuSrc).not.toMatch(/P:\s*Pause/);
+      expect(menuSrc).toMatch(/ESC:\s*Exit/);
+      expect(menuSrc).toMatch(/M:\s*Mute/);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // R86.R2 — Hit-zone obscured by iPod dashbar chrome
+  //
+  // Tom's 2026-04-22 screenshot: the dashbar (exit / help / pause / trophy)
+  // sits visually on top of the bottom ~80 px of the Phaser canvas, with
+  // the dashbar's pause button II directly on lane 2/3 hit-zones. Fix:
+  // lift the hit line + key indicators by 80 px so the entire interactive
+  // band sits above the dashbar's footprint. Travel time stays at 1725 ms
+  // by lowering SPAWN_HEIGHT in lockstep.
+  // -----------------------------------------------------------------------
+  describe('R86.R2 — Hit-zone clear of dashbar chrome', () => {
+    it('HIT_LINE_Y lifted from 640 to 560 (-80 px above old position)', () => {
+      // Direct dial lock: the 80-px lift IS the fix. A regression that
+      // restores HIT_LINE_Y=640 puts the hit band back under the dashbar
+      // and reproduces Tom's "unplayable" verdict.
+      expect(GAME_CONFIG.NOTES.HIT_LINE_Y).toBe(560);
+    });
+
+    it('SPAWN_HEIGHT dropped to -130 to preserve note travel time', () => {
+      // Pair-locked dial: HIT_LINE_Y and SPAWN_HEIGHT must move together so
+      // (HIT_LINE_Y - SPAWN_HEIGHT) / SPEED stays constant. A future shift
+      // of one without the other changes how long notes are visible — a
+      // gameplay-altering side-effect of a "cosmetic" reposition.
+      expect(GAME_CONFIG.NOTES.SPAWN_HEIGHT).toBe(-130);
+    });
+
+    it('note travel time preserved at 1725 ms (matches pre-R2 feel)', () => {
+      const { NOTES } = GAME_CONFIG;
+      const travelMs = ((NOTES.HIT_LINE_Y - NOTES.SPAWN_HEIGHT) / NOTES.SPEED) * 1000;
+      expect(travelMs).toBeCloseTo(1725, 0);
+    });
+
+    it('key indicator row stays inside the dashbar-clear safe zone', () => {
+      // Anti-regression tripwire: the iPod dashbar reserves roughly the
+      // bottom ~100 px of the canvas. Key indicators sit at HIT_LINE_Y + 35
+      // and MUST land at or above HEIGHT - 100 so the labels stay legible.
+      const { NOTES, HEIGHT } = GAME_CONFIG;
+      const DASHBAR_RESERVED_PX = 100;
+      const keyIndicatorY = NOTES.HIT_LINE_Y + 35;
+      expect(keyIndicatorY).toBeLessThanOrEqual(HEIGHT - DASHBAR_RESERVED_PX);
+    });
+
+    it('canvas HEIGHT unchanged at 700 (R2 chose Option B over canvas resize)', () => {
+      // Belt-and-braces lock: changing HEIGHT triggers a cascade through
+      // BootScene texture generation and the MenuScene layout (R86.R3).
+      // The R2 fix deliberately stays in-canvas to avoid forcing a parallel
+      // menu rework. If a future task does shrink the canvas, this test
+      // should be updated alongside the menu-positioning changes.
+      expect(GAME_CONFIG.HEIGHT).toBe(700);
+      expect(GAME_CONFIG.WIDTH).toBe(800);
+    });
+
+    it('hit line floats above the bottom 100 px dashbar zone', () => {
+      // Direct visual invariant: every pixel of the hit line itself must
+      // sit above the dashbar reserved area. The hit-line texture is 14 px
+      // tall (BootScene `hitH = 14`); centred on HIT_LINE_Y means its
+      // bottom edge is HIT_LINE_Y + 7. That has to clear HEIGHT - 100.
+      const { NOTES, HEIGHT } = GAME_CONFIG;
+      const HIT_LINE_HALF_HEIGHT = 7;
+      const DASHBAR_RESERVED_PX = 100;
+      const hitLineBottom = NOTES.HIT_LINE_Y + HIT_LINE_HALF_HEIGHT;
+      expect(hitLineBottom).toBeLessThanOrEqual(HEIGHT - DASHBAR_RESERVED_PX);
+    });
+
+    it('miss-detection threshold (HIT_LINE_Y + 100) still fits in canvas', () => {
+      // Notes are flagged as missed once they pass HIT_LINE_Y + 100. With
+      // HIT_LINE_Y now 560 that lands at 660, which must stay strictly less
+      // than HEIGHT (700) so the miss-detect window doesn't fall off the
+      // canvas before firing. A regression here would silently leak notes
+      // off-screen un-missed and break combo accounting.
+      const { NOTES, HEIGHT } = GAME_CONFIG;
+      const MISS_DETECT_OFFSET = 100;
+      expect(NOTES.HIT_LINE_Y + MISS_DETECT_OFFSET).toBeLessThan(HEIGHT);
+    });
+  });
 });

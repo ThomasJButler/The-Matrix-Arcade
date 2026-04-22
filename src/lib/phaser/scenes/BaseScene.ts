@@ -97,17 +97,32 @@ export abstract class BaseScene extends Phaser.Scene {
     this.togglePause();
   };
 
+  /**
+   * Keycode that toggles pause for this scene. Defaults to `P` to keep the
+   * arcade-wide muscle memory consistent. Override to return `null` when the
+   * scene's gameplay reuses `P` for input (Rhythm Hacker's QWOP scheme — see
+   * R86.R1). When `null` is returned, the dashbar's pause button still works
+   * because it routes through `PAUSE_REQUEST_EVENT` rather than the scene
+   * keyboard binding.
+   */
+  protected getPauseKeyCode(): number | null {
+    return Phaser.Input.Keyboard.KeyCodes.P;
+  }
+
   private _bindCommonKeys(): void {
     if (!this.input.keyboard) return;
 
     this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.escKey.on('down', () => this.handleExit());
 
-    this.pauseKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P);
-    this.pauseKey.on('down', () => {
-      if (!this.allowPause) return;
-      this.togglePause();
-    });
+    const pauseCode = this.getPauseKeyCode();
+    if (pauseCode !== null) {
+      this.pauseKey = this.input.keyboard.addKey(pauseCode);
+      this.pauseKey.on('down', () => {
+        if (!this.allowPause) return;
+        this.togglePause();
+      });
+    }
 
     this.muteKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M);
     this.muteKey.on('down', () => this.toggleMute());

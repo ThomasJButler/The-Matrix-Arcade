@@ -109,6 +109,17 @@ export class RhythmHackerGameScene extends BaseScene {
     super(SCENE_KEYS.GAME);
   }
 
+  /**
+   * R86.R1 — `P` is QWOP lane 4. Returning `null` skips BaseScene's default
+   * P→togglePause binding so a lane-4 hit does not pause the song mid-play.
+   * Pause stays reachable through the iPod dashbar's pause button (which
+   * dispatches `PAUSE_REQUEST_EVENT` and is handled by BaseScene independently
+   * of any keyboard binding).
+   */
+  protected getPauseKeyCode(): number | null {
+    return null;
+  }
+
   init(data: { trackIndex?: number }): void {
     this.trackIndex = data.trackIndex ?? 0;
     const track = GAME_CONFIG.TRACKS[this.trackIndex];

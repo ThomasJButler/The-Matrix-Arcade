@@ -27,12 +27,30 @@ export const GAME_CONFIG = {
     SPACING: 15,
   },
 
-  /** Note settings */
+  /**
+   * Note settings.
+   *
+   * R86.R2 — `HIT_LINE_Y` lifted from 640 → 560 (and `SPAWN_HEIGHT` dropped
+   * from −50 → −130 to preserve note travel time at 1725 ms). The original
+   * values placed the hit line + key indicators (HIT_LINE_Y + 35 = 675) inside
+   * the bottom 25 px of the 700-tall canvas, where the iPod portal's dashbar
+   * chrome (exit / help / pause / trophy icons) paints over the playfield.
+   * Tom's 2026-04-22 verdict: *"the pause button II in the dashbar centre sits
+   * squarely on top of lane 2/3 hit-zones"* — game literally unplayable.
+   *
+   * Lifting the hit line by 80 px places the entire interactive band
+   * (hit line, key indicators, lane labels) in the canvas's clear top
+   * 600 px, with the bottom 100 px reserved as a safe zone the dashbar can
+   * paint over without obscuring play. `SPAWN_HEIGHT` shifts by the same
+   * 80 px so `(HIT_LINE_Y - SPAWN_HEIGHT) / SPEED * 1000` stays at 1725 ms —
+   * note approach feel is preserved exactly. Canvas `HEIGHT` stays at 700 to
+   * avoid forcing a parallel MenuScene rework (R86.R3 covers that separately).
+   */
   NOTES: {
     HEIGHT: 30,
     SPEED: 400, // pixels per second
-    SPAWN_HEIGHT: -50,
-    HIT_LINE_Y: 640,
+    SPAWN_HEIGHT: -130,
+    HIT_LINE_Y: 560,
     HOLD_WIDTH: 60,
   },
 
