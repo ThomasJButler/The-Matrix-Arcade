@@ -1,11 +1,76 @@
 /**
  * Rhythm Hacker - Menu Scene with Track Selection
+ *
+ * Layout notes (R86.R3)
+ * ----------------------
+ * Tom's 2026-04-22 playtest screenshot showed the HOW TO PLAY band rendering
+ * directly on top of the RESONANCE difficulty card (5th / last track). When
+ * RESONANCE was added as a 5th entry (see `GAME_CONFIG.TRACKS`), the old
+ * layout — which pinned the HOW TO PLAY title to `HEIGHT - 180 = 520` and
+ * walked tracks down from `y = 180` at `+90` spacing — silently regressed: the
+ * 5th card's background graphic sits at y=540 and spans y=510..570, while the
+ * HOW TO PLAY title (14 px, origin 0.5) rendered at y=520 spans y=513..527 —
+ * squarely on top of the card's top edge. The instruction lines at y=540 and
+ * y=555 landed inside the card body.
+ *
+ * This file now sources all vertical positions from the named constants below
+ * so the geometry is auditable in one place. The invariant locked in
+ * `MenuScene.test.ts` is:
+ *
+ *   lastTrackBottom + CLEARANCE_PX <= HOW_TO_PLAY_TITLE_Y - TITLE_HALF_HEIGHT
+ *
+ * which gives the HOW TO PLAY title at least `CLEARANCE_PX` (10 px) of air
+ * above the last track button's bottom edge. A future change that adds a 6th
+ * track — or grows a track button — will break the geometry test immediately
+ * rather than silently re-overlapping in a Phaser canvas.
  */
 
 import Phaser from 'phaser';
 import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
 import { SCENE_KEYS, MATRIX_COLORS, MATRIX_FONTS } from '../../../../../lib/phaser/types';
 import { GAME_CONFIG } from '../config';
+
+// ---------------------------------------------------------------------------
+// Layout constants (exported for MenuScene.test.ts geometry tripwires).
+//
+// All values are absolute pixels on the 800×700 canvas. Why absolute instead
+// of ratios (the pattern Frogger's MenuScene.test.ts uses)? The Rhythm Hacker
+// canvas dimensions are already locked by R86.R2's GAME_CONFIG dial tests;
+// introducing ratios would churn through every track-button coordinate and
+// buy nothing. Absolute values keep the relationship between TRACK_* and
+// HOW_TO_PLAY_* trivial to reason about when auditing the next layout tweak.
+// ---------------------------------------------------------------------------
+
+/** First track button centre Y. Tracks walk downward at `TRACK_SPACING_Y`. */
+export const TRACK_START_Y = 150;
+
+/** Vertical spacing between track button centres. */
+export const TRACK_SPACING_Y = 90;
+
+/**
+ * Track button total height (background graphic). The button bg is drawn via
+ * `fillRoundedRect(-250, -30, 500, 60, 8)` centred on the button's `y`, so
+ * its bottom edge sits at `y + TRACK_BUTTON_HEIGHT / 2`.
+ */
+export const TRACK_BUTTON_HEIGHT = 60;
+
+/** Minimum vertical gap between last track's bottom and HOW TO PLAY title top. */
+export const CLEARANCE_PX = 10;
+
+/** HOW TO PLAY section heading Y (14 px text, origin 0.5 → top = Y − 7). */
+export const HOW_TO_PLAY_TITLE_Y = 560;
+
+/** HOW TO PLAY first instruction line Y (10 px text). */
+export const HOW_TO_PLAY_LINE_1_Y = 580;
+
+/** HOW TO PLAY second instruction line Y (10 px text). */
+export const HOW_TO_PLAY_LINE_2_Y = 595;
+
+/** "Select difficulty and press ENTER" prompt Y (12 px text). */
+export const CONTROLS_PROMPT_Y = 625;
+
+/** Bottom controls footer ("ESC: Exit  M: Mute") Y (10 px text). */
+export const CONTROLS_FOOTER_Y = 655;
 
 export class RhythmHackerMenuScene extends BaseScene {
   private selectedTrack = 0;
@@ -21,30 +86,31 @@ export class RhythmHackerMenuScene extends BaseScene {
     this.trackButtons = [];
     this.rainGroup = this.addMatrixRain(20);
 
-    const { WIDTH, HEIGHT } = GAME_CONFIG;
+    const { WIDTH } = GAME_CONFIG;
 
     // Title
     this.createMatrixText(WIDTH / 2, 60, 'RHYTHM HACKER', 28);
     this.createMatrixText(WIDTH / 2, 100, 'Select Difficulty', 14, MATRIX_COLORS.CYAN_HEX);
 
-    // Track selection buttons
+    // Track selection buttons — walk downward from TRACK_START_Y at TRACK_SPACING_Y.
     GAME_CONFIG.TRACKS.forEach((track, index) => {
-      const y = 180 + index * 90;
+      const y = TRACK_START_Y + index * TRACK_SPACING_Y;
       const button = this.createTrackButton(WIDTH / 2, y, track.name, index);
       this.trackButtons.push(button);
     });
 
-    // HOW TO PLAY section
-    this.createMatrixText(WIDTH / 2, HEIGHT - 180, 'HOW TO PLAY', 14, MATRIX_COLORS.CYAN_HEX);
-    this.createMatrixText(WIDTH / 2, HEIGHT - 160, 'Q W O P: Hit notes in time | Hold keys for hold notes', 10);
-    this.createMatrixText(WIDTH / 2, HEIGHT - 145, 'Goal: Hit falling code fragments to the beat', 10);
+    // HOW TO PLAY section — anchored so the title top clears the last track
+    // button's bottom by at least CLEARANCE_PX (see MenuScene.test.ts invariant).
+    this.createMatrixText(WIDTH / 2, HOW_TO_PLAY_TITLE_Y, 'HOW TO PLAY', 14, MATRIX_COLORS.CYAN_HEX);
+    this.createMatrixText(WIDTH / 2, HOW_TO_PLAY_LINE_1_Y, 'Q W O P: Hit notes in time | Hold keys for hold notes', 10);
+    this.createMatrixText(WIDTH / 2, HOW_TO_PLAY_LINE_2_Y, 'Goal: Hit falling code fragments to the beat', 10);
 
     // Controls info
-    this.createMatrixText(WIDTH / 2, HEIGHT - 100, 'Select difficulty and press ENTER to start', 12);
+    this.createMatrixText(WIDTH / 2, CONTROLS_PROMPT_Y, 'Select difficulty and press ENTER to start', 12);
     // R86.R1 — Pause key omitted (P is reserved for QWOP lane 4). The dashbar
     // pause button still works because it dispatches PAUSE_REQUEST_EVENT which
     // BaseScene honours independently of any keyboard binding.
-    this.createMatrixText(WIDTH / 2, HEIGHT - 70, 'ESC: Exit  M: Mute', 10, MATRIX_COLORS.PRIMARY_HEX).setAlpha(0.3);
+    this.createMatrixText(WIDTH / 2, CONTROLS_FOOTER_Y, 'ESC: Exit  M: Mute', 10, MATRIX_COLORS.PRIMARY_HEX).setAlpha(0.3);
 
     // Keyboard input
     this.setupInput();
