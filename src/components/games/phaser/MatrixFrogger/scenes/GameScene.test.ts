@@ -1627,4 +1627,123 @@ describe('FroggerGameScene', () => {
       expect(GAME_CONFIG.DIFFICULTY.CHASING_AGENT_MIN_LEVEL).toBeGreaterThanOrEqual(2);
     });
   });
+
+  // -----------------------------------------------------------------------
+  // R86.F6+ safety-net — Level-up timer isolation + LEVEL_5 boundary.
+  //
+  // The R86.F6 safety-net above locks state PERSISTENCE across level-up
+  // (score / combo / kungFuCharges / etc all carry over). What it does NOT
+  // lock is the *timer-isolation* contract: triggerLevelUp must never touch
+  // the Phaser.Time.TimerEvents that armGameplay() set up with loop: true.
+  // Those timers drive enemy + pill spawning forever until scene shutdown —
+  // a "helpful" refactor that calls this.time.removeAllEvents() on level-up
+  // (e.g. to flush stale callbacks) would silently break enemy spawn on
+  // Level 2+. That symptom matches Tom's F6 brief verbatim ("agents not
+  // respawning"), and would only surface after a multi-level playtest.
+  //
+  // The LEVEL_5 achievement boundary is also untested. The block above
+  // locks CHASING_AGENT_MIN_LEVEL ≥ 2 (Level 1 anchor) and monotonic level
+  // increment, but nothing pins the unlock condition itself. A refactor
+  // from `>= 5` to `=== 5` would silently break players who reach level 6+
+  // via any future skip-level mechanic, and would also fail the design
+  // intent ("once you hit level 5, you've earned it permanently").
+  //
+  // Pure coverage refresh — no production code touched. Following the
+  // F6 / N5 / N2+ safety-net cadence (additive, named with `+` suffix to
+  // signal pre-Tom-tick reinforcement of an already-shipped task).
+  // -----------------------------------------------------------------------
+  describe('R86.F6+ safety-net — Level-up timer isolation + LEVEL_5 boundary', () => {
+    beforeEach(() => {
+      // triggerLevelUp's late-stage tween + tween.killTweensOf calls would
+      // explode against the default mock; stub both so we can drive the
+      // method directly without armGameplay-style setup.
+      scene.tweens = { add: vi.fn(), killTweensOf: vi.fn() };
+      scene.showLevelUpText = vi.fn();
+    });
+
+    it('triggerLevelUp does NOT call this.time.removeAllEvents (agents must keep respawning)', () => {
+      // Direct lock against Tom's F6 risk: "agents not respawning". The
+      // spawn timers are loop:true addEvent calls in armGameplay; if any
+      // future level-up refactor flushes them, Level 2 onwards goes silent.
+      scene.time = {
+        now: 0,
+        removeAllEvents: vi.fn(),
+        removeEvent: vi.fn(),
+      };
+      scene.triggerLevelUp();
+      expect(scene.time.removeAllEvents).not.toHaveBeenCalled();
+      expect(scene.time.removeEvent).not.toHaveBeenCalled();
+    });
+
+    it('triggerLevelUp does NOT call this.time.addEvent (no duplicate spawn timers per level)', () => {
+      // Mirror invariant — a different "fix" might re-arm the spawn timers
+      // on every level-up to "be safe", which would stack callbacks and
+      // double / triple enemy spawn rates per level. Lock zero addEvent
+      // calls to keep the armGameplay-once contract.
+      scene.time = {
+        now: 0,
+        addEvent: vi.fn(),
+        removeAllEvents: vi.fn(),
+        removeEvent: vi.fn(),
+      };
+      scene.triggerLevelUp();
+      expect(scene.time.addEvent).not.toHaveBeenCalled();
+    });
+
+    it('does NOT unlock LEVEL_5 at level 4 (boundary tripwire — must not fire too early)', () => {
+      // Pre-increment level = 3 → triggerLevelUp brings it to 4 → 4 >= 5 is
+      // false → LEVEL_5 must NOT unlock. Locks the >= 5 lower bound.
+      scene.level = 3;
+      scene.triggerLevelUp();
+      expect(scene.unlockAchievement).not.toHaveBeenCalledWith(ACHIEVEMENTS.LEVEL_5);
+    });
+
+    it('unlocks LEVEL_5 at exactly level 5 (boundary tripwire — fires on the threshold)', () => {
+      // Pre-increment level = 4 → triggerLevelUp brings it to 5 → 5 >= 5 is
+      // true → LEVEL_5 must unlock. Locks the strict-equal-to boundary.
+      scene.level = 4;
+      scene.triggerLevelUp();
+      expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.LEVEL_5);
+    });
+
+    it('still unlocks LEVEL_5 at higher levels (locks >= operator, not ===)', () => {
+      // Pre-increment level = 7 → triggerLevelUp brings it to 8 → 8 >= 5 is
+      // true → LEVEL_5 must unlock. A refactor from `>= 5` to `=== 5` would
+      // pass the level-5 test above but silently fail this one — locks the
+      // operator choice itself, not just the threshold.
+      scene.level = 7;
+      scene.triggerLevelUp();
+      expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.LEVEL_5);
+    });
+
+    it('always unlocks FIRST_CROSS on every level-up (idempotent unlock contract)', () => {
+      // FIRST_CROSS is named "first" but the call site fires unconditionally
+      // every level-up. The unlockAchievement helper is idempotent (the
+      // achievement system dedupes), so this is fine — but a refactor that
+      // moves the call inside `if (this.level === 1)` (matching the name)
+      // would silently break the rolling-unlock-attempt pattern other
+      // achievements rely on. Lock that the call fires on EVERY cross.
+      scene.level = 1;
+      scene.triggerLevelUp();
+      expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.FIRST_CROSS);
+
+      // Reset state for a second cross — tweens.add is stubbed, so the
+      // reset onComplete never fires; we manually re-arm by clearing the
+      // gate flag. unlockAchievement spy is reused (call count grows).
+      vi.clearAllMocks();
+      scene.isLevelingUp = false;
+      scene.triggerLevelUp();
+      expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.FIRST_CROSS);
+    });
+
+    it('updates levelText post-increment via updateUI (lock readout consistency)', () => {
+      // updateUI runs at the end of triggerLevelUp and writes
+      // `LEVEL: ${this.level}` to levelText. After the increment, level=3,
+      // so the readout MUST be "LEVEL: 3" — not "LEVEL: 2" (pre-increment)
+      // or "LEVEL: " (mid-tween). Locks the order: increment → updateUI.
+      scene.level = 2;
+      scene.triggerLevelUp();
+      expect(scene.levelText.setText).toHaveBeenCalledWith('LEVEL: 3');
+    });
+  });
 });
