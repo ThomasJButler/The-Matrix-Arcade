@@ -207,6 +207,8 @@ describe('CodeBreakerGameScene', () => {
     scene.spaceKey = { isDown: false };
     scene.wasdA = { isDown: false };
     scene.wasdD = { isDown: false };
+    scene.numpadLeft = { isDown: false };
+    scene.numpadRight = { isDown: false };
     scene.bulletTimeKey = { isDown: false };
 
     (Phaser.Input.Keyboard as Record<string, unknown>).JustDown = vi.fn().mockReturnValue(false);
@@ -1226,6 +1228,281 @@ describe('CodeBreakerGameScene', () => {
       scene.portal = createMockSprite();
       call(scene, 'shutdown');
       expect(s(scene, 'portal')).toBeNull();
+    });
+  });
+
+  // R87.K1 + K2 + K3 — CodeBreaker P0 blockers.
+  //   K1: miss-last-ball + grab power-up leaves scene ball-less (soft-lock).
+  //   K2: multiple collision paths in one frame can double-debit lives →
+  //       spontaneous game-over mid-level after a power-up pickup.
+  //   K3: keyboard paddle input silently overridden by pointer-tracking
+  //       every frame because `pointer.x !== paddle.x` is almost always true.
+  describe('R87.K1+K2+K3 — power-up soft-lock + multi-life guard + keyboard controls', () => {
+    describe('K3 — keyboard paddle input', () => {
+      it('arrow keys move paddle even when pointer sits at a different x', () => {
+        // Simulate Tom's actual scenario: mouse is over the canvas somewhere
+        // (NOT on paddle.x) but not pressed; keyboard should still win.
+        scene.input.activePointer = { isDown: false, x: 50 };
+        scene.paddle.x = 400;
+        scene.lastPointerX = 50; // pointer has not moved this frame
+        scene.cursors.left.isDown = true;
+
+        call(scene, 'handlePaddleMovement', 1 / 60);
+        expect(scene.paddle.x).toBeLessThan(400);
+      });
+
+      it('WASD D key moves paddle right even when pointer sits elsewhere', () => {
+        scene.input.activePointer = { isDown: false, x: 700 };
+        scene.paddle.x = 200;
+        scene.lastPointerX = 700;
+        scene.wasdD.isDown = true;
+
+        call(scene, 'handlePaddleMovement', 1 / 60);
+        expect(scene.paddle.x).toBeGreaterThan(200);
+      });
+
+      it('numpad 4 moves paddle left', () => {
+        scene.input.activePointer = { isDown: false, x: 100 };
+        scene.paddle.x = 400;
+        scene.lastPointerX = 100;
+        scene.numpadLeft.isDown = true;
+
+        call(scene, 'handlePaddleMovement', 1 / 60);
+        expect(scene.paddle.x).toBeLessThan(400);
+      });
+
+      it('numpad 6 moves paddle right', () => {
+        scene.input.activePointer = { isDown: false, x: 100 };
+        scene.paddle.x = 200;
+        scene.lastPointerX = 100;
+        scene.numpadRight.isDown = true;
+
+        call(scene, 'handlePaddleMovement', 1 / 60);
+        expect(scene.paddle.x).toBeGreaterThan(200);
+      });
+
+      it('idle pointer at arbitrary x does NOT override keyboard', () => {
+        // Regression guard for the actual Tom bug: the previous condition
+        // `pointer.x !== paddle.x` fired every frame because the cursor
+        // rarely sits exactly on paddle.x, so keyboard input was silently
+        // cancelled by pointer-tracking.
+        scene.input.activePointer = { isDown: false, x: 123 };
+        scene.paddle.x = 400;
+        scene.lastPointerX = 123; // pointer hasn't moved
+        scene.cursors.right.isDown = true;
+        const startX = scene.paddle.x;
+
+        call(scene, 'handlePaddleMovement', 1 / 60);
+        expect(scene.paddle.x).toBeGreaterThan(startX);
+      });
+
+      it('idle pointer with no keyboard input leaves paddle still', () => {
+        scene.input.activePointer = { isDown: false, x: 50 };
+        scene.paddle.x = 400;
+        scene.lastPointerX = 50; // pointer has not moved
+
+        call(scene, 'handlePaddleMovement', 1 / 60);
+        expect(scene.paddle.x).toBe(400);
+      });
+
+      it('moving pointer (without keyboard) pulls paddle toward it', () => {
+        scene.input.activePointer = { isDown: false, x: 200 };
+        scene.paddle.x = 400;
+        scene.lastPointerX = 100; // pointer moved 100 → 200 since last frame
+
+        call(scene, 'handlePaddleMovement', 1 / 60);
+        expect(scene.paddle.x).toBeLessThan(400);
+      });
+
+      it('pointer pressed (click/drag) drives paddle even if stationary', () => {
+        scene.input.activePointer = { isDown: true, x: 200 };
+        scene.paddle.x = 400;
+        scene.lastPointerX = 200; // not moved, but pressed
+
+        call(scene, 'handlePaddleMovement', 1 / 60);
+        expect(scene.paddle.x).toBeLessThan(400);
+      });
+
+      it('pointer outside canvas does not drag paddle off-screen', () => {
+        scene.input.activePointer = { isDown: false, x: -50 };
+        scene.paddle.x = 400;
+        scene.lastPointerX = 100; // moved
+
+        call(scene, 'handlePaddleMovement', 1 / 60);
+        expect(scene.paddle.x).toBe(400);
+      });
+
+      it('first-frame (lastPointerX === -1) treats pointer as idle', () => {
+        // Sentinel value prevents a spurious "moved from -1 to current" on
+        // the very first update after reset, which would otherwise yank the
+        // paddle to the pointer position before the player has touched
+        // either keyboard or mouse.
+        scene.input.activePointer = { isDown: false, x: 50 };
+        scene.paddle.x = 400;
+        scene.lastPointerX = -1;
+
+        call(scene, 'handlePaddleMovement', 1 / 60);
+        expect(scene.paddle.x).toBe(400);
+      });
+    });
+
+    describe('K2 — loseLife guard (no double-debit per frame)', () => {
+      it('fires only once per frame even when called twice in sequence', () => {
+        scene.lives = 3;
+        call(scene, 'loseLife');
+        call(scene, 'loseLife'); // agent-paddle collision same frame
+        expect(s(scene, 'lives')).toBe(2);
+      });
+
+      it('three collision paths in one frame debit exactly one life', () => {
+        scene.lives = 3;
+        // Simulate: ball drops → checkBallBottomCollisions → loseLife
+        //           agent hits paddle same frame → loseLife
+        //           boss bullet hits paddle same frame → loseLife
+        call(scene, 'loseLife');
+        call(scene, 'loseLife');
+        call(scene, 'loseLife');
+        expect(s(scene, 'lives')).toBe(2);
+      });
+
+      it('does not fire when isGameOver is true', () => {
+        scene.lives = 3;
+        scene.isGameOver = true;
+        call(scene, 'loseLife');
+        expect(s(scene, 'lives')).toBe(3);
+      });
+
+      it('does not fire when isLevelComplete is true', () => {
+        scene.lives = 3;
+        scene.isLevelComplete = true;
+        call(scene, 'loseLife');
+        expect(s(scene, 'lives')).toBe(3);
+      });
+
+      it('resets livesLostThisFrame at top of each update tick', () => {
+        scene.lives = 3;
+        call(scene, 'loseLife');
+        expect(s(scene, 'lives')).toBe(2);
+        expect(s(scene, 'livesLostThisFrame')).toBe(true);
+
+        // Simulate the next frame — update() resets the flag.
+        scene.livesLostThisFrame = false;
+        call(scene, 'loseLife');
+        expect(s(scene, 'lives')).toBe(1);
+      });
+
+      it('prevents game-over from 2 lives in one chaotic frame', () => {
+        // Tom's K2 repro: 2 lives, ball drops AND agent hits paddle AND
+        // power-up bomb fires in one frame. Without the guard, 2→1→0 game
+        // over. With the guard, 2→1 and player keeps playing.
+        scene.lives = 2;
+        call(scene, 'loseLife');
+        call(scene, 'loseLife');
+        expect(s(scene, 'lives')).toBe(1);
+        expect(s(scene, 'isGameOver')).toBe(false);
+        expect(scene.gameOver).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('K2 — activatePowerUp guard', () => {
+      it('does not fire when isGameOver is true', () => {
+        scene.isGameOver = true;
+        call(scene, 'activatePowerUp', 'multiBall');
+        expect(scene.playSound).not.toHaveBeenCalledWith('specialAbility');
+      });
+
+      it('does not fire when isLevelComplete is true', () => {
+        scene.isLevelComplete = true;
+        call(scene, 'activatePowerUp', 'laser');
+        expect(s(scene, 'laserActive')).toBe(false);
+      });
+
+      it('multiBall does not spawn balls during level transition', () => {
+        scene.isLevelComplete = true;
+        scene.balls = [{ sprite: createMockCircle(), vx: 0, vy: 0 }];
+        call(scene, 'activatePowerUp', 'multiBall');
+        expect(s(scene, 'balls')).toHaveLength(1);
+      });
+
+      it('EMP does not destroy bricks after game-over', () => {
+        scene.isGameOver = true;
+        scene.bricks = [
+          {
+            sprite: createMockRect(200, 150, C.BRICK_WIDTH, C.BRICK_HEIGHT),
+            type: 'code', health: 1, maxHealth: 1, value: 10,
+            row: 0, col: 0, width: C.BRICK_WIDTH, height: C.BRICK_HEIGHT,
+          },
+        ];
+        scene.paddle.x = 200;
+        call(scene, 'activatePowerUp', 'emp');
+        expect(s(scene, 'bricks')).toHaveLength(1);
+      });
+    });
+
+    describe('K1 — reconcileBallState (ball-state invariant)', () => {
+      it('no-ops when isGameOver is true', () => {
+        scene.isGameOver = true;
+        scene.balls = [];
+        scene.isBallAttached = false;
+        call(scene, 'reconcileBallState');
+        expect(s(scene, 'balls')).toHaveLength(0);
+        expect(scene.playSound).not.toHaveBeenCalled();
+      });
+
+      it('no-ops when isLevelComplete is true', () => {
+        scene.isLevelComplete = true;
+        scene.balls = [];
+        scene.isBallAttached = false;
+        call(scene, 'reconcileBallState');
+        expect(s(scene, 'balls')).toHaveLength(0);
+      });
+
+      it('no-ops when at least one ball exists', () => {
+        const ball = { sprite: createMockCircle(), vx: 0, vy: 0 };
+        scene.balls = [ball];
+        scene.isBallAttached = false;
+        call(scene, 'reconcileBallState');
+        expect(s(scene, 'balls')).toHaveLength(1);
+      });
+
+      it('respawns attached ball when isBallAttached=true but balls empty', () => {
+        // Defensive invariant — if any code path destroys the attached ball
+        // without spawning a replacement, recover rather than soft-lock.
+        scene.balls = [];
+        scene.isBallAttached = true;
+        scene.lives = 2;
+        scene.isGameOver = false;
+        scene.isLevelComplete = false;
+        call(scene, 'reconcileBallState');
+        expect(s(scene, 'balls').length).toBeGreaterThanOrEqual(1);
+      });
+
+      it('calls loseLife when balls empty AND not attached (Tom K1 scenario)', () => {
+        // Tom's K1 repro: last ball fell, power-up was grabbed, no
+        // respawn happened. The reconciler treats it as a belated life-loss
+        // rather than leaving the scene ball-less forever.
+        scene.balls = [];
+        scene.isBallAttached = false;
+        scene.lives = 3;
+        scene.isGameOver = false;
+        scene.isLevelComplete = false;
+        scene.livesLostThisFrame = false;
+        call(scene, 'reconcileBallState');
+        expect(s(scene, 'lives')).toBeLessThan(3);
+        expect(s(scene, 'balls').length).toBeGreaterThanOrEqual(1);
+        expect(s(scene, 'isBallAttached')).toBe(true);
+      });
+
+      it('respects livesLostThisFrame guard when reconciling', () => {
+        // Reconciler calls loseLife, but if a prior collision already
+        // fired it this frame the life count does not double-debit.
+        scene.balls = [];
+        scene.isBallAttached = false;
+        scene.lives = 3;
+        scene.livesLostThisFrame = true;
+        call(scene, 'reconcileBallState');
+        expect(s(scene, 'lives')).toBe(3);
+      });
     });
   });
 });
