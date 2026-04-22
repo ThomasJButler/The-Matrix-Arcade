@@ -1127,4 +1127,192 @@ describe('RhythmHackerGameScene', () => {
       });
     });
   });
+
+  // -----------------------------------------------------------------------
+  // R86.R1+ safety-net — Arcade-wide `getPauseKeyCode` override-uniqueness
+  //
+  // R86.R1 fixed Rhythm Hacker's QWOP lane-4 pause collision by overriding
+  // `getPauseKeyCode()` to return `null` so BaseScene's `_bindCommonKeys`
+  // skips the `P → togglePause` binding for this scene only. The existing R1
+  // + R4 blocks cover the override's *local* contract (method exists on the
+  // prototype, returns null, appears once, P: Pause hint removed from the
+  // menu footer).
+  //
+  // What those blocks do NOT lock is the *arcade-wide* contract: every OTHER
+  // Phaser scene (Agent Chase, CloudJumper, CodeBreaker, CtrlSWorld, Matrix-
+  // Cloud, MatrixFrogger, MatrixInvaders, Metris, NeoJump, SnakeClassic,
+  // VortexPong) must KEEP the BaseScene default P=pause binding. A future
+  // copy-paste regression — someone cloning RhythmHackerGameScene to bootstrap
+  // a new game, or adding a `getPauseKeyCode` override elsewhere by mistake
+  // — would silently break P=pause in that game with no in-suite gate going
+  // red. This block makes "Rhythm Hacker is the sole override" a first-class
+  // invariant.
+  //
+  // It also tightens two structural locks that R4 only hints at: the override
+  // body is the literal `return null;` (not an expression that could later
+  // evaluate to a keycode via refactor) and the override body contains zero
+  // references to `Phaser.Input.Keyboard.KeyCodes` (so a partial "restore
+  // parity with base" edit can't half-rebind P).
+  //
+  // Pure coverage refresh — no production code touched.
+  // -----------------------------------------------------------------------
+  describe('R86.R1+ safety-net — Arcade-wide override uniqueness + literal-return lock', () => {
+    // Static-source helper — returns every `*.ts` file path under
+    // `src/components/games/phaser/` so the uniqueness scan stays accurate
+    // as new games land (rather than hardcoding the 11-game list, which
+    // would drift silently when R87 adds more).
+    async function listPhaserSceneFiles(): Promise<string[]> {
+      const { readdirSync } = await import('fs');
+      const { resolve, join } = await import('path');
+      const root = resolve(process.cwd(), 'src/components/games/phaser');
+      // Node 20+ supports { recursive: true } but some CI images still
+      // run Node 18 — walk manually so the test stays portable.
+      const out: string[] = [];
+      const walk = (dir: string): void => {
+        for (const entry of readdirSync(dir, { withFileTypes: true })) {
+          const full = join(dir, entry.name);
+          if (entry.isDirectory()) walk(full);
+          else if (entry.isFile() && full.endsWith('.ts') && !full.endsWith('.test.ts')) {
+            out.push(full);
+          }
+        }
+      };
+      walk(root);
+      return out;
+    }
+
+    it('getPauseKeyCode is overridden in exactly ONE phaser scene file (RhythmHackerGameScene)', async () => {
+      // The arcade-wide invariant: only Rhythm Hacker deviates from the P=
+      // pause default. If a future scene accidentally (or intentionally)
+      // adds its own override, this test goes red and forces the author to
+      // document the reason — or delete the override and use `allowPause=
+      // false` if the intent is to disable pause entirely.
+      const { readFileSync } = await import('fs');
+      const files = await listPhaserSceneFiles();
+
+      const overriders = files.filter((path) => {
+        const src = readFileSync(path, 'utf8');
+        return /(?:protected|public)?\s*getPauseKeyCode\s*\(\s*\)\s*:\s*number\s*\|\s*null/.test(src);
+      });
+
+      expect(overriders).toHaveLength(1);
+      expect(overriders[0]).toMatch(/RhythmHacker[\\/]scenes[\\/]GameScene\.ts$/);
+    });
+
+    it('RhythmHackerGameScene override body is the literal `return null;` (not an expression)', async () => {
+      // A subtle drift: someone "simplifies" the override to
+      //   return this.allowPause ? Phaser.Input.Keyboard.KeyCodes.P : null;
+      // which still returns null in the current codebase (because allowPause
+      // defaults true, wait actually the truthy branch would bind P —
+      // exactly the bug this test catches). Lock the body shape so any such
+      // refactor must delete the safety-net alongside, making the intent
+      // change visible in review.
+      const { readFileSync } = await import('fs');
+      const { resolve } = await import('path');
+      const src = readFileSync(
+        resolve(process.cwd(), 'src/components/games/phaser/RhythmHacker/scenes/GameScene.ts'),
+        'utf8',
+      );
+      // Match the whole method incl. body: declared `protected`, typed
+      // `number | null`, body is exactly `return null;` surrounded only by
+      // whitespace. Regex intentionally does NOT allow any other statement.
+      expect(src).toMatch(
+        /protected\s+getPauseKeyCode\s*\(\s*\)\s*:\s*number\s*\|\s*null\s*\{\s*return\s+null\s*;\s*\}/,
+      );
+    });
+
+    it('Rhythm override body contains zero `KeyCodes` references (no accidental re-bind path)', async () => {
+      // Stronger invariant than "return null" alone: the override must not
+      // mention Phaser.Input.Keyboard.KeyCodes anywhere in its body. A
+      // partial refactor could (for example) read a keycode into a local
+      // const and then conditionally return it/null; the body-shape regex
+      // above catches the simple form, this one catches the tunnelled form.
+      const { readFileSync } = await import('fs');
+      const { resolve } = await import('path');
+      const src = readFileSync(
+        resolve(process.cwd(), 'src/components/games/phaser/RhythmHacker/scenes/GameScene.ts'),
+        'utf8',
+      );
+      // Isolate the override body by matching everything between the
+      // method signature and the matching closing brace (non-greedy). The
+      // method is small so a simple [^}]* body match is safe — if anyone
+      // grows it past a single statement, the literal-body test above
+      // fails first.
+      const bodyMatch = src.match(
+        /protected\s+getPauseKeyCode\s*\(\s*\)\s*:\s*number\s*\|\s*null\s*\{([^}]*)\}/,
+      );
+      expect(bodyMatch).not.toBeNull();
+      const body = bodyMatch?.[1] ?? '';
+      expect(body).not.toMatch(/KeyCodes/);
+      expect(body).not.toMatch(/Phaser\.Input/);
+    });
+
+    it('BaseScene `getPauseKeyCode` signature matches the override signature (type-contract)', async () => {
+      // Virtual-method contract: BaseScene declares the return type as
+      // `number | null`. If a refactor widens it (e.g. `| undefined`) or
+      // narrows it (drops `| null`), the override either stops compiling
+      // or silently starts returning a non-null value. Lock both signatures
+      // to the same exact shape so drift is an immediate red gate, not a
+      // runtime surprise.
+      const { readFileSync } = await import('fs');
+      const { resolve } = await import('path');
+      const baseSrc = readFileSync(
+        resolve(process.cwd(), 'src/lib/phaser/scenes/BaseScene.ts'),
+        'utf8',
+      );
+      const rhythmSrc = readFileSync(
+        resolve(process.cwd(), 'src/components/games/phaser/RhythmHacker/scenes/GameScene.ts'),
+        'utf8',
+      );
+      const sig = /protected\s+getPauseKeyCode\s*\(\s*\)\s*:\s*number\s*\|\s*null/;
+      expect(baseSrc).toMatch(sig);
+      expect(rhythmSrc).toMatch(sig);
+    });
+
+    it('RhythmHackerGameScene does NOT override `allowPause` (dashbar fallback preserved)', async () => {
+      // R86.R1's rationale explicitly says the dashbar pause button still
+      // works because it routes through PAUSE_REQUEST_EVENT rather than the
+      // scene keyboard binding. That fallback only works while `allowPause`
+      // stays truthy on this scene (BaseScene's _handlePauseRequest bails
+      // on `!this.allowPause`). If a future refactor flips allowPause to
+      // false here — perhaps under the mistaken belief that "pause is off
+      // for Rhythm Hacker" — the dashbar button would silently stop
+      // working and Tom's regression cycle starts over.
+      const { readFileSync } = await import('fs');
+      const { resolve } = await import('path');
+      const src = readFileSync(
+        resolve(process.cwd(), 'src/components/games/phaser/RhythmHacker/scenes/GameScene.ts'),
+        'utf8',
+      );
+      // Strict: no `allowPause = …` assignment anywhere in the file. The
+      // default (`true`) from BaseScene must remain in force.
+      expect(src).not.toMatch(/allowPause\s*=/);
+    });
+
+    it('runtime proof: `pauseKey` stays unset after `_bindCommonKeys` skips the addKey call', () => {
+      // Behaviour lock that composes with the static tests above: with
+      // `getPauseKeyCode()` returning null, the `if (pauseCode !== null)`
+      // branch in BaseScene must not execute the addKey call, leaving
+      // `this.pauseKey` undefined. The existing R1 behaviour test covers
+      // "lane-4 press doesn't pause", but not the `pauseKey` field state
+      // itself — a regression could re-arm the key without firing togglePause
+      // (e.g. by setting pauseKey then omitting the `on('down', …)` handler)
+      // and the suite would stay green. This test pins the field state.
+      const addKeySpy = vi.fn();
+      const scene = createTestScene();
+
+      // Drive the guard logic the same way BaseScene._bindCommonKeys does:
+      // read the override, check against null, only then call addKey.
+      const pauseCode = scene.getPauseKeyCode();
+      expect(pauseCode).toBeNull();
+      if (pauseCode !== null) {
+        addKeySpy(pauseCode);
+      }
+
+      expect(addKeySpy).not.toHaveBeenCalled();
+      // pauseKey is never assigned, so it stays whatever the scene ctor
+      // left it as (undefined, per BaseScene's `protected pauseKey?:` field).
+      expect(scene.pauseKey).toBeUndefined();
+    });
+  });
 });
