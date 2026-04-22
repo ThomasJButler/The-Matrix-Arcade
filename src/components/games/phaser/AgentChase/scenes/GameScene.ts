@@ -64,7 +64,6 @@ export class AgentChaseGameScene extends BaseScene {
   // Agents
   private agents!: Phaser.Physics.Arcade.Group;
   private agentReleaseIndex = 0;
-  private nextReleaseTime = 0;
 
   // Fruit
   private fruit?: Phaser.Physics.Arcade.Sprite;
@@ -120,7 +119,6 @@ export class AgentChaseGameScene extends BaseScene {
     this.modeTimer = 0;
     this.modePhase = 0;
     this.agentReleaseIndex = 0;
-    this.nextReleaseTime = 0;
     this.fruitSpawned = [false, false];
     this.playerDirection = 'LEFT';
     this.nextDirection = 'NONE';
@@ -207,7 +205,7 @@ export class AgentChaseGameScene extends BaseScene {
     this.updateModes(delta);
 
     // Release agents
-    this.releaseAgents(time);
+    this.releaseAgents();
 
     // Update bullet-time
     this.updateBulletTime(delta);
@@ -666,7 +664,6 @@ export class AgentChaseGameScene extends BaseScene {
     });
 
     this.agentReleaseIndex = 1;
-    this.nextReleaseTime = this.time.now + GAME_CONFIG.AGENTS.RELEASE_INTERVAL;
     this.scatterMode = true;
     this.modePhase = 0;
     this.modeTimer = 0;
@@ -942,17 +939,41 @@ export class AgentChaseGameScene extends BaseScene {
     }
   }
 
-  private releaseAgents(time: number): void {
-    if (this.agentReleaseIndex >= 4) return;
+  /**
+   * R86.A2: staggered dot-count release replaces the 5s timer.
+   *
+   * Thresholds live in GAME_CONFIG.GHOST_HOUSE.RELEASE_DOT_THRESHOLDS
+   * ([0, 10, 30, 60]). The while-loop releases as many agents as the
+   * current dot count allows in one pass — important after a death
+   * mid-level, where dotsCollected is already high but agentReleaseIndex
+   * was reset to 1, so agents[1..3] can all release on the next tick
+   * instead of waiting for fresh dots.
+   */
+  private releaseAgents(): void {
+    const agents = this.agents.getChildren() as Agent[];
+    const thresholds = GAME_CONFIG.GHOST_HOUSE.RELEASE_DOT_THRESHOLDS;
 
-    if (time >= this.nextReleaseTime) {
-      const agents = this.agents.getChildren() as Agent[];
-      if (agents[this.agentReleaseIndex]) {
-        agents[this.agentReleaseIndex].isReleased = true;
-      }
+    while (
+      this.agentReleaseIndex < thresholds.length &&
+      this.agentReleaseIndex < agents.length &&
+      this.dotsCollected >= thresholds[this.agentReleaseIndex]
+    ) {
+      agents[this.agentReleaseIndex].isReleased = true;
       this.agentReleaseIndex++;
-      this.nextReleaseTime = time + GAME_CONFIG.AGENTS.RELEASE_INTERVAL;
     }
+  }
+
+  /**
+   * R86.A2: is a grid coordinate inside the ghost-house interior?
+   *
+   * Bounds intentionally exclude the dead-end pockets at (11, 13-15)
+   * and (19, 13-15) — those cells are technically reachable but an
+   * agent should never end up there mid-exit, and if it somehow does,
+   * normal AI can navigate out via the side corridors.
+   */
+  private isInsideGhostHouse(gridX: number, gridY: number): boolean {
+    const b = GAME_CONFIG.GHOST_HOUSE.BOUNDS;
+    return gridY >= b.minRow && gridY <= b.maxRow && gridX >= b.minCol && gridX <= b.maxCol;
   }
 
   private updateAgents(delta: number): void {
@@ -1090,6 +1111,22 @@ export class AgentChaseGameScene extends BaseScene {
   }
 
   private getAgentTarget(agent: Agent): { x: number; y: number } {
+    // R86.A2: inside-house override. Frightened + returning bypass this:
+    //  - frightened keeps its random-walk target so power-pellet feel is
+    //    preserved even if a power pellet is collected while an agent is
+    //    still partly inside the house.
+    //  - returning must reach its homePosition (that IS inside the house)
+    //    so the "eat ghost → respawn" flow completes correctly.
+    // All other states (scatter + chase) force the exit tile until the
+    // agent has cleared the house bounds.
+    if (
+      agent.state !== 'frightened' &&
+      agent.state !== 'returning' &&
+      this.isInsideGhostHouse(agent.gridX, agent.gridY)
+    ) {
+      return GAME_CONFIG.GHOST_HOUSE.EXIT_TILE;
+    }
+
     if (agent.state === 'scatter') {
       return agent.scatterTarget;
     }

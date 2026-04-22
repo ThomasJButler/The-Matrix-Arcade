@@ -13,8 +13,16 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import Phaser from 'phaser';
 import { AgentChaseGameScene } from './GameScene';
 import { GAME_CONFIG, ACHIEVEMENTS, getLayoutForLevel, MAP_LAYOUTS } from '../config';
+
+// R86.A2: `getAgentTarget` in frightened state calls `Phaser.Math.Between`.
+// Ensure Phaser.Math exists with a default Between before individual tests
+// override it — the global Phaser mock in setup.ts leaves Math undefined.
+const phaserMath = (Phaser as unknown as Record<string, Record<string, unknown>>).Math ?? {};
+phaserMath.Between = phaserMath.Between ?? vi.fn((min: number, max: number) => Math.floor((min + max) / 2));
+(Phaser as unknown as Record<string, unknown>).Math = phaserMath;
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -1070,6 +1078,313 @@ describe('AgentChaseGameScene', () => {
       // update() returns early if paused, so we test the direct call
       // by checking the mock was wired up correctly
       expect(scene.exposeTestState).toBeDefined();
+    });
+  });
+
+  /* ---------------------------------------------------------------- */
+  /*  R86.A2 — Ghost-house release + exit-tile override                */
+  /* ---------------------------------------------------------------- */
+  //
+  // Tom's 2026-04-22 playtest: "some enemies are trapped in the middle
+  // box and don't come out of the box to chase the player". Root cause
+  // traced to johnson (scatterTarget (0, 30)) looping (14,13) → (13,13)
+  // pocket → (13,14) → (14,14) → (14,13) forever because LEFT toward
+  // (13,13) has distance sqrt(13²+13²)=18.38 vs. UP through gate at
+  // (14,12) distance sqrt(14²+12²)=18.44 — a 0.06-unit tiebreak that
+  // blocks exit indefinitely.
+  //
+  // Two-part fix locked by these tests:
+  //  (a) releaseAgents() replaces the 5s timer with dot-count thresholds
+  //      [0, 10, 30, 60]. First agent immediate, second at 10 dots,
+  //      third at 30, fourth at 60.
+  //  (b) getAgentTarget() overrides scatter/chase targets with the
+  //      GHOST_HOUSE.EXIT_TILE when the agent is inside the house
+  //      bounds. Frightened + returning are NOT overridden (preserves
+  //      power-pellet feel + the "eat ghost → respawn" flow).
+
+  describe('R86.A2 — Ghost-house release + exit override', () => {
+    /* ---- config dial locks ---- */
+
+    describe('Config dial locks', () => {
+      it('locks RELEASE_DOT_THRESHOLDS at [0, 10, 30, 60] (Tom brief)', () => {
+        expect(GAME_CONFIG.GHOST_HOUSE.RELEASE_DOT_THRESHOLDS).toEqual([0, 10, 30, 60]);
+      });
+
+      it('locks EXIT_TILE at (14, 11) — one tile above the gate', () => {
+        expect(GAME_CONFIG.GHOST_HOUSE.EXIT_TILE).toEqual({ x: 14, y: 11 });
+      });
+
+      it('locks BOUNDS to the house interior rows 13-15, cols 13-17', () => {
+        expect(GAME_CONFIG.GHOST_HOUSE.BOUNDS).toEqual({
+          minRow: 13,
+          maxRow: 15,
+          minCol: 13,
+          maxCol: 17,
+        });
+      });
+
+      it('anti-regression: first threshold MUST be 0 so agent[0] releases immediately', () => {
+        expect(GAME_CONFIG.GHOST_HOUSE.RELEASE_DOT_THRESHOLDS[0]).toBe(0);
+      });
+
+      it('anti-regression: thresholds are strictly monotonic (ordering lock)', () => {
+        const thresholds = GAME_CONFIG.GHOST_HOUSE.RELEASE_DOT_THRESHOLDS;
+        for (let i = 1; i < thresholds.length; i++) {
+          expect(thresholds[i]).toBeGreaterThan(thresholds[i - 1]);
+        }
+      });
+
+      it('anti-regression: RELEASE_INTERVAL removed from AGENTS block', () => {
+        expect('RELEASE_INTERVAL' in GAME_CONFIG.AGENTS).toBe(false);
+      });
+    });
+
+    /* ---- isInsideGhostHouse helper ---- */
+
+    describe('isInsideGhostHouse helper', () => {
+      it('returns true for agent spawn positions (14,14), (13,14), (15,14)', () => {
+        expect(scene.isInsideGhostHouse(14, 14)).toBe(true);
+        expect(scene.isInsideGhostHouse(13, 14)).toBe(true);
+        expect(scene.isInsideGhostHouse(15, 14)).toBe(true);
+      });
+
+      it('returns true for the gate-entry row (row 13, cols 13-17)', () => {
+        expect(scene.isInsideGhostHouse(14, 13)).toBe(true);
+        expect(scene.isInsideGhostHouse(13, 13)).toBe(true);
+        expect(scene.isInsideGhostHouse(17, 13)).toBe(true);
+      });
+
+      it('returns FALSE for the exit tile (14, 11) — one above the gate', () => {
+        expect(scene.isInsideGhostHouse(14, 11)).toBe(false);
+      });
+
+      it('returns FALSE for the gate tile itself (14, 12) — in-transit, not inside', () => {
+        expect(scene.isInsideGhostHouse(14, 12)).toBe(false);
+      });
+
+      it('returns FALSE for the dead-end pocket at (11, 14)', () => {
+        expect(scene.isInsideGhostHouse(11, 14)).toBe(false);
+      });
+
+      it('returns FALSE for row 16 (below the house)', () => {
+        expect(scene.isInsideGhostHouse(14, 16)).toBe(false);
+      });
+    });
+
+    /* ---- releaseAgents behaviour ---- */
+
+    describe('releaseAgents — staggered dot-count release', () => {
+      function makeAgents() {
+        const agents = [0, 1, 2, 3].map((i) => ({
+          ...makeMockAgent('scatter'),
+          agentType: ['smith', 'brown', 'jones', 'johnson'][i],
+          isReleased: i === 0,
+        }));
+        scene.agents = { getChildren: vi.fn().mockReturnValue(agents) };
+        return agents;
+      }
+
+      it('releases agents[0] (smith) immediately at 0 dots — threshold[0]=0', () => {
+        const agents = makeAgents();
+        scene.agentReleaseIndex = 0;
+        scene.dotsCollected = 0;
+
+        scene.releaseAgents();
+
+        expect(agents[0].isReleased).toBe(true);
+        expect(scene.agentReleaseIndex).toBe(1);
+      });
+
+      it('does NOT release agents[1] (brown) at 9 dots — below threshold[1]=10', () => {
+        const agents = makeAgents();
+        scene.agentReleaseIndex = 1;
+        scene.dotsCollected = 9;
+
+        scene.releaseAgents();
+
+        expect(agents[1].isReleased).toBe(false);
+        expect(scene.agentReleaseIndex).toBe(1);
+      });
+
+      it('releases agents[1] (brown) at exactly 10 dots — boundary lock on threshold[1]', () => {
+        const agents = makeAgents();
+        scene.agentReleaseIndex = 1;
+        scene.dotsCollected = 10;
+
+        scene.releaseAgents();
+
+        expect(agents[1].isReleased).toBe(true);
+        expect(scene.agentReleaseIndex).toBe(2);
+      });
+
+      it('releases agents[2] (jones) at 30 dots — threshold[2]=30', () => {
+        const agents = makeAgents();
+        agents[1].isReleased = true;
+        scene.agentReleaseIndex = 2;
+        scene.dotsCollected = 30;
+
+        scene.releaseAgents();
+
+        expect(agents[2].isReleased).toBe(true);
+        expect(scene.agentReleaseIndex).toBe(3);
+      });
+
+      it('releases agents[3] (johnson) at 60 dots — threshold[3]=60', () => {
+        const agents = makeAgents();
+        agents[1].isReleased = true;
+        agents[2].isReleased = true;
+        scene.agentReleaseIndex = 3;
+        scene.dotsCollected = 60;
+
+        scene.releaseAgents();
+
+        expect(agents[3].isReleased).toBe(true);
+        expect(scene.agentReleaseIndex).toBe(4);
+      });
+
+      it('batch-releases after death: dotsCollected=60 with agentReleaseIndex=1 releases 1,2,3 in one pass', () => {
+        const agents = makeAgents();
+        // Simulate post-death state: index reset to 1, dotsCollected unchanged
+        scene.agentReleaseIndex = 1;
+        scene.dotsCollected = 60;
+
+        scene.releaseAgents();
+
+        expect(agents[1].isReleased).toBe(true);
+        expect(agents[2].isReleased).toBe(true);
+        expect(agents[3].isReleased).toBe(true);
+        expect(scene.agentReleaseIndex).toBe(4);
+      });
+
+      it('no-ops when all four agents are already released (agentReleaseIndex=4)', () => {
+        makeAgents();
+        scene.agentReleaseIndex = 4;
+        scene.dotsCollected = 100;
+
+        scene.releaseAgents();
+
+        expect(scene.agentReleaseIndex).toBe(4);
+      });
+
+      it('releases are strictly ordered: agent[2] never released before agent[1]', () => {
+        // Contrived check: if the loop ever tried to skip ahead, dotsCollected=30
+        // with agentReleaseIndex=1 should still fire the threshold[1]=10 check
+        // FIRST, releasing brown, then check threshold[2]=30, releasing jones.
+        const agents = makeAgents();
+        scene.agentReleaseIndex = 1;
+        scene.dotsCollected = 30;
+
+        scene.releaseAgents();
+
+        expect(agents[1].isReleased).toBe(true);
+        expect(agents[2].isReleased).toBe(true);
+        // If ordering broke, brown could be released after jones.
+        // The while-loop structure guarantees sequential release.
+        expect(scene.agentReleaseIndex).toBe(3);
+      });
+    });
+
+    /* ---- getAgentTarget inside-house override ---- */
+
+    describe('getAgentTarget — inside-house exit override', () => {
+      beforeEach(() => {
+        const offsetX = (GAME_CONFIG.WIDTH - GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE) / 2;
+        const offsetY = 40;
+        scene.player = {
+          x: offsetX + 13 * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2,
+          y: offsetY + 23 * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2,
+        };
+        scene.playerDirection = 'LEFT';
+      });
+
+      it('scatter state inside house → returns EXIT_TILE (14, 11)', () => {
+        const agent = { ...makeMockAgent('scatter'), gridX: 14, gridY: 14 };
+
+        const target = scene.getAgentTarget(agent);
+
+        expect(target).toEqual(GAME_CONFIG.GHOST_HOUSE.EXIT_TILE);
+      });
+
+      it('chase state inside house → returns EXIT_TILE (not player position)', () => {
+        const agent = { ...makeMockAgent('chase'), gridX: 15, gridY: 14, agentType: 'smith' };
+
+        const target = scene.getAgentTarget(agent);
+
+        expect(target).toEqual(GAME_CONFIG.GHOST_HOUSE.EXIT_TILE);
+      });
+
+      it('scatter state OUTSIDE house → returns scatterTarget (normal AI)', () => {
+        const agent = {
+          ...makeMockAgent('scatter'),
+          gridX: 14,
+          gridY: 11, // exit tile — OUTSIDE bounds
+          scatterTarget: { x: 25, y: 0 },
+        };
+
+        const target = scene.getAgentTarget(agent);
+
+        expect(target).toEqual({ x: 25, y: 0 });
+      });
+
+      it('frightened state inside house → does NOT override (random target preserved)', () => {
+        // Re-seed Phaser.Math.Between deterministically so we can assert
+        // the frightened branch was actually taken (not the EXIT_TILE
+        // override). The module-level seed above gave it a floor-midpoint
+        // default; this test tightens it to a fixed value.
+        (Phaser.Math as unknown as { Between: unknown }).Between = vi.fn().mockReturnValue(7);
+
+        const agent = { ...makeMockAgent('frightened'), gridX: 14, gridY: 14 };
+
+        const target = scene.getAgentTarget(agent);
+
+        // Frightened returns { x: Between(...), y: Between(...) } = (7, 7),
+        // NOT the deterministic EXIT_TILE override.
+        expect(target).toEqual({ x: 7, y: 7 });
+        expect(target).not.toEqual(GAME_CONFIG.GHOST_HOUSE.EXIT_TILE);
+      });
+
+      it('returning state inside house → targets homePosition (not exit tile)', () => {
+        const offsetX = (GAME_CONFIG.WIDTH - GAME_CONFIG.MAZE_COLS * GAME_CONFIG.TILE_SIZE) / 2;
+        const offsetY = 40;
+        // Use whole-tile coordinates (no +TILE_SIZE/2 half-offset) so the
+        // production code's Math.round((home - offset) / TILE_SIZE) gives
+        // back the original grid coordinate cleanly.
+        const agent = {
+          ...makeMockAgent('returning'),
+          gridX: 14,
+          gridY: 14,
+          homePosition: {
+            x: offsetX + 13 * GAME_CONFIG.TILE_SIZE,
+            y: offsetY + 14 * GAME_CONFIG.TILE_SIZE,
+          },
+        };
+
+        const target = scene.getAgentTarget(agent);
+
+        // Asserts the returning branch ran (not EXIT_TILE override).
+        expect(target).toEqual({ x: 13, y: 14 });
+        expect(target).not.toEqual(GAME_CONFIG.GHOST_HOUSE.EXIT_TILE);
+      });
+
+      it('regression guard: johnson at (14, 13) does NOT target scatterTarget anymore', () => {
+        // Direct reproduction of Tom's 2026-04-22 bug. Before R86.A2,
+        // johnson (scatterTarget (0, 30)) at (14, 13) targeted (0, 30),
+        // making LEFT to (13, 13) pocket look better than UP to gate.
+        // Now he targets EXIT_TILE (14, 11) — distance 2 UP, 2.24 LEFT.
+        // UP wins, johnson exits.
+        const agent = {
+          ...makeMockAgent('scatter'),
+          gridX: 14,
+          gridY: 13,
+          agentType: 'johnson',
+          scatterTarget: { x: 0, y: 30 },
+        };
+
+        const target = scene.getAgentTarget(agent);
+
+        expect(target).toEqual({ x: 14, y: 11 });
+        expect(target).not.toEqual(agent.scatterTarget);
+      });
     });
   });
 });
