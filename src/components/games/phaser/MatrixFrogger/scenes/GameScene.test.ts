@@ -1931,4 +1931,242 @@ describe('FroggerGameScene', () => {
       expect(GAME_CONFIG.DIFFICULTY.ENEMY_COUNT_BASE).toBe(3);
     });
   });
+
+  // -----------------------------------------------------------------------
+  // R86.F6+++ safety-net — playerDeath tween contract + level-up reset
+  // arithmetic + banner leak-prevention (pre-Tom-tick).
+  //
+  // Tom's verbatim F6 Known-Issue brief: "Multi-level polish — any scene-
+  // reset artefacts (e.g. agents not respawning, backdrop lingering)". The
+  // earlier F6 / F6+ / F6++ safety-nets locked state persistence, timer
+  // isolation, and difficulty-ramp arithmetic respectively. Three invariant
+  // families remain unlocked that map DIRECTLY onto the F6 brief:
+  //
+  //   1. `playerDeath`'s tween->onComplete->gameOver chain. R86.F1 removed
+  //      a 3-way tween race that previously stalled this onComplete (the
+  //      exact symptom Tom called a "freeze on the finish line"). The
+  //      existing Game-Over tests assert isGameOver flips and a tween gets
+  //      added but do NOT lock the onComplete callback actually reaching
+  //      reportScore + gameOver, nor the stats payload shape. A refactor
+  //      that simplifies playerDeath could silently break the chain and
+  //      revive the freeze without tripping any gate.
+  //
+  //   2. `triggerLevelUp`'s reset arithmetic. The F1 block tests the
+  //      ROW reset behaviourally (`checkProgress` doesn't re-fire on the
+  //      next frame) but leaves COL reset + the visual reset-tween's
+  //      duration/ease feel dials unverified. A refactor that drops the
+  //      playerCol reset would leave Neo stuck in the rightmost column
+  //      after every level transition — a direct multi-level artefact.
+  //
+  //   3. `showLevelUpText`'s self-cleanup via tween onComplete -> destroy.
+  //      Without the destroy, every finish-line cross leaves an orphaned
+  //      text object at depth 200 — and since Frogger is continuous-flow,
+  //      a 5-level run would stack 5 dead text nodes on-top of gameplay.
+  //      That's "backdrop lingering" made literal. The F7 test verifies
+  //      the banner renders, not that it cleans up.
+  //
+  // Pure coverage refresh — no production code touched.
+  // -----------------------------------------------------------------------
+  describe('R86.F6+++ safety-net — playerDeath contract + level-up reset + banner cleanup', () => {
+    // ---------------------------------------------------------------------
+    // (1) playerDeath juice + onComplete chain
+    // ---------------------------------------------------------------------
+
+    it('playerDeath locks screen-shake feel at shake(200, 0.012)', () => {
+      // Feel dial: 200 ms window + 0.012 intensity is the calibrated
+      // "hard hit" beat. A juice refactor bumping intensity to 0.05 would
+      // nauseate players; dropping to 0.002 would erase the impact cue.
+      scene.playerDeath(createMockEnemy());
+      expect(scene.cameras.main.shake).toHaveBeenCalledWith(200, 0.012);
+    });
+
+    it('playerDeath locks red-flash to (120, 255, 0, 0, false, undefined, undefined, 0.25)', () => {
+      // Direct guard against a copy/paste from triggerLevelUp's GREEN
+      // celebratory flash (150, 0, 255, 0, ..., 0.15) — a future "extract
+      // common flash helper" refactor could silently swap lethal
+      // feedback for achievement feedback. Mirrors the NeoJump N4 lock.
+      scene.playerDeath(createMockEnemy());
+      expect(scene.cameras.main.flash).toHaveBeenCalledWith(
+        120,
+        255,
+        0,
+        0,
+        false,
+        undefined,
+        undefined,
+        0.25,
+      );
+    });
+
+    it('playerDeath tween arms the spin-death motion (alpha=0, scale=0, angle=360, duration=500)', () => {
+      // The four-key motion signature is what makes the death read as a
+      // "demat" rather than a simple fade. A refactor dropping `angle`
+      // (or duration < 300) would lose the legibility Tom expects.
+      scene.playerDeath(createMockEnemy());
+      const config = (scene.tweens.add as any).mock.calls.at(-1)?.[0];
+      expect(config).toBeDefined();
+      expect(config.alpha).toBe(0);
+      expect(config.scale).toBe(0);
+      expect(config.angle).toBe(360);
+      expect(config.duration).toBe(500);
+      expect(config.targets).toBe(scene.player);
+    });
+
+    it('playerDeath onComplete chains reportScore -> gameOver with the 4-row stats payload', () => {
+      // THE critical freeze-prevention contract. R86.F1 removed a tween
+      // race that previously stalled this onComplete; if a refactor
+      // drops either call (or reorders so gameOver runs before
+      // reportScore), the death path stops reporting and the game-over
+      // screen never paints — exactly Tom's original "freeze on finish
+      // line" symptom, just surfacing from a different angle.
+      scene.highScore = 0;
+      scene.score = 450;
+      scene.level = 3;
+      scene.nearMissCount = 7;
+      scene.kungFuTotalUsed = 2;
+      scene.shieldHits = 1;
+      scene.getGameDuration = vi.fn().mockReturnValue(12345);
+
+      const enemy = { ...createMockEnemy(), enemyType: 'agent' as const };
+      scene.playerDeath(enemy);
+
+      const config = (scene.tweens.add as any).mock.calls.at(-1)?.[0];
+      expect(typeof config?.onComplete).toBe('function');
+
+      const reportOrder = (scene.reportScore as any).mock.invocationCallOrder;
+      const gameOverOrder = (scene.gameOver as any).mock.invocationCallOrder;
+      expect(reportOrder.length).toBe(0);
+      expect(gameOverOrder.length).toBe(0);
+
+      config.onComplete();
+
+      expect(scene.reportScore).toHaveBeenCalledWith(450, 450);
+      expect(scene.gameOver).toHaveBeenCalledWith(
+        450,
+        'Hit by AGENT',
+        450,
+        [
+          { label: 'Level', value: 3 },
+          { label: 'Near Misses', value: 7 },
+          { label: 'Kung Fu', value: 2 },
+          { label: 'Shield Hits', value: 1 },
+        ],
+        3,
+        12345,
+      );
+      expect(
+        (scene.reportScore as any).mock.invocationCallOrder[0],
+      ).toBeLessThan(
+        (scene.gameOver as any).mock.invocationCallOrder[0],
+      );
+    });
+
+    it('playerDeath onComplete passes "Game Over" when no enemy argument is supplied', () => {
+      // The enemy-less death path (fall timeouts, future boss mechanics,
+      // etc.) must still reach gameOver with a defined reason string.
+      // Locks the `enemy ? 'Hit by X' : 'Game Over'` ternary so a
+      // refactor can't leave the reason as undefined.
+      scene.highScore = 0;
+      scene.score = 100;
+      scene.getGameDuration = vi.fn().mockReturnValue(0);
+
+      scene.playerDeath();
+      const config = (scene.tweens.add as any).mock.calls.at(-1)?.[0];
+      config.onComplete();
+
+      const [, reason] = (scene.gameOver as any).mock.calls[0];
+      expect(reason).toBe('Game Over');
+    });
+
+    // ---------------------------------------------------------------------
+    // (2) triggerLevelUp reset-tween arithmetic
+    // ---------------------------------------------------------------------
+
+    it('triggerLevelUp resets playerCol to START_COL (not just playerRow)', () => {
+      // Direct guard against a "reset only the row that triggered
+      // checkProgress" simplification. If playerCol stays at the
+      // right-edge column where Neo crossed, Level 2 starts off-centre
+      // and the reset-tween target X is wrong for every subsequent cross.
+      scene.tweens = { add: vi.fn(), killTweensOf: vi.fn() };
+      scene.showLevelUpText = vi.fn();
+      scene.playerCol = 12;
+      scene.playerRow = 0;
+      scene.checkProgress();
+      expect(scene.playerCol).toBe(GAME_CONFIG.PLAYER.START_COL);
+      expect(scene.playerRow).toBe(GAME_CONFIG.PLAYER.START_ROW);
+    });
+
+    it('triggerLevelUp reset tween uses Back.easeOut + duration 300 (feel dial)', () => {
+      // The Back.easeOut overshoot gives the reset a satisfying "bounce
+      // home" feel. A refactor swapping to 'Linear' or 'Cubic.easeIn'
+      // would silently flatten the moment. 300 ms is the tuned window
+      // between "snappy" (<200 ms reads as teleport) and "laggy"
+      // (>500 ms fights player re-input).
+      scene.tweens = { add: vi.fn(), killTweensOf: vi.fn() };
+      scene.showLevelUpText = vi.fn();
+      scene.playerRow = 0;
+      scene.checkProgress();
+
+      const tweenCalls = (scene.tweens.add as any).mock.calls;
+      // Find the reset tween (the one that targets the player sprite).
+      const resetCall = tweenCalls.find(
+        (c: any[]) => c[0]?.targets === scene.player,
+      );
+      expect(resetCall).toBeDefined();
+      expect(resetCall[0].duration).toBe(300);
+      expect(resetCall[0].ease).toBe('Back.easeOut');
+    });
+
+    // ---------------------------------------------------------------------
+    // (3) showLevelUpText banner cleanup
+    // ---------------------------------------------------------------------
+
+    it('showLevelUpText tween onComplete destroys the banner text node', () => {
+      // "Backdrop lingering" tripwire. Without destroy() the banner is a
+      // long-lived Phaser.GameObjects.Text at depth 200; a 5-cross run
+      // would stack 5 live text nodes on the scene graph, each still
+      // registered for the update loop. The destroy IS the cleanup
+      // contract — test it directly by invoking the captured onComplete.
+      const destroy = vi.fn();
+      scene.add.text = vi.fn().mockReturnValue({
+        setOrigin: vi.fn().mockReturnThis(),
+        setDepth: vi.fn().mockReturnThis(),
+        destroy,
+      });
+      scene.tweens = { add: vi.fn(), killTweensOf: vi.fn() };
+      scene.showLevelUpText();
+
+      const config = (scene.tweens.add as any).mock.calls.at(-1)?.[0];
+      expect(typeof config?.onComplete).toBe('function');
+      expect(destroy).not.toHaveBeenCalled();
+
+      config.onComplete();
+      expect(destroy).toHaveBeenCalledTimes(1);
+    });
+
+    it('showLevelUpText tween uses alpha=0 + y-rise + scale=1.5 + duration=1000 feel literals', () => {
+      // The banner's four-key motion signature: fade out, rise 50 px,
+      // scale up 50%, over 1 s. A "clean up" refactor that drops the
+      // scale or the y-rise would render the banner as a static fade,
+      // losing the satisfying "level up" legibility Tom expects. Lock
+      // every literal so the feel survives untouched.
+      scene.add.text = vi.fn().mockReturnValue({
+        setOrigin: vi.fn().mockReturnThis(),
+        setDepth: vi.fn().mockReturnThis(),
+        destroy: vi.fn(),
+      });
+      scene.tweens = { add: vi.fn(), killTweensOf: vi.fn() };
+      scene.showLevelUpText();
+
+      const config = (scene.tweens.add as any).mock.calls.at(-1)?.[0];
+      expect(config.alpha).toBe(0);
+      expect(config.scale).toBe(1.5);
+      expect(config.duration).toBe(1000);
+      expect(config.ease).toBe('Quad.easeOut');
+      // y rises by 50 px from HEIGHT/2 (startY isn't in the tween target
+      // list, only the destination, so verify the destination equals
+      // HEIGHT/2 - 50 which is what the source arithmetic computes).
+      expect(config.y).toBe(GAME_CONFIG.HEIGHT / 2 - 50);
+    });
+  });
 });
