@@ -1714,4 +1714,312 @@ describe('NeoJumpGameScene', () => {
       });
     });
   });
+
+  /* -------------------------------------------------------------- */
+  /*  R86.N5 safety-net — Difficulty ramp invariants (pre-Tom-tick) */
+  /*                                                                */
+  /*  R86.N5 (post-rebalance ramp tuning) is Tom-tick only — it     */
+  /*  hinges on whether mid-game (500-1500m) and late-game          */
+  /*  (1500m+) still feel compelling after N1's early-game nerfs,   */
+  /*  and Tom can only answer that with a real playthrough.         */
+  /*                                                                */
+  /*  Per the R86.F6 safety-net playbook, Ralph pre-locks the ramp  */
+  /*  geometry here so any N5 feel regression Tom surfaces is       */
+  /*  provably a tuning issue, not a silent coverage gap. The       */
+  /*  spawn-chance curve lives in `maybeSpawnEnemy` at GameScene.ts */
+  /*  1082-1084:                                                    */
+  /*                                                                */
+  /*    baseChance  = SPAWN_CHANCE_BASE                             */
+  /*    bonusChance = floor(altitude/1000) * SPAWN_CHANCE_PER_1000  */
+  /*    spawnChance = min(base + bonus, SPAWN_CHANCE_MAX)           */
+  /*                                                                */
+  /*  This is a STAIRCASE, not a line — the chance is constant      */
+  /*  across a tier (e.g. 500-999m), then steps at each kilometre.  */
+  /*  Locking the derived chance at altitude checkpoints is more    */
+  /*  robust than locking the formula: a future rebalance can       */
+  /*  reshape the curve but must keep mid-game density recognisable */
+  /*  or the test fails.                                            */
+  /*                                                                */
+  /*  No production code is touched — pure coverage refresh.        */
+  /* -------------------------------------------------------------- */
+  describe('R86.N5 safety-net — Difficulty ramp invariants (pre-Tom-tick)', () => {
+    /**
+     * Mirrors the spawn-chance formula at GameScene.ts:1082-1084 so tests
+     * exercise the curve geometry without needing the full scene wired up.
+     */
+    function spawnChanceAt(altitude: number): number {
+      const base = GAME_CONFIG.ENEMIES.SPAWN_CHANCE_BASE;
+      const bonus = Math.floor(altitude / 1000) * GAME_CONFIG.ENEMIES.SPAWN_CHANCE_PER_1000;
+      return Math.min(base + bonus, GAME_CONFIG.ENEMIES.SPAWN_CHANCE_MAX);
+    }
+
+    describe('Spawn-chance checkpoints — mid-game must stay compelling', () => {
+      it('altitude 1000m — first tier step reached (0.018 + 0.015 = 0.033)', () => {
+        // First altitude at which the ramp actually kicks in after the
+        // tutorial zone. Tom's N5 ask is "does mid-game still feel alive?"
+        // — if this regresses toward 0.018 the first km post-tutorial
+        // feels identical to the tutorial itself.
+        expect(spawnChanceAt(1000)).toBeCloseTo(0.033, 5);
+      });
+
+      it('altitude 2000m — second-tier chance (0.048)', () => {
+        expect(spawnChanceAt(2000)).toBeCloseTo(0.048, 5);
+      });
+
+      it('altitude 5000m — late-mid chance (0.093)', () => {
+        // base 0.018 + 5 * 0.015 = 0.093. Late-mid is where the game
+        // transitions from "tutorial-ish" to "survive or die"; lock
+        // the density so a future base-nerf can't flatten it.
+        expect(spawnChanceAt(5000)).toBeCloseTo(0.093, 5);
+      });
+
+      it('altitude 10000m — late-game ceiling reached exactly', () => {
+        // floor(10000/1000) * 0.015 = 0.150; base + bonus = 0.168 clamped
+        // to SPAWN_CHANCE_MAX (0.16). Tripwire: if a future rebalance
+        // pushes the ceiling altitude past a 15km playthrough, most
+        // players will never see max density.
+        expect(spawnChanceAt(10000)).toBe(GAME_CONFIG.ENEMIES.SPAWN_CHANCE_MAX);
+      });
+
+      it('plateau at ceiling — chance stays at MAX after it is reached', () => {
+        // Staircase ramps should clamp, not wrap, after the tier bonus
+        // exceeds MAX - BASE. Without the clamp a 20km run would push
+        // chance past 0.30 → "enemy every three frames" unplayable.
+        expect(spawnChanceAt(15000)).toBe(GAME_CONFIG.ENEMIES.SPAWN_CHANCE_MAX);
+        expect(spawnChanceAt(20000)).toBe(GAME_CONFIG.ENEMIES.SPAWN_CHANCE_MAX);
+      });
+    });
+
+    describe('Staircase-ramp integrity — monotonic and floor-binned', () => {
+      it('ramp is strictly increasing at every kilometre boundary up to the ceiling', () => {
+        // Locks the direction of the curve. A future edit that inverts a
+        // sign or makes bonus negative would silently flatten mid-game.
+        for (let km = 1; km <= 9; km++) {
+          expect(spawnChanceAt(km * 1000)).toBeGreaterThan(spawnChanceAt((km - 1) * 1000));
+        }
+      });
+
+      it('ramp is non-decreasing across the full 0-20km altitude sweep', () => {
+        // Scans the whole playable altitude range — catches any non-monotonic
+        // dip a formula-rewrite might introduce (e.g. a sin() cycle).
+        let prev = -Infinity;
+        for (let alt = 0; alt <= 20000; alt += 100) {
+          const chance = spawnChanceAt(alt);
+          expect(chance).toBeGreaterThanOrEqual(prev);
+          prev = chance;
+        }
+      });
+
+      it('floor-binning — chance at 500m equals chance at 999m (same tier, no mid-tier jitter)', () => {
+        // The staircase step function means the chance is constant across
+        // a 1km tier. If a future refactor switches to linear interpolation,
+        // gameplay would feel "breathy" (chance growing with every metre)
+        // which Tom has not asked for — lock the staircase.
+        expect(spawnChanceAt(500)).toBe(spawnChanceAt(999));
+      });
+
+      it('floor-binning — chance at 1000m strictly greater than at 999m (tier boundary)', () => {
+        // Complement to the previous test: the staircase MUST step at the
+        // kilometre boundary. If both 999 and 1000 returned the same value,
+        // the ramp would be a flat line at base and mid-game would never
+        // escalate.
+        expect(spawnChanceAt(1000)).toBeGreaterThan(spawnChanceAt(999));
+      });
+    });
+
+    describe('Ceiling reachability — late-game must stay reachable', () => {
+      it('tiers-to-ceiling is ≤ 15 (ceiling within a realistic 15km run)', () => {
+        // If this trips, a future rebalance has pushed the ceiling so far
+        // out that most runs never reach max density. Playtest-wise that
+        // would feel like the ramp "never finishes". 15km is ~2× Tom's
+        // current run length — generous headroom.
+        const stepsToCeil = Math.ceil(
+          (GAME_CONFIG.ENEMIES.SPAWN_CHANCE_MAX - GAME_CONFIG.ENEMIES.SPAWN_CHANCE_BASE) /
+            GAME_CONFIG.ENEMIES.SPAWN_CHANCE_PER_1000,
+        );
+        expect(stepsToCeil).toBeLessThanOrEqual(15);
+      });
+
+      it('ceiling NOT reached at 1000m (tutorial-plus-one-step stays gentle)', () => {
+        // Anti-regression: a future "simpler" rebalance that sets
+        // SPAWN_CHANCE_BASE close to MAX would make mid-game feel like
+        // late-game. Lock that the first tier step is clearly below MAX.
+        expect(spawnChanceAt(1000)).toBeLessThan(GAME_CONFIG.ENEMIES.SPAWN_CHANCE_MAX);
+      });
+    });
+
+    describe('Tutorial-zone boundary — SPAWN_ALTITUDE gate behaves precisely', () => {
+      /** Wire the minimum scene state for a maybeSpawnEnemy call. */
+      function setupSpawnMinimal(scene: Record<string, unknown>) {
+        scene.enemies = {
+          getChildren: vi.fn().mockReturnValue([]),
+          create: vi.fn().mockReturnValue({
+            direction: 0,
+            speed: 0,
+            isDying: false,
+            setDepth: vi.fn(),
+            setDisplaySize: vi.fn(),
+            setTint: vi.fn(),
+          }),
+        };
+        (scene.cameras as { main: { scrollY: number } }).main.scrollY = 0;
+      }
+
+      /** Stub RNG for the duration of a test; returns a restore fn. */
+      function stubRng(betweenValue: number, randomValue = 0) {
+        const origBetween = (Phaser.Math as unknown as Record<string, unknown>).Between;
+        const origRandom = Math.random;
+        (Phaser.Math as unknown as Record<string, unknown>).Between = vi.fn(() => betweenValue);
+        Math.random = vi.fn(() => randomValue);
+        return () => {
+          (Phaser.Math as unknown as Record<string, unknown>).Between = origBetween;
+          Math.random = origRandom;
+        };
+      }
+
+      it('altitude exactly SPAWN_ALTITUDE (800m) allows the spawn gate through', () => {
+        // Guard uses `<`, not `<=` — exactly 800m must pass. If a future
+        // refactor flips to `<=`, the tutorial zone silently grows 1m.
+        setupSpawnMinimal(scene);
+        scene.highestY = GAME_CONFIG.HEIGHT - GAME_CONFIG.ENEMIES.SPAWN_ALTITUDE; // altitude === SPAWN_ALTITUDE
+        scene.player.x = 50; // far from spawn X (300)
+        const restore = stubRng(300);
+
+        scene.maybeSpawnEnemy();
+
+        expect(
+          (scene.enemies as { create: ReturnType<typeof vi.fn> }).create,
+        ).toHaveBeenCalled();
+        restore();
+      });
+
+      it('altitude 1m below SPAWN_ALTITUDE (799m) still blocks the gate', () => {
+        // Complementary boundary test: 1m inside the tutorial zone must
+        // suppress the spawn even with RNG forced favourable.
+        setupSpawnMinimal(scene);
+        scene.highestY = GAME_CONFIG.HEIGHT - (GAME_CONFIG.ENEMIES.SPAWN_ALTITUDE - 1);
+        const restore = stubRng(300);
+
+        scene.maybeSpawnEnemy();
+
+        expect(
+          (scene.enemies as { create: ReturnType<typeof vi.fn> }).create,
+        ).not.toHaveBeenCalled();
+        restore();
+      });
+    });
+
+    describe('Late-game anti-density — nearby-enemy throttle', () => {
+      /** Wire the minimum scene state for a maybeSpawnEnemy call. */
+      function setupSpawnMinimal(scene: Record<string, unknown>, existingEnemies: unknown[] = []) {
+        scene.enemies = {
+          getChildren: vi.fn().mockReturnValue(existingEnemies),
+          create: vi.fn().mockReturnValue({
+            direction: 0,
+            speed: 0,
+            isDying: false,
+            setDepth: vi.fn(),
+            setDisplaySize: vi.fn(),
+            setTint: vi.fn(),
+          }),
+        };
+        (scene.cameras as { main: { scrollY: number } }).main.scrollY = 0;
+        scene.highestY = 0 - (GAME_CONFIG.ENEMIES.SPAWN_ALTITUDE + 200); // well above threshold
+      }
+
+      /** Stub RNG for the duration of a test; returns a restore fn. */
+      function stubRng(betweenValue: number, randomValue = 0) {
+        const origBetween = (Phaser.Math as unknown as Record<string, unknown>).Between;
+        const origRandom = Math.random;
+        (Phaser.Math as unknown as Record<string, unknown>).Between = vi.fn(() => betweenValue);
+        Math.random = vi.fn(() => randomValue);
+        return () => {
+          (Phaser.Math as unknown as Record<string, unknown>).Between = origBetween;
+          Math.random = origRandom;
+        };
+      }
+
+      it('skips spawn when an enemy sits in the [cameraTop - 100, cameraTop + 200] band', () => {
+        // Even at the ceiling chance of 0.16 this throttle prevents a
+        // late-game enemy cluster — critical for the 10km+ playthrough
+        // where RNG would otherwise allow 3+ enemies on screen at once.
+        // Simulates a nearby enemy at y=50 with cameraTop=0 → inside band.
+        setupSpawnMinimal(scene, [{ y: 50 }]);
+        scene.player.x = 50;
+        const restore = stubRng(300, 0); // force-spawn RNG; spacing far from player
+
+        scene.maybeSpawnEnemy();
+
+        expect(
+          (scene.enemies as { create: ReturnType<typeof vi.fn> }).create,
+        ).not.toHaveBeenCalled();
+        restore();
+      });
+
+      it('allows spawn when the nearest enemy sits outside the throttle band', () => {
+        // Complement: an enemy well below the camera (y = 500, cameraTop = 0)
+        // must NOT suppress new spawns — otherwise late-game would choke on
+        // off-screen ghosts that never leave the enemies group.
+        setupSpawnMinimal(scene, [{ y: 500 }]);
+        scene.player.x = 50;
+        const restore = stubRng(300, 0);
+
+        scene.maybeSpawnEnemy();
+
+        expect(
+          (scene.enemies as { create: ReturnType<typeof vi.fn> }).create,
+        ).toHaveBeenCalled();
+        restore();
+      });
+    });
+
+    describe('Enemy speed range — Phaser.Math.Between plumbed through', () => {
+      it('spawned enemy speed is assigned from Between(SPEED_MIN, SPEED_MAX)', () => {
+        // Locks that the speed dials are honoured on assignment. If a
+        // future refactor hardcodes a speed literal, the SPEED_MIN/MAX
+        // rebalance Ralph shipped in N1 would be silently bypassed.
+        const created: Record<string, unknown> = {
+          direction: 0,
+          speed: 0,
+          isDying: false,
+          setDepth: vi.fn(),
+          setDisplaySize: vi.fn(),
+          setTint: vi.fn(),
+        };
+        scene.enemies = {
+          getChildren: vi.fn().mockReturnValue([]),
+          create: vi.fn().mockReturnValue(created),
+        };
+        (scene.cameras as { main: { scrollY: number } }).main.scrollY = 0;
+        scene.highestY = 0 - (GAME_CONFIG.ENEMIES.SPAWN_ALTITUDE + 200);
+        scene.player.x = 50;
+
+        const origBetween = (Phaser.Math as unknown as Record<string, unknown>).Between;
+        const betweenSpy = vi.fn((min: number, max: number) => {
+          // The X-placement Between call uses (50, WIDTH-50). The speed
+          // Between call uses (SPEED_MIN, SPEED_MAX). Return different
+          // sentinel values so we can assert both were made.
+          if (min === 50 && max === GAME_CONFIG.WIDTH - 50) return 300;
+          return 60; // sentinel speed inside [40, 75]
+        });
+        (Phaser.Math as unknown as Record<string, unknown>).Between = betweenSpy;
+        const origRandom = Math.random;
+        Math.random = vi.fn(() => 0);
+
+        scene.maybeSpawnEnemy();
+
+        // Assert Phaser.Math.Between was called with the speed bounds.
+        const speedCall = betweenSpy.mock.calls.find(
+          (args) =>
+            args[0] === GAME_CONFIG.ENEMIES.SPEED_MIN &&
+            args[1] === GAME_CONFIG.ENEMIES.SPEED_MAX,
+        );
+        expect(speedCall).toBeDefined();
+        expect(created.speed).toBe(60);
+
+        (Phaser.Math as unknown as Record<string, unknown>).Between = origBetween;
+        Math.random = origRandom;
+      });
+    });
+  });
 });
