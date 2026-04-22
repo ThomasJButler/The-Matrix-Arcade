@@ -41,7 +41,10 @@ export class RhythmHackerMenuScene extends BaseScene {
 
     // Controls info
     this.createMatrixText(WIDTH / 2, HEIGHT - 100, 'Select difficulty and press ENTER to start', 12);
-    this.createMatrixText(WIDTH / 2, HEIGHT - 70, 'ESC: Exit  P: Pause  M: Mute', 10, MATRIX_COLORS.PRIMARY_HEX).setAlpha(0.3);
+    // R86.R1 — Pause key omitted (P is reserved for QWOP lane 4). The dashbar
+    // pause button still works because it dispatches PAUSE_REQUEST_EVENT which
+    // BaseScene honours independently of any keyboard binding.
+    this.createMatrixText(WIDTH / 2, HEIGHT - 70, 'ESC: Exit  M: Mute', 10, MATRIX_COLORS.PRIMARY_HEX).setAlpha(0.3);
 
     // Keyboard input
     this.setupInput();
