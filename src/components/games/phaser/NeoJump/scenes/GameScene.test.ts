@@ -2189,4 +2189,198 @@ describe('NeoJumpGameScene', () => {
       });
     });
   });
+
+  /* ------------------------------------------------------------------ */
+  /*  R86.N4+ safety-net — playerDeath contract + onComplete chain     */
+  /*  (pre-Tom-tick)                                                    */
+  /*                                                                    */
+  /*  Mirror of Frogger R86.F6+++ for Neo Jump. N4 locked the shake     */
+  /*  + flash literals and the existing Game Over block locks the red   */
+  /*  tint + isGameOver flag + "death tween starts" + re-entry guard.   */
+  /*  G1 locks the saveSystem write branch inside onComplete. That      */
+  /*  leaves three invariant families unprotected:                      */
+  /*                                                                    */
+  /*  (1) Juice contract — playSound(SOUND_KEYS.GAME_OVER) + the        */
+  /*      four-key tween motion signature (targets=player, alpha=0,    */
+  /*      y+100, angle=180, duration=500). A refactor extracting a     */
+  /*      "death helper" could silently drop the sound or swap the     */
+  /*      rotation for a fade, and nothing today would catch it.       */
+  /*                                                                    */
+  /*  (2) onComplete ordering + gameOver payload — the chain must be   */
+  /*      reportScore → saveSystem write → gameOver, with the          */
+  /*      `highScore = max(score, highScore)` mutation happening       */
+  /*      BEFORE reportScore so the scoreboard sees the new watermark. */
+  /*      gameOver's 6-arg payload has a fixed shape (score, reason    */
+  /*      `Altitude: Xm`, highScore, 2-row stats [Enemies,             */
+  /*      Collectibles], level=floor(alt/500), duration). This is the  */
+  /*      exact shape of the R85.G1 scoreboard regression — payload    */
+  /*      drift here breaks the modal layout and the saved stats.     */
+  /*                                                                    */
+  /*  (3) playerSpriteMode branch — the sprite-mode path calls         */
+  /*      updatePlayerTexture('death') for a dedicated death frame;    */
+  /*      the programmatic-graphics path does not. A refactor that    */
+  /*      flips the default mode or drops the branch leaves the       */
+  /*      player dying while still looking alive.                     */
+  /* ------------------------------------------------------------------ */
+  describe('R86.N4+ safety-net — playerDeath contract + onComplete chain (pre-Tom-tick)', () => {
+    // (1) Juice contract — playSound + tween motion signature
+    describe('juice contract — playSound + tween motion', () => {
+      it('playerDeath fires playSound(SOUND_KEYS.GAME_OVER) exactly once', () => {
+        // Silent-death regression guard. If a refactor drops the sound
+        // call (e.g. "extract to a death helper that's missing the
+        // sound"), the player gets no audio cue — the only acoustic
+        // signal a run just ended. SOUND_KEYS.GAME_OVER is the
+        // 'gameOver' string; a drift to 'game_over' / 'death' etc.
+        // also fails this gate.
+        scene.playerDeath();
+        expect(scene.playSound).toHaveBeenCalledWith('gameOver');
+        expect(scene.playSound).toHaveBeenCalledTimes(1);
+      });
+
+      it('playerDeath tween targets this.player (not a wrapper)', () => {
+        // A refactor that accidentally tweens a container or a wrapper
+        // object would decouple the visual death from the actual
+        // player body — the sprite slides off intact while the tween
+        // plays on a shadow. Lock targets === player directly.
+        scene.playerDeath();
+        const config = scene.tweens.add.mock.calls[0][0];
+        expect(config.targets).toBe(scene.player);
+      });
+
+      it('playerDeath tween arms fall-death motion (alpha=0, y=+100, angle=180, duration=500)', () => {
+        // Four-key motion signature: fade out while tumbling down 100 px
+        // and rotating 180° over 500 ms. Locking the literal values
+        // guards against:
+        //   - `angle: 0` drops rotation (reads as teleport not death)
+        //   - `duration: 200` fires onComplete faster than eye can track
+        //   - `y: player.y - 100` rises instead of falls (upside-down)
+        //   - `alpha: 1` leaves the sprite visible through the spin
+        scene.player.y = 400;
+        scene.playerDeath();
+        const config = scene.tweens.add.mock.calls[0][0];
+        expect(config.alpha).toBe(0);
+        expect(config.y).toBe(500); // player.y (400) + 100
+        expect(config.angle).toBe(180);
+        expect(config.duration).toBe(500);
+      });
+    });
+
+    // (2) onComplete chain — ordering + gameOver payload shape
+    describe('onComplete — reportScore → gameOver ordering + payload', () => {
+      it('onComplete invokes reportScore BEFORE gameOver (ordering lock)', () => {
+        // THE freeze-prevention contract — mirror of F6+++. If a
+        // refactor ever reorders the calls so gameOver fires before
+        // reportScore, the scoreboard skips this run's score entirely
+        // (exactly the R85.G1 regression shape). invocationCallOrder
+        // is the only way to assert strict-before across separate
+        // mock calls.
+        scene.score = 2500;
+        scene.lastMaxAltitude = 1000;
+        scene.playerDeath();
+
+        expect((scene.reportScore as ReturnType<typeof vi.fn>).mock.invocationCallOrder.length).toBe(0);
+        expect((scene.gameOver as ReturnType<typeof vi.fn>).mock.invocationCallOrder.length).toBe(0);
+
+        scene.tweens.add.mock.calls[0][0].onComplete();
+
+        const reportOrder = (scene.reportScore as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0];
+        const gameOverOrder = (scene.gameOver as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0];
+        expect(reportOrder).toBeLessThan(gameOverOrder);
+      });
+
+      it('onComplete promotes highScore BEFORE reporting (new-high path)', () => {
+        // The if (score > highScore) highScore = score mutation must
+        // fire BEFORE reportScore, so the scoreboard sees the new
+        // high watermark in the same call. A refactor that reports
+        // first then updates would emit (3000, 1000) — a stale high
+        // — and the "new high score" banner would be confused for
+        // at least one frame.
+        scene.score = 3000;
+        scene.highScore = 1000;
+        scene.lastMaxAltitude = 500;
+        scene.playerDeath();
+        scene.tweens.add.mock.calls[0][0].onComplete();
+
+        expect(scene.reportScore).toHaveBeenCalledWith(3000, 3000);
+        expect(scene.highScore).toBe(3000);
+      });
+
+      it('onComplete preserves existing highScore when score is lower', () => {
+        // Mirror case: if this run's score didn't beat the high, the
+        // high stays put and reportScore sees both values distinctly.
+        // Without this test a refactor that accidentally clobbers
+        // highScore to the run score (e.g. unconditional assignment)
+        // would only be caught on the new-high path above.
+        scene.score = 500;
+        scene.highScore = 1000;
+        scene.lastMaxAltitude = 100;
+        scene.playerDeath();
+        scene.tweens.add.mock.calls[0][0].onComplete();
+
+        expect(scene.reportScore).toHaveBeenCalledWith(500, 1000);
+        expect(scene.highScore).toBe(1000);
+      });
+
+      it('onComplete gameOver payload — reason + 2-row stats + level math + duration', () => {
+        // Payload contract lock. Neo Jump's gameOver call has 6 args
+        // and the stats array has a fixed 2-row shape (Enemies +
+        // Collectibles). A refactor that adds/removes a stat row,
+        // drops the level arg, or rewords the reason string would
+        // silently break the game-over modal layout and the saved
+        // stats aggregation — exactly the R85.G1 regression class.
+        scene.score = 1500;
+        scene.lastMaxAltitude = 1500; // → level = floor(1500/500) = 3
+        scene.enemiesKilled = 5;
+        scene.collectiblesCollected = 12;
+        scene.getGameDuration = vi.fn().mockReturnValue(42_000);
+        scene.playerDeath();
+        scene.tweens.add.mock.calls[0][0].onComplete();
+
+        expect(scene.gameOver).toHaveBeenCalledWith(
+          1500,                  // score
+          'Altitude: 1500m',     // reason — `Altitude: ${lastMaxAltitude}m`
+          1500,                  // highScore (promoted from score)
+          [
+            { label: 'Enemies', value: 5 },
+            { label: 'Collectibles', value: 12 },
+          ],                     // stats — exactly 2 rows, labels + order locked
+          3,                     // level === floor(lastMaxAltitude / 500)
+          42_000,                // duration
+        );
+      });
+    });
+
+    // (3) playerSpriteMode branch — death texture swap
+    describe('playerSpriteMode branch — death texture', () => {
+      it('calls updatePlayerTexture("death") when playerSpriteMode is true', () => {
+        // Sprite-mode players get a dedicated death frame. Dropping
+        // this call means the player dies looking like they're still
+        // alive — the visual "oh I died" moment is gone. Locks both
+        // the method call and the exact 'death' state arg (drift to
+        // 'dead' / 'gameover' would desync with the BootScene frame
+        // keys and render a missing-texture box).
+        scene.playerSpriteMode = true;
+        const updatePlayerTexture = vi.fn();
+        scene.updatePlayerTexture = updatePlayerTexture;
+        scene.playerDeath();
+
+        expect(updatePlayerTexture).toHaveBeenCalledWith('death');
+      });
+
+      it('does NOT call updatePlayerTexture when playerSpriteMode is false', () => {
+        // Programmatic-graphics mode has no death texture; the
+        // setTint(RED) + rotation is the only visual cue. Calling
+        // updatePlayerTexture here would be a wasted call but more
+        // importantly hints at a refactor that flipped the default
+        // mode (private playerSpriteMode = true) — which would break
+        // non-sprite-mode builds at runtime.
+        scene.playerSpriteMode = false;
+        const updatePlayerTexture = vi.fn();
+        scene.updatePlayerTexture = updatePlayerTexture;
+        scene.playerDeath();
+
+        expect(updatePlayerTexture).not.toHaveBeenCalled();
+      });
+    });
+  });
 });
