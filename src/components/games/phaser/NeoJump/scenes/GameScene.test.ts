@@ -89,6 +89,7 @@ function createTestScene() {
     setFlipX: vi.fn(),
     setTint: vi.fn(),
     clearTint: vi.fn(),
+    setAlpha: vi.fn(),
     anims: { currentAnim: null },
     play: vi.fn(),
   };
@@ -955,12 +956,21 @@ describe('NeoJumpGameScene', () => {
   /* -------------------------------------------------------------- */
   describe('R86.N1 — Difficulty rebalance', () => {
     describe('Enemy spawn constants (softened early game)', () => {
-      it('SPAWN_ALTITUDE 500 → 800 (tutorial zone extended +300m)', () => {
-        expect(GAME_CONFIG.ENEMIES.SPAWN_ALTITUDE).toBe(800);
+      it('SPAWN_ALTITUDE 500 → 800 → 1000 (tutorial zone extended, N5 second-pass)', () => {
+        // R86.N5 bumped this 800 → 1000. Tom's post-N1 playtest: *"still too
+        // difficult, too many bombs early, cannot get momentum."* Locking
+        // the new value keeps the tutorial strip a first-class invariant —
+        // a rebalance dropping it below 1000 brings the early-game
+        // hostility back instantly.
+        expect(GAME_CONFIG.ENEMIES.SPAWN_ALTITUDE).toBe(1000);
       });
 
-      it('SPAWN_CHANCE_BASE 0.03 → 0.018 (~40% reduction per Tom)', () => {
-        expect(GAME_CONFIG.ENEMIES.SPAWN_CHANCE_BASE).toBe(0.018);
+      it('SPAWN_CHANCE_BASE 0.03 → 0.018 → 0.013 (~57% cumulative reduction, N5 second-pass)', () => {
+        // R86.N5 cut this 0.018 → 0.013 on top of N1's ~40% reduction, so
+        // the compounded effect is ~57% below the pre-R86 0.03 baseline.
+        // If this regresses toward 0.018 the N5 Tom-tick scenario (rapid
+        // 30s-retry loop) re-breaks because early-game density climbs.
+        expect(GAME_CONFIG.ENEMIES.SPAWN_CHANCE_BASE).toBe(0.013);
       });
 
       it('SPAWN_CHANCE_MAX 0.20 → 0.16 (late-game ceiling lowered)', () => {
@@ -1754,30 +1764,31 @@ describe('NeoJumpGameScene', () => {
     }
 
     describe('Spawn-chance checkpoints — mid-game must stay compelling', () => {
-      it('altitude 1000m — first tier step reached (0.018 + 0.015 = 0.033)', () => {
+      it('altitude 1000m — first tier step reached (N5: 0.013 + 0.015 = 0.028)', () => {
         // First altitude at which the ramp actually kicks in after the
-        // tutorial zone. Tom's N5 ask is "does mid-game still feel alive?"
-        // — if this regresses toward 0.018 the first km post-tutorial
-        // feels identical to the tutorial itself.
-        expect(spawnChanceAt(1000)).toBeCloseTo(0.033, 5);
+        // tutorial zone. R86.N5 re-pinned this to 0.028 (was 0.033 with
+        // N1's 0.018 base). Tom's N5 ask was "flatten early game"; a
+        // regression toward 0.033 undoes the second-pass cut.
+        expect(spawnChanceAt(1000)).toBeCloseTo(0.028, 5);
       });
 
-      it('altitude 2000m — second-tier chance (0.048)', () => {
-        expect(spawnChanceAt(2000)).toBeCloseTo(0.048, 5);
+      it('altitude 2000m — second-tier chance (N5: 0.043)', () => {
+        // 0.013 + 2 * 0.015 = 0.043 (was 0.048 under N1).
+        expect(spawnChanceAt(2000)).toBeCloseTo(0.043, 5);
       });
 
-      it('altitude 5000m — late-mid chance (0.093)', () => {
-        // base 0.018 + 5 * 0.015 = 0.093. Late-mid is where the game
-        // transitions from "tutorial-ish" to "survive or die"; lock
-        // the density so a future base-nerf can't flatten it.
-        expect(spawnChanceAt(5000)).toBeCloseTo(0.093, 5);
+      it('altitude 5000m — late-mid chance (N5: 0.088)', () => {
+        // base 0.013 + 5 * 0.015 = 0.088 (was 0.093 under N1). Late-mid is
+        // where the game transitions from "tutorial-ish" to "survive or
+        // die"; lock the density so a future base-nerf can't flatten it.
+        expect(spawnChanceAt(5000)).toBeCloseTo(0.088, 5);
       });
 
       it('altitude 10000m — late-game ceiling reached exactly', () => {
-        // floor(10000/1000) * 0.015 = 0.150; base + bonus = 0.168 clamped
-        // to SPAWN_CHANCE_MAX (0.16). Tripwire: if a future rebalance
-        // pushes the ceiling altitude past a 15km playthrough, most
-        // players will never see max density.
+        // floor(10000/1000) * 0.015 = 0.150; base + bonus = 0.163 clamped
+        // to SPAWN_CHANCE_MAX (0.16). Under N5's 0.013 base the ceiling is
+        // still reached at 10km (just barely — 9k would land at 0.148 shy
+        // of max) so the late-game density stays compelling.
         expect(spawnChanceAt(10000)).toBe(GAME_CONFIG.ENEMIES.SPAWN_CHANCE_MAX);
       });
 
@@ -1877,9 +1888,11 @@ describe('NeoJumpGameScene', () => {
         };
       }
 
-      it('altitude exactly SPAWN_ALTITUDE (800m) allows the spawn gate through', () => {
-        // Guard uses `<`, not `<=` — exactly 800m must pass. If a future
-        // refactor flips to `<=`, the tutorial zone silently grows 1m.
+      it('altitude exactly SPAWN_ALTITUDE (N5: 1000m) allows the spawn gate through', () => {
+        // Guard uses `<`, not `<=` — exactly SPAWN_ALTITUDE must pass. If
+        // a future refactor flips to `<=`, the tutorial zone silently
+        // grows 1m. N5 bumped the constant 800 → 1000; the boundary
+        // contract is unchanged, but the label is updated for accuracy.
         setupSpawnMinimal(scene);
         scene.highestY = GAME_CONFIG.HEIGHT - GAME_CONFIG.ENEMIES.SPAWN_ALTITUDE; // altitude === SPAWN_ALTITUDE
         scene.player.x = 50; // far from spawn X (300)
@@ -1893,7 +1906,7 @@ describe('NeoJumpGameScene', () => {
         restore();
       });
 
-      it('altitude 1m below SPAWN_ALTITUDE (799m) still blocks the gate', () => {
+      it('altitude 1m below SPAWN_ALTITUDE (N5: 999m) still blocks the gate', () => {
         // Complementary boundary test: 1m inside the tutorial zone must
         // suppress the spawn even with RNG forced favourable.
         setupSpawnMinimal(scene);
@@ -2380,6 +2393,340 @@ describe('NeoJumpGameScene', () => {
         scene.playerDeath();
 
         expect(updatePlayerTexture).not.toHaveBeenCalled();
+      });
+    });
+  });
+
+  /* -------------------------------------------------------------- */
+  /*  R86.N5 — Flow second-pass                                     */
+  /*                                                                */
+  /*  Three levers in one phase of work:                            */
+  /*    (a) Tutorial strip + density cut                            */
+  /*    (b) Retry countdown shortcut (registry-keyed)               */
+  /*    (c) Opening-beat spawn protection (invuln + no-spawn)       */
+  /*                                                                */
+  /*  Tom's post-N1 playtest verdict:                               */
+  /*    "still too difficult, too many bombs early, cannot get      */
+  /*    momentum, 5s restart too heavy."                            */
+  /* -------------------------------------------------------------- */
+  describe('R86.N5 — Flow second-pass', () => {
+    describe('(a) Tutorial-strip + density-cut dial anchors', () => {
+      it('SPAWN_ALTITUDE is at least 1000 (tutorial zone ≥ pre-N5 floor)', () => {
+        // Anti-regression: a future rebalance dropping SPAWN_ALTITUDE
+        // below 1000 silently re-hostile-ifies early-game. N5 pin.
+        expect(GAME_CONFIG.ENEMIES.SPAWN_ALTITUDE).toBeGreaterThanOrEqual(1000);
+      });
+
+      it('SPAWN_CHANCE_BASE strictly less than the N1 value (0.018)', () => {
+        // Locks that N5 really did cut density below N1. If a future
+        // "simpler" rebalance restores 0.018, Tom's second-pass fix is
+        // silently reverted.
+        expect(GAME_CONFIG.ENEMIES.SPAWN_CHANCE_BASE).toBeLessThan(0.018);
+      });
+
+      it('first-tier spawn chance (1000m) is less than pre-N5 value (0.033)', () => {
+        // Derived lock: base + 1 tier bonus must be strictly below the
+        // pre-N5 0.033. Independent of the exact base value — catches
+        // tier-bonus regressions too.
+        const firstTier =
+          GAME_CONFIG.ENEMIES.SPAWN_CHANCE_BASE + GAME_CONFIG.ENEMIES.SPAWN_CHANCE_PER_1000;
+        expect(firstTier).toBeLessThan(0.033);
+      });
+    });
+
+    describe('(b) Retry countdown shortcut — computeCountdownSeconds', () => {
+      /**
+       * Install a mock registry on the scene that holds a single
+       * `LAST_DEATH_REGISTRY_KEY` value. Mirrors the Scene.registry /
+       * Game.registry alias contract — both point at the same DataManager
+       * in real Phaser.
+       */
+      function installRegistry(sceneRef: Record<string, unknown>, lastDeathAt: unknown) {
+        const store = new Map<string, unknown>();
+        if (lastDeathAt !== undefined) {
+          store.set('neoJumpLastDeathAt', lastDeathAt);
+        }
+        sceneRef.registry = {
+          get: vi.fn((key: string) => store.get(key)),
+          set: vi.fn((key: string, value: unknown) => {
+            store.set(key, value);
+          }),
+        };
+      }
+
+      it('returns COLD_COUNTDOWN_SECONDS (5) on cold start (no prior death)', () => {
+        installRegistry(scene, undefined);
+        expect(scene.computeCountdownSeconds()).toBe(
+          GAME_CONFIG.RETRY.COLD_COUNTDOWN_SECONDS,
+        );
+      });
+
+      it('returns RETRY_COUNTDOWN_SECONDS (2) when last death < WINDOW_MS ago', () => {
+        // Death 1s ago — well inside the 30s retry window.
+        installRegistry(scene, Date.now() - 1000);
+        expect(scene.computeCountdownSeconds()).toBe(
+          GAME_CONFIG.RETRY.RETRY_COUNTDOWN_SECONDS,
+        );
+      });
+
+      it('returns COLD_COUNTDOWN_SECONDS when last death > WINDOW_MS ago', () => {
+        // Death 60s ago — outside the 30s retry window. Cold-start
+        // behaviour resumes so the first run of a new session feels
+        // deliberate.
+        installRegistry(scene, Date.now() - 60_000);
+        expect(scene.computeCountdownSeconds()).toBe(
+          GAME_CONFIG.RETRY.COLD_COUNTDOWN_SECONDS,
+        );
+      });
+
+      it('returns COLD_COUNTDOWN_SECONDS when registry value is not a number', () => {
+        // Defensive: a future refactor that sets the value to a string or
+        // object should fall through to the cold-start default, not
+        // throw or silently coerce.
+        installRegistry(scene, 'not a number');
+        expect(scene.computeCountdownSeconds()).toBe(
+          GAME_CONFIG.RETRY.COLD_COUNTDOWN_SECONDS,
+        );
+      });
+
+      it('strict `<` on WINDOW_MS boundary — exactly WINDOW_MS ago is cold start', () => {
+        // Tripwire: if a refactor flips `<` to `<=`, the retry window
+        // silently grows by 1ms. Not gameplay-meaningful but locks the
+        // exact boundary shape against accidental drift.
+        installRegistry(scene, Date.now() - GAME_CONFIG.RETRY.WINDOW_MS);
+        expect(scene.computeCountdownSeconds()).toBe(
+          GAME_CONFIG.RETRY.COLD_COUNTDOWN_SECONDS,
+        );
+      });
+
+      it('playerDeath onComplete writes timestamp to registry', () => {
+        const setSpy = vi.fn();
+        scene.registry = {
+          get: vi.fn().mockReturnValue(undefined),
+          set: setSpy,
+        };
+        scene.score = 500;
+        scene.lastMaxAltitude = 100;
+
+        scene.playerDeath();
+        const tweenConfig = scene.tweens.add.mock.calls[0][0];
+        tweenConfig.onComplete();
+
+        // Find the LAST_DEATH_REGISTRY_KEY call among all `registry.set`
+        // invocations. The exact value must be a positive finite number
+        // close to Date.now() — we assert range rather than equality so
+        // the test is stable across clock skew between invocation lines.
+        const deathCalls = setSpy.mock.calls.filter(
+          (c: unknown[]) => c[0] === 'neoJumpLastDeathAt',
+        );
+        expect(deathCalls).toHaveLength(1);
+        const writtenTimestamp = deathCalls[0][1] as number;
+        expect(typeof writtenTimestamp).toBe('number');
+        expect(writtenTimestamp).toBeGreaterThan(0);
+        expect(Math.abs(writtenTimestamp - Date.now())).toBeLessThan(5_000);
+      });
+    });
+
+    describe('(c) Opening-beat spawn protection — isSpawnProtected', () => {
+      it('returns false when spawnProtectionUntil is 0 (uninitialised)', () => {
+        scene.spawnProtectionUntil = 0;
+        expect(scene.isSpawnProtected()).toBe(false);
+      });
+
+      it('returns true when Date.now() is below spawnProtectionUntil', () => {
+        scene.spawnProtectionUntil = Date.now() + 5_000;
+        expect(scene.isSpawnProtected()).toBe(true);
+      });
+
+      it('returns false when Date.now() has passed spawnProtectionUntil', () => {
+        scene.spawnProtectionUntil = Date.now() - 1;
+        expect(scene.isSpawnProtected()).toBe(false);
+      });
+
+      it('strict `<` on boundary — exactly spawnProtectionUntil is unprotected', () => {
+        // Clock can tick during the test, so we pick a fixed past value
+        // and assert unprotected. The strict-less-than contract is what
+        // matters here.
+        const fixedPast = Date.now() - 100;
+        scene.spawnProtectionUntil = fixedPast;
+        expect(scene.isSpawnProtected()).toBe(false);
+      });
+
+      it('maybeSpawnEnemy early-returns under spawn protection even with RNG forced favourable', () => {
+        scene.spawnProtectionUntil = Date.now() + 5_000;
+        scene.highestY = 0 - (GAME_CONFIG.ENEMIES.SPAWN_ALTITUDE + 200); // above threshold
+        scene.enemies = {
+          getChildren: vi.fn().mockReturnValue([]),
+          create: vi.fn(),
+        };
+        (scene.cameras as { main: { scrollY: number } }).main.scrollY = 0;
+        scene.player.x = 50;
+        const origRandom = Math.random;
+        Math.random = vi.fn(() => 0); // force-spawn RNG
+
+        scene.maybeSpawnEnemy();
+
+        expect(
+          (scene.enemies as { create: ReturnType<typeof vi.fn> }).create,
+        ).not.toHaveBeenCalled();
+        Math.random = origRandom;
+      });
+
+      it('handleEnemyCollision is a no-op under spawn protection (unshielded player)', () => {
+        scene.spawnProtectionUntil = Date.now() + 5_000;
+        scene.shieldActive = false;
+        scene.isGameOver = false;
+        // Lateral collision (not stomp): player.y >= enemy.y, so without
+        // protection this would call playerDeath. Under protection the
+        // whole branch early-returns.
+        scene.player.y = 400;
+        scene.player.body = {
+          velocity: { y: 100 }, // falling, but protection overrides
+        };
+        const enemy = createMockEnemy();
+        enemy.y = 400;
+
+        scene.handleEnemyCollision(enemy);
+
+        expect(scene.isGameOver).toBe(false);
+        expect(scene.player.setTint).not.toHaveBeenCalled();
+        expect(enemy.isDying).toBe(false);
+      });
+
+      it('handleEnemyCollision is a no-op for dying enemy (unchanged pre-existing guard)', () => {
+        // Regression guard: N5's protection guard fires BEFORE the
+        // `enemy.isDying` early return, so a dying enemy during the
+        // protection window still no-ops. Complement to the previous
+        // test — confirms both guards hold together.
+        scene.spawnProtectionUntil = Date.now() + 5_000;
+        const enemy = createMockEnemy();
+        enemy.isDying = true;
+
+        scene.handleEnemyCollision(enemy);
+
+        expect(scene.isGameOver).toBe(false);
+      });
+
+      it('after spawn protection expires, maybeSpawnEnemy proceeds normally', () => {
+        // Complement to the block-spawn test: once protection is over,
+        // the RNG + altitude + spacing guards are the only barriers. A
+        // single fair roll should produce a spawn, confirming the
+        // protection guard was really the blocker.
+        scene.spawnProtectionUntil = Date.now() - 1; // expired
+        scene.highestY = 0 - (GAME_CONFIG.ENEMIES.SPAWN_ALTITUDE + 200);
+        scene.enemies = {
+          getChildren: vi.fn().mockReturnValue([]),
+          create: vi.fn().mockReturnValue({
+            direction: 0,
+            speed: 0,
+            isDying: false,
+            setDepth: vi.fn(),
+            setDisplaySize: vi.fn(),
+            setTint: vi.fn(),
+          }),
+        };
+        (scene.cameras as { main: { scrollY: number } }).main.scrollY = 0;
+        scene.player.x = 50;
+
+        const origBetween = (Phaser.Math as unknown as Record<string, unknown>).Between;
+        const origRandom = Math.random;
+        (Phaser.Math as unknown as Record<string, unknown>).Between = vi.fn(() => 300);
+        Math.random = vi.fn(() => 0); // force spawn
+
+        scene.maybeSpawnEnemy();
+
+        expect(
+          (scene.enemies as { create: ReturnType<typeof vi.fn> }).create,
+        ).toHaveBeenCalled();
+
+        (Phaser.Math as unknown as Record<string, unknown>).Between = origBetween;
+        Math.random = origRandom;
+      });
+    });
+
+    describe('Config dial locks — RETRY + SPAWN_PROTECTION', () => {
+      it('RETRY.WINDOW_MS is 30_000 (30s window per Tom)', () => {
+        expect(GAME_CONFIG.RETRY.WINDOW_MS).toBe(30_000);
+      });
+
+      it('RETRY.COLD_COUNTDOWN_SECONDS is 5 (matches arcade-wide cold start)', () => {
+        expect(GAME_CONFIG.RETRY.COLD_COUNTDOWN_SECONDS).toBe(5);
+      });
+
+      it('RETRY.RETRY_COUNTDOWN_SECONDS is 2 (rapid-retry cadence)', () => {
+        expect(GAME_CONFIG.RETRY.RETRY_COUNTDOWN_SECONDS).toBe(2);
+      });
+
+      it('SPAWN_PROTECTION.DURATION_MS is 1000 (one full second of invuln)', () => {
+        expect(GAME_CONFIG.SPAWN_PROTECTION.DURATION_MS).toBe(1000);
+      });
+
+      it('SPAWN_PROTECTION.FLASH_PERIOD_MS is 200 (visual cue cadence)', () => {
+        expect(GAME_CONFIG.SPAWN_PROTECTION.FLASH_PERIOD_MS).toBe(200);
+      });
+
+      it('retry countdown is strictly less than cold countdown', () => {
+        // Invariant: the whole point of the shortcut is a faster retry.
+        // A future tweak that accidentally makes retry ≥ cold defeats
+        // the N5 intent.
+        expect(GAME_CONFIG.RETRY.RETRY_COUNTDOWN_SECONDS).toBeLessThan(
+          GAME_CONFIG.RETRY.COLD_COUNTDOWN_SECONDS,
+        );
+      });
+
+      it('spawn protection window is at most WINDOW_MS/10 — kept tight enough not to feel delayed', () => {
+        // Anti-regression guard. If a refactor pumps DURATION_MS too
+        // high (e.g. 5000ms), the "empowering opening beat" becomes a
+        // "nothing happens for 5 seconds" moment. Lock a generous upper
+        // bound rather than the exact value.
+        expect(GAME_CONFIG.SPAWN_PROTECTION.DURATION_MS).toBeLessThanOrEqual(
+          GAME_CONFIG.RETRY.WINDOW_MS / 10,
+        );
+      });
+    });
+
+    describe('onCountdownComplete — arms the spawn-protection window', () => {
+      it('sets spawnProtectionUntil to Date.now() + DURATION_MS', () => {
+        // No tweens stub for the flash — just assert the timestamp lands.
+        // The tween call is exercised separately in the "flash tween" test.
+        scene.player = null; // skip the flash branch cleanly
+        const before = Date.now();
+        scene.onCountdownComplete();
+        const after = Date.now();
+
+        const expected = before + GAME_CONFIG.SPAWN_PROTECTION.DURATION_MS;
+        const tolerance = after - before + 5; // clock skew + a few ms
+        expect(scene.spawnProtectionUntil).toBeGreaterThanOrEqual(expected - tolerance);
+        expect(scene.spawnProtectionUntil).toBeLessThanOrEqual(
+          after + GAME_CONFIG.SPAWN_PROTECTION.DURATION_MS,
+        );
+      });
+
+      it('arms the flash tween when player exists', () => {
+        // The tween drives the visual cue. Missing tween means no flash
+        // → player reads the window as "nothing happening" → they don't
+        // learn it's a safe moment.
+        scene.onCountdownComplete();
+
+        expect(scene.tweens.add).toHaveBeenCalled();
+        const tweenConfig = scene.tweens.add.mock.calls[0][0];
+        expect(tweenConfig.targets).toBe(scene.player);
+        expect(tweenConfig.yoyo).toBe(true);
+        // `from: 1, to: 0.4` yo-yo on alpha — a regression using a
+        // different keyframe (e.g. scale or tint) would render
+        // differently and cease to read as "invuln" visually.
+        expect(tweenConfig.alpha).toEqual({ from: 1, to: 0.4 });
+      });
+
+      it('skips the flash tween gracefully when player is null', () => {
+        // Defensive: a refactor that delays player creation past the
+        // countdown onComplete shouldn't throw. The spawn-protection
+        // window should still land on the timestamp field.
+        scene.player = null;
+
+        expect(() => scene.onCountdownComplete()).not.toThrow();
+        expect(scene.tweens.add).not.toHaveBeenCalled();
+        expect(scene.spawnProtectionUntil).toBeGreaterThan(0);
       });
     });
   });

@@ -71,10 +71,23 @@ export const GAME_CONFIG = {
    *
    * **R86.N1 rebalance (2026-04-22)** — Tom's playtest: *"too many bombs early,
    * too quick, you often just hit a bomb out of nowhere; you can't really
-   * avoid it."* Dials below tuned to address each complaint:
+   * avoid it."*
    *
-   * - `SPAWN_ALTITUDE` 500 → 800: extends the safe tutorial zone by 300m so
-   *   new players learn platform rhythm before first enemy.
+   * **R86.N5 second-pass (2026-04-22 late)** — Tom's post-N1 playtest:
+   * *"neo jump is still too difficult and there is too many bombs early in
+   * the game, meaning the player cannot get momentum and a feel for the
+   * game before they die."* Two more dial moves on top of N1:
+   *
+   * - `SPAWN_ALTITUDE` 800 → 1000 (N5): tutorial zone extended another 200
+   *   pixels so the first ~90m of HUD altitude are enemy-free. The N5 tests
+   *   re-pin the new boundary.
+   * - `SPAWN_CHANCE_BASE` 0.018 → 0.013 (N5): ~28% further reduction on top
+   *   of the N1 ~40% cut — compounded, early-game density is now ~57% below
+   *   the pre-R86 baseline. The N5 safety-net checkpoint tests re-pin the
+   *   new ramp values (1km=0.028, 2km=0.043, 5km=0.088, 10km=MAX).
+   *
+   * **R86.N1 history (2026-04-22)**:
+   * - `SPAWN_ALTITUDE` 500 → 800: tutorial zone extended +300m.
    * - `SPAWN_CHANCE_BASE` 0.03 → 0.018: ~40% reduction, matching Tom's quote.
    * - `SPAWN_CHANCE_MAX` 0.20 → 0.16: ceiling lowered so even late-game the
    *   density never becomes a frame-rate enemy storm.
@@ -90,14 +103,58 @@ export const GAME_CONFIG = {
    *   column.
    */
   ENEMIES: {
-    SPAWN_ALTITUDE: 800,
-    SPAWN_CHANCE_BASE: 0.018,
+    SPAWN_ALTITUDE: 1000,
+    SPAWN_CHANCE_BASE: 0.013,
     SPAWN_CHANCE_MAX: 0.16,
     SPAWN_CHANCE_PER_1000: 0.015,
     SPEED_MIN: 40,
     SPEED_MAX: 75,
     SPAWN_Y_OFFSET_ABOVE_CAMERA: 150,
     MIN_HORIZONTAL_SPACING_FROM_PLAYER: 80,
+  },
+
+  /**
+   * Retry countdown dial.
+   *
+   * **R86.N5 (2026-04-22 late)** — Tom: *"5 seconds between rounds is too
+   * heavy when I die in 30s and want to retry fast."* Cold start keeps the
+   * established 5-second beat so the first run of a session feels
+   * deliberate (matches every other arcade game). Within
+   * `RETRY_WINDOW_MS` of a death, the next countdown shortens to
+   * `RETRY_COUNTDOWN` so rapid-retry flow stays tight.
+   *
+   * Persistence is via `game.registry` keyed by `retryLastDeathAt` — the
+   * registry outlives scene restarts but dies with the root Phaser.Game
+   * instance, so the shortcut resets when the player leaves the portal.
+   */
+  RETRY: {
+    WINDOW_MS: 30_000,
+    COLD_COUNTDOWN_SECONDS: 5,
+    RETRY_COUNTDOWN_SECONDS: 2,
+  },
+
+  /**
+   * Opening-beat spawn protection.
+   *
+   * **R86.N5 (2026-04-22 late)** — Tom's third lever: *"a bomb out of nowhere
+   * in the first second of a run is the worst feeling."* The N1 guard
+   * (`MIN_HORIZONTAL_SPACING_FROM_PLAYER`) stops new spawns landing in the
+   * player's column, but an enemy already in flight during countdown can
+   * still be sitting directly above Neo when gameplay frame 1 fires. This
+   * block adds a *time* barrier on top of the existing *space* barrier:
+   *
+   * - `DURATION_MS` 1000: first second of gameplay is fully protected. No
+   *   enemy spawns fire inside the window, and enemy collisions on the
+   *   player are no-ops (brief invuln). Window starts when the countdown
+   *   finishes, not when `create()` runs — so the countdown itself doesn't
+   *   count toward the budget.
+   * - `FLASH_PERIOD_MS` 200: visual cue so the player reads "I'm safe for
+   *   a moment" — alpha yo-yos 1.0 ↔ 0.4 on a 200ms cycle. Chosen loose
+   *   enough not to feel strobing but crisp enough to register.
+   */
+  SPAWN_PROTECTION: {
+    DURATION_MS: 1000,
+    FLASH_PERIOD_MS: 200,
   },
 
   /**

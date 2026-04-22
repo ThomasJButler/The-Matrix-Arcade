@@ -121,6 +121,24 @@ export class NeoJumpGameScene extends BaseScene {
   // Game over flag to prevent multiple death triggers
   private isGameOver = false;
 
+  // R86.N5 — opening-beat spawn protection. `spawnProtectionUntil` is a
+  // Date.now() timestamp set when the countdown completes. While Date.now()
+  // is below it, `maybeSpawnEnemy` early-returns and `handleEnemyCollision`
+  // treats the player as invulnerable (so pre-countdown enemies already in
+  // flight can't kill Neo in his first second of gameplay). The flash
+  // tween gives the player a visual "I'm safe for a moment" read.
+  protected spawnProtectionUntil = 0;
+  private spawnProtectionTween: Phaser.Tweens.Tween | null = null;
+
+  /**
+   * Registry key for the retry-shortcut timestamp. Kept on `game.registry`
+   * so it survives `scene.start(GAME)` restarts but dies with the root
+   * Phaser.Game instance — aligns with a single-session "rapid-retry" loop
+   * that resets when the player leaves the portal. Exposed as a static
+   * protected field for the test harness.
+   */
+  protected static readonly LAST_DEATH_REGISTRY_KEY = 'neoJumpLastDeathAt';
+
   constructor() {
     super(SCENE_KEYS.GAME);
   }
@@ -205,12 +223,82 @@ export class NeoJumpGameScene extends BaseScene {
     this.setupCamera();
 
     this.playBackgroundMusic('/assets/rhythm-hacker/tracks/enhancements.mp3');
-    this.startCountdown(5, () => {});
+
+    // R86.N5 — retry-window shortcut. On cold start (no death in registry,
+    // or last death > WINDOW_MS ago) use the full 5-second countdown so the
+    // first run of a session feels deliberate. Within WINDOW_MS of a death,
+    // use the shortened countdown so the rapid-retry loop stays tight.
+    const countdownSeconds = this.computeCountdownSeconds();
+    this.startCountdown(countdownSeconds, () => this.onCountdownComplete());
     // R86.N3: show the controls overlay while the countdown is running, then
     // fade it out before gameplay begins. Must be called AFTER startCountdown
     // so the countdown digit at depth 200 lands on top of the overlay (150)
     // and the overlay disappears by the time `isCountingDown` flips false.
     this.createControlsOverlay();
+  }
+
+  /**
+   * R86.N5 — decide this run's countdown length. Reads
+   * `LAST_DEATH_REGISTRY_KEY` from `game.registry`; if the player died
+   * less than `RETRY.WINDOW_MS` ago, returns the shortened countdown.
+   * Otherwise returns the cold-start countdown. Extracted as a method
+   * so the test harness can exercise both branches without needing a
+   * full scene restart.
+   */
+  protected computeCountdownSeconds(): number {
+    // `this.registry` on a Phaser Scene aliases `this.game.registry` (both
+    // refer to the same `Phaser.Data.DataManager` created on the root
+    // game). Using `this.registry` keeps the call-site consistent with
+    // `playerDeath`'s `this.registry.get(REGISTRY_KEYS.SAVE_SYSTEM)` and
+    // matches the pattern every other arcade game uses for game-global
+    // state.
+    const lastDeathAt = this.registry.get(NeoJumpGameScene.LAST_DEATH_REGISTRY_KEY);
+    const now = Date.now();
+    if (typeof lastDeathAt === 'number' && now - lastDeathAt < GAME_CONFIG.RETRY.WINDOW_MS) {
+      return GAME_CONFIG.RETRY.RETRY_COUNTDOWN_SECONDS;
+    }
+    return GAME_CONFIG.RETRY.COLD_COUNTDOWN_SECONDS;
+  }
+
+  /**
+   * R86.N5 — fires when the countdown tween finishes. Arms the opening-beat
+   * spawn protection window (time-based invuln + no-spawn) and starts the
+   * player-alpha flash that visualises it. Extracted from `startCountdown`'s
+   * inline callback so both branches (cold 5 s / retry 2 s) share the same
+   * post-countdown contract and the test harness can invoke it directly.
+   */
+  protected onCountdownComplete(): void {
+    this.spawnProtectionUntil = Date.now() + GAME_CONFIG.SPAWN_PROTECTION.DURATION_MS;
+
+    // Visual cue — alpha yo-yo so the player can see they're safe. Stored
+    // on a named field so the shutdown path can cancel it cleanly even if
+    // the player dies before the window closes.
+    if (this.player) {
+      this.spawnProtectionTween = this.tweens.add({
+        targets: this.player,
+        alpha: { from: 1, to: 0.4 },
+        duration: GAME_CONFIG.SPAWN_PROTECTION.FLASH_PERIOD_MS,
+        yoyo: true,
+        repeat: Math.floor(
+          GAME_CONFIG.SPAWN_PROTECTION.DURATION_MS /
+            (GAME_CONFIG.SPAWN_PROTECTION.FLASH_PERIOD_MS * 2)
+        ) - 1,
+        onComplete: () => {
+          this.spawnProtectionTween = null;
+          this.player?.setAlpha(1);
+        },
+      });
+    }
+  }
+
+  /**
+   * R86.N5 — true while the opening-beat spawn-protection window is open.
+   * Exposed as a protected helper so both `maybeSpawnEnemy` and
+   * `handleEnemyCollision` share the same check and tests can drive the
+   * branch deterministically without clock mocking.
+   */
+  protected isSpawnProtected(): boolean {
+    return Date.now() < this.spawnProtectionUntil;
   }
 
   update(time: number, delta: number): void {
@@ -810,6 +898,16 @@ export class NeoJumpGameScene extends BaseScene {
   private handleEnemyCollision(enemy: Enemy): void {
     if (enemy.isDying) return;
 
+    // R86.N5 — opening-beat invuln. Enemies already in flight when the
+    // countdown ends can still collide with the player on frame 1 of
+    // gameplay; during the protection window the collision is a no-op so
+    // the first second of a run never ends in an unavoidable death. Stomp
+    // and projectile kills are still routed normally (those paths don't
+    // go through this method for the "harm player" branch), and the enemy
+    // keeps its isDying=false so the player can still interact with it
+    // after the window closes.
+    if (this.isSpawnProtected()) return;
+
     const playerBody = this.player.body as Phaser.Physics.Arcade.Body;
 
     // Check if stomping from above
@@ -872,6 +970,17 @@ export class NeoJumpGameScene extends BaseScene {
     if (this.isGameOver) return;
     this.isGameOver = true;
 
+    // R86.N5: kill the opening-beat flash tween if it's still running. Both
+    // tweens target `this.player.alpha`; if we leave N5's yo-yo live, it
+    // overwrites the death tween's final `alpha: 0` and the player stays
+    // visible on the game-over screen.
+    if (this.spawnProtectionTween) {
+      this.spawnProtectionTween.stop();
+      this.spawnProtectionTween = null;
+    }
+    this.spawnProtectionUntil = 0;
+    this.player?.setAlpha(1);
+
     this.playSound(SOUND_KEYS.GAME_OVER);
     this.cameras.main.shake(200, 0.012);
     this.cameras.main.flash(120, 255, 0, 0, false, undefined, undefined, 0.25);
@@ -913,6 +1022,15 @@ export class NeoJumpGameScene extends BaseScene {
             },
           });
         }
+
+        // R86.N5 — record the death timestamp on the registry so the next
+        // `create()` can detect a rapid retry (< WINDOW_MS) and drop the
+        // countdown from 5 s to 2 s. The scene `registry` aliases
+        // `game.registry` (same DataManager), so this write survives
+        // `scene.start(GAME)` restarts but dies with the root Phaser.Game
+        // instance — matching Tom's "rapid-retry loop" intent without
+        // leaking the shortcut across portal sessions.
+        this.registry.set(NeoJumpGameScene.LAST_DEATH_REGISTRY_KEY, Date.now());
 
         this.gameOver(this.score, `Altitude: ${this.lastMaxAltitude}m`, this.highScore, [
           { label: 'Enemies', value: this.enemiesKilled },
@@ -1073,6 +1191,13 @@ export class NeoJumpGameScene extends BaseScene {
    * Maybe spawn an enemy
    */
   private maybeSpawnEnemy(): void {
+    // R86.N5 — opening-beat time guard. Even if the spawn-chance RNG fires,
+    // block any new enemy for the first `SPAWN_PROTECTION.DURATION_MS` of
+    // gameplay. Pairs with the per-spawn spatial guard
+    // (MIN_HORIZONTAL_SPACING_FROM_PLAYER) to close both the "bomb lands on
+    // me" and "bomb was already in flight" vectors of Tom's complaint.
+    if (this.isSpawnProtected()) return;
+
     const altitude = GAME_CONFIG.HEIGHT - this.highestY;
 
     // Only spawn above certain altitude
@@ -1461,6 +1586,15 @@ export class NeoJumpGameScene extends BaseScene {
       this.controlsOverlay.destroy();
       this.controlsOverlay = null;
     }
+
+    // R86.N5: cancel the opening-beat flash tween if the scene tears down
+    // mid-window (ESC during protection, or death during protection — the
+    // latter would otherwise fight the death-alpha tween on the same target).
+    if (this.spawnProtectionTween) {
+      this.spawnProtectionTween.stop();
+      this.spawnProtectionTween = null;
+    }
+    this.spawnProtectionUntil = 0;
 
     super.shutdown();
   }
