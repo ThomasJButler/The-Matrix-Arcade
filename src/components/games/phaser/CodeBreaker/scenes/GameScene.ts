@@ -55,6 +55,17 @@ export class CodeBreakerGameScene extends BaseScene {
   private isBallAttached = true;
   private achievementsUnlocked = new Set<string>();
 
+  // R87.K2 — tracks whether loseLife has fired during the current update tick.
+  // Multiple collision paths (ball drop + agent-paddle + bullet-paddle) can all
+  // call loseLife in the same frame; without this guard the player can lose 2+
+  // lives at once and trigger a "spontaneous" game-over mid-level.
+  private livesLostThisFrame = false;
+
+  // R87.K3 — previous-frame pointer.x, used to detect actual mouse movement.
+  // Sentinel -1 means "not yet sampled"; on the first frame after reset we
+  // treat the pointer as idle so keyboard input wins.
+  private lastPointerX = -1;
+
   private scoreText!: Phaser.GameObjects.Text;
   private livesText!: Phaser.GameObjects.Text;
   private levelText!: Phaser.GameObjects.Text;
@@ -123,6 +134,8 @@ export class CodeBreakerGameScene extends BaseScene {
       this.highScore = saveData?.games?.codeBreaker?.highScore ?? 0;
     }
     this.achievementsUnlocked = new Set();
+    this.livesLostThisFrame = false;
+    this.lastPointerX = -1;
     this.paddleWidth = GAME_CONFIG.PADDLE_WIDTH;
     this.balls = [];
     this.bricks = [];
@@ -347,6 +360,10 @@ export class CodeBreakerGameScene extends BaseScene {
     if (this.isPaused || this.isGameOver || this.isLevelComplete) return;
     if (this.isCountingDown) return;
 
+    // R87.K2 — reset the per-frame life-loss guard so collisions in this
+    // tick can legitimately cost a life exactly once.
+    this.livesLostThisFrame = false;
+
     this.updateMatrixRain(this.matrixRainGroup, delta);
 
     const dt = delta / 1000;
@@ -376,10 +393,39 @@ export class CodeBreakerGameScene extends BaseScene {
     this.checkPowerUpCollisions();
     this.checkPortalCollision();
 
+    // R87.K1 — post-collision ball-state reconciliation. If anything above
+    // left the scene with zero balls (e.g. last-ball drop racing a power-up
+    // pickup) we recover here instead of soft-locking the player with a
+    // paddle-but-no-ball scene.
+    this.reconcileBallState();
+
     this.checkLevelComplete();
     this.updateHUD();
     this.checkAchievements();
     this.exposeTestState(this.getTestState());
+  }
+
+  // R87.K1 — ball-state invariant reconciliation. Called at the end of every
+  // update tick after all collisions have settled. Recovers from any code path
+  // that leaves the scene ball-less without triggering game-over or
+  // level-complete.
+  private reconcileBallState(): void {
+    if (this.isGameOver || this.isLevelComplete) return;
+    if (this.balls.length > 0) return;
+
+    if (this.isBallAttached) {
+      // Expected path after loseLife, but defensive in case a power-up
+      // or agent/bullet path destroyed the attached ball without spawning a
+      // replacement.
+      this.spawnBall(true);
+      this.attachHintText.setVisible(true);
+      return;
+    }
+
+    // Last ball lost without loseLife firing (e.g. ball destroyed via a
+    // power-up side-effect outside checkBallBottomCollisions). Treat as a
+    // normal life-loss so the lives counter stays honest.
+    this.loseLife();
   }
 
   // -- Paddle movement --
@@ -388,11 +434,22 @@ export class CodeBreakerGameScene extends BaseScene {
     const speed = GAME_CONFIG.PADDLE_SPEED * dt;
     let dx = 0;
 
-    if (this.cursors?.left.isDown || this.wasdA?.isDown || this.numpadLeft?.isDown) dx -= speed;
-    if (this.cursors?.right.isDown || this.wasdD?.isDown || this.numpadRight?.isDown) dx += speed;
+    const leftDown = !!(this.cursors?.left.isDown || this.wasdA?.isDown || this.numpadLeft?.isDown);
+    const rightDown = !!(this.cursors?.right.isDown || this.wasdD?.isDown || this.numpadRight?.isDown);
+    if (leftDown) dx -= speed;
+    if (rightDown) dx += speed;
 
+    // R87.K3 — only let the pointer drive the paddle when the mouse is
+    // actually being used: either currently pressed, OR moved since the last
+    // frame. The previous condition `pointer.x !== paddle.x` was effectively
+    // always true (the cursor rarely sits exactly on paddle.x) so mouse
+    // tracking silently overrode keyboard input every frame.
+    const keyboardActive = leftDown || rightDown;
     const pointer = this.input.activePointer;
-    if (pointer.isDown || pointer.x !== this.paddle.x) {
+    const pointerMoved = this.lastPointerX >= 0 && pointer.x !== this.lastPointerX;
+    const pointerInCanvas = pointer.x >= 0 && pointer.x <= GAME_CONFIG.WIDTH;
+
+    if (!keyboardActive && pointerInCanvas && (pointer.isDown || pointerMoved)) {
       const targetX = Phaser.Math.Clamp(
         pointer.x,
         this.paddleWidth / 2,
@@ -403,6 +460,7 @@ export class CodeBreakerGameScene extends BaseScene {
         dx = Math.sign(diff) * Math.min(Math.abs(diff), speed * 2);
       }
     }
+    this.lastPointerX = pointer.x;
 
     this.paddle.x = Phaser.Math.Clamp(
       this.paddle.x + dx,
@@ -926,6 +984,15 @@ export class CodeBreakerGameScene extends BaseScene {
   // -- Lose life --
 
   private loseLife(): void {
+    // R87.K2 — guard against re-entry within a single update tick. Ball-drop,
+    // agent-paddle and boss-bullet-paddle collisions can all fire in the same
+    // frame; without this guard a player with 2 lives can die "instantly" from
+    // one chaotic moment, which Tom experienced as a spontaneous game-over
+    // mid-level right after grabbing a power-up.
+    if (this.isGameOver || this.isLevelComplete) return;
+    if (this.livesLostThisFrame) return;
+    this.livesLostThisFrame = true;
+
     this.lives--;
     this.combo = 0;
     this.ballLostThisLevel = true;
@@ -1098,6 +1165,14 @@ export class CodeBreakerGameScene extends BaseScene {
   // -- Power-up activation --
 
   private activatePowerUp(type: PowerUpType): void {
+    // R87.K2 — power-up effects can destroy bricks (EMP), spawn balls
+    // (multiBall) or schedule delayedCall side-effects (laser/widePaddle
+    // revert). Blocking activation once the game is already over or the level
+    // is already complete prevents late-arriving pickups from firing into a
+    // dead scene and producing the "terminated with high score" game-over
+    // Tom logged on CodeBreaker level 1.
+    if (this.isGameOver || this.isLevelComplete) return;
+
     this.playSound(SOUND_KEYS.SPECIAL_ABILITY);
 
     switch (type) {
