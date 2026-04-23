@@ -106,8 +106,38 @@ const BRICK_MAP: Record<number, BrickType | null> = {
   9: 'unbreakable',
 };
 
+// R87.K5 — L1 difficulty retier. Tom's 2026-04-22 playtest flagged the original
+// L1 (6 rows, 20 sentinels + 20 agents + 20 code = 120 HP total) as
+// overwhelming for a first-level introduction; his exact ask was "current
+// level 1 should become level 3". Two warm-up layouts were inserted at the
+// front of this array so the difficulty curve now ramps 30 HP (L1 — all
+// 1-hit code bricks) → 44 HP (L2 — introduces a handful of 2-hit agents) →
+// 120 HP (L3 — the pre-R87 L1). The pre-R87 layouts are preserved unchanged
+// from old index 0 onwards, just shifted +2; BOSS_LEVELS adjusts from
+// [3, 6, 9] → [5, 8, 11] and TOTAL_LEVELS grows 10 → 12 in GAME_CONFIG below
+// so the boss cadence + endgame achievement semantics survive the retier.
 export const LEVELS: number[][][] = [
-  // Level 1: Simple rows with colour variety (code=1 green, agent=2 gold, sentinel=3 red)
+  // Level 1 (R87.K5 NEW — warm-up): 3 rows of pure code bricks (1-hit each).
+  // 30 HP total, ~30 seconds to clear with fresh paddle — teaches the paddle
+  // + ball loop with zero multi-hit complications or power-up scarcity.
+  [
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  ],
+  // Level 2 (R87.K5 NEW — warm-up): 4 rows, introduces a scattered 4 agents
+  // (2-hit) among 36 code bricks = 44 HP. First encounter with a brick that
+  // doesn't pop on a single hit, but low enough density that the 2-hit rhythm
+  // reads as variety rather than a wall.
+  [
+    [1, 1, 2, 1, 1, 1, 1, 2, 1, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 2, 1, 1, 1, 1, 1, 1, 2, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  ],
+  // Level 3 (R87.K5 — was Level 1 pre-retier): Simple rows with colour variety
+  // (code=1 green, agent=2 gold, sentinel=3 red). 120 HP total — the "hump"
+  // Tom wants the player to hit at L3 after warming up through L1 + L2.
   [
     [3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
@@ -116,14 +146,14 @@ export const LEVELS: number[][][] = [
     [3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
   ],
-  // Level 2: Mixed with agents
+  // Level 4 (was Level 2 pre-retier): Mixed with agents
   [
     [2, 1, 1, 2, 1, 1, 2, 1, 1, 2],
     [1, 2, 1, 1, 2, 2, 1, 1, 2, 1],
     [1, 1, 2, 1, 1, 1, 1, 2, 1, 1],
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
   ],
-  // Level 3: Boss level - V pattern with sentinels
+  // Level 5 (was Level 3 pre-retier): Boss level - V pattern with sentinels
   [
     [3, 0, 0, 0, 0, 0, 0, 0, 0, 3],
     [0, 2, 0, 0, 0, 0, 0, 0, 2, 0],
@@ -131,7 +161,7 @@ export const LEVELS: number[][][] = [
     [0, 0, 0, 1, 1, 1, 1, 0, 0, 0],
     [0, 0, 0, 0, 1, 1, 0, 0, 0, 0],
   ],
-  // Level 4: Fortress with unbreakable walls
+  // Level 6 (was Level 4 pre-retier): Fortress with unbreakable walls
   [
     [9, 1, 1, 1, 1, 1, 1, 1, 1, 9],
     [1, 2, 2, 1, 1, 1, 1, 2, 2, 1],
@@ -139,7 +169,7 @@ export const LEVELS: number[][][] = [
     [1, 1, 2, 1, 1, 1, 1, 2, 1, 1],
     [9, 1, 1, 1, 1, 1, 1, 1, 1, 9],
   ],
-  // Level 5: Diamond pattern
+  // Level 7 (was Level 5 pre-retier): Diamond pattern
   [
     [0, 0, 0, 0, 3, 3, 0, 0, 0, 0],
     [0, 0, 0, 2, 1, 1, 2, 0, 0, 0],
@@ -149,7 +179,7 @@ export const LEVELS: number[][][] = [
     [0, 0, 0, 2, 1, 1, 2, 0, 0, 0],
     [0, 0, 0, 0, 3, 3, 0, 0, 0, 0],
   ],
-  // Level 6: Boss level - dense grid
+  // Level 8 (was Level 6 pre-retier): Boss level - dense grid
   [
     [3, 2, 3, 2, 3, 3, 2, 3, 2, 3],
     [2, 1, 2, 1, 2, 2, 1, 2, 1, 2],
@@ -158,7 +188,7 @@ export const LEVELS: number[][][] = [
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
     [2, 1, 2, 1, 2, 2, 1, 2, 1, 2],
   ],
-  // Level 7: Zigzag
+  // Level 9 (was Level 7 pre-retier): Zigzag
   [
     [3, 3, 0, 0, 0, 0, 0, 0, 3, 3],
     [0, 2, 2, 0, 0, 0, 0, 2, 2, 0],
@@ -168,7 +198,7 @@ export const LEVELS: number[][][] = [
     [0, 2, 2, 0, 0, 0, 0, 2, 2, 0],
     [3, 3, 0, 0, 0, 0, 0, 0, 3, 3],
   ],
-  // Level 8: Checkerboard
+  // Level 10 (was Level 8 pre-retier): Checkerboard
   [
     [3, 0, 3, 0, 3, 0, 3, 0, 3, 0],
     [0, 2, 0, 2, 0, 2, 0, 2, 0, 2],
@@ -177,7 +207,7 @@ export const LEVELS: number[][][] = [
     [3, 0, 3, 0, 3, 0, 3, 0, 3, 0],
     [0, 2, 0, 2, 0, 2, 0, 2, 0, 2],
   ],
-  // Level 9: Boss level - The Architect
+  // Level 11 (was Level 9 pre-retier): Boss level - The Architect
   [
     [9, 3, 3, 3, 3, 3, 3, 3, 3, 9],
     [9, 0, 0, 0, 0, 0, 0, 0, 0, 9],
@@ -188,7 +218,7 @@ export const LEVELS: number[][][] = [
     [9, 0, 0, 0, 0, 0, 0, 0, 0, 9],
     [9, 3, 3, 3, 3, 3, 3, 3, 3, 9],
   ],
-  // Level 10: The Source - final gauntlet
+  // Level 12 (was Level 10 pre-retier): The Source - final gauntlet
   [
     [3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
     [3, 9, 2, 2, 2, 2, 2, 2, 9, 3],
@@ -275,7 +305,11 @@ export const GAME_CONFIG = {
 
   // Gameplay
   LIVES: 3,
-  TOTAL_LEVELS: 10,
+  // R87.K5 — bumped 10 → 12 to accommodate the two warm-up layouts inserted
+  // at the front of LEVELS. The endgame achievement (`LEVEL_10` ID) already
+  // fires via `level >= TOTAL_LEVELS`, so this constant is the single source
+  // of truth for "final level" semantics and auto-adapts to 12.
+  TOTAL_LEVELS: 12,
   COMBO_MULTIPLIER: 0.1,
   POWERUP_DROP_CHANCE: 0.15,
   POWERUP_FALL_SPEED: 120,
@@ -287,8 +321,11 @@ export const GAME_CONFIG = {
   AGENT_WIDTH: 20,
   AGENT_HEIGHT: 30,
 
-  // Boss (levels 3, 6, 9)
-  BOSS_LEVELS: [3, 6, 9] as readonly number[],
+  // Boss (levels 5, 8, 11 — R87.K5 retier shifted from original [3, 6, 9] by
+  // +2 to follow the two inserted warm-up layouts. Cadence preserved: every
+  // third level from L5 hosts a boss fight, culminating in the L11 Architect
+  // before the L12 Source gauntlet.)
+  BOSS_LEVELS: [5, 8, 11] as readonly number[],
   BOSS_BASE_HEALTH: 15,
   BOSS_HEALTH_PER_LEVEL: 5,
   BOSS_WIDTH: 120,
