@@ -858,4 +858,225 @@ describe('CloudJumperGameScene', () => {
       });
     });
   });
+
+  // -----------------------------------------------------------------------
+  // R87.C2 — Ceiling clamp (off-screen-above prevention)
+  // -----------------------------------------------------------------------
+  //
+  // Tom's 2026-04-22 playtest: *"Sometimes the player jumps too hard and he
+  // goes off screen. Need to make the platforms lower to account for this
+  // or make jumping less high."*
+  //
+  // Root cause: with `VERTICAL_RANGE = 100` and `JUMP_VELOCITY = -400` at
+  // `GRAVITY = 800`, landing on a high-Y moving cloud (y as low as 75) and
+  // chaining a manual SPACE press within the 300 ms cloud-contact window
+  // gives peak y ≈ -25 — off-screen.
+  //
+  // Contract: `enforceCeiling()` is a no-op on any jump landing below
+  // `CEILING_Y = 20` so normal-feel jumps are untouched. When the player
+  // would escape the canvas-top, it pulls `y` back to the ceiling and
+  // zeroes upward velocity so gravity immediately reels them back in.
+  // -----------------------------------------------------------------------
+  describe('R87.C2 — Ceiling clamp (off-screen-above prevention)', () => {
+    // Static source helper — same pattern as the R87.C1 block above so
+    // tripwires on the clamp's structure survive text-level refactors.
+    function readSceneSource(): string {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require('fs') as typeof import('fs');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require('path') as typeof import('path');
+      return fs.readFileSync(path.join(__dirname, 'GameScene.ts'), 'utf8');
+    }
+
+    // -------------------------------------------------------------------
+    // Sub-block 1: Config dial contract
+    // -------------------------------------------------------------------
+    describe('CEILING_Y config dial', () => {
+      it('is exactly 20', () => {
+        expect(GAME_CONFIG.PLAYER.CEILING_Y).toBe(20);
+      });
+
+      it('is a positive finite number', () => {
+        expect(Number.isFinite(GAME_CONFIG.PLAYER.CEILING_Y)).toBe(true);
+        expect(GAME_CONFIG.PLAYER.CEILING_Y).toBeGreaterThan(0);
+      });
+
+      it('sits above START_Y (ceiling is higher on screen than spawn)', () => {
+        // Sanity: if someone set CEILING_Y >= START_Y, every game would
+        // start with the player already clamped. Locks the ordering so a
+        // future tuning pass can't silently flip the relation.
+        expect(GAME_CONFIG.PLAYER.CEILING_Y).toBeLessThan(GAME_CONFIG.PLAYER.START_Y);
+      });
+
+      it('sits within the canvas (< HEIGHT)', () => {
+        expect(GAME_CONFIG.PLAYER.CEILING_Y).toBeLessThan(GAME_CONFIG.HEIGHT);
+      });
+
+      it('is low enough to keep the full player sprite visible', () => {
+        // Player body is centred on y; half-height = 16 + a 4 px guard
+        // below any HUD chrome gives a safe minimum of 20. Locks the
+        // "keep the player visible when clamped" invariant — a future
+        // drop to 0 or a negative value would violate it.
+        expect(GAME_CONFIG.PLAYER.CEILING_Y).toBeGreaterThanOrEqual(
+          GAME_CONFIG.PLAYER.HEIGHT / 2
+        );
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Sub-block 2: Clamp behaviour — position + velocity
+    // -------------------------------------------------------------------
+    describe('enforceCeiling behaviour', () => {
+      it('is a no-op when player is well below the ceiling', () => {
+        scene.player.y = 200;
+        scene.player.body.velocity.y = -100;
+        scene.enforceCeiling();
+        expect(scene.player.y).toBe(200);
+        expect(scene.player.body.setVelocityY).not.toHaveBeenCalled();
+      });
+
+      it('is a no-op at exactly y === CEILING_Y (>= comparison)', () => {
+        // Strict `>=` lock — a `>` refactor would clamp-then-unclamp at
+        // exactly the boundary every frame and feel jittery.
+        scene.player.y = GAME_CONFIG.PLAYER.CEILING_Y;
+        scene.player.body.velocity.y = -50;
+        scene.enforceCeiling();
+        expect(scene.player.y).toBe(GAME_CONFIG.PLAYER.CEILING_Y);
+        expect(scene.player.body.setVelocityY).not.toHaveBeenCalled();
+      });
+
+      it('clamps position back to CEILING_Y when player is above', () => {
+        scene.player.y = 10;
+        scene.player.body.velocity.y = -50;
+        scene.enforceCeiling();
+        expect(scene.player.y).toBe(GAME_CONFIG.PLAYER.CEILING_Y);
+      });
+
+      it('clamps even from far off-screen', () => {
+        scene.player.y = -100;
+        scene.player.body.velocity.y = -300;
+        scene.enforceCeiling();
+        expect(scene.player.y).toBe(GAME_CONFIG.PLAYER.CEILING_Y);
+      });
+
+      it('zeroes upward (negative) velocity on clamp', () => {
+        scene.player.y = 10;
+        scene.player.body.velocity.y = -200;
+        scene.enforceCeiling();
+        expect(scene.player.body.setVelocityY).toHaveBeenCalledWith(0);
+      });
+
+      it('does NOT touch downward (positive) velocity on clamp', () => {
+        // Defensive: if the player somehow ends up above ceiling while
+        // already falling (e.g., teleport / scene reset corner case),
+        // we clamp position only and let gravity + existing momentum
+        // carry them back without interference.
+        scene.player.y = 10;
+        scene.player.body.velocity.y = 120;
+        scene.enforceCeiling();
+        expect(scene.player.y).toBe(GAME_CONFIG.PLAYER.CEILING_Y);
+        expect(scene.player.body.setVelocityY).not.toHaveBeenCalled();
+      });
+
+      it('does NOT touch zero velocity on clamp', () => {
+        // Edge case: player resting exactly at vy=0 above ceiling. Clamp
+        // position but don't issue a zero-velocity write (no-op).
+        scene.player.y = 10;
+        scene.player.body.velocity.y = 0;
+        scene.enforceCeiling();
+        expect(scene.player.y).toBe(GAME_CONFIG.PLAYER.CEILING_Y);
+        expect(scene.player.body.setVelocityY).not.toHaveBeenCalled();
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Sub-block 3: Scene-state guards
+    // -------------------------------------------------------------------
+    describe('scene-state guards', () => {
+      it('isGameOver=true short-circuits (death tween preserved)', () => {
+        // The death tween animates y by +100 over 600 ms. The clamp must
+        // not interfere: even if a mid-tween frame reads a y < ceiling,
+        // we let the tween finish to its onComplete.
+        scene.isGameOver = true;
+        scene.player.y = -50;
+        scene.player.body.velocity.y = -200;
+        scene.enforceCeiling();
+        expect(scene.player.y).toBe(-50); // unchanged
+        expect(scene.player.body.setVelocityY).not.toHaveBeenCalled();
+      });
+
+      it('missing player short-circuits (no NPE)', () => {
+        scene.player = null;
+        expect(() => scene.enforceCeiling()).not.toThrow();
+      });
+
+      it('missing body short-circuits (no NPE)', () => {
+        scene.player = { y: 10, body: null };
+        expect(() => scene.enforceCeiling()).not.toThrow();
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Sub-block 4: Real-world scenario (high-cloud + manual-jump chain)
+    // -------------------------------------------------------------------
+    describe('high-cloud + manual-jump scenario', () => {
+      it('prevents off-screen peak from a y=75 cloud + manual jump', () => {
+        // Simulate the worst-case: player sitting on a moving cloud at
+        // y=75, JUMP_VELOCITY peak rise of 100 px would land them at
+        // y=-25 without a clamp. The clamp pulls them back to CEILING_Y.
+        scene.player.y = 75 - 100; // where they'd be at apex
+        scene.player.body.velocity.y = 0; // apex — velocity momentarily zero
+        scene.enforceCeiling();
+        expect(scene.player.y).toBe(GAME_CONFIG.PLAYER.CEILING_Y);
+      });
+
+      it('still fires correctly while rising hard (mid-ascent clamp)', () => {
+        // Mid-ascent from a y=90 cloud with vy=-350: immediately above
+        // ceiling → clamp + zero vy so gravity pulls them back down.
+        scene.player.y = 15;
+        scene.player.body.velocity.y = -350;
+        scene.enforceCeiling();
+        expect(scene.player.y).toBe(GAME_CONFIG.PLAYER.CEILING_Y);
+        expect(scene.player.body.setVelocityY).toHaveBeenCalledWith(0);
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Sub-block 5: Static source tripwires
+    // -------------------------------------------------------------------
+    describe('static source invariants', () => {
+      it('enforceCeiling method is defined on the class', () => {
+        const src = readSceneSource();
+        expect(src).toMatch(/private\s+enforceCeiling\s*\(\s*\)\s*:\s*void/);
+      });
+
+      it('update() calls enforceCeiling()', () => {
+        // Locks the wiring so a future refactor can't silently drop the
+        // call and resurrect the off-screen bug.
+        const src = readSceneSource();
+        expect(src).toMatch(/this\.enforceCeiling\s*\(\s*\)/);
+      });
+
+      it('enforceCeiling uses >= comparison (no jitter at boundary)', () => {
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+enforceCeiling[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\s{2}shutdown\s|\n\s{2}}\s*$|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).toMatch(/player\.y\s*>=\s*GAME_CONFIG\.PLAYER\.CEILING_Y/);
+      });
+
+      it('enforceCeiling only zeroes negative velocity', () => {
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+enforceCeiling[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\s{2}shutdown\s|\n\s{2}}\s*$|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        // Locks the `if (body.velocity.y < 0)` guard — a refactor dropping
+        // this guard would zero vy even on a falling player, breaking
+        // the defensive corner case test above.
+        expect(block![0]).toMatch(/body\.velocity\.y\s*<\s*0/);
+      });
+    });
+  });
 });
