@@ -259,7 +259,7 @@ export const GAME_ACHIEVEMENTS: Record<string, Achievement[]> = {
   codeBreaker: [
     { id: 'breaker_first_break', name: 'First Crack', description: 'Break your first brick', game: 'Code Breaker' },
     { id: 'breaker_level_5', name: 'Firewall Piercer', description: 'Reach level 5', game: 'Code Breaker' },
-    { id: 'breaker_level_10', name: 'System Liberator', description: 'Complete all 10 levels', game: 'Code Breaker' },
+    { id: 'breaker_level_10', name: 'System Liberator', description: 'Complete all 12 levels', game: 'Code Breaker' },
     { id: 'breaker_smith_slayer', name: 'Agent Eliminator', description: 'Destroy 10 Agent Smiths', game: 'Code Breaker' },
     { id: 'breaker_combo_15', name: 'Chain Breaker', description: 'Achieve a 15-brick combo', game: 'Code Breaker' },
     { id: 'breaker_multi_ball', name: 'Multi-Thread', description: 'Have 3 or more balls active', game: 'Code Breaker' },

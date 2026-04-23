@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Phaser from 'phaser';
 import { CodeBreakerGameScene } from './GameScene';
-import { GAME_CONFIG, ACHIEVEMENTS, POWERUP_DEFS } from '../config';
+import { GAME_CONFIG, ACHIEVEMENTS, POWERUP_DEFS, LEVELS, BRICK_DEFS, getBrickType } from '../config';
 
 const C = GAME_CONFIG;
 
@@ -1093,7 +1093,9 @@ describe('CodeBreakerGameScene', () => {
     });
 
     it('spawns boss on boss levels', () => {
-      call(scene, 'loadLevel', 3);
+      // R87.K5 — boss cadence shifted from [3, 6, 9] to [5, 8, 11] following
+      // the insertion of two warm-up layouts at the front of LEVELS.
+      call(scene, 'loadLevel', 5);
       expect(s(scene, 'boss')).not.toBeNull();
     });
 
@@ -1705,6 +1707,195 @@ describe('CodeBreakerGameScene', () => {
         const speed = Math.sqrt(ball.vx ** 2 + ball.vy ** 2);
         expect(speed).toBeLessThanOrEqual(C.BALL_MAX_SPEED + 0.001);
         expect(speed).toBeCloseTo(C.BALL_MAX_SPEED, 0);
+      });
+    });
+  });
+
+  // R87.K5 — L1 difficulty retier (pre-R87 L1 → L3). Tom's 2026-04-22
+  // playtest: "First level is a bit too difficult... Need to make the current
+  // level one, level three." Two warm-up layouts were inserted at the front
+  // of LEVELS so the curve now ramps 30 HP → 44 HP → 120 HP across L1/L2/L3.
+  // This block locks the retier intent so a future level-data edit cannot
+  // silently re-hostile the warm-up zone.
+  describe('R87.K5 — L1 difficulty retier', () => {
+    // Pre-R87 L1 layout — used to verify the retier preserves it as new L3.
+    const PRE_R87_L1: number[][] = [
+      [3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+      [3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    ];
+
+    // Helper: total HP of breakable bricks in a layout (ignores 0/empty and
+    // 9/unbreakable — what the player actually has to smash through to clear).
+    const breakableHP = (layout: number[][]): number =>
+      layout.reduce((rowSum, row) => {
+        return rowSum + row.reduce((colSum, code) => {
+          const type = getBrickType(code);
+          if (!type || type === 'unbreakable') return colSum;
+          return colSum + BRICK_DEFS[type].health;
+        }, 0);
+      }, 0);
+
+    describe('Level count + boss cadence', () => {
+      it('LEVELS array has exactly 12 entries', () => {
+        expect(LEVELS).toHaveLength(12);
+      });
+
+      it('TOTAL_LEVELS is 12', () => {
+        expect(C.TOTAL_LEVELS).toBe(12);
+      });
+
+      it('BOSS_LEVELS is [5, 8, 11] — shifted +2 from pre-R87 [3, 6, 9]', () => {
+        expect([...C.BOSS_LEVELS]).toEqual([5, 8, 11]);
+      });
+
+      it('boss cadence preserves 3-level spacing', () => {
+        const gaps: number[] = [];
+        for (let i = 1; i < C.BOSS_LEVELS.length; i++) {
+          gaps.push(C.BOSS_LEVELS[i] - C.BOSS_LEVELS[i - 1]);
+        }
+        expect(gaps).toEqual([3, 3]);
+      });
+
+      it('first boss sits at L5 (post-warm-up) not L3', () => {
+        // Critical anti-regression: if a future refactor merges the warm-up
+        // levels back with the original L1, this keeps L3 boss-free.
+        expect(C.BOSS_LEVELS[0]).toBeGreaterThan(3);
+        expect((C.BOSS_LEVELS as readonly number[]).includes(3)).toBe(false);
+      });
+
+      it('final level is still a non-boss gauntlet', () => {
+        // The Source (L12) is boss-adjacent difficulty but not in BOSS_LEVELS —
+        // the Architect at L11 is the last boss. Preserves the pre-R87
+        // design where the final level is a brick-dense finale.
+        expect((C.BOSS_LEVELS as readonly number[]).includes(C.TOTAL_LEVELS)).toBe(false);
+      });
+    });
+
+    describe('Warm-up character of L1 + L2', () => {
+      it('L1 contains only code bricks (no agents / sentinels / unbreakables)', () => {
+        const l1 = LEVELS[0];
+        const allCodes = l1.flat();
+        // Code=1 or empty=0 only; no 2/3/9.
+        for (const code of allCodes) {
+          expect([0, 1]).toContain(code);
+        }
+      });
+
+      it('L1 total HP ≤ 40 (strict warm-up ceiling)', () => {
+        // Below the threshold Tom flagged as "too many blocks that take too
+        // many hits". 40 HP ≈ 40 seconds of play with a fresh paddle, which
+        // is the warm-up budget we're targeting.
+        expect(breakableHP(LEVELS[0])).toBeLessThanOrEqual(40);
+      });
+
+      it('L1 is clearable in a single pass (≥1 row but ≤4 rows)', () => {
+        expect(LEVELS[0].length).toBeGreaterThanOrEqual(1);
+        expect(LEVELS[0].length).toBeLessThanOrEqual(4);
+      });
+
+      it('L2 introduces a handful of multi-hit bricks (1 < agent count ≤ 8)', () => {
+        const agentCount = LEVELS[1].flat().filter((c) => c === 2).length;
+        expect(agentCount).toBeGreaterThan(1);
+        expect(agentCount).toBeLessThanOrEqual(8);
+      });
+
+      it('L2 contains no sentinel (3-hit) bricks yet', () => {
+        // Sentinels are reserved for L3+ — the "hump" difficulty Tom wants
+        // players to hit after two levels of warm-up.
+        const sentinelCount = LEVELS[1].flat().filter((c) => c === 3).length;
+        expect(sentinelCount).toBe(0);
+      });
+
+      it('L2 total HP ≤ 60 (still warm-up, but harder than L1)', () => {
+        expect(breakableHP(LEVELS[1])).toBeLessThanOrEqual(60);
+      });
+    });
+
+    describe('Monotonic difficulty ramp L1 → L2 → L3', () => {
+      it('L1 total HP < L2 total HP', () => {
+        expect(breakableHP(LEVELS[0])).toBeLessThan(breakableHP(LEVELS[1]));
+      });
+
+      it('L2 total HP < L3 total HP (warm-up → hump)', () => {
+        expect(breakableHP(LEVELS[1])).toBeLessThan(breakableHP(LEVELS[2]));
+      });
+
+      it('L3 is the pre-R87 L1 layout — the "hump" Tom requested', () => {
+        // Direct layout equality lock: if someone edits the warm-ups back
+        // into the pre-R87 L1 position, this catches it. Independent of
+        // HP counting so a future sentinel-swap in pre-R87 L1 can't pass
+        // silently.
+        expect(LEVELS[2]).toEqual(PRE_R87_L1);
+      });
+
+      it('L3 HP ≥ 100 — the retier preserves the pre-R87 L1 weight', () => {
+        expect(breakableHP(LEVELS[2])).toBeGreaterThanOrEqual(100);
+      });
+    });
+
+    describe('Pre-R87 level data preserved at new indices', () => {
+      // Each pre-R87 level should now sit at new index = oldIndex + 2.
+      // Locks the "insert-at-front" intent against a future refactor that
+      // might reorder in place.
+      it('pre-R87 L2 layout preserved at new L4', () => {
+        const preR87L2: number[][] = [
+          [2, 1, 1, 2, 1, 1, 2, 1, 1, 2],
+          [1, 2, 1, 1, 2, 2, 1, 1, 2, 1],
+          [1, 1, 2, 1, 1, 1, 1, 2, 1, 1],
+          [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        ];
+        expect(LEVELS[3]).toEqual(preR87L2);
+      });
+
+      it('pre-R87 boss L3 (V-pattern) now at new L5', () => {
+        // Spot-check: new L5 is the old V-pattern AND is flagged as a boss
+        // level — ties together layout preservation + boss-cadence shift.
+        expect(LEVELS[4][0]).toEqual([3, 0, 0, 0, 0, 0, 0, 0, 0, 3]);
+        expect((C.BOSS_LEVELS as readonly number[]).includes(5)).toBe(true);
+      });
+
+      it('pre-R87 final-gauntlet (The Source) preserved at new L12', () => {
+        expect(LEVELS[11][0]).toEqual([3, 3, 3, 3, 3, 3, 3, 3, 3, 3]);
+      });
+    });
+
+    describe('loadLevel wiring with retiered indices', () => {
+      // Uses the outer `scene` + its `beforeEach` (line 187) via closure.
+
+      it('loadLevel(1) populates warm-up bricks only (all type=code)', () => {
+        call(scene, 'loadLevel', 1);
+        const bricks = s(scene, 'bricks') as Array<{ type: string }>;
+        expect(bricks.length).toBeGreaterThan(0);
+        for (const b of bricks) {
+          expect(b.type).toBe('code');
+        }
+      });
+
+      it('loadLevel(1) does not spawn a boss', () => {
+        call(scene, 'loadLevel', 1);
+        expect(s(scene, 'boss')).toBeNull();
+      });
+
+      it('loadLevel(5) spawns a boss (first boss level post-retier)', () => {
+        call(scene, 'loadLevel', 5);
+        expect(s(scene, 'boss')).not.toBeNull();
+      });
+
+      it('loadLevel(3) does NOT spawn a boss (was old boss level, now regular)', () => {
+        call(scene, 'loadLevel', 3);
+        expect(s(scene, 'boss')).toBeNull();
+      });
+
+      it('loadLevel clamps out-of-range levels to the last layout', () => {
+        // `loadLevel(13)` should still produce bricks (clamped to LEVELS[11]).
+        // Guards against a future off-by-one in the clamp logic.
+        call(scene, 'loadLevel', 13);
+        const bricks = s(scene, 'bricks') as unknown[];
+        expect(bricks.length).toBeGreaterThan(0);
       });
     });
   });
