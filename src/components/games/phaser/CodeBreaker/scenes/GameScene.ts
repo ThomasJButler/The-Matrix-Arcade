@@ -702,6 +702,7 @@ export class CodeBreakerGameScene extends BaseScene {
             ball.vy = Math.abs(ball.vy) * Math.sign(dy || 1);
           }
 
+          this.applyBrickReboundDampen(ball);
           this.hitBrick(bi);
           break;
         }
@@ -712,8 +713,34 @@ export class CodeBreakerGameScene extends BaseScene {
         this.boss.sprite.x, this.boss.sprite.y, this.boss.width, this.boss.height
       )) {
         ball.vy = Math.abs(ball.vy);
+        this.applyBrickReboundDampen(ball);
         this.hitBoss(1);
       }
+    }
+  }
+
+  // R87.K4 — per-brick rebound dampen + steep-angle softener + defensive
+  // ceiling clamp. Called after a brick/boss reflection flips velocity. The
+  // three layers cover distinct failure modes: (1) flat dampen catches
+  // runaway speed accumulation across many inter-brick bounces in packed
+  // grids, (2) steep-angle dampen scrubs the visual "dart" that near-vertical
+  // rebounds read as, (3) MAX_SPEED clamp is belt-and-braces — a brick hit
+  // must never make the ball faster than the paddle-ramp ceiling.
+  private applyBrickReboundDampen(ball: BallState): void {
+    ball.vx *= GAME_CONFIG.BALL_BRICK_REBOUND_DAMPEN;
+    ball.vy *= GAME_CONFIG.BALL_BRICK_REBOUND_DAMPEN;
+
+    let speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+    if (speed > 0 && Math.abs(ball.vy) / speed > GAME_CONFIG.BALL_STEEP_ANGLE_THRESHOLD) {
+      ball.vx *= GAME_CONFIG.BALL_STEEP_ANGLE_DAMPEN;
+      ball.vy *= GAME_CONFIG.BALL_STEEP_ANGLE_DAMPEN;
+      speed *= GAME_CONFIG.BALL_STEEP_ANGLE_DAMPEN;
+    }
+
+    if (speed > GAME_CONFIG.BALL_MAX_SPEED) {
+      const scale = GAME_CONFIG.BALL_MAX_SPEED / speed;
+      ball.vx *= scale;
+      ball.vy *= scale;
     }
   }
 
