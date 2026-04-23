@@ -15,10 +15,14 @@ export class CodeBreakerMenuScene extends MenuScene {
     super.create();
 
     const h = this.cameras.main.height;
+    // R87.K6 — call out that bullet-time charges from brick destruction +
+    // activates manually on B once the meter is full (no longer auto-fires
+    // on the orange clock power-up).
     const instructions = [
       'HOW TO PLAY',
       'Arrow keys / Mouse: Move paddle',
-      'B: Bullet time | P: Pause',
+      'Destroy bricks to charge BULLET TIME',
+      'B: Activate (when READY) | P: Pause',
       'Break all bricks to advance!',
     ];
 

@@ -343,6 +343,21 @@ export const GAME_CONFIG = {
 
   // Bullet time
   BULLET_TIME_SCALE: 0.4,
+  // R87.K6 — manual bullet-time charge meter. Previous auto-trigger on every
+  // bulletTime power-up pickup made slow-mo feel pointless (Tom: "it just
+  // makes one ball go really slow and it's a bit pointless"). Now the meter
+  // fills as the player destroys bricks, HUD flips YELLOW when full, and
+  // the player chooses when to spend it by pressing B. Mirrors Metris R85.M3.
+  //
+  // Fill rate rationale: at 4 charge per brick and MAX=100, a 25-brick run
+  // earns one activation — roughly one full L1 (30 bricks) or 2 per L3
+  // (120 bricks), so each level yields ~1-4 intentional activations. Boss
+  // hits are worth 2× (BULLET_TIME_METER_PER_BOSS_HIT=8) because boss
+  // fights are the natural place to want slow-mo + boss HP far exceeds
+  // brick HP so the ratio keeps activation frequency roughly constant.
+  BULLET_TIME_METER_MAX: 100,
+  BULLET_TIME_METER_PER_BRICK: 4,
+  BULLET_TIME_METER_PER_BOSS_HIT: 8,
 
   // Firewall
   FIREWALL_Y: 440,
