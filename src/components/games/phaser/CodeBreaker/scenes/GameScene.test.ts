@@ -1,7 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Phaser from 'phaser';
 import { CodeBreakerGameScene } from './GameScene';
-import { GAME_CONFIG, ACHIEVEMENTS, POWERUP_DEFS, LEVELS, BRICK_DEFS, getBrickType } from '../config';
+import {
+  GAME_CONFIG,
+  ACHIEVEMENTS,
+  POWERUP_DEFS,
+  POWERUP_LEGEND,
+  LEVELS,
+  BRICK_DEFS,
+  getBrickType,
+  type PowerUpType,
+} from '../config';
 
 const C = GAME_CONFIG;
 
@@ -133,8 +142,10 @@ function createTestScene(): any {
     killAll: vi.fn(),
   };
   scene.time = {
-    addEvent: vi.fn().mockReturnValue({ destroy: vi.fn(), delay: 0 }),
-    delayedCall: vi.fn().mockReturnValue({ destroy: vi.fn() }),
+    addEvent: vi.fn().mockReturnValue({ destroy: vi.fn(), delay: 0, remove: vi.fn() }),
+    // R87.K7 — mock mirrors Phaser.Time.TimerEvent's `remove` API so
+    // clearPowerUpLegend() can cancel the hide-timer without NPE-ing.
+    delayedCall: vi.fn().mockReturnValue({ destroy: vi.fn(), remove: vi.fn() }),
     removeAllEvents: vi.fn(),
   };
   scene.input = {
@@ -2194,6 +2205,379 @@ describe('CodeBreakerGameScene', () => {
         scene.bulletTimeMeter = 33;
         const state = call(scene, 'getTestState') as Record<string, unknown>;
         expect(state.bulletTimeMeter).toBe(33);
+      });
+    });
+  });
+
+  // --------------------------------------------------------------------
+  // R87.K7 — power-up legend overlay on pickup.
+  //
+  // Scope: activating any of the 6 power-ups (either by field-drop pickup or
+  // by the manual B-press charge path) must paint a 6-line legend showing the
+  // active entry at ACTIVE_ALPHA + its def colour and the remaining 5 at
+  // INACTIVE_ALPHA. The overlay auto-hides after POWERUP_LEGEND.DISPLAY_MS.
+  //
+  // Back-to-back pickups must rebuild the cohort without leaking Text nodes
+  // or firing a stale hide against the newer cohort — identical reference-
+  // capture pattern to Invaders R85.I6 (hidePowerUpLegend captures
+  // `this.powerUpLegend` as a local `targets` so show() resetting the field
+  // to a fresh array produces a detached reference that the stale tween
+  // operates on in isolation).
+  // --------------------------------------------------------------------
+  describe('R87.K7 — power-up legend on pickup + menu legend contract', () => {
+    beforeEach(() => {
+      // Unlock activatePowerUp — the K1/K2 guard blocks effects under
+      // isGameOver/isLevelComplete so these tests need both flags cleared.
+      scene.isGameOver = false;
+      scene.isLevelComplete = false;
+      // Reset legend state. Fresh scene never shows the legend until an
+      // activation fires.
+      scene.powerUpLegend = [];
+      scene.powerUpLegendHideTimer = undefined;
+    });
+
+    describe('POWERUP_LEGEND config contract', () => {
+      it('exports exactly one entry per PowerUpType key', () => {
+        expect(POWERUP_LEGEND.ENTRIES).toHaveLength(Object.keys(POWERUP_DEFS).length);
+      });
+
+      it('every entry references a real PowerUpType + has name + effect + duration', () => {
+        for (const entry of POWERUP_LEGEND.ENTRIES) {
+          expect(POWERUP_DEFS[entry.type]).toBeDefined();
+          expect(entry.name.length).toBeGreaterThan(0);
+          expect(entry.effect.length).toBeGreaterThan(0);
+          expect(entry.duration.length).toBeGreaterThan(0);
+        }
+      });
+
+      it('entries appear in POWERUP_DEFS declaration order — future adds surface auto', () => {
+        const defOrder = Object.keys(POWERUP_DEFS) as PowerUpType[];
+        const legendOrder = POWERUP_LEGEND.ENTRIES.map((e) => e.type);
+        expect(legendOrder).toEqual(defOrder);
+      });
+
+      it('display + fade dials are positive finite numbers', () => {
+        expect(POWERUP_LEGEND.DISPLAY_MS).toBeGreaterThan(0);
+        expect(POWERUP_LEGEND.FADE_IN_MS).toBeGreaterThan(0);
+        expect(POWERUP_LEGEND.FADE_OUT_MS).toBeGreaterThan(0);
+      });
+
+      it('DISPLAY_MS ≥ 2000 — anti-regression ratchet (below 2s reads as flicker)', () => {
+        // Tom's 4s brief matches Pong/Invaders/Frogger cadence; a future
+        // refactor that drops it to 500ms would strip the "read the effect"
+        // window and revive Tom's "guessing what power-up is what" complaint.
+        expect(POWERUP_LEGEND.DISPLAY_MS).toBeGreaterThanOrEqual(2000);
+      });
+
+      it('INACTIVE_ALPHA < ACTIVE_ALPHA so the active entry reads visually distinct', () => {
+        expect(POWERUP_LEGEND.INACTIVE_ALPHA).toBeLessThan(POWERUP_LEGEND.ACTIVE_ALPHA);
+      });
+
+      it('BASE_Y_RATIO sits in mid-canvas band 0.45–0.75 (below bricks, above paddle)', () => {
+        // Brick grid can reach y≈248 on 9-row levels → ratio 0.55. Paddle at
+        // y=420 → ratio 0.93. Legend must land strictly between these bands.
+        expect(POWERUP_LEGEND.BASE_Y_RATIO).toBeGreaterThanOrEqual(0.45);
+        expect(POWERUP_LEGEND.BASE_Y_RATIO).toBeLessThanOrEqual(0.75);
+      });
+
+      it('LINE_HEIGHT is small enough that 6 stacked rows fit under the paddle', () => {
+        // 6 rows × LINE_HEIGHT starting at BASE_Y_RATIO must stay above paddle.
+        const baseY = GAME_CONFIG.HEIGHT * POWERUP_LEGEND.BASE_Y_RATIO;
+        const lastRowY = baseY + (POWERUP_LEGEND.ENTRIES.length - 1) * POWERUP_LEGEND.LINE_HEIGHT;
+        expect(lastRowY).toBeLessThan(GAME_CONFIG.PADDLE_Y);
+      });
+    });
+
+    describe('showPowerUpLegend — cohort build', () => {
+      it('creates exactly one Text per POWERUP_LEGEND entry', () => {
+        const textSpy = vi.fn().mockImplementation(() => createMockText());
+        scene.add.text = textSpy;
+        call(scene, 'showPowerUpLegend', 'multiBall' as PowerUpType);
+        expect(textSpy).toHaveBeenCalledTimes(POWERUP_LEGEND.ENTRIES.length);
+      });
+
+      it('stacks rows vertically at LINE_HEIGHT spacing from BASE_Y_RATIO', () => {
+        const textSpy = vi.fn().mockImplementation(() => createMockText());
+        scene.add.text = textSpy;
+        call(scene, 'showPowerUpLegend', 'multiBall' as PowerUpType);
+        const baseY = GAME_CONFIG.HEIGHT * POWERUP_LEGEND.BASE_Y_RATIO;
+        POWERUP_LEGEND.ENTRIES.forEach((_, i) => {
+          const [, y] = textSpy.mock.calls[i] as unknown[];
+          expect(y).toBeCloseTo(baseY + i * POWERUP_LEGEND.LINE_HEIGHT, 6);
+        });
+      });
+
+      it('populates this.powerUpLegend with one Text ref per entry', () => {
+        call(scene, 'showPowerUpLegend', 'widePaddle' as PowerUpType);
+        expect(scene.powerUpLegend).toHaveLength(POWERUP_LEGEND.ENTRIES.length);
+      });
+
+      it('schedules a hide after DISPLAY_MS', () => {
+        const delayedCallSpy = vi.fn().mockReturnValue({ destroy: vi.fn() });
+        scene.time.delayedCall = delayedCallSpy;
+        call(scene, 'showPowerUpLegend', 'laser' as PowerUpType);
+        const hideCall = delayedCallSpy.mock.calls.find(
+          (args: unknown[]) => args[0] === POWERUP_LEGEND.DISPLAY_MS,
+        );
+        expect(hideCall).toBeDefined();
+        expect(typeof hideCall?.[1]).toBe('function');
+      });
+
+      it('active entry renders at ACTIVE_ALPHA via a fade-in tween (target matches entry Text)', () => {
+        const textMocks: ReturnType<typeof createMockText>[] = [];
+        scene.add.text = vi.fn().mockImplementation(() => {
+          const t = createMockText();
+          textMocks.push(t);
+          return t;
+        });
+        const tweenSpy = vi.fn().mockReturnValue({ destroy: vi.fn() });
+        scene.tweens.add = tweenSpy;
+
+        const activated: PowerUpType = 'bulletTime';
+        call(scene, 'showPowerUpLegend', activated);
+
+        const activeIdx = POWERUP_LEGEND.ENTRIES.findIndex((e) => e.type === activated);
+        const activeText = textMocks[activeIdx];
+        const activeTween = tweenSpy.mock.calls.find(
+          (args: unknown[]) => (args[0] as { targets: unknown }).targets === activeText,
+        );
+        expect(activeTween).toBeDefined();
+        expect((activeTween?.[0] as { alpha: number }).alpha).toBe(POWERUP_LEGEND.ACTIVE_ALPHA);
+        expect((activeTween?.[0] as { duration: number }).duration).toBe(POWERUP_LEGEND.FADE_IN_MS);
+      });
+
+      it('inactive entries render at INACTIVE_ALPHA', () => {
+        const textMocks: ReturnType<typeof createMockText>[] = [];
+        scene.add.text = vi.fn().mockImplementation(() => {
+          const t = createMockText();
+          textMocks.push(t);
+          return t;
+        });
+        const tweenSpy = vi.fn().mockReturnValue({ destroy: vi.fn() });
+        scene.tweens.add = tweenSpy;
+
+        call(scene, 'showPowerUpLegend', 'multiBall' as PowerUpType);
+
+        POWERUP_LEGEND.ENTRIES.forEach((entry, i) => {
+          if (entry.type === 'multiBall') return;
+          const inactiveTweenForRow = tweenSpy.mock.calls.find(
+            (args: unknown[]) => (args[0] as { targets: unknown }).targets === textMocks[i],
+          );
+          expect(inactiveTweenForRow).toBeDefined();
+          expect((inactiveTweenForRow?.[0] as { alpha: number }).alpha).toBe(
+            POWERUP_LEGEND.INACTIVE_ALPHA,
+          );
+        });
+      });
+
+      it('active entry Text is coloured with the power-up def colour (hex)', () => {
+        const textSpy = vi.fn().mockImplementation(() => createMockText());
+        scene.add.text = textSpy;
+        call(scene, 'showPowerUpLegend', 'laser' as PowerUpType);
+
+        const laserIdx = POWERUP_LEGEND.ENTRIES.findIndex((e) => e.type === 'laser');
+        const callArgs = textSpy.mock.calls[laserIdx];
+        const style = callArgs[3] as { color: string };
+        const expectedHex = `#${POWERUP_DEFS.laser.color.toString(16).padStart(6, '0')}`;
+        expect(style.color).toBe(expectedHex);
+      });
+
+      it('Text content uses "NAME · EFFECT · DURATION" format', () => {
+        const textSpy = vi.fn().mockImplementation(() => createMockText());
+        scene.add.text = textSpy;
+        call(scene, 'showPowerUpLegend', 'multiBall' as PowerUpType);
+        const multiIdx = POWERUP_LEGEND.ENTRIES.findIndex((e) => e.type === 'multiBall');
+        const contents = textSpy.mock.calls[multiIdx][2] as string;
+        const entry = POWERUP_LEGEND.ENTRIES[multiIdx];
+        expect(contents).toBe(`${entry.name} · ${entry.effect} · ${entry.duration}`);
+      });
+    });
+
+    describe('activatePowerUp integrates the legend', () => {
+      it('calling activatePowerUp for each type surfaces the legend with that active entry', () => {
+        for (const entry of POWERUP_LEGEND.ENTRIES) {
+          scene.powerUpLegend = [];
+          scene.powerUpLegendHideTimer = undefined;
+          // Stub destructive side-effects (EMP brick clears, multiBall spawns)
+          // so each activation path doesn't mutate unrelated state for the
+          // next iteration.
+          scene.activateMultiBall = vi.fn();
+          scene.activateWidePaddle = vi.fn();
+          scene.activateLaser = vi.fn();
+          scene.activateBulletTimePowerUp = vi.fn();
+          scene.activateFirewall = vi.fn();
+          scene.activateEMP = vi.fn();
+          call(scene, 'activatePowerUp', entry.type);
+          expect(scene.powerUpLegend).toHaveLength(POWERUP_LEGEND.ENTRIES.length);
+        }
+      });
+
+      it('does NOT fire the legend when activatePowerUp short-circuits on isGameOver', () => {
+        scene.isGameOver = true;
+        call(scene, 'activatePowerUp', 'multiBall' as PowerUpType);
+        expect(scene.powerUpLegend).toHaveLength(0);
+      });
+
+      it('does NOT fire the legend when activatePowerUp short-circuits on isLevelComplete', () => {
+        scene.isLevelComplete = true;
+        call(scene, 'activatePowerUp', 'widePaddle' as PowerUpType);
+        expect(scene.powerUpLegend).toHaveLength(0);
+      });
+    });
+
+    describe('hidePowerUpLegend + clearPowerUpLegend lifecycle', () => {
+      it('back-to-back activations destroy the old cohort and rebuild a fresh one', () => {
+        // First activation — spy on first-cohort destroy calls.
+        call(scene, 'showPowerUpLegend', 'multiBall' as PowerUpType);
+        const firstCohort = [...scene.powerUpLegend];
+        expect(firstCohort).toHaveLength(POWERUP_LEGEND.ENTRIES.length);
+        const firstCohortDestroyCount = firstCohort.length;
+
+        // Second activation before the 4s hide fires — clearPowerUpLegend
+        // runs synchronously inside showPowerUpLegend(), destroying the
+        // first-cohort nodes before building new ones.
+        call(scene, 'showPowerUpLegend', 'laser' as PowerUpType);
+        const secondCohort = scene.powerUpLegend;
+        expect(secondCohort).toHaveLength(POWERUP_LEGEND.ENTRIES.length);
+        // None of the second cohort is a re-used reference from the first.
+        for (const t of secondCohort) {
+          expect(firstCohort.includes(t)).toBe(false);
+        }
+        // First cohort was destroyed exactly once per node.
+        for (const t of firstCohort) {
+          expect((t.destroy as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
+        }
+        expect(firstCohortDestroyCount).toBe(POWERUP_LEGEND.ENTRIES.length);
+      });
+
+      it('clearPowerUpLegend removes the hide timer and empties the array', () => {
+        const hideTimer = { remove: vi.fn() };
+        scene.powerUpLegendHideTimer = hideTimer;
+        scene.powerUpLegend = [createMockText(), createMockText()];
+        call(scene, 'clearPowerUpLegend');
+        expect(hideTimer.remove).toHaveBeenCalledWith(false);
+        expect(scene.powerUpLegendHideTimer).toBeUndefined();
+        expect(scene.powerUpLegend).toHaveLength(0);
+      });
+
+      it('hidePowerUpLegend with empty cohort is a no-op', () => {
+        scene.powerUpLegend = [];
+        const tweenSpy = vi.fn().mockReturnValue({ destroy: vi.fn() });
+        scene.tweens.add = tweenSpy;
+        call(scene, 'hidePowerUpLegend');
+        expect(tweenSpy).not.toHaveBeenCalled();
+      });
+
+      it('hidePowerUpLegend schedules a fade-out tween on the current cohort', () => {
+        const cohort = [createMockText(), createMockText(), createMockText()];
+        scene.powerUpLegend = cohort;
+        const tweenSpy = vi.fn().mockReturnValue({ destroy: vi.fn() });
+        scene.tweens.add = tweenSpy;
+        call(scene, 'hidePowerUpLegend');
+        expect(tweenSpy).toHaveBeenCalledTimes(1);
+        const arg = tweenSpy.mock.calls[0][0] as { targets: unknown; alpha: number; duration: number };
+        expect(arg.targets).toBe(cohort);
+        expect(arg.alpha).toBe(0);
+        expect(arg.duration).toBe(POWERUP_LEGEND.FADE_OUT_MS);
+      });
+
+      it('hide onComplete destroys only the captured cohort, leaves a newer one alone', () => {
+        const firstCohort = [createMockText(), createMockText(), createMockText()];
+        scene.powerUpLegend = firstCohort;
+
+        let capturedOnComplete: (() => void) | undefined;
+        scene.tweens.add = vi.fn().mockImplementation((cfg: { onComplete?: () => void }) => {
+          capturedOnComplete = cfg.onComplete;
+          return { destroy: vi.fn() };
+        });
+        call(scene, 'hidePowerUpLegend');
+
+        // Before the fade completes, a second activation rebuilds the cohort.
+        const secondCohort = [createMockText(), createMockText()];
+        scene.powerUpLegend = secondCohort;
+
+        // Now let the stale tween's onComplete run.
+        capturedOnComplete?.();
+
+        // First cohort destroyed, second cohort untouched.
+        for (const t of firstCohort) {
+          expect((t.destroy as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(1);
+        }
+        for (const t of secondCohort) {
+          expect((t.destroy as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+        }
+        // The live field still points at the newer cohort.
+        expect(scene.powerUpLegend).toBe(secondCohort);
+      });
+    });
+
+    describe('Reduced-motion branch', () => {
+      it('instant-alpha on show when prefers-reduced-motion matches', () => {
+        scene.prefersReducedMotion = vi.fn().mockReturnValue(true);
+        const textMocks: ReturnType<typeof createMockText>[] = [];
+        scene.add.text = vi.fn().mockImplementation(() => {
+          const t = createMockText();
+          textMocks.push(t);
+          return t;
+        });
+        const tweenSpy = vi.fn().mockReturnValue({ destroy: vi.fn() });
+        scene.tweens.add = tweenSpy;
+
+        call(scene, 'showPowerUpLegend', 'multiBall' as PowerUpType);
+
+        // No tweens on the per-entry Text objects — only the hide-timer
+        // delayedCall remains.
+        for (const t of textMocks) {
+          const tweenForRow = tweenSpy.mock.calls.find(
+            (args: unknown[]) => (args[0] as { targets: unknown }).targets === t,
+          );
+          expect(tweenForRow).toBeUndefined();
+        }
+        // Active entry ran setAlpha(ACTIVE_ALPHA) via instant branch.
+        const activeIdx = POWERUP_LEGEND.ENTRIES.findIndex((e) => e.type === 'multiBall');
+        expect(textMocks[activeIdx].setAlpha).toHaveBeenCalledWith(POWERUP_LEGEND.ACTIVE_ALPHA);
+      });
+
+      it('instant-destroy on hide when prefers-reduced-motion matches (no fade-out tween)', () => {
+        scene.prefersReducedMotion = vi.fn().mockReturnValue(true);
+        const cohort = [createMockText(), createMockText(), createMockText()];
+        scene.powerUpLegend = cohort;
+        const tweenSpy = vi.fn().mockReturnValue({ destroy: vi.fn() });
+        scene.tweens.add = tweenSpy;
+
+        call(scene, 'hidePowerUpLegend');
+        // No fade-out tween — clearPowerUpLegend runs synchronously.
+        expect(tweenSpy).not.toHaveBeenCalled();
+        for (const t of cohort) {
+          expect((t.destroy as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(1);
+        }
+        expect(scene.powerUpLegend).toHaveLength(0);
+      });
+    });
+
+    describe('shutdown + resetState cleanup', () => {
+      it('resetState zeros the legend array + clears the hide-timer ref', () => {
+        scene.powerUpLegend = [createMockText(), createMockText()];
+        scene.powerUpLegendHideTimer = { remove: vi.fn() };
+        call(scene, 'resetState');
+        expect(scene.powerUpLegend).toHaveLength(0);
+        expect(scene.powerUpLegendHideTimer).toBeUndefined();
+      });
+
+      it('shutdown flushes any in-flight legend via clearPowerUpLegend', () => {
+        const cohort = [createMockText(), createMockText()];
+        scene.powerUpLegend = cohort;
+        const hideTimer = { remove: vi.fn() };
+        scene.powerUpLegendHideTimer = hideTimer;
+        // Scope the shutdown to just the legend-cleanup contract — stub
+        // super.shutdown so we don't need a full BaseScene teardown.
+        scene.stopBackgroundMusic = vi.fn();
+        Object.getPrototypeOf(CodeBreakerGameScene.prototype).shutdown = vi.fn();
+        call(scene, 'shutdown');
+        expect(hideTimer.remove).toHaveBeenCalledWith(false);
+        for (const t of cohort) {
+          expect((t.destroy as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(1);
+        }
       });
     });
   });

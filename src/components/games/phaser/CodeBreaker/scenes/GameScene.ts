@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
 import { BaseScene } from '@/lib/phaser/scenes/BaseScene';
-import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '@/lib/phaser/types';
+import { SCENE_KEYS, MATRIX_COLORS, MATRIX_FONTS, SOUND_KEYS, REGISTRY_KEYS } from '@/lib/phaser/types';
 import {
   GAME_CONFIG,
   ACHIEVEMENTS,
   BRICK_DEFS,
   POWERUP_DEFS,
+  POWERUP_LEGEND,
   LEVELS,
   getBrickType,
   type BrickState,
@@ -85,6 +86,14 @@ export class CodeBreakerGameScene extends BaseScene {
   private levelCompleteText!: Phaser.GameObjects.Text;
   private attachHintText!: Phaser.GameObjects.Text;
 
+  // R87.K7 — on-pickup power-up legend overlay. Owning the cohort as an array
+  // makes the back-to-back-pickup guard trivial: the fade-out onComplete
+  // captures `targets = this.powerUpLegend`; if a second pickup lands mid-fade
+  // it rebuilds `this.powerUpLegend` to a fresh array, so the stale onComplete
+  // destroys only its own cohort and never touches the new one.
+  private powerUpLegend: Phaser.GameObjects.Text[] = [];
+  private powerUpLegendHideTimer?: Phaser.Time.TimerEvent;
+
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private spaceKey!: Phaser.Input.Keyboard.Key;
   private wasdA!: Phaser.Input.Keyboard.Key;
@@ -158,6 +167,12 @@ export class CodeBreakerGameScene extends BaseScene {
     this.bossBullets = [];
     this.firewall = null;
     this.portal = null;
+    // R87.K7 — clear any legend state carried across scene restart. Refs are
+    // stale after a full restart (Phaser destroys the Text nodes automatically
+    // via scene teardown) but the array + timer field must be reset to avoid
+    // a re-entry activation reading a dead reference.
+    this.powerUpLegend = [];
+    this.powerUpLegendHideTimer = undefined;
   }
 
   // -- Paddle --
@@ -1285,6 +1300,12 @@ export class CodeBreakerGameScene extends BaseScene {
         this.activateEMP();
         break;
     }
+
+    // R87.K7 — surface the legend for 4s so the player learns what each
+    // pickup does. Called after the effect fires so a same-frame scene
+    // transition (e.g. EMP clearing the final brick) doesn't leak a fade
+    // tween into the post-level scene.
+    this.showPowerUpLegend(type);
   }
 
   private activateMultiBall(): void {
@@ -1354,6 +1375,90 @@ export class CodeBreakerGameScene extends BaseScene {
     }
 
     this.cameras.main.flash(200, 0, 255, 255);
+  }
+
+  // R87.K7 — on-pickup legend. Renders every power-up entry stacked vertically
+  // with the just-activated one at full alpha + its def colour, the rest at
+  // inactive alpha. Auto-hides after POWERUP_LEGEND.DISPLAY_MS. Fade-in and
+  // fade-out honour prefers-reduced-motion so motion-sensitive players get an
+  // instant-on / instant-off render without the 200/400 ms tweens.
+  private showPowerUpLegend(activatedType: PowerUpType): void {
+    this.clearPowerUpLegend();
+    const cx = GAME_CONFIG.WIDTH / 2;
+    const baseY = GAME_CONFIG.HEIGHT * POWERUP_LEGEND.BASE_Y_RATIO;
+    const reducedMotion = this.prefersReducedMotion();
+
+    POWERUP_LEGEND.ENTRIES.forEach((entry, i) => {
+      const def = POWERUP_DEFS[entry.type];
+      const isActive = entry.type === activatedType;
+      const colour = `#${def.color.toString(16).padStart(6, '0')}`;
+      const text = this.add.text(
+        cx,
+        baseY + i * POWERUP_LEGEND.LINE_HEIGHT,
+        `${entry.name} · ${entry.effect} · ${entry.duration}`,
+        {
+          fontFamily: MATRIX_FONTS.PRIMARY,
+          fontSize: '10px',
+          color: colour,
+          align: 'center',
+        },
+      );
+      text.setOrigin(0.5, 0.5);
+      text.setDepth(100);
+      const targetAlpha = isActive ? POWERUP_LEGEND.ACTIVE_ALPHA : POWERUP_LEGEND.INACTIVE_ALPHA;
+      if (reducedMotion) {
+        text.setAlpha(targetAlpha);
+      } else {
+        text.setAlpha(0);
+        this.tweens.add({
+          targets: text,
+          alpha: targetAlpha,
+          duration: POWERUP_LEGEND.FADE_IN_MS,
+          ease: 'Quad.easeOut',
+        });
+      }
+      this.powerUpLegend.push(text);
+    });
+
+    this.powerUpLegendHideTimer = this.time.delayedCall(
+      POWERUP_LEGEND.DISPLAY_MS,
+      () => this.hidePowerUpLegend(),
+    );
+  }
+
+  private hidePowerUpLegend(): void {
+    if (this.powerUpLegend.length === 0) return;
+    const targets = this.powerUpLegend;
+    if (this.prefersReducedMotion()) {
+      this.clearPowerUpLegend();
+      return;
+    }
+    this.tweens.add({
+      targets,
+      alpha: 0,
+      duration: POWERUP_LEGEND.FADE_OUT_MS,
+      onComplete: () => {
+        // Guard: a second pickup landing mid-fade will have already rebuilt
+        // `this.powerUpLegend`; only destroy the original cohort.
+        targets.forEach((t) => t.destroy());
+        if (this.powerUpLegend === targets) this.powerUpLegend = [];
+      },
+    });
+  }
+
+  private clearPowerUpLegend(): void {
+    this.powerUpLegendHideTimer?.remove(false);
+    this.powerUpLegendHideTimer = undefined;
+    if (this.powerUpLegend.length > 0) {
+      this.tweens.killTweensOf(this.powerUpLegend);
+      this.powerUpLegend.forEach((t) => t.destroy());
+      this.powerUpLegend = [];
+    }
+  }
+
+  private prefersReducedMotion(): boolean {
+    return typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
   }
 
   private updatePaddleTexture(): void {
@@ -1503,6 +1608,10 @@ export class CodeBreakerGameScene extends BaseScene {
       this.portal.destroy();
       this.portal = null;
     }
+
+    // R87.K7 — flush any in-flight pickup legend so an ESC-mid-fade doesn't
+    // leave orphaned Text nodes + hide-timer refs dangling into the next scene.
+    this.clearPowerUpLegend();
 
     this.input.keyboard?.removeAllKeys(true);
     super.shutdown();
