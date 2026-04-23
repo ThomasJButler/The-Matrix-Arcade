@@ -1505,4 +1505,207 @@ describe('CodeBreakerGameScene', () => {
       });
     });
   });
+
+  // R87.K4 — ball-speed rebound cap. Tom's 2026-04-22 playtest:
+  // "Ball speed is very, very quick when it rebounds... Especially if we're
+  // going to have a lot of packed grids". Three-layer dampening: lowered
+  // BALL_MAX_SPEED ceiling (paddle progression still applies, just capped
+  // lower), gentler BALL_SPEED_INCREMENT (slower ramp), and new
+  // BALL_BRICK_REBOUND_DAMPEN + BALL_STEEP_ANGLE_DAMPEN applied in
+  // applyBrickReboundDampen() after every brick or boss collision.
+  describe('R87.K4 — ball-speed rebound cap', () => {
+    describe('Config dials (exact values)', () => {
+      it('BALL_MAX_SPEED locked at 460', () => {
+        expect(C.BALL_MAX_SPEED).toBe(460);
+      });
+
+      it('BALL_SPEED_INCREMENT locked at 6', () => {
+        expect(C.BALL_SPEED_INCREMENT).toBe(6);
+      });
+
+      it('BALL_BRICK_REBOUND_DAMPEN locked at 0.985', () => {
+        expect(C.BALL_BRICK_REBOUND_DAMPEN).toBe(0.985);
+      });
+
+      it('BALL_STEEP_ANGLE_THRESHOLD locked at 0.92', () => {
+        expect(C.BALL_STEEP_ANGLE_THRESHOLD).toBe(0.92);
+      });
+
+      it('BALL_STEEP_ANGLE_DAMPEN locked at 0.93', () => {
+        expect(C.BALL_STEEP_ANGLE_DAMPEN).toBe(0.93);
+      });
+    });
+
+    describe('Anti-regression ratchets', () => {
+      // Future tuning can tighten further but cannot re-loosen without an
+      // explicit test delete — ensures Tom's "too quick on rebound"
+      // complaint can't silently return via a config-refactor.
+      it('BALL_MAX_SPEED stays below 500', () => {
+        expect(C.BALL_MAX_SPEED).toBeLessThan(500);
+      });
+
+      it('BALL_MAX_SPEED still exceeds BALL_SPEED (paddle-ramp progression preserved)', () => {
+        // If someone lowers the ceiling below start speed the paddle
+        // progression beat silently dies — this guards the "ball gets
+        // faster as you play" contract that Breakout-family games need.
+        expect(C.BALL_MAX_SPEED).toBeGreaterThan(C.BALL_SPEED);
+      });
+
+      it('BALL_BRICK_REBOUND_DAMPEN never exceeds 1 (cannot add speed)', () => {
+        expect(C.BALL_BRICK_REBOUND_DAMPEN).toBeLessThanOrEqual(1);
+        expect(C.BALL_BRICK_REBOUND_DAMPEN).toBeGreaterThan(0);
+      });
+
+      it('BALL_STEEP_ANGLE_DAMPEN never exceeds 1 (cannot add speed)', () => {
+        expect(C.BALL_STEEP_ANGLE_DAMPEN).toBeLessThanOrEqual(1);
+        expect(C.BALL_STEEP_ANGLE_DAMPEN).toBeGreaterThan(0);
+      });
+
+      it('BALL_STEEP_ANGLE_THRESHOLD in valid |vy|/speed range (0-1]', () => {
+        expect(C.BALL_STEEP_ANGLE_THRESHOLD).toBeGreaterThan(0);
+        expect(C.BALL_STEEP_ANGLE_THRESHOLD).toBeLessThanOrEqual(1);
+      });
+
+      it('BALL_SPEED_INCREMENT stays below legacy +10 (gentler ramp locked)', () => {
+        // Ratchet — can tighten to 5/4 in a later pass, but must never
+        // climb back toward the pre-R87 +10 that Tom flagged as too sharp.
+        expect(C.BALL_SPEED_INCREMENT).toBeLessThan(10);
+        expect(C.BALL_SPEED_INCREMENT).toBeGreaterThan(0);
+      });
+    });
+
+    describe('applyBrickReboundDampen — speed scaling', () => {
+      it('shallow-angle rebound loses exactly BALL_BRICK_REBOUND_DAMPEN factor', () => {
+        // 45° trajectory: equal horizontal + vertical components, well
+        // below the steep-angle threshold. Only the flat dampen applies.
+        const ball = { sprite: createMockCircle(), vx: 300, vy: -300 };
+        const preSpeed = Math.sqrt(ball.vx ** 2 + ball.vy ** 2);
+        call(scene, 'applyBrickReboundDampen', ball);
+        const postSpeed = Math.sqrt(ball.vx ** 2 + ball.vy ** 2);
+        expect(postSpeed).toBeCloseTo(preSpeed * C.BALL_BRICK_REBOUND_DAMPEN, 2);
+      });
+
+      it('steep-angle rebound loses BRICK_DAMPEN × STEEP_DAMPEN combined', () => {
+        // Near-vertical: |vy|/speed ~= 0.98 (above 0.92 threshold).
+        const ball = { sprite: createMockCircle(), vx: 50, vy: -300 };
+        const preSpeed = Math.sqrt(ball.vx ** 2 + ball.vy ** 2);
+        call(scene, 'applyBrickReboundDampen', ball);
+        const postSpeed = Math.sqrt(ball.vx ** 2 + ball.vy ** 2);
+        const expected = preSpeed * C.BALL_BRICK_REBOUND_DAMPEN * C.BALL_STEEP_ANGLE_DAMPEN;
+        expect(postSpeed).toBeCloseTo(expected, 2);
+      });
+
+      it('shallow-angle rebound skips the steep-angle dampen', () => {
+        // |vy|/speed = 0 — pure horizontal, as shallow as it gets.
+        const shallow = { sprite: createMockCircle(), vx: 300, vy: 0 };
+        const preShallow = Math.sqrt(shallow.vx ** 2 + shallow.vy ** 2);
+        call(scene, 'applyBrickReboundDampen', shallow);
+        const postShallow = Math.sqrt(shallow.vx ** 2 + shallow.vy ** 2);
+        // Must equal preSpeed × BRICK_DAMPEN exactly (no steep multiplier).
+        expect(postShallow).toBeCloseTo(preShallow * C.BALL_BRICK_REBOUND_DAMPEN, 2);
+        expect(postShallow).toBeGreaterThan(preShallow * C.BALL_BRICK_REBOUND_DAMPEN * C.BALL_STEEP_ANGLE_DAMPEN + 0.01);
+      });
+
+      it('rebound never increases ball speed (monotonic non-increase)', () => {
+        // Sweep a range of vx/vy combinations — every single one must
+        // end up at or below its starting speed. This is the core
+        // "brick rebound cannot add speed" contract.
+        const cases = [
+          { vx: 100, vy: -100 },
+          { vx: 300, vy: -200 },
+          { vx: 50, vy: -400 },
+          { vx: -250, vy: 150 },
+          { vx: 400, vy: -300 },
+        ];
+        for (const c of cases) {
+          const ball = { sprite: createMockCircle(), vx: c.vx, vy: c.vy };
+          const pre = Math.sqrt(ball.vx ** 2 + ball.vy ** 2);
+          call(scene, 'applyBrickReboundDampen', ball);
+          const post = Math.sqrt(ball.vx ** 2 + ball.vy ** 2);
+          expect(post).toBeLessThanOrEqual(pre + 0.001);
+        }
+      });
+
+      it('clamps post-rebound speed to BALL_MAX_SPEED (defensive)', () => {
+        // Belt-and-braces guard: even if some upstream path ever
+        // injects a ball moving faster than the ceiling (e.g. future
+        // power-up that boosts speed), a brick hit must never carry
+        // that over-ceiling speed forward.
+        const overSpeed = C.BALL_MAX_SPEED * 2; // 920
+        const ball = { sprite: createMockCircle(), vx: overSpeed, vy: 0 };
+        call(scene, 'applyBrickReboundDampen', ball);
+        const postSpeed = Math.sqrt(ball.vx ** 2 + ball.vy ** 2);
+        expect(postSpeed).toBeLessThanOrEqual(C.BALL_MAX_SPEED + 0.001);
+      });
+
+      it('preserves velocity direction (sign unchanged)', () => {
+        // Dampen scales magnitude but must not flip any component.
+        const ball = { sprite: createMockCircle(), vx: 200, vy: -250 };
+        call(scene, 'applyBrickReboundDampen', ball);
+        expect(ball.vx).toBeGreaterThan(0);
+        expect(ball.vy).toBeLessThan(0);
+      });
+
+      it('no-op on a zero-velocity ball (divide-by-zero guard)', () => {
+        // Edge case — steep-angle check divides by speed, must not NaN.
+        const ball = { sprite: createMockCircle(), vx: 0, vy: 0 };
+        call(scene, 'applyBrickReboundDampen', ball);
+        expect(ball.vx).toBe(0);
+        expect(ball.vy).toBe(0);
+      });
+    });
+
+    describe('Integration — checkBallBrickCollisions applies dampen', () => {
+      it('dampen fires on brick collision (post-reflect speed dropped)', () => {
+        scene.isBallAttached = false;
+        // Ball sits just above the brick top edge so dy<0 and the reflection
+        // flips vy negative. Identical positions fall into the dy=0 fallback
+        // sign branch which leaves vy sign unchanged.
+        const ball = { sprite: createMockCircle(200, 95), vx: 0, vy: 300 };
+        scene.balls = [ball];
+        const brickSprite = createMockRect(200, 100, C.BRICK_WIDTH, C.BRICK_HEIGHT);
+        scene.bricks = [{
+          sprite: brickSprite,
+          type: 'code',
+          health: 1,
+          maxHealth: 1,
+          value: 10,
+          row: 0,
+          col: 0,
+          width: C.BRICK_WIDTH,
+          height: C.BRICK_HEIGHT,
+        }];
+
+        call(scene, 'checkBallBrickCollisions');
+
+        // vy reflected (now negative) AND dampened. |vy| < 300 because
+        // of steep-angle dampen (pure vertical is steepest possible).
+        expect(ball.vy).toBeLessThan(0);
+        expect(Math.abs(ball.vy)).toBeLessThan(300);
+        const expectedSpeed = 300 * C.BALL_BRICK_REBOUND_DAMPEN * C.BALL_STEEP_ANGLE_DAMPEN;
+        expect(Math.abs(ball.vy)).toBeCloseTo(expectedSpeed, 1);
+      });
+    });
+
+    describe('Paddle rebound still caps at lowered BALL_MAX_SPEED', () => {
+      it('paddle bounce clamps incoming above-ceiling speed to new 460', () => {
+        // Simulate a ball carrying near-ceiling speed hitting the paddle.
+        // The +BALL_SPEED_INCREMENT push plus the clamp must land at
+        // BALL_MAX_SPEED exactly, not the pre-R87 550 ceiling.
+        scene.isBallAttached = false;
+        scene.paddleWidth = C.PADDLE_WIDTH;
+        const near = C.BALL_MAX_SPEED - 2; // 458
+        const ball = {
+          sprite: createMockCircle(scene.paddle.x, C.PADDLE_Y - 4),
+          vx: 0,
+          vy: near,
+        };
+        scene.balls = [ball];
+        call(scene, 'checkBallPaddleCollisions');
+        const speed = Math.sqrt(ball.vx ** 2 + ball.vy ** 2);
+        expect(speed).toBeLessThanOrEqual(C.BALL_MAX_SPEED + 0.001);
+        expect(speed).toBeCloseTo(C.BALL_MAX_SPEED, 0);
+      });
+    });
+  });
 });

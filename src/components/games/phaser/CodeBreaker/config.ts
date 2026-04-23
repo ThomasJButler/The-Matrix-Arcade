@@ -235,8 +235,36 @@ export const GAME_CONFIG = {
   // Ball
   BALL_RADIUS: 6,
   BALL_SPEED: 300,
-  BALL_MAX_SPEED: 550,
-  BALL_SPEED_INCREMENT: 10,
+  // R87.K4 — rebound cap. Previous ceiling 550 (+83% over BALL_SPEED) made
+  // packed-grid play feel uncontrollable on paddle-fresh balls that carried
+  // a hot speed across 20+ inter-brick bounces. Tightened to 460 (+53%) so
+  // the top of the progression curve is still perceptibly faster than the
+  // fresh-ball baseline but no longer outstrips player reaction time.
+  BALL_MAX_SPEED: 460,
+  // R87.K4 — per-paddle-hit increment softened (10 → 6). Previous value
+  // ramped BALL_SPEED → BALL_MAX_SPEED in ~25 paddle hits (a couple of
+  // levels); 6 stretches that to ~27 hits at the new ceiling so the
+  // progression is slower and feels earned rather than accidental. Preserves
+  // the classic Breakout "ball gets faster as you play" progression beat.
+  BALL_SPEED_INCREMENT: 6,
+  // R87.K4 — per-brick rebound dampen. Brick collisions flip velocity sign
+  // but historically did not touch magnitude, so a packed grid with 20+
+  // inter-brick bounces kept the ball at whatever hot speed the paddle
+  // imparted. 1.5% speed loss per brick is imperceptible on a single hit
+  // but over 10 rapid bounces converges to a noticeable ~14% slowdown
+  // specifically where Tom's "packed grids feel too quick" complaint
+  // originated. Must be <= 1 (never adds speed from a brick hit).
+  BALL_BRICK_REBOUND_DAMPEN: 0.985,
+  // R87.K4 — near-vertical rebound softener. |vy|/speed above this is
+  // treated as a "darty" steep rebound that visually reads faster than a
+  // 45° rebound at identical speed (more pixels per frame along one axis).
+  // Paired with BALL_STEEP_ANGLE_DAMPEN below to scrub the visual shock.
+  BALL_STEEP_ANGLE_THRESHOLD: 0.92,
+  // R87.K4 — steep-angle dampen factor. Applied on top of the brick-rebound
+  // dampen when the post-reflect trajectory is near-vertical. ~7% extra
+  // speed loss specifically softens the "darts off a brick into the paddle
+  // before you can react" feel in stacked rows. Must be <= 1.
+  BALL_STEEP_ANGLE_DAMPEN: 0.93,
 
   // Bricks
   BRICK_WIDTH: 64,
