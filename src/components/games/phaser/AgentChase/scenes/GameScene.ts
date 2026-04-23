@@ -100,6 +100,10 @@ export class AgentChaseGameScene extends BaseScene {
   private invulnerabilityTimer = 0;
   private readonly INVULNERABILITY_DURATION = 2000; // 2 seconds after death
 
+  // Level-clear state machine (R87.AC1) — blocks re-entry + collisions
+  // while the LEVEL CLEAR banner holds and the maze is rebuilt.
+  private isLevelingUp = false;
+
   constructor() {
     super(SCENE_KEYS.GAME);
   }
@@ -132,6 +136,7 @@ export class AgentChaseGameScene extends BaseScene {
       this.highScore = saveData?.games?.agentChase?.highScore ?? 0;
     }
     this.invulnerabilityTimer = 0;
+    this.isLevelingUp = false;
     this.bulletTimeActive = false;
     this.bulletTimeTimer = 0;
     this.nextBulletTimeSpawn = 0;
@@ -173,8 +178,22 @@ export class AgentChaseGameScene extends BaseScene {
   }
 
   update(time: number, delta: number): void {
+    // R87.AC1: expose state BEFORE the guards so E2E watchers see the
+    // `isLevelingUp` flag flip on + off during the level-clear banner.
+    this.exposeTestState({
+      score: this.score,
+      lives: this.lives,
+      level: this.level,
+      dotsCollected: this.dotsCollected,
+      mapName: this.currentLayout.name,
+      mazesPlayed: this.mazesPlayed.size,
+      countdownValue: this.countdownValue,
+      isLevelingUp: this.isLevelingUp,
+    });
+
     if (this.isPaused) return;
     if (this.isCountingDown) return;
+    if (this.isLevelingUp) return;
 
     // Update animation
     this.animTimer += delta;
@@ -218,17 +237,6 @@ export class AgentChaseGameScene extends BaseScene {
 
     // Update UI
     this.updateUI();
-
-    // Expose state for E2E tests
-    this.exposeTestState({
-      score: this.score,
-      lives: this.lives,
-      level: this.level,
-      dotsCollected: this.dotsCollected,
-      mapName: this.currentLayout.name,
-      mazesPlayed: this.mazesPlayed.size,
-      countdownValue: this.countdownValue,
-    });
   }
 
   private buildMaze(): void {
@@ -519,6 +527,10 @@ export class AgentChaseGameScene extends BaseScene {
   }
 
   private collectDot(dot: Phaser.Physics.Arcade.Sprite): void {
+    // R87.AC1: physics overlap callbacks fire outside scene.update(), so
+    // the update-loop `isLevelingUp` guard alone won't stop a stale overlap
+    // from ticking dotsCollected past totalDots mid-banner.
+    if (this.isLevelingUp) return;
     dot.destroy();
     this.score += GAME_CONFIG.SCORING.DOT;
     this.dotsCollected++;
@@ -532,6 +544,7 @@ export class AgentChaseGameScene extends BaseScene {
   }
 
   private collectPowerPellet(pellet: Phaser.Physics.Arcade.Sprite): void {
+    if (this.isLevelingUp) return;
     pellet.destroy();
     this.score += GAME_CONFIG.SCORING.POWER_PELLET;
     this.dotsCollected++;
@@ -557,6 +570,10 @@ export class AgentChaseGameScene extends BaseScene {
   }
 
   private handleAgentCollision(agent: Agent): void {
+    // R87.AC1: no damage + no frightened-eats while the level-clear banner
+    // holds — the maze is about to rebuild and any side-effect here would
+    // race the restart.
+    if (this.isLevelingUp) return;
     // Skip collision during respawn invulnerability (but still allow eating frightened agents)
     if (this.isInvulnerable && agent.state !== 'frightened') return;
 
@@ -670,58 +687,137 @@ export class AgentChaseGameScene extends BaseScene {
   }
 
 
+  /**
+   * R87.AC1: guard-only dispatcher.
+   *
+   * Before R87.AC1 this method ran the full level-advance inline — the
+   * transition was synchronous and invisible, so Tom's 2026-04-23 screenshot
+   * showed an empty maze stuck on LVL 1 with no visible feedback that
+   * anything had happened. The body now lives in `triggerLevelClear()` which
+   * gates re-entry via `isLevelingUp` (mirrors Frogger F1) and holds a
+   * "LEVEL CLEAR" banner before the rebuild so the transition is legible.
+   */
   private checkLevelComplete(): void {
-    if (this.dotsCollected >= this.totalDots) {
-      this.level++;
-      this.playSound('levelUp');
+    if (this.isLevelingUp) return;
+    if (this.dotsCollected < this.totalDots) return;
+    this.triggerLevelClear();
+  }
 
-      this.unlockAchievement(ACHIEVEMENTS.CLEAR_LEVEL);
+  /**
+   * R87.AC1: run the level-clear sequence.
+   *
+   * Steps:
+   *   1. Latch `isLevelingUp = true` so re-entry + collisions are blocked
+   *      for the whole hold window.
+   *   2. Clear the buffered next-direction so the player doesn't sneak in
+   *      a final turn that survives the rebuild.
+   *   3. Score bonus + achievements + flash + sound (same as before).
+   *   4. Paint the "LEVEL CLEAR" banner.
+   *   5. After LEVEL_CLEAR_DELAY_MS, rebuild the maze via restartLevel()
+   *      and clear the latch. The deferred restart is why the overlay is
+   *      perceivable — before the refactor, the restart fired on the same
+   *      frame the last dot was collected.
+   */
+  private triggerLevelClear(): void {
+    this.isLevelingUp = true;
+    this.nextDirection = 'NONE';
 
-      if (!this.diedThisLevel) {
-        this.unlockAchievement(ACHIEVEMENTS.NO_DEATH_LEVEL);
-      }
+    this.unlockAchievement(ACHIEVEMENTS.CLEAR_LEVEL);
 
-      if (this.level >= 5) {
-        this.unlockAchievement(ACHIEVEMENTS.SURVIVE_5_LEVELS);
-      }
-
-      // Bonus points
-      this.score += GAME_CONFIG.SCORING.LEVEL_BONUS;
-
-      // Check if the layout changes for the next level
-      const newLayout = getLayoutForLevel(this.level);
-      const layoutChanged = newLayout.name !== this.currentLayout.name;
-
-      if (layoutChanged) {
-        // Show map announcement
-        const announcement = this.add.text(
-          GAME_CONFIG.WIDTH / 2,
-          GAME_CONFIG.HEIGHT / 2,
-          `MAP: ${newLayout.name}`,
-          {
-            fontFamily: MATRIX_FONTS.PRIMARY,
-            fontSize: '18px',
-            color: MATRIX_COLORS.PRIMARY_HEX,
-          }
-        );
-        announcement.setOrigin(0.5);
-        announcement.setDepth(200);
-        this.tweens.add({
-          targets: announcement,
-          alpha: 0,
-          duration: 2000,
-          onComplete: () => announcement.destroy(),
-        });
-      }
-
-      this.mazesPlayed.add(newLayout.name);
-      if (this.mazesPlayed.size >= MAP_LAYOUTS.length) {
-        this.unlockAchievement(ACHIEVEMENTS.ALL_MAZES);
-      }
-
-      // Restart level
-      this.restartLevel(newLayout, layoutChanged);
+    if (!this.diedThisLevel) {
+      this.unlockAchievement(ACHIEVEMENTS.NO_DEATH_LEVEL);
     }
+
+    this.level++;
+
+    if (this.level >= 5) {
+      this.unlockAchievement(ACHIEVEMENTS.SURVIVE_5_LEVELS);
+    }
+
+    // Bonus points
+    this.score += GAME_CONFIG.SCORING.LEVEL_BONUS;
+
+    this.playSound('levelUp');
+    this.cameras.main.flash(150, 0, 255, 0, false, undefined, undefined, 0.15);
+
+    this.showLevelClearBanner();
+
+    // Decide next layout + stamp maze-cycle achievements while state is still
+    // the pre-rebuild snapshot.
+    const newLayout = getLayoutForLevel(this.level);
+    const layoutChanged = newLayout.name !== this.currentLayout.name;
+
+    this.mazesPlayed.add(newLayout.name);
+    if (this.mazesPlayed.size >= MAP_LAYOUTS.length) {
+      this.unlockAchievement(ACHIEVEMENTS.ALL_MAZES);
+    }
+
+    // Defer the rebuild so the LEVEL CLEAR banner has time to play.
+    // Trailing MAP announcement lands with the rebuilt maze, not the empty
+    // frame post-clear.
+    this.time.delayedCall(GAME_CONFIG.LEVEL_CLEAR_DELAY_MS, () => {
+      if (layoutChanged) {
+        this.showMapAnnouncement(newLayout.name);
+      }
+      this.restartLevel(newLayout, layoutChanged);
+      this.isLevelingUp = false;
+    });
+  }
+
+  /**
+   * R87.AC1: LEVEL N CLEAR banner — mirrors Frogger F1's showLevelUpText.
+   * Tween is scale-up + rise + fade so it reads at a glance without
+   * occluding the maze for too long.
+   */
+  private showLevelClearBanner(): void {
+    const banner = this.add.text(
+      GAME_CONFIG.WIDTH / 2,
+      GAME_CONFIG.HEIGHT / 2,
+      `LEVEL ${this.level - 1} CLEAR`,
+      {
+        fontFamily: MATRIX_FONTS.PRIMARY,
+        fontSize: '24px',
+        color: MATRIX_COLORS.CYAN_HEX,
+      }
+    );
+    banner.setOrigin(0.5);
+    banner.setDepth(200);
+
+    this.tweens.add({
+      targets: banner,
+      alpha: 0,
+      y: GAME_CONFIG.HEIGHT / 2 - 40,
+      scale: 1.5,
+      duration: GAME_CONFIG.LEVEL_CLEAR_DELAY_MS,
+      ease: 'Quad.easeOut',
+      onComplete: () => banner.destroy(),
+    });
+  }
+
+  /**
+   * MAP: NAME secondary banner — only shown when the layout actually
+   * cycles to a new map. Extracted from the old inline `checkLevelComplete`
+   * block so `triggerLevelClear` stays readable.
+   */
+  private showMapAnnouncement(mapName: string): void {
+    const announcement = this.add.text(
+      GAME_CONFIG.WIDTH / 2,
+      GAME_CONFIG.HEIGHT / 2,
+      `MAP: ${mapName}`,
+      {
+        fontFamily: MATRIX_FONTS.PRIMARY,
+        fontSize: '18px',
+        color: MATRIX_COLORS.PRIMARY_HEX,
+      }
+    );
+    announcement.setOrigin(0.5);
+    announcement.setDepth(200);
+    this.tweens.add({
+      targets: announcement,
+      alpha: 0,
+      duration: 2000,
+      onComplete: () => announcement.destroy(),
+    });
   }
 
   private restartLevel(newLayout: MapLayout, layoutChanged: boolean): void {
@@ -904,6 +1000,7 @@ export class AgentChaseGameScene extends BaseScene {
   }
 
   private collectBulletTimeDot(dot: Phaser.Physics.Arcade.Sprite): void {
+    if (this.isLevelingUp) return;
     dot.destroy();
     this.score += GAME_CONFIG.SCORING.BULLET_TIME_DOT;
     this.playSound('powerup');
