@@ -38,6 +38,52 @@ export const POWERUP_DEFS: Record<PowerUpType, PowerUpDef> = {
   emp:        { color: 0xffffff, label: 'EMP',      duration: 0 },
 };
 
+// R87.K7 — power-up legend. Tom's 2026-04-22 playtest: *"we need some sort of
+// info about this before we start playing the game, because it's a bit of
+// guessing what power up is what."* The ENTRIES tuple doubles as the source
+// of truth for both the MenuScene panel (pre-game) and the on-pickup overlay
+// (in-game). Order mirrors POWERUP_DEFS declaration so a future power-up added
+// there surfaces in the legend without a second edit; ENTRIES.length should
+// equal the number of PowerUpType keys or the MenuScene test tripwire fires.
+//
+// BASE_Y_RATIO sits at 0.55 on the 450-px canvas (y=247): below the tallest
+// brick zone (9-row levels reach y≈248) and well above the paddle at y=420 —
+// the overlay can fire during play without visually occluding either the
+// brick stack or the paddle/ball interaction band.
+export interface PowerUpLegendEntry {
+  type: PowerUpType;
+  name: string;
+  effect: string;
+  duration: string;
+}
+
+export const POWERUP_LEGEND: {
+  readonly ENTRIES: readonly PowerUpLegendEntry[];
+  readonly DISPLAY_MS: number;
+  readonly FADE_IN_MS: number;
+  readonly FADE_OUT_MS: number;
+  readonly LINE_HEIGHT: number;
+  readonly BASE_Y_RATIO: number;
+  readonly ACTIVE_ALPHA: number;
+  readonly INACTIVE_ALPHA: number;
+} = {
+  ENTRIES: [
+    { type: 'multiBall',  name: 'MULTI',  effect: '+2 BALLS',      duration: 'NOW'   },
+    { type: 'widePaddle', name: 'WIDE',   effect: 'BIGGER PADDLE', duration: '10s'   },
+    { type: 'laser',      name: 'LASER',  effect: 'PADDLE FIRES',  duration: '8s'    },
+    { type: 'bulletTime', name: 'CHARGE', effect: 'METER TO FULL', duration: 'NOW'   },
+    { type: 'firewall',   name: 'WALL',   effect: 'CATCHES BALL',  duration: 'ONCE'  },
+    { type: 'emp',        name: 'EMP',    effect: 'CLEARS NEARBY', duration: 'NOW'   },
+  ],
+  DISPLAY_MS: 4000,
+  FADE_IN_MS: 200,
+  FADE_OUT_MS: 400,
+  LINE_HEIGHT: 12,
+  BASE_Y_RATIO: 0.55,
+  ACTIVE_ALPHA: 1,
+  INACTIVE_ALPHA: 0.55,
+};
+
 // -- State interfaces --
 export interface BrickState {
   sprite: Phaser.GameObjects.Image;
