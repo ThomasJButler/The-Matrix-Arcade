@@ -30,6 +30,36 @@ export const GAME_CONFIG = {
     START_Y: 225,
 
     /**
+     * R87.C3 — lateral movement speed.
+     *
+     * Tom's 2026-04-22 playtest: *"The player also needs a bit more control
+     * over their speed and jumping height"* + *"The player should be able
+     * to stop. This is to avoid hitting things by accident and provide more
+     * control."* Cloud Jumper pre-R87.C3 locked the player at `START_X=150`
+     * with zero lateral agency — the world auto-scrolled past and obstacles
+     * arrived at a fixed column, so "dodging" wasn't really a thing.
+     *
+     * 200 px/s is ~2× the base scroll (SPEED_BASE=100) so the player can
+     * meaningfully outrun or stall the world, but under `SPEED_MAX=300` so
+     * lateral movement alone can't carry the player fully past the camera
+     * frame (preserves the side-scroller feel).
+     */
+    HORIZONTAL_SPEED: 200,
+
+    /**
+     * R87.C3 — lateral drag when no movement key is held.
+     *
+     * Phaser arcade `setDrag(HORIZONTAL_DRAG, 0)` applies this deceleration
+     * each frame to the X axis only (Y stays gravity-driven). With
+     * `HORIZONTAL_SPEED=200`, a `HORIZONTAL_DRAG=800` gives a full-speed
+     * → 0 decay in 0.25 s — crisp enough to read as "stop" when Tom
+     * releases the key, but not so instant that the release feels robotic.
+     * While a move key is held, `setVelocityX(±HORIZONTAL_SPEED)` overrides
+     * drag each frame so the player maintains speed.
+     */
+    HORIZONTAL_DRAG: 800,
+
+    /**
      * R87.C2 — top-of-canvas ceiling for the player.
      *
      * Tom's 2026-04-22 playtest: *"Sometimes the player jumps too hard and
