@@ -94,6 +94,23 @@ export class CloudJumperGameScene extends BaseScene {
   private lastJumpTime = -Infinity;
   private static readonly JUMP_COOLDOWN_MS = 300;
 
+  /**
+   * R87.C3 — lateral movement keys. LEFT/A and RIGHT/D.
+   *
+   * Held-key polling drives `handleHorizontalMovement()` each update tick;
+   * release → physics drag (`HORIZONTAL_DRAG`) decelerates velocity.x back
+   * to 0 over ~0.25 s, satisfying Tom's *"should be able to stop"* brief
+   * without the robotic feel of an instant `setVelocityX(0)` on release.
+   *
+   * Stored as optional because `setupInput()` uses `waitForKeyboard` —
+   * tests that bypass the wrapper or exercise the scene before keyboard
+   * init complete must tolerate `undefined` without throwing.
+   */
+  private moveLeftKey?: Phaser.Input.Keyboard.Key;
+  private moveLeftKeyA?: Phaser.Input.Keyboard.Key;
+  private moveRightKey?: Phaser.Input.Keyboard.Key;
+  private moveRightKeyD?: Phaser.Input.Keyboard.Key;
+
   constructor() {
     super(SCENE_KEYS.GAME);
   }
@@ -181,6 +198,11 @@ export class CloudJumperGameScene extends BaseScene {
     // Update obstacles
     this.updateObstacles(delta);
 
+    // R87.C3 — lateral movement (LEFT/RIGHT/A/D with drag-based stop).
+    // Runs before checkGameOver so the final-frame input still registers
+    // and before enforceCeiling so the boundary clamp wins in edge cases.
+    this.handleHorizontalMovement();
+
     // Check game over
     this.checkGameOver();
 
@@ -199,12 +221,15 @@ export class CloudJumperGameScene extends BaseScene {
     this.updateUI();
 
     // Expose state for E2E tests
+    const body = this.player?.body as Phaser.Physics.Arcade.Body | undefined;
     this.exposeTestState({
       score: this.score,
       distance: this.distance,
       bounceStreak: this.bounceStreak,
       countdownValue: this.countdownValue,
       canJump: this.canJump,
+      playerX: this.player?.x ?? 0,
+      velocityX: body?.velocity?.x ?? 0,
     });
   }
 
@@ -266,7 +291,9 @@ export class CloudJumperGameScene extends BaseScene {
     body.setSize(PLAYER.WIDTH - 4, PLAYER.HEIGHT - 4);
     body.setMaxVelocityY(PLAYER.MAX_FALL_SPEED);
     body.setBounce(0, 0);
-    body.setDrag(0, 0);
+    // R87.C3 — X-axis drag decelerates lateral velocity to 0 when no
+    // move key is held; Y drag stays 0 so falls remain gravity-driven.
+    body.setDrag(PLAYER.HORIZONTAL_DRAG, 0);
     body.setAccelerationY(0);
     body.enable = true;
   }
@@ -308,6 +335,13 @@ export class CloudJumperGameScene extends BaseScene {
       this.jumpKey.on('down', () => this.jump());
       this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP).on('down', () => this.jump());
       this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W).on('down', () => this.jump());
+
+      // R87.C3 — lateral movement keys, polled each update tick rather
+      // than event-driven so a held key produces sustained velocity.
+      this.moveLeftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT);
+      this.moveLeftKeyA = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+      this.moveRightKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT);
+      this.moveRightKeyD = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
 
       // Also allow click/tap to jump
       this.input.on('pointerdown', () => this.jump());
@@ -841,6 +875,59 @@ export class CloudJumperGameScene extends BaseScene {
     if (this.player.y > GAME_CONFIG.HEIGHT + 50) {
       this.playSound(SOUND_KEYS.FALL);
       this.playerDeath();
+    }
+  }
+
+  /**
+   * R87.C3 — lateral movement with release-to-stop deceleration.
+   *
+   * Tom's 2026-04-22 playtest: *"The player should be able to stop. This is
+   * to avoid hitting things by accident and provide more control."*
+   * Pre-R87.C3 CloudJumper pinned the player at `START_X=150` with no
+   * lateral agency — obstacles always arrived at a fixed column.
+   *
+   * Control model: LEFT/A drives `setVelocityX(-HORIZONTAL_SPEED)`,
+   * RIGHT/D drives `setVelocityX(+HORIZONTAL_SPEED)`, no key held leaves
+   * the body to Phaser's arcade drag (`HORIZONTAL_DRAG` on the X axis,
+   * set in `createPlayer()`) which decelerates velocity back to 0 over
+   * ~0.25 s. Tom's "stop" beat is the drag-decay — crisp enough to feel
+   * responsive, smooth enough not to read as a glitch when the key
+   * releases mid-stride.
+   *
+   * Gates: `isCountingDown` and `isGameOver` both short-circuit so neither
+   * the pre-game countdown window nor the death tween gets interrupted by
+   * a late keystroke. Both-keys-held resolves to no-op (drag kicks in) so
+   * a player mashing both directions can't accumulate invisible velocity.
+   *
+   * Boundary clamp: `player.x` is pinned to `[WIDTH/2, CANVAS_WIDTH - WIDTH/2]`
+   * with any into-wall velocity component zeroed so the player can lean
+   * against a wall without accumulating impossible momentum, which would
+   * fire the moment the wall was no longer there.
+   */
+  private handleHorizontalMovement(): void {
+    if (this.isCountingDown || this.isGameOver) return;
+    if (!this.player || !this.player.body) return;
+
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    const leftDown = this.moveLeftKey?.isDown === true || this.moveLeftKeyA?.isDown === true;
+    const rightDown = this.moveRightKey?.isDown === true || this.moveRightKeyD?.isDown === true;
+
+    if (leftDown && !rightDown) {
+      body.setVelocityX(-GAME_CONFIG.PLAYER.HORIZONTAL_SPEED);
+    } else if (rightDown && !leftDown) {
+      body.setVelocityX(GAME_CONFIG.PLAYER.HORIZONTAL_SPEED);
+    }
+    // else: no key or both keys held → drag handles deceleration
+
+    // Clamp to canvas bounds so lateral movement can't escape the viewport.
+    const halfWidth = GAME_CONFIG.PLAYER.WIDTH / 2;
+    const maxX = GAME_CONFIG.WIDTH - halfWidth;
+    if (this.player.x < halfWidth) {
+      this.player.x = halfWidth;
+      if (body.velocity.x < 0) body.setVelocityX(0);
+    } else if (this.player.x > maxX) {
+      this.player.x = maxX;
+      if (body.velocity.x > 0) body.setVelocityX(0);
     }
   }
 

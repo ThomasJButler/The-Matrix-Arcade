@@ -87,6 +87,10 @@ function createTestScene() {
       blocked: { down: false },
       touching: { down: false },
       setVelocityY: vi.fn(),
+      // R87.C3 — lateral movement body mock. The real body applies this
+      // via Phaser arcade physics; for tests we track calls so assertions
+      // can verify the direction/magnitude without running a physics tick.
+      setVelocityX: vi.fn(),
       height: GAME_CONFIG.PLAYER.HEIGHT,
     },
     setVelocityY: vi.fn(),
@@ -1076,6 +1080,279 @@ describe('CloudJumperGameScene', () => {
         // this guard would zero vy even on a falling player, breaking
         // the defensive corner case test above.
         expect(block![0]).toMatch(/body\.velocity\.y\s*<\s*0/);
+      });
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // R87.C3 — Lateral movement with release-to-stop deceleration.
+  //
+  // Tom's 2026-04-22 playtest: *"The player should be able to stop. This is
+  // to avoid hitting things by accident and provide more control."*
+  // Pre-R87.C3 the player was locked at `START_X=150` with no LEFT/RIGHT
+  // controls; Tom wants horizontal agency plus a "stop" when the key releases.
+  //
+  // Contract: LEFT/A sets vx = -HORIZONTAL_SPEED, RIGHT/D sets +HORIZONTAL_SPEED,
+  // no key held leaves it to Phaser arcade drag (HORIZONTAL_DRAG on the X axis
+  // via createPlayer → body.setDrag) to decelerate vx → 0 over ~0.25 s. The
+  // countdown window and game-over state both short-circuit the handler so
+  // late input can't perturb the countdown or the death tween. `player.x` is
+  // clamped to `[WIDTH/2, CANVAS_WIDTH - WIDTH/2]` with into-wall velocity
+  // zeroed so a held key against a boundary doesn't accumulate impossible
+  // momentum that would fire the moment the wall was gone.
+  // -----------------------------------------------------------------------
+  describe('R87.C3 — Lateral movement + release-to-stop', () => {
+    // Static source helper — mirrors R87.C1/C2 so tripwires on the handler's
+    // structure survive text-level refactors.
+    function readSceneSource(): string {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require('fs') as typeof import('fs');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require('path') as typeof import('path');
+      return fs.readFileSync(path.join(__dirname, 'GameScene.ts'), 'utf8');
+    }
+
+    /** Attach optional keyboard keys with `isDown` flags for polling tests. */
+    function stubMoveKeys(s: any, opts: { left?: boolean; a?: boolean; right?: boolean; d?: boolean } = {}) {
+      s.moveLeftKey = { isDown: opts.left === true };
+      s.moveLeftKeyA = { isDown: opts.a === true };
+      s.moveRightKey = { isDown: opts.right === true };
+      s.moveRightKeyD = { isDown: opts.d === true };
+    }
+
+    // -------------------------------------------------------------------
+    // Sub-block 1: Config dial contract
+    // -------------------------------------------------------------------
+    describe('HORIZONTAL_SPEED + HORIZONTAL_DRAG config dials', () => {
+      it('HORIZONTAL_SPEED is exactly 200', () => {
+        expect(GAME_CONFIG.PLAYER.HORIZONTAL_SPEED).toBe(200);
+      });
+
+      it('HORIZONTAL_DRAG is exactly 800', () => {
+        expect(GAME_CONFIG.PLAYER.HORIZONTAL_DRAG).toBe(800);
+      });
+
+      it('both dials are positive finite numbers', () => {
+        expect(Number.isFinite(GAME_CONFIG.PLAYER.HORIZONTAL_SPEED)).toBe(true);
+        expect(Number.isFinite(GAME_CONFIG.PLAYER.HORIZONTAL_DRAG)).toBe(true);
+        expect(GAME_CONFIG.PLAYER.HORIZONTAL_SPEED).toBeGreaterThan(0);
+        expect(GAME_CONFIG.PLAYER.HORIZONTAL_DRAG).toBeGreaterThan(0);
+      });
+
+      it('HORIZONTAL_SPEED stays under SCROLL.SPEED_MAX so lateral alone cannot beat the camera', () => {
+        // Anti-regression: a tuning pass that pushed lateral speed above
+        // the scroll cap would let the player outrun the world entirely,
+        // breaking the side-scroller feel. Locks the ordering.
+        expect(GAME_CONFIG.PLAYER.HORIZONTAL_SPEED).toBeLessThan(GAME_CONFIG.SCROLL.SPEED_MAX);
+      });
+
+      it('HORIZONTAL_SPEED is above SCROLL.SPEED_BASE so the player can meaningfully outrun the world', () => {
+        // Lower-bound anti-regression: if lateral speed drifted below base
+        // scroll, keys would feel ineffective — the world would always win.
+        expect(GAME_CONFIG.PLAYER.HORIZONTAL_SPEED).toBeGreaterThan(GAME_CONFIG.SCROLL.SPEED_BASE);
+      });
+
+      it('HORIZONTAL_DRAG delivers a sub-second full-speed stop (drag ≥ 4 × speed)', () => {
+        // Stop time = speed / drag. Drag ≥ 4 × speed ⇒ stop ≤ 0.25 s, which
+        // is the "crisp stop" feel Tom asked for. A refactor that halved
+        // drag would push stop time past 0.5 s and re-introduce the
+        // "can't stop" complaint via a back door.
+        expect(GAME_CONFIG.PLAYER.HORIZONTAL_DRAG).toBeGreaterThanOrEqual(
+          GAME_CONFIG.PLAYER.HORIZONTAL_SPEED * 4
+        );
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Sub-block 2: Key-held → velocity set
+    // -------------------------------------------------------------------
+    describe('key-held velocity writes', () => {
+      it('LEFT key held → setVelocityX(-HORIZONTAL_SPEED)', () => {
+        stubMoveKeys(scene, { left: true });
+        scene.handleHorizontalMovement();
+        expect(scene.player.body.setVelocityX).toHaveBeenCalledWith(-GAME_CONFIG.PLAYER.HORIZONTAL_SPEED);
+      });
+
+      it('A key held → setVelocityX(-HORIZONTAL_SPEED) (WASD parity)', () => {
+        stubMoveKeys(scene, { a: true });
+        scene.handleHorizontalMovement();
+        expect(scene.player.body.setVelocityX).toHaveBeenCalledWith(-GAME_CONFIG.PLAYER.HORIZONTAL_SPEED);
+      });
+
+      it('RIGHT key held → setVelocityX(+HORIZONTAL_SPEED)', () => {
+        stubMoveKeys(scene, { right: true });
+        scene.handleHorizontalMovement();
+        expect(scene.player.body.setVelocityX).toHaveBeenCalledWith(GAME_CONFIG.PLAYER.HORIZONTAL_SPEED);
+      });
+
+      it('D key held → setVelocityX(+HORIZONTAL_SPEED) (WASD parity)', () => {
+        stubMoveKeys(scene, { d: true });
+        scene.handleHorizontalMovement();
+        expect(scene.player.body.setVelocityX).toHaveBeenCalledWith(GAME_CONFIG.PLAYER.HORIZONTAL_SPEED);
+      });
+
+      it('LEFT+A both held → single negative velocity write (no doubled magnitude)', () => {
+        stubMoveKeys(scene, { left: true, a: true });
+        scene.handleHorizontalMovement();
+        expect(scene.player.body.setVelocityX).toHaveBeenCalledTimes(1);
+        expect(scene.player.body.setVelocityX).toHaveBeenCalledWith(-GAME_CONFIG.PLAYER.HORIZONTAL_SPEED);
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Sub-block 3: Release-to-stop — no key held leaves it to drag
+    // -------------------------------------------------------------------
+    describe('release-to-stop (drag handles deceleration)', () => {
+      it('no key held → handler does NOT call setVelocityX (drag runs un-overridden)', () => {
+        stubMoveKeys(scene); // all false
+        scene.handleHorizontalMovement();
+        expect(scene.player.body.setVelocityX).not.toHaveBeenCalled();
+      });
+
+      it('both LEFT and RIGHT held → handler does NOT call setVelocityX (cancels out to drag)', () => {
+        // Conflict policy: no-op rather than arbitrarily pick one side.
+        // A player pressing both keys can't accumulate invisible velocity.
+        stubMoveKeys(scene, { left: true, right: true });
+        scene.handleHorizontalMovement();
+        expect(scene.player.body.setVelocityX).not.toHaveBeenCalled();
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Sub-block 4: Scene-state guards
+    // -------------------------------------------------------------------
+    describe('scene-state guards', () => {
+      it('isCountingDown short-circuits — no velocity write on held key', () => {
+        scene.isCountingDown = true;
+        stubMoveKeys(scene, { right: true });
+        scene.handleHorizontalMovement();
+        expect(scene.player.body.setVelocityX).not.toHaveBeenCalled();
+      });
+
+      it('isGameOver short-circuits — death tween is not interrupted', () => {
+        scene.isGameOver = true;
+        stubMoveKeys(scene, { left: true });
+        scene.handleHorizontalMovement();
+        expect(scene.player.body.setVelocityX).not.toHaveBeenCalled();
+      });
+
+      it('missing player body does not NPE', () => {
+        scene.player.body = null;
+        stubMoveKeys(scene, { right: true });
+        expect(() => scene.handleHorizontalMovement()).not.toThrow();
+      });
+
+      it('missing player does not NPE', () => {
+        scene.player = null;
+        stubMoveKeys(scene, { right: true });
+        expect(() => scene.handleHorizontalMovement()).not.toThrow();
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Sub-block 5: Boundary clamp
+    // -------------------------------------------------------------------
+    describe('canvas boundary clamp', () => {
+      const halfWidth = GAME_CONFIG.PLAYER.WIDTH / 2;
+      const maxX = GAME_CONFIG.WIDTH - halfWidth;
+
+      it('player.x < halfWidth is pulled back to halfWidth', () => {
+        scene.player.x = -20;
+        stubMoveKeys(scene);
+        scene.handleHorizontalMovement();
+        expect(scene.player.x).toBe(halfWidth);
+      });
+
+      it('player.x > maxX is pulled back to maxX', () => {
+        scene.player.x = GAME_CONFIG.WIDTH + 20;
+        stubMoveKeys(scene);
+        scene.handleHorizontalMovement();
+        expect(scene.player.x).toBe(maxX);
+      });
+
+      it('into-wall negative velocity zeroed at left boundary', () => {
+        scene.player.x = -20;
+        scene.player.body.velocity.x = -200;
+        stubMoveKeys(scene);
+        scene.handleHorizontalMovement();
+        expect(scene.player.body.setVelocityX).toHaveBeenCalledWith(0);
+      });
+
+      it('into-wall positive velocity zeroed at right boundary', () => {
+        scene.player.x = GAME_CONFIG.WIDTH + 20;
+        scene.player.body.velocity.x = 200;
+        stubMoveKeys(scene);
+        scene.handleHorizontalMovement();
+        expect(scene.player.body.setVelocityX).toHaveBeenCalledWith(0);
+      });
+
+      it('away-from-wall positive velocity at left boundary is NOT zeroed', () => {
+        // Player pressed against the left wall but moving right should keep
+        // their momentum — only into-wall velocity gets cancelled.
+        scene.player.x = -20;
+        scene.player.body.velocity.x = 200;
+        stubMoveKeys(scene);
+        scene.handleHorizontalMovement();
+        // setVelocityX(0) should NOT be called for the clamp-velocity branch
+        // (the position clamp still runs, but velocity stays).
+        const zeroCalls = scene.player.body.setVelocityX.mock.calls.filter(
+          (c: unknown[]) => c[0] === 0
+        );
+        expect(zeroCalls).toHaveLength(0);
+      });
+
+      it('player at valid x does NOT trigger boundary clamp', () => {
+        scene.player.x = 400; // mid-canvas
+        stubMoveKeys(scene);
+        scene.handleHorizontalMovement();
+        // Neither the position clamp (unchanged) nor the velocity clamp fires.
+        expect(scene.player.x).toBe(400);
+        expect(scene.player.body.setVelocityX).not.toHaveBeenCalled();
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Sub-block 6: Static source tripwires
+    // -------------------------------------------------------------------
+    describe('static source invariants', () => {
+      it('handleHorizontalMovement() method defined as private', () => {
+        const src = readSceneSource();
+        expect(src).toMatch(/private\s+handleHorizontalMovement\s*\(\s*\)\s*:\s*void/);
+      });
+
+      it('update() wires handleHorizontalMovement()', () => {
+        // Wiring tripwire: a refactor that drops the call resurrects the
+        // "no lateral control" regression.
+        const src = readSceneSource();
+        expect(src).toMatch(/this\.handleHorizontalMovement\s*\(\s*\)/);
+      });
+
+      it('createPlayer sets X drag via PLAYER.HORIZONTAL_DRAG', () => {
+        // Locks the `body.setDrag(PLAYER.HORIZONTAL_DRAG, 0)` call so a
+        // refactor that reverts to `setDrag(0, 0)` breaks the release-to-stop
+        // beat even if handleHorizontalMovement stays intact.
+        const src = readSceneSource();
+        expect(src).toMatch(/setDrag\s*\(\s*PLAYER\.HORIZONTAL_DRAG\s*,\s*0\s*\)/);
+      });
+
+      it('setupInput binds LEFT, RIGHT, A, D keys', () => {
+        const src = readSceneSource();
+        expect(src).toMatch(/KeyCodes\.LEFT/);
+        expect(src).toMatch(/KeyCodes\.RIGHT/);
+        // LEFT/RIGHT tests above cover cursor keys; A/D cover WASD. Check
+        // both are wired so neither WASD nor arrow players get stranded.
+        expect(src).toMatch(/moveLeftKeyA\s*=\s*this\.input\.keyboard\.addKey\s*\(\s*Phaser\.Input\.Keyboard\.KeyCodes\.A\s*\)/);
+        expect(src).toMatch(/moveRightKeyD\s*=\s*this\.input\.keyboard\.addKey\s*\(\s*Phaser\.Input\.Keyboard\.KeyCodes\.D\s*\)/);
+      });
+
+      it('handleHorizontalMovement uses countdown + game-over early-return guards', () => {
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+handleHorizontalMovement[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\s{2}shutdown\s|\n\s{2}}\s*$|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).toMatch(/isCountingDown/);
+        expect(block![0]).toMatch(/isGameOver/);
       });
     });
   });
