@@ -194,6 +194,11 @@ describe('CodeBreakerGameScene', () => {
     scene.comboText = createMockText();
     scene.highScoreText = createMockText();
     scene.bulletTimeText = { ...createMockText(), visible: false };
+    // R87.K6 — bullet-time HUD elements (label + meter bar). Present in
+    // every test so updateHUD() can paint without NPE-ing when tests
+    // exercise paths that flow through updateBulletTimeHUD.
+    scene.bulletTimeMeterText = createMockText();
+    scene.bulletTimeMeterBar = createMockGraphics();
     scene.levelCompleteText = { ...createMockText(), visible: false };
     scene.attachHintText = createMockText();
     scene.matrixRainGroup = { getChildren: () => [] };
@@ -539,6 +544,14 @@ describe('CodeBreakerGameScene', () => {
   });
 
   describe('Bullet Time', () => {
+    // R87.K6 — B-press now requires a full charge meter. The shared setup
+    // seeds bulletTimeMeter to MAX so these tests continue to exercise the
+    // activation path; see the `R87.K6 — Manual bullet-time charge meter`
+    // block below for the gate + meter-accumulation behaviour tests.
+    beforeEach(() => {
+      scene.bulletTimeMeter = C.BULLET_TIME_METER_MAX;
+    });
+
     it('activates on B key press', () => {
       (Phaser.Input.Keyboard as Record<string, unknown>).JustDown = vi.fn().mockReturnValue(true);
       scene.bulletTimeKey = { isDown: true };
@@ -1896,6 +1909,291 @@ describe('CodeBreakerGameScene', () => {
         call(scene, 'loadLevel', 13);
         const bricks = s(scene, 'bricks') as unknown[];
         expect(bricks.length).toBeGreaterThan(0);
+      });
+    });
+  });
+
+  // R87.K6 — manual bullet-time on B. Charge meter fills as bricks are
+  // destroyed (+BULLET_TIME_METER_PER_BRICK each) and on boss hits
+  // (+BULLET_TIME_METER_PER_BOSS_HIT each). Activation on B press requires
+  // the meter at MAX; the bulletTime field power-up no longer auto-triggers
+  // slow-mo, it now fills the meter as an instant top-up.
+  describe('R87.K6 — Manual bullet-time charge meter + B-key gate', () => {
+    describe('Config dials', () => {
+      it('BULLET_TIME_METER_MAX === 100', () => {
+        expect(C.BULLET_TIME_METER_MAX).toBe(100);
+      });
+
+      it('BULLET_TIME_METER_PER_BRICK === 4', () => {
+        expect(C.BULLET_TIME_METER_PER_BRICK).toBe(4);
+      });
+
+      it('BULLET_TIME_METER_PER_BOSS_HIT === 8', () => {
+        expect(C.BULLET_TIME_METER_PER_BOSS_HIT).toBe(8);
+      });
+
+      it('meter dials are positive (never zero-out silently)', () => {
+        expect(C.BULLET_TIME_METER_PER_BRICK).toBeGreaterThan(0);
+        expect(C.BULLET_TIME_METER_PER_BOSS_HIT).toBeGreaterThan(0);
+      });
+
+      it('single brick cannot fill the meter instantly', () => {
+        // Anti-regression ratchet: a future tuning that bumps PER_BRICK to
+        // >= MAX would silently revert K6 to an "every brick is a free
+        // bullet-time" regime, which defeats the purpose of the scarce-
+        // activation design Tom asked for.
+        expect(C.BULLET_TIME_METER_PER_BRICK).toBeLessThan(C.BULLET_TIME_METER_MAX);
+      });
+
+      it('boss hits charge faster than brick hits', () => {
+        // Keeps boss-fight activation frequency roughly equal to
+        // brick-breaking-phase frequency despite bosses having fewer total
+        // hits per fight.
+        expect(C.BULLET_TIME_METER_PER_BOSS_HIT).toBeGreaterThan(C.BULLET_TIME_METER_PER_BRICK);
+      });
+    });
+
+    describe('addBulletTimeCharge', () => {
+      it('accumulates additive amounts', () => {
+        scene.bulletTimeMeter = 0;
+        call(scene, 'addBulletTimeCharge', 10);
+        call(scene, 'addBulletTimeCharge', 15);
+        expect(s(scene, 'bulletTimeMeter')).toBe(25);
+      });
+
+      it('clamps at BULLET_TIME_METER_MAX (no overflow)', () => {
+        scene.bulletTimeMeter = C.BULLET_TIME_METER_MAX - 5;
+        call(scene, 'addBulletTimeCharge', 20);
+        expect(s(scene, 'bulletTimeMeter')).toBe(C.BULLET_TIME_METER_MAX);
+      });
+
+      it('clamps oversized single additions', () => {
+        scene.bulletTimeMeter = 0;
+        call(scene, 'addBulletTimeCharge', 500);
+        expect(s(scene, 'bulletTimeMeter')).toBe(C.BULLET_TIME_METER_MAX);
+      });
+    });
+
+    describe('destroyBrick + hitBoss integration', () => {
+      it('destroyBrick adds BULLET_TIME_METER_PER_BRICK charge', () => {
+        scene.bulletTimeMeter = 0;
+        scene.bricks = [{
+          sprite: createMockRect(200, 100, C.BRICK_WIDTH, C.BRICK_HEIGHT),
+          type: 'code', health: 1, maxHealth: 1, value: 10,
+          row: 0, col: 0, width: C.BRICK_WIDTH, height: C.BRICK_HEIGHT,
+        }];
+        call(scene, 'destroyBrick', 0);
+        expect(s(scene, 'bulletTimeMeter')).toBe(C.BULLET_TIME_METER_PER_BRICK);
+      });
+
+      it('hitBoss adds BULLET_TIME_METER_PER_BOSS_HIT charge', () => {
+        scene.bulletTimeMeter = 0;
+        scene.boss = {
+          sprite: createMockRect(C.WIDTH / 2, 80, C.BOSS_WIDTH, C.BOSS_HEIGHT),
+          healthBar: createMockGraphics(),
+          healthBg: createMockGraphics(),
+          health: 50, maxHealth: 50, value: 500,
+          width: C.BOSS_WIDTH, height: C.BOSS_HEIGHT,
+          direction: 1, speed: C.BOSS_SPEED, fireTimer: 0,
+        };
+        call(scene, 'hitBoss', 1);
+        expect(s(scene, 'bulletTimeMeter')).toBe(C.BULLET_TIME_METER_PER_BOSS_HIT);
+      });
+
+      it('destroyBrick charge stacks across multiple destructions up to cap', () => {
+        scene.bulletTimeMeter = 0;
+        for (let i = 0; i < 30; i++) {
+          scene.bricks = [{
+            sprite: createMockRect(200, 100, C.BRICK_WIDTH, C.BRICK_HEIGHT),
+            type: 'code', health: 1, maxHealth: 1, value: 10,
+            row: 0, col: 0, width: C.BRICK_WIDTH, height: C.BRICK_HEIGHT,
+          }];
+          call(scene, 'destroyBrick', 0);
+        }
+        // 30 × PER_BRICK would overflow; must clamp at MAX.
+        expect(s(scene, 'bulletTimeMeter')).toBe(C.BULLET_TIME_METER_MAX);
+      });
+    });
+
+    describe('B-key manual gate (handleBulletTime)', () => {
+      it('no-op when meter below MAX — bullet-time does NOT activate', () => {
+        scene.bulletTimeMeter = C.BULLET_TIME_METER_MAX - 1;
+        scene.bulletTimeActive = false;
+        (Phaser.Input.Keyboard as Record<string, unknown>).JustDown = vi.fn().mockReturnValue(true);
+        scene.bulletTimeKey = { isDown: true };
+        call(scene, 'handleBulletTime');
+        expect(s(scene, 'bulletTimeActive')).toBe(false);
+        expect(s(scene, 'bulletTimeUses')).toBe(0);
+      });
+
+      it('meter unchanged on sub-MAX B press (no silent consume)', () => {
+        // Guard against a refactor that consumes the meter on every B press
+        // regardless of cap — would make the gate feel broken.
+        scene.bulletTimeMeter = 50;
+        (Phaser.Input.Keyboard as Record<string, unknown>).JustDown = vi.fn().mockReturnValue(true);
+        scene.bulletTimeKey = { isDown: true };
+        call(scene, 'handleBulletTime');
+        expect(s(scene, 'bulletTimeMeter')).toBe(50);
+      });
+
+      it('activates when meter === MAX', () => {
+        scene.bulletTimeMeter = C.BULLET_TIME_METER_MAX;
+        (Phaser.Input.Keyboard as Record<string, unknown>).JustDown = vi.fn().mockReturnValue(true);
+        scene.bulletTimeKey = { isDown: true };
+        call(scene, 'handleBulletTime');
+        expect(s(scene, 'bulletTimeActive')).toBe(true);
+      });
+
+      it('consumes the full meter on activation (resets to 0)', () => {
+        scene.bulletTimeMeter = C.BULLET_TIME_METER_MAX;
+        (Phaser.Input.Keyboard as Record<string, unknown>).JustDown = vi.fn().mockReturnValue(true);
+        scene.bulletTimeKey = { isDown: true };
+        call(scene, 'handleBulletTime');
+        expect(s(scene, 'bulletTimeMeter')).toBe(0);
+      });
+
+      it('re-entry blocked while active even when meter refilled', () => {
+        // A future brick burst during a live slow-mo could top the meter
+        // back to MAX; B press must still no-op so the current session
+        // plays out fully before the next activation is earned.
+        scene.bulletTimeActive = true;
+        scene.bulletTimeMeter = C.BULLET_TIME_METER_MAX;
+        scene.bulletTimeUses = 1;
+        (Phaser.Input.Keyboard as Record<string, unknown>).JustDown = vi.fn().mockReturnValue(true);
+        scene.bulletTimeKey = { isDown: true };
+        call(scene, 'handleBulletTime');
+        expect(s(scene, 'bulletTimeUses')).toBe(1);
+        expect(s(scene, 'bulletTimeMeter')).toBe(C.BULLET_TIME_METER_MAX);
+      });
+
+      it('does nothing if B not just-pressed (key held)', () => {
+        scene.bulletTimeMeter = C.BULLET_TIME_METER_MAX;
+        (Phaser.Input.Keyboard as Record<string, unknown>).JustDown = vi.fn().mockReturnValue(false);
+        scene.bulletTimeKey = { isDown: true };
+        call(scene, 'handleBulletTime');
+        expect(s(scene, 'bulletTimeActive')).toBe(false);
+      });
+    });
+
+    describe('Activation chain (shared by B-press + power-up paths)', () => {
+      it('activateBulletTime increments bulletTimeUses', () => {
+        scene.bulletTimeMeter = C.BULLET_TIME_METER_MAX;
+        call(scene, 'activateBulletTime');
+        expect(s(scene, 'bulletTimeUses')).toBe(1);
+      });
+
+      it('activateBulletTime plays specialAbility sound', () => {
+        scene.bulletTimeMeter = C.BULLET_TIME_METER_MAX;
+        call(scene, 'activateBulletTime');
+        expect(scene.playSound).toHaveBeenCalledWith('specialAbility');
+      });
+
+      it('activateBulletTime schedules deactivation at POWERUP_DEFS.bulletTime.duration', () => {
+        scene.bulletTimeMeter = C.BULLET_TIME_METER_MAX;
+        call(scene, 'activateBulletTime');
+        expect(scene.time.delayedCall).toHaveBeenCalledWith(
+          POWERUP_DEFS.bulletTime.duration,
+          expect.any(Function),
+        );
+      });
+
+      it('activateBulletTime no-ops when already active (no double-increment)', () => {
+        scene.bulletTimeActive = true;
+        scene.bulletTimeUses = 3;
+        call(scene, 'activateBulletTime');
+        expect(s(scene, 'bulletTimeUses')).toBe(3);
+      });
+    });
+
+    describe('Power-up pickup re-route (activateBulletTimePowerUp)', () => {
+      it('fills meter to MAX instead of auto-activating slow-mo', () => {
+        scene.bulletTimeMeter = 0;
+        scene.bulletTimeActive = false;
+        call(scene, 'activateBulletTimePowerUp');
+        expect(s(scene, 'bulletTimeMeter')).toBe(C.BULLET_TIME_METER_MAX);
+      });
+
+      it('does NOT set bulletTimeActive = true (removes auto-activation)', () => {
+        scene.bulletTimeActive = false;
+        call(scene, 'activateBulletTimePowerUp');
+        expect(s(scene, 'bulletTimeActive')).toBe(false);
+      });
+
+      it('does NOT increment bulletTimeUses (pickup is not an activation)', () => {
+        scene.bulletTimeUses = 0;
+        call(scene, 'activateBulletTimePowerUp');
+        expect(s(scene, 'bulletTimeUses')).toBe(0);
+      });
+
+      it('does NOT schedule a deactivation timer (auto-deactivation path gone)', () => {
+        scene.time.delayedCall = vi.fn();
+        call(scene, 'activateBulletTimePowerUp');
+        // Any delayedCall using POWERUP_DEFS.bulletTime.duration would be
+        // the removed auto-deactivation path.
+        const calls = (scene.time.delayedCall as ReturnType<typeof vi.fn>).mock.calls;
+        const hadAutoDeactivateCall = calls.some(
+          (args: unknown[]) => args[0] === POWERUP_DEFS.bulletTime.duration,
+        );
+        expect(hadAutoDeactivateCall).toBe(false);
+      });
+
+      it('does not over-fill when meter already full (clamp)', () => {
+        scene.bulletTimeMeter = C.BULLET_TIME_METER_MAX;
+        call(scene, 'activateBulletTimePowerUp');
+        expect(s(scene, 'bulletTimeMeter')).toBe(C.BULLET_TIME_METER_MAX);
+      });
+    });
+
+    describe('State reset', () => {
+      it('resetState zeros the meter', () => {
+        scene.bulletTimeMeter = 75;
+        call(scene, 'resetState');
+        expect(s(scene, 'bulletTimeMeter')).toBe(0);
+      });
+
+      it('initial state has bulletTimeMeter === 0', () => {
+        expect(s(scene, 'bulletTimeMeter')).toBe(0);
+      });
+    });
+
+    describe('HUD painting (updateBulletTimeHUD)', () => {
+      it('charging: label shows percentage and PRIMARY colour', () => {
+        scene.bulletTimeMeter = 40;
+        scene.bulletTimeActive = false;
+        call(scene, 'updateBulletTimeHUD');
+        expect(scene.bulletTimeMeterText.setText).toHaveBeenCalledWith('BULLET TIME: 40%');
+        expect(scene.bulletTimeMeterText.setColor).toHaveBeenCalledWith('#00ff00');
+      });
+
+      it('full-idle: label shows READY [B] and YELLOW colour', () => {
+        scene.bulletTimeMeter = C.BULLET_TIME_METER_MAX;
+        scene.bulletTimeActive = false;
+        call(scene, 'updateBulletTimeHUD');
+        expect(scene.bulletTimeMeterText.setText).toHaveBeenCalledWith('BULLET TIME: READY [B]');
+        expect(scene.bulletTimeMeterText.setColor).toHaveBeenCalledWith('#ffff00');
+      });
+
+      it('active: label shows ACTIVE and CYAN colour', () => {
+        scene.bulletTimeActive = true;
+        call(scene, 'updateBulletTimeHUD');
+        expect(scene.bulletTimeMeterText.setText).toHaveBeenCalledWith('BULLET TIME: ACTIVE');
+        expect(scene.bulletTimeMeterText.setColor).toHaveBeenCalledWith('#00ffff');
+      });
+
+      it('meter bar redraws each update (clear + stroke + fill)', () => {
+        scene.bulletTimeMeter = 50;
+        call(scene, 'updateBulletTimeHUD');
+        expect(scene.bulletTimeMeterBar.clear).toHaveBeenCalled();
+        expect(scene.bulletTimeMeterBar.strokeRect).toHaveBeenCalled();
+        expect(scene.bulletTimeMeterBar.fillRect).toHaveBeenCalled();
+      });
+    });
+
+    describe('Test-state exposure', () => {
+      it('getTestState includes bulletTimeMeter', () => {
+        scene.bulletTimeMeter = 33;
+        const state = call(scene, 'getTestState') as Record<string, unknown>;
+        expect(state.bulletTimeMeter).toBe(33);
       });
     });
   });

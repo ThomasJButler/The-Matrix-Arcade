@@ -42,6 +42,11 @@ export class CodeBreakerGameScene extends BaseScene {
   private combo = 0;
   private agentsKilled = 0;
   private bulletTimeUses = 0;
+  // R87.K6 — manual bullet-time charge meter. Fills as bricks are destroyed
+  // (BULLET_TIME_METER_PER_BRICK) and bosses take hits
+  // (BULLET_TIME_METER_PER_BOSS_HIT); activation on B press requires
+  // bulletTimeMeter >= BULLET_TIME_METER_MAX and consumes the full charge.
+  private bulletTimeMeter = 0;
   private ballLostThisLevel = false;
 
   private widePaddleActive = false;
@@ -72,6 +77,11 @@ export class CodeBreakerGameScene extends BaseScene {
   private comboText!: Phaser.GameObjects.Text;
   private highScoreText!: Phaser.GameObjects.Text;
   private bulletTimeText!: Phaser.GameObjects.Text;
+  // R87.K6 — manual bullet-time HUD: label text + meter bar Graphics.
+  // Label flips colour between PRIMARY (charging), YELLOW (full-ready), and
+  // CYAN (active). Bar width scales with bulletTimeMeter / MAX.
+  private bulletTimeMeterText!: Phaser.GameObjects.Text;
+  private bulletTimeMeterBar!: Phaser.GameObjects.Graphics;
   private levelCompleteText!: Phaser.GameObjects.Text;
   private attachHintText!: Phaser.GameObjects.Text;
 
@@ -118,6 +128,7 @@ export class CodeBreakerGameScene extends BaseScene {
     this.combo = 0;
     this.agentsKilled = 0;
     this.bulletTimeUses = 0;
+    this.bulletTimeMeter = 0;
     this.ballLostThisLevel = false;
     this.isGameOver = false;
     this.isLevelComplete = false;
@@ -327,6 +338,19 @@ export class CodeBreakerGameScene extends BaseScene {
     this.bulletTimeText.setVisible(false);
     this.bulletTimeText.setDepth(100);
 
+    // R87.K6 — manual bullet-time HUD at top-centre. Label + meter bar sit
+    // above the bricks (y=8-30) so they read from the play area without
+    // overlapping any existing HUD line (SCORE/LEVEL/HI/LIVES all live in
+    // the corners at y=8-40).
+    this.bulletTimeMeterText = this.createMatrixText(
+      GAME_CONFIG.WIDTH / 2, 8, 'BULLET TIME: 0%', 8, MATRIX_COLORS.PRIMARY_HEX
+    );
+    this.bulletTimeMeterText.setOrigin(0.5, 0);
+    this.bulletTimeMeterText.setDepth(100);
+
+    this.bulletTimeMeterBar = this.add.graphics();
+    this.bulletTimeMeterBar.setDepth(100);
+
     this.levelCompleteText = this.createMatrixText(
       GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT * 0.4, '', 14
     );
@@ -479,11 +503,31 @@ export class CodeBreakerGameScene extends BaseScene {
     if (this.isBallAttached) this.launchBall();
   }
 
+  // R87.K6 — manual bullet-time gate. B press only activates when the charge
+  // meter is full AND bullet-time is not already running. Previous behaviour
+  // fired unconditionally on B so the player could stack slow-mo sessions;
+  // Tom's brief wants activation to be a scarce, earned moment.
   private handleBulletTime(): void {
     if (!this.bulletTimeKey || !Phaser.Input.Keyboard.JustDown(this.bulletTimeKey)) return;
+    this.tryActivateManualBulletTime();
+  }
+
+  private tryActivateManualBulletTime(): void {
+    if (this.bulletTimeActive) return;
+    if (this.bulletTimeMeter < GAME_CONFIG.BULLET_TIME_METER_MAX) return;
+    this.activateBulletTime();
+  }
+
+  // R87.K6 — shared activation path. Both the manual B-press route and the
+  // bulletTime power-up pickup route funnel through here so duration + uses +
+  // sound + deactivation scheduling stay in one place. Meter is consumed
+  // fully on activation (0 after the call); the player earns the next
+  // session by destroying more bricks.
+  private activateBulletTime(): void {
     if (this.bulletTimeActive) return;
 
     this.bulletTimeActive = true;
+    this.bulletTimeMeter = 0;
     this.bulletTimeUses++;
     this.bulletTimeText.setVisible(true);
     this.playSound(SOUND_KEYS.SPECIAL_ABILITY);
@@ -492,6 +536,17 @@ export class CodeBreakerGameScene extends BaseScene {
       this.bulletTimeActive = false;
       this.bulletTimeText.setVisible(false);
     });
+  }
+
+  // R87.K6 — charge accumulator. Called from destroyBrick + hitBoss with the
+  // respective BULLET_TIME_METER_PER_* config dial. Clamps at
+  // BULLET_TIME_METER_MAX so back-to-back destruction during an already-full
+  // meter doesn't silently overflow.
+  private addBulletTimeCharge(amount: number): void {
+    this.bulletTimeMeter = Math.min(
+      GAME_CONFIG.BULLET_TIME_METER_MAX,
+      this.bulletTimeMeter + amount,
+    );
   }
 
   private handleLaserFiring(dt: number): void {
@@ -953,6 +1008,9 @@ export class CodeBreakerGameScene extends BaseScene {
     brick.sprite.destroy();
     this.bricks.splice(brickIndex, 1);
 
+    // R87.K6 — brick destruction charges the manual bullet-time meter.
+    this.addBulletTimeCharge(GAME_CONFIG.BULLET_TIME_METER_PER_BRICK);
+
     this.tryUnlockAchievement(ACHIEVEMENTS.FIRST_BREAK);
 
     if (Math.random() < GAME_CONFIG.POWERUP_DROP_CHANCE) {
@@ -971,6 +1029,11 @@ export class CodeBreakerGameScene extends BaseScene {
 
     this.boss.health -= damage;
     this.playSound(SOUND_KEYS.HIT);
+
+    // R87.K6 — boss hits also charge the manual bullet-time meter, at a
+    // higher rate than bricks so boss fights reliably yield at least one
+    // activation despite fewer total hits.
+    this.addBulletTimeCharge(GAME_CONFIG.BULLET_TIME_METER_PER_BOSS_HIT);
 
     this.boss.sprite.setFillStyle(MATRIX_COLORS.WHITE);
     this.time.delayedCall(80, () => {
@@ -1257,17 +1320,14 @@ export class CodeBreakerGameScene extends BaseScene {
     });
   }
 
+  // R87.K6 — bulletTime power-up pickup no longer auto-triggers slow-mo.
+  // Tom's 2026-04-22 brief: auto-activation "just makes one ball go really
+  // slow and it's a bit pointless". Instead the pickup fills the manual
+  // charge meter to full so the player chooses when to spend it with B.
+  // Keeps the sprite + legend entry meaningful as an instant top-up
+  // shortcut without stripping player agency.
   private activateBulletTimePowerUp(): void {
-    if (this.bulletTimeActive) return;
-
-    this.bulletTimeActive = true;
-    this.bulletTimeUses++;
-    this.bulletTimeText.setVisible(true);
-
-    this.time.delayedCall(POWERUP_DEFS.bulletTime.duration, () => {
-      this.bulletTimeActive = false;
-      this.bulletTimeText.setVisible(false);
-    });
+    this.addBulletTimeCharge(GAME_CONFIG.BULLET_TIME_METER_MAX);
   }
 
   private activateFirewall(): void {
@@ -1317,6 +1377,48 @@ export class CodeBreakerGameScene extends BaseScene {
     this.livesText.setText(`LIVES: ${this.lives}`);
     this.comboText.setText(this.combo > 0 ? `COMBO: ${this.combo}x` : '');
     this.highScoreText.setText(`HI: ${this.highScore}`);
+    this.updateBulletTimeHUD();
+  }
+
+  // R87.K6 — paint the bullet-time meter label + bar at the top of the HUD.
+  // Label reads:
+  //   "BULLET TIME: ACTIVE"   (cyan)   — slow-mo running
+  //   "BULLET TIME: READY [B]" (yellow) — meter full, awaiting B press
+  //   "BULLET TIME: NN%"       (green)  — charging
+  // Bar fill colour mirrors the label so the state is legible even without
+  // reading the text. Clamped to BULLET_TIME_METER_MAX so overflow is
+  // impossible from any caller.
+  private updateBulletTimeHUD(): void {
+    const meterPct = this.bulletTimeMeter / GAME_CONFIG.BULLET_TIME_METER_MAX;
+    const isFull = this.bulletTimeMeter >= GAME_CONFIG.BULLET_TIME_METER_MAX;
+
+    if (this.bulletTimeActive) {
+      this.bulletTimeMeterText.setText('BULLET TIME: ACTIVE');
+      this.bulletTimeMeterText.setColor(MATRIX_COLORS.CYAN_HEX);
+    } else if (isFull) {
+      this.bulletTimeMeterText.setText('BULLET TIME: READY [B]');
+      this.bulletTimeMeterText.setColor(MATRIX_COLORS.YELLOW_HEX);
+    } else {
+      const pct = Math.floor(meterPct * 100);
+      this.bulletTimeMeterText.setText(`BULLET TIME: ${pct}%`);
+      this.bulletTimeMeterText.setColor(MATRIX_COLORS.PRIMARY_HEX);
+    }
+
+    const barW = 120;
+    const barH = 4;
+    const barX = GAME_CONFIG.WIDTH / 2 - barW / 2;
+    const barY = 22;
+    this.bulletTimeMeterBar.clear();
+    this.bulletTimeMeterBar.lineStyle(1, MATRIX_COLORS.PRIMARY, 0.6);
+    this.bulletTimeMeterBar.strokeRect(barX, barY, barW, barH);
+
+    const fillColor = this.bulletTimeActive
+      ? MATRIX_COLORS.CYAN
+      : isFull
+        ? MATRIX_COLORS.YELLOW
+        : MATRIX_COLORS.PRIMARY;
+    this.bulletTimeMeterBar.fillStyle(fillColor, 1);
+    this.bulletTimeMeterBar.fillRect(barX, barY, meterPct * barW, barH);
   }
 
   // -- Achievements --
@@ -1346,6 +1448,7 @@ export class CodeBreakerGameScene extends BaseScene {
       combo: this.combo,
       agentsKilled: this.agentsKilled,
       bulletTimeUses: this.bulletTimeUses,
+      bulletTimeMeter: this.bulletTimeMeter,
       ballLostThisLevel: this.ballLostThisLevel,
       isGameOver: this.isGameOver,
       isLevelComplete: this.isLevelComplete,
