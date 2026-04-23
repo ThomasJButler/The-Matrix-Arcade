@@ -423,6 +423,20 @@ export const GAME_CONFIG = {
 
   // Wave delay
   LEVEL_TRANSITION_DELAY: 2000,
+
+  // R87.K8 — brick-break SFX throttle. Tom's 2026-04-22 playtest complaint
+  // *"Need to reduce the amount of times that we have the brick breaking
+  // sound effect."* addressed via a minimum-interval gate on brick-related
+  // SFX (chip-HIT on unbreakable + chip-HIT on non-destroy multi-hit bricks
+  // + GLASS_BREAK on destruction). 50 ms gate = max 20 brick SFX plays per
+  // second, which reads as snappy without a packed-grid multi-ball burst
+  // going cacophonous at 5-10 brick hits per frame. Single shared timestamp
+  // bucket across both sounds so a chip→destroy sequence inside 50 ms
+  // silences the later sound — acceptable because SCORE still fires on every
+  // destruction, preserving the per-brick combo-bleep feedback Tom values.
+  // Throttle deliberately excludes paddle/wall/firewall HIT (sparse events
+  // already) and SCORE/GLASS_BREAK on boss hits (separate cadence).
+  BRICK_SFX_THROTTLE_MS: 50,
 } as const;
 
 const C = GAME_CONFIG;

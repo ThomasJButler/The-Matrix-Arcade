@@ -2581,4 +2581,257 @@ describe('CodeBreakerGameScene', () => {
       });
     });
   });
+
+  // --------------------------------------------------------------------
+  // R87.K8 — brick-break SFX throttle.
+  //
+  // Tom's 2026-04-22 playtest: *"Need to reduce the amount of times that we
+  // have the brick breaking sound effect."* Packed-grid multi-ball bursts
+  // destroy 5-10 bricks per frame, and prior to K8 every one of those fired
+  // both SCORE and GLASS_BREAK simultaneously. Throttle gates HIT + GLASS_BREAK
+  // via a single shared timestamp bucket (BRICK_SFX_THROTTLE_MS=50 ms), while
+  // SCORE stays un-throttled so the combo bleep still confirms every
+  // destruction — if the throttle starts silencing SCORE the combo feedback
+  // Tom relies on disappears.
+  // --------------------------------------------------------------------
+  describe('R87.K8 — brick-SFX throttle on HIT + GLASS_BREAK', () => {
+    beforeEach(() => {
+      // Throttle helper reads scene.time.now for deterministic gating; the
+      // shared scene mock does not populate `now` so the default `?? 0`
+      // fallback applies. Each test below sets scene.time.now explicitly.
+      scene.time.now = 1000;
+      scene.lastBrickSfxAt = Number.NEGATIVE_INFINITY;
+    });
+
+    describe('Config dial', () => {
+      it('BRICK_SFX_THROTTLE_MS is defined as 50 ms', () => {
+        expect(GAME_CONFIG.BRICK_SFX_THROTTLE_MS).toBe(50);
+      });
+
+      it('BRICK_SFX_THROTTLE_MS is a positive finite number', () => {
+        expect(GAME_CONFIG.BRICK_SFX_THROTTLE_MS).toBeGreaterThan(0);
+        expect(Number.isFinite(GAME_CONFIG.BRICK_SFX_THROTTLE_MS)).toBe(true);
+      });
+
+      it('BRICK_SFX_THROTTLE_MS sits in safe range [16, 200] ms', () => {
+        // 16 ms ≈ one 60 fps frame — anything below makes the throttle
+        // pointless (no frame can fire two brick SFX anyway). 200 ms is the
+        // anti-regression ceiling: above this the throttle silences most
+        // brick audio in a normal run and Tom's "feels deadened" complaint
+        // would surface.
+        expect(GAME_CONFIG.BRICK_SFX_THROTTLE_MS).toBeGreaterThanOrEqual(16);
+        expect(GAME_CONFIG.BRICK_SFX_THROTTLE_MS).toBeLessThanOrEqual(200);
+      });
+    });
+
+    describe('Initial state + reset', () => {
+      it('lastBrickSfxAt starts at NEGATIVE_INFINITY so the first call always fires', () => {
+        // Locks the "first brick hit of a run always plays" contract. If a
+        // future refactor flips the initial value to 0, scene.time.now=0 on
+        // the first update frame would suppress the opening chip sound.
+        expect(scene.lastBrickSfxAt).toBe(Number.NEGATIVE_INFINITY);
+      });
+
+      it('resetState zeros lastBrickSfxAt back to NEGATIVE_INFINITY', () => {
+        scene.lastBrickSfxAt = 5000;
+        call(scene, 'resetState');
+        expect(scene.lastBrickSfxAt).toBe(Number.NEGATIVE_INFINITY);
+      });
+    });
+
+    describe('playBrickSfxThrottled — gate behaviour', () => {
+      it('first call after reset plays the sound regardless of time.now', () => {
+        scene.time.now = 0;
+        call(scene, 'playBrickSfxThrottled', 'glassBreak');
+        expect(scene.playSound).toHaveBeenCalledWith('glassBreak');
+      });
+
+      it('first call sets lastBrickSfxAt to current time.now', () => {
+        scene.time.now = 1234;
+        call(scene, 'playBrickSfxThrottled', 'hit');
+        expect(scene.lastBrickSfxAt).toBe(1234);
+      });
+
+      it('second call inside the throttle window is suppressed', () => {
+        scene.time.now = 1000;
+        call(scene, 'playBrickSfxThrottled', 'glassBreak');
+        scene.playSound.mockClear();
+        scene.time.now = 1000 + GAME_CONFIG.BRICK_SFX_THROTTLE_MS - 1;
+        call(scene, 'playBrickSfxThrottled', 'glassBreak');
+        expect(scene.playSound).not.toHaveBeenCalled();
+      });
+
+      it('suppressed call does NOT update lastBrickSfxAt (window anchored to last-played)', () => {
+        scene.time.now = 1000;
+        call(scene, 'playBrickSfxThrottled', 'glassBreak');
+        scene.time.now = 1030;
+        call(scene, 'playBrickSfxThrottled', 'glassBreak');
+        expect(scene.lastBrickSfxAt).toBe(1000);
+      });
+
+      it('call at exactly the throttle boundary still fires (strict < gate)', () => {
+        // Gate is `now - last < THRESHOLD`. When now-last === THRESHOLD the
+        // next call should fire — locks the `<` operator vs a `<=` regression
+        // that would turn the throttle into a one-frame-longer window.
+        scene.time.now = 1000;
+        call(scene, 'playBrickSfxThrottled', 'glassBreak');
+        scene.playSound.mockClear();
+        scene.time.now = 1000 + GAME_CONFIG.BRICK_SFX_THROTTLE_MS;
+        call(scene, 'playBrickSfxThrottled', 'glassBreak');
+        expect(scene.playSound).toHaveBeenCalledWith('glassBreak');
+      });
+
+      it('call beyond the throttle window fires again', () => {
+        scene.time.now = 1000;
+        call(scene, 'playBrickSfxThrottled', 'glassBreak');
+        scene.playSound.mockClear();
+        scene.time.now = 1000 + GAME_CONFIG.BRICK_SFX_THROTTLE_MS * 2;
+        call(scene, 'playBrickSfxThrottled', 'glassBreak');
+        expect(scene.playSound).toHaveBeenCalledWith('glassBreak');
+      });
+
+      it('different sound keys share the bucket (HIT then GLASS_BREAK inside window → second suppressed)', () => {
+        // Documents the design tradeoff: a chip-HIT immediately followed by a
+        // destroy-GLASS_BREAK inside the same 50 ms window silences the
+        // shatter. SCORE still fires un-throttled on the destruction so the
+        // player hears the kill — verified in the destroyBrick block below.
+        scene.time.now = 1000;
+        call(scene, 'playBrickSfxThrottled', 'hit');
+        scene.playSound.mockClear();
+        scene.time.now = 1020;
+        call(scene, 'playBrickSfxThrottled', 'glassBreak');
+        expect(scene.playSound).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('hitBrick integration — chip-HIT throttled', () => {
+      const makeBrick = (type: 'code' | 'agent' | 'sentinel' | 'unbreakable', health: number) => ({
+        sprite: createMockRect(200, 100, C.BRICK_WIDTH, C.BRICK_HEIGHT),
+        type,
+        health,
+        maxHealth: health,
+        value: 10,
+        row: 0,
+        col: 0,
+        width: C.BRICK_WIDTH,
+        height: C.BRICK_HEIGHT,
+      });
+
+      it('unbreakable-brick HIT is throttled on rapid back-to-back hits', () => {
+        scene.bricks = [makeBrick('unbreakable', 999), makeBrick('unbreakable', 999)];
+        scene.time.now = 1000;
+        call(scene, 'hitBrick', 0);
+        scene.time.now = 1020;
+        call(scene, 'hitBrick', 1);
+        const hitCalls = scene.playSound.mock.calls.filter((args: unknown[]) => args[0] === 'hit');
+        expect(hitCalls).toHaveLength(1);
+      });
+
+      it('non-destroy multi-hit chip HIT is throttled', () => {
+        scene.bricks = [makeBrick('sentinel', 3), makeBrick('agent', 2)];
+        scene.time.now = 1000;
+        call(scene, 'hitBrick', 0);
+        scene.time.now = 1020;
+        call(scene, 'hitBrick', 1);
+        const hitCalls = scene.playSound.mock.calls.filter((args: unknown[]) => args[0] === 'hit');
+        expect(hitCalls).toHaveLength(1);
+      });
+
+      it('non-destroy HIT fires again after the throttle window expires', () => {
+        scene.bricks = [makeBrick('sentinel', 3), makeBrick('agent', 2)];
+        scene.time.now = 1000;
+        call(scene, 'hitBrick', 0);
+        scene.time.now = 1000 + GAME_CONFIG.BRICK_SFX_THROTTLE_MS + 1;
+        call(scene, 'hitBrick', 1);
+        const hitCalls = scene.playSound.mock.calls.filter((args: unknown[]) => args[0] === 'hit');
+        expect(hitCalls).toHaveLength(2);
+      });
+    });
+
+    describe('destroyBrick integration — SCORE always fires, GLASS_BREAK throttled', () => {
+      const makeBrick = () => ({
+        sprite: createMockRect(200, 100, C.BRICK_WIDTH, C.BRICK_HEIGHT),
+        type: 'code' as const,
+        health: 1,
+        maxHealth: 1,
+        value: 10,
+        row: 0,
+        col: 0,
+        width: C.BRICK_WIDTH,
+        height: C.BRICK_HEIGHT,
+      });
+
+      it('GLASS_BREAK is throttled on two destructions inside the same window', () => {
+        scene.bricks = [makeBrick(), makeBrick()];
+        scene.time.now = 1000;
+        call(scene, 'destroyBrick', 0);
+        scene.time.now = 1020;
+        call(scene, 'destroyBrick', 0);
+        const shatterCalls = scene.playSound.mock.calls.filter((args: unknown[]) => args[0] === 'glassBreak');
+        expect(shatterCalls).toHaveLength(1);
+      });
+
+      it('SCORE still fires on every destruction even when GLASS_BREAK is throttled', () => {
+        // Core contract: throttle must NOT starve the combo-beat feedback.
+        scene.bricks = [makeBrick(), makeBrick(), makeBrick()];
+        scene.time.now = 1000;
+        call(scene, 'destroyBrick', 0);
+        scene.time.now = 1010;
+        call(scene, 'destroyBrick', 0);
+        scene.time.now = 1020;
+        call(scene, 'destroyBrick', 0);
+        const scoreCalls = scene.playSound.mock.calls.filter((args: unknown[]) => args[0] === 'score');
+        expect(scoreCalls).toHaveLength(3);
+      });
+
+      it('GLASS_BREAK fires again after the throttle window expires', () => {
+        scene.bricks = [makeBrick(), makeBrick()];
+        scene.time.now = 1000;
+        call(scene, 'destroyBrick', 0);
+        scene.time.now = 1000 + GAME_CONFIG.BRICK_SFX_THROTTLE_MS + 1;
+        call(scene, 'destroyBrick', 0);
+        const shatterCalls = scene.playSound.mock.calls.filter((args: unknown[]) => args[0] === 'glassBreak');
+        expect(shatterCalls).toHaveLength(2);
+      });
+    });
+
+    describe('Non-brick SFX still fire unthrottled', () => {
+      it('loseLife HIT fires even when brick-SFX throttle was just tripped', () => {
+        // loseLife uses playSound() directly, not playBrickSfxThrottled. A
+        // death right after a brick destroy must still play its HIT — this
+        // is the "I just died, I need to hear that" guarantee.
+        scene.time.now = 1000;
+        call(scene, 'playBrickSfxThrottled', 'glassBreak');
+        scene.playSound.mockClear();
+        scene.time.now = 1020;
+        call(scene, 'loseLife');
+        expect(scene.playSound).toHaveBeenCalledWith('hit');
+      });
+
+      it('hitBoss HIT fires even when brick-SFX throttle was just tripped', () => {
+        // Boss fights use hitBoss → playSound(HIT) directly. A routed-through-
+        // throttle regression would silence boss-hit feedback while the
+        // brick throttle cools down.
+        scene.time.now = 1000;
+        call(scene, 'playBrickSfxThrottled', 'glassBreak');
+        scene.playSound.mockClear();
+        scene.boss = {
+          sprite: { ...createMockRect(400, 80, C.BOSS_WIDTH, C.BOSS_HEIGHT), setFillStyle: vi.fn().mockReturnThis() },
+          healthBar: createMockGraphics(),
+          healthBg: createMockGraphics(),
+          health: 5,
+          maxHealth: 10,
+          value: C.BOSS_VALUE,
+          width: C.BOSS_WIDTH,
+          height: C.BOSS_HEIGHT,
+          direction: 1,
+          speed: 100,
+          fireTimer: 0,
+        };
+        scene.time.now = 1020;
+        call(scene, 'hitBoss', 1);
+        expect(scene.playSound).toHaveBeenCalledWith('hit');
+      });
+    });
+  });
 });

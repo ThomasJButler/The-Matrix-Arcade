@@ -72,6 +72,16 @@ export class CodeBreakerGameScene extends BaseScene {
   // treat the pointer as idle so keyboard input wins.
   private lastPointerX = -1;
 
+  // R87.K8 — timestamp (scene.time.now, milliseconds) of the last brick-related
+  // SFX play (HIT chip or GLASS_BREAK shatter). Shared across hitBrick + the
+  // unbreakable branch + destroyBrick so a packed-grid multi-ball burst cannot
+  // fire the heavy shatter sound 5-10× in a single update tick. Initialised to
+  // NEGATIVE_INFINITY (not 0) so the first post-reset call always beats the
+  // throttle gate even when scene.time.now starts at 0 (Phaser scenes
+  // occasionally see time.now=0 on the first update frame, and 0 - 0 = 0 would
+  // otherwise suppress the very first brick hit of a run).
+  private lastBrickSfxAt = Number.NEGATIVE_INFINITY;
+
   private scoreText!: Phaser.GameObjects.Text;
   private livesText!: Phaser.GameObjects.Text;
   private levelText!: Phaser.GameObjects.Text;
@@ -156,6 +166,7 @@ export class CodeBreakerGameScene extends BaseScene {
     this.achievementsUnlocked = new Set();
     this.livesLostThisFrame = false;
     this.lastPointerX = -1;
+    this.lastBrickSfxAt = Number.NEGATIVE_INFINITY;
     this.paddleWidth = GAME_CONFIG.PADDLE_WIDTH;
     this.balls = [];
     this.bricks = [];
@@ -979,11 +990,26 @@ export class CodeBreakerGameScene extends BaseScene {
 
   // -- Brick hit logic --
 
+  // R87.K8 — throttle wrapper for brick-related SFX. Suppresses any brick HIT
+  // or GLASS_BREAK that lands within BRICK_SFX_THROTTLE_MS of the previous
+  // brick SFX; catches the packed-grid multi-ball burst scenario Tom flagged
+  // (*"Need to reduce the amount of times that we have the brick breaking
+  // sound effect."*) without touching the per-destruction SCORE beep that
+  // carries combo feedback. Single shared bucket across both sounds —
+  // accepting that a chip → destroy inside one window silences the shatter,
+  // because SCORE still fires on destruction so the player hears the kill.
+  private playBrickSfxThrottled(key: string): void {
+    const now = this.time?.now ?? 0;
+    if (now - this.lastBrickSfxAt < GAME_CONFIG.BRICK_SFX_THROTTLE_MS) return;
+    this.lastBrickSfxAt = now;
+    this.playSound(key);
+  }
+
   private hitBrick(brickIndex: number): void {
     const brick = this.bricks[brickIndex];
 
     if (brick.type === 'unbreakable') {
-      this.playSound(SOUND_KEYS.HIT);
+      this.playBrickSfxThrottled(SOUND_KEYS.HIT);
       brick.sprite.setAlpha(0.7);
       this.time.delayedCall(100, () => {
         if (brick.sprite.active) brick.sprite.setAlpha(1);
@@ -996,7 +1022,7 @@ export class CodeBreakerGameScene extends BaseScene {
     if (brick.health <= 0) {
       this.destroyBrick(brickIndex);
     } else {
-      this.playSound(SOUND_KEYS.HIT);
+      this.playBrickSfxThrottled(SOUND_KEYS.HIT);
       brick.sprite.setAlpha(0.6);
       this.time.delayedCall(100, () => {
         if (brick.sprite.active) brick.sprite.setAlpha(1);
@@ -1017,7 +1043,12 @@ export class CodeBreakerGameScene extends BaseScene {
     this.reportScore(this.score, this.highScore);
     this.playSound(SOUND_KEYS.SCORE);
 
-    this.playSound(SOUND_KEYS.GLASS_BREAK);
+    // R87.K8 — GLASS_BREAK is the heavy shatter tone Tom flagged as grating
+    // on packed grids; route through the throttle so a multi-ball burst that
+    // destroys 5-10 bricks in one frame plays at most one shatter per
+    // BRICK_SFX_THROTTLE_MS window. SCORE above stays un-throttled so the
+    // combo bleep still confirms every destruction.
+    this.playBrickSfxThrottled(SOUND_KEYS.GLASS_BREAK);
     this.cameras.main.shake(50, 0.003);
     this.spawnExplosion(x, y, BRICK_DEFS[brick.type].color);
     brick.sprite.destroy();
