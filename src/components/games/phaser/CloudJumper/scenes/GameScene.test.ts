@@ -100,6 +100,11 @@ function createTestScene() {
     getChildren: vi.fn().mockReturnValue([]),
   };
 
+  // R87.C1 — default to canJump=true for pre-existing jump tests that assume
+  // the player has landed on a cloud before jumping. R87.C1 gate-specific
+  // tests override this explicitly to exercise the off path.
+  scene.canJump = true;
+
   return scene;
 }
 
@@ -383,9 +388,14 @@ describe('CloudJumperGameScene', () => {
       expect(scene.player.body.setVelocityY).toHaveBeenCalledTimes(1);
     });
 
-    it('allows jump after cooldown expires', () => {
+    it('allows jump after cooldown expires (when re-armed by cloud contact)', () => {
+      // R87.C1: the player must land on a cloud to re-arm canJump between
+      // jumps. Simulate that contact in the test so the second jump fires.
       scene.time.now = 1000;
       scene.jump();
+
+      // Simulate landing on a cloud mid-cooldown — re-arms canJump.
+      scene.canJump = true;
 
       scene.time.now = 1400; // 400ms later, past 300ms cooldown
       scene.jump();
@@ -567,6 +577,285 @@ describe('CloudJumperGameScene', () => {
       scene.handleCloudCollision(createMockCloud('normal'));
       scene.collectItem(createMockItem());
       expect(scene.score).toBe(10 + 10 + 100);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // R87.C1 — Single-jump gate (only jump when on a cloud)
+  // -----------------------------------------------------------------------
+  //
+  // Tom's 2026-04-22 playtest: *"The player should not be able to jump
+  // unless they jump on a cloud. They can't jump again in mid-air."*
+  //
+  // Contract:
+  //  • `canJump` is armed in `handleCloudCollision` on every cloud type.
+  //  • `jump()` consumes it — second call in mid-air is a no-op.
+  //  • Scene-state guards (countdown, game-over) short-circuit WITHOUT
+  //    consuming the gate so a stray SPACE press during countdown doesn't
+  //    swallow the first jump opportunity.
+  //  • Cooldown ALSO short-circuits without consuming — a key held past
+  //    300 ms must not silently eat the gate.
+  //  • Gate is consumed LAST, after velocity/sound/texture, so a refactor
+  //    that extracts a "jump helper" can't swap the order without tripping
+  //    the ordering tripwires below.
+  // -----------------------------------------------------------------------
+  describe('R87.C1 — Single-jump gate', () => {
+    // -------------------------------------------------------------------
+    // Source helper — static regex tripwires lock the contract at the
+    // text level so a re-ordering refactor can't silently bypass the gate.
+    // -------------------------------------------------------------------
+    function readSceneSource(): string {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require('fs') as typeof import('fs');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require('path') as typeof import('path');
+      return fs.readFileSync(path.join(__dirname, 'GameScene.ts'), 'utf8');
+    }
+
+    // -------------------------------------------------------------------
+    // Sub-block 1: Gate blocks mid-air jumps
+    // -------------------------------------------------------------------
+    describe('gate blocks mid-air jumps', () => {
+      it('second jump call in mid-air is a no-op (canJump consumed on first call)', () => {
+        scene.canJump = true;
+        scene.time.now = 1000;
+        scene.jump();
+        expect(scene.player.body.setVelocityY).toHaveBeenCalledTimes(1);
+
+        // Past cooldown, mid-air (canJump consumed) → must NOT fire again
+        scene.time.now = 1500;
+        scene.jump();
+        expect(scene.player.body.setVelocityY).toHaveBeenCalledTimes(1);
+      });
+
+      it('third spam press past cooldown still a no-op', () => {
+        scene.canJump = true;
+        scene.time.now = 1000;
+        scene.jump();
+
+        // Three more attempts at 500 ms intervals — none should fire
+        for (const t of [1500, 2000, 2500]) {
+          scene.time.now = t;
+          scene.jump();
+        }
+        expect(scene.player.body.setVelocityY).toHaveBeenCalledTimes(1);
+      });
+
+      it('canJump=false at entry → jump is a no-op even past cooldown', () => {
+        scene.canJump = false;
+        scene.time.now = 10_000;
+        scene.jump();
+        expect(scene.player.body.setVelocityY).not.toHaveBeenCalled();
+        expect(scene.playSound).not.toHaveBeenCalledWith('jump');
+      });
+
+      it('canJump=false does NOT unlock FIRST_JUMP achievement', () => {
+        // Direct Tom-regression guard: mid-air SPACE must not count as
+        // "first jump" in the achievement ledger.
+        scene.canJump = false;
+        scene.hasJumped = false;
+        scene.jump();
+        expect(scene.unlockAchievement).not.toHaveBeenCalledWith(ACHIEVEMENTS.FIRST_JUMP);
+        expect(scene.hasJumped).toBe(false);
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Sub-block 2: Cloud contact re-arms the gate
+    // -------------------------------------------------------------------
+    describe('cloud contact re-arms the gate', () => {
+      it('handleCloudCollision on NORMAL cloud sets canJump=true', () => {
+        scene.canJump = false;
+        scene.handleCloudCollision(createMockCloud('normal'));
+        expect(scene.canJump).toBe(true);
+      });
+
+      it('handleCloudCollision on MOVING cloud sets canJump=true', () => {
+        scene.canJump = false;
+        scene.handleCloudCollision(createMockCloud('moving'));
+        expect(scene.canJump).toBe(true);
+      });
+
+      it('handleCloudCollision on DISAPPEARING cloud sets canJump=true', () => {
+        scene.canJump = false;
+        scene.handleCloudCollision(createMockCloud('disappearing'));
+        expect(scene.canJump).toBe(true);
+      });
+
+      it('handleCloudCollision on STORM cloud sets canJump=true', () => {
+        // Storm clouds still re-arm — Tom's rule is about mid-air,
+        // not about cloud "quality". A hostile cloud contact is still
+        // a legitimate cloud contact.
+        scene.canJump = false;
+        scene.handleCloudCollision(createMockCloud('storm'));
+        expect(scene.canJump).toBe(true);
+      });
+
+      it('land-jump-land-jump cycle: gate re-arms on every cloud contact', () => {
+        // Full gameplay loop: land → jump (consume) → mid-air (blocked)
+        // → land again → jump (fires). Proves the gate isn't sticky.
+        // Counts are asserted via the JUMP_VELOCITY argument specifically
+        // — handleCloudCollision uses JUMP_VELOCITY * 0.8 for its auto-
+        // bounce, so filtering by the unscaled magnitude isolates the
+        // manual-jump velocity applications.
+        const unscaled = GAME_CONFIG.PLAYER.JUMP_VELOCITY;
+        const countManualJumps = () =>
+          scene.player.body.setVelocityY.mock.calls.filter(
+            (args: [number]) => args[0] === unscaled
+          ).length;
+
+        scene.canJump = false;
+        scene.time.now = 1000;
+
+        // Land 1 → arms
+        scene.handleCloudCollision(createMockCloud('normal'));
+        expect(scene.canJump).toBe(true);
+
+        // Manual jump → consumes, fires exactly one unscaled velocity
+        scene.jump();
+        expect(scene.canJump).toBe(false);
+        expect(countManualJumps()).toBe(1);
+
+        // Mid-air spam (past cooldown) → blocked
+        scene.time.now = 2000;
+        scene.jump();
+        expect(countManualJumps()).toBe(1);
+
+        // Land 2 → re-arms
+        scene.handleCloudCollision(createMockCloud('normal'));
+        expect(scene.canJump).toBe(true);
+
+        // Manual jump → fires again
+        scene.time.now = 3000;
+        scene.jump();
+        expect(countManualJumps()).toBe(2);
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Sub-block 3: Scene-state guards don't consume the gate
+    // -------------------------------------------------------------------
+    describe('scene-state guards preserve canJump', () => {
+      it('isCountingDown blocks without consuming canJump', () => {
+        scene.canJump = true;
+        scene.isCountingDown = true;
+        scene.jump();
+        expect(scene.player.body.setVelocityY).not.toHaveBeenCalled();
+        expect(scene.canJump).toBe(true);
+
+        // After countdown ends, the first press still fires.
+        scene.isCountingDown = false;
+        scene.time.now = 1000;
+        scene.jump();
+        expect(scene.player.body.setVelocityY).toHaveBeenCalledWith(
+          GAME_CONFIG.PLAYER.JUMP_VELOCITY
+        );
+      });
+
+      it('isGameOver blocks without consuming canJump', () => {
+        scene.canJump = true;
+        scene.isGameOver = true;
+        scene.jump();
+        expect(scene.player.body.setVelocityY).not.toHaveBeenCalled();
+        expect(scene.canJump).toBe(true);
+      });
+
+      it('cooldown blocks without consuming canJump', () => {
+        // A held key past the cooldown window can re-enter jump(). If
+        // cooldown blocks, canJump must NOT be consumed — otherwise the
+        // player's one legitimate jump silently evaporates while they hold
+        // SPACE. Belt-and-braces ordering against the Tom regression.
+        scene.canJump = true;
+        scene.time.now = 1000;
+        scene.jump();
+        expect(scene.canJump).toBe(false); // consumed by successful jump
+
+        // Re-arm via cloud, then fire inside cooldown
+        scene.handleCloudCollision(createMockCloud('normal'));
+        expect(scene.canJump).toBe(true);
+
+        scene.time.now = 1100; // 100 ms < 300 ms cooldown
+        scene.jump();
+        // Cooldown blocks: setVelocityY from handleCloudCollision bounce
+        // means we need to count fresh jump() calls. Check velocity count.
+        // handleCloudCollision called setVelocityY once (auto-bounce) +
+        // the first jump() once = 2. Cooldown-blocked jump() should NOT
+        // add a third call, and canJump must stay armed.
+        expect(scene.player.body.setVelocityY).toHaveBeenCalledTimes(2);
+        expect(scene.canJump).toBe(true);
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Sub-block 4: Consumption ordering (canJump set to false LAST)
+    // -------------------------------------------------------------------
+    describe('canJump consumption ordering', () => {
+      it('canJump is still true while velocity is applied (consumed AFTER)', () => {
+        // Hijack setVelocityY so we can snapshot canJump at the moment
+        // the jump actually fires. If the consume ran BEFORE velocity,
+        // this snapshot would read false — breaking the ordering contract.
+        let canJumpAtVelocityFire: boolean | null = null;
+        scene.canJump = true;
+        scene.time.now = 1000;
+        scene.player.body.setVelocityY = vi.fn(() => {
+          canJumpAtVelocityFire = scene.canJump;
+        });
+
+        scene.jump();
+
+        expect(canJumpAtVelocityFire).toBe(true);
+        expect(scene.canJump).toBe(false); // consumed after velocity
+      });
+
+      it('successful jump DOES consume canJump', () => {
+        scene.canJump = true;
+        scene.time.now = 1000;
+        scene.jump();
+        expect(scene.canJump).toBe(false);
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Sub-block 5: Static source tripwires
+    // -------------------------------------------------------------------
+    describe('static source invariants', () => {
+      it('jump() contains the `!this.canJump` early-return', () => {
+        // Locks the existence of the gate check so a future refactor
+        // can't silently drop it. Matches `if (!this.canJump) return;`
+        // with flexible whitespace.
+        const src = readSceneSource();
+        expect(src).toMatch(/if\s*\(\s*!\s*this\.canJump\s*\)\s*return\s*;?/);
+      });
+
+      it('jump() consumes canJump via `this.canJump = false`', () => {
+        const src = readSceneSource();
+        // Extract the jump() method body (between its opening brace and
+        // the next private method declaration) and assert the consume.
+        const jumpBlock = src.match(
+          /private\s+jump\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s)/
+        );
+        expect(jumpBlock).not.toBeNull();
+        expect(jumpBlock![0]).toMatch(/this\.canJump\s*=\s*false/);
+      });
+
+      it('handleCloudCollision arms the gate with `this.canJump = true`', () => {
+        const src = readSceneSource();
+        const handleBlock = src.match(
+          /private\s+handleCloudCollision\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s)/
+        );
+        expect(handleBlock).not.toBeNull();
+        expect(handleBlock![0]).toMatch(/this\.canJump\s*=\s*true/);
+      });
+
+      it('exactly one write-site sets canJump=true (in handleCloudCollision)', () => {
+        // A second "= true" write-site would be suspicious — either a
+        // new re-arm path (e.g., a mid-air power-up, near-cloud helper)
+        // that's not audited against Tom's rule, or a duplicated reset.
+        // Either way, demands review.
+        const src = readSceneSource();
+        const writes = src.match(/this\.canJump\s*=\s*true/g) ?? [];
+        expect(writes.length).toBe(1);
+      });
     });
   });
 });

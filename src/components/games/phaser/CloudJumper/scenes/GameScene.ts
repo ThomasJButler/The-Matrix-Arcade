@@ -41,6 +41,21 @@ export class CloudJumperGameScene extends BaseScene {
   private player!: Phaser.Physics.Arcade.Sprite;
   private hasJumped = false;
 
+  /**
+   * R87.C1 — single-jump gate.
+   *
+   * Only `true` immediately after a cloud-contact fires `handleCloudCollision`.
+   * `jump()` consumes it. Prevents mid-air double/triple-jump spam that Tom
+   * flagged in the 2026-04-22 playtest: *"The player should not be able to
+   * jump unless they jump on a cloud. They can't jump again in mid-air."*
+   *
+   * Starts `false` so the player must land on the starting platform before
+   * their first manual jump (physics/gravity handles the landing well inside
+   * the 5-second countdown — ~300 ms given START_Y 225, starting cloud 275,
+   * GRAVITY 800).
+   */
+  private canJump = false;
+
   private get playerSpriteMode(): boolean {
     return this.game.registry.get('playerSpriteMode') === true;
   }
@@ -97,6 +112,7 @@ export class CloudJumperGameScene extends BaseScene {
     this.hadCloseCall = false;
     this.isGameOver = false;
     this.hasJumped = false;
+    this.canJump = false;
     this.lastCloudX = 0;
     this.jumpPressed = false;
     this.lastJumpTime = -Infinity;
@@ -184,6 +200,7 @@ export class CloudJumperGameScene extends BaseScene {
       distance: this.distance,
       bounceStreak: this.bounceStreak,
       countdownValue: this.countdownValue,
+      canJump: this.canJump,
     });
   }
 
@@ -294,21 +311,40 @@ export class CloudJumperGameScene extends BaseScene {
   }
 
   /**
-   * Jump — applies upward impulse whenever called (Flappy Bird style).
-   * A short cooldown prevents velocity from being re-applied every frame
-   * if the key is held.
+   * Jump — applies upward impulse when the player is freshly off a cloud.
+   *
+   * R87.C1 gate: `canJump` is armed in `handleCloudCollision` and consumed
+   * here, so pressing SPACE/UP/W/click in mid-air after the first jump is a
+   * no-op until the player touches another cloud. A short cooldown is kept
+   * as a belt-and-braces guard against key-repeat fire within a single
+   * cloud-contact window.
+   *
+   * Gate order (important — see R87.C1 tests):
+   *   1. Scene-state guards (countdown, game-over) — early-return with no
+   *      side effects.
+   *   2. Cooldown — returns WITHOUT consuming `canJump` so a held key past
+   *      300 ms doesn't silently swallow the gate.
+   *   3. `canJump` gate — the core R87.C1 contract.
+   *   4. Apply velocity + sound + texture.
+   *   5. Consume `canJump` LAST so a future refactor that re-orders the
+   *      body can't consume the gate without actually firing a jump.
    */
   private jump(): void {
     if (this.isCountingDown || this.isGameOver) return;
 
     const now = this.time.now;
     if (now - this.lastJumpTime < CloudJumperGameScene.JUMP_COOLDOWN_MS) return;
+
+    if (!this.canJump) return;
+
     this.lastJumpTime = now;
 
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     body.setVelocityY(GAME_CONFIG.PLAYER.JUMP_VELOCITY);
     this.player.setTexture(this.playerSpriteMode ? 'player_sprite_jump' : 'player');
     this.playSound('jump');
+
+    this.canJump = false;
 
     if (!this.hasJumped) {
       this.hasJumped = true;
@@ -391,6 +427,10 @@ export class CloudJumperGameScene extends BaseScene {
    */
   private handleCloudCollision(cloud: Cloud): void {
     const body = this.player.body as Phaser.Physics.Arcade.Body;
+
+    // R87.C1 — arm the single-jump gate on every cloud contact (including
+    // storm clouds: Tom's rule is about mid-air, not about cloud quality).
+    this.canJump = true;
 
     // Increment bounce streak (storm clouds break the streak)
     if (cloud.cloudType === 'storm') {
