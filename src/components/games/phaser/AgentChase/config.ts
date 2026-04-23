@@ -92,6 +92,20 @@ export const GAME_CONFIG = {
     SECOND_SPAWN: 170,
     DURATION: 10000,
   },
+
+  /**
+   * Level-clear hold window (R87.AC1).
+   *
+   * When dotsRemaining hits 0 the scene shows a "LEVEL CLEAR" banner and
+   * holds this many ms before rebuilding the maze + resetting positions.
+   * Before R87.AC1 the advance fired synchronously on the same frame the
+   * last dot was collected — Tom's 2026-04-23 screenshot showed an empty
+   * maze stuck on LVL 1 because from his view the transition was invisible.
+   *
+   * The hold also lets the scatter flash + `levelUp` SFX breathe before
+   * new dots paint in, mirroring Frogger F1's reset-tween window.
+   */
+  LEVEL_CLEAR_DELAY_MS: 1500,
 } as const;
 
 /** Achievement IDs for Agent Chase */

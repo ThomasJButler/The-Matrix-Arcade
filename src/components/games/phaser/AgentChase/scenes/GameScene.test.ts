@@ -124,6 +124,12 @@ function createTestScene() {
   scene.add = { text: vi.fn().mockReturnValue(mockTextObj) };
   scene.tweens = { add: vi.fn() };
   scene.cameras = { main: { shake: vi.fn(), flash: vi.fn() } };
+  // R87.AC1: triggerLevelClear defers restartLevel via time.delayedCall.
+  // Default mock invokes the callback immediately so existing Level
+  // Completion assertions (restartLevel called once, level incremented, etc)
+  // keep passing. Tests that need to verify deferral override this with a
+  // capture-callback pattern.
+  scene.time = { delayedCall: vi.fn((_ms: number, cb: () => void) => cb()) };
 
   // --- Sub-methods that dive into Phaser internals ---
   scene.resetPositions = vi.fn();
@@ -1727,6 +1733,267 @@ describe('AgentChaseGameScene', () => {
         // internal read/write sites.
         const src = readSceneSource();
         expect(src).not.toMatch(/\bnextReleaseTime\b/);
+      });
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // R87.AC1 — Level-clear state machine + LEVEL CLEAR banner
+  //
+  // Tom's 2026-04-23 in-session screenshot showed an empty Agent Chase maze
+  // stuck on LVL 1 with no level transition visible — SCORE 2570, LIVES 2,
+  // 4 agents loose, no dots remaining. The original `checkLevelComplete`
+  // ran the full advance inline on the same frame the last dot was
+  // collected: it incremented level, bonus, cleared dots, rebuilt the maze,
+  // and reset positions in under 16 ms. No pause, no overlay, no SFX beat —
+  // the transition was literally invisible. This block locks the new
+  // state-machine-gated flow that mirrors Frogger F1:
+  //   1. `isLevelingUp` latches for the banner window and blocks update()
+  //      + every overlap handler (physics callbacks fire outside update,
+  //      so guarding the loop alone is insufficient).
+  //   2. `triggerLevelClear` runs the score/achievement bookkeeping +
+  //      paints a "LEVEL N CLEAR" banner.
+  //   3. `restartLevel` fires via `time.delayedCall(LEVEL_CLEAR_DELAY_MS)`
+  //      so the banner is perceivable before the maze rebuilds.
+  //   4. Banner-time overlaps (dot, pellet, bullet-time, agent) no-op.
+  // -----------------------------------------------------------------------
+  describe('R87.AC1 — Level-clear state machine + LEVEL CLEAR banner', () => {
+    function readSceneSource(): string {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require('fs') as typeof import('fs');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require('path') as typeof import('path');
+      return fs.readFileSync(path.join(__dirname, 'GameScene.ts'), 'utf8');
+    }
+
+    beforeEach(() => {
+      scene.totalDots = 100;
+      scene.dotsCollected = 100;
+    });
+
+    describe('isLevelingUp latching + reset', () => {
+      it('sets isLevelingUp=true when triggerLevelClear fires', () => {
+        scene.checkLevelComplete();
+        // time.delayedCall is mocked to invoke immediately, but the flag
+        // flips to true synchronously before the deferred block runs.
+        // With the default fixture the callback runs inline and clears it
+        // back to false — so override with a capture pattern here.
+        scene.isLevelingUp = false;
+        scene.level = 1;
+        scene.dotsCollected = 100;
+        scene.time = { delayedCall: vi.fn() }; // capture but do not invoke
+        scene.checkLevelComplete();
+        expect(scene.isLevelingUp).toBe(true);
+      });
+
+      it('clears isLevelingUp=false after the deferred restart fires', () => {
+        // Default fixture invokes delayedCall immediately — simulates the
+        // banner hold ending.
+        scene.checkLevelComplete();
+        expect(scene.isLevelingUp).toBe(false);
+      });
+
+      it('schedules restartLevel via time.delayedCall using LEVEL_CLEAR_DELAY_MS', () => {
+        const delayedCall = vi.fn();
+        scene.time = { delayedCall };
+        scene.checkLevelComplete();
+        expect(delayedCall).toHaveBeenCalledOnce();
+        expect(delayedCall).toHaveBeenCalledWith(
+          GAME_CONFIG.LEVEL_CLEAR_DELAY_MS,
+          expect.any(Function)
+        );
+      });
+
+      it('does NOT call restartLevel before the delay callback fires', () => {
+        scene.time = { delayedCall: vi.fn() }; // capture but do not invoke
+        scene.checkLevelComplete();
+        expect(scene.restartLevel).not.toHaveBeenCalled();
+      });
+
+      it('calls restartLevel exactly once when the delay callback fires', () => {
+        let captured: (() => void) | undefined;
+        scene.time = {
+          delayedCall: vi.fn((_ms: number, cb: () => void) => {
+            captured = cb;
+          }),
+        };
+        scene.checkLevelComplete();
+        expect(scene.restartLevel).not.toHaveBeenCalled();
+        captured?.();
+        expect(scene.restartLevel).toHaveBeenCalledOnce();
+      });
+
+      it('re-entry is blocked while isLevelingUp is latched', () => {
+        // Capture the deferred callback so we can inspect the mid-hold state.
+        scene.time = { delayedCall: vi.fn() };
+        scene.checkLevelComplete();
+        expect(scene.level).toBe(2);
+
+        // A second tick with dotsCollected still >= totalDots must NOT
+        // re-trigger — the latched flag is the guard.
+        scene.checkLevelComplete();
+        expect(scene.level).toBe(2);
+      });
+
+      it('clears nextDirection when entering level-up (no surprise turn post-restart)', () => {
+        scene.nextDirection = 'UP';
+        scene.time = { delayedCall: vi.fn() };
+        scene.checkLevelComplete();
+        expect(scene.nextDirection).toBe('NONE');
+      });
+    });
+
+    describe('Level-clear side effects', () => {
+      it('emits the green CAMERA FLASH feel dial (matches Frogger F1)', () => {
+        scene.checkLevelComplete();
+        expect(scene.cameras.main.flash).toHaveBeenCalledWith(
+          150,
+          0,
+          255,
+          0,
+          false,
+          undefined,
+          undefined,
+          0.15
+        );
+      });
+
+      it('paints the "LEVEL N CLEAR" banner with N = pre-increment level', () => {
+        scene.level = 3; // will increment to 4; banner reports "LEVEL 3 CLEAR"
+        scene.checkLevelComplete();
+        const textCalls = (scene.add.text as ReturnType<typeof vi.fn>).mock.calls;
+        const bannerCall = textCalls.find((c) => String(c[2]).includes('CLEAR'));
+        expect(bannerCall).toBeDefined();
+        expect(bannerCall![2]).toBe('LEVEL 3 CLEAR');
+      });
+
+      it('banner tween arms with fade + rise + scale over LEVEL_CLEAR_DELAY_MS', () => {
+        scene.checkLevelComplete();
+        const tweenCalls = (scene.tweens.add as ReturnType<typeof vi.fn>).mock.calls;
+        // One of the tweens is the LEVEL CLEAR banner (alpha=0 + scale=1.5 + duration matches)
+        const bannerTween = tweenCalls.find(
+          (c) =>
+            c[0]?.alpha === 0 &&
+            c[0]?.scale === 1.5 &&
+            c[0]?.duration === GAME_CONFIG.LEVEL_CLEAR_DELAY_MS
+        );
+        expect(bannerTween).toBeDefined();
+      });
+    });
+
+    describe('Collision firewall during banner hold', () => {
+      it('collectDot no-ops while isLevelingUp', () => {
+        scene.isLevelingUp = true;
+        const dot = makeMockSprite();
+        const scoreBefore = scene.score;
+        scene.collectDot(dot);
+        expect(dot.destroy).not.toHaveBeenCalled();
+        expect(scene.score).toBe(scoreBefore);
+        expect(scene.dotsCollected).toBe(100); // unchanged from beforeEach
+      });
+
+      it('collectPowerPellet no-ops while isLevelingUp', () => {
+        scene.isLevelingUp = true;
+        const pellet = makeMockSprite();
+        const scoreBefore = scene.score;
+        scene.collectPowerPellet(pellet);
+        expect(pellet.destroy).not.toHaveBeenCalled();
+        expect(scene.score).toBe(scoreBefore);
+      });
+
+      it('collectBulletTimeDot no-ops while isLevelingUp', () => {
+        scene.isLevelingUp = true;
+        const dot = makeMockSprite();
+        const scoreBefore = scene.score;
+        scene.collectBulletTimeDot(dot);
+        expect(dot.destroy).not.toHaveBeenCalled();
+        expect(scene.score).toBe(scoreBefore);
+      });
+
+      it('handleAgentCollision no-ops on lethal hit while isLevelingUp (no life lost)', () => {
+        scene.isLevelingUp = true;
+        scene.lives = 3;
+        const agent = makeMockAgent('chase');
+        scene.handleAgentCollision(agent);
+        expect(scene.lives).toBe(3); // no life lost
+      });
+
+      it('handleAgentCollision no-ops on frightened eat while isLevelingUp (no score)', () => {
+        scene.isLevelingUp = true;
+        const scoreBefore = scene.score;
+        const agent = makeMockAgent('frightened');
+        scene.handleAgentCollision(agent);
+        expect(scene.score).toBe(scoreBefore);
+        expect(scene.ghostsEatenThisPellet).toBe(0);
+      });
+    });
+
+    describe('A2 release curve re-arms after level-clear', () => {
+      it('resetPositions (called by restartLevel) re-arms agentReleaseIndex to 1', () => {
+        // resetPositions is mocked in the fixture so we verify the contract
+        // via the source: `this.agentReleaseIndex = 1` is the exact single
+        // point that re-arms the staggered release for the next level. If a
+        // refactor drops this, Level 2+ starts with all 4 agents loose and
+        // Tom's A2 tutorial-zone fix regresses.
+        const src = readSceneSource();
+        const match = src.match(/private resetPositions\(\): void \{([\s\S]*?)\n {2}\}/);
+        expect(match).not.toBeNull();
+        expect(match![1]).toMatch(/this\.agentReleaseIndex\s*=\s*1\b/);
+      });
+
+      it('restartLevel is called by the deferred callback with the next layout + layoutChanged=true on L1→L2', () => {
+        scene.checkLevelComplete();
+        expect(scene.restartLevel).toHaveBeenCalledWith(
+          expect.objectContaining({ name: 'ARENA' }),
+          true
+        );
+      });
+
+      it('ALL_MAZES achievement arms after the three-map cycle is walked', () => {
+        // After cycling through CLASSIC → ARENA → LABYRINTH the set size
+        // reaches MAP_LAYOUTS.length and the achievement unlocks.
+        scene.level = 2; // will bump to 3 = LABYRINTH
+        scene.mazesPlayed = new Set(['CLASSIC', 'ARENA']);
+        scene.checkLevelComplete();
+        expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.ALL_MAZES);
+      });
+    });
+
+    describe('update() loop + exposeTestState contract', () => {
+      it('exposes isLevelingUp in test state so E2E watchers can see the banner window', () => {
+        scene.isLevelingUp = true;
+        // update() early-returns on isLevelingUp, but exposeTestState is
+        // hoisted above the guards so flag flips are always legible.
+        scene.update(0, 16);
+        expect(scene.exposeTestState).toHaveBeenCalledWith(
+          expect.objectContaining({ isLevelingUp: true })
+        );
+      });
+
+      it('update() early-returns when isLevelingUp (no mode tick, no agent tick)', () => {
+        const readSrc = readSceneSource();
+        // Static lock — the three early-returns must appear in order before
+        // the body runs. A refactor that re-orders checkLevelComplete above
+        // the guard would resurrect the banner-window race.
+        expect(readSrc).toMatch(
+          /update\([^)]*\):\s*void\s*\{[\s\S]*?if \(this\.isPaused\) return;[\s\S]*?if \(this\.isCountingDown\) return;[\s\S]*?if \(this\.isLevelingUp\) return;/
+        );
+      });
+    });
+
+    describe('LEVEL_CLEAR_DELAY_MS dial', () => {
+      it('is a positive finite number', () => {
+        expect(typeof GAME_CONFIG.LEVEL_CLEAR_DELAY_MS).toBe('number');
+        expect(GAME_CONFIG.LEVEL_CLEAR_DELAY_MS).toBeGreaterThan(0);
+        expect(Number.isFinite(GAME_CONFIG.LEVEL_CLEAR_DELAY_MS)).toBe(true);
+      });
+
+      it('is long enough for the banner to be readable (>= 1 second)', () => {
+        // Anti-regression ratchet. A future iteration can tighten further
+        // but can't drop below 1s without an explicit test delete — below
+        // 1s the banner would read as a flicker and Tom's original
+        // "nothing happened" complaint resurfaces.
+        expect(GAME_CONFIG.LEVEL_CLEAR_DELAY_MS).toBeGreaterThanOrEqual(1000);
       });
     });
   });
