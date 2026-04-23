@@ -28,6 +28,36 @@ export const GAME_CONFIG = {
     MAX_FALL_SPEED: 500,
     START_X: 150,
     START_Y: 225,
+
+    /**
+     * R87.C2 — top-of-canvas ceiling for the player.
+     *
+     * Tom's 2026-04-22 playtest: *"Sometimes the player jumps too hard and
+     * he goes off screen. Need to make the platforms lower to account for
+     * this or make jumping less high."*
+     *
+     * Root cause is a compound corner case: `CLOUDS.VERTICAL_RANGE = 100`
+     * puts the lowest-Y cloud at y=125 (HEIGHT/2 - 100), moving clouds
+     * oscillate ±VERTICAL_RANGE/2 down to y=75, and `JUMP_VELOCITY = -400`
+     * at `GRAVITY = 800` yields a 100-px rise. Chaining a manual SPACE
+     * press within the 300 ms cloud-contact cooldown from a y=75 moving
+     * cloud gives peak y = -25 — demonstrably off-screen.
+     *
+     * Fix is option (b) from the R87.C2 plan — detect-and-clamp in
+     * `update()`. Chosen over option (a) (cap `JUMP_VELOCITY`) because it
+     * is a no-op for any jump that wouldn't otherwise escape the canvas,
+     * preserving feel for the ~95% of the play area that's well below
+     * this line. The clamp pulls `player.y` back to `CEILING_Y` and zeroes
+     * upward velocity so gravity immediately pulls the player back into
+     * play — the classic Doodle-Jump "sticky ceiling" beat.
+     *
+     * 20 px sits at the very top of the canvas while keeping the full
+     * 32-px player sprite visible (centre at 20 → top edge at 4, bottom
+     * edge at 36). Brief overlap with the score HUD at y=20 is cosmetic
+     * and only happens during the pathological corner case that this
+     * clamp exists to handle.
+     */
+    CEILING_Y: 20,
   },
 
   /** Cloud/platform settings */

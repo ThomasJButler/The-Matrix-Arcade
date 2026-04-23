@@ -184,6 +184,10 @@ export class CloudJumperGameScene extends BaseScene {
     // Check game over
     this.checkGameOver();
 
+    // R87.C2 — ceiling clamp (belt guarantee against off-screen-above
+    // excursions from high-cloud + manual-jump chains)
+    this.enforceCeiling();
+
     // Update score
     this.distance += this.scrollSpeed * (delta / 1000);
     this.score = Math.floor(this.distance / GAME_CONFIG.SCORING.DISTANCE_DIVISOR);
@@ -837,6 +841,34 @@ export class CloudJumperGameScene extends BaseScene {
     if (this.player.y > GAME_CONFIG.HEIGHT + 50) {
       this.playSound(SOUND_KEYS.FALL);
       this.playerDeath();
+    }
+  }
+
+  /**
+   * R87.C2 — ceiling clamp to prevent off-screen-above excursions.
+   *
+   * Belt guarantee against Tom's *"jumps too hard and goes off screen"*
+   * scenario. A no-op on any jump that lands below `CEILING_Y` so the
+   * mid-canvas-cloud-plus-normal-jump feel is untouched. Active only on
+   * the pathological high-cloud-plus-manual-chain corner case: clamps `y`
+   * back to `CEILING_Y` and zeroes upward velocity so gravity pulls the
+   * player back into play instead of letting them accumulate invisible
+   * upward travel.
+   *
+   * Skipped while `isGameOver` is true — the death tween animates `y` by
+   * +100 from current position and mustn't be interfered with (the death
+   * fall could never trip the ceiling anyway since the tween moves DOWN,
+   * but the guard is symmetric with `checkGameOver`'s contract).
+   */
+  private enforceCeiling(): void {
+    if (this.isGameOver) return;
+    if (!this.player || !this.player.body) return;
+    if (this.player.y >= GAME_CONFIG.PLAYER.CEILING_Y) return;
+
+    this.player.y = GAME_CONFIG.PLAYER.CEILING_Y;
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    if (body.velocity.y < 0) {
+      body.setVelocityY(0);
     }
   }
 
