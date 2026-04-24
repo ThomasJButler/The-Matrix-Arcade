@@ -2168,4 +2168,260 @@ describe('AgentChaseGameScene', () => {
       });
     });
   });
+
+  // -----------------------------------------------------------------------
+  // R87.AC1++ safety-net — triggerLevelClear body ordering + deferred-
+  // callback integrity + restartLevel→resetPositions chain (pre-Tom-tick)
+  //
+  // R87.AC1 locks the state-machine + banner + collision firewall behaviour,
+  // and R87.AC1+ locks state carry-over (score+=, lives preserved) plus
+  // reset/NOT-reset isolation inside restartLevel. Three invariant families
+  // remain unlocked beneath those:
+  //
+  //   (1) Positional ordering inside `triggerLevelClear` itself. The step
+  //       sequence matters — `isLevelingUp=true` MUST fire before any state
+  //       mutation (else a same-frame re-entry from the update loop can
+  //       double-increment `this.level` or double-bonus score); `level++`
+  //       MUST fire before `showLevelClearBanner()` (the banner reads
+  //       `level - 1`); `nextDirection='NONE'` MUST fire before the
+  //       `delayedCall` schedules restart (else a buffered turn survives
+  //       into the rebuilt maze); `mazesPlayed.add` MUST fire before the
+  //       defer (header comment: "stamp maze-cycle achievements while state
+  //       is still the pre-rebuild snapshot"). The default fixture invokes
+  //       `time.delayedCall` inline, so ordering regressions inside the
+  //       callback are invisible to behavioural tests — static source locks
+  //       are the right tool.
+  //
+  //   (2) Deferred-callback body ordering. `restartLevel(` MUST fire before
+  //       `isLevelingUp=false` (else update-loop collisions resume while
+  //       the maze is half-rebuilt); `showMapAnnouncement(` MUST fire before
+  //       `restartLevel(` (else the map banner paints on an already-rebuilt
+  //       frame instead of the transition frame).
+  //
+  //   (3) `restartLevel → resetPositions()` call-site integrity. The existing
+  //       AC1 main block (line ~1941) locks that `resetPositions` SETS
+  //       `agentReleaseIndex = 1`, but nothing locks that `restartLevel`
+  //       actually CALLS `resetPositions`. A refactor that drops the call
+  //       (thinking the group-clear at the top of `restartLevel` is
+  //       sufficient) would break A2's staggered-release re-arm without any
+  //       test noticing — exact Tom screenshot scenario in a new shape.
+  //
+  // Plus a `this.level` mutation-isolation lock (R87.K1+ playbook): exactly
+  // one `this.level++` file-scope and zero backward-drift (`--` / `-=`). A
+  // future debug-cheat or "belt-and-braces" refactor adding a second
+  // increment would silently double-advance on every level-clear.
+  //
+  // Pure tripwires — no production code touched. Follows the R87.K1+ /
+  // R87.C1+ / R87.RH1+ write-site-isolation + body-ordering playbook.
+  // -----------------------------------------------------------------------
+  describe('R87.AC1++ safety-net — triggerLevelClear body ordering + deferred-callback integrity (pre-Tom-tick)', () => {
+    function readSceneSource(): string {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require('fs') as typeof import('fs');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require('path') as typeof import('path');
+      return fs.readFileSync(path.join(__dirname, 'GameScene.ts'), 'utf8');
+    }
+
+    function extractTriggerLevelClearBody(src: string): string {
+      const match = src.match(
+        /private triggerLevelClear\(\): void \{([\s\S]*?)\n {2}\}/
+      );
+      expect(match).not.toBeNull();
+      return match![1];
+    }
+
+    function extractRestartLevelBody(src: string): string {
+      const match = src.match(
+        /private restartLevel\([^)]*\): void \{([\s\S]*?)\n {2}\}/
+      );
+      expect(match).not.toBeNull();
+      return match![1];
+    }
+
+    function extractDeferredCallbackBody(src: string): string {
+      // The delayedCall arrow inside triggerLevelClear; terminated by the
+      // `    });` at 4-space indent that matches the method-body closing.
+      const match = src.match(
+        /this\.time\.delayedCall\(GAME_CONFIG\.LEVEL_CLEAR_DELAY_MS,\s*\(\)\s*=>\s*\{([\s\S]*?)\n {4}\}\);/
+      );
+      expect(match).not.toBeNull();
+      return match![1];
+    }
+
+    describe('triggerLevelClear body positional ordering (latch-first + banner-after-increment + defer-last)', () => {
+      it('latches `this.isLevelingUp = true` BEFORE `this.level++`', () => {
+        // Latch-first contract: a same-frame re-entry from the update loop
+        // (e.g. a dot-collect fired after isLevelingUp check but before the
+        // latch) must NOT be able to double-advance the level or double-add
+        // the bonus. Positional lock — any refactor that hoists level++
+        // above the latch opens the re-entry window.
+        const body = extractTriggerLevelClearBody(readSceneSource());
+        const latchIdx = body.indexOf('this.isLevelingUp = true');
+        const incIdx = body.indexOf('this.level++');
+        expect(latchIdx).toBeGreaterThanOrEqual(0);
+        expect(incIdx).toBeGreaterThanOrEqual(0);
+        expect(latchIdx).toBeLessThan(incIdx);
+      });
+
+      it('clears `this.nextDirection = \'NONE\'` BEFORE `this.time.delayedCall(`', () => {
+        // Buffered-turn-survives-rebuild guard: if the player taps a new
+        // direction in the banner-hold window, it must NOT apply after the
+        // maze rebuilds. The clear has to happen BEFORE the delayedCall
+        // schedules the rebuild — if it happens after (or inside the
+        // callback), the window between delayedCall scheduling and the
+        // callback firing lets the update loop consume the stale direction.
+        const body = extractTriggerLevelClearBody(readSceneSource());
+        const clearIdx = body.indexOf("this.nextDirection = 'NONE'");
+        const deferIdx = body.indexOf('this.time.delayedCall(');
+        expect(clearIdx).toBeGreaterThanOrEqual(0);
+        expect(deferIdx).toBeGreaterThanOrEqual(0);
+        expect(clearIdx).toBeLessThan(deferIdx);
+      });
+
+      it('increments `this.level++` BEFORE `this.showLevelClearBanner()`', () => {
+        // `showLevelClearBanner` paints `LEVEL ${this.level - 1} CLEAR` — so
+        // it must fire AFTER the increment. Swapping the order would show
+        // "LEVEL 0 CLEAR" on the first clear. The existing behaviour test
+        // (line ~1862) catches this today, but a helper-rename refactor
+        // (e.g. banner uses `this.level` directly and the call moves above
+        // `++`) could both-ways restructure without the behaviour test
+        // noticing. Positional source lock is the durable guard.
+        const body = extractTriggerLevelClearBody(readSceneSource());
+        const incIdx = body.indexOf('this.level++');
+        const bannerIdx = body.indexOf('this.showLevelClearBanner()');
+        expect(incIdx).toBeGreaterThanOrEqual(0);
+        expect(bannerIdx).toBeGreaterThanOrEqual(0);
+        expect(incIdx).toBeLessThan(bannerIdx);
+      });
+
+      it('stamps `this.mazesPlayed.add(` BEFORE `this.time.delayedCall(`', () => {
+        // Header comment at GameScene.ts:745-747 explicitly pins this: "stamp
+        // maze-cycle achievements while state is still the pre-rebuild
+        // snapshot". A refactor that hoists the mazesPlayed bookkeeping
+        // into the deferred callback would stamp it AFTER the rebuild —
+        // breaking the ALL_MAZES unlock timing (current vs next layout
+        // intent gets fuzzy once restartLevel has swapped `currentLayout`).
+        const body = extractTriggerLevelClearBody(readSceneSource());
+        const stampIdx = body.indexOf('this.mazesPlayed.add(');
+        const deferIdx = body.indexOf('this.time.delayedCall(');
+        expect(stampIdx).toBeGreaterThanOrEqual(0);
+        expect(deferIdx).toBeGreaterThanOrEqual(0);
+        expect(stampIdx).toBeLessThan(deferIdx);
+      });
+    });
+
+    describe('Deferred callback body ordering (restartLevel-before-unlatch + map-banner-before-rebuild)', () => {
+      it('calls `this.restartLevel(` BEFORE `this.isLevelingUp = false` inside the deferred callback', () => {
+        // The callback body is `restartLevel(...) → isLevelingUp = false`.
+        // A refactor that flips this — "unlatch first so the banner gets
+        // cleared early, then rebuild" — would let the update-loop collide
+        // with the half-rebuilt maze. Default fixture invokes the callback
+        // inline so this ordering is invisible behaviourally; static lock
+        // is the only durable tripwire.
+        const body = extractDeferredCallbackBody(readSceneSource());
+        const restartIdx = body.indexOf('this.restartLevel(');
+        const unlatchIdx = body.indexOf('this.isLevelingUp = false');
+        expect(restartIdx).toBeGreaterThanOrEqual(0);
+        expect(unlatchIdx).toBeGreaterThanOrEqual(0);
+        expect(restartIdx).toBeLessThan(unlatchIdx);
+      });
+
+      it('calls `this.showMapAnnouncement(` BEFORE `this.restartLevel(` (map banner on transition frame, not rebuilt frame)', () => {
+        // Header comment: "Trailing MAP announcement lands with the rebuilt
+        // maze, not the empty frame post-clear" — i.e. the announcement
+        // must be scheduled (via showMapAnnouncement which adds a tween)
+        // BEFORE the maze visuals actually change. The CURRENT order puts
+        // showMapAnnouncement first; a refactor that flips it would paint
+        // the map name on an already-updated grid, making the transition
+        // feel like two distinct events rather than one cue.
+        const body = extractDeferredCallbackBody(readSceneSource());
+        const announceIdx = body.indexOf('this.showMapAnnouncement(');
+        const restartIdx = body.indexOf('this.restartLevel(');
+        expect(announceIdx).toBeGreaterThanOrEqual(0);
+        expect(restartIdx).toBeGreaterThanOrEqual(0);
+        expect(announceIdx).toBeLessThan(restartIdx);
+      });
+
+      it('deferred callback contains exactly one `this.isLevelingUp = false` write (no redundant unlatch)', () => {
+        // A "belt-and-braces" refactor adding a second unlatch (e.g. also
+        // inside an error branch) would be harmless today but could drift
+        // into a "unlatch, then re-latch if X, then unlatch again" shape
+        // that re-opens the re-entry window. Multiplicity lock, mirror of
+        // R87.K1+'s `livesLostThisFrame` single-read pattern.
+        const body = extractDeferredCallbackBody(readSceneSource());
+        const matches = body.match(/this\.isLevelingUp\s*=\s*false/g) ?? [];
+        expect(matches).toHaveLength(1);
+      });
+    });
+
+    describe('restartLevel → resetPositions() call-site chain (A2 release-curve re-arm)', () => {
+      it('`restartLevel` body contains `this.resetPositions()` exactly once', () => {
+        // Completes the chain that AC1's main block (line ~1941) starts —
+        // that test locks `resetPositions` sets `agentReleaseIndex = 1`,
+        // but nothing locks `restartLevel` actually calls `resetPositions`.
+        // Drop this call and Tom's A2 staggered-release fix silently breaks
+        // on L2+ (all four agents stay loose OR stuck in house, depending
+        // on the agents' current isReleased flags) — exact shape of the
+        // Tom screenshot scenario but with a different root cause.
+        const body = extractRestartLevelBody(readSceneSource());
+        const matches = body.match(/this\.resetPositions\(\)/g) ?? [];
+        expect(matches).toHaveLength(1);
+      });
+
+      it('`this.resetPositions()` in `restartLevel` fires AFTER maze rebuild decisions (locks tail-of-body position)', () => {
+        // Positional lock: `resetPositions` should be near the end of
+        // restartLevel, AFTER the `if (layoutChanged)` branch that rebuilds
+        // walls and dots. Putting it earlier would reset player + agent
+        // grid coords to stale positions relative to the OLD layout's
+        // start tile, then the maze would rebuild around them — visually
+        // fine if agents fall back into the new layout's open spaces, but
+        // guaranteed wrong if START_ROW / START_COL varies per layout.
+        const body = extractRestartLevelBody(readSceneSource());
+        const resetIdx = body.indexOf('this.resetPositions()');
+        const layoutChangedIdx = body.indexOf('if (layoutChanged)');
+        expect(resetIdx).toBeGreaterThanOrEqual(0);
+        expect(layoutChangedIdx).toBeGreaterThanOrEqual(0);
+        expect(resetIdx).toBeGreaterThan(layoutChangedIdx);
+      });
+    });
+
+    describe('`this.level` mutation isolation (write-site single-source-of-truth)', () => {
+      it('contains exactly one `this.level++` file-scope (only triggerLevelClear mutates level)', () => {
+        // R87.K1+ write-site-isolation playbook applied to the level
+        // counter. A shadow increment in a future debug-cheat, skip-level
+        // power-up, or belt-and-braces cleanup would silently double-
+        // advance on every clear. The counter is the anchor for map
+        // selection, difficulty dial, and SURVIVE_5_LEVELS — triple-axis
+        // contamination if two increments fire.
+        const src = readSceneSource();
+        const matches = src.match(/this\.level\+\+/g) ?? [];
+        expect(matches).toHaveLength(1);
+      });
+
+      it('contains no backward drift: zero `this.level--` and zero `this.level -= N` file-scope', () => {
+        // Direction-of-travel lock. Agent Chase has no "go back a level"
+        // semantic — every future level-related feature (bonus level,
+        // secret level, power-up that skips) should increment forward or
+        // jump, never decrement. A decrement would invalidate the
+        // mazesPlayed set contract and could unlock SURVIVE_5_LEVELS on
+        // level=4 via the >= operator once the counter crosses 5 and
+        // drops back.
+        const src = readSceneSource();
+        expect(src).not.toMatch(/this\.level--/);
+        expect(src).not.toMatch(/this\.level\s*-=\s*\d/);
+      });
+
+      it('contains exactly one `this.level = 1` initialiser (only create() re-seeds)', () => {
+        // The counterpart to the ++ lock: a second re-seed (e.g. in a
+        // "reset to tutorial" debug helper, or silently inside restartLevel
+        // as a "fresh session" refactor) would drop the player back to
+        // level 1 mid-session — losing the SURVIVE_5_LEVELS achievement
+        // and triggering map-cycle whiplash on the next clear.
+        const src = readSceneSource();
+        const matches = src.match(/this\.level\s*=\s*1(?!\d)/g) ?? [];
+        expect(matches).toHaveLength(1);
+      });
+    });
+  });
 });
