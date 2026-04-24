@@ -3252,4 +3252,261 @@ describe('CodeBreakerGameScene', () => {
       });
     });
   });
+
+  // -----------------------------------------------------------------------
+  // R87.K1+ safety-net — loseLife call-path isolation + ordering contracts
+  //                     (pre-Tom-tick)
+  //
+  // Lineage: R87.AC1+ reset-isolation inverse audits, R87.RH1+ item 6
+  //          trackComplete body-ordering indexOf locks, R87.C1+ cross-method
+  //          write-site isolation. K1's behavioural tests cover the "happy
+  //          path" through the reconciler; K9's static block locks call-
+  //          counts (reconcileBallState once, livesLostThisFrame writes 3/1).
+  //          What remains un-netted is the STRUCTURAL scaffolding those
+  //          behaviours depend on — a refactor that preserves all call-
+  //          counts but shuffles ordering, bypasses the guard, or adds an
+  //          un-audited consumer would silently revive Tom's green-bomb
+  //          soft-lock (K1) or spontaneous game-over (K2) without tripping
+  //          any existing gate.
+  //
+  // Six invariant families locked:
+  //   1. loseLife call-site isolation — exactly 4 call-sites file-scope,
+  //      and power-up / ball-spawn paths must not debit lives directly
+  //      (Tom's K2 repro: bomb power-up firing life-loss while loseLife's
+  //      guard was disabled).
+  //   2. lives-decrement isolation — exactly 1 `this.lives--` in the file
+  //      (in loseLife). Any second decrement bypasses the K2 guard entirely.
+  //   3. reconcileBallState call-ordering in update() body — positional
+  //      locks via indexOf: AFTER checkPortalCollision (last collision
+  //      check) AND BEFORE checkLevelComplete. A refactor that hoists the
+  //      reconciler above the collision block would fire belated-life-loss
+  //      BEFORE loseLife resets the attached ball — re-opening K1 in a new
+  //      shape that the behavioural tests cannot see.
+  //   4. loseLife body ordering — guard BEFORE flag-set BEFORE decrement
+  //      BEFORE game-over gate. Any reshuffle silently re-opens K2
+  //      (e.g. flag-set after decrement → re-entry fires the guard AFTER
+  //      the life already dropped).
+  //   5. reconcileBallState body ordering — balls-empty guard BEFORE
+  //      attached-ball branch; loseLife fallthrough AFTER the branch.
+  //      Hoisting loseLife into the primary path would fire belated-life-
+  //      loss on every ball-less frame even when respawn is imminent.
+  //   6. livesLostThisFrame read-site isolation — exactly 1 non-assignment
+  //      read (the loseLife guard). Any new consumer is un-audited surface.
+  // -----------------------------------------------------------------------
+  describe('R87.K1+ safety-net — loseLife call-path isolation + ordering contracts (pre-Tom-tick)', () => {
+    function readSceneSource(): string {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require('fs') as typeof import('fs');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require('path') as typeof import('path');
+      return fs.readFileSync(path.join(__dirname, 'GameScene.ts'), 'utf8');
+    }
+
+    // Extract a method body by name. Relies on the project's 2-space
+    // indent convention: the closing brace of a class method is a line
+    // containing exactly "  }" at column 0. Greedy match is scoped by
+    // the first such brace after the signature.
+    function extractMethodBody(src: string, name: string): string {
+      // Match any visibility (private/public/protected) plus the bare
+      // signature form (update has no explicit visibility in this class).
+      // Optional return-type annotation covered by the `(?:\s*:\s*[^{]+)?`
+      // group — `update(time, delta): void` is the only one that uses it.
+      const sig = new RegExp(
+        `(?:private|public|protected)?\\s*${name}\\s*\\([^)]*\\)(?:\\s*:\\s*[^{]+)?\\s*\\{`
+      );
+      const start = src.search(sig);
+      if (start < 0) throw new Error(`method ${name} not found`);
+      const afterSig = src.indexOf('{', start);
+      const end = src.indexOf('\n  }', afterSig);
+      if (end < 0) throw new Error(`closing brace of ${name} not found`);
+      return src.slice(afterSig, end + 4);
+    }
+
+    describe('(1) loseLife call-site isolation', () => {
+      it('exactly 4 `this.loseLife()` call-sites file-scope', () => {
+        // Current call-sites: checkBallBottomCollisions,
+        // checkAgentPaddleCollisions, checkBossBulletPaddleCollisions,
+        // reconcileBallState. A 5th would indicate un-audited surface —
+        // Tom's K2 scenario was a power-up path firing life-loss, so any
+        // new consumer must be verified against the guard contract.
+        const src = readSceneSource();
+        const matches = src.match(/this\.loseLife\(\)/g) ?? [];
+        expect(matches).toHaveLength(4);
+      });
+
+      it('activatePowerUp body does NOT contain `this.loseLife()`', () => {
+        // Direct lock against Tom's K2 repro shape: the green-bomb
+        // power-up was implicated in a spontaneous game-over. A refactor
+        // "helpfully" debit-ing a life on bomb activation (e.g. "cost
+        // one life per bomb use") would silently re-open the multi-
+        // debit path even with the livesLostThisFrame guard intact
+        // (since the same-frame collision could fire first).
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'activatePowerUp');
+        expect(body).not.toContain('this.loseLife()');
+      });
+
+      it('spawnBall body does NOT contain `this.loseLife()`', () => {
+        // Defensive lock: spawnBall is the ball-respawn counterpart to
+        // loseLife. A refactor conflating "spawn ball on paddle with
+        // lives=0" with "end game" here would bypass handleGameOver's
+        // re-entry guard entirely.
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'spawnBall');
+        expect(body).not.toContain('this.loseLife()');
+      });
+    });
+
+    describe('(2) lives-decrement isolation', () => {
+      it('exactly 1 `this.lives--` call-site file-scope', () => {
+        // Must route through loseLife's guard. A second decrement site
+        // (e.g. a power-up cost, a boss-bullet shortcut) bypasses the
+        // guard AND the game-over threshold check, which would silently
+        // drive lives negative or terminate the session without the
+        // handleGameOver payload shape that GameOverScene depends on.
+        const src = readSceneSource();
+        const matches = src.match(/this\.lives--/g) ?? [];
+        expect(matches).toHaveLength(1);
+      });
+
+      it('no `this.lives -= N` or `this.lives -N` pattern exists', () => {
+        // Belt-and-braces against a refactor that swaps the `--` for a
+        // compound assignment (e.g. "bomb costs 2 lives" — `this.lives -= 2`).
+        // Same reasoning as above: bypasses the guard + game-over
+        // threshold.
+        const src = readSceneSource();
+        expect(src).not.toMatch(/this\.lives\s*-=/);
+        // Also guard direct negative assignment (e.g. `this.lives = this.lives - N`)
+        expect(src).not.toMatch(/this\.lives\s*=\s*this\.lives\s*-/);
+      });
+    });
+
+    describe('(3) reconcileBallState call-ordering in update() body', () => {
+      it('reconcileBallState() appears AFTER checkPortalCollision()', () => {
+        // Critical K1 contract: the reconciler must run AFTER every
+        // collision check. checkPortalCollision is the last in the
+        // block, so locking reconciler-after-it pins the ordering.
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'update');
+        const portalIdx = body.indexOf('this.checkPortalCollision()');
+        const reconcileIdx = body.indexOf('this.reconcileBallState()');
+        expect(portalIdx).toBeGreaterThanOrEqual(0);
+        expect(reconcileIdx).toBeGreaterThanOrEqual(0);
+        expect(reconcileIdx).toBeGreaterThan(portalIdx);
+      });
+
+      it('reconcileBallState() appears BEFORE checkLevelComplete()', () => {
+        // Tom's K1 reconciler comment calls out the ordering: "call-
+        // ordered AFTER checkPortalCollision and BEFORE checkLevelComplete
+        // so a legitimate portal→completeLevel→delayedCall doesn't race
+        // it." If the reconciler fires AFTER checkLevelComplete, the
+        // level-complete banner may have already set isLevelComplete=true,
+        // masking a genuine ball-less state (and vice-versa for the
+        // reverse order).
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'update');
+        const reconcileIdx = body.indexOf('this.reconcileBallState()');
+        const completeIdx = body.indexOf('this.checkLevelComplete()');
+        expect(reconcileIdx).toBeGreaterThanOrEqual(0);
+        expect(completeIdx).toBeGreaterThanOrEqual(0);
+        expect(reconcileIdx).toBeLessThan(completeIdx);
+      });
+    });
+
+    describe('(4) loseLife body ordering', () => {
+      it('livesLostThisFrame guard appears BEFORE livesLostThisFrame = true', () => {
+        // The guard must run BEFORE the flag-set so a re-entry returns
+        // early without writing the flag twice (idempotent). A swap
+        // would still compile + return early on the second entry, but
+        // the side-effect-free path is subtly broken: the re-entry
+        // would set the flag *after* the original fall-through set it,
+        // creating an apparent "reset" mid-frame. Not fatal but makes
+        // debugging impossible.
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'loseLife');
+        const guardIdx = body.indexOf('if (this.livesLostThisFrame)');
+        const setIdx = body.indexOf('this.livesLostThisFrame = true');
+        expect(guardIdx).toBeGreaterThanOrEqual(0);
+        expect(setIdx).toBeGreaterThanOrEqual(0);
+        expect(guardIdx).toBeLessThan(setIdx);
+      });
+
+      it('livesLostThisFrame = true appears BEFORE this.lives--', () => {
+        // Critical: flag-set MUST precede decrement. If reversed, a
+        // re-entry from the same tick sees `livesLostThisFrame=false`
+        // AFTER the first decrement already ran, and fires a SECOND
+        // decrement before the flag is set — re-opening Tom's "2 lives
+        // → spontaneous game-over" K2 repro. Locking positionally
+        // guards against a one-line transposition that still compiles.
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'loseLife');
+        const setIdx = body.indexOf('this.livesLostThisFrame = true');
+        const decIdx = body.indexOf('this.lives--');
+        expect(setIdx).toBeGreaterThanOrEqual(0);
+        expect(decIdx).toBeGreaterThanOrEqual(0);
+        expect(setIdx).toBeLessThan(decIdx);
+      });
+
+      it('this.lives-- appears BEFORE the this.lives <= 0 game-over gate', () => {
+        // Obvious but worth locking: decrement MUST precede the
+        // threshold check. If reversed, `lives <= 0` would evaluate
+        // against the pre-decrement value, letting a player with 1 life
+        // survive the fatal hit (and a player with 0 lives would never
+        // trigger game-over — soft-lock).
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'loseLife');
+        const decIdx = body.indexOf('this.lives--');
+        const gateIdx = body.indexOf('this.lives <= 0');
+        expect(decIdx).toBeGreaterThanOrEqual(0);
+        expect(gateIdx).toBeGreaterThanOrEqual(0);
+        expect(decIdx).toBeLessThan(gateIdx);
+      });
+    });
+
+    describe('(5) reconcileBallState body ordering', () => {
+      it('balls.length > 0 guard appears BEFORE isBallAttached branch', () => {
+        // Early-exit when a ball exists must precede the attached-ball
+        // branch, else a frame with 1 ball + isBallAttached=true would
+        // spawn a second ball (double-ball bug) because the attached
+        // branch doesn't check balls.length.
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'reconcileBallState');
+        const lengthIdx = body.indexOf('this.balls.length > 0');
+        const attachedIdx = body.indexOf('if (this.isBallAttached)');
+        expect(lengthIdx).toBeGreaterThanOrEqual(0);
+        expect(attachedIdx).toBeGreaterThanOrEqual(0);
+        expect(lengthIdx).toBeLessThan(attachedIdx);
+      });
+
+      it('this.loseLife() fallthrough appears AFTER the isBallAttached branch', () => {
+        // loseLife is the belated-life-loss fallback when NO attached
+        // ball is pending. Hoisting it into the primary path (e.g. by
+        // removing the isBallAttached early-return) would fire life-
+        // loss on every ball-less frame even when a respawn is imminent
+        // — K1's whole point is that we PREFER respawn when attached.
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'reconcileBallState');
+        const attachedIdx = body.indexOf('if (this.isBallAttached)');
+        const loseLifeIdx = body.indexOf('this.loseLife()');
+        expect(attachedIdx).toBeGreaterThanOrEqual(0);
+        expect(loseLifeIdx).toBeGreaterThanOrEqual(0);
+        expect(loseLifeIdx).toBeGreaterThan(attachedIdx);
+      });
+    });
+
+    describe('(6) livesLostThisFrame read-site isolation', () => {
+      it('exactly 1 non-assignment read of `this.livesLostThisFrame`', () => {
+        // Mirror of R87.C1+'s canJump read-isolation: the only legitimate
+        // consumer is loseLife's guard. A second non-assignment read
+        // (e.g. a power-up path gating activation on "was a life lost
+        // this frame?") is un-audited surface and must be reviewed.
+        // Regex: `this.livesLostThisFrame` NOT followed by `=` (excludes
+        // `===` too — comparison operators would qualify as reads and
+        // we want to flag those as un-audited consumers).
+        const src = readSceneSource();
+        const reads = src.match(/this\.livesLostThisFrame(?!\s*=)/g) ?? [];
+        expect(reads).toHaveLength(1);
+      });
+    });
+  });
 });
