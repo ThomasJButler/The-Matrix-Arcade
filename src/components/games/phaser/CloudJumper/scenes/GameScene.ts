@@ -491,7 +491,15 @@ export class CloudJumperGameScene extends BaseScene {
         this.playSound('jump');
         if (!cloud.isUsed) {
           cloud.isUsed = true;
-          this.playSound(SOUND_KEYS.PLATFORM_BREAK);
+          // R87.C5 — PLATFORM_BREAK intentionally NOT played here. Tom's
+          // 2026-04-22 playtest: *"Remove the brick breaking sound effects
+          // when moving along, please."* The shared
+          // `SOUND_KEYS.PLATFORM_BREAK` routes to `sfx_statue_break.mp3`,
+          // a harsh shatter Tom hears as "brick breaking" — especially
+          // after R87.C3 added lateral movement that chains multiple
+          // disappearing-cloud contacts per second. The 500ms alpha fade
+          // + `jump` SFX above already read as a soft puff; the shatter
+          // layer is gratuitous for the soft-sky atmosphere.
           this.tweens.add({
             targets: cloud,
             alpha: 0,

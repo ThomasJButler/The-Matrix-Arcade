@@ -1502,4 +1502,206 @@ describe('CloudJumperGameScene', () => {
       });
     });
   });
+
+  // =======================================================================
+  // R87.C5 — Brick-break SFX removal from cloud traversal
+  // =======================================================================
+  // Tom 2026-04-22 playtest: "Remove the brick breaking sound effects when
+  // moving along, please." Root cause: `handleCloudCollision`'s
+  // `disappearing` branch fired `playSound(SOUND_KEYS.PLATFORM_BREAK)` on
+  // every first-touch of a disappearing cloud. PLATFORM_BREAK routes to
+  // `sfx_statue_break.mp3` — the "brick breaking" Tom referenced. After
+  // R87.C3 added lateral movement the player now traverses several
+  // disappearing clouds per second, chaining shatter sounds into a
+  // cacophony that clashes with the soft-sky atmosphere.
+  //
+  // Fix: delete the PLATFORM_BREAK call entirely from the branch. The
+  // existing 500ms alpha-fade tween + `jump` bounce SFX already provide
+  // clear "cloud collapsed" feedback; the shatter layer is gratuitous.
+  //
+  // Contract:
+  // 1) `handleCloudCollision` on a disappearing cloud must NOT fire
+  //    `platformBreak` / `PLATFORM_BREAK` — neither via the constant nor
+  //    a string literal.
+  // 2) The bounce `jump` SFX still fires (the feel beat players rely on).
+  // 3) The destroy tween still fires (visual feedback preserved).
+  // 4) No other cloud type has PLATFORM_BREAK added as a replacement.
+  // 5) Static source tripwire: `handleCloudCollision` body no longer
+  //    references PLATFORM_BREAK, catching both a constant revival and
+  //    a literal-string bypass.
+  // =======================================================================
+  describe('R87.C5 — Brick-break SFX removed from disappearing-cloud traversal', () => {
+    function readSceneSource(): string {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require('fs') as typeof import('fs');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require('path') as typeof import('path');
+      return fs.readFileSync(path.join(__dirname, 'GameScene.ts'), 'utf8');
+    }
+
+    // ---------------------------------------------------------------------
+    // Sub-block 1: Runtime SFX invocation
+    // ---------------------------------------------------------------------
+    describe('handleCloudCollision runtime SFX contract', () => {
+      let scene: any;
+      beforeEach(() => {
+        scene = createTestScene();
+      });
+
+      it('does NOT call playSound with PLATFORM_BREAK on a disappearing cloud', () => {
+        const cloud = createMockCloud('disappearing');
+        scene.handleCloudCollision(cloud);
+        const calls = (scene.playSound as any).mock.calls.filter(
+          (c: any[]) => c[0] === 'platformBreak'
+        );
+        expect(calls.length).toBe(0);
+      });
+
+      it('does NOT call playSound with PLATFORM_BREAK on a normal cloud', () => {
+        const cloud = createMockCloud('normal');
+        scene.handleCloudCollision(cloud);
+        const calls = (scene.playSound as any).mock.calls.filter(
+          (c: any[]) => c[0] === 'platformBreak'
+        );
+        expect(calls.length).toBe(0);
+      });
+
+      it('does NOT call playSound with PLATFORM_BREAK on a moving cloud', () => {
+        const cloud = createMockCloud('moving');
+        scene.handleCloudCollision(cloud);
+        const calls = (scene.playSound as any).mock.calls.filter(
+          (c: any[]) => c[0] === 'platformBreak'
+        );
+        expect(calls.length).toBe(0);
+      });
+
+      it('does NOT call playSound with PLATFORM_BREAK on a storm cloud', () => {
+        const cloud = createMockCloud('storm');
+        scene.handleCloudCollision(cloud);
+        const calls = (scene.playSound as any).mock.calls.filter(
+          (c: any[]) => c[0] === 'platformBreak'
+        );
+        expect(calls.length).toBe(0);
+      });
+
+      it('still fires the jump SFX on a disappearing-cloud landing (feel-beat preserved)', () => {
+        // Anti-regression: the delete-the-hook fix must not accidentally
+        // drop the core bounce feedback. The `jump` SFX is the beat
+        // players read as "I bounced"; removing it would make the scene
+        // feel silent-on-jump.
+        const cloud = createMockCloud('disappearing');
+        scene.handleCloudCollision(cloud);
+        const calls = (scene.playSound as any).mock.calls.filter(
+          (c: any[]) => c[0] === 'jump'
+        );
+        expect(calls.length).toBe(1);
+      });
+
+      it('still starts the destroy tween on a fresh disappearing cloud (visual feedback preserved)', () => {
+        // Tween is now the sole feedback for "this cloud collapsed"; it
+        // must not regress alongside the SFX removal.
+        const cloud = createMockCloud('disappearing');
+        scene.handleCloudCollision(cloud);
+        expect(scene.tweens.add).toHaveBeenCalled();
+        expect(cloud.isUsed).toBe(true);
+      });
+
+      it('does not fire PLATFORM_BREAK even when C3 lateral movement chains three disappearing clouds in one tick', () => {
+        // Direct Tom-scenario tripwire. Pre-fix: three chained shatters
+        // per tick. Post-fix: zero. The counter compares against the
+        // total `platformBreak` call count across all three overlaps.
+        const clouds = [
+          createMockCloud('disappearing'),
+          createMockCloud('disappearing'),
+          createMockCloud('disappearing'),
+        ];
+        clouds.forEach((c) => scene.handleCloudCollision(c));
+        const shatterCalls = (scene.playSound as any).mock.calls.filter(
+          (c: any[]) => c[0] === 'platformBreak'
+        );
+        expect(shatterCalls.length).toBe(0);
+      });
+    });
+
+    // ---------------------------------------------------------------------
+    // Sub-block 2: Static source tripwires
+    // ---------------------------------------------------------------------
+    describe('GameScene static source contract', () => {
+      it('handleCloudCollision body does NOT reference SOUND_KEYS.PLATFORM_BREAK', () => {
+        // Regex extracts the full method body so the assertion scopes to
+        // the correct call-site. Tolerates the comment block that
+        // documents the C5 deletion because the comment is prose, not a
+        // runtime call — the prose tolerance is only for
+        // `PLATFORM_BREAK` as a bare word in the code path, which the
+        // `playSound(…)` wrapper regex guards against.
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+handleCloudCollision\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).not.toMatch(/playSound\s*\(\s*SOUND_KEYS\.PLATFORM_BREAK\s*\)/);
+      });
+
+      it('handleCloudCollision body does NOT contain a playSound literal-string bypass', () => {
+        // Catches a refactor that hardcodes `'platformBreak'` instead of
+        // re-adding the constant.
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+handleCloudCollision\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).not.toMatch(/playSound\s*\(\s*['"]platformBreak['"]/);
+      });
+
+      it('handleCloudCollision body still contains the jump SFX call (feel-beat tripwire)', () => {
+        // A "simplify" refactor that strips all playSound calls from the
+        // branch would silently break the bounce-feedback contract.
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+handleCloudCollision\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).toMatch(/this\.playSound\(['"]jump['"]\)/);
+      });
+    });
+
+    // ---------------------------------------------------------------------
+    // Sub-block 3: Lateral-movement handler has no SFX calls
+    // ---------------------------------------------------------------------
+    describe('handleHorizontalMovement is silent', () => {
+      it('LEFT key press does not call playSound', () => {
+        const scene = createTestScene();
+        scene.moveLeftKey = { isDown: true };
+        scene.moveLeftKeyA = { isDown: false };
+        scene.moveRightKey = { isDown: false };
+        scene.moveRightKeyD = { isDown: false };
+        scene.handleHorizontalMovement();
+        expect((scene.playSound as any).mock.calls.length).toBe(0);
+      });
+
+      it('RIGHT key press does not call playSound', () => {
+        const scene = createTestScene();
+        scene.moveLeftKey = { isDown: false };
+        scene.moveLeftKeyA = { isDown: false };
+        scene.moveRightKey = { isDown: true };
+        scene.moveRightKeyD = { isDown: false };
+        scene.handleHorizontalMovement();
+        expect((scene.playSound as any).mock.calls.length).toBe(0);
+      });
+
+      it('static source: handleHorizontalMovement body contains no playSound calls', () => {
+        // Direct Tom-phrasing tripwire: "Remove the brick breaking sound
+        // effects when moving along." A future tempt to attach ANY SFX
+        // to lateral movement must go through a code review that decides
+        // on the velocity-gated wind-whoosh alternative — not silently
+        // revive the shatter.
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+handleHorizontalMovement\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).not.toMatch(/playSound/);
+      });
+    });
+  });
 });
