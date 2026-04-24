@@ -98,6 +98,26 @@ export const GAME_CONFIG = {
     SPACING_MIN: 60,
     SPACING_MAX: 120,
     VERTICAL_RANGE: 100, // Max vertical distance from center
+    /**
+     * R87.C6 — defensive per-tick cap on `generateContent()`'s while-loop.
+     *
+     * `generateContent()` uses `while (this.lastCloudX < WIDTH)` with `lastCloudX`
+     * advanced by `SPACING_MIN..SPACING_MAX` per iteration. The loop is
+     * mathematically bounded because `lastCloudX` strictly increases, but on
+     * tab-suspension resume a very large `delta` can drive `scrollObjects()`
+     * to decrement `lastCloudX` by thousands of pixels in a single frame
+     * (e.g. delta=60s × SPEED_MAX=300 px/s ⇒ -18000). The catch-up loop then
+     * runs ~225 iterations in one frame, which is a user-visible hitch and
+     * — more importantly — creates 225 sprites that then need to be destroyed
+     * on the next frame. The cap converts this into a graceful deferral:
+     * at most `MAX_PER_TICK` new clouds spawn per frame, and the scroll
+     * catches up over a few frames instead of all at once.
+     *
+     * 20 is comfortably above the steady-state rate (~1-2 new clouds/frame
+     * at normal scroll) so it never fires on a healthy session, but caps
+     * worst-case to a tolerable hitch.
+     */
+    MAX_PER_TICK: 20,
   },
 
   /** Cloud types — Matrix green palette */

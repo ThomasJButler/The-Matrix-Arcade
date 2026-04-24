@@ -198,6 +198,12 @@ export class CloudJumperGameScene extends BaseScene {
     // Update obstacles
     this.updateObstacles(delta);
 
+    // R87.C6 — destroy off-screen collectibles. Symmetric with the existing
+    // cloud + obstacle cleanup; without this, uncollected items accumulate
+    // unboundedly (each with a `repeat: -1` yoyo tween running forever) and
+    // progressively starve the frame loop until the session appears to freeze.
+    this.cleanupOffScreenCollectibles();
+
     // R87.C3 — lateral movement (LEFT/RIGHT/A/D with drag-based stop).
     // Runs before checkGameOver so the final-frame input still registers
     // and before enforceCeiling so the boundary clamp wins in edge cases.
@@ -220,7 +226,8 @@ export class CloudJumperGameScene extends BaseScene {
     // Update UI
     this.updateUI();
 
-    // Expose state for E2E tests
+    // Expose state for E2E tests + R87.C6 freeze diagnostics (group sizes
+    // surface runaway accumulation in future freeze investigations).
     const body = this.player?.body as Phaser.Physics.Arcade.Body | undefined;
     this.exposeTestState({
       score: this.score,
@@ -230,6 +237,9 @@ export class CloudJumperGameScene extends BaseScene {
       canJump: this.canJump,
       playerX: this.player?.x ?? 0,
       velocityX: body?.velocity?.x ?? 0,
+      cloudsAlive: this.clouds?.getChildren().length ?? 0,
+      collectiblesAlive: this.collectibles?.getChildren().length ?? 0,
+      obstaclesAlive: this.obstacles?.getChildren().length ?? 0,
     });
   }
 
@@ -752,18 +762,30 @@ export class CloudJumperGameScene extends BaseScene {
   }
 
   /**
-   * Generate new content — uses screen width only since the player never moves horizontally
+   * Generate new content — uses screen width only since the player never moves horizontally.
+   *
+   * R87.C6 — bounded by `CLOUDS.MAX_PER_TICK` as a defensive cap against
+   * tab-suspension resume. The `while` condition is mathematically bounded
+   * (`lastCloudX` strictly increases by ≥ SPACING_MIN per iteration) but a
+   * very large `delta` in `scrollObjects()` can drive `lastCloudX` deeply
+   * negative, forcing a hitch-scale catch-up burst. Capping to
+   * `MAX_PER_TICK` defers the catch-up across multiple frames — the next
+   * tick's `scrollObjects` will still find `lastCloudX < WIDTH` and keep
+   * generating until it's caught up, but no single frame can spawn more
+   * than the cap.
    */
   private generateContent(): void {
     const { WIDTH, HEIGHT, CLOUDS } = GAME_CONFIG;
 
     // Generate clouds ahead of the right screen edge
-    while (this.lastCloudX < WIDTH) {
+    let spawned = 0;
+    while (this.lastCloudX < WIDTH && spawned < CLOUDS.MAX_PER_TICK) {
       const x = this.lastCloudX + Phaser.Math.Between(CLOUDS.SPACING_MIN, CLOUDS.SPACING_MAX);
       const y = HEIGHT / 2 + Phaser.Math.Between(-CLOUDS.VERTICAL_RANGE, CLOUDS.VERTICAL_RANGE);
 
       this.createCloud(x, y, this.getRandomCloudType());
       this.lastCloudX = x;
+      spawned++;
 
       // Maybe spawn collectible
       if (Math.random() < GAME_CONFIG.COLLECTIBLES.SPAWN_CHANCE) {
@@ -781,6 +803,30 @@ export class CloudJumperGameScene extends BaseScene {
         }
       }
     }
+  }
+
+  /**
+   * R87.C6 — destroy collectibles that have scrolled off the left edge.
+   *
+   * Pre-fix CloudJumper had cleanup symmetry for `clouds` (updateClouds)
+   * and `obstacles` (updateObstacles) but none for collectibles. Each
+   * uncollected star/gem/coin kept its sprite alive AND a
+   * `repeat: -1` yoyo floating tween running forever. Over a long session
+   * (several minutes), hundreds of orphaned sprites + infinite tweens
+   * accumulate and progressively starve the frame loop — matches Tom's
+   * *"Sometimes the game freezes"* signature exactly.
+   *
+   * `destroy()` implicitly kills tweens targeting the destroyed object
+   * (Phaser auto-removes on target invalidation), so no explicit tween
+   * teardown is required here.
+   */
+  private cleanupOffScreenCollectibles(): void {
+    this.collectibles.getChildren().forEach((obj) => {
+      const item = obj as Collectible;
+      if (item.x < -100) {
+        item.destroy();
+      }
+    });
   }
 
   /**
@@ -1001,7 +1047,15 @@ export class CloudJumperGameScene extends BaseScene {
   }
 
   /**
-   * Cleanup on scene shutdown
+   * Cleanup on scene shutdown.
+   *
+   * R87.C6 — belt-and-braces tween + timer cleanup. Phaser typically sweeps
+   * scene-scoped tweens and timers on scene-shutdown, but infinite
+   * (`repeat: -1`) floating/flapping tweens on collectibles and bird
+   * obstacles, plus the storm-cloud tint-clear `delayedCall`, are the most
+   * likely freeze-accelerators on a restart-heavy session. Explicit
+   * `tweens.killAll()` + `time.removeAllEvents()` make the teardown
+   * deterministic regardless of Phaser's internal sweep ordering.
    */
   shutdown(): void {
     this.stopBackgroundMusic();
@@ -1009,6 +1063,8 @@ export class CloudJumperGameScene extends BaseScene {
     if (this.input.keyboard) {
       this.input.keyboard.removeAllKeys(true);
     }
+    this.tweens.killAll();
+    this.time.removeAllEvents();
     super.shutdown();
   }
 }
