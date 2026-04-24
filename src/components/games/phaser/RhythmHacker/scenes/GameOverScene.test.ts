@@ -88,3 +88,100 @@ describe('RhythmHackerGameOverScene — R87.RH1 title branch', () => {
     });
   });
 });
+
+// -------------------------------------------------------------------------
+// R87.RH1+ safety-net — base GameOverScene hook visibility + default return
+// contract (pre-Tom-tick tripwire layer)
+//
+// WHY THIS SAFETY-NET EXISTS
+// RH1 added `getTitleText()` / `getTitleColor()` hooks to base
+// GameOverScene so any of the 12 Phaser games can swap the red "GAME OVER"
+// default for a win-themed variant. The Rhythm Hacker override relies on
+// these hooks being `protected` (not `private`) — TypeScript strict mode
+// would flag a private override at compile time in the current override,
+// but a future compiler-relaxation, a change to `any`-casted access, or a
+// refactor that accidentally privatises the base hook would silently
+// re-default every subclass's title back to red. This block locks the
+// visibility modifier at the source level and locks the default return
+// values so the 11 OTHER subclasses (CodeBreaker, Invaders, Frogger,
+// Metris, Snake, Pong, NeoJump, AgentChase, CloudJumper, MatrixCloud,
+// CtrlSWorld) keep their red "GAME OVER" title unaffected by Rhythm
+// Hacker's win branch.
+// -------------------------------------------------------------------------
+describe('R87.RH1+ safety-net — base GameOverScene hook visibility + default returns (pre-Tom-tick)', () => {
+  async function readBaseSource(): Promise<string> {
+    const { readFileSync } = await import('fs');
+    const { resolve } = await import('path');
+    return readFileSync(
+      resolve(process.cwd(), 'src/lib/phaser/scenes/GameOverScene.ts'),
+      'utf8',
+    );
+  }
+
+  async function readRhythmOverrideSource(): Promise<string> {
+    const { readFileSync } = await import('fs');
+    const { resolve } = await import('path');
+    return readFileSync(
+      resolve(process.cwd(), 'src/components/games/phaser/RhythmHacker/scenes/GameOverScene.ts'),
+      'utf8',
+    );
+  }
+
+  describe('Base class hook visibility', () => {
+    it('base `getTitleText` is declared `protected` (not `private`)', async () => {
+      // Subclass override requires `protected` visibility. A private-ification
+      // would break the Rhythm Hacker override at compile time (and any
+      // future win-variant in the 11 other games).
+      const src = await readBaseSource();
+      expect(src).toMatch(/protected\s+getTitleText\s*\(\)\s*:\s*string\s*{/);
+      expect(src).not.toMatch(/private\s+getTitleText\s*\(\)/);
+    });
+
+    it('base `getTitleColor` is declared `protected` (not `private`)', async () => {
+      // Paired lock with getTitleText — both hooks must stay overridable.
+      const src = await readBaseSource();
+      expect(src).toMatch(/protected\s+getTitleColor\s*\(\)\s*:\s*string\s*{/);
+      expect(src).not.toMatch(/private\s+getTitleColor\s*\(\)/);
+    });
+
+    it('base `getTitleText` default return is the literal "GAME OVER"', async () => {
+      // The 11 non-Rhythm-Hacker games inherit this default. A refactor that
+      // changes the default to e.g. "DISCONNECTED" silently repaints every
+      // other game's death screen. Pair this with the behaviour assertion
+      // that RhythmHackerGameOverScene falls back to 'GAME OVER' on
+      // undefined reason.
+      const src = await readBaseSource();
+      expect(src).toMatch(
+        /protected\s+getTitleText\s*\(\)\s*:\s*string\s*{\s*\n\s*return\s*['"]GAME OVER['"]\s*;/,
+      );
+    });
+
+    it('base `getTitleColor` default return is MATRIX_COLORS.RED_HEX', async () => {
+      // Death convention — red conveys loss. A silent swap (e.g. to a
+      // Matrix green "pass" colour) inverts the entire arcade's game-over
+      // read without touching any subclass. This test pairs with the
+      // getTitleText default lock to keep both axes stable.
+      const src = await readBaseSource();
+      expect(src).toMatch(
+        /protected\s+getTitleColor\s*\(\)\s*:\s*string\s*{\s*\n\s*return\s*MATRIX_COLORS\.RED_HEX\s*;/,
+      );
+    });
+  });
+
+  describe('RhythmHackerGameOverScene override syntax', () => {
+    it('override uses `protected override` for getTitleText', async () => {
+      // `override` modifier requires strict mode + TS 4.3+; dropping it
+      // silently permits a method that happens to match the base signature
+      // but doesn't guarantee override semantics. `protected override` is
+      // the supported form and keeps the intent explicit.
+      const src = await readRhythmOverrideSource();
+      expect(src).toMatch(/protected\s+override\s+getTitleText\s*\(\)\s*:\s*string\s*{/);
+    });
+
+    it('override uses `protected override` for getTitleColor', async () => {
+      const src = await readRhythmOverrideSource();
+      expect(src).toMatch(/protected\s+override\s+getTitleColor\s*\(\)\s*:\s*string\s*{/);
+    });
+  });
+});
+
