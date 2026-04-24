@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import Phaser from 'phaser';
 import { CloudJumperGameScene } from './GameScene';
 import { GAME_CONFIG, ACHIEVEMENTS } from '../config';
 
@@ -1701,6 +1702,325 @@ describe('CloudJumperGameScene', () => {
         );
         expect(block).not.toBeNull();
         expect(block![0]).not.toMatch(/playSound/);
+      });
+    });
+  });
+
+  // =========================================================================
+  // R87.C6 — Freeze-hunt defences
+  //
+  // Tom's 2026-04-22 playtest: *"Sometimes the game freezes."* Low-signal,
+  // no known repro. Audit surfaced three accumulative-leak candidates that
+  // combine into a progressive-slowdown-to-freeze signature on long
+  // sessions:
+  //
+  //   1. Collectibles never cleaned up when scrolling off-screen (clouds +
+  //      obstacles both have symmetric cleanup; collectibles don't). Each
+  //      orphan keeps its sprite AND a `repeat: -1` yoyo tween running
+  //      forever.
+  //   2. `generateContent()`'s catch-up while-loop has no upper iteration
+  //      cap — a tab-suspension resume with huge `delta` can drive
+  //      200+ iterations in a single frame.
+  //   3. `shutdown()` relied on Phaser's implicit scene-sweep for tween +
+  //      timer cleanup — deterministic on most platforms but not
+  //      bulletproof on restart-heavy sessions.
+  //
+  // Shipped fixes + these tripwires:
+  //   • `cleanupOffScreenCollectibles()` wired into `update()`, symmetric
+  //     with `updateClouds` + `updateObstacles` cleanup.
+  //   • `CLOUDS.MAX_PER_TICK = 20` defensive cap on `generateContent`.
+  //   • `tweens.killAll()` + `time.removeAllEvents()` in `shutdown()`.
+  //   • `cloudsAlive` / `collectiblesAlive` / `obstaclesAlive` exposed via
+  //     `exposeTestState` for future freeze diagnostics.
+  // =========================================================================
+  describe('R87.C6 — Freeze-hunt defences', () => {
+    // -------------------------------------------------------------------
+    // Source helper — regex tripwires lock the wiring at the text level
+    // so a refactor that deletes the call-site can't silently re-enable
+    // the leak.
+    // -------------------------------------------------------------------
+    function readSceneSource(): string {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require('fs') as typeof import('fs');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require('path') as typeof import('path');
+      return fs.readFileSync(path.join(__dirname, 'GameScene.ts'), 'utf8');
+    }
+
+    // -------------------------------------------------------------------
+    // Sub-block 1: Config dial contract
+    // -------------------------------------------------------------------
+    describe('CLOUDS.MAX_PER_TICK config dial', () => {
+      it('is exactly 20 (exact-value lock so a refactor to a different cap value surfaces for review)', () => {
+        expect(GAME_CONFIG.CLOUDS.MAX_PER_TICK).toBe(20);
+      });
+
+      it('is a positive finite integer', () => {
+        const cap = GAME_CONFIG.CLOUDS.MAX_PER_TICK;
+        expect(Number.isFinite(cap)).toBe(true);
+        expect(cap).toBeGreaterThan(0);
+        expect(Number.isInteger(cap)).toBe(true);
+      });
+
+      it('is comfortably above the steady-state per-frame spawn rate (≥ 5)', () => {
+        // Anti-regression ratchet: a unilateral drop below 5 would start
+        // throttling normal gameplay, producing visible gaps between clouds
+        // on fast-scroll sessions. Must stay well above ~1-2/frame steady.
+        expect(GAME_CONFIG.CLOUDS.MAX_PER_TICK).toBeGreaterThanOrEqual(5);
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Sub-block 2: cleanupOffScreenCollectibles behaviour
+    // -------------------------------------------------------------------
+    describe('cleanupOffScreenCollectibles', () => {
+      it('destroys collectibles with x < -100', () => {
+        const item1 = { x: -150, destroy: vi.fn() };
+        const item2 = { x: -101, destroy: vi.fn() };
+        scene.collectibles = {
+          getChildren: vi.fn().mockReturnValue([item1, item2]),
+        };
+        scene.cleanupOffScreenCollectibles();
+        expect(item1.destroy).toHaveBeenCalledTimes(1);
+        expect(item2.destroy).toHaveBeenCalledTimes(1);
+      });
+
+      it('leaves on-screen collectibles alone', () => {
+        const onscreen = { x: 200, destroy: vi.fn() };
+        const edge = { x: -100, destroy: vi.fn() }; // exact boundary: `<` not `<=`, so survives
+        scene.collectibles = {
+          getChildren: vi.fn().mockReturnValue([onscreen, edge]),
+        };
+        scene.cleanupOffScreenCollectibles();
+        expect(onscreen.destroy).not.toHaveBeenCalled();
+        expect(edge.destroy).not.toHaveBeenCalled();
+      });
+
+      it('handles an empty collectibles group without throwing', () => {
+        scene.collectibles = {
+          getChildren: vi.fn().mockReturnValue([]),
+        };
+        expect(() => scene.cleanupOffScreenCollectibles()).not.toThrow();
+      });
+
+      it('destroys a mixed batch, keeping only the on-screen items', () => {
+        // Direct long-session simulation: 4 off-screen ghosts + 2 live items.
+        const ghosts = [
+          { x: -500, destroy: vi.fn() },
+          { x: -300, destroy: vi.fn() },
+          { x: -200, destroy: vi.fn() },
+          { x: -101, destroy: vi.fn() },
+        ];
+        const live = [
+          { x: 0, destroy: vi.fn() },
+          { x: 500, destroy: vi.fn() },
+        ];
+        scene.collectibles = {
+          getChildren: vi.fn().mockReturnValue([...ghosts, ...live]),
+        };
+        scene.cleanupOffScreenCollectibles();
+        ghosts.forEach((g) => expect(g.destroy).toHaveBeenCalledTimes(1));
+        live.forEach((l) => expect(l.destroy).not.toHaveBeenCalled());
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Sub-block 3: generateContent per-tick cap
+    // -------------------------------------------------------------------
+    describe('generateContent per-tick cap', () => {
+      /**
+       * Seed Phaser.Math so generateContent's Between() calls return a
+       * deterministic value. Uses a SPACING_MIN constant so each iteration
+       * advances lastCloudX by exactly SPACING_MIN pixels. Uses the mocked
+       * Phaser namespace (setup.ts vi.mock('phaser', …)) — `require()`
+       * bypasses vitest's resolver, so we must mutate the imported binding.
+       */
+      function seedPhaserMath(betweenReturn: number) {
+        const PhaserAny = Phaser as unknown as { Math?: { Between?: unknown } };
+        if (!PhaserAny.Math) PhaserAny.Math = {};
+        PhaserAny.Math.Between = vi.fn().mockReturnValue(betweenReturn);
+      }
+
+      it('caps at CLOUDS.MAX_PER_TICK even when lastCloudX is deeply negative', () => {
+        // Simulate tab-suspension resume: scrollObjects has decremented
+        // lastCloudX to -10000, forcing a massive catch-up.
+        seedPhaserMath(GAME_CONFIG.CLOUDS.SPACING_MIN);
+        scene.lastCloudX = -10000;
+        scene.distance = 0;
+
+        // Stub the heavy work so the loop can spin without side effects.
+        scene.createCloud = vi.fn();
+        scene.spawnCollectible = vi.fn();
+        scene.spawnObstacle = vi.fn();
+        scene.getRandomCloudType = vi.fn().mockReturnValue('normal');
+
+        scene.generateContent();
+
+        // MAX_PER_TICK clouds spawn this frame — no more, regardless of gap.
+        expect(scene.createCloud).toHaveBeenCalledTimes(GAME_CONFIG.CLOUDS.MAX_PER_TICK);
+      });
+
+      it('does not cap on a healthy per-frame advance (well below MAX_PER_TICK)', () => {
+        // Steady-state case: lastCloudX trails WIDTH by just under
+        // SPACING_MIN (10 px). With Between stubbed to SPACING_MIN=60,
+        // one iteration lands at WIDTH-10 (still < WIDTH) and a second
+        // iteration lands safely past WIDTH. Terminates naturally at 2.
+        // The cap must not fire on normal gameplay.
+        seedPhaserMath(GAME_CONFIG.CLOUDS.SPACING_MIN);
+        scene.lastCloudX = GAME_CONFIG.WIDTH - GAME_CONFIG.CLOUDS.SPACING_MIN - 10;
+        scene.distance = 0;
+
+        scene.createCloud = vi.fn();
+        scene.spawnCollectible = vi.fn();
+        scene.spawnObstacle = vi.fn();
+        scene.getRandomCloudType = vi.fn().mockReturnValue('normal');
+
+        scene.generateContent();
+
+        const calls = (scene.createCloud as any).mock.calls.length;
+        expect(calls).toBeGreaterThanOrEqual(1);
+        expect(calls).toBeLessThan(GAME_CONFIG.CLOUDS.MAX_PER_TICK);
+      });
+
+      it('lastCloudX advances past WIDTH when cap is not reached (normal termination)', () => {
+        // Ensures the natural termination condition still works — the cap
+        // is a ceiling, not a floor.
+        seedPhaserMath(GAME_CONFIG.CLOUDS.SPACING_MIN);
+        scene.lastCloudX = GAME_CONFIG.WIDTH - 100;
+        scene.distance = 0;
+
+        scene.createCloud = vi.fn();
+        scene.spawnCollectible = vi.fn();
+        scene.spawnObstacle = vi.fn();
+        scene.getRandomCloudType = vi.fn().mockReturnValue('normal');
+
+        scene.generateContent();
+
+        expect(scene.lastCloudX).toBeGreaterThanOrEqual(GAME_CONFIG.WIDTH);
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Sub-block 4: shutdown kills tweens + timers
+    // -------------------------------------------------------------------
+    describe('shutdown hardening', () => {
+      it('calls tweens.killAll() to stop any running infinite tweens', () => {
+        // Belt-and-braces: collectible + bird tweens use `repeat: -1`.
+        // Phaser typically sweeps scene-scoped tweens on shutdown, but
+        // explicit killAll() makes the teardown deterministic regardless
+        // of internal sweep ordering. The direct-call assertion guards
+        // against a refactor that re-orders the super.shutdown() call
+        // ahead of this cleanup.
+        scene.tweens = { killAll: vi.fn() };
+        scene.time = { removeAllEvents: vi.fn() };
+        scene.stopBackgroundMusic = vi.fn();
+        scene.input = { off: vi.fn(), keyboard: { removeAllKeys: vi.fn() } };
+        // Preserve BaseScene shutdown via a noop spy — the scene binds
+        // prototype methods, so super.shutdown() is the next prototype up.
+        const baseShutdownSpy = vi
+          .spyOn(Object.getPrototypeOf(CloudJumperGameScene.prototype), 'shutdown')
+          .mockImplementation(() => {});
+
+        scene.shutdown();
+
+        expect(scene.tweens.killAll).toHaveBeenCalledTimes(1);
+        baseShutdownSpy.mockRestore();
+      });
+
+      it('calls time.removeAllEvents() to cancel the storm-cloud tint-clear delayedCall', () => {
+        scene.tweens = { killAll: vi.fn() };
+        scene.time = { removeAllEvents: vi.fn() };
+        scene.stopBackgroundMusic = vi.fn();
+        scene.input = { off: vi.fn(), keyboard: { removeAllKeys: vi.fn() } };
+        const baseShutdownSpy = vi
+          .spyOn(Object.getPrototypeOf(CloudJumperGameScene.prototype), 'shutdown')
+          .mockImplementation(() => {});
+
+        scene.shutdown();
+
+        expect(scene.time.removeAllEvents).toHaveBeenCalledTimes(1);
+        baseShutdownSpy.mockRestore();
+      });
+
+      it('still calls super.shutdown() after tween/timer cleanup (pre-existing contract preserved)', () => {
+        scene.tweens = { killAll: vi.fn() };
+        scene.time = { removeAllEvents: vi.fn() };
+        scene.stopBackgroundMusic = vi.fn();
+        scene.input = { off: vi.fn(), keyboard: { removeAllKeys: vi.fn() } };
+        const baseShutdownSpy = vi
+          .spyOn(Object.getPrototypeOf(CloudJumperGameScene.prototype), 'shutdown')
+          .mockImplementation(() => {});
+
+        scene.shutdown();
+
+        expect(baseShutdownSpy).toHaveBeenCalledTimes(1);
+        baseShutdownSpy.mockRestore();
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Sub-block 5: Static source tripwires — lock wiring at text level
+    // so a refactor that deletes the call-site can't silently revive the
+    // leak.
+    // -------------------------------------------------------------------
+    describe('static source contract', () => {
+      it('update() body wires cleanupOffScreenCollectibles()', () => {
+        const src = readSceneSource();
+        const block = src.match(
+          /update\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).toMatch(/this\.cleanupOffScreenCollectibles\(\)/);
+      });
+
+      it('generateContent() while-loop uses the MAX_PER_TICK cap', () => {
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+generateContent\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).toMatch(/CLOUDS\.MAX_PER_TICK/);
+        expect(block![0]).toMatch(/spawned\s*<\s*CLOUDS\.MAX_PER_TICK/);
+      });
+
+      it('shutdown() calls both tweens.killAll() and time.removeAllEvents()', () => {
+        const src = readSceneSource();
+        // Anchor the end at `super.shutdown();` — the final statement of the
+        // method — to avoid matching the inner `if (this.input.keyboard)`
+        // block's closing brace.
+        const block = src.match(
+          /shutdown\s*\(\s*\)\s*:\s*void\s*\{[\s\S]*?super\.shutdown\(\);/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).toMatch(/this\.tweens\.killAll\(\)/);
+        expect(block![0]).toMatch(/this\.time\.removeAllEvents\(\)/);
+      });
+
+      it('cleanupOffScreenCollectibles uses the same < -100 threshold as the cloud/obstacle cleanup', () => {
+        // Symmetry tripwire: the three cleanup paths must all use the
+        // same off-screen threshold so an audit of one applies to all.
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+cleanupOffScreenCollectibles\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).toMatch(/item\.x\s*<\s*-100/);
+        expect(block![0]).toMatch(/item\.destroy\(\)/);
+      });
+
+      it('update() exposes cloudsAlive / collectiblesAlive / obstaclesAlive for freeze diagnostics', () => {
+        // These keys are the diagnostic surface for a future freeze
+        // investigation — a runaway accumulation shows up here before it
+        // becomes a visible freeze. Losing them silently would blind
+        // future R88+ perf-work.
+        const src = readSceneSource();
+        const block = src.match(
+          /update\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).toMatch(/cloudsAlive\s*:/);
+        expect(block![0]).toMatch(/collectiblesAlive\s*:/);
+        expect(block![0]).toMatch(/obstaclesAlive\s*:/);
       });
     });
   });
