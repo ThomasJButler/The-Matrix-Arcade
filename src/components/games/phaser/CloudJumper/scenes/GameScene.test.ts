@@ -2443,4 +2443,271 @@ describe('CloudJumperGameScene', () => {
       });
     });
   });
+
+  // =========================================================================
+  // R87.C1+ safety-net — canJump write-site isolation + cross-method gate
+  // integrity + C4/C5 SFX file-scope isolation (pre-Tom-tick)
+  //
+  // Lineage: R87.RH1+ item 2 (`isTrackComplete` write-site isolation) +
+  // R87.AC1+ reset-isolation inverse audits, adapted for the single-jump
+  // gate. The existing R87.C1 static-source block already locks three
+  // things inside the gate's primary call-sites: the `!this.canJump`
+  // early-return in `jump()`, the `= false` consume inside `jump()`, and
+  // the `= true` arm inside `handleCloudCollision` (plus a count-check of
+  // exactly 1 `= true` write). That covers the gate's INTERIOR — but
+  // leaves two refactor risks unlocked that map directly onto Tom's
+  // original C1 brief ("only jump on cloud contact"):
+  //
+  //   1. A tidy-up that extracts the arm into a helper (e.g.
+  //      `armJumpGate()`) and calls it from `enforceCeiling` or
+  //      `handleHorizontalMovement` — both plausible targets since C2/C3
+  //      added them post-gate. A future dev might think "re-arm when
+  //      player is stationary / clamped at the ceiling" is a feature. The
+  //      existing count-check would fail, but the failure message
+  //      ("expected 2, got 1") would not surface the regression intent.
+  //      Explicit negative assertions on each sibling method body pin the
+  //      rule to the code that could break it.
+  //
+  //   2. A refactor that deletes the `create()`-time `this.canJump =
+  //      false` reset (thinking "the class-field initialiser already sets
+  //      it") would make restart-after-game-over start with `canJump`
+  //      still armed from the prior session — infinite-jump on the first
+  //      frame of the next run. The existing tests don't cover restart;
+  //      the `= false`-count check would drop from 2 to 1 and still pass
+  //      if both writes happened to land inside `jump()`. Locking exact
+  //      per-call-site counts rules this out.
+  //
+  // Family 4 extends the audit to C4/C5's SFX cross-method isolation. The
+  // existing C4 tests lock `playerDeath` uses `CLOUD_JUMPER_DEATH`; C5
+  // locks `handleCloudCollision` doesn't use `PLATFORM_BREAK`; but there
+  // is no file-scope audit proving those keys are absent from EVERY other
+  // method body. A refactor that moves the shatter to `updateClouds`
+  // (when the alpha tween completes) or a new "cloud decay" helper would
+  // slip past C5's scope-specific regex. File-scope locks close that gap.
+  // =========================================================================
+  describe('R87.C1+ safety-net — canJump write-site isolation + cross-method gate integrity (pre-Tom-tick)', () => {
+    function readSceneSource(): string {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require('fs') as typeof import('fs');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require('path') as typeof import('path');
+      return fs.readFileSync(path.join(__dirname, 'GameScene.ts'), 'utf8');
+    }
+
+    // -------------------------------------------------------------------
+    // Family 1: canJump write-site isolation (mirror of RH1+ item 2)
+    // -------------------------------------------------------------------
+    describe('Family 1 — canJump write-site isolation', () => {
+      it('exactly one `private canJump = false` class-field initialiser', () => {
+        // A second class-field declaration would be a syntax error in
+        // TS strict; a change to `public` would break encapsulation but
+        // pass runtime. Lock visibility + default literal so the
+        // field's identity is stable against "clean up state" refactors.
+        const src = readSceneSource();
+        const matches = src.match(/private\s+canJump\s*=\s*false/g) ?? [];
+        expect(matches.length).toBe(1);
+      });
+
+      it('exactly two runtime `this.canJump = false` assignments (create-reset + jump-consume)', () => {
+        // One lives in create() alongside other state resets — so a
+        // restart-from-game-over lands with canJump=false (player must
+        // touch a cloud before their first jump, same as a fresh
+        // session). The other lives in jump() consuming the gate.
+        // A drop to 1 indicates one path was deleted: either restart
+        // infinite-jumps, or jump() stops consuming the gate.
+        const src = readSceneSource();
+        const matches = src.match(/this\.canJump\s*=\s*false/g) ?? [];
+        expect(matches.length).toBe(2);
+      });
+
+      it('exactly one `this.canJump = true` write-site (handleCloudCollision only)', () => {
+        // The R87.C1 block asserts this via its own static audit; keeping
+        // it inline here makes the isolation family self-contained — if
+        // the C1 block is ever refactored away, this family still locks
+        // the invariant.
+        const src = readSceneSource();
+        const matches = src.match(/this\.canJump\s*=\s*true/g) ?? [];
+        expect(matches.length).toBe(1);
+      });
+
+      it('exactly two `this.canJump` reads (jump() gate check + exposeTestState)', () => {
+        // Read-site count catches a refactor that adds a new consumer
+        // (e.g. a "near-cloud" lenient jump helper) bypassing jump()'s
+        // single consume path. Current reads: `if (!this.canJump)` in
+        // jump() + `canJump: this.canJump,` in exposeTestState. The
+        // `(?!\s*=)` negative lookahead excludes the three write sites
+        // so this audit isolates reads.
+        const src = readSceneSource();
+        const reads = src.match(/this\.canJump(?!\s*=)/g) ?? [];
+        expect(reads.length).toBe(2);
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Family 2: Cross-method gate integrity — no sibling method re-arms
+    // -------------------------------------------------------------------
+    describe('Family 2 — cross-method gate integrity (no sibling re-arms canJump)', () => {
+      it('enforceCeiling body does NOT contain `this.canJump = true`', () => {
+        // Tom's original C2 complaint was "jumps too hard" — the clamp
+        // pulls the player back in-canvas. If a future tidy-up re-arms
+        // the gate when the clamp fires (thinking "clamp = player
+        // landed on ceiling"), the mid-air infinite-jump bug that C1
+        // fixed comes back for any player who chains enough high-cloud
+        // jumps to trip the clamp.
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+enforceCeiling\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).not.toMatch(/this\.canJump\s*=\s*true/);
+      });
+
+      it('handleHorizontalMovement body does NOT contain `this.canJump = true`', () => {
+        // C3's braking / drag-stop behaviour is lateral only — it must
+        // never re-arm the vertical gate. A plausible "QoL" bug: "when
+        // player stops moving, re-arm jump" — feels like a player win
+        // but silently breaks C1's cloud-contact contract.
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+handleHorizontalMovement\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).not.toMatch(/this\.canJump\s*=\s*true/);
+      });
+
+      it('update() body does NOT contain a direct `this.canJump = true` write', () => {
+        // update() dispatches to handleCloudCollision via the physics
+        // collider callback wired in setupCollisions. It must NOT
+        // bypass that route with a direct re-arm each tick — that
+        // would defeat the gate entirely.
+        const src = readSceneSource();
+        const block = src.match(
+          /\bupdate\s*\(\s*time\s*:\s*number\s*,\s*delta\s*:\s*number\s*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).not.toMatch(/this\.canJump\s*=\s*true/);
+      });
+
+      it('checkGameOver body does NOT contain `this.canJump = true`', () => {
+        // Death path cleanup should not touch the gate. A refactor
+        // that resets state on game-over could inadvertently flip
+        // canJump=true; combined with `isGameOver`'s guard in jump()
+        // this wouldn't visibly break anything — until someone edits
+        // the guard, at which point the bug is latent.
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+checkGameOver\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).not.toMatch(/this\.canJump\s*=\s*true/);
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Family 3: Behaviour preservation — sibling invocations preserve state
+    // -------------------------------------------------------------------
+    describe('Family 3 — sibling-method invocations preserve canJump state', () => {
+      it('enforceCeiling preserves canJump=false (below-ceiling no-op path)', () => {
+        const s = createTestScene();
+        s.canJump = false;
+        s.player.y = GAME_CONFIG.PLAYER.CEILING_Y + 100;
+        s.enforceCeiling();
+        expect(s.canJump).toBe(false);
+      });
+
+      it('enforceCeiling preserves canJump=true (below-ceiling no-op path)', () => {
+        const s = createTestScene();
+        s.canJump = true;
+        s.player.y = GAME_CONFIG.PLAYER.CEILING_Y + 100;
+        s.enforceCeiling();
+        expect(s.canJump).toBe(true);
+      });
+
+      it('enforceCeiling preserves canJump=false when the clamp actually fires (above-ceiling)', () => {
+        // The critical C1+C2 composition test: even when the ceiling
+        // clamp fires and snaps the player back into the canvas, the
+        // gate stays un-armed. This is the exact scenario that would
+        // revive infinite-jump for players who chain enough manual
+        // jumps to escape the canvas top.
+        const s = createTestScene();
+        s.canJump = false;
+        s.player.y = GAME_CONFIG.PLAYER.CEILING_Y - 10;
+        s.player.body.velocity.y = -200;
+        s.enforceCeiling();
+        expect(s.player.y).toBe(GAME_CONFIG.PLAYER.CEILING_Y);
+        expect(s.canJump).toBe(false);
+      });
+
+      it('handleHorizontalMovement preserves canJump=false (LEFT key held)', () => {
+        const s = createTestScene();
+        s.canJump = false;
+        s.moveLeftKey = { isDown: true };
+        s.moveLeftKeyA = { isDown: false };
+        s.moveRightKey = { isDown: false };
+        s.moveRightKeyD = { isDown: false };
+        s.handleHorizontalMovement();
+        expect(s.canJump).toBe(false);
+      });
+
+      it('handleHorizontalMovement preserves canJump=false on drag path (no key held)', () => {
+        // C3's drag-based stop: when no key is held, the function
+        // leaves velocity to Phaser's drag. Must not accidentally
+        // re-arm the vertical gate as part of the player-slowing-down
+        // state change.
+        const s = createTestScene();
+        s.canJump = false;
+        s.moveLeftKey = { isDown: false };
+        s.moveLeftKeyA = { isDown: false };
+        s.moveRightKey = { isDown: false };
+        s.moveRightKeyD = { isDown: false };
+        s.handleHorizontalMovement();
+        expect(s.canJump).toBe(false);
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Family 4: C4/C5 SFX cross-method isolation (file-scope audit)
+    // -------------------------------------------------------------------
+    describe('Family 4 — C4/C5 SFX cross-method isolation (file-scope)', () => {
+      it('playSound(SOUND_KEYS.PLATFORM_BREAK) is absent from every method body', () => {
+        // Existing R87.C5 block locks the disappearing-cloud branch of
+        // handleCloudCollision only. A refactor could move the shatter
+        // call to updateClouds (on alpha-tween onComplete) or to a new
+        // "cloud decay" helper — C5's scope-specific regex would miss
+        // either move. File-scope lock closes that gap. Prose comments
+        // referencing PLATFORM_BREAK are fine (the regex only matches
+        // the `playSound(…)` call expression).
+        const src = readSceneSource();
+        expect(src).not.toMatch(/playSound\s*\(\s*SOUND_KEYS\.PLATFORM_BREAK\s*\)/);
+        expect(src).not.toMatch(/playSound\s*\(\s*['"]platformBreak['"]/);
+      });
+
+      it('playSound(SOUND_KEYS.GAME_OVER) is absent from every method body', () => {
+        // Existing R87.C4 block locks playerDeath only. Tom's
+        // "harrowing" complaint was about the explosion SFX routed
+        // through SOUND_KEYS.GAME_OVER. If a future refactor moves the
+        // key into a shared "finalise game" helper (e.g. a BaseScene
+        // override), C4's scope-specific test wouldn't catch it.
+        // File-scope audit guarantees the key is completely absent
+        // from CloudJumper's runtime path. The `playSound(…)` wrapper
+        // regex ignores the SOUND_KEYS import line and prose comments.
+        const src = readSceneSource();
+        expect(src).not.toMatch(/playSound\s*\(\s*SOUND_KEYS\.GAME_OVER\s*\)/);
+        expect(src).not.toMatch(/playSound\s*\(\s*['"]gameOver['"]/);
+      });
+
+      it('playSound(SOUND_KEYS.CLOUD_JUMPER_DEATH) appears exactly once (file-scope usage anchor)', () => {
+        // Complementary positive lock: the C4 replacement SFX is wired
+        // at exactly one call-site (in playerDeath). A duplicate — for
+        // example, a second reference added in a cleanup helper —
+        // would play the soft arpeggio twice per death, restacking the
+        // envelope Tom approved in C4. Locking the count here + C4's
+        // scope-specific positive test together pin both identity and
+        // multiplicity.
+        const src = readSceneSource();
+        const matches = src.match(/playSound\s*\(\s*SOUND_KEYS\.CLOUD_JUMPER_DEATH\s*\)/g) ?? [];
+        expect(matches.length).toBe(1);
+      });
+    });
+  });
 });
