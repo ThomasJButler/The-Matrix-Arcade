@@ -275,4 +275,8 @@ export const SOUND_KEYS = {
   DOT_EAT: 'dotEat',
   SPECIAL_ABILITY: 'specialAbility',
   UNPLUG: 'unplug',
+  // R87.C4: CloudJumper-specific death SFX. Procedural-only (no
+  // AUDIO_FILE_MAP entry) so the harsh sfx_explosion_emp.mp3 that
+  // GAME_OVER routed to never plays on the CloudJumper death path.
+  CLOUD_JUMPER_DEATH: 'cloudJumperDeath',
 } as const;

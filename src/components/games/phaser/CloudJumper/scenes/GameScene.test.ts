@@ -1356,4 +1356,150 @@ describe('CloudJumperGameScene', () => {
       });
     });
   });
+
+  // =======================================================================
+  // R87.C4 — Death SFX swap (soft procedural arpeggio replaces harrowing
+  // sfx_explosion_emp.mp3 that SOUND_KEYS.GAME_OVER routed to). Tom's
+  // 2026-04-22 playtest: "current sound is harrowing lol".
+  //
+  // Contract:
+  // 1) The library contains a procedural `cloudJumperDeath` envelope.
+  // 2) `playerDeath()` fires exactly that key exactly once on the death
+  //    path — never falls back to GAME_OVER.
+  // 3) The fall-path fires FALL once (thematic elevator drop stays) then
+  //    CLOUD_JUMPER_DEATH exactly once via playerDeath; no duplicate death
+  //    SFX, no GAME_OVER leak.
+  // =======================================================================
+  describe('R87.C4 — Death SFX swap (procedural cloudJumperDeath)', () => {
+    function readSceneSource(): string {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require('fs') as typeof import('fs');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require('path') as typeof import('path');
+      return fs.readFileSync(path.join(__dirname, 'GameScene.ts'), 'utf8');
+    }
+
+    function readSoundSystemSource(): string {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require('fs') as typeof import('fs');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require('path') as typeof import('path');
+      return fs.readFileSync(
+        path.join(__dirname, '..', '..', '..', '..', '..', 'hooks', 'useSoundSystem.ts'),
+        'utf8'
+      );
+    }
+
+    // ---------------------------------------------------------------------
+    // Sub-block 1: Sound library contract (procedural-only)
+    // ---------------------------------------------------------------------
+    describe('cloudJumperDeath library entry', () => {
+      it('SOUND_KEYS.CLOUD_JUMPER_DEATH === "cloudJumperDeath"', async () => {
+        const { SOUND_KEYS } = await import('../../../../../lib/phaser/types');
+        expect(SOUND_KEYS.CLOUD_JUMPER_DEATH).toBe('cloudJumperDeath');
+      });
+
+      it('procedural envelope is defined in SOUND_LIBRARY', () => {
+        // Static source tripwire: a refactor that renames or deletes the
+        // entry silently breaks the death path (playSound falls back to a
+        // no-op when the key is missing). This anchors the shape.
+        const src = readSoundSystemSource();
+        expect(src).toMatch(/cloudJumperDeath:\s*\{/);
+        // Soft sine descent — the core reason Tom called the old one harrowing.
+        expect(src).toMatch(/cloudJumperDeath:\s*\{[\s\S]*?oscillatorType:\s*'sine'/);
+        // Lowpass + reverb cushion the tail so the death registers gently.
+        expect(src).toMatch(/cloudJumperDeath:\s*\{[\s\S]*?filterType:\s*'lowpass'/);
+        expect(src).toMatch(/cloudJumperDeath:\s*\{[\s\S]*?reverb:\s*true/);
+      });
+
+      it('cloudJumperDeath is procedural-only (NOT in AUDIO_FILE_MAP)', () => {
+        // Critical: if a future maintainer adds a `cloudJumperDeath:` key
+        // to AUDIO_FILE_MAP the soft procedural arpeggio is silently replaced
+        // by whatever MP3 they chose — reviving Tom's original complaint.
+        // This is the direct safeguard.
+        const src = readSoundSystemSource();
+        const audioMapMatch = src.match(/AUDIO_FILE_MAP:\s*Record[^=]*=\s*\{[\s\S]*?\n\};/);
+        expect(audioMapMatch).not.toBeNull();
+        expect(audioMapMatch![0]).not.toMatch(/cloudJumperDeath\s*:/);
+      });
+    });
+
+    // ---------------------------------------------------------------------
+    // Sub-block 2: playerDeath SFX routing
+    // ---------------------------------------------------------------------
+    describe('playerDeath SFX invocation', () => {
+      let scene: any;
+      beforeEach(() => {
+        scene = createTestScene();
+      });
+
+      it('fires cloudJumperDeath exactly once', () => {
+        scene.playerDeath();
+        const calls = (scene.playSound as any).mock.calls.filter(
+          (c: any[]) => c[0] === 'cloudJumperDeath'
+        );
+        expect(calls.length).toBe(1);
+      });
+
+      it('does NOT fire SOUND_KEYS.GAME_OVER on death', () => {
+        // Direct anti-regression against the pre-R87.C4 code.
+        scene.playerDeath();
+        const calls = (scene.playSound as any).mock.calls.filter(
+          (c: any[]) => c[0] === 'gameOver'
+        );
+        expect(calls.length).toBe(0);
+      });
+
+      it('does not fire cloudJumperDeath on re-entry (isGameOver guard)', () => {
+        scene.isGameOver = true;
+        scene.playerDeath();
+        const calls = (scene.playSound as any).mock.calls.filter(
+          (c: any[]) => c[0] === 'cloudJumperDeath'
+        );
+        expect(calls.length).toBe(0);
+      });
+
+      it('cloudJumperDeath fires BEFORE the death tween is added', () => {
+        // Ordering lock: the player needs to hear the soft descent as the
+        // tween starts, not after it resolves. If a future refactor hoists
+        // the tween before the playSound call the beat feels disconnected.
+        const events: string[] = [];
+        scene.playSound = vi.fn((key: string) => events.push(`sfx:${key}`));
+        scene.tweens.add = vi.fn(() => events.push('tween'));
+        scene.playerDeath();
+        const sfxIdx = events.indexOf('sfx:cloudJumperDeath');
+        const tweenIdx = events.indexOf('tween');
+        expect(sfxIdx).toBeGreaterThanOrEqual(0);
+        expect(tweenIdx).toBeGreaterThanOrEqual(0);
+        expect(sfxIdx).toBeLessThan(tweenIdx);
+      });
+    });
+
+    // ---------------------------------------------------------------------
+    // Sub-block 3: Static source tripwires
+    // ---------------------------------------------------------------------
+    describe('GameScene static source contract', () => {
+      it('playerDeath body references SOUND_KEYS.CLOUD_JUMPER_DEATH', () => {
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+playerDeath\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\s{2}shutdown\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).toMatch(/SOUND_KEYS\.CLOUD_JUMPER_DEATH/);
+      });
+
+      it('playerDeath body does NOT reference SOUND_KEYS.GAME_OVER', () => {
+        // Explicit tripwire against Tom's harrowing sound sneaking back in.
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+playerDeath\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\s{2}shutdown\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).not.toMatch(/SOUND_KEYS\.GAME_OVER/);
+        // Also catches a literal-string regression where someone bypasses
+        // the SOUND_KEYS constant and types 'gameOver' directly.
+        expect(block![0]).not.toMatch(/playSound\s*\(\s*['"]gameOver['"]/);
+      });
+    });
+  });
 });
