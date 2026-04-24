@@ -556,7 +556,11 @@ export class CloudJumperGameScene extends BaseScene {
     if (this.isGameOver) return;
     this.isGameOver = true;
 
-    this.playSound(SOUND_KEYS.GAME_OVER);
+    // R87.C4: Soft procedural sine-arpeggio via CLOUD_JUMPER_DEATH replaces
+    // the previous GAME_OVER route (sfx_explosion_emp.mp3, Tom: "harrowing
+    // lol"). The new envelope fades over ~500 ms so players hear a melancholic
+    // descent rather than a punitive explosion.
+    this.playSound(SOUND_KEYS.CLOUD_JUMPER_DEATH);
     this.cameras.main.shake(200, 0.012);
     this.cameras.main.flash(120, 255, 0, 0, false, undefined, undefined, 0.25);
 

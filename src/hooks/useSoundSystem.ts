@@ -381,6 +381,30 @@ const SOUND_LIBRARY: Record<string, SoundEffect> = {
     filterFreq: 1200
   },
 
+  // R87.C4: CloudJumper death SFX replacement. Tom's 2026-04-22 playtest
+  // flagged the previous SOUND_KEYS.GAME_OVER route (sfx_explosion_emp.mp3)
+  // as "harrowing" — the EMP-blast MP3 read as punitive rather than
+  // melancholic for a soft-sky falling-death beat. Procedural-only (absent
+  // from AUDIO_FILE_MAP) so the harsh MP3 can never sneak back in via a
+  // preload. Sine-wave sweep 440→220 Hz (one-octave descent, A4→A3) with a
+  // long 0.35 s release and lowpass at 600 Hz reads as a gentle "lost
+  // contact with the clouds" sigh rather than a game-over explosion. Reverb
+  // cushions the tail so the player has time to register the death before
+  // the GameOverScene transition.
+  cloudJumperDeath: {
+    type: 'cloudJumperDeath',
+    frequency: { start: 440, end: 220 },
+    oscillatorType: 'sine',
+    duration: 0.5,
+    attack: 0.03,
+    decay: 0.1,
+    sustain: 0.2,
+    release: 0.35,
+    filterType: 'lowpass',
+    filterFreq: 600,
+    reverb: true
+  },
+
   // Matrix Frogger (synthesis fallbacks while audio files load)
   froggerDeath: {
     type: 'froggerDeath',
