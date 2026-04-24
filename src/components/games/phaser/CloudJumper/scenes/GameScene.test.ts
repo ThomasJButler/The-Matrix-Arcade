@@ -2710,4 +2710,297 @@ describe('CloudJumperGameScene', () => {
       });
     });
   });
+
+  // =========================================================================
+  // R87.C6+ safety-net — freeze-defence wiring isolation + ordering contracts
+  // (pre-Tom-tick)
+  //
+  // Lineage: R87.K1+ body-ordering + call-site-isolation playbook, now
+  // applied to C6's three freeze-hunt defences (collectible cleanup +
+  // generateContent cap + shutdown hardening). The existing R87.C6 static-
+  // source block locks presence of each wiring idiom at the scene level —
+  // `cleanupOffScreenCollectibles()` lives in update(), `MAX_PER_TICK`
+  // gates the while-condition, `tweens.killAll()` + `time.removeAllEvents()`
+  // run before `super.shutdown()`, and the three `…Alive:` diagnostic keys
+  // are exposed. What remains unlocked are four structural scaffolds
+  // beneath those presence checks that a tidy-up could silently violate:
+  //
+  //   1. **Shutdown body positional ordering** — C6 static asserts both
+  //      teardown calls exist and that `super.shutdown()` terminates the
+  //      method, but not the relative ordering: `removeAllKeys(true)` →
+  //      `tweens.killAll()` → `time.removeAllEvents()` → `super.shutdown()`.
+  //      A refactor that alphabetises or re-groups teardown calls could
+  //      kill tweens BEFORE input teardown (leaving live handlers firing
+  //      into dead tweens), or worse, hoist `super.shutdown()` to the top
+  //      (losing access to `this.tweens` / `this.time` after BaseScene
+  //      resets them). Positional `indexOf` locks prevent both shapes.
+  //
+  //   2. **Call-site uniqueness for teardown + cleanup idioms** — C6
+  //      locks presence inside shutdown() and update() respectively but
+  //      leaves file-scope multiplicity unlocked. A defensive-programming
+  //      pattern could duplicate `tweens.killAll()` into `resetScene()`
+  //      or a pause handler — which would interrupt the opening-beat
+  //      tween and C3's future juice tweens mid-play. Similarly,
+  //      duplicating `cleanupOffScreenCollectibles()` into
+  //      `updateClouds()` adds O(n) asymmetry that breaks the
+  //      "clouds = cleaned here, collectibles = cleaned there" audit.
+  //      File-scope count-of-1 locks close that gap.
+  //
+  //   3. **generateContent `spawned` counter structural integrity** — the
+  //      C6 static test asserts `spawned < CLOUDS.MAX_PER_TICK` appears
+  //      in the while condition, but not that:
+  //        • `let spawned = 0;` is declared BEFORE the loop (a move into
+  //          the loop body would reset the counter every iteration,
+  //          defeating the cap).
+  //        • `spawned++` is INSIDE the loop body (a refactor that
+  //          hoists the increment outside would fire once total, cap
+  //          takes effect from iteration 2 onward — still capped but
+  //          off-by-one and surprising during debugging).
+  //        • The `spawned` identifier isn't shadowed by an inner
+  //          `let spawned` (plausible via a helper extraction).
+  //      Positional + multiplicity locks cover all three shapes.
+  //
+  //   4. **update() cleanup call-ordering + exposeTestState diagnostic
+  //      assignment contract** — C6 asserts the `…Alive:` keys exist as
+  //      property names, but not that they resolve to the defensive
+  //      `?.getChildren().length ?? 0` idiom. A refactor that simplifies
+  //      them to `this.clouds.getChildren().length` (no nullish
+  //      coalescing, no optional chaining) reintroduces the original
+  //      init-order fragility (exposeTestState can fire on the first
+  //      frame before physics groups are fully populated). Exact-literal
+  //      locks preserve the defensive reads.
+  // =========================================================================
+  describe('R87.C6+ safety-net — freeze-defence wiring isolation + ordering contracts (pre-Tom-tick)', () => {
+    function readSceneSource(): string {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require('fs') as typeof import('fs');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require('path') as typeof import('path');
+      return fs.readFileSync(path.join(__dirname, 'GameScene.ts'), 'utf8');
+    }
+
+    // -------------------------------------------------------------------
+    // Family 1: Shutdown body positional ordering
+    // -------------------------------------------------------------------
+    describe('Family 1 — shutdown body teardown ordering', () => {
+      it('removeAllKeys(true) appears BEFORE tweens.killAll() (input teardown first)', () => {
+        // Input teardown must precede tween cleanup so any queued input
+        // handler that would trigger a tween cannot fire into a freshly
+        // emptied tween pool. A refactor that re-groups teardown calls
+        // alphabetically or "by subsystem" would break this.
+        const src = readSceneSource();
+        const removeKeysIdx = src.indexOf('this.input.keyboard.removeAllKeys(true)');
+        const killAllIdx = src.indexOf('this.tweens.killAll()');
+        expect(removeKeysIdx).toBeGreaterThan(-1);
+        expect(killAllIdx).toBeGreaterThan(-1);
+        expect(removeKeysIdx).toBeLessThan(killAllIdx);
+      });
+
+      it('tweens.killAll() appears BEFORE time.removeAllEvents() (tween cleanup first)', () => {
+        // Tween kill first so any timer-fired tween target is already
+        // dead before the timer itself is removed — prevents a narrow
+        // window where a delayedCall's onComplete enqueues a new tween
+        // AFTER killAll() but BEFORE removeAllEvents() fires.
+        const src = readSceneSource();
+        const killAllIdx = src.indexOf('this.tweens.killAll()');
+        const removeEventsIdx = src.indexOf('this.time.removeAllEvents()');
+        expect(killAllIdx).toBeGreaterThan(-1);
+        expect(removeEventsIdx).toBeGreaterThan(-1);
+        expect(killAllIdx).toBeLessThan(removeEventsIdx);
+      });
+
+      it('time.removeAllEvents() appears BEFORE super.shutdown() (super-call last)', () => {
+        // `super.shutdown()` in BaseScene likely nulls out `this.time`
+        // and `this.tweens` references. Any teardown call after it
+        // would hit stale/undefined references. The C6 static test
+        // asserts both appear inside the shutdown regex block (ending
+        // at `super.shutdown();`), but not their order relative to the
+        // super call.
+        const src = readSceneSource();
+        const removeEventsIdx = src.indexOf('this.time.removeAllEvents()');
+        const superIdx = src.indexOf('super.shutdown()');
+        expect(removeEventsIdx).toBeGreaterThan(-1);
+        expect(superIdx).toBeGreaterThan(-1);
+        expect(removeEventsIdx).toBeLessThan(superIdx);
+      });
+
+      it('super.shutdown() appears exactly once file-scope', () => {
+        // Uniqueness guard against a refactor that adds a duplicate
+        // super call — e.g. an extracted `teardownPhaserResources()`
+        // helper that ALSO calls super, producing a double-teardown
+        // crash on scene restart. Only one super call should ever fire
+        // per shutdown.
+        const src = readSceneSource();
+        const matches = src.match(/super\.shutdown\(\)/g) ?? [];
+        expect(matches.length).toBe(1);
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Family 2: Call-site uniqueness — teardown + cleanup idioms
+    // -------------------------------------------------------------------
+    describe('Family 2 — freeze-defence call-site isolation (file-scope)', () => {
+      it('this.tweens.killAll() appears exactly once file-scope', () => {
+        // A duplicate in resetScene(), pause(), or a "defensive" helper
+        // would kill gameplay tweens (collectible yoyo, bird flap,
+        // storm-cloud tint) mid-play. The teardown contract is
+        // shutdown-only. Regex excludes doc-comment prose references
+        // by matching the call-expression form `this.tweens.killAll()`
+        // exactly.
+        const src = readSceneSource();
+        const matches = src.match(/this\.tweens\.killAll\(\)/g) ?? [];
+        expect(matches.length).toBe(1);
+      });
+
+      it('this.time.removeAllEvents() appears exactly once file-scope', () => {
+        // Mirror lock — same shape, same risk. A duplicate would
+        // cancel the storm-cloud tint-clear delayedCall (or any future
+        // delayedCall) during normal gameplay.
+        const src = readSceneSource();
+        const matches = src.match(/this\.time\.removeAllEvents\(\)/g) ?? [];
+        expect(matches.length).toBe(1);
+      });
+
+      it('this.cleanupOffScreenCollectibles() appears exactly once file-scope', () => {
+        // The cleanup belongs in update() alongside the cloud + obstacle
+        // symmetric cleanups. A duplicate inside updateClouds() or
+        // updateObstacles() would double-iterate the collectibles group
+        // per frame, re-introducing the performance cost C6 was meant
+        // to manage on long sessions.
+        const src = readSceneSource();
+        const matches = src.match(/this\.cleanupOffScreenCollectibles\(\)/g) ?? [];
+        expect(matches.length).toBe(1);
+      });
+
+      it('cleanupOffScreenCollectibles body does NOT use this.collectibles.clear(', () => {
+        // The C6 static test locks `item.destroy()` presence but not
+        // the absence of a `clear(true, true)` bulk-destroy. A refactor
+        // that "tidies up" the per-item loop with
+        // `this.collectibles.clear(true, true)` would blow away ALL
+        // collectibles — on-screen included — on every frame.
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+cleanupOffScreenCollectibles\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).not.toMatch(/this\.collectibles\.clear\s*\(/);
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Family 3: generateContent `spawned` counter integrity
+    // -------------------------------------------------------------------
+    describe('Family 3 — generateContent spawned counter structural integrity', () => {
+      it('let spawned = 0 is declared BEFORE the while-loop (counter lives across iterations)', () => {
+        // A move into the loop body resets the counter every iteration,
+        // defeating the cap. The declaration must live in the outer
+        // method scope so the condition `spawned < CLOUDS.MAX_PER_TICK`
+        // refers to a running total.
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+generateContent\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        const body = block![0];
+        const declIdx = body.indexOf('let spawned = 0;');
+        const whileIdx = body.indexOf('while (this.lastCloudX');
+        expect(declIdx).toBeGreaterThan(-1);
+        expect(whileIdx).toBeGreaterThan(-1);
+        expect(declIdx).toBeLessThan(whileIdx);
+      });
+
+      it('spawned++ appears inside the while-loop body (increment per iteration)', () => {
+        // The cap relies on `spawned++` firing each iteration. A
+        // refactor that hoists the increment outside the loop makes
+        // the cap fire once total (off-by-one), or forgets the
+        // increment entirely (cap never fires, loop becomes
+        // unbounded again).
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+generateContent\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        const body = block![0];
+        const whileIdx = body.indexOf('while (this.lastCloudX');
+        const incrIdx = body.indexOf('spawned++');
+        expect(whileIdx).toBeGreaterThan(-1);
+        expect(incrIdx).toBeGreaterThan(-1);
+        expect(incrIdx).toBeGreaterThan(whileIdx);
+      });
+
+      it('let spawned is declared exactly once in generateContent body (no inner shadowing)', () => {
+        // A helper extraction that introduces its own `let spawned`
+        // would shadow the outer counter, detaching the cap from the
+        // cap condition. One-and-only-one declaration in the method
+        // body rules this out.
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+generateContent\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        const matches = block![0].match(/let\s+spawned\b/g) ?? [];
+        expect(matches.length).toBe(1);
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Family 4: update() cleanup ordering + exposeTestState diagnostics
+    // -------------------------------------------------------------------
+    describe('Family 4 — update() cleanup ordering + diagnostic-assignment contract', () => {
+      it('cleanupOffScreenCollectibles() fires AFTER updateObstacles in update()', () => {
+        // The three symmetric cleanups (clouds via updateClouds,
+        // obstacles via updateObstacles, collectibles via the C6
+        // helper) share the <-100 threshold so they all run during the
+        // post-scroll phase. Keeping them together in the same frame-
+        // section means a future freeze audit can reason about "all
+        // cleanups fire at T" rather than hunting call-sites.
+        const src = readSceneSource();
+        const block = src.match(
+          /\bupdate\s*\(\s*time\s*:\s*number\s*,\s*delta\s*:\s*number\s*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        const body = block![0];
+        const obstaclesIdx = body.indexOf('this.updateObstacles(');
+        const cleanupIdx = body.indexOf('this.cleanupOffScreenCollectibles()');
+        expect(obstaclesIdx).toBeGreaterThan(-1);
+        expect(cleanupIdx).toBeGreaterThan(-1);
+        expect(cleanupIdx).toBeGreaterThan(obstaclesIdx);
+      });
+
+      it('cleanupOffScreenCollectibles() fires BEFORE handleHorizontalMovement in update()', () => {
+        // Running cleanup before input-driven movement means the
+        // collectibles group's frame-state is stable when the player's
+        // position updates — a deterministic ordering for physics
+        // overlap tests and any future E2E that asserts collectible
+        // counts under specific movement patterns.
+        const src = readSceneSource();
+        const block = src.match(
+          /\bupdate\s*\(\s*time\s*:\s*number\s*,\s*delta\s*:\s*number\s*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        const body = block![0];
+        const cleanupIdx = body.indexOf('this.cleanupOffScreenCollectibles()');
+        const movementIdx = body.indexOf('this.handleHorizontalMovement()');
+        expect(cleanupIdx).toBeGreaterThan(-1);
+        expect(movementIdx).toBeGreaterThan(-1);
+        expect(cleanupIdx).toBeLessThan(movementIdx);
+      });
+
+      it('exposeTestState payload uses defensive optional-chain reads for all three diagnostic keys', () => {
+        // The `?.getChildren().length ?? 0` idiom matters because
+        // exposeTestState fires on the first frame of update(), which
+        // can precede full physics-group initialisation on
+        // restart-heavy sessions. A refactor that simplifies to
+        // `this.clouds.getChildren().length` (no optional chaining)
+        // would throw on first-frame exposure; `?? 0` keeps the
+        // payload shape stable even if the group isn't fully wired.
+        // The existing C6 test only locks the property-name presence;
+        // this one locks the defensive read idiom too.
+        const src = readSceneSource();
+        expect(src).toMatch(/cloudsAlive:\s*this\.clouds\?\.getChildren\(\)\.length\s*\?\?\s*0/);
+        expect(src).toMatch(/collectiblesAlive:\s*this\.collectibles\?\.getChildren\(\)\.length\s*\?\?\s*0/);
+        expect(src).toMatch(/obstaclesAlive:\s*this\.obstacles\?\.getChildren\(\)\.length\s*\?\?\s*0/);
+      });
+    });
+  });
 });
