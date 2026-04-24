@@ -2024,4 +2024,423 @@ describe('CloudJumperGameScene', () => {
       });
     });
   });
+
+  // =========================================================================
+  // R87.C7 — Unit-test coverage refresh (closes Stream C)
+  //
+  // Follows the F7/N4/A3/R4/K9 playbook: pure tripwires on feel dials,
+  // payload contracts, and wiring points surfaced during C1-C6 that a
+  // future refactor could silently drift without breaking a behaviour
+  // test. No production code touched — these are anti-regression rivets.
+  //
+  // Five micro-blocks covering the gaps left by C1-C6:
+  //
+  //  1. playerDeath juice + tween motion literals — extends C4 so a
+  //     "simplify the death helper" refactor can't silently drop the
+  //     camera shake (200, 0.012), red flash (255,0,0,…,0.25), +100
+  //     fall-through motion, or 600ms duration. All degrade the
+  //     soft-sky death feel Tom signed off on.
+  //  2. playerDeath onComplete ordering + 6-arg gameOver payload —
+  //     mirrors the R86.N4+/F6+++ pattern: lock reportScore-before-
+  //     gameOver, highScore-promoted-before-reportScore, and the exact
+  //     6-arg payload shape (score / "Distance: Xm" / highScore /
+  //     3-row stats / level / duration). R85.G1 shipped the scoreboard
+  //     regression fix on this exact shape; payload drift would revive it.
+  //  3. Single-line feel dials + thresholds — JUMP_COOLDOWN_MS=300 (C1
+  //     belt-and-braces cap), checkGameOver HEIGHT+50 off-screen slack,
+  //     updateUI fall-texture >100 vy threshold, handleCloudCollision's
+  //     0.8 non-storm and 0.5 storm bounce multipliers. Exact literal
+  //     locks so a drift surfaces for review.
+  //  4. Infinite-tween accumulation vectors — `repeat: -1` yoyo on
+  //     spawnCollectible, `repeat: -1` flap on spawnObstacle's bird
+  //     branch. These are the exact leak vectors C6's cleanup fixed;
+  //     locking their shape means a future simplification can't remove
+  //     the tween AND the cleanup in one untracked change. Also pins
+  //     the off-screen `-100` threshold symmetry across all three
+  //     cleanup paths (clouds / obstacles / collectibles).
+  //  5. Shutdown input teardown + scrollObjects accounting — the
+  //     `input.off('pointerdown')` and `removeAllKeys(true)` steps not
+  //     covered by existing C6 shutdown tests (which only cover
+  //     tweens.killAll + time.removeAllEvents), plus the lastCloudX
+  //     decrement inside scrollObjects that feeds generateContent. If
+  //     a refactor drops the decrement, the `while (lastCloudX < WIDTH)`
+  //     stops firing after frame 1 and no new clouds ever spawn.
+  // =========================================================================
+  describe('R87.C7 — Unit-test coverage refresh (closes Stream C)', () => {
+    function readSceneSource(): string {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require('fs') as typeof import('fs');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require('path') as typeof import('path');
+      return fs.readFileSync(path.join(__dirname, 'GameScene.ts'), 'utf8');
+    }
+
+    // -------------------------------------------------------------------
+    // Sub-block 1: playerDeath juice + tween motion literals
+    // -------------------------------------------------------------------
+    describe('playerDeath juice + tween motion literals', () => {
+      let s: any;
+      beforeEach(() => {
+        s = createTestScene();
+        // Stub BaseScene's duration helper so we don't read NaN from
+        // an unset gameStartTime. The existing C4 tests don't exercise
+        // the onComplete fully so they never tripped on NaN, but the
+        // new payload tests in sub-block 2 assert exact values.
+        s.getGameDuration = vi.fn().mockReturnValue(0);
+      });
+
+      it('camera shake fires with the exact 200ms / 0.012 intensity literal', () => {
+        // Soft feedback sized to the melancholic arpeggio — a harder
+        // shake would clash with the death SFX Tom approved in C4.
+        s.playerDeath();
+        expect(s.cameras.main.shake).toHaveBeenCalledWith(200, 0.012);
+      });
+
+      it('camera flash fires with the full 8-arg red-RGB payload (120ms / 255,0,0 / 0.25 alpha)', () => {
+        // Red-RGB locks the tint direction — a future refactor using
+        // green (matching the scene palette) would look like an
+        // achievement unlock rather than death. 0.25 alpha is the
+        // translucent "reminder" flash, not an opaque white-out.
+        s.playerDeath();
+        expect(s.cameras.main.flash).toHaveBeenCalledWith(
+          120,
+          255,
+          0,
+          0,
+          false,
+          undefined,
+          undefined,
+          0.25
+        );
+      });
+
+      it('death tween targets the player and fades alpha 1 → 0 over 600ms', () => {
+        s.player.y = 250;
+        s.playerDeath();
+        const cfg = s.tweens.add.mock.calls[0][0];
+        expect(cfg.targets).toBe(s.player);
+        expect(cfg.alpha).toBe(0);
+        expect(cfg.duration).toBe(600);
+      });
+
+      it('death tween motion literal: y = player.y + 100 (fall-through below camera)', () => {
+        // The +100 is the fall-through beat: player visibly drops off
+        // the cloud deck before the scene transitions. A refactor that
+        // tweens to a fixed y-coordinate (e.g. HEIGHT + 50) would
+        // animate to the same end-state but lose the relative
+        // "fall-from-where-I-was" signal.
+        s.player.y = 250;
+        s.playerDeath();
+        const cfg = s.tweens.add.mock.calls[0][0];
+        expect(cfg.y).toBe(350);
+      });
+
+      it('relative +100 motion holds from different starting heights', () => {
+        // Sanity check on the relativity: if the refactor hardcoded
+        // +100 as a bare 350 literal, this test catches the drift.
+        s.player.y = 75;
+        s.playerDeath();
+        const cfg = s.tweens.add.mock.calls[0][0];
+        expect(cfg.y).toBe(175);
+      });
+
+      it('player.clearTint fires on death so a stale storm-tint does not bleed into the fade', () => {
+        // Storm clouds set a red tint that's cleared after 200ms. If
+        // the player dies inside that window, the fade-out would
+        // start tinted — breaking the soft descent feel.
+        s.playerDeath();
+        expect(s.player.clearTint).toHaveBeenCalled();
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Sub-block 2: playerDeath onComplete ordering + 6-arg gameOver payload
+    // -------------------------------------------------------------------
+    describe('playerDeath onComplete — reportScore → gameOver ordering + payload', () => {
+      let s: any;
+      beforeEach(() => {
+        s = createTestScene();
+        s.getGameDuration = vi.fn().mockReturnValue(42000);
+      });
+
+      it('reportScore fires BEFORE gameOver in the onComplete chain (ordering lock)', () => {
+        // The scoreboard needs to see the new watermark before the
+        // game-over screen paints it. A swap would show a stale
+        // high-score in the modal.
+        s.playerDeath();
+        const cfg = s.tweens.add.mock.calls[0][0];
+        cfg.onComplete();
+        const reportOrder = (s.reportScore as any).mock.invocationCallOrder[0];
+        const gameOverOrder = (s.gameOver as any).mock.invocationCallOrder[0];
+        expect(reportOrder).toBeLessThan(gameOverOrder);
+      });
+
+      it('highScore is promoted to max(score, highScore) BEFORE reportScore fires', () => {
+        // Direct R85.G1 regression guard: if the promotion runs AFTER
+        // reportScore, the scoreboard receives the old watermark.
+        s.score = 3000;
+        s.highScore = 1000;
+        s.playerDeath();
+        const cfg = s.tweens.add.mock.calls[0][0];
+        cfg.onComplete();
+        expect(s.reportScore).toHaveBeenCalledWith(3000, 3000);
+      });
+
+      it('highScore preserved when score is below the existing high-score (no regression)', () => {
+        s.score = 500;
+        s.highScore = 1000;
+        s.playerDeath();
+        const cfg = s.tweens.add.mock.calls[0][0];
+        cfg.onComplete();
+        expect(s.reportScore).toHaveBeenCalledWith(500, 1000);
+      });
+
+      it('gameOver 6-arg payload shape: score / "Distance: Xm" / promoted highScore / 3-row stats / level / duration', () => {
+        // Direct R85.G1 scoreboard shape lock. Any refactor that
+        // reorders args or drops a stat row breaks the modal layout.
+        s.score = 500;
+        s.distance = 1234.7;
+        s.collectiblesCount = 8;
+        s.bounceStreak = 15;
+        s.stormCloudsSurvived = 2;
+        s.playerDeath();
+        const cfg = s.tweens.add.mock.calls[0][0];
+        cfg.onComplete();
+        expect(s.gameOver).toHaveBeenCalledWith(
+          500,
+          'Distance: 1234m',
+          500,
+          [
+            { label: 'Collectibles', value: 8 },
+            { label: 'Bounce Streak', value: 15 },
+            { label: 'Storms', value: 2 },
+          ],
+          12,
+          42000
+        );
+      });
+
+      it('stats payload row order is Collectibles → Bounce Streak → Storms (UI layout contract)', () => {
+        // Row-order drift would reorder the modal panel and would not
+        // be caught by a toHaveBeenCalledWith-with-expect.any test.
+        s.playerDeath();
+        const cfg = s.tweens.add.mock.calls[0][0];
+        cfg.onComplete();
+        const stats = (s.gameOver as any).mock.calls[0][3];
+        expect(stats.map((r: { label: string }) => r.label)).toEqual([
+          'Collectibles',
+          'Bounce Streak',
+          'Storms',
+        ]);
+      });
+
+      it('level is computed as floor(distance / 100)', () => {
+        // The /100 divisor is distinct from the /10 SCORING.DISTANCE_DIVISOR
+        // used for score. A refactor that reused the score divisor would
+        // produce inflated level numbers on the game-over panel.
+        s.score = 0;
+        s.distance = 399;
+        s.playerDeath();
+        const cfg = s.tweens.add.mock.calls[0][0];
+        cfg.onComplete();
+        const levelArg = (s.gameOver as any).mock.calls[0][4];
+        expect(levelArg).toBe(3);
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Sub-block 3: Single-line feel dials + threshold constants
+    // -------------------------------------------------------------------
+    describe('single-line feel dials + thresholds', () => {
+      it('JUMP_COOLDOWN_MS === 300 (private static, locked via source)', () => {
+        // 300ms is the belt-and-braces guard on held-key fire within a
+        // single cloud-contact window. Dropping to 100ms would let key-
+        // repeat swallow the C1 gate; bumping to 600ms would make the
+        // jump feel sluggish on intentional bounces.
+        const src = readSceneSource();
+        expect(src).toMatch(/JUMP_COOLDOWN_MS\s*=\s*300/);
+      });
+
+      it('checkGameOver threshold is player.y > HEIGHT + 50 (off-screen slack)', () => {
+        // The +50 gives the death tween's +100 motion room to finish
+        // without re-triggering checkGameOver. Dropping the slack would
+        // kill the player as soon as they left the visible canvas.
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+checkGameOver\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).toMatch(/player\.y\s*>\s*GAME_CONFIG\.HEIGHT\s*\+\s*50/);
+      });
+
+      it('updateUI switches to player_fall texture when body.velocity.y > 100', () => {
+        // 100 px/s is the visual "falling" threshold — below it the
+        // player still reads as "airborne but in control". A refactor
+        // flipping to > 0 would show the fall sprite on every apex
+        // (mid-air flip-book flicker); to > MAX_FALL_SPEED would never
+        // show it.
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+updateUI\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).toMatch(/body\.velocity\.y\s*>\s*100/);
+      });
+
+      it('handleCloudCollision non-storm bounce is exactly JUMP_VELOCITY * 0.8 (2 branches: normal+moving, disappearing)', () => {
+        // Both non-storm bounce branches use 0.8 — lock both occurrences
+        // so a refactor that tunes one branch without auditing the
+        // other silently diverges the feel between cloud types.
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+handleCloudCollision\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        const occurrences = block![0].match(/JUMP_VELOCITY\s*\*\s*0\.8/g) ?? [];
+        expect(occurrences.length).toBeGreaterThanOrEqual(2);
+      });
+
+      it('handleCloudCollision storm bounce is exactly JUMP_VELOCITY * 0.5 (hostile-cloud dampening)', () => {
+        // 0.5 is half the normal bounce — storms are a punishment, not
+        // a reward. Tuning up to 0.8 makes storms indistinguishable
+        // from normal clouds (breaks the SURVIVE_STORM achievement's
+        // "you chose to risk it" framing).
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+handleCloudCollision\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).toMatch(/JUMP_VELOCITY\s*\*\s*0\.5/);
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Sub-block 4: Infinite-tween accumulation vectors + cleanup symmetry
+    // -------------------------------------------------------------------
+    describe('infinite-tween accumulation vectors + cleanup symmetry', () => {
+      it('spawnCollectible adds the repeat: -1 yoyo tween (the exact leak vector C6 cleans up)', () => {
+        // Lock the shape so a refactor can't remove the tween AND
+        // cleanupOffScreenCollectibles in one go without audit.
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+spawnCollectible\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).toMatch(/repeat:\s*-1/);
+        expect(block![0]).toMatch(/yoyo:\s*true/);
+      });
+
+      it('spawnObstacle bird branch adds the repeat: -1 flap tween (second leak vector)', () => {
+        // Birds flap on a `repeat: -1` tween just like collectibles yoyo.
+        // If the cleanup symmetry is ever broken, birds become the next
+        // leak vector instead of collectibles — same freeze signature.
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+spawnObstacle\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).toMatch(/type\s*===\s*['"]bird['"][\s\S]*?repeat:\s*-1/);
+      });
+
+      it('all three off-screen cleanup paths use the same < -100 threshold (symmetric audit)', () => {
+        // An audit of one path applies to all three only if the
+        // threshold stays identical. A drift in one threshold invites
+        // the leak back through the asymmetry.
+        const src = readSceneSource();
+        expect(src).toMatch(/cloud\.x\s*<\s*-100/);
+        expect(src).toMatch(/obstacle\.x\s*<\s*-100/);
+        expect(src).toMatch(/item\.x\s*<\s*-100/);
+      });
+
+      it('collectItem tween literals: scale=1.5, alpha=0, duration=200 (snappy collect feedback)', () => {
+        // Pickup feedback: 200ms is the "crisp" feel — slower would
+        // make rapid collects feel muddy. Scale+alpha combination
+        // is the "pop and vanish" beat.
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+collectItem\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).toMatch(/scale:\s*1\.5/);
+        expect(block![0]).toMatch(/alpha:\s*0/);
+        expect(block![0]).toMatch(/duration:\s*200/);
+      });
+
+      it('collectItem destroys the sprite in onComplete (prevents tween-survives-sprite orphan)', () => {
+        // If the onComplete destroy is dropped, the 200ms pop-tween
+        // resolves but the now-invisible sprite lingers with any
+        // physics body still live. Adds to the freeze signature.
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+collectItem\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).toMatch(/item\.destroy\(\)/);
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // Sub-block 5: Shutdown input teardown + scrollObjects accounting
+    // -------------------------------------------------------------------
+    describe('shutdown input teardown + scrollObjects catch-up accounting', () => {
+      it('shutdown removes the pointerdown listener (no lingering click-to-jump hook)', () => {
+        // Pointer is wired in setupInput via `this.input.on('pointerdown', …)`
+        // and must be torn down on scene exit — otherwise a click on
+        // the main menu after returning from CloudJumper would still
+        // trigger a ghost jump on the next scene.
+        const src = readSceneSource();
+        const block = src.match(
+          /shutdown\s*\(\s*\)\s*:\s*void\s*\{[\s\S]*?super\.shutdown\(\);/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).toMatch(/this\.input\.off\(['"]pointerdown['"]\)/);
+      });
+
+      it('shutdown removes all keyboard keys with destroy=true (complete teardown)', () => {
+        // The `true` arg is important — without it the keys are only
+        // deactivated, not destroyed, and their handlers survive into
+        // the next scene. A plain `removeAllKeys()` call would look
+        // superficially correct but leak listeners.
+        const src = readSceneSource();
+        const block = src.match(
+          /shutdown\s*\(\s*\)\s*:\s*void\s*\{[\s\S]*?super\.shutdown\(\);/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).toMatch(/removeAllKeys\(\s*true\s*\)/);
+      });
+
+      it('scrollObjects decrements lastCloudX by scrollAmount (feeds generateContent spawn loop)', () => {
+        // Critical wiring: generateContent's `while (lastCloudX < WIDTH)`
+        // depends on lastCloudX trailing the world. If this decrement
+        // is dropped, the first frame's spawn burst is the only one
+        // that ever fires — no new clouds appear as the world scrolls.
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+scrollObjects\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).toMatch(/this\.lastCloudX\s*-=\s*scrollAmount/);
+      });
+
+      it('scrollObjects decrements x on clouds, collectibles, AND obstacles (symmetric world scroll)', () => {
+        // All three entity groups must scroll together or the visual
+        // continuity breaks — a dropped decrement on any one group
+        // strands that entity class in world-space while the rest
+        // moves left.
+        const src = readSceneSource();
+        const block = src.match(
+          /private\s+scrollObjects\s*\([^)]*\)\s*:\s*void\s*\{[\s\S]*?(?=\n\s{2}\/\*\*|\n\s{2}private\s|\n\}\s*$)/
+        );
+        expect(block).not.toBeNull();
+        expect(block![0]).toMatch(/cloud\.x\s*-=\s*scrollAmount/);
+        expect(block![0]).toMatch(/item\.x\s*-=\s*scrollAmount/);
+        // Obstacles add per-obstacle speed to the scroll amount, so
+        // the decrement form is slightly different. Lock the additive
+        // pattern — a refactor that drops the scrollAmount component
+        // would make birds/planes float through the world relative to
+        // clouds instead of scrolling with them.
+        expect(block![0]).toMatch(/obstacle\.x\s*-=\s*scrollAmount\s*\+/);
+      });
+    });
+  });
 });
