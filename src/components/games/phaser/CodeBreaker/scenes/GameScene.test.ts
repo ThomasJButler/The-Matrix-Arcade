@@ -2834,4 +2834,422 @@ describe('CodeBreakerGameScene', () => {
       });
     });
   });
+
+  // -----------------------------------------------------------------------
+  // R87.K9 — Coverage refresh + pre-Tom-tick tripwires
+  //
+  // K1-K8 locked behaviour through call-path tests, but four invariant
+  // families remain only-implicitly covered. K9 adds explicit tripwires so
+  // future refactors cannot silently revive a shipped bug:
+  //   1. update() early-return contract — per-tick guards flush every
+  //      side-effect pathway (Paused / GameOver / LevelComplete /
+  //      CountingDown must all skip both livesLostThisFrame reset AND
+  //      every sub-method downstream of it).
+  //   2. Static regex tripwires on pre-fix bug strings — guards the
+  //      *exact* symptom Tom logged (K3's `pointer.x !== this.paddle.x`
+  //      miss) so a copy-paste revert is caught at test time.
+  //   3. handleGameOver payload contract — locks the LEVEL row shape,
+  //      the re-entry guard, the red-flash RGB literal, and the
+  //      `/${TOTAL_LEVELS}` formatting (fixes a latent `/10` that K5
+  //      missed — the game-over modal displayed "12/10" when all 12
+  //      levels cleared).
+  //   4. resetState completeness — every R87-introduced field must
+  //      round-trip through resetState() (livesLostThisFrame,
+  //      lastPointerX sentinel, lastBrickSfxAt NEGATIVE_INFINITY,
+  //      bulletTimeMeter, powerUpLegend). A field missed here leaks
+  //      state across a scene restart, which is exactly the shape of
+  //      the K1-K2 soft-lock bugs.
+  //   5. Bullet-time B-key wiring — K6 gated B on JustDown, but the
+  //      Key-declared → addKey('B') → JustDown chain is across three
+  //      sites and a refactor that only audits one would miss a break.
+  // -----------------------------------------------------------------------
+  describe('R87.K9 — Coverage refresh + pre-Tom-tick tripwires', () => {
+    function readSceneSource(): string {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require('fs') as typeof import('fs');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require('path') as typeof import('path');
+      return fs.readFileSync(path.join(__dirname, 'GameScene.ts'), 'utf8');
+    }
+
+    // Stubs every update() sub-method that runs AFTER the isPaused /
+    // isGameOver / isLevelComplete / isCountingDown guards. If any of
+    // those flags are set, update() must hit zero of these spies. If the
+    // guards are lifted, every one must be called exactly once per tick —
+    // that's the ordering contract K1 relies on (reconcileBallState
+    // can't run before the collision block without reviving the soft-lock).
+    function stubUpdateBody(): Record<string, ReturnType<typeof vi.fn>> {
+      const names = [
+        'updateMatrixRain',
+        'handlePaddleMovement',
+        'handleLaunch',
+        'handleBulletTime',
+        'handleLaserFiring',
+        'updateBalls',
+        'updateAgents',
+        'updateLasers',
+        'updateFieldPowerUps',
+        'updateParticles',
+        'updateBoss',
+        'updateBossBullets',
+        'checkBallBrickCollisions',
+        'checkBallPaddleCollisions',
+        'checkBallWallCollisions',
+        'checkBallBottomCollisions',
+        'checkLaserBrickCollisions',
+        'checkAgentPaddleCollisions',
+        'checkBossBulletPaddleCollisions',
+        'checkPowerUpCollisions',
+        'checkPortalCollision',
+        'reconcileBallState',
+        'checkLevelComplete',
+        'updateHUD',
+        'checkAchievements',
+      ];
+      const spies: Record<string, ReturnType<typeof vi.fn>> = {};
+      for (const name of names) {
+        const spy = vi.fn();
+        scene[name] = spy;
+        spies[name] = spy;
+      }
+      return spies;
+    }
+
+    describe('update() early-return guards', () => {
+      it('isPaused=true skips every downstream sub-method', () => {
+        const spies = stubUpdateBody();
+        scene.isPaused = true;
+        scene.isGameOver = false;
+        scene.isLevelComplete = false;
+        scene.isCountingDown = false;
+
+        scene.update(0, 16);
+
+        for (const [name, spy] of Object.entries(spies)) {
+          expect(spy, `${name} should not run when paused`).not.toHaveBeenCalled();
+        }
+      });
+
+      it('isGameOver=true skips every downstream sub-method', () => {
+        const spies = stubUpdateBody();
+        scene.isPaused = false;
+        scene.isGameOver = true;
+        scene.isLevelComplete = false;
+        scene.isCountingDown = false;
+
+        scene.update(0, 16);
+
+        for (const [name, spy] of Object.entries(spies)) {
+          expect(spy, `${name} should not run after game-over`).not.toHaveBeenCalled();
+        }
+      });
+
+      it('isLevelComplete=true skips every downstream sub-method', () => {
+        const spies = stubUpdateBody();
+        scene.isPaused = false;
+        scene.isGameOver = false;
+        scene.isLevelComplete = true;
+        scene.isCountingDown = false;
+
+        scene.update(0, 16);
+
+        for (const [name, spy] of Object.entries(spies)) {
+          expect(spy, `${name} should not run during level-complete banner`).not.toHaveBeenCalled();
+        }
+      });
+
+      it('isCountingDown=true skips every downstream sub-method', () => {
+        // Countdown is the pre-play 3-2-1 window shared by BaseScene; an
+        // update leaking through here would let the ball start moving
+        // before the player sees "GO!".
+        const spies = stubUpdateBody();
+        scene.isPaused = false;
+        scene.isGameOver = false;
+        scene.isLevelComplete = false;
+        scene.isCountingDown = true;
+
+        scene.update(0, 16);
+
+        for (const [name, spy] of Object.entries(spies)) {
+          expect(spy, `${name} should not run while counting down`).not.toHaveBeenCalled();
+        }
+      });
+
+      it('all guards clear — every sub-method runs exactly once per tick', () => {
+        const spies = stubUpdateBody();
+        scene.isPaused = false;
+        scene.isGameOver = false;
+        scene.isLevelComplete = false;
+        scene.isCountingDown = false;
+
+        scene.update(0, 16);
+
+        for (const [name, spy] of Object.entries(spies)) {
+          expect(spy, `${name} must fire exactly once per tick`).toHaveBeenCalledTimes(1);
+        }
+      });
+
+      it('livesLostThisFrame resets to false at top of every update tick', () => {
+        // K2's guard relies on the reset running BEFORE any collision
+        // path in this tick. A refactor that moves the reset to the
+        // bottom of update() would silently re-open the double-debit
+        // bug on the NEXT frame after the first life is lost.
+        stubUpdateBody();
+        scene.isPaused = false;
+        scene.isGameOver = false;
+        scene.isLevelComplete = false;
+        scene.isCountingDown = false;
+        scene.livesLostThisFrame = true;
+
+        scene.update(0, 16);
+
+        expect(scene.livesLostThisFrame).toBe(false);
+      });
+    });
+
+    describe('Static regex tripwires on pre-fix bug strings', () => {
+      it('source no longer contains K3 bug pattern `pointer.x !== this.paddle.x`', () => {
+        // The exact condition that silently cancelled every keyboard
+        // input. A copy-paste revert would compile cleanly and reopen
+        // Tom's "keys get stuck" report, so lock the string absence.
+        const src = readSceneSource();
+        expect(src).not.toMatch(/pointer\.x\s*!==\s*this\.paddle\.x/);
+      });
+
+      it('lastPointerX sentinel is -1 (not 0 — 0 is a valid pointer.x)', () => {
+        // Sentinel must be outside the valid pointer-range. `0` would
+        // collide with "pointer is at the extreme left edge of the
+        // canvas"; `-1` sits safely outside [0, WIDTH].
+        const src = readSceneSource();
+        expect(src).toMatch(/this\.lastPointerX\s*=\s*-1/);
+        expect(src).not.toMatch(/private\s+lastPointerX\s*=\s*0\b/);
+      });
+
+      it('lastBrickSfxAt sentinel is NEGATIVE_INFINITY (not 0)', () => {
+        // `0` would silence the very first brick hit of a run when
+        // scene.time.now is also 0 on frame 1 (the `<` gate evaluates
+        // `0 - 0 < 50` as true). NEGATIVE_INFINITY guarantees first-
+        // hit audibility regardless of Phaser's time bootstrap.
+        const src = readSceneSource();
+        expect(src).toMatch(/Number\.NEGATIVE_INFINITY/);
+        expect(src).toMatch(/lastBrickSfxAt\s*=\s*Number\.NEGATIVE_INFINITY/);
+      });
+
+      it('reconcileBallState() is called exactly once in update() body', () => {
+        // K1's post-collision reconciliation must run after every
+        // collision check and BEFORE checkLevelComplete. Any refactor
+        // that duplicates the call (e.g. adding a defensive second
+        // invocation for "safety") risks a double-loseLife on the
+        // ball-empty scenario. A single source of truth per tick.
+        const src = readSceneSource();
+        const matches = src.match(/this\.reconcileBallState\(\)/g) ?? [];
+        expect(matches).toHaveLength(1);
+      });
+
+      it('livesLostThisFrame reset happens at update()-top, set only in loseLife', () => {
+        // Three writes total: declaration, resetState reset, update()
+        // reset, loseLife set. Any additional write-site is suspect.
+        const src = readSceneSource();
+        const resetMatches = src.match(/livesLostThisFrame\s*=\s*false/g) ?? [];
+        const setMatches = src.match(/livesLostThisFrame\s*=\s*true/g) ?? [];
+        // 3 false-writes: initialiser, resetState, update-top
+        expect(resetMatches).toHaveLength(3);
+        // 1 true-write: loseLife guard
+        expect(setMatches).toHaveLength(1);
+      });
+
+      it('playBrickSfxThrottled gate uses strict `<` (boundary-equal call fires)', () => {
+        // R87.K8 commit body: "strict `<` gate so exactly-at-boundary
+        // calls still fire (anti-regression against a `<=` drift that
+        // would extend the throttle by one frame)". A `<=` drift would
+        // extend the cooldown by one frame and stop-stutter the first
+        // post-window fire. Locked via regex — the helper aliases
+        // `this.time.now` to a local `now`, so match the delta against
+        // the locally-named timestamp.
+        const src = readSceneSource();
+        const helperMatch = src.match(/private playBrickSfxThrottled\([\s\S]*?\n {2}\}/);
+        expect(helperMatch).not.toBeNull();
+        const body = helperMatch![0];
+        // Must contain `<` comparison with the throttle dial, must NOT contain `<=`.
+        expect(body).toMatch(/-\s*this\.lastBrickSfxAt\s*<[^=]/);
+        expect(body).not.toMatch(/-\s*this\.lastBrickSfxAt\s*<=/);
+        expect(body).toMatch(/GAME_CONFIG\.BRICK_SFX_THROTTLE_MS/);
+      });
+    });
+
+    describe('handleGameOver payload contract', () => {
+      beforeEach(() => {
+        scene.score = 1500;
+        scene.highScore = 2000;
+        scene.level = 3;
+        scene.agentsKilled = 4;
+        scene.bulletTimeUses = 2;
+        scene.getGameDuration = vi.fn().mockReturnValue(42_000);
+      });
+
+      it('LEVEL row renders as `N/TOTAL_LEVELS` (guards against `/10` regression)', () => {
+        // K5 bumped TOTAL_LEVELS 10 → 12 but left the hardcoded "/10"
+        // in the payload. K9 re-routes through the config dial; this
+        // test locks the fix so any future retier auto-stays in sync.
+        scene.level = GAME_CONFIG.TOTAL_LEVELS;
+        call(scene, 'handleGameOver', 'escaped');
+
+        const payload = scene.gameOver.mock.calls[0][3] as Array<{ label: string; value: string }>;
+        const levelRow = payload.find(r => r.label === 'Level')!;
+        expect(levelRow).toBeDefined();
+        expect(levelRow.value).toBe(`${GAME_CONFIG.TOTAL_LEVELS}/${GAME_CONFIG.TOTAL_LEVELS}`);
+        expect(levelRow.value).not.toContain('/10');
+      });
+
+      it('payload contains exactly Level + Agents + Bullet Time rows (3)', () => {
+        // Locks the stats-row count so a future "helpful" addition
+        // doesn't silently shift the HUD layout the GameOverScene
+        // assumes. Three rows matches the game-over UI grid.
+        call(scene, 'handleGameOver');
+        const payload = scene.gameOver.mock.calls[0][3] as Array<{ label: string; value: unknown }>;
+        expect(payload).toHaveLength(3);
+        expect(payload.map(r => r.label)).toEqual(['Level', 'Agents', 'Bullet Time']);
+      });
+
+      it('re-entry guard blocks a second game-over call in the same run', () => {
+        // defeatBoss on the final level and loseLife with 0 lives can
+        // both try to end the game from adjacent frames. Second call
+        // must no-op — ordering matters because GameOverScene mounts
+        // at step 1 and would double-animate otherwise.
+        call(scene, 'handleGameOver', 'escaped');
+        const firstCallCount = scene.gameOver.mock.calls.length;
+        expect(firstCallCount).toBe(1);
+
+        call(scene, 'handleGameOver'); // second call
+        expect(scene.gameOver.mock.calls).toHaveLength(firstCallCount);
+      });
+
+      it('fires red camera flash — not green (guards against achievement-flash copy-paste)', () => {
+        // R86.F1 uses a GREEN flash for the finish-line-crossed beat
+        // (0, 255, 0). Game-over must stay RED (255, 0, 0) so the
+        // failure-vs-success feedback signals stay distinct. This is
+        // the same guard R86.F6+++ added for Frogger.
+        call(scene, 'handleGameOver');
+        expect(scene.cameras.main.flash).toHaveBeenCalledWith(
+          120, 255, 0, 0, false, undefined, undefined, 0.25,
+        );
+      });
+
+      it('plays GAME_OVER sound exactly once per session', () => {
+        call(scene, 'handleGameOver');
+        const gameOverCalls = scene.playSound.mock.calls.filter(
+          (args: unknown[]) => args[0] === 'gameOver',
+        );
+        expect(gameOverCalls).toHaveLength(1);
+      });
+
+      it('sets isGameOver=true synchronously (before gameOver() fires)', () => {
+        // Guards the ordering: the flag must flip BEFORE gameOver()
+        // emits, because GameOverScene's SessionStart handler reads
+        // it from the registry to decide whether to mount. A later
+        // flip would allow one extra update() tick and potentially a
+        // stray loseLife/activatePowerUp firing into a dead scene.
+        let flagWhenGameOverFired: boolean | null = null;
+        scene.gameOver = vi.fn(() => {
+          flagWhenGameOverFired = scene.isGameOver;
+        });
+        call(scene, 'handleGameOver');
+        expect(flagWhenGameOverFired).toBe(true);
+      });
+    });
+
+    describe('resetState completeness — every R87 field round-trips', () => {
+      it('livesLostThisFrame resets to false', () => {
+        scene.livesLostThisFrame = true;
+        call(scene, 'resetState');
+        expect(scene.livesLostThisFrame).toBe(false);
+      });
+
+      it('lastPointerX resets to the -1 sentinel', () => {
+        scene.lastPointerX = 123;
+        call(scene, 'resetState');
+        expect(scene.lastPointerX).toBe(-1);
+      });
+
+      it('lastBrickSfxAt resets to NEGATIVE_INFINITY', () => {
+        scene.lastBrickSfxAt = 1000;
+        call(scene, 'resetState');
+        expect(scene.lastBrickSfxAt).toBe(Number.NEGATIVE_INFINITY);
+      });
+
+      it('bulletTimeMeter resets to 0', () => {
+        scene.bulletTimeMeter = GAME_CONFIG.BULLET_TIME_METER_MAX;
+        call(scene, 'resetState');
+        expect(scene.bulletTimeMeter).toBe(0);
+      });
+
+      it('bulletTimeActive resets to false', () => {
+        // Belt-and-braces: if a scene restart happens mid-slow-mo, the
+        // new session must not inherit the active flag or the first
+        // frame reads `timeScale = BULLET_TIME_SCALE` and the ball
+        // launches at 50% speed.
+        scene.bulletTimeActive = true;
+        call(scene, 'resetState');
+        expect(scene.bulletTimeActive).toBe(false);
+      });
+
+      it('powerUpLegend array is emptied + hide timer nulled', () => {
+        scene.powerUpLegend = [createMockText(), createMockText()];
+        scene.powerUpLegendHideTimer = { remove: vi.fn() };
+        call(scene, 'resetState');
+        expect(scene.powerUpLegend).toEqual([]);
+        expect(scene.powerUpLegendHideTimer).toBeUndefined();
+      });
+    });
+
+    describe('Bullet-time B-key wiring', () => {
+      it('handleBulletTime returns early when bulletTimeKey is unbound', () => {
+        // Guards the `!this.bulletTimeKey` short-circuit. If a future
+        // setupInput refactor removes the B-key addKey call, this
+        // guard keeps the method NPE-safe instead of throwing on a
+        // null `.bulletTimeKey` reference.
+        scene.bulletTimeKey = null;
+        (Phaser.Input.Keyboard as Record<string, unknown>).JustDown = vi.fn().mockReturnValue(true);
+        expect(() => call(scene, 'handleBulletTime')).not.toThrow();
+      });
+
+      it('handleBulletTime no-ops when JustDown returns false', () => {
+        // B-key must be JustDown, not isDown — holding B over multiple
+        // frames must fire activation exactly once. This locks the
+        // handleBulletTime → JustDown chain.
+        scene.bulletTimeKey = { isDown: true };
+        scene.bulletTimeMeter = GAME_CONFIG.BULLET_TIME_METER_MAX;
+        (Phaser.Input.Keyboard as Record<string, unknown>).JustDown = vi.fn().mockReturnValue(false);
+
+        call(scene, 'handleBulletTime');
+
+        expect(scene.bulletTimeActive).toBe(false);
+        expect(scene.playSound).not.toHaveBeenCalledWith('specialAbility');
+      });
+
+      it('handleBulletTime activates on JustDown with full meter', () => {
+        scene.bulletTimeKey = { isDown: true };
+        scene.bulletTimeMeter = GAME_CONFIG.BULLET_TIME_METER_MAX;
+        (Phaser.Input.Keyboard as Record<string, unknown>).JustDown = vi.fn().mockReturnValue(true);
+
+        call(scene, 'handleBulletTime');
+
+        expect(scene.bulletTimeActive).toBe(true);
+        expect(scene.bulletTimeMeter).toBe(0);
+      });
+
+      it('handleBulletTime refuses activation with empty meter (JustDown but not ready)', () => {
+        // Tom's K6 brief: "fill meter, THEN press B to activate". A
+        // refactor that drops the meter-full check would let the
+        // player stack un-earned slow-mo bursts by spamming B.
+        scene.bulletTimeKey = { isDown: true };
+        scene.bulletTimeMeter = GAME_CONFIG.BULLET_TIME_METER_MAX - 1; // one shy
+        (Phaser.Input.Keyboard as Record<string, unknown>).JustDown = vi.fn().mockReturnValue(true);
+
+        call(scene, 'handleBulletTime');
+
+        expect(scene.bulletTimeActive).toBe(false);
+      });
+    });
+  });
 });

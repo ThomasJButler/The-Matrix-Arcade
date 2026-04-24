@@ -1237,8 +1237,11 @@ export class CodeBreakerGameScene extends BaseScene {
       ? `Escaped the simulation at level ${this.level}`
       : `Terminated at level ${this.level}`;
 
+    // R87.K9 — was `/10` literal; K5 bumped TOTAL_LEVELS to 12 but missed this
+    // row, so the game-over modal would show "12/10". Route through the config
+    // dial so any future retier stays in sync automatically.
     this.gameOver(this.score, message, this.highScore, [
-      { label: 'Level', value: `${this.level}/10` },
+      { label: 'Level', value: `${this.level}/${GAME_CONFIG.TOTAL_LEVELS}` },
       { label: 'Agents', value: this.agentsKilled },
       { label: 'Bullet Time', value: this.bulletTimeUses },
     ], this.level, this.getGameDuration());
