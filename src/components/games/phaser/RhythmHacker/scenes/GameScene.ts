@@ -245,12 +245,26 @@ export class RhythmHackerGameScene extends BaseScene {
     // Check for track end. R87.RH1 adds the `!isTrackComplete` guard so the
     // banner tween + delayedCall chain is never interrupted by a second
     // trackComplete() kicked off on a later update() tick.
-    if (
-      !this.isTrackComplete &&
-      this.gameTime >= this.trackDuration * 1000 &&
-      this.activeNotes.length === 0
-    ) {
-      this.trackComplete();
+    //
+    // R87.RH2 layers the 120 s track-duration cap on top: when the cap is
+    // reached the guillotine fires regardless of `activeNotes.length` so a
+    // long chart can't delay the win-flow past 120 s. The natural-end branch
+    // (chart boundary + notes drained) still applies to sub-cap tracks and to
+    // long tracks that happen to land their final chart note inside the cap
+    // window. The `>=` operator at the cap boundary is locked by a regression
+    // test — a drift to `>` would let every track overrun by one frame.
+    //
+    // `!this.isCountdown` is defensive — in normal play `gameTime` is frozen
+    // to 0 during countdown (see L223-225), so the end-check can't fire, but
+    // the explicit gate documents the invariant and prevents a future
+    // refactor decoupling the accumulator from the countdown gate from
+    // accidentally triggering trackComplete inside the 5 s "GET READY" window.
+    if (!this.isTrackComplete && !this.isCountdown) {
+      const effectiveDurationMs = this.getEffectiveTrackDurationMs();
+      const capReached = this.gameTime >= GAME_CONFIG.TRACK.MAX_DURATION_MS;
+      if (this.gameTime >= effectiveDurationMs && (capReached || this.activeNotes.length === 0)) {
+        this.trackComplete();
+      }
     }
 
     // Sync mute state to track audio
@@ -410,7 +424,12 @@ export class RhythmHackerGameScene extends BaseScene {
     timePanel.setAlpha(0.35);
     timePanel.setDepth(99);
 
-    this.timeText = this.add.text(20, 96, `TIME\n${this.trackDuration}s`, {
+    // R87.RH2 — HUD countdown starts from the effective duration (capped at
+    // 120 s) so the displayed TIME hits 0 when the guillotine fires. Before
+    // RH2 this read `trackDuration` (e.g. 228 s for IN THE MOONLIGHT), which
+    // left the player staring at "TIME 108s" on the final frame.
+    const effectiveDurationSec = Math.floor(this.getEffectiveTrackDurationMs() / 1000);
+    this.timeText = this.add.text(20, 96, `TIME\n${effectiveDurationSec}s`, {
       fontFamily: MATRIX_FONTS.PRIMARY,
       fontSize: '10px',
       color: MATRIX_COLORS.CYAN_HEX,
@@ -931,11 +950,28 @@ export class RhythmHackerGameScene extends BaseScene {
   }
 
   /**
+   * R87.RH2 — Effective track duration in milliseconds, capped at
+   * `TRACK.MAX_DURATION_MS` (120 s). Short tracks (<120 s, none today but a
+   * future tutorial chart could be shorter) keep their native duration;
+   * every current track is 148-252 s so the cap always wins. Used by the
+   * update-loop end-check, the spawn-notes guard, and the HUD countdown so
+   * the three surfaces agree on a single "end of track" moment.
+   */
+  private getEffectiveTrackDurationMs(): number {
+    return Math.min(this.trackDuration * 1000, GAME_CONFIG.TRACK.MAX_DURATION_MS);
+  }
+
+  /**
    * Spawn notes — chart-driven when a beat-map exists, procedural fallback otherwise.
+   *
+   * R87.RH2 — spawn cutoff uses the effective duration (track OR 120 s cap,
+   * whichever is smaller) so a long chart doesn't keep spawning notes that
+   * would only reach the hit line after the cap guillotine has already
+   * ended the scene.
    */
   private spawnNotes(): void {
     const trackTime = this.getTrackTime();
-    if (trackTime >= this.trackDuration * 1000) return;
+    if (trackTime >= this.getEffectiveTrackDurationMs()) return;
 
     if (this.chart.length > 0) {
       while (this.chartIndex < this.chart.length) {
@@ -1292,8 +1328,11 @@ export class RhythmHackerGameScene extends BaseScene {
     this.healthBar.fillStyle(healthColor, 1);
     this.healthBar.fillRoundedRect(rightGutterLeft + 2, 47, (healthBarWidth - 4) * healthPercent, 12, 2);
 
-    // Time remaining (left gutter)
-    const timeLeft = Math.max(0, this.trackDuration - Math.floor(this.gameTime / 1000));
+    // Time remaining (left gutter). R87.RH2 — countdown anchored to the
+    // effective duration so the visible TIME hits 0 exactly when the cap
+    // guillotine fires trackComplete().
+    const effectiveDurationSec = Math.floor(this.getEffectiveTrackDurationMs() / 1000);
+    const timeLeft = Math.max(0, effectiveDurationSec - Math.floor(this.gameTime / 1000));
     this.timeText.setText(`TIME\n${timeLeft}s`);
 
     if (timeLeft <= 10 && timeLeft > 0) {
