@@ -3509,4 +3509,264 @@ describe('CodeBreakerGameScene', () => {
       });
     });
   });
+
+  // -----------------------------------------------------------------------
+  // R87.K3+ safety-net — keyboard input wiring + paddle OR-merge integrity
+  //                     (pre-Tom-tick)
+  //
+  // Lineage: R87.K1+ extractMethodBody + positional indexOf locks, R87.C1+
+  //          write-site isolation + cross-method negative assertions. K3's
+  //          main block locks behaviour (arrow/WASD/numpad all move the
+  //          paddle, idle-pointer doesn't override) via mock-driven tests,
+  //          and K9's static tripwires lock the `pointer.x !== paddle.x`
+  //          bug-string absence + the `lastPointerX = -1` sentinel.
+  //
+  //          What remains un-netted is the STRUCTURAL wiring that K3's
+  //          behaviour tests pass through but never directly assert:
+  //          a refactor that "tidies" setupInput (drops an addKey, inlines
+  //          out of waitForKeyboard, collapses the 3-source OR-merge to
+  //          just cursors, swaps `!keyboardActive` for `!pointerMoved`)
+  //          would pass every existing behaviour test as long as the
+  //          mocked key in question wasn't exercised — and would ship
+  //          Tom's "keys get stuck" regression in a new shape.
+  //
+  // Five invariant families locked:
+  //   1. setupInput structural integrity — called from create(), wrapped
+  //      in waitForKeyboard, null-guarded against keyboard=undefined,
+  //      and contains exactly 6 addKey + 1 createCursorKeys calls.
+  //   2. KeyCode exactness — each key references the correct Phaser
+  //      KeyCodes identifier (NUMPAD_FOUR not NUMPAD_4; A/D not SHIFT_A).
+  //      A refactor mis-spelling a KeyCode compiles cleanly (any string
+  //      is a valid Phaser key-name) but silently kills that key.
+  //   3. handlePaddleMovement OR-merge shape — leftDown/rightDown each
+  //      merge 3 sources (cursors + WASD + numpad). A refactor collapsing
+  //      to just cursors passes every cursor-only behaviour test and
+  //      silently kills the A/D + numpad paths Tom explicitly reported.
+  //   4. keyboard-wins ordering — pointer branch gated on `!keyboardActive`
+  //      (positional lock) and `this.lastPointerX = pointer.x` update
+  //      present (bookkeeping — without it, pointerMoved sensor is dead).
+  //   5. Shutdown teardown — `removeAllKeys(true)` with literal `true`
+  //      (destroys keys — dropping the arg leaks handlers into next scene).
+  // -----------------------------------------------------------------------
+  describe('R87.K3+ safety-net — keyboard input wiring + paddle OR-merge integrity (pre-Tom-tick)', () => {
+    function readSceneSource(): string {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require('fs') as typeof import('fs');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require('path') as typeof import('path');
+      return fs.readFileSync(path.join(__dirname, 'GameScene.ts'), 'utf8');
+    }
+
+    // Reused from K1+ — see that block's extractor comment for the
+    // indent-convention rationale.
+    function extractMethodBody(src: string, name: string): string {
+      const sig = new RegExp(
+        `(?:private|public|protected)?\\s*${name}\\s*\\([^)]*\\)(?:\\s*:\\s*[^{]+)?\\s*\\{`
+      );
+      const start = src.search(sig);
+      if (start < 0) throw new Error(`method ${name} not found`);
+      const afterSig = src.indexOf('{', start);
+      const end = src.indexOf('\n  }', afterSig);
+      if (end < 0) throw new Error(`closing brace of ${name} not found`);
+      return src.slice(afterSig, end + 4);
+    }
+
+    describe('(1) setupInput structural integrity', () => {
+      it('create() body calls this.setupInput() exactly once', () => {
+        // Single wiring entry-point. A refactor that drops the call from
+        // create() makes every key unreachable; a duplicate call would
+        // double-bind handlers and cost us the Key-instance accounting.
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'create');
+        const matches = body.match(/this\.setupInput\(\)/g) ?? [];
+        expect(matches).toHaveLength(1);
+      });
+
+      it('setupInput body is wrapped in this.waitForKeyboard(...)', () => {
+        // waitForKeyboard is the BaseScene helper that defers init until
+        // Phaser's keyboard plugin is ready. A refactor inlining the
+        // addKey calls directly in setupInput would race the plugin on
+        // the first scene mount — every key bound to undefined.
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'setupInput');
+        expect(body).toMatch(/this\.waitForKeyboard\(\s*\(\)\s*=>/);
+      });
+
+      it('setupInput body has a !this.input.keyboard early-return', () => {
+        // Defensive null-guard inside the waitForKeyboard callback. If
+        // the plugin is still missing at callback time (e.g. in a
+        // headless test harness), this prevents every subsequent
+        // addKey call from throwing a Cannot-read-properties NPE.
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'setupInput');
+        expect(body).toMatch(/if\s*\(\s*!this\.input\.keyboard\s*\)\s*return/);
+      });
+
+      it('setupInput contains exactly 6 addKey() + 1 createCursorKeys()', () => {
+        // 6 non-cursor keys: SPACE (launch), A + D (WASD), NUMPAD_FOUR +
+        // NUMPAD_SIX (numpad), B (bullet-time). 1 createCursorKeys for
+        // the arrow-key set. A drift in either count is a silent key-
+        // availability regression — mocks return an isDown=false Key
+        // for any call, so behaviour tests that exercise other keys
+        // would pass while the dropped key stays dead.
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'setupInput');
+        const addKeyMatches = body.match(/\.addKey\(/g) ?? [];
+        const cursorsMatches = body.match(/\.createCursorKeys\(\)/g) ?? [];
+        expect(addKeyMatches).toHaveLength(6);
+        expect(cursorsMatches).toHaveLength(1);
+      });
+    });
+
+    describe('(2) KeyCode exactness', () => {
+      it('setupInput references SPACE / A / D / B KeyCodes exactly once each', () => {
+        // Phaser.Input.Keyboard.KeyCodes uses string identifiers that
+        // TypeScript can't validate at compile-time (each KeyCode is a
+        // `number` constant). A typo like `KeyCodes.SPC` would compile
+        // clean and silently break the launch key. Lock each name.
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'setupInput');
+        expect(body.match(/KeyCodes\.SPACE\b/g) ?? []).toHaveLength(1);
+        expect(body.match(/KeyCodes\.A\b/g) ?? []).toHaveLength(1);
+        expect(body.match(/KeyCodes\.D\b/g) ?? []).toHaveLength(1);
+        expect(body.match(/KeyCodes\.B\b/g) ?? []).toHaveLength(1);
+      });
+
+      it('NUMPAD_FOUR (not NUMPAD_4 / FOUR) is the numpad-left KeyCode', () => {
+        // Phaser exports only the spelled-out form. A refactor using
+        // `NUMPAD_4` fails at runtime (undefined KeyCode) but compiles
+        // because the KeyCodes type is too permissive. Tom's brief
+        // explicitly calls out numpad 4/6 — these keys MUST work.
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'setupInput');
+        expect(body).toMatch(/KeyCodes\.NUMPAD_FOUR\b/);
+        expect(body).not.toMatch(/KeyCodes\.NUMPAD_4\b/);
+        expect(body).not.toMatch(/KeyCodes\.FOUR\b/);
+      });
+
+      it('NUMPAD_SIX (not NUMPAD_6 / SIX) is the numpad-right KeyCode', () => {
+        // Mirror of NUMPAD_FOUR lock — same reasoning, right-side.
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'setupInput');
+        expect(body).toMatch(/KeyCodes\.NUMPAD_SIX\b/);
+        expect(body).not.toMatch(/KeyCodes\.NUMPAD_6\b/);
+        expect(body).not.toMatch(/KeyCodes\.SIX\b/);
+      });
+    });
+
+    describe('(3) handlePaddleMovement OR-merge shape', () => {
+      it('leftDown merges cursors.left + wasdA + numpadLeft via ||', () => {
+        // Three-source OR-merge is the whole point of K3's fix: a player
+        // pressing numpad-4 must move the paddle even when the mouse is
+        // idle. A refactor that collapses to `cursors.left.isDown` alone
+        // passes every arrow-key behaviour test but silently kills A/D
+        // + numpad — the exact stuck-keys Tom reported.
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'handlePaddleMovement');
+        const leftLine = body.split('\n').find(l => l.includes('leftDown ='));
+        expect(leftLine, 'leftDown declaration not found').toBeDefined();
+        expect(leftLine).toContain('cursors?.left.isDown');
+        expect(leftLine).toContain('wasdA?.isDown');
+        expect(leftLine).toContain('numpadLeft?.isDown');
+        // Must be OR-merged (not AND): behaviour under AND would require
+        // all three held simultaneously — unreachable for a keyboard user.
+        expect(leftLine!.match(/\|\|/g) ?? []).toHaveLength(2);
+      });
+
+      it('rightDown merges cursors.right + wasdD + numpadRight via ||', () => {
+        // Mirror of leftDown lock — right-side.
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'handlePaddleMovement');
+        const rightLine = body.split('\n').find(l => l.includes('rightDown ='));
+        expect(rightLine, 'rightDown declaration not found').toBeDefined();
+        expect(rightLine).toContain('cursors?.right.isDown');
+        expect(rightLine).toContain('wasdD?.isDown');
+        expect(rightLine).toContain('numpadRight?.isDown');
+        expect(rightLine!.match(/\|\|/g) ?? []).toHaveLength(2);
+      });
+
+      it('both direction lines use optional chaining on private Key fields', () => {
+        // `cursors?.left` + `wasdA?.` + `numpadLeft?.` + `wasdD?.` +
+        // `numpadRight?.` — each private Key is nullable until setupInput's
+        // waitForKeyboard callback resolves. A refactor removing `?`
+        // would NPE on any frame before the callback lands (possible in
+        // a headless test harness or if the keyboard plugin is disabled).
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'handlePaddleMovement');
+        expect(body).toMatch(/this\.cursors\?\.left/);
+        expect(body).toMatch(/this\.cursors\?\.right/);
+        expect(body).toMatch(/this\.wasdA\?\.isDown/);
+        expect(body).toMatch(/this\.wasdD\?\.isDown/);
+        expect(body).toMatch(/this\.numpadLeft\?\.isDown/);
+        expect(body).toMatch(/this\.numpadRight\?\.isDown/);
+      });
+    });
+
+    describe('(4) keyboard-wins ordering', () => {
+      it('pointer branch is gated on !keyboardActive', () => {
+        // Critical K3 semantics: a pressed key MUST win over pointer
+        // tracking. The exact regression Tom shipped a fix for was a
+        // missing guard — pointer tracking fired every frame and
+        // cancelled each keyboard input before the paddle could move.
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'handlePaddleMovement');
+        // Match the pointer-branch `if` with `!keyboardActive` as the
+        // LEADING condition (not anywhere in the predicate — a swap
+        // to `pointerInCanvas && !keyboardActive` is behaviourally
+        // equivalent but loses the short-circuit advantage).
+        expect(body).toMatch(/if\s*\(\s*!keyboardActive\b/);
+      });
+
+      it('keyboardActive is computed BEFORE the pointer-branch if', () => {
+        // Positional lock: the const declaration must appear above the
+        // `if (!keyboardActive ...)` that consumes it. A refactor that
+        // hoists the pointer branch would produce a ReferenceError at
+        // runtime but compile cleanly (TDZ for `let`/`const` is runtime).
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'handlePaddleMovement');
+        const declIdx = body.indexOf('const keyboardActive');
+        const consumeIdx = body.indexOf('if (!keyboardActive');
+        expect(declIdx).toBeGreaterThanOrEqual(0);
+        expect(consumeIdx).toBeGreaterThanOrEqual(0);
+        expect(declIdx).toBeLessThan(consumeIdx);
+      });
+
+      it('lastPointerX is updated exactly once in handlePaddleMovement', () => {
+        // Without this line, the pointerMoved sensor is frozen at the
+        // initial sentinel (-1) forever, breaking the "moving pointer
+        // drags paddle" behaviour. A refactor that moves the update
+        // into a different method (e.g. an input-poll helper) could
+        // silently drop it if the helper is never called.
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'handlePaddleMovement');
+        const updates = body.match(/this\.lastPointerX\s*=\s*pointer\.x/g) ?? [];
+        expect(updates).toHaveLength(1);
+      });
+    });
+
+    describe('(5) shutdown teardown', () => {
+      it('shutdown() body calls removeAllKeys with literal `true`', () => {
+        // Phaser's Key objects are scene-scoped but the KeyboardManager
+        // is global. Without `destroy: true`, Key instances stay alive
+        // on the manager, their `isDown`/`isUp` handlers fire into the
+        // dead scene, and the next scene binding the same KeyCode gets
+        // double-events. `removeAllKeys(true)` calls `.destroy()` on
+        // each Key — the full teardown. A refactor dropping the arg
+        // (or passing `false`) leaks handlers silently.
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'shutdown');
+        expect(body).toMatch(/this\.input\.keyboard\?\.removeAllKeys\(true\)/);
+      });
+
+      it('shutdown() does NOT call removeAllKeys without args / with false', () => {
+        // Paired negation to (5.1): these are the two documented ways
+        // a future refactor could silently downgrade teardown. Lock
+        // both.
+        const src = readSceneSource();
+        const body = extractMethodBody(src, 'shutdown');
+        expect(body).not.toMatch(/removeAllKeys\(\s*\)/);
+        expect(body).not.toMatch(/removeAllKeys\(\s*false\s*\)/);
+      });
+    });
+  });
 });
