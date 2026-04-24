@@ -1534,4 +1534,289 @@ describe('RhythmHackerGameScene', () => {
       });
     });
   });
+
+  // -----------------------------------------------------------------------
+  // R87.RH2 — 120 s track-duration cap
+  //
+  // WHY THESE TESTS EXIST
+  // Tom 2026-04-23: *"we need to make the songs 2 minutes at max, they are
+  // too long"*. All five tracks today run 148-252 s, and sessions at full
+  // note density sap engagement before the natural chart-end win beat fires.
+  // RH2 caps the scene at 120 s via a guillotine inside `update()`'s end-
+  // check that composes with the RH1 win-flow (same TRACK COMPLETE banner +
+  // deferred gameOver path whether the track ends naturally OR at the cap).
+  //
+  // The tests below cover four invariants, each mapped to a named block so a
+  // refactor that breaks one fails a single obvious assertion:
+  //   1. Config dial contract (exact value + anti-regression ratchet).
+  //   2. update() guillotine fires at the >=120 s boundary regardless of
+  //      activeNotes.length (the "long-track with in-flight notes" case —
+  //      pre-RH2 this would stall the win-flow indefinitely).
+  //   3. update() guillotine does NOT fire before 120 s even if notes are
+  //      empty and the chart has ended (short-track natural-end path).
+  //   4. TIME HUD countdown is anchored to the effective duration so the
+  //      visible counter hits 0 exactly when the cap fires (before RH2 it
+  //      counted down from the underlying trackDuration, leaving the
+  //      player staring at "TIME 108s" at the final frame).
+  // -----------------------------------------------------------------------
+  describe('R87.RH2 — 120 s track-duration cap', () => {
+    function primeForUpdate(s: any): void {
+      s.isPaused = false;
+      s.isCountdown = false;
+      s.activeNotes = [];
+      s.spawnNotes = vi.fn();
+      s.updateNotes = vi.fn();
+      s.updateScrollingGrid = vi.fn();
+      s.updateNoteApproachEffects = vi.fn();
+      s.updateComboGlow = vi.fn();
+      s.updateUI = vi.fn();
+      s.exposeTestState = vi.fn();
+      s.getIsMuted = vi.fn().mockReturnValue(false);
+      s.trackAudio = null;
+    }
+
+    describe('MAX_DURATION_MS config dial', () => {
+      it('equals exactly 120000 ms (2 minutes)', () => {
+        expect(GAME_CONFIG.TRACK.MAX_DURATION_MS).toBe(120_000);
+      });
+
+      it('is a positive finite number', () => {
+        expect(GAME_CONFIG.TRACK.MAX_DURATION_MS).toBeGreaterThan(0);
+        expect(Number.isFinite(GAME_CONFIG.TRACK.MAX_DURATION_MS)).toBe(true);
+      });
+
+      it('is ≤ 180000 ms (3-minute anti-regression ratchet)', () => {
+        // Tom's explicit ask is "2 minutes at max". A future tweak pushing
+        // past 180 s walks straight back into the engagement drain he asked
+        // us to fix — needs an explicit test delete to move past.
+        expect(GAME_CONFIG.TRACK.MAX_DURATION_MS).toBeLessThanOrEqual(180_000);
+      });
+
+      it('is shorter than every shipping TRACKS[].duration so the cap meaningfully applies', () => {
+        // If a track ever gets shortened below MAX_DURATION_MS this test
+        // will fail — that's the SIGNAL, not a bug. Either update the
+        // ratchet or document the exemption. Keeps the cap honest against
+        // a silent asset-side trim that would make the guillotine dead code.
+        for (const track of GAME_CONFIG.TRACKS) {
+          expect(track.duration * 1000).toBeGreaterThan(GAME_CONFIG.TRACK.MAX_DURATION_MS);
+        }
+      });
+    });
+
+    describe('getEffectiveTrackDurationMs helper', () => {
+      it('returns trackDuration*1000 when the track is shorter than the cap', () => {
+        const s = createTestScene();
+        s.trackDuration = 60; // 60 s
+        expect(s.getEffectiveTrackDurationMs()).toBe(60_000);
+      });
+
+      it('returns MAX_DURATION_MS when the track is longer than the cap', () => {
+        const s = createTestScene();
+        s.trackDuration = 228; // IN THE MOONLIGHT
+        expect(s.getEffectiveTrackDurationMs()).toBe(GAME_CONFIG.TRACK.MAX_DURATION_MS);
+      });
+
+      it('returns MAX_DURATION_MS when the track matches the cap exactly', () => {
+        const s = createTestScene();
+        s.trackDuration = 120;
+        expect(s.getEffectiveTrackDurationMs()).toBe(GAME_CONFIG.TRACK.MAX_DURATION_MS);
+      });
+    });
+
+    describe('update() cap guillotine', () => {
+      it('fires trackComplete at exactly gameTime===MAX_DURATION_MS even with in-flight notes', () => {
+        // The "strict boundary" lock — Tom asked for "2 minutes at max", so
+        // the cap must fire when the counter HITS 120 s, not one frame
+        // later. Delta=0 so the boundary value is preserved (the pre-frame
+        // `gameTime += delta` accumulator does not nudge us past). A
+        // refactor from `>=` to `>` on the capReached operator would fail
+        // this assertion because 120_000 would no longer satisfy the check.
+        const s = createTestScene();
+        primeForUpdate(s);
+        s.trackDuration = 228; // IN THE MOONLIGHT
+        s.gameTime = GAME_CONFIG.TRACK.MAX_DURATION_MS;
+        s.activeNotes = [createMockNote(0), createMockNote(1), createMockNote(2)];
+        const trackCompleteSpy = vi.spyOn(s, 'trackComplete').mockImplementation(() => {
+          s.isTrackComplete = true;
+        });
+
+        s.update(0, 0);
+
+        expect(trackCompleteSpy).toHaveBeenCalledOnce();
+      });
+
+      it('does NOT fire trackComplete one frame before MAX_DURATION_MS (long track)', () => {
+        // Delta=0 so the pre-frame `gameTime += delta` accumulator does not
+        // push us over the boundary — the test isolates the boundary check.
+        const s = createTestScene();
+        primeForUpdate(s);
+        s.trackDuration = 228;
+        s.gameTime = GAME_CONFIG.TRACK.MAX_DURATION_MS - 1; // 119_999 ms
+        s.activeNotes = [];
+        const trackCompleteSpy = vi.spyOn(s, 'trackComplete').mockImplementation(() => {
+          s.isTrackComplete = true;
+        });
+
+        s.update(0, 0);
+
+        expect(trackCompleteSpy).not.toHaveBeenCalled();
+      });
+
+      it('respects isTrackComplete latch — guillotine cannot fire twice', () => {
+        const s = createTestScene();
+        primeForUpdate(s);
+        s.trackDuration = 228;
+        s.gameTime = GAME_CONFIG.TRACK.MAX_DURATION_MS + 500;
+        s.activeNotes = [createMockNote(0)];
+        s.isTrackComplete = true; // latched from a prior fire
+        const trackCompleteSpy = vi.spyOn(s, 'trackComplete');
+
+        s.update(0, 16);
+        s.update(16, 16);
+        s.update(32, 16);
+
+        expect(trackCompleteSpy).not.toHaveBeenCalled();
+      });
+
+      it('does NOT fire during countdown (even past the cap — defensive)', () => {
+        const s = createTestScene();
+        primeForUpdate(s);
+        s.isCountdown = true;
+        s.trackDuration = 228;
+        s.gameTime = GAME_CONFIG.TRACK.MAX_DURATION_MS + 1000;
+        s.updateCountdown = vi.fn();
+        const trackCompleteSpy = vi.spyOn(s, 'trackComplete');
+
+        // While isCountdown=true, the gameTime accumulator in update() is
+        // paused, so in practice gameTime can't exceed the cap inside the
+        // countdown window. But the end-check should also be inert here
+        // as a belt-and-braces against any future refactor that decouples
+        // gameTime from the countdown gate.
+        s.update(0, 16);
+
+        expect(trackCompleteSpy).not.toHaveBeenCalled();
+      });
+
+      it('preserves the natural-end path for a sub-cap chart (short track, no active notes)', () => {
+        // Tutorial charts or future short-track additions must still finish
+        // on the chart boundary instead of waiting for the 120 s cap.
+        const s = createTestScene();
+        primeForUpdate(s);
+        s.trackDuration = 60; // hypothetical short chart
+        s.gameTime = 60_000; // exactly at chart end
+        s.activeNotes = []; // all notes drained
+        const trackCompleteSpy = vi.spyOn(s, 'trackComplete').mockImplementation(() => {
+          s.isTrackComplete = true;
+        });
+
+        s.update(0, 16);
+
+        expect(trackCompleteSpy).toHaveBeenCalledOnce();
+      });
+
+      it('blocks natural-end on a sub-cap chart when notes are still in-flight', () => {
+        // Short track with notes still traveling — the natural-end path
+        // waits for activeNotes to drain. The cap guillotine only kicks in
+        // once gameTime hits 120 s. For sub-cap tracks we're back to the
+        // pre-RH2 behaviour, correctly preserved.
+        const s = createTestScene();
+        primeForUpdate(s);
+        s.trackDuration = 60;
+        s.gameTime = 60_000;
+        s.activeNotes = [createMockNote(0)];
+        const trackCompleteSpy = vi.spyOn(s, 'trackComplete');
+
+        s.update(0, 16);
+
+        expect(trackCompleteSpy).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('spawnNotes cutoff', () => {
+      it('stops spawning at the effective duration (not the underlying trackDuration)', () => {
+        // Before RH2: spawnNotes checked `trackTime >= trackDuration * 1000`,
+        // so a 228 s chart would keep spawning notes past the 120 s cap —
+        // those notes would only reach the hit line after the scene ended.
+        // Post-RH2: cutoff is the effective duration, so no orphaned
+        // spawns past the cap.
+        const s = createTestScene();
+        s.trackDuration = 228;
+        s.chartIndex = 0;
+        s.chart = [
+          { time: 119_000, lane: 0, type: 'normal' }, // inside the cap
+          { time: 121_000, lane: 0, type: 'normal' }, // past the cap
+        ];
+        s.trackAudio = null;
+        s.gameTime = GAME_CONFIG.TRACK.MAX_DURATION_MS; // right at the cap
+        s.spawnChartNote = vi.fn();
+
+        s.spawnNotes();
+
+        // The guard returns early at/after the cap — no notes are spawned
+        // on this tick.
+        expect(s.spawnChartNote).not.toHaveBeenCalled();
+      });
+
+      it('still spawns normally for a sub-cap chart', () => {
+        const s = createTestScene();
+        s.trackDuration = 60;
+        s.chartIndex = 0;
+        s.chart = [{ time: 0, lane: 0, type: 'normal' }];
+        s.trackAudio = null;
+        s.gameTime = 100; // 100 ms in — well before chart end
+        s.spawnChartNote = vi.fn();
+
+        s.spawnNotes();
+
+        expect(s.spawnChartNote).toHaveBeenCalledOnce();
+      });
+    });
+
+    describe('TIME HUD anchored to effective duration', () => {
+      function primeForUpdateUI(s: any, trackDuration: number, gameTimeMs: number): void {
+        s.trackDuration = trackDuration;
+        s.gameTime = gameTimeMs;
+        s.score = 0;
+        s.combo = 0;
+        s.maxCombo = 0;
+        s.health = 100;
+        s.isCountdown = false;
+        s.beatInterval = 600;
+      }
+
+      it('updateUI displays the cap-relative countdown for a long track', () => {
+        // At gameTime=30 s on a 228 s track, pre-RH2 would show
+        // `TIME 198s` (228 - 30). Post-RH2 shows `TIME 90s` (120 - 30).
+        const s = createTestScene();
+        primeForUpdateUI(s, 228, 30_000);
+
+        s.updateUI();
+
+        expect(s.timeText.setText).toHaveBeenCalledWith('TIME\n90s');
+      });
+
+      it('updateUI displays the track-relative countdown for a sub-cap chart', () => {
+        // Short track path — the cap does not apply, so the countdown
+        // reads from the underlying trackDuration as before.
+        const s = createTestScene();
+        primeForUpdateUI(s, 60, 20_000);
+
+        s.updateUI();
+
+        expect(s.timeText.setText).toHaveBeenCalledWith('TIME\n40s');
+      });
+
+      it('clamps the countdown at 0 (no negative display) past the cap boundary', () => {
+        // At gameTime=125 s on a 228 s track, the cap guillotine has
+        // already fired but the updateUI pass could still happen once
+        // before the scene transitions — must not flash a negative.
+        const s = createTestScene();
+        primeForUpdateUI(s, 228, 125_000);
+
+        s.updateUI();
+
+        expect(s.timeText.setText).toHaveBeenCalledWith('TIME\n0s');
+      });
+    });
+  });
 });

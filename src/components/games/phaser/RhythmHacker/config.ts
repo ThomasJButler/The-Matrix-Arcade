@@ -107,6 +107,35 @@ export const GAME_CONFIG = {
     BANNER_HOLD_MS: 1800,
   },
 
+  /**
+   * R87.RH2 — Track duration cap (ms).
+   *
+   * Why this exists: Tom's 2026-04-23 playtest — *"we need to make the songs
+   * 2 minutes at max, they are too long"*. Every track in `TRACKS` below
+   * overruns 120 s (shortest is CYBERPSYCHOTIC at 148 s, longest is
+   * ENHANCEMENTS at 252 s), and extended play sessions at full note density
+   * sap engagement before the natural-end win feedback fires.
+   *
+   * Why a scene-side cap instead of trimming audio assets: keeps the asset
+   * pipeline untouched (4 of the 5 tracks are already over the 5 MB PWA
+   * precache threshold — re-rendering would churn the runtime CacheFirst
+   * strategy), composes cleanly with the R87.RH1 win-flow (the same
+   * `trackComplete()` banner + deferred gameOver path fires whether the
+   * track ends naturally at a chart boundary OR at the 120 s guillotine),
+   * and the regression test at the end-check boundary locks the `>=`
+   * operator so a drift to `>` lets the track overrun by one frame.
+   *
+   * Why the HUD also scales to this value: if the TIME panel still counts
+   * down from the underlying track duration (e.g. 228 s for IN THE
+   * MOONLIGHT) but the scene ends at 120 s, the player sees "TIME 108s"
+   * on their final frame before the TRACK COMPLETE banner — visually
+   * confusing. Scaling the HUD to `min(trackDuration, MAX_DURATION_MS)`
+   * means the countdown hits 0 exactly when the guillotine fires.
+   */
+  TRACK: {
+    MAX_DURATION_MS: 120000,
+  },
+
   /** Track settings — BPM verified via FL Studio project screenshots + multi-method onset detection */
   TRACKS: [
     { name: 'IN THE MOONLIGHT', bpm: 100, duration: 228, difficulty: 'easy', audioUrl: '/assets/rhythm-hacker/tracks/in-the-moonlight.mp3' },
