@@ -13,6 +13,7 @@ import { BaseScene } from '../../../../../lib/phaser/scenes/BaseScene';
 import { SCENE_KEYS, MATRIX_COLORS, MATRIX_FONTS, REGISTRY_KEYS } from '../../../../../lib/phaser/types';
 import { GAME_CONFIG, NOTE_PROBABILITIES, ACHIEVEMENTS } from '../config';
 import { ChartNote, getTrackCharts } from '../charts';
+import { TRACK_COMPLETE_REASON } from './GameOverScene';
 
 /** Note types */
 type NoteType = 'normal' | 'hold' | 'double';
@@ -105,6 +106,21 @@ export class RhythmHackerGameScene extends BaseScene {
   private countdownTime = 0;
   private countdownText!: Phaser.GameObjects.Text;
 
+  /**
+   * R87.RH1 — re-entry guard for `trackComplete()`.
+   *
+   * Before RH1, the `update()` check at L229 (`gameTime >= trackDuration &&
+   * activeNotes.length === 0`) held true for every frame after the last note
+   * cleared. `trackComplete()` fires `gameOver()` which eventually starts a
+   * different scene, but the current scene keeps running `update()` until
+   * Phaser drains the scene transition queue — so without a latch the guard
+   * condition re-matched each frame and stacked `gameOver()` calls (the real
+   * regression risk surfaced during RH1 audit: duplicate `reportScore` writes
+   * and a race with the banner tween where the second call starts the
+   * GameOverScene before the tween's `onComplete` fires).
+   */
+  private isTrackComplete = false;
+
   constructor() {
     super(SCENE_KEYS.GAME);
   }
@@ -155,6 +171,7 @@ export class RhythmHackerGameScene extends BaseScene {
     this.keyHeld = [false, false, false, false];
     this.isCountdown = true;
     this.countdownTime = 0;
+    this.isTrackComplete = false;
     this.laneBackgrounds = [];
 
     const saveSystem = this.registry.get(REGISTRY_KEYS.SAVE_SYSTEM);
@@ -225,8 +242,14 @@ export class RhythmHackerGameScene extends BaseScene {
     this.updateNoteApproachEffects();
     this.updateComboGlow();
 
-    // Check for track end
-    if (this.gameTime >= this.trackDuration * 1000 && this.activeNotes.length === 0) {
+    // Check for track end. R87.RH1 adds the `!isTrackComplete` guard so the
+    // banner tween + delayedCall chain is never interrupted by a second
+    // trackComplete() kicked off on a later update() tick.
+    if (
+      !this.isTrackComplete &&
+      this.gameTime >= this.trackDuration * 1000 &&
+      this.activeNotes.length === 0
+    ) {
       this.trackComplete();
     }
 
@@ -1124,9 +1147,26 @@ export class RhythmHackerGameScene extends BaseScene {
   }
 
   /**
-   * Track complete
+   * Track complete — the natural-end win path.
+   *
+   * R87.RH1 changes the user-facing shape of this path:
+   *   1. Re-entry guard (`isTrackComplete`) so the update-tick condition at
+   *      L229 cannot fire this twice.
+   *   2. Paint a "TRACK COMPLETE" banner so the player gets explicit win
+   *      feedback instead of a silent cut to the scoreboard (Tom's 2026-04-23
+   *      complaint).
+   *   3. Defer `gameOver()` until after `BANNER_HOLD_MS` so the banner is
+   *      perceivable.
+   *   4. Pass `reason = 'TRACK COMPLETE'` through gameOver so the Rhythm
+   *      Hacker GameOverScene variant paints the green win title instead of
+   *      the red "GAME OVER" default. Max-combo info moves into the stats
+   *      grid (already present via buildEndStats()) so the reason slot can
+   *      carry the celebratory copy instead of duplicating a stat.
    */
   private trackComplete(): void {
+    if (this.isTrackComplete) return;
+    this.isTrackComplete = true;
+
     this.stopTrackAudio();
     this.playSound('levelUp');
 
@@ -1154,7 +1194,47 @@ export class RhythmHackerGameScene extends BaseScene {
 
     if (this.score > this.highScore) this.highScore = this.score;
     this.reportScore(this.score, this.highScore);
-    this.gameOver(this.score, `Max Combo: ${this.maxCombo}`, this.highScore, this.buildEndStats(), this.trackIndex + 1, this.getGameDuration());
+
+    // Capture the end-of-track snapshot BEFORE the delayed call so a post-
+    // transition render tick cannot mutate score / stats under our feet.
+    const finalScore = this.score;
+    const finalHighScore = this.highScore;
+    const finalStats = this.buildEndStats();
+    const finalLevel = this.trackIndex + 1;
+    const finalDuration = this.getGameDuration();
+
+    this.showTrackCompleteBanner();
+
+    this.time.delayedCall(GAME_CONFIG.TRACK_COMPLETE.BANNER_HOLD_MS, () => {
+      this.gameOver(finalScore, TRACK_COMPLETE_REASON, finalHighScore, finalStats, finalLevel, finalDuration);
+    });
+  }
+
+  /**
+   * R87.RH1 — "TRACK COMPLETE" celebratory banner rendered in the middle of
+   * the canvas during the BANNER_HOLD_MS window. Scale + fade tween mirrors
+   * Agent Chase's LEVEL CLEAR banner so the two games feel consistent at
+   * their transition moments.
+   */
+  private showTrackCompleteBanner(): void {
+    const { WIDTH, HEIGHT } = GAME_CONFIG;
+    const banner = this.add.text(WIDTH / 2, HEIGHT / 2, 'TRACK COMPLETE', {
+      fontFamily: MATRIX_FONTS.PRIMARY,
+      fontSize: '36px',
+      color: MATRIX_COLORS.PRIMARY_HEX,
+    });
+    banner.setOrigin(0.5);
+    banner.setDepth(300);
+    banner.setShadow(0, 0, MATRIX_COLORS.PRIMARY_HEX, 12);
+
+    this.tweens.add({
+      targets: banner,
+      alpha: 0,
+      scale: 1.5,
+      duration: GAME_CONFIG.TRACK_COMPLETE.BANNER_HOLD_MS,
+      ease: 'Quad.easeOut',
+      onComplete: () => banner.destroy(),
+    });
   }
 
   private buildEndStats(): { label: string; value: string | number }[] {
