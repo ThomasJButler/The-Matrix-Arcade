@@ -87,6 +87,26 @@ export const GAME_CONFIG = {
     NOTES_START: 6000,
   },
 
+  /**
+   * R87.RH1 — Track-complete banner hold duration (ms).
+   *
+   * Why this exists: Tom finished a track and saw no "LEVEL COMPLETE" /
+   * "TRACK COMPLETE" feedback before the scene transitioned — the hand-off
+   * felt like a silent cut to the scoreboard. A 1800 ms hold is long enough
+   * for the player to read the banner + feel the win moment but short enough
+   * that impatient players aren't held hostage (mirrors Agent Chase's
+   * `LEVEL_CLEAR_DELAY_MS = 1800` cadence after R87.AC1).
+   *
+   * Why the constant instead of a literal: future tuning against playtest
+   * feel should not require grepping the scene body, and the regression test
+   * that locks "banner holds before gameOver fires" reads `TRACK_COMPLETE.
+   * BANNER_HOLD_MS` directly so any drift in the literal fails one obvious
+   * assertion instead of being tracked across disparate sites.
+   */
+  TRACK_COMPLETE: {
+    BANNER_HOLD_MS: 1800,
+  },
+
   /** Track settings — BPM verified via FL Studio project screenshots + multi-method onset detection */
   TRACKS: [
     { name: 'IN THE MOONLIGHT', bpm: 100, duration: 228, difficulty: 'easy', audioUrl: '/assets/rhythm-hacker/tracks/in-the-moonlight.mp3' },

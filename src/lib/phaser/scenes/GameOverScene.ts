@@ -65,7 +65,7 @@ export class GameOverScene extends BaseScene {
     const restartY = hasStats ? 0.78 : 0.72;
     const menuY = hasStats ? 0.88 : 0.82;
 
-    this.createMatrixText(centerX, height * titleY, 'GAME OVER', hasStats ? 24 : 28, MATRIX_COLORS.RED_HEX);
+    this.createMatrixText(centerX, height * titleY, this.getTitleText(), hasStats ? 24 : 28, this.getTitleColor());
 
     if (this.reason) {
       this.createMatrixText(centerX, height * reasonY, this.reason, 11, MATRIX_COLORS.YELLOW_HEX);
@@ -98,6 +98,23 @@ export class GameOverScene extends BaseScene {
       this.updateMatrixRain(this.rainGroup, delta);
     }
     this.exposeTestState({ score: this.finalScore, highScore: this.highScore });
+  }
+
+  /**
+   * Title string shown at the top of the game-over screen. Subclasses can
+   * override (R87.RH1 — Rhythm Hacker swaps in "TRACK COMPLETE" on the
+   * natural-end-of-track win path so the screen doesn't read like a death).
+   */
+  protected getTitleText(): string {
+    return 'GAME OVER';
+  }
+
+  /**
+   * Title colour paired with `getTitleText()`. Default red conveys loss;
+   * subclasses returning a win variant should return a celebratory hue.
+   */
+  protected getTitleColor(): string {
+    return MATRIX_COLORS.RED_HEX;
   }
 
   /**

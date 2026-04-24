@@ -81,6 +81,12 @@ function createTestScene(trackIndex = 0) {
 
   // Tweens and add (used by showGrade, createHitEffect, showComboMilestone)
   scene.tweens = { add: vi.fn() };
+  // R87.RH1: trackComplete defers gameOver via time.delayedCall so the
+  // TRACK COMPLETE banner holds on-screen for BANNER_HOLD_MS. Default mock
+  // invokes the callback immediately so existing trackComplete assertions
+  // (reportScore + gameOver called with the final snapshot) keep passing.
+  // Tests that need to verify deferral override this with capture-callback.
+  scene.time = { delayedCall: vi.fn((_ms: number, cb: () => void) => cb()) };
   scene.add = {
     text: vi.fn().mockReturnValue({
       setOrigin: vi.fn(),
@@ -986,8 +992,10 @@ describe('RhythmHackerGameScene', () => {
 
       it('trackComplete promotes highScore BEFORE reportScore (new high)', () => {
         // Completion-victory path — same (score, highScore) contract, same
-        // promotion ordering. The reason string differs ("Max Combo: X")
-        // but the arg shape must not.
+        // promotion ordering. R87.RH1 swapped the reason string from
+        // "Max Combo: X" to the 'TRACK COMPLETE' sentinel so the Rhythm
+        // Hacker GameOverScene can branch to a green win-title; the max-combo
+        // info remains surfaced via `buildEndStats()`.
         primeForGameOver(scene);
         scene.score = 12000;
         scene.highScore = 4000;
@@ -999,7 +1007,7 @@ describe('RhythmHackerGameScene', () => {
         expect(scene.reportScore).toHaveBeenCalledWith(12000, 12000);
         expect(scene.gameOver).toHaveBeenCalledWith(
           12000,
-          'Max Combo: 47',
+          'TRACK COMPLETE',
           12000,
           expect.any(Array),
           expect.any(Number),
@@ -1022,7 +1030,7 @@ describe('RhythmHackerGameScene', () => {
         expect(scene.reportScore).toHaveBeenCalledWith(500, 9999);
         expect(scene.gameOver).toHaveBeenCalledWith(
           500,
-          'Max Combo: 10',
+          'TRACK COMPLETE',
           9999,
           expect.any(Array),
           expect.any(Number),
@@ -1313,6 +1321,217 @@ describe('RhythmHackerGameScene', () => {
       // pauseKey is never assigned, so it stays whatever the scene ctor
       // left it as (undefined, per BaseScene's `protected pauseKey?:` field).
       expect(scene.pauseKey).toBeUndefined();
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // R87.RH1 — Track-complete win flow
+  //
+  // WHY THESE TESTS EXIST
+  // Tom 2026-04-23 post-R86: *"I have just completed a level and no high score
+  // came up or level completed"*. Pre-RH1 trackComplete() snapped straight to
+  // the GameOverScene with the "Max Combo: X" reason, which the base
+  // GameOverScene rendered under a red "GAME OVER" title — indistinguishable
+  // from a death from the player's perspective. RH1 added three guarantees:
+  //   1. Re-entry guard — the update() tick at L229 can no longer stack
+  //      trackComplete() calls before the scene transitions.
+  //   2. TRACK COMPLETE banner painted for BANNER_HOLD_MS before gameOver
+  //      fires, so the win moment is perceivable.
+  //   3. `reason = 'TRACK COMPLETE'` (sentinel) passed through gameOver so
+  //      RhythmHackerGameOverScene's title hook paints green win copy.
+  // Each invariant maps to a named block below so a refactor that breaks one
+  // fails exactly one assertion.
+  // -----------------------------------------------------------------------
+  describe('R87.RH1 — Track-complete win flow', () => {
+    function primeForTrackComplete(s: any): void {
+      s.trackAudio = null;
+      s.cameras = { main: { shake: vi.fn(), flash: vi.fn() } };
+      s.buildEndStats = vi.fn().mockReturnValue([{ label: 'Max Combo', value: '0×' }]);
+    }
+
+    describe('Re-entry guard', () => {
+      it('sets isTrackComplete=true on first call', () => {
+        const scene = createTestScene();
+        primeForTrackComplete(scene);
+        expect(scene.isTrackComplete).toBe(false);
+        scene.trackComplete();
+        expect(scene.isTrackComplete).toBe(true);
+      });
+
+      it('bails early on second call — reportScore fires once, gameOver once', () => {
+        const scene = createTestScene();
+        primeForTrackComplete(scene);
+        scene.score = 5000;
+        scene.highScore = 1000;
+
+        scene.trackComplete();
+        scene.trackComplete(); // simulate the update-tick stacking risk
+        scene.trackComplete();
+
+        expect(scene.reportScore).toHaveBeenCalledTimes(1);
+        expect(scene.gameOver).toHaveBeenCalledTimes(1);
+      });
+
+      it('update() tick does not call trackComplete when guard is already set', () => {
+        const scene = createTestScene();
+        primeForTrackComplete(scene);
+        scene.isPaused = false;
+        scene.isCountdown = false;
+        scene.trackDuration = 10;
+        scene.gameTime = 20_000; // past trackDuration * 1000
+        scene.activeNotes = [];
+        scene.isTrackComplete = true;
+        // Stub every other method update() calls so we can isolate the guard.
+        scene.spawnNotes = vi.fn();
+        scene.updateNotes = vi.fn();
+        scene.updateScrollingGrid = vi.fn();
+        scene.updateNoteApproachEffects = vi.fn();
+        scene.updateComboGlow = vi.fn();
+        scene.updateUI = vi.fn();
+        scene.exposeTestState = vi.fn();
+        scene.getIsMuted = vi.fn().mockReturnValue(false);
+        const trackCompleteSpy = vi.spyOn(scene, 'trackComplete');
+
+        scene.update(0, 16);
+
+        expect(trackCompleteSpy).not.toHaveBeenCalled();
+      });
+
+      it('create() resets isTrackComplete to false', () => {
+        const scene = createTestScene();
+        scene.isTrackComplete = true;
+        // create() is a big method — stub the Phaser-heavy branches and just
+        // assert the reset happened. We need registry/saveSystem stubs and
+        // a minimal add/notes surface.
+        scene.registry = { get: vi.fn() };
+        scene.add = {
+          ...scene.add,
+          group: vi.fn().mockReturnValue({}),
+        };
+        scene.createMatrixBackground = vi.fn();
+        scene.createLanes = vi.fn();
+        scene.createUI = vi.fn();
+        scene.createCountdown = vi.fn();
+        scene.setupInput = vi.fn();
+        scene.setupCommonInputs = vi.fn();
+        scene.initTrackAudio = vi.fn();
+
+        scene.create();
+
+        expect(scene.isTrackComplete).toBe(false);
+      });
+    });
+
+    describe('TRACK COMPLETE banner + deferred gameOver', () => {
+      it('paints a TRACK COMPLETE banner BEFORE firing gameOver', () => {
+        const scene = createTestScene();
+        primeForTrackComplete(scene);
+        // Capture delayedCall without invoking — so gameOver has not yet fired.
+        scene.time = { delayedCall: vi.fn() };
+
+        scene.trackComplete();
+
+        // Banner creation: scene.add.text was called with 'TRACK COMPLETE'
+        const addTextCalls = (scene.add.text as any).mock.calls;
+        const bannerCall = addTextCalls.find((c: any[]) => c[2] === 'TRACK COMPLETE');
+        expect(bannerCall).toBeDefined();
+        // Banner is centred (WIDTH/2, HEIGHT/2) — matches config dimensions.
+        expect(bannerCall[0]).toBe(GAME_CONFIG.WIDTH / 2);
+        expect(bannerCall[1]).toBe(GAME_CONFIG.HEIGHT / 2);
+        // gameOver has NOT yet fired (delayedCall captured but not invoked).
+        expect(scene.gameOver).not.toHaveBeenCalled();
+      });
+
+      it('schedules gameOver via time.delayedCall using TRACK_COMPLETE.BANNER_HOLD_MS', () => {
+        const scene = createTestScene();
+        primeForTrackComplete(scene);
+        const delayedCall = vi.fn();
+        scene.time = { delayedCall };
+
+        scene.trackComplete();
+
+        expect(delayedCall).toHaveBeenCalledOnce();
+        expect(delayedCall).toHaveBeenCalledWith(
+          GAME_CONFIG.TRACK_COMPLETE.BANNER_HOLD_MS,
+          expect.any(Function),
+        );
+      });
+
+      it('fires gameOver with TRACK COMPLETE reason when the delayedCall callback invokes', () => {
+        const scene = createTestScene();
+        primeForTrackComplete(scene);
+        scene.score = 5000;
+        scene.highScore = 1000;
+        scene.maxCombo = 30;
+        let capturedCb: (() => void) | null = null;
+        scene.time = {
+          delayedCall: vi.fn((_ms: number, cb: () => void) => {
+            capturedCb = cb;
+          }),
+        };
+
+        scene.trackComplete();
+
+        expect(scene.gameOver).not.toHaveBeenCalled();
+        expect(capturedCb).not.toBeNull();
+
+        capturedCb!();
+
+        expect(scene.gameOver).toHaveBeenCalledWith(
+          5000,
+          'TRACK COMPLETE',
+          5000,
+          expect.any(Array),
+          expect.any(Number),
+          expect.any(Number),
+        );
+      });
+
+      it('snapshots the final score/highScore BEFORE the deferred call (late mutation cannot leak)', () => {
+        const scene = createTestScene();
+        primeForTrackComplete(scene);
+        scene.score = 12_000;
+        scene.highScore = 4000;
+        let capturedCb: (() => void) | null = null;
+        scene.time = {
+          delayedCall: vi.fn((_ms: number, cb: () => void) => {
+            capturedCb = cb;
+          }),
+        };
+
+        scene.trackComplete();
+        // Simulate a stray late mutation. The captured snapshot must win.
+        scene.score = 99;
+        scene.highScore = 99;
+
+        capturedCb!();
+
+        expect(scene.gameOver).toHaveBeenCalledWith(
+          12_000,
+          'TRACK COMPLETE',
+          12_000,
+          expect.any(Array),
+          expect.any(Number),
+          expect.any(Number),
+        );
+      });
+    });
+
+    describe('BANNER_HOLD_MS config dial', () => {
+      it('is a positive finite number', () => {
+        expect(GAME_CONFIG.TRACK_COMPLETE.BANNER_HOLD_MS).toBeGreaterThan(0);
+        expect(Number.isFinite(GAME_CONFIG.TRACK_COMPLETE.BANNER_HOLD_MS)).toBe(true);
+      });
+
+      it('is ≥ 1000 ms (readable to players) AND ≤ 3000 ms (not hostage-taking)', () => {
+        // Anti-regression ratchet — the 1800 ms value is Tom's "perceivable
+        // but brief" target. A refactor pushing it past 3000 ms starts to
+        // feel like the game is forcing a pause; pushing below 1000 ms
+        // stops being legible feedback. Both directions need an explicit
+        // test delete to move past.
+        expect(GAME_CONFIG.TRACK_COMPLETE.BANNER_HOLD_MS).toBeGreaterThanOrEqual(1000);
+        expect(GAME_CONFIG.TRACK_COMPLETE.BANNER_HOLD_MS).toBeLessThanOrEqual(3000);
+      });
     });
   });
 });
