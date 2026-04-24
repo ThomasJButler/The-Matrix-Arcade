@@ -1819,4 +1819,259 @@ describe('RhythmHackerGameScene', () => {
       });
     });
   });
+
+  // -----------------------------------------------------------------------
+  // R87.RH1+ safety-net — win-flow sentinel + single-source-of-truth +
+  // write-site isolation (pre-Tom-tick tripwire layer)
+  //
+  // WHY THIS SAFETY-NET EXISTS
+  // RH1 + RH2 shipped the track-complete win flow across three surfaces:
+  // a re-entry-guarded trackComplete() in GameScene, a TRACK COMPLETE banner
+  // deferred via delayedCall, and a title-branched GameOverScene variant.
+  // RH1's own block covers behaviour (re-entry guard, deferred gameOver,
+  // snapshot immunity, BANNER_HOLD_MS dial) but NOT the wiring contracts
+  // that must survive a refactor: the cross-file TRACK_COMPLETE_REASON
+  // sentinel, the single-source `getEffectiveTrackDurationMs()` helper, the
+  // two-writes-max discipline on `isTrackComplete`, and the natural-end OR
+  // operator in the update-loop end-check. A "tidy up" pass that inlines
+  // the helper, flattens the sentinel into a literal, or swaps the OR for
+  // an AND compiles cleanly and passes every RH1/RH2 behaviour test — but
+  // silently re-opens Tom's 2026-04-23 complaint or introduces a new
+  // stall-at-end bug.
+  //
+  // Follows the R86.F6/F6+/F6++/N2+/N4+ lineage: each invariant family gets
+  // one assertion, zero production code touched, failure mode is a single
+  // obvious regex miss.
+  // -----------------------------------------------------------------------
+  describe('R87.RH1+ safety-net — win-flow sentinel + single-source + write-site isolation (pre-Tom-tick)', () => {
+    async function readGameSceneSource(): Promise<string> {
+      const { readFileSync } = await import('fs');
+      const { resolve } = await import('path');
+      return readFileSync(
+        resolve(process.cwd(), 'src/components/games/phaser/RhythmHacker/scenes/GameScene.ts'),
+        'utf8',
+      );
+    }
+
+    async function readGameOverSceneSource(): Promise<string> {
+      const { readFileSync } = await import('fs');
+      const { resolve } = await import('path');
+      return readFileSync(
+        resolve(process.cwd(), 'src/components/games/phaser/RhythmHacker/scenes/GameOverScene.ts'),
+        'utf8',
+      );
+    }
+
+    describe('Cross-file TRACK_COMPLETE_REASON sentinel', () => {
+      it('GameScene.ts imports TRACK_COMPLETE_REASON from ./GameOverScene (not hardcoded literal)', async () => {
+        // Single-source contract — the sentinel lives in GameOverScene.ts so a
+        // rename stays in lockstep. A refactor that inlines the literal as the
+        // `reason` arg to gameOver breaks the contract: if GameOverScene.ts's
+        // sentinel later becomes 'LEVEL CLEAR', GameScene.ts silently stays
+        // on 'TRACK COMPLETE' and the title-hook branch never fires for a
+        // future refactor's rename.
+        const src = await readGameSceneSource();
+        expect(src).toMatch(
+          /import\s*{\s*TRACK_COMPLETE_REASON\s*}\s*from\s*['"]\.\/GameOverScene['"]/,
+        );
+      });
+
+      it('trackComplete body passes TRACK_COMPLETE_REASON (identifier) — not a hardcoded string literal — to gameOver', async () => {
+        // The legitimate 'TRACK COMPLETE' literal appears in
+        // showTrackCompleteBanner as the banner text (L1257). This test
+        // narrows its focus to the gameOver call inside trackComplete so a
+        // copy-paste that replaces the identifier with a string literal gets
+        // caught, without false-positiving the banner.
+        const src = await readGameSceneSource();
+        expect(src).toMatch(/this\.gameOver\(\s*finalScore\s*,\s*TRACK_COMPLETE_REASON\s*,/);
+      });
+
+      it('GameOverScene.ts exports TRACK_COMPLETE_REASON as the exact string "TRACK COMPLETE"', async () => {
+        // Paired cross-file lock. The existing GameOverScene.test.ts asserts
+        // the runtime value; this static check additionally locks the
+        // `export const` form so a refactor to `let`, to a function, or to a
+        // non-exported constant fails here before runtime reaches the
+        // existing behaviour test.
+        const src = await readGameOverSceneSource();
+        expect(src).toMatch(
+          /export\s+const\s+TRACK_COMPLETE_REASON\s*=\s*['"]TRACK COMPLETE['"]/,
+        );
+      });
+    });
+
+    describe('isTrackComplete write-site isolation', () => {
+      it('has exactly one `this.isTrackComplete = true` write (in trackComplete only)', async () => {
+        // Any additional true-write implies a second code path that can set
+        // the latch — and with nothing to reset it the next track plays with
+        // a permanently-latched flag, silently breaking the re-entry guard.
+        const src = await readGameSceneSource();
+        const matches = src.match(/this\.isTrackComplete\s*=\s*true\b/g) ?? [];
+        expect(matches.length).toBe(1);
+      });
+
+      it('has exactly one class-field initialiser and one init/create reset for `isTrackComplete = false`', async () => {
+        // Two separate reset surfaces: the class-field initialiser at the
+        // declaration (L122 — `private isTrackComplete = false`) and the
+        // explicit reset in init()/create() (L174 — `this.isTrackComplete
+        // = false`) so a restart can't carry a stale latch. Any third
+        // reset path is an un-audited surface: for example, a "cleanup"
+        // helper called inside showTrackCompleteBanner's onComplete could
+        // reset the flag and revive the stacking race Tom's 2026-04-23
+        // screenshot captured. The two axes are regex'd separately because
+        // they use distinct syntax (class-field has no `this.`, assignment
+        // does) — catching drift on either axis individually.
+        const src = await readGameSceneSource();
+        const fieldInit = src.match(/private\s+isTrackComplete\s*=\s*false\b/g) ?? [];
+        const thisReset = src.match(/this\.isTrackComplete\s*=\s*false\b/g) ?? [];
+        expect(fieldInit.length).toBe(1);
+        expect(thisReset.length).toBe(1);
+      });
+    });
+
+    describe('getEffectiveTrackDurationMs single-source-of-truth', () => {
+      it('has exactly four `this.getEffectiveTrackDurationMs()` call-sites', async () => {
+        // Four surfaces agree on one answer: update() cap guillotine (L263),
+        // spawnNotes cutoff (L974), createUI HUD init (L431), updateUI HUD
+        // refresh (L1334). A refactor that inlines the raw
+        // `Math.min(this.trackDuration * 1000, MAX_DURATION_MS)` expression
+        // into one caller (e.g. "optimise away a method call") silently
+        // breaks the single-source guarantee and drifts one surface the
+        // moment the cap or the track-duration math changes.
+        const src = await readGameSceneSource();
+        const matches = src.match(/this\.getEffectiveTrackDurationMs\(\)/g) ?? [];
+        expect(matches.length).toBe(4);
+      });
+
+      it('has exactly two runtime `GAME_CONFIG.TRACK.MAX_DURATION_MS` references (capReached check + helper)', async () => {
+        // The capReached check in update() (L264) and the Math.min in the
+        // helper (L961) are the only runtime reads. A third reference
+        // indicates an inlined constant that can drift from the config dial
+        // — the exact failure mode the helper was introduced to prevent.
+        // Doc-comment mentions of the dial are filtered out by anchoring on
+        // GAME_CONFIG. so this count is strictly runtime.
+        const src = await readGameSceneSource();
+        const matches = src.match(/GAME_CONFIG\.TRACK\.MAX_DURATION_MS/g) ?? [];
+        expect(matches.length).toBe(2);
+      });
+    });
+
+    describe('Natural-end OR operator locked', () => {
+      it('update() end-check combines `capReached` with `activeNotes.length === 0` using `||` (not `&&`)', async () => {
+        // The compound condition `(capReached || this.activeNotes.length === 0)`
+        // means the guillotine fires either at the 120 s boundary regardless
+        // of in-flight notes, OR on natural-end when notes are drained. A
+        // silent swap to `&&` demands BOTH, which stalls cap-boundary wins
+        // for any long track with a note still travelling at the 120 s mark
+        // — and stalls natural-end wins on the short-track path too
+        // (capReached=false, activeNotes=[] → false && true = false).
+        const src = await readGameSceneSource();
+        expect(src).toMatch(
+          /capReached\s*\|\|\s*this\.activeNotes\.length\s*===\s*0/,
+        );
+        // Belt-and-braces: the full gate must not contain an `&&` between
+        // these two expressions. Strict negation catches future refactors
+        // that keep the `||` literal present elsewhere while adding an `&&`
+        // alongside it.
+        expect(src).not.toMatch(
+          /capReached\s*&&\s*this\.activeNotes\.length\s*===\s*0/,
+        );
+      });
+    });
+
+    describe('Banner cleanup contract', () => {
+      it('showTrackCompleteBanner schedules a tween with `onComplete: () => banner.destroy()`', async () => {
+        // Without destroy, every track-complete cycle leaves an orphaned
+        // depth-300 text node on the scene graph. A 5-session arcade day
+        // stacks 5 dead banner nodes in DOM. This test mirrors the
+        // R86.F6+++ showLevelUpText banner-cleanup tripwire applied to
+        // Rhythm Hacker's win beat.
+        const src = await readGameSceneSource();
+        expect(src).toMatch(/onComplete:\s*\(\)\s*=>\s*banner\.destroy\(\)/);
+      });
+    });
+
+    describe('trackComplete body ordering', () => {
+      it('latch-set appears BEFORE showTrackCompleteBanner BEFORE time.delayedCall inside trackComplete', async () => {
+        // Positional static lock. If a future "simplify" reorders them —
+        // e.g., delayedCall scheduled first then banner painted inside an
+        // onComplete, with the latch set last — the update-tick could see
+        // the unlatched flag and stack a second trackComplete() before the
+        // first one's delayedCall even fires. This test lifts the
+        // tautological "always true today" invariant into an explicit
+        // lock so a silent reorder fails loudly.
+        const src = await readGameSceneSource();
+        const trackCompleteBodyMatch = src.match(
+          /private\s+trackComplete\s*\(\s*\)\s*:\s*void\s*{([\s\S]*?)\n\s*}\s*\n\s*\/\*\*\s*\n\s*\*\s*R87\.RH1/,
+        );
+        expect(trackCompleteBodyMatch).not.toBeNull();
+        const body = trackCompleteBodyMatch![1];
+
+        const latchPos = body.indexOf('this.isTrackComplete = true');
+        const bannerPos = body.indexOf('this.showTrackCompleteBanner()');
+        const delayedPos = body.indexOf('this.time.delayedCall(');
+
+        expect(latchPos).toBeGreaterThanOrEqual(0);
+        expect(bannerPos).toBeGreaterThan(latchPos);
+        expect(delayedPos).toBeGreaterThan(bannerPos);
+      });
+
+      it('captures finalScore as a local const BEFORE the delayedCall schedules gameOver', async () => {
+        // The snapshot pattern uses `const finalScore = this.score` before
+        // the delayedCall so a late render-tick mutation can't leak into
+        // the scoreboard write. If a refactor inlines `this.score` inside
+        // the callback, RH1's "snapshot immunity" behaviour test still
+        // passes (because the mutation happens between trackComplete() and
+        // the invoke, not inside the same sync frame) — this static check
+        // catches the inline even before the behaviour breaks.
+        const src = await readGameSceneSource();
+        expect(src).toMatch(/const\s+finalScore\s*=\s*this\.score/);
+        expect(src).toMatch(/const\s+finalHighScore\s*=\s*this\.highScore/);
+        expect(src).toMatch(/const\s+finalStats\s*=\s*this\.buildEndStats\(\)/);
+      });
+    });
+
+    describe('Re-entry idempotency — achievements unlock once', () => {
+      it('second trackComplete() call does NOT double-unlock FULL_COMBO', () => {
+        // RH1's existing re-entry block asserts reportScore + gameOver fire
+        // once each, but not that the achievement unlock chain (which runs
+        // BEFORE those two) is idempotent. If a future refactor reorders
+        // the guard BELOW the unlockAchievement calls, double-unlock fires
+        // silently — benign for already-unlocked achievements but double-
+        // counted for any future "X-count" achievement bound to the call.
+        const scene = createTestScene();
+        scene.trackAudio = null;
+        scene.cameras = { main: { shake: vi.fn(), flash: vi.fn() } };
+        scene.buildEndStats = vi.fn().mockReturnValue([]);
+        scene.missCount = 0; // triggers FULL_COMBO + NO_MISS
+        scene.difficulty = 'easy';
+
+        scene.trackComplete();
+        scene.trackComplete();
+
+        const fullComboCalls = (scene.unlockAchievement as any).mock.calls.filter(
+          (c: any[]) => c[0] === ACHIEVEMENTS.FULL_COMBO,
+        );
+        expect(fullComboCalls.length).toBe(1);
+      });
+
+      it('second trackComplete() call does NOT double-unlock the difficulty achievement', () => {
+        // Pairs with the FULL_COMBO lock. The difficulty achievement switch
+        // runs after the FULL_COMBO block, so an early guard-drop regression
+        // would show up on both — belt-and-braces coverage of the chain.
+        const scene = createTestScene();
+        scene.trackAudio = null;
+        scene.cameras = { main: { shake: vi.fn(), flash: vi.fn() } };
+        scene.buildEndStats = vi.fn().mockReturnValue([]);
+        scene.difficulty = 'hard';
+
+        scene.trackComplete();
+        scene.trackComplete();
+
+        const completeHardCalls = (scene.unlockAchievement as any).mock.calls.filter(
+          (c: any[]) => c[0] === ACHIEVEMENTS.COMPLETE_HARD,
+        );
+        expect(completeHardCalls.length).toBe(1);
+      });
+    });
+  });
 });
