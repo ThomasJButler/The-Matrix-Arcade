@@ -1997,4 +1997,175 @@ describe('AgentChaseGameScene', () => {
       });
     });
   });
+
+  // -----------------------------------------------------------------------
+  // R87.AC1+ safety-net — Level-clear state carry-over + reset isolation
+  // (pre-Tom-tick)
+  //
+  // R87.AC1's main block locks the NEW state-machine + banner + collision
+  // firewall. This safety-net locks the *invariants that must survive the
+  // level-clear boundary* — the exact failure-mode Tom's screenshot captured
+  // (empty maze, stuck on LVL 1 with SCORE 2570 visible). The existing
+  // "Level Completion" block asserts `score === LEVEL_BONUS` starting from
+  // score=0; it does NOT lock the additive `+=` contract, carry-over of
+  // lives across the boundary, or the `>=` vs `===` threshold on
+  // SURVIVE_5_LEVELS beyond the single level-4→5 transition. A refactor
+  // clobbering score with `=` instead of `+=`, or flipping the achievement
+  // gate to `===`, would all pass the existing suite.
+  //
+  // The restartLevel static locks cover the paired "what must be reset" /
+  // "what must be preserved" contract. `diedThisLevel=false` and
+  // `fruitSpawned=[false,false]` MUST fire (else L2+ never re-earns
+  // NO_DEATH_LEVEL and fruit never re-spawns); `score=0` and `lives=…`
+  // reassignments MUST NOT fire (else Tom's 2570-point run gets wiped on
+  // every level-clear, which is the canonical "nothing happened" UX that
+  // kicked off AC1).
+  //
+  // Pure tripwires — no production code touched. Follows the R86.F6
+  // (state persistence) + R86.F6+ (`>=` boundary + operator lock) +
+  // R86.N2+ (static source + reset isolation) playbook.
+  // -----------------------------------------------------------------------
+  describe('R87.AC1+ safety-net — level-clear state carry-over + reset isolation', () => {
+    function readSceneSource(): string {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require('fs') as typeof import('fs');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require('path') as typeof import('path');
+      return fs.readFileSync(path.join(__dirname, 'GameScene.ts'), 'utf8');
+    }
+
+    function extractBody(src: string, signature: RegExp): string {
+      const match = src.match(signature);
+      expect(match).not.toBeNull();
+      return match![1];
+    }
+
+    beforeEach(() => {
+      scene.totalDots = 100;
+      scene.dotsCollected = 100;
+    });
+
+    describe('state carry-over through level-clear (R86.F6 mirror)', () => {
+      it('score carries over additive (+= LEVEL_BONUS, NOT = LEVEL_BONUS)', () => {
+        // Existing test locks score === LEVEL_BONUS starting from 0. That
+        // passes even if `+=` drifts to `=` (clobber). A player mid-session
+        // with 500 points must see 500 + LEVEL_BONUS post-clear, not the
+        // flat LEVEL_BONUS that a clobbering refactor would produce.
+        scene.score = 500;
+        scene.checkLevelComplete();
+        expect(scene.score).toBe(500 + GAME_CONFIG.SCORING.LEVEL_BONUS);
+      });
+
+      it('lives carry over unchanged across the boundary', () => {
+        // restartLevel must NOT reassign lives. A refactor that "resets the
+        // level state" could silently treat lives as level-scoped — every
+        // clear would reset to the starting count and eliminate the lives
+        // mechanic entirely.
+        scene.lives = 2;
+        scene.checkLevelComplete();
+        expect(scene.lives).toBe(2);
+      });
+
+      it('two sequential clears compound score additively (monotonic)', () => {
+        // Direct tripwire for Tom's screenshot scenario — a multi-level run
+        // where score must strictly grow across level boundaries.
+        scene.score = 0;
+        scene.checkLevelComplete(); // Level 1 → 2, +LEVEL_BONUS
+        // Fixture's default delayedCall fires inline, so `isLevelingUp` is
+        // back to false after the first call. restartLevel is mocked, so
+        // dotsCollected/totalDots stay at 100 and the second call re-triggers.
+        scene.checkLevelComplete(); // Level 2 → 3, +LEVEL_BONUS
+        expect(scene.score).toBe(2 * GAME_CONFIG.SCORING.LEVEL_BONUS);
+        expect(scene.level).toBe(3);
+      });
+    });
+
+    describe('SURVIVE_5_LEVELS threshold — `>=` vs `===` tripwire', () => {
+      it('still unlocks SURVIVE_5_LEVELS when level increments 5 → 6', () => {
+        // The existing "at level 5" test covers the equality boundary
+        // (4 → 5). A refactor tightening `>=` to `===` passes that test
+        // but breaks every subsequent level — this locks the operator
+        // semantics past the equality frontier. R86.F6+ ships the same
+        // guard on the Frogger LEVEL_5 achievement.
+        scene.level = 5; // becomes 6
+        scene.checkLevelComplete();
+        expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.SURVIVE_5_LEVELS);
+      });
+    });
+
+    describe('triggerLevelClear body static locks', () => {
+      it('contains exactly one `this.level++` increment', () => {
+        const body = extractBody(
+          readSceneSource(),
+          /private triggerLevelClear\(\): void \{([\s\S]*?)\n {2}\}/
+        );
+        const matches = body.match(/this\.level\+\+/g) ?? [];
+        expect(matches).toHaveLength(1);
+      });
+
+      it('contains exactly one `this.score += GAME_CONFIG.SCORING.LEVEL_BONUS` (locks `+=` not `=`)', () => {
+        const body = extractBody(
+          readSceneSource(),
+          /private triggerLevelClear\(\): void \{([\s\S]*?)\n {2}\}/
+        );
+        const matches = body.match(/this\.score\s*\+=\s*GAME_CONFIG\.SCORING\.LEVEL_BONUS/g) ?? [];
+        expect(matches).toHaveLength(1);
+      });
+    });
+
+    describe('restartLevel reset isolation — what MUST reset per level', () => {
+      it('resets `this.diedThisLevel = false` (else NO_DEATH_LEVEL unattainable on L2+)', () => {
+        // Without this reset, a single death anywhere in the session locks
+        // NO_DEATH_LEVEL out forever. restartLevel is mocked in the fixture
+        // so we verify the contract via source inspection.
+        const body = extractBody(
+          readSceneSource(),
+          /private restartLevel\([^)]*\): void \{([\s\S]*?)\n {2}\}/
+        );
+        expect(body).toMatch(/this\.diedThisLevel\s*=\s*false\b/);
+      });
+
+      it('resets `this.fruitSpawned = [false, false]` (else L2+ fruit never spawns)', () => {
+        const body = extractBody(
+          readSceneSource(),
+          /private restartLevel\([^)]*\): void \{([\s\S]*?)\n {2}\}/
+        );
+        expect(body).toMatch(/this\.fruitSpawned\s*=\s*\[\s*false\s*,\s*false\s*\]/);
+      });
+
+      it('resets `this.bulletTimeActive = false` (else bullet-time leaks across levels)', () => {
+        const body = extractBody(
+          readSceneSource(),
+          /private restartLevel\([^)]*\): void \{([\s\S]*?)\n {2}\}/
+        );
+        expect(body).toMatch(/this\.bulletTimeActive\s*=\s*false\b/);
+      });
+    });
+
+    describe('restartLevel NOT-reset isolation — what MUST persist per level', () => {
+      it('does NOT clobber `this.score = 0` (carry-over contract)', () => {
+        // The inverse of the score carry-over behaviour test. A static
+        // source lock catches a refactor that adds `this.score = 0` to
+        // restartLevel — which would regress Tom's SCORE 2570 screenshot
+        // scenario even if the triggerLevelClear `+=` contract still held
+        // (because restartLevel runs AFTER triggerLevelClear).
+        const body = extractBody(
+          readSceneSource(),
+          /private restartLevel\([^)]*\): void \{([\s\S]*?)\n {2}\}/
+        );
+        expect(body).not.toMatch(/this\.score\s*=\s*0\b/);
+      });
+
+      it('does NOT reassign `this.lives =` (carry-over contract)', () => {
+        // Pairs with the lives-carry-over behaviour test. Guards against
+        // a refactor that treats restartLevel as a "fresh session" helper
+        // and silently resets the lives counter.
+        const body = extractBody(
+          readSceneSource(),
+          /private restartLevel\([^)]*\): void \{([\s\S]*?)\n {2}\}/
+        );
+        expect(body).not.toMatch(/this\.lives\s*=(?!=)/);
+      });
+    });
+  });
 });
