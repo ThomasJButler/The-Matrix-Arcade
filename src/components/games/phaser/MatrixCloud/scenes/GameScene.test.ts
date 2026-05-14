@@ -1,0 +1,2625 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import Phaser from 'phaser';
+import { MatrixCloudGameScene } from './GameScene';
+import { GAME_CONFIG, ACHIEVEMENTS, SLOW_MODE, POWERUP_DEFS, PIPE_VARIANTS, PARALLAX } from '../config';
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+const C = GAME_CONFIG;
+
+function collectPrototypeMethods(cls: any): string[] {
+  const methods = new Set<string>();
+  let proto = cls.prototype;
+  while (proto && proto !== Object.prototype) {
+    for (const key of Object.getOwnPropertyNames(proto)) {
+      if (key !== 'constructor' && typeof proto[key] === 'function') {
+        methods.add(key);
+      }
+    }
+    proto = Object.getPrototypeOf(proto);
+  }
+  return [...methods];
+}
+
+function createMockGraphics() {
+  const g: any = {
+    fillStyle: vi.fn().mockReturnThis(),
+    fillRect: vi.fn().mockReturnThis(),
+    fillCircle: vi.fn().mockReturnThis(),
+    fillRoundedRect: vi.fn().mockReturnThis(),
+    fillTriangle: vi.fn().mockReturnThis(),
+    lineStyle: vi.fn().mockReturnThis(),
+    strokeRect: vi.fn().mockReturnThis(),
+    strokeCircle: vi.fn().mockReturnThis(),
+    moveTo: vi.fn().mockReturnThis(),
+    lineTo: vi.fn().mockReturnThis(),
+    beginPath: vi.fn().mockReturnThis(),
+    strokePath: vi.fn().mockReturnThis(),
+    clear: vi.fn().mockReturnThis(),
+    destroy: vi.fn(),
+    setDepth: vi.fn().mockReturnThis(),
+    // R84.CI-7: pool recycle path flips visibility/active on retire → spawn.
+    setActive: vi.fn().mockReturnThis(),
+    setVisible: vi.fn().mockReturnThis(),
+    generateTexture: vi.fn().mockReturnThis(),
+  };
+  return g;
+}
+
+function createMockText() {
+  return {
+    setText: vi.fn().mockReturnThis(),
+    setColor: vi.fn().mockReturnThis(),
+    setAlpha: vi.fn().mockReturnThis(),
+    setOrigin: vi.fn().mockReturnThis(),
+    setDepth: vi.fn().mockReturnThis(),
+    setVisible: vi.fn().mockReturnThis(),
+    destroy: vi.fn(),
+    x: 0,
+    y: 0,
+  };
+}
+
+function createMockSprite(x = 0, y = 0) {
+  return {
+    x,
+    y,
+    setX: vi.fn().mockImplementation(function (this: any, v: number) { this.x = v; return this; }),
+    setY: vi.fn().mockImplementation(function (this: any, v: number) { this.y = v; return this; }),
+    setPosition: vi.fn().mockImplementation(function (this: any, px: number, py: number) { this.x = px; this.y = py; return this; }),
+    setAlpha: vi.fn().mockReturnThis(),
+    setDepth: vi.fn().mockReturnThis(),
+    setRotation: vi.fn().mockReturnThis(),
+    setTexture: vi.fn().mockReturnThis(),
+    setVisible: vi.fn().mockReturnThis(),
+    setScale: vi.fn().mockReturnThis(),
+    setTint: vi.fn().mockReturnThis(),
+    clearTint: vi.fn().mockReturnThis(),
+    setDisplaySize: vi.fn().mockReturnThis(),
+    play: vi.fn().mockReturnThis(),
+    visible: true,
+    destroy: vi.fn(),
+  };
+}
+
+function createMockRect(x = 0, y = 0, w = 0, h = 0) {
+  return {
+    x, y, width: w, height: h,
+    active: true,
+    visible: true,
+    setX: vi.fn().mockImplementation(function (this: any, v: number) { this.x = v; return this; }),
+    // R84.B4: moving pipes call setY/setSize every frame to animate their
+    // vertical drift, so the mock rect has to expose both. The previous mock
+    // only had setX because pre-variant pipes were purely horizontal.
+    setY: vi.fn().mockImplementation(function (this: any, v: number) { this.y = v; return this; }),
+    // R84.CI-7: pool recycle path calls setPosition/setSize to relocate + resize
+    // pooled rects on reuse, and setActive/setVisible on retire to hide them.
+    setPosition: vi.fn().mockImplementation(function (this: any, nx: number, ny: number) { this.x = nx; this.y = ny; return this; }),
+    setSize: vi.fn().mockImplementation(function (this: any, nw: number, nh: number) { this.width = nw; this.height = nh; return this; }),
+    setActive: vi.fn().mockImplementation(function (this: any, v: boolean) { this.active = v; return this; }),
+    setVisible: vi.fn().mockImplementation(function (this: any, v: boolean) { this.visible = v; return this; }),
+    setFillStyle: vi.fn().mockReturnThis(),
+    setStrokeStyle: vi.fn().mockReturnThis(),
+    setDepth: vi.fn().mockReturnThis(),
+    destroy: vi.fn(),
+  };
+}
+
+function createTestScene(): any {
+  const scene = new MatrixCloudGameScene() as any;
+
+  for (const name of collectPrototypeMethods(MatrixCloudGameScene)) {
+    const fn = MatrixCloudGameScene.prototype[name as keyof typeof MatrixCloudGameScene.prototype];
+    if (typeof fn === 'function') {
+      scene[name] = (fn as any).bind(scene);
+    }
+  }
+
+  scene.playSound = vi.fn();
+  scene.unlockAchievement = vi.fn();
+  scene.reportScore = vi.fn();
+  scene.gameOver = vi.fn();
+  scene.emitGameEvent = vi.fn();
+  scene.createMatrixText = vi.fn().mockReturnValue(createMockText());
+  scene.createMatrixBackground = vi.fn();
+  scene.addMatrixRain = vi.fn().mockReturnValue({ getChildren: () => [] });
+  scene.updateMatrixRain = vi.fn();
+  scene.setupCommonInputs = vi.fn();
+  scene.exposeTestState = vi.fn();
+
+  scene.cameras = { main: { shake: vi.fn(), flash: vi.fn(), setBackgroundColor: vi.fn() } };
+  scene.tweens = { add: vi.fn().mockReturnValue({ destroy: vi.fn() }), killTweensOf: vi.fn(), killAll: vi.fn() };
+  scene.time = {
+    addEvent: vi.fn().mockReturnValue({ destroy: vi.fn(), delay: 0 }),
+    delayedCall: vi.fn().mockReturnValue({ destroy: vi.fn() }),
+    removeAllEvents: vi.fn(),
+  };
+  scene.input = {
+    keyboard: {
+      addKey: vi.fn().mockReturnValue({ isDown: false, on: vi.fn() }),
+      removeAllKeys: vi.fn(),
+      createCursorKeys: vi.fn().mockReturnValue({}),
+    },
+    on: vi.fn(),
+    off: vi.fn(),
+    activePointer: { isDown: false },
+  };
+  scene.add = {
+    graphics: vi.fn().mockReturnValue(createMockGraphics()),
+    rectangle: vi.fn().mockImplementation((x: number, y: number, w: number, h: number) => createMockRect(x, y, w, h)),
+    sprite: vi.fn().mockImplementation((x: number, y: number) => createMockSprite(x, y)),
+    text: vi.fn().mockReturnValue(createMockText()),
+    circle: vi.fn().mockImplementation((x: number, y: number, r: number) => ({
+      x, y, radius: r, setDepth: vi.fn().mockReturnThis(), destroy: vi.fn(),
+    })),
+    image: vi.fn().mockImplementation((x: number, y: number) => createMockSprite(x, y)),
+  };
+  scene.make = {
+    graphics: vi.fn().mockReturnValue(createMockGraphics()),
+  };
+  scene.game = { config: { width: C.WIDTH, height: C.HEIGHT }, renderer: { type: 1 }, registry: { get: vi.fn().mockReturnValue(false) } };
+  scene.scene = { restart: vi.fn(), start: vi.fn(), stop: vi.fn() };
+  scene.scale = { width: C.WIDTH, height: C.HEIGHT };
+  scene.events = { on: vi.fn(), off: vi.fn(), emit: vi.fn() };
+  scene.sys = { game: scene.game };
+  scene.registry = { get: vi.fn().mockReturnValue(undefined), set: vi.fn() };
+  scene.isPaused = false;
+
+  scene.resetState();
+
+  return scene;
+}
+
+const s = (scene: any, key: string) => scene[key];
+const call = (scene: any, method: string, ...args: any[]) => scene[method](...args);
+
+let scene: any;
+
+beforeEach(() => {
+  scene = createTestScene();
+
+  scene.player = createMockSprite(C.PLAYER_X, C.HEIGHT * 0.4);
+  scene.groundRect = createMockRect(C.WIDTH / 2, C.HEIGHT - C.GROUND_HEIGHT / 2, C.WIDTH, C.GROUND_HEIGHT);
+  scene.scoreText = createMockText();
+  scene.highScoreText = createMockText();
+  scene.levelText = createMockText();
+  scene.comboText = createMockText();
+  scene.livesText = createMockText();
+  scene.matrixRainGroup = { getChildren: () => [] };
+  scene.spaceKey = { isDown: false };
+  scene.enterKey = { isDown: false };
+
+  (Phaser.Input.Keyboard as any).JustDown = vi.fn().mockReturnValue(false);
+  (Phaser as any).Math = {
+    Clamp: (value: number, min: number, max: number) => Math.min(Math.max(value, min), max),
+  };
+});
+
+describe('MatrixCloudGameScene', () => {
+  describe('Initial State', () => {
+    it('score starts at 0', () => {
+      expect(s(scene, 'score')).toBe(0);
+    });
+
+    it('lives starts at INITIAL_LIVES', () => {
+      expect(s(scene, 'lives')).toBe(C.INITIAL_LIVES);
+    });
+
+    it('level starts at 1', () => {
+      expect(s(scene, 'level')).toBe(1);
+    });
+
+    it('combo starts at 1.0', () => {
+      expect(s(scene, 'combo')).toBe(1.0);
+    });
+
+    it('playerVelocity starts at 0', () => {
+      expect(s(scene, 'playerVelocity')).toBe(0);
+    });
+
+    it('isGameOver starts false', () => {
+      expect(s(scene, 'isGameOver')).toBe(false);
+    });
+
+    it('inBossBattle starts false', () => {
+      expect(s(scene, 'inBossBattle')).toBe(false);
+    });
+
+    it('shieldActive starts false', () => {
+      expect(s(scene, 'shieldActive')).toBe(false);
+    });
+
+    it('powerUpsCollected starts at 0', () => {
+      expect(s(scene, 'powerUpsCollected')).toBe(0);
+    });
+
+    it('no pipes initially', () => {
+      expect(s(scene, 'pipes')).toHaveLength(0);
+    });
+  });
+
+  describe('Player Physics', () => {
+    it('gravity increases velocity', () => {
+      scene.playerVelocity = 0;
+      call(scene, 'updatePlayer', 1 / 60);
+      expect(scene.playerVelocity).toBeGreaterThan(0);
+    });
+
+    it('velocity capped at terminal velocity', () => {
+      scene.playerVelocity = C.TERMINAL_VELOCITY + 100;
+      call(scene, 'updatePlayer', 1 / 60);
+      expect(scene.playerVelocity).toBeLessThanOrEqual(C.TERMINAL_VELOCITY);
+    });
+
+    it('ceiling clamp prevents negative Y', () => {
+      scene.playerY = -10;
+      scene.playerVelocity = -200;
+      call(scene, 'updatePlayer', 1 / 60);
+      expect(scene.playerY).toBe(0);
+      expect(scene.playerVelocity).toBe(0);
+    });
+
+    // R83.B1(b): ground touch is instant death, routed via handleGroundDeath
+    // rather than handleCollision — shields no longer soak a ground hit.
+    it('ground collision triggers handleGroundDeath', () => {
+      const handleGroundDeath = vi.spyOn(scene, 'handleGroundDeath');
+      scene.playerY = C.HEIGHT - C.GROUND_HEIGHT;
+      scene.playerVelocity = 100;
+      call(scene, 'updatePlayer', 1 / 60);
+      expect(handleGroundDeath).toHaveBeenCalled();
+    });
+
+    it('handleGroundDeath zeroes lives and ends the run even with shield active', () => {
+      scene.shieldActive = true;
+      scene.lives = 3;
+      const handleGameOver = vi.spyOn(scene, 'handleGameOver');
+      call(scene, 'handleGroundDeath');
+      expect(scene.lives).toBe(0);
+      expect(handleGameOver).toHaveBeenCalled();
+    });
+  });
+
+  describe('Jump', () => {
+    it('sets velocity to JUMP_VELOCITY', () => {
+      call(scene, 'jump');
+      expect(scene.playerVelocity).toBe(C.JUMP_VELOCITY);
+    });
+
+    // R83.B1(d): Matrix Bird's flap now drives the procedural-only birdFlap
+    // preset instead of the shared `jump` MP3 (the latter was flagged as
+    // "horrendous" in Tom's playtest). Cloud Jumper / Neo Jump still map to
+    // `jump`, so a global `jump` key lookup would regress them.
+    it('plays birdFlap sound (not jump)', () => {
+      call(scene, 'jump');
+      expect(scene.playSound).toHaveBeenCalledWith('birdFlap');
+    });
+
+    // R83.B1(e): while the slow power-up is active, flap impulse scales with
+    // TIME_SLOW_FACTOR so apparent gap-clear height stays constant across
+    // speed modes. Without the scale, slow mode would perversely over-lift.
+    it('scales impulse by TIME_SLOW_FACTOR during slow power-up', () => {
+      scene.timeSlowActive = true;
+      call(scene, 'jump');
+      expect(scene.playerVelocity).toBeCloseTo(C.JUMP_VELOCITY * C.TIME_SLOW_FACTOR);
+    });
+
+    it('unlocks FIRST_FLIGHT on first jump', () => {
+      call(scene, 'jump');
+      expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.FIRST_FLIGHT);
+    });
+
+    it('does not re-unlock FIRST_FLIGHT on subsequent jumps', () => {
+      call(scene, 'jump');
+      call(scene, 'jump');
+      expect(scene.unlockAchievement).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // R84.B6 (2026-04-19): Tom's post-R83.B1 playtest flagged the flap SFX as
+  // "the worst"; jump key branched to a lower scale via JUMP_VOLUME_SCALE.
+  // R84.B9 (2026-04-19 night): Tom's follow-up note "SFX too loud" persisted
+  // for non-jump SFX — master scale dropped 0.75 → 0.65 while jump stays at
+  // 0.60. These tests are the only guard against a regression that re-mixes
+  // any of the three pinned values.
+  describe('playSound override (R84.B6 + R84.B9)', () => {
+    // Build a minimal scene that keeps the real playSound override intact —
+    // createTestScene stubs `playSound = vi.fn()` for the rest of the suite so
+    // unrelated tests can assert on the key alone.
+    const buildScene = () => {
+      const s: any = new MatrixCloudGameScene();
+      const playSoundFn = (MatrixCloudGameScene.prototype as any).playSound;
+      s.playSound = playSoundFn.bind(s);
+      const soundSystem = { play: vi.fn(), isMuted: false };
+      s.registry = {
+        get: vi.fn().mockImplementation((k: string) =>
+          k === 'soundSystem' ? soundSystem : undefined,
+        ),
+      };
+      return { scene: s, soundSystem };
+    };
+
+    it('passes 0.6 volumeScale for BIRD_FLAP', () => {
+      const { scene, soundSystem } = buildScene();
+      scene.playSound('birdFlap');
+      expect(soundSystem.play).toHaveBeenCalledWith('birdFlap', { volumeScale: 0.6 });
+    });
+
+    it('passes 0.65 volumeScale for non-flap SFX (score)', () => {
+      const { scene, soundSystem } = buildScene();
+      scene.playSound('score');
+      expect(soundSystem.play).toHaveBeenCalledWith('score', { volumeScale: 0.65 });
+    });
+
+    it('passes 0.65 volumeScale for hit', () => {
+      const { scene, soundSystem } = buildScene();
+      scene.playSound('hit');
+      expect(soundSystem.play).toHaveBeenCalledWith('hit', { volumeScale: 0.65 });
+    });
+
+    // R84.B9: regression guard covering every non-jump SFX the scene uses.
+    // A refactor that branches the wrong key would otherwise silently regress
+    // only the one key its test misses — sweeping every non-flap key here
+    // means any future mis-branching surfaces as a test failure the same day.
+    it('applies 0.65 master scale to every non-flap SFX key used by the scene', () => {
+      const nonFlapKeys = [
+        'menu',
+        'score',
+        'hit',
+        'levelUp',
+        'combo',
+        'collectible',
+        'dangerWarning',
+        'gameOver',
+        'glassBreak',
+      ];
+      for (const key of nonFlapKeys) {
+        const { scene, soundSystem } = buildScene();
+        scene.playSound(key);
+        expect(soundSystem.play).toHaveBeenCalledWith(key, { volumeScale: 0.65 });
+      }
+    });
+
+    // R84.B9: pin the jump-vs-master invariant so a future tune-pass can't
+    // silently raise the jump above or level it with the master — Tom's B6
+    // calibration depends on jump reading perceptibly quieter than the rest.
+    it('keeps jump volumeScale strictly below the non-jump master', () => {
+      const { scene, soundSystem } = buildScene();
+      scene.playSound('birdFlap');
+      scene.playSound('score');
+      const flapCall = soundSystem.play.mock.calls.find((c: any) => c[0] === 'birdFlap');
+      const scoreCall = soundSystem.play.mock.calls.find((c: any) => c[0] === 'score');
+      expect(flapCall?.[1].volumeScale).toBeLessThan(scoreCall?.[1].volumeScale);
+    });
+  });
+
+  describe('Pipe Collision', () => {
+    it('detects top pipe collision', () => {
+      const pipe: any = {
+        x: C.PLAYER_X - 10,
+        gapY: 20,
+        passed: false,
+        hit: false,
+        topRect: createMockRect(),
+        bottomRect: createMockRect(),
+      };
+      scene.playerY = 10;
+      call(scene, 'checkPipeCollision', pipe);
+      expect(pipe.hit).toBe(true);
+    });
+
+    it('detects bottom pipe collision', () => {
+      const pipe: any = {
+        x: C.PLAYER_X - 10,
+        gapY: 50,
+        passed: false,
+        hit: false,
+        topRect: createMockRect(),
+        bottomRect: createMockRect(),
+      };
+      scene.playerY = 50 + C.PIPE_GAP + 5;
+      call(scene, 'checkPipeCollision', pipe);
+      expect(pipe.hit).toBe(true);
+    });
+
+    it('no collision when player is in the gap', () => {
+      const pipe: any = {
+        x: C.PLAYER_X - 10,
+        gapY: 100,
+        passed: false,
+        hit: false,
+        topRect: createMockRect(),
+        bottomRect: createMockRect(),
+      };
+      scene.playerY = 100 + C.PIPE_GAP / 2;
+      call(scene, 'checkPipeCollision', pipe);
+      expect(pipe.hit).toBe(false);
+    });
+
+    it('no collision when pipe is far away', () => {
+      const pipe: any = {
+        x: C.PLAYER_X + C.PIPE_WIDTH + 50,
+        gapY: 100,
+        passed: false,
+        hit: false,
+        topRect: createMockRect(),
+        bottomRect: createMockRect(),
+      };
+      scene.playerY = 10;
+      call(scene, 'checkPipeCollision', pipe);
+      expect(pipe.hit).toBe(false);
+    });
+  });
+
+  describe('Pipe Scoring', () => {
+    it('awards base score per pipe', () => {
+      call(scene, 'scorePipe');
+      expect(scene.score).toBe(C.SCORE_PER_PIPE);
+    });
+
+    it('increments combo on score', () => {
+      call(scene, 'scorePipe');
+      expect(scene.combo).toBeCloseTo(1.0 + C.COMBO_INCREMENT, 5);
+    });
+
+    it('caps combo at MAX_COMBO', () => {
+      scene.combo = C.MAX_COMBO;
+      call(scene, 'scorePipe');
+      expect(scene.combo).toBe(C.MAX_COMBO);
+    });
+
+    it('applies combo multiplier to score', () => {
+      scene.combo = 2.0;
+      call(scene, 'scorePipe');
+      expect(scene.score).toBe(Math.floor(C.SCORE_PER_PIPE * 2.0));
+    });
+
+    it('doublePoints doubles score', () => {
+      scene.doublePointsActive = true;
+      call(scene, 'scorePipe');
+      expect(scene.score).toBe(Math.floor(C.SCORE_PER_PIPE * 1.0 * 2));
+    });
+
+    it('reports score after pipe', () => {
+      call(scene, 'scorePipe');
+      expect(scene.reportScore).toHaveBeenCalled();
+    });
+
+    it('plays score sound', () => {
+      call(scene, 'scorePipe');
+      expect(scene.playSound).toHaveBeenCalledWith('score');
+    });
+
+    // R83.G6: regression — Matrix Bird used to leak its new high score
+    // because scorePipe reported `this.highScore` without first lifting it
+    // to match `this.score`. Without this guard the dashbar trophy modal
+    // shows the previously-loaded value forever.
+    it('lifts highScore when score exceeds it before reporting', () => {
+      scene.highScore = 10;
+      scene.score = 50;
+      call(scene, 'scorePipe');
+      expect(scene.highScore).toBeGreaterThanOrEqual(scene.score);
+      const lastReport = scene.reportScore.mock.calls.at(-1) as [number, number];
+      expect(lastReport[1]).toBe(scene.highScore);
+    });
+
+    it('keeps highScore intact when score is still below it', () => {
+      scene.highScore = 10_000;
+      scene.score = 100;
+      call(scene, 'scorePipe');
+      expect(scene.highScore).toBe(10_000);
+      const lastReport = scene.reportScore.mock.calls.at(-1) as [number, number];
+      expect(lastReport[1]).toBe(10_000);
+    });
+  });
+
+  // R84.B11: early-run milestone stingers at 50/100/250. 500/1000 stay
+  // covered by the existing LEVEL_UP cue (LEVEL_THRESHOLD=500); these tests
+  // pin that the new COLLECTIBLE stinger fires once per threshold crossing
+  // and never bleeds into the level-up territory where it would double-cue.
+  describe('R84.B11 — Score Milestone Stingers', () => {
+    const collectibleCalls = (s: any) =>
+      s.playSound.mock.calls.filter((c: any[]) => c[0] === 'collectible').length;
+
+    it('fires COLLECTIBLE stinger the first time score crosses 50', () => {
+      scene.score = C.SCORE_PER_PIPE * 4; // 40 → after scorePipe: 50
+      scene.combo = 1.0;
+      call(scene, 'scorePipe');
+      expect(scene.score).toBe(50);
+      expect(collectibleCalls(scene)).toBe(1);
+      expect(scene.milestonesHit.has(50)).toBe(true);
+    });
+
+    it('fires COLLECTIBLE stinger the first time score crosses 100', () => {
+      scene.score = 90; // after scorePipe: 100
+      scene.combo = 1.0;
+      scene.milestonesHit = new Set([50]); // 50 already hit earlier in run
+      call(scene, 'scorePipe');
+      expect(scene.score).toBe(100);
+      expect(collectibleCalls(scene)).toBe(1);
+      expect(scene.milestonesHit.has(100)).toBe(true);
+    });
+
+    it('fires COLLECTIBLE stinger the first time score crosses 250', () => {
+      scene.score = 240; // after scorePipe: 250
+      scene.combo = 1.0;
+      scene.milestonesHit = new Set([50, 100]);
+      call(scene, 'scorePipe');
+      expect(scene.score).toBe(250);
+      expect(collectibleCalls(scene)).toBe(1);
+      expect(scene.milestonesHit.has(250)).toBe(true);
+    });
+
+    it('does not re-fire a milestone stinger once the threshold has been hit', () => {
+      scene.score = 60; // 50 already crossed earlier
+      scene.combo = 1.0;
+      scene.milestonesHit = new Set([50]);
+      call(scene, 'scorePipe');
+      expect(collectibleCalls(scene)).toBe(0);
+    });
+
+    // Regression guard: the two highest thresholds that Tom's task enumerated
+    // (500, 1000) are intentionally NOT in SCORE_MILESTONES because onLevelUp
+    // already plays LEVEL_UP every LEVEL_THRESHOLD points. If someone adds
+    // 500/1000 to the list, this test catches the resulting double-stinger.
+    it('does not fire COLLECTIBLE on the 500-pt level-up boundary', () => {
+      scene.score = 490;
+      scene.combo = 1.0;
+      scene.milestonesHit = new Set([50, 100, 250]);
+      call(scene, 'scorePipe');
+      expect(collectibleCalls(scene)).toBe(0);
+      expect(scene.playSound).toHaveBeenCalledWith('levelUp');
+    });
+
+    it('resetState clears milestones so a restart re-fires the early cues', () => {
+      scene.milestonesHit = new Set([50, 100, 250]);
+      call(scene, 'resetState');
+      expect(scene.milestonesHit.size).toBe(0);
+    });
+
+    it('fires exactly one COLLECTIBLE when multiple milestones are crossed in one call', () => {
+      // Pre-seeded only 50 as hit; a combo-multiplied big pipe drops the score
+      // straight past 100 in a single pipe pass. We expect 100 to still fire
+      // and 50 to remain single-shot — no double-trigger from the loop.
+      scene.score = 95;
+      scene.combo = 1.0;
+      scene.milestonesHit = new Set([50]);
+      call(scene, 'scorePipe');
+      // Score now 105; loop should fire only the 100 threshold.
+      expect(collectibleCalls(scene)).toBe(1);
+      expect(scene.milestonesHit.has(100)).toBe(true);
+    });
+  });
+
+  // R84.CI-2 (a11y priority 2): pin that the scene emits `scoreMilestone`
+  // alongside the R84.B11 COLLECTIBLE stinger, so the shared PhaserGame SR
+  // live region can announce `Score milestone 100.` to AT users. Without
+  // these tests, a future refactor could drop the emit and leave the
+  // sighted-only audio cue in place with no symbolic equivalent.
+  describe('R84.CI-2 — Score milestone SR event emission', () => {
+    const milestoneEmits = (s: any) =>
+      (s.emitGameEvent.mock.calls as any[][]).filter((c) => c[0]?.type === 'scoreMilestone');
+
+    it('emits scoreMilestone with the threshold value the first time 50 is crossed', () => {
+      scene.score = C.SCORE_PER_PIPE * 4; // 40 → 50 after scorePipe
+      scene.combo = 1.0;
+      call(scene, 'scorePipe');
+      const emits = milestoneEmits(scene);
+      expect(emits).toHaveLength(1);
+      // `value` pins the threshold, not the current score — the round number
+      // is what the SR announcement pattern-matches on.
+      expect(emits[0][0].data).toEqual({ value: 50 });
+    });
+
+    it('emits scoreMilestone for 100 only when that threshold is freshly crossed', () => {
+      scene.score = 90;
+      scene.combo = 1.0;
+      scene.milestonesHit = new Set([50]);
+      call(scene, 'scorePipe');
+      const emits = milestoneEmits(scene);
+      expect(emits).toHaveLength(1);
+      expect(emits[0][0].data).toEqual({ value: 100 });
+    });
+
+    it('does not emit scoreMilestone once the threshold has been hit earlier in the run', () => {
+      scene.score = 60;
+      scene.combo = 1.0;
+      scene.milestonesHit = new Set([50]);
+      call(scene, 'scorePipe');
+      // SFX regression guard already lives in the R84.B11 block; this pins
+      // that the React bridge also stays silent on a repeat pass.
+      expect(milestoneEmits(scene)).toHaveLength(0);
+    });
+
+    it('does not emit scoreMilestone on the 500-pt level boundary', () => {
+      // 500/1000 live on LEVEL_UP, not the milestone list. If someone adds
+      // them here, AT users would hear `Score milestone 500.` immediately
+      // followed by the level-up cue — double-narrating the same beat.
+      scene.score = 490;
+      scene.combo = 1.0;
+      scene.milestonesHit = new Set([50, 100, 250]);
+      call(scene, 'scorePipe');
+      expect(milestoneEmits(scene)).toHaveLength(0);
+    });
+  });
+
+  describe('Level Progression', () => {
+    it('level increases at LEVEL_THRESHOLD', () => {
+      scene.score = C.LEVEL_THRESHOLD - C.SCORE_PER_PIPE;
+      scene.combo = 1.0;
+      call(scene, 'scorePipe');
+      expect(scene.level).toBe(2);
+    });
+
+    it('plays levelUp sound on level change', () => {
+      scene.score = C.LEVEL_THRESHOLD - C.SCORE_PER_PIPE;
+      scene.combo = 1.0;
+      call(scene, 'scorePipe');
+      expect(scene.playSound).toHaveBeenCalledWith('levelUp');
+    });
+
+    it('camera shakes on level up', () => {
+      scene.score = C.LEVEL_THRESHOLD - C.SCORE_PER_PIPE;
+      scene.combo = 1.0;
+      call(scene, 'scorePipe');
+      expect(scene.cameras.main.shake).toHaveBeenCalled();
+    });
+
+    it('calculates level correctly from score', () => {
+      scene.score = C.LEVEL_THRESHOLD * 3 - C.SCORE_PER_PIPE;
+      scene.combo = 1.0;
+      call(scene, 'scorePipe');
+      expect(scene.level).toBe(4);
+    });
+  });
+
+  describe('Power-Up Collection', () => {
+    it('increments powerUpsCollected', () => {
+      const pu: any = { sprite: createMockSprite(), type: 'shield', x: 0, y: 0 };
+      call(scene, 'collectPowerUp', pu);
+      expect(scene.powerUpsCollected).toBe(1);
+    });
+
+    it('plays powerUp sound', () => {
+      const pu: any = { sprite: createMockSprite(), type: 'shield', x: 0, y: 0 };
+      call(scene, 'collectPowerUp', pu);
+      expect(scene.playSound).toHaveBeenCalledWith('collectible');
+    });
+  });
+
+  describe('Power-Up Activation', () => {
+    it('shield sets shieldActive', () => {
+      call(scene, 'activatePowerUp', 'shield');
+      expect(scene.shieldActive).toBe(true);
+    });
+
+    it('timeSlow sets timeSlowActive', () => {
+      call(scene, 'activatePowerUp', 'timeSlow');
+      expect(scene.timeSlowActive).toBe(true);
+    });
+
+    it('extraLife adds a life', () => {
+      scene.lives = 2;
+      call(scene, 'activatePowerUp', 'extraLife');
+      expect(scene.lives).toBe(3);
+    });
+
+    it('extraLife caps at MAX_LIVES', () => {
+      scene.lives = C.MAX_LIVES;
+      call(scene, 'activatePowerUp', 'extraLife');
+      expect(scene.lives).toBe(C.MAX_LIVES);
+    });
+
+    it('doublePoints sets doublePointsActive', () => {
+      call(scene, 'activatePowerUp', 'doublePoints');
+      expect(scene.doublePointsActive).toBe(true);
+    });
+  });
+
+  // R84.B3: slow-mode momentum + trail. Two separate contracts tested here:
+  //   (1) updatePlayer scales gravity + integration by TIME_SLOW_FACTOR only
+  //       while timeSlowActive, giving the bird coherent hang-time that
+  //       matches the slowed world (fixes Tom's "not enough momentum" note).
+  //   (2) Yellow trail particles emit behind the bird for the power-up's
+  //       lifetime — visual state-change signal, cleaned up on reset /
+  //       shutdown / expiry.
+  describe('R84.B3 — Slow-mode player physics scaling', () => {
+    it('scales gravity accumulation when timeSlowActive', () => {
+      scene.timeSlowActive = true;
+      scene.playerVelocity = 0;
+      scene.playerY = 100;
+      call(scene, 'updatePlayer', 1 / 60);
+      // velocity += GRAVITY × dt × TIME_SLOW_FACTOR = 1400 × 1/60 × 0.6 ≈ 14
+      expect(scene.playerVelocity).toBeCloseTo(
+        C.GRAVITY * (1 / 60) * C.TIME_SLOW_FACTOR,
+        2,
+      );
+    });
+
+    it('does NOT scale gravity when slow inactive (preserves full-rate fall)', () => {
+      scene.timeSlowActive = false;
+      scene.playerVelocity = 0;
+      scene.playerY = 100;
+      call(scene, 'updatePlayer', 1 / 60);
+      // velocity += GRAVITY × dt = 1400 × 1/60 ≈ 23.33
+      expect(scene.playerVelocity).toBeCloseTo(C.GRAVITY * (1 / 60), 2);
+    });
+
+    it('scales vertical position integration when timeSlowActive', () => {
+      scene.timeSlowActive = true;
+      scene.playerVelocity = 100;
+      scene.playerY = 100;
+      call(scene, 'updatePlayer', 1 / 60);
+      // velocity after gravity: 100 + 1400 × 1/60 × 0.6 = 114
+      // position delta: 114 × 1/60 × 0.6 = 1.14
+      const expectedV = 100 + C.GRAVITY * (1 / 60) * C.TIME_SLOW_FACTOR;
+      const expectedY = 100 + expectedV * (1 / 60) * C.TIME_SLOW_FACTOR;
+      expect(scene.playerY).toBeCloseTo(expectedY, 3);
+    });
+
+    it('does NOT scale position integration when slow inactive', () => {
+      scene.timeSlowActive = false;
+      scene.playerVelocity = 100;
+      scene.playerY = 100;
+      call(scene, 'updatePlayer', 1 / 60);
+      const expectedV = 100 + C.GRAVITY * (1 / 60);
+      const expectedY = 100 + expectedV * (1 / 60);
+      expect(scene.playerY).toBeCloseTo(expectedY, 3);
+    });
+
+    it('velocity terminal clamp stays absolute under slow mode', () => {
+      // The raw velocity cap is a safety ceiling on the physical state; only
+      // the integration rate scales. This keeps the bird's recorded velocity
+      // comparable across speed modes for debug / score / telemetry.
+      scene.timeSlowActive = true;
+      scene.playerVelocity = C.TERMINAL_VELOCITY + 200;
+      scene.playerY = 100;
+      call(scene, 'updatePlayer', 1 / 60);
+      expect(scene.playerVelocity).toBeLessThanOrEqual(C.TERMINAL_VELOCITY);
+    });
+  });
+
+  describe('R84.B3 — Slow-mode trail lifecycle', () => {
+    it('slowTrailTimer starts null', () => {
+      expect(scene.slowTrailTimer).toBeNull();
+      expect(scene.slowTrailParticles).toHaveLength(0);
+    });
+
+    it('activatePowerUp(timeSlow) starts trail timer', () => {
+      call(scene, 'activatePowerUp', 'timeSlow');
+      expect(scene.slowTrailTimer).not.toBeNull();
+      expect(scene.time.addEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          delay: SLOW_MODE.TRAIL_EMIT_INTERVAL_MS,
+          loop: true,
+        }),
+      );
+    });
+
+    it('startSlowTrail is idempotent (re-activation preserves existing timer)', () => {
+      call(scene, 'startSlowTrail');
+      const first = scene.slowTrailTimer;
+      call(scene, 'startSlowTrail');
+      expect(scene.slowTrailTimer).toBe(first);
+    });
+
+    it('stopSlowTrail destroys the timer and clears the field', () => {
+      call(scene, 'startSlowTrail');
+      const timer = scene.slowTrailTimer;
+      call(scene, 'stopSlowTrail');
+      expect(timer.destroy).toHaveBeenCalled();
+      expect(scene.slowTrailTimer).toBeNull();
+    });
+
+    it('emitSlowTrailParticle spawns a yellow circle at the player position', () => {
+      scene.player = createMockSprite(120, 210);
+      call(scene, 'emitSlowTrailParticle');
+      expect(scene.add.circle).toHaveBeenCalledWith(
+        120,
+        210,
+        SLOW_MODE.TRAIL_PARTICLE_RADIUS,
+        SLOW_MODE.TRAIL_COLOR,
+        SLOW_MODE.TRAIL_PARTICLE_ALPHA,
+      );
+      expect(scene.slowTrailParticles).toHaveLength(1);
+    });
+
+    it('emitSlowTrailParticle registers a fade tween to zero alpha', () => {
+      scene.player = createMockSprite(50, 50);
+      call(scene, 'emitSlowTrailParticle');
+      expect(scene.tweens.add).toHaveBeenCalledWith(
+        expect.objectContaining({
+          alpha: 0,
+          duration: SLOW_MODE.TRAIL_PARTICLE_LIFESPAN_MS,
+        }),
+      );
+    });
+
+    it('emitSlowTrailParticle no-ops when paused', () => {
+      scene.player = createMockSprite(50, 50);
+      scene.isPaused = true;
+      call(scene, 'emitSlowTrailParticle');
+      expect(scene.add.circle).not.toHaveBeenCalled();
+      expect(scene.slowTrailParticles).toHaveLength(0);
+    });
+
+    it('emitSlowTrailParticle no-ops when gameOver', () => {
+      scene.player = createMockSprite(50, 50);
+      scene.isGameOver = true;
+      call(scene, 'emitSlowTrailParticle');
+      expect(scene.add.circle).not.toHaveBeenCalled();
+      expect(scene.slowTrailParticles).toHaveLength(0);
+    });
+
+    it('resetState tears down trail timer and destroys live particles', () => {
+      scene.player = createMockSprite(80, 80);
+      call(scene, 'startSlowTrail');
+      call(scene, 'emitSlowTrailParticle');
+      call(scene, 'emitSlowTrailParticle');
+      const live = [...scene.slowTrailParticles];
+      expect(live).toHaveLength(2);
+      call(scene, 'resetState');
+      expect(scene.slowTrailTimer).toBeNull();
+      expect(scene.slowTrailParticles).toHaveLength(0);
+      for (const p of live) expect(p.destroy).toHaveBeenCalled();
+    });
+
+    it('shutdown tears down trail timer and destroys live particles', () => {
+      scene.player = createMockSprite(80, 80);
+      call(scene, 'startSlowTrail');
+      call(scene, 'emitSlowTrailParticle');
+      const live = [...scene.slowTrailParticles];
+      expect(live).toHaveLength(1);
+      call(scene, 'shutdown');
+      expect(scene.slowTrailTimer).toBeNull();
+      expect(scene.slowTrailParticles).toHaveLength(0);
+      for (const p of live) expect(p.destroy).toHaveBeenCalled();
+    });
+  });
+
+  describe('R84.B3 — SLOW_MODE config sanity', () => {
+    it('trail colour matches POWERUP_DEFS.timeSlow so HUD chip + trail read as one state', () => {
+      expect(SLOW_MODE.TRAIL_COLOR).toBe(POWERUP_DEFS.timeSlow.color);
+    });
+
+    it('trail depth sits below the player depth (10)', () => {
+      // Player is drawn at depth 10 (createPlayer); the trail must slot in
+      // behind so breadcrumbs read as "left behind" not "in front of".
+      expect(SLOW_MODE.TRAIL_DEPTH).toBeLessThan(10);
+    });
+
+    it('emit interval is positive and strictly shorter than particle lifespan', () => {
+      // If interval ≥ lifespan, the first particle would fully fade before the
+      // next emit — no visible trail, only flashes. Must overlap.
+      expect(SLOW_MODE.TRAIL_EMIT_INTERVAL_MS).toBeGreaterThan(0);
+      expect(SLOW_MODE.TRAIL_EMIT_INTERVAL_MS).toBeLessThan(SLOW_MODE.TRAIL_PARTICLE_LIFESPAN_MS);
+    });
+
+    it('particle alpha sits in (0, 1]', () => {
+      expect(SLOW_MODE.TRAIL_PARTICLE_ALPHA).toBeGreaterThan(0);
+      expect(SLOW_MODE.TRAIL_PARTICLE_ALPHA).toBeLessThanOrEqual(1);
+    });
+
+    it('particle radius is positive (visible size)', () => {
+      expect(SLOW_MODE.TRAIL_PARTICLE_RADIUS).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Shield Mechanics', () => {
+    it('shield absorbs collision without losing life', () => {
+      scene.shieldActive = true;
+      scene.lives = 3;
+      call(scene, 'handleCollision');
+      expect(scene.shieldActive).toBe(false);
+      expect(scene.lives).toBe(3);
+    });
+
+    it('shield starts invulnerability', () => {
+      scene.shieldActive = true;
+      call(scene, 'handleCollision');
+      expect(scene.isInvulnerable).toBe(true);
+    });
+
+    it('shield break plays hit sound', () => {
+      scene.shieldActive = true;
+      call(scene, 'handleCollision');
+      expect(scene.playSound).toHaveBeenCalledWith('hit');
+    });
+  });
+
+  describe('Collision and Damage', () => {
+    it('loses a life on collision', () => {
+      scene.lives = 3;
+      call(scene, 'handleCollision');
+      expect(scene.lives).toBe(2);
+    });
+
+    it('resets combo on collision', () => {
+      scene.combo = 3.5;
+      scene.lives = 3;
+      call(scene, 'handleCollision');
+      expect(scene.combo).toBe(1.0);
+    });
+
+    it('plays hit sound', () => {
+      scene.lives = 3;
+      call(scene, 'handleCollision');
+      expect(scene.playSound).toHaveBeenCalledWith('hit');
+    });
+
+    it('starts invulnerability after hit', () => {
+      scene.lives = 3;
+      call(scene, 'handleCollision');
+      expect(scene.isInvulnerable).toBe(true);
+    });
+
+    it('invulnerability prevents further damage', () => {
+      scene.lives = 3;
+      call(scene, 'handleCollision');
+      call(scene, 'handleCollision');
+      expect(scene.lives).toBe(2);
+    });
+
+    it('camera shakes on collision', () => {
+      scene.lives = 3;
+      call(scene, 'handleCollision');
+      expect(scene.cameras.main.shake).toHaveBeenCalled();
+    });
+  });
+
+  describe('Game Over', () => {
+    it('triggers on 0 lives', () => {
+      scene.lives = 1;
+      call(scene, 'handleCollision');
+      expect(scene.isGameOver).toBe(true);
+    });
+
+    it('calls gameOver with score and reason', () => {
+      scene.lives = 1;
+      scene.score = 150;
+      scene.level = 3;
+      call(scene, 'handleCollision');
+      expect(scene.time.delayedCall).toHaveBeenCalled();
+    });
+
+    it('updates highScore if score is higher', () => {
+      scene.lives = 1;
+      scene.score = 500;
+      scene.highScore = 100;
+      call(scene, 'handleCollision');
+      expect(scene.highScore).toBe(500);
+    });
+
+    it('does not update highScore if score is lower', () => {
+      scene.lives = 1;
+      scene.score = 50;
+      scene.highScore = 100;
+      call(scene, 'handleCollision');
+      expect(scene.highScore).toBe(100);
+    });
+  });
+
+  describe('Boss Battle', () => {
+    it('startBossBattle sets inBossBattle', () => {
+      call(scene, 'startBossBattle', 'agent_smith');
+      expect(scene.inBossBattle).toBe(true);
+    });
+
+    it('startBossBattle creates boss with correct health', () => {
+      call(scene, 'startBossBattle', 'agent_smith');
+      expect(scene.boss).not.toBeNull();
+      expect(scene.boss.health).toBe(150);
+      expect(scene.boss.maxHealth).toBe(150);
+    });
+
+    it('startBossBattle clears pipes', () => {
+      scene.pipes = [
+        { topRect: createMockRect(), bottomRect: createMockRect(), x: 100, gapY: 100, passed: false, hit: false },
+      ];
+      call(scene, 'startBossBattle', 'agent_smith');
+      expect(scene.pipes).toHaveLength(0);
+    });
+
+    it('startBossBattle clears field power-ups', () => {
+      scene.fieldPowerUps = [{ sprite: createMockSprite(), type: 'shield', x: 100, y: 100 }];
+      call(scene, 'startBossBattle', 'agent_smith');
+      expect(scene.fieldPowerUps).toHaveLength(0);
+    });
+
+    it('defeatBoss awards score bonus', () => {
+      call(scene, 'startBossBattle', 'agent_smith');
+      const prevScore = scene.score;
+      call(scene, 'defeatBoss');
+      expect(scene.score).toBe(prevScore + 150 * 2);
+    });
+
+    it('defeatBoss unlocks agent_smith achievement', () => {
+      call(scene, 'startBossBattle', 'agent_smith');
+      call(scene, 'defeatBoss');
+      expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.BOSS_SLAYER);
+    });
+
+    it('defeatBoss unlocks sentinel achievement', () => {
+      call(scene, 'startBossBattle', 'sentinel');
+      call(scene, 'defeatBoss');
+      expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.SENTINEL_DEFEAT);
+    });
+
+    it('defeatBoss unlocks architect achievement', () => {
+      call(scene, 'startBossBattle', 'architect');
+      call(scene, 'defeatBoss');
+      expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.ARCHITECT_DEFEAT);
+    });
+
+    it('defeating all 3 bosses unlocks ALL_BOSSES', () => {
+      call(scene, 'startBossBattle', 'agent_smith');
+      call(scene, 'defeatBoss');
+      call(scene, 'startBossBattle', 'sentinel');
+      call(scene, 'defeatBoss');
+      call(scene, 'startBossBattle', 'architect');
+      call(scene, 'defeatBoss');
+      expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.ALL_BOSSES);
+    });
+
+    it('endBossBattle resets inBossBattle', () => {
+      call(scene, 'startBossBattle', 'agent_smith');
+      call(scene, 'endBossBattle', true);
+      expect(scene.inBossBattle).toBe(false);
+    });
+
+    it('endBossBattle cleans up boss', () => {
+      call(scene, 'startBossBattle', 'agent_smith');
+      call(scene, 'endBossBattle', true);
+      expect(scene.boss).toBeNull();
+    });
+
+    it('boss attack collision detection respects invulnerability', () => {
+      scene.isInvulnerable = true;
+      const attack: any = { sprite: createMockSprite(C.PLAYER_X, scene.playerY), vx: -300, vy: 0, life: 1 };
+      const result = call(scene, 'checkAttackPlayerCollision', attack);
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('Achievements', () => {
+    it('HIGH_FLYER at score 1000', () => {
+      scene.score = 1000;
+      call(scene, 'checkAchievements');
+      expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.HIGH_FLYER);
+    });
+
+    it('LEVEL_5 at level 5', () => {
+      scene.level = 5;
+      call(scene, 'checkAchievements');
+      expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.LEVEL_5);
+    });
+
+    it('POWER_COLLECTOR at 20 power-ups', () => {
+      scene.powerUpsCollected = 20;
+      call(scene, 'checkAchievements');
+      expect(scene.unlockAchievement).toHaveBeenCalledWith(ACHIEVEMENTS.POWER_COLLECTOR);
+    });
+
+    it('does not unlock achievements below thresholds', () => {
+      scene.score = 999;
+      scene.level = 4;
+      scene.powerUpsCollected = 19;
+      call(scene, 'checkAchievements');
+      expect(scene.unlockAchievement).not.toHaveBeenCalled();
+    });
+
+    it('achievements only unlock once', () => {
+      scene.score = 1000;
+      call(scene, 'checkAchievements');
+      call(scene, 'checkAchievements');
+      expect(scene.unlockAchievement).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Power-Up Collision Detection', () => {
+    it('detects overlap when close', () => {
+      const pu: any = { sprite: createMockSprite(), type: 'shield', x: C.PLAYER_X, y: scene.playerY };
+      expect(call(scene, 'checkPowerUpCollision', pu)).toBe(true);
+    });
+
+    it('no overlap when far away', () => {
+      const pu: any = { sprite: createMockSprite(), type: 'shield', x: C.PLAYER_X + 200, y: scene.playerY };
+      expect(call(scene, 'checkPowerUpCollision', pu)).toBe(false);
+    });
+  });
+
+  describe('Speed Multiplier', () => {
+    it('timeSlow reduces speed', () => {
+      scene.timeSlowActive = true;
+      const speedMult = scene.timeSlowActive ? C.TIME_SLOW_FACTOR : 1.0;
+      expect(speedMult).toBe(C.TIME_SLOW_FACTOR);
+    });
+
+    it('normal speed when no slow', () => {
+      const speedMult = scene.timeSlowActive ? C.TIME_SLOW_FACTOR : 1.0;
+      expect(speedMult).toBe(1.0);
+    });
+  });
+
+  describe('Test State Exposure', () => {
+    it('getTestState returns all required fields', () => {
+      const state = call(scene, 'getTestState');
+      expect(state).toHaveProperty('score');
+      expect(state).toHaveProperty('lives');
+      expect(state).toHaveProperty('level');
+      expect(state).toHaveProperty('combo');
+      expect(state).toHaveProperty('playerY');
+      expect(state).toHaveProperty('playerVelocity');
+      expect(state).toHaveProperty('isGameOver');
+      expect(state).toHaveProperty('inBossBattle');
+      expect(state).toHaveProperty('shieldActive');
+      expect(state).toHaveProperty('powerUpsCollected');
+      expect(state).toHaveProperty('pipeCount');
+    });
+  });
+
+  describe('Spawn Pipe', () => {
+    it('creates a pipe pair', () => {
+      call(scene, 'spawnPipe');
+      expect(scene.pipes).toHaveLength(1);
+    });
+
+    it('pipe has required properties', () => {
+      call(scene, 'spawnPipe');
+      const pipe = scene.pipes[0];
+      expect(pipe).toHaveProperty('topRect');
+      expect(pipe).toHaveProperty('bottomRect');
+      expect(pipe).toHaveProperty('x');
+      expect(pipe).toHaveProperty('gapY');
+      expect(pipe.passed).toBe(false);
+      expect(pipe.hit).toBe(false);
+    });
+
+    it('pipe gapY is within valid range', () => {
+      for (let i = 0; i < 20; i++) {
+        call(scene, 'spawnPipe');
+      }
+      for (const pipe of scene.pipes) {
+        expect(pipe.gapY).toBeGreaterThanOrEqual(C.PIPE_MIN_HEIGHT);
+        expect(pipe.gapY + C.PIPE_GAP).toBeLessThanOrEqual(C.HEIGHT - C.GROUND_HEIGHT);
+      }
+    });
+  });
+
+  describe('Sprite Mode', () => {
+    it('uses procedural player texture when spriteMode is false', () => {
+      scene.game.registry.get = vi.fn().mockReturnValue(false);
+      scene.player = createMockSprite(C.PLAYER_X, C.HEIGHT * 0.4);
+      call(scene, 'updatePlayerTexture');
+      expect(scene.player.setTexture).toHaveBeenCalledWith('player');
+    });
+
+    it('uses tinting instead of texture swap in sprite mode', () => {
+      scene.game.registry.get = vi.fn().mockReturnValue(true);
+      scene.player = createMockSprite(C.PLAYER_X, C.HEIGHT * 0.4);
+      scene.isInvulnerable = false;
+      scene.shieldActive = false;
+      call(scene, 'updatePlayerTexture');
+      expect(scene.player.clearTint).toHaveBeenCalled();
+    });
+
+    it('tints red when damaged in sprite mode', () => {
+      scene.game.registry.get = vi.fn().mockReturnValue(true);
+      scene.player = createMockSprite(C.PLAYER_X, C.HEIGHT * 0.4);
+      scene.isInvulnerable = true;
+      call(scene, 'updatePlayerTexture');
+      expect(scene.player.setTint).toHaveBeenCalledWith(0xff4444);
+    });
+
+    it('tints magenta when shielded in sprite mode', () => {
+      scene.game.registry.get = vi.fn().mockReturnValue(true);
+      scene.player = createMockSprite(C.PLAYER_X, C.HEIGHT * 0.4);
+      scene.isInvulnerable = false;
+      scene.shieldActive = true;
+      call(scene, 'updatePlayerTexture');
+      expect(scene.player.setTint).toHaveBeenCalledWith(0xff00ff);
+    });
+  });
+
+  describe('Cleanup', () => {
+    it('shutdown destroys all pipes', () => {
+      call(scene, 'spawnPipe');
+      call(scene, 'spawnPipe');
+      const pipes = [...scene.pipes];
+      call(scene, 'shutdown');
+      for (const pipe of pipes) {
+        expect(pipe.topRect.destroy).toHaveBeenCalled();
+        expect(pipe.bottomRect.destroy).toHaveBeenCalled();
+      }
+    });
+
+    it('shutdown clears boss state', () => {
+      call(scene, 'startBossBattle', 'agent_smith');
+      call(scene, 'shutdown');
+      expect(scene.boss).toBeNull();
+      expect(scene.bossAttacks).toHaveLength(0);
+    });
+
+    it('shutdown removes keyboard listeners', () => {
+      call(scene, 'shutdown');
+      expect(scene.input.keyboard.removeAllKeys).toHaveBeenCalled();
+    });
+  });
+
+  // R84.B4: pipe-variant progression. Each subdescribe pins a slice of the
+  // moving/zapper/bonus behaviour so future refactors either keep the
+  // specified shape or fail loudly.
+  describe('R84.B4 Pipe variants', () => {
+    describe('pickPipeKind (score gating)', () => {
+      it('returns "normal" at score 0 regardless of random roll', () => {
+        scene.score = 0;
+        const rolls = [0.0, 0.25, 0.5, 0.75, 0.99];
+        for (const r of rolls) {
+          vi.spyOn(Math, 'random').mockReturnValueOnce(r);
+          expect(call(scene, 'pickPipeKind')).toBe('normal');
+        }
+      });
+
+      it('never picks "moving" below MOVING_UNLOCK_SCORE', () => {
+        scene.score = PIPE_VARIANTS.MOVING_UNLOCK_SCORE - 1;
+        for (let i = 0; i < 10; i++) {
+          vi.spyOn(Math, 'random').mockReturnValueOnce(0.95);
+          expect(call(scene, 'pickPipeKind')).toBe('normal');
+        }
+      });
+
+      it('can pick "moving" at MOVING_UNLOCK_SCORE', () => {
+        scene.score = PIPE_VARIANTS.MOVING_UNLOCK_SCORE;
+        // bag = {normal:10, moving:3}, total 13. Moving bucket is roll ≥ 10.
+        vi.spyOn(Math, 'random').mockReturnValueOnce(0.95);
+        expect(call(scene, 'pickPipeKind')).toBe('moving');
+      });
+
+      it('can pick "zapper" at ZAPPER_UNLOCK_SCORE', () => {
+        scene.score = PIPE_VARIANTS.ZAPPER_UNLOCK_SCORE;
+        // bag total = 10+3+2 = 15. Zapper bucket is roll ≥ 13 → random ≥ 13/15.
+        vi.spyOn(Math, 'random').mockReturnValueOnce(0.95);
+        expect(call(scene, 'pickPipeKind')).toBe('zapper');
+      });
+
+      it('can pick "bonus" at BONUS_UNLOCK_SCORE', () => {
+        scene.score = PIPE_VARIANTS.BONUS_UNLOCK_SCORE;
+        // bag total = 10+3+2+1 = 16. Bonus bucket is roll ≥ 15 → random ≥ 15/16.
+        vi.spyOn(Math, 'random').mockReturnValueOnce(0.99);
+        expect(call(scene, 'pickPipeKind')).toBe('bonus');
+      });
+    });
+
+    describe('Moving pipe drift', () => {
+      function makeMovingPipe(baseGapY = 150) {
+        return {
+          topRect: createMockRect(),
+          bottomRect: createMockRect(),
+          x: 400,
+          gapY: baseGapY,
+          baseGapY,
+          passed: false,
+          hit: false,
+          kind: 'moving' as const,
+          gap: C.PIPE_GAP,
+          driftAmp: PIPE_VARIANTS.MOVING_DRIFT_AMP,
+          driftFreqHz: PIPE_VARIANTS.MOVING_DRIFT_FREQ_HZ,
+          driftPhase: 0,
+          elapsedMs: 0,
+        };
+      }
+
+      it('gapY reaches baseGapY + amplitude at quarter cycle', () => {
+        const pipe = makeMovingPipe(150);
+        const quarterMs = 1000 / (4 * PIPE_VARIANTS.MOVING_DRIFT_FREQ_HZ);
+        call(scene, 'updateMovingPipe', pipe, quarterMs);
+        expect(pipe.gapY).toBeCloseTo(150 + PIPE_VARIANTS.MOVING_DRIFT_AMP, 0);
+      });
+
+      it('elapsedMs accumulates by delta', () => {
+        const pipe = makeMovingPipe(150);
+        call(scene, 'updateMovingPipe', pipe, 100);
+        expect(pipe.elapsedMs).toBe(100);
+        call(scene, 'updateMovingPipe', pipe, 50);
+        expect(pipe.elapsedMs).toBe(150);
+      });
+
+      it('clamps gapY to playable bounds', () => {
+        const pipe = makeMovingPipe(C.PIPE_MIN_HEIGHT);
+        pipe.driftAmp = 1000; // Way beyond the bounds
+        pipe.driftPhase = Math.PI; // sin goes strongly negative first quarter
+        const quarterMs = 1000 / (4 * PIPE_VARIANTS.MOVING_DRIFT_FREQ_HZ);
+        call(scene, 'updateMovingPipe', pipe, quarterMs);
+        expect(pipe.gapY).toBeGreaterThanOrEqual(C.PIPE_MIN_HEIGHT);
+        const playableHeight = C.HEIGHT - C.GROUND_HEIGHT;
+        expect(pipe.gapY + C.PIPE_GAP).toBeLessThanOrEqual(playableHeight);
+      });
+
+      it('resizes top and bottom rects each tick', () => {
+        const pipe = makeMovingPipe(150);
+        call(scene, 'updateMovingPipe', pipe, 50);
+        expect(pipe.topRect.setSize).toHaveBeenCalled();
+        expect(pipe.bottomRect.setSize).toHaveBeenCalled();
+      });
+    });
+
+    describe('Zapper pipe cycle + collision', () => {
+      function makeZapperPipe(overrides: Record<string, unknown> = {}) {
+        return {
+          topRect: createMockRect(),
+          bottomRect: createMockRect(),
+          arc: createMockGraphics(),
+          x: C.PLAYER_X - 10,
+          gapY: 50,
+          baseGapY: 50,
+          passed: false,
+          hit: false,
+          kind: 'zapper' as const,
+          gap: C.PIPE_GAP,
+          arcElapsedMs: 0,
+          arcActive: false,
+          arcTelegraphed: false,
+          bonusSpawned: false,
+          ...overrides,
+        };
+      }
+
+      it('arc active at start of cycle', () => {
+        const pipe = makeZapperPipe({ arcElapsedMs: 0 });
+        call(scene, 'updateZapperPipe', pipe, 10);
+        expect(pipe.arcActive).toBe(true);
+      });
+
+      it('arc inactive past ZAPPER_ACTIVE_FRACTION of cycle', () => {
+        const pipe = makeZapperPipe();
+        call(scene, 'updateZapperPipe', pipe, PIPE_VARIANTS.ZAPPER_CYCLE_MS * 0.5);
+        expect(pipe.arcActive).toBe(false);
+      });
+
+      it('plays danger warning on arc activation edge', () => {
+        const pipe = makeZapperPipe();
+        scene.playSound.mockClear();
+        call(scene, 'updateZapperPipe', pipe, 10);
+        expect(scene.playSound).toHaveBeenCalledWith('dangerWarning');
+      });
+
+      it('checkZapperCollision zeroes lives when player is in gap', () => {
+        const pipe = makeZapperPipe({ arcActive: true });
+        scene.playerY = 50 + C.PIPE_GAP / 2;
+        scene.lives = 3;
+        const handleGameOver = vi.spyOn(scene, 'handleGameOver');
+        call(scene, 'checkZapperCollision', pipe);
+        expect(scene.lives).toBe(0);
+        expect(handleGameOver).toHaveBeenCalled();
+      });
+
+      it('zapper bypasses shield — shielded player still dies', () => {
+        const pipe = makeZapperPipe({ arcActive: true });
+        scene.shieldActive = true;
+        scene.playerY = 50 + C.PIPE_GAP / 2;
+        const handleGameOver = vi.spyOn(scene, 'handleGameOver');
+        call(scene, 'checkZapperCollision', pipe);
+        expect(handleGameOver).toHaveBeenCalled();
+        expect(scene.lives).toBe(0);
+      });
+
+      it('no zapper death when player is in pipe BODY (above gap)', () => {
+        const pipe = makeZapperPipe({ arcActive: true });
+        scene.playerY = 10; // above gap
+        const handleGameOver = vi.spyOn(scene, 'handleGameOver');
+        call(scene, 'checkZapperCollision', pipe);
+        expect(handleGameOver).not.toHaveBeenCalled();
+      });
+
+      it('no zapper death when pipe is far from player x', () => {
+        const pipe = makeZapperPipe({ arcActive: true, x: C.PLAYER_X + 400 });
+        scene.playerY = 50 + C.PIPE_GAP / 2;
+        const handleGameOver = vi.spyOn(scene, 'handleGameOver');
+        call(scene, 'checkZapperCollision', pipe);
+        expect(handleGameOver).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('handleZapperDeath', () => {
+      it('zeroes lives even with shield active', () => {
+        scene.shieldActive = true;
+        scene.lives = 5;
+        const handleGameOver = vi.spyOn(scene, 'handleGameOver');
+        call(scene, 'handleZapperDeath');
+        expect(scene.lives).toBe(0);
+        expect(handleGameOver).toHaveBeenCalled();
+      });
+
+      it('plays glassBreak SFX', () => {
+        scene.playSound.mockClear();
+        call(scene, 'handleZapperDeath');
+        expect(scene.playSound).toHaveBeenCalledWith('glassBreak');
+      });
+
+      it('breaks combo back to 1.0', () => {
+        scene.combo = 4.2;
+        call(scene, 'handleZapperDeath');
+        expect(scene.combo).toBe(1.0);
+      });
+    });
+
+    describe('Bonus pipe', () => {
+      beforeEach(() => {
+        scene.score = PIPE_VARIANTS.BONUS_UNLOCK_SCORE;
+        scene.pickPipeKind = () => 'bonus';
+      });
+
+      it('spawnPipe with bonus kind narrows the gap', () => {
+        call(scene, 'spawnPipe');
+        const pipe = scene.pipes[0];
+        expect(pipe.kind).toBe('bonus');
+        expect(pipe.gap).toBe(Math.round(C.PIPE_GAP * PIPE_VARIANTS.BONUS_GAP_SCALE));
+      });
+
+      it('bonus pipe seeds a power-up in the gap centre', () => {
+        call(scene, 'spawnPipe');
+        const pipe = scene.pipes[0];
+        expect(scene.fieldPowerUps).toHaveLength(1);
+        const pu = scene.fieldPowerUps[0];
+        expect(pu.x).toBeCloseTo(pipe.x + C.PIPE_WIDTH / 2, 0);
+        const expectedY = pipe.gapY + (pipe.gap ?? C.PIPE_GAP) / 2;
+        expect(pu.y).toBeCloseTo(expectedY, 0);
+      });
+
+      it('scorePipe awards BONUS_SCORE_MULT × base for bonus', () => {
+        const bonusPipe = { kind: 'bonus' } as any;
+        scene.combo = 1.0;
+        scene.score = 0;
+        call(scene, 'scorePipe', bonusPipe);
+        expect(scene.score).toBe(Math.floor(C.SCORE_PER_PIPE * PIPE_VARIANTS.BONUS_SCORE_MULT));
+      });
+
+      it('scorePipe plays levelUp cue on bonus', () => {
+        scene.playSound.mockClear();
+        call(scene, 'scorePipe', { kind: 'bonus' } as any);
+        expect(scene.playSound).toHaveBeenCalledWith('levelUp');
+      });
+
+      it('does NOT play levelUp cue on normal pipe scoring', () => {
+        // Reset score so scorePipe doesn't cross a LEVEL_THRESHOLD boundary
+        // and trigger the unrelated onLevelUp cue.
+        scene.score = 0;
+        scene.combo = 1.0;
+        scene.level = 1;
+        scene.playSound.mockClear();
+        call(scene, 'scorePipe');
+        expect(scene.playSound).not.toHaveBeenCalledWith('levelUp');
+      });
+    });
+
+    describe('checkPipeCollision honours per-pipe gap', () => {
+      it('narrower bonus gap triggers collision where normal gap would not', () => {
+        const narrowGap = Math.round(C.PIPE_GAP * PIPE_VARIANTS.BONUS_GAP_SCALE);
+        const pipe: any = {
+          x: C.PLAYER_X - 10,
+          gapY: 100,
+          gap: narrowGap,
+          kind: 'bonus',
+          passed: false,
+          hit: false,
+          topRect: createMockRect(),
+          bottomRect: createMockRect(),
+        };
+        scene.playerY = 100 + narrowGap + 10; // Below narrow gap, would still be inside normal gap
+        call(scene, 'checkPipeCollision', pipe);
+        expect(pipe.hit).toBe(true);
+      });
+    });
+
+    describe('Pipe styling', () => {
+      it('getPipeStyle returns four distinct fill colours (normal/moving/zapper/bonus)', () => {
+        const kinds = ['normal', 'moving', 'zapper', 'bonus'] as const;
+        const fills = kinds.map(k => call(scene, 'getPipeStyle', k).fill);
+        expect(new Set(fills).size).toBe(4);
+      });
+
+      it('getPipeStyle returns four distinct stroke colours', () => {
+        const kinds = ['normal', 'moving', 'zapper', 'bonus'] as const;
+        const strokes = kinds.map(k => call(scene, 'getPipeStyle', k).stroke);
+        expect(new Set(strokes).size).toBe(4);
+      });
+    });
+
+    describe('destroyPipe lifecycle', () => {
+      it('destroys arc graphic when present on pipe', () => {
+        const arc = createMockGraphics();
+        const pipe: any = {
+          topRect: createMockRect(),
+          bottomRect: createMockRect(),
+          arc,
+        };
+        call(scene, 'destroyPipe', pipe);
+        expect(arc.destroy).toHaveBeenCalled();
+        expect(pipe.topRect.destroy).toHaveBeenCalled();
+        expect(pipe.bottomRect.destroy).toHaveBeenCalled();
+      });
+
+      it('does not throw when pipe has no arc', () => {
+        const pipe: any = {
+          topRect: createMockRect(),
+          bottomRect: createMockRect(),
+        };
+        expect(() => call(scene, 'destroyPipe', pipe)).not.toThrow();
+      });
+    });
+
+    // R84.CI-7: pipe-visual object pool. Off-screen pipes + boss-battle
+    // field-clear route through retirePipe which parks visuals for reuse;
+    // spawnPipe's acquire helpers pop from the pool before allocating.
+    // These tests pin the contract so a refactor that reverts to allocate-
+    // -per-spawn surfaces at unit-test speed rather than in a perf regression.
+    describe('R84.CI-7 — pipe-visual object pool', () => {
+      describe('retirePipe', () => {
+        it('parks topRect + bottomRect in the pool and hides them (no destroy)', () => {
+          const topRect = createMockRect();
+          const bottomRect = createMockRect();
+          const pipe: any = { topRect, bottomRect };
+
+          call(scene, 'retirePipe', pipe);
+
+          expect(scene.pipeRectPool).toHaveLength(2);
+          expect(scene.pipeRectPool).toContain(topRect);
+          expect(scene.pipeRectPool).toContain(bottomRect);
+          expect(topRect.destroy).not.toHaveBeenCalled();
+          expect(bottomRect.destroy).not.toHaveBeenCalled();
+          expect(topRect.setVisible).toHaveBeenCalledWith(false);
+          expect(bottomRect.setVisible).toHaveBeenCalledWith(false);
+          expect(topRect.setActive).toHaveBeenCalledWith(false);
+          expect(bottomRect.setActive).toHaveBeenCalledWith(false);
+        });
+
+        it('pools the arc graphic separately when the retired pipe is a zapper', () => {
+          const arc = createMockGraphics();
+          const pipe: any = { topRect: createMockRect(), bottomRect: createMockRect(), arc };
+
+          call(scene, 'retirePipe', pipe);
+
+          expect(scene.pipeArcPool).toHaveLength(1);
+          expect(scene.pipeArcPool[0]).toBe(arc);
+          expect(arc.destroy).not.toHaveBeenCalled();
+          expect(arc.clear).toHaveBeenCalled();
+          expect(arc.setVisible).toHaveBeenCalledWith(false);
+          expect(arc.setActive).toHaveBeenCalledWith(false);
+        });
+
+        it('does not touch the arc pool when the retired pipe has no arc', () => {
+          const pipe: any = { topRect: createMockRect(), bottomRect: createMockRect() };
+          call(scene, 'retirePipe', pipe);
+          expect(scene.pipeArcPool).toHaveLength(0);
+        });
+      });
+
+      describe('spawnPipe reuses pooled visuals', () => {
+        it('pops from pipeRectPool on spawn and does NOT allocate via add.rectangle', () => {
+          // Seed pool with 2 entries (one full pipe-pair's worth).
+          const pooledTop = createMockRect();
+          const pooledBottom = createMockRect();
+          scene.pipeRectPool = [pooledTop, pooledBottom];
+          scene.add.rectangle.mockClear();
+
+          call(scene, 'spawnPipe');
+
+          expect(scene.pipeRectPool).toHaveLength(0);
+          expect(scene.add.rectangle).not.toHaveBeenCalled();
+          expect(scene.pipes).toHaveLength(1);
+          const pipe = scene.pipes[0];
+          // Both pooled rects were reused (order is pop-order from end).
+          expect([pooledTop, pooledBottom]).toContain(pipe.topRect);
+          expect([pooledTop, pooledBottom]).toContain(pipe.bottomRect);
+        });
+
+        it('re-dresses pooled rect with new kind fill + stroke + visibility', () => {
+          const pooled = createMockRect();
+          scene.pipeRectPool = [pooled, createMockRect()];
+          scene.add.rectangle.mockClear();
+          scene.score = PIPE_VARIANTS.MOVING_UNLOCK_SCORE;
+          // Force kind by stubbing pickPipeKind — avoids randomness in this spec.
+          vi.spyOn(scene, 'pickPipeKind').mockReturnValue('moving');
+
+          call(scene, 'spawnPipe');
+
+          expect(pooled.setVisible).toHaveBeenCalledWith(true);
+          expect(pooled.setActive).toHaveBeenCalledWith(true);
+          expect(pooled.setFillStyle).toHaveBeenCalledWith(PIPE_VARIANTS.MOVING_FILL);
+          expect(pooled.setStrokeStyle).toHaveBeenCalledWith(2, PIPE_VARIANTS.MOVING_STROKE);
+        });
+
+        it('falls back to add.rectangle when the pool is empty', () => {
+          scene.pipeRectPool = [];
+          scene.add.rectangle.mockClear();
+
+          call(scene, 'spawnPipe');
+
+          expect(scene.add.rectangle).toHaveBeenCalledTimes(2);
+        });
+
+        it('pops from pipeArcPool when spawning a zapper pipe', () => {
+          const pooledArc = createMockGraphics();
+          scene.pipeArcPool = [pooledArc];
+          scene.add.graphics.mockClear();
+          scene.score = PIPE_VARIANTS.ZAPPER_UNLOCK_SCORE;
+          vi.spyOn(scene, 'pickPipeKind').mockReturnValue('zapper');
+
+          call(scene, 'spawnPipe');
+
+          expect(scene.pipeArcPool).toHaveLength(0);
+          expect(scene.add.graphics).not.toHaveBeenCalled();
+          expect(pooledArc.setVisible).toHaveBeenCalledWith(true);
+          expect(pooledArc.setActive).toHaveBeenCalledWith(true);
+          expect(pooledArc.clear).toHaveBeenCalled();
+          expect(scene.pipes[0].arc).toBe(pooledArc);
+        });
+      });
+
+      describe('updatePipes off-screen cleanup → pool (not destroy)', () => {
+        it('retires the pipe into the pool and splices it out of pipes[] without destroying visuals', () => {
+          const topRect = createMockRect();
+          const bottomRect = createMockRect();
+          const pipe: any = {
+            topRect,
+            bottomRect,
+            // Sits just past the left edge; after one frame tick x decrements
+            // further so `pipe.x + PIPE_WIDTH < 0` predicate trips.
+            x: -GAME_CONFIG.PIPE_WIDTH - 1,
+            gapY: 100,
+            passed: true,
+            hit: false,
+            kind: 'normal',
+          };
+          scene.pipes = [pipe];
+          // Stub spawnPipe so the spawn-cadence branch doesn't fire and
+          // dirty the pool mid-assertion.
+          vi.spyOn(scene, 'spawnPipe').mockImplementation(() => {});
+
+          call(scene, 'updatePipes', 0.0167, 1);
+
+          expect(scene.pipes).toHaveLength(0);
+          expect(scene.pipeRectPool).toContain(topRect);
+          expect(scene.pipeRectPool).toContain(bottomRect);
+          expect(topRect.destroy).not.toHaveBeenCalled();
+          expect(bottomRect.destroy).not.toHaveBeenCalled();
+        });
+      });
+
+      describe('drainPipePools', () => {
+        it('destroys every pooled rect + arc and empties both pools', () => {
+          const r1 = createMockRect();
+          const r2 = createMockRect();
+          const a1 = createMockGraphics();
+          scene.pipeRectPool = [r1, r2];
+          scene.pipeArcPool = [a1];
+
+          call(scene, 'drainPipePools');
+
+          expect(r1.destroy).toHaveBeenCalled();
+          expect(r2.destroy).toHaveBeenCalled();
+          expect(a1.destroy).toHaveBeenCalled();
+          expect(scene.pipeRectPool).toHaveLength(0);
+          expect(scene.pipeArcPool).toHaveLength(0);
+        });
+      });
+
+      describe('spawn → retire → spawn round-trip reuses the same instances', () => {
+        it('one spawn → retire → next spawn recycles both rects with zero new allocations', () => {
+          scene.add.rectangle.mockClear();
+
+          call(scene, 'spawnPipe');
+          const first = scene.pipes[0];
+          const topRef = first.topRect;
+          const bottomRef = first.bottomRect;
+          expect(scene.add.rectangle).toHaveBeenCalledTimes(2);
+
+          call(scene, 'retirePipe', first);
+          scene.pipes = [];
+          scene.lastPipeX = GAME_CONFIG.WIDTH + 100;
+          scene.add.rectangle.mockClear();
+
+          call(scene, 'spawnPipe');
+          expect(scene.add.rectangle).not.toHaveBeenCalled();
+          const second = scene.pipes[0];
+          expect([topRef, bottomRef]).toContain(second.topRect);
+          expect([topRef, bottomRef]).toContain(second.bottomRect);
+        });
+      });
+    });
+  });
+
+  describe('R84.B5 — 3-layer parallax', () => {
+    describe('PARALLAX config sanity', () => {
+      it('scrollFactors step far < mid < near', () => {
+        expect(PARALLAX.FAR.SCROLL_FACTOR).toBeLessThan(PARALLAX.MID.SCROLL_FACTOR);
+        expect(PARALLAX.MID.SCROLL_FACTOR).toBeLessThan(PARALLAX.NEAR.SCROLL_FACTOR);
+      });
+
+      it('depths step far (0) < mid (1) < near (2), all beneath pipes (3)', () => {
+        expect(PARALLAX.FAR.DEPTH).toBe(0);
+        expect(PARALLAX.MID.DEPTH).toBe(1);
+        expect(PARALLAX.NEAR.DEPTH).toBe(2);
+        expect(PARALLAX.NEAR.DEPTH).toBeLessThan(3);
+      });
+
+      it('alphas scale up far < mid < near so closer reads brighter', () => {
+        expect(PARALLAX.FAR.ALPHA).toBeLessThan(PARALLAX.MID.ALPHA);
+        expect(PARALLAX.MID.ALPHA).toBeLessThan(PARALLAX.NEAR.ALPHA);
+        expect(PARALLAX.NEAR.ALPHA).toBeLessThanOrEqual(1);
+      });
+
+      it('near font size > mid font size (closer = bigger glyphs)', () => {
+        expect(PARALLAX.NEAR.FONT_SIZE).toBeGreaterThan(PARALLAX.MID.FONT_SIZE);
+      });
+
+      it('vertical speed ranges are positive and min <= max per layer', () => {
+        expect(PARALLAX.MID.VERTICAL_SPEED_MIN).toBeGreaterThan(0);
+        expect(PARALLAX.MID.VERTICAL_SPEED_MAX).toBeGreaterThanOrEqual(PARALLAX.MID.VERTICAL_SPEED_MIN);
+        expect(PARALLAX.NEAR.VERTICAL_SPEED_MIN).toBeGreaterThan(0);
+        expect(PARALLAX.NEAR.VERTICAL_SPEED_MAX).toBeGreaterThanOrEqual(PARALLAX.NEAR.VERTICAL_SPEED_MIN);
+      });
+
+      it('near vertical speeds exceed mid vertical speeds (closer = faster fall)', () => {
+        expect(PARALLAX.NEAR.VERTICAL_SPEED_MIN).toBeGreaterThan(PARALLAX.MID.VERTICAL_SPEED_MIN);
+        expect(PARALLAX.NEAR.VERTICAL_SPEED_MAX).toBeGreaterThan(PARALLAX.MID.VERTICAL_SPEED_MAX);
+      });
+
+      it('densities positive for both rain layers', () => {
+        expect(PARALLAX.MID.DENSITY).toBeGreaterThan(0);
+        expect(PARALLAX.NEAR.DENSITY).toBeGreaterThan(0);
+      });
+    });
+
+    describe('createParallaxFarLayer', () => {
+      it('no-ops when bg_city texture is absent', () => {
+        scene.textures = { exists: vi.fn().mockReturnValue(false) };
+        scene.add.tileSprite = vi.fn();
+        call(scene, 'createParallaxFarLayer');
+        expect(scene.add.tileSprite).not.toHaveBeenCalled();
+        expect(s(scene, 'parallaxFar')).toBeNull();
+      });
+
+      it('creates a tinted TileSprite at FAR depth when bg_city exists', () => {
+        scene.textures = { exists: vi.fn().mockReturnValue(true) };
+        const mockTile: any = {
+          setAlpha: vi.fn().mockReturnThis(),
+          setDepth: vi.fn().mockReturnThis(),
+          setTint: vi.fn().mockReturnThis(),
+          tilePositionX: 0,
+          destroy: vi.fn(),
+        };
+        scene.add.tileSprite = vi.fn().mockReturnValue(mockTile);
+        call(scene, 'createParallaxFarLayer');
+        expect(scene.add.tileSprite).toHaveBeenCalledWith(
+          GAME_CONFIG.WIDTH / 2,
+          GAME_CONFIG.HEIGHT / 2,
+          GAME_CONFIG.WIDTH,
+          GAME_CONFIG.HEIGHT,
+          'bg_city',
+        );
+        expect(mockTile.setAlpha).toHaveBeenCalledWith(PARALLAX.FAR.ALPHA);
+        expect(mockTile.setDepth).toHaveBeenCalledWith(PARALLAX.FAR.DEPTH);
+        expect(mockTile.setTint).toHaveBeenCalled();
+        expect(s(scene, 'parallaxFar')).toBe(mockTile);
+      });
+    });
+
+    describe('updateParallaxLayers', () => {
+      it('advances parallaxFar.tilePositionX at FAR.SCROLL_FACTOR × pipe speed', () => {
+        const mockTile: any = { tilePositionX: 0 };
+        scene.parallaxFar = mockTile;
+        scene.parallaxMidRain = null;
+        scene.parallaxNearRain = null;
+        call(scene, 'updateParallaxLayers', 1000, 1.0);
+        // 1000 ms × 1.0 mult × PIPE_SPEED × 0.1 = 200 × 1 × 0.1 = 20 px
+        expect(mockTile.tilePositionX).toBeCloseTo(GAME_CONFIG.PIPE_SPEED * PARALLAX.FAR.SCROLL_FACTOR, 5);
+      });
+
+      it('scales horizontal drift by speedMult (time-slow dampens parallax)', () => {
+        const mockTile: any = { tilePositionX: 0 };
+        scene.parallaxFar = mockTile;
+        scene.parallaxMidRain = null;
+        scene.parallaxNearRain = null;
+        call(scene, 'updateParallaxLayers', 1000, GAME_CONFIG.TIME_SLOW_FACTOR);
+        expect(mockTile.tilePositionX).toBeCloseTo(
+          GAME_CONFIG.PIPE_SPEED * GAME_CONFIG.TIME_SLOW_FACTOR * PARALLAX.FAR.SCROLL_FACTOR,
+          5,
+        );
+      });
+
+      it('safely no-ops when all three parallax fields are null', () => {
+        scene.parallaxFar = null;
+        scene.parallaxMidRain = null;
+        scene.parallaxNearRain = null;
+        expect(() => call(scene, 'updateParallaxLayers', 16, 1.0)).not.toThrow();
+      });
+    });
+
+    describe('updateParallaxRainLayer', () => {
+      const makeRainChar = (x: number, y: number, verticalSpeed: number) => {
+        const data: Record<string, unknown> = { verticalSpeed };
+        const text: any = {
+          x, y,
+          setText: vi.fn().mockReturnThis(),
+          getData: vi.fn((k: string) => data[k]),
+          setData: vi.fn((k: string, v: unknown) => { data[k] = v; }),
+        };
+        return text;
+      };
+
+      it('drifts characters LEFT at SCROLL_FACTOR × PIPE_SPEED × dt', () => {
+        const char = makeRainChar(500, 100, 60);
+        const group = { getChildren: () => [char] };
+        // delta 1000 ms, mult 1.0, MID scrollFactor 0.3 → 200 × 0.3 × 1.0 × 1.0 = 60 px
+        call(scene, 'updateParallaxRainLayer', group, PARALLAX.MID, 1000, 1.0);
+        // horizontal minus 60, vertical plus 60 (vertical speed × 1s)
+        expect(char.x).toBeCloseTo(500 - GAME_CONFIG.PIPE_SPEED * PARALLAX.MID.SCROLL_FACTOR, 5);
+        expect(char.y).toBeCloseTo(100 + 60, 5);
+      });
+
+      it('wraps characters that drift past left edge to WIDTH + fontSize', () => {
+        const char = makeRainChar(-PARALLAX.MID.FONT_SIZE - 1, 50, 50);
+        const group = { getChildren: () => [char] };
+        (Phaser as any).Math.Between = vi.fn().mockReturnValue(0);
+        call(scene, 'updateParallaxRainLayer', group, PARALLAX.MID, 16, 1.0);
+        expect(char.x).toBe(GAME_CONFIG.WIDTH + PARALLAX.MID.FONT_SIZE);
+        expect(char.setText).toHaveBeenCalled();
+      });
+
+      it('wraps characters that fall past bottom to y = -20 with new x + char', () => {
+        const char = makeRainChar(100, GAME_CONFIG.HEIGHT + 25, 50);
+        const group = { getChildren: () => [char] };
+        (Phaser as any).Math.Between = vi.fn().mockReturnValue(400);
+        call(scene, 'updateParallaxRainLayer', group, PARALLAX.MID, 16, 1.0);
+        expect(char.y).toBe(-20);
+        expect(char.x).toBe(400);
+        expect(char.setText).toHaveBeenCalled();
+      });
+
+      it('no-ops when group is null', () => {
+        expect(() => call(scene, 'updateParallaxRainLayer', null, PARALLAX.MID, 16, 1.0)).not.toThrow();
+      });
+
+      it('treats missing verticalSpeed data as 0 (defensive)', () => {
+        const data: Record<string, unknown> = {}; // no verticalSpeed key
+        const char: any = {
+          x: 400, y: 50,
+          setText: vi.fn().mockReturnThis(),
+          getData: vi.fn((k: string) => data[k]),
+        };
+        const group = { getChildren: () => [char] };
+        call(scene, 'updateParallaxRainLayer', group, PARALLAX.MID, 1000, 1.0);
+        // y should stay put (0 * dt), x should drift left by 60
+        expect(char.y).toBe(50);
+        expect(char.x).toBeCloseTo(400 - GAME_CONFIG.PIPE_SPEED * PARALLAX.MID.SCROLL_FACTOR, 5);
+      });
+
+      it('near layer drifts faster than mid layer per frame', () => {
+        const midChar = makeRainChar(500, 100, 50);
+        const nearChar = makeRainChar(500, 100, 50);
+        call(scene, 'updateParallaxRainLayer', { getChildren: () => [midChar] }, PARALLAX.MID, 1000, 1.0);
+        call(scene, 'updateParallaxRainLayer', { getChildren: () => [nearChar] }, PARALLAX.NEAR, 1000, 1.0);
+        // near.x should be smaller (drifted further left)
+        expect(nearChar.x).toBeLessThan(midChar.x);
+      });
+    });
+
+    describe('destroyParallaxLayers', () => {
+      it('destroys all three layer handles and nulls the fields', () => {
+        const farMock: any = { destroy: vi.fn() };
+        const midMock: any = { destroy: vi.fn() };
+        const nearMock: any = { destroy: vi.fn() };
+        scene.parallaxFar = farMock;
+        scene.parallaxMidRain = midMock;
+        scene.parallaxNearRain = nearMock;
+        call(scene, 'destroyParallaxLayers');
+        expect(farMock.destroy).toHaveBeenCalled();
+        expect(midMock.destroy).toHaveBeenCalledWith(true);
+        expect(nearMock.destroy).toHaveBeenCalledWith(true);
+        expect(s(scene, 'parallaxFar')).toBeNull();
+        expect(s(scene, 'parallaxMidRain')).toBeNull();
+        expect(s(scene, 'parallaxNearRain')).toBeNull();
+      });
+
+      it('is safe to call when no layers exist', () => {
+        scene.parallaxFar = null;
+        scene.parallaxMidRain = null;
+        scene.parallaxNearRain = null;
+        expect(() => call(scene, 'destroyParallaxLayers')).not.toThrow();
+      });
+    });
+  });
+
+  // R84.B8: pause→resume 5-second countdown. BaseScene's togglePause() routes
+  // the un-pause branch through resumeGame(); MatrixCloudGameScene overrides
+  // that to re-run startCountdown(5,...) after super unfreezes physics. The
+  // override was shipped in R83.B1(c) but had zero test coverage — these pins
+  // the contract so a future refactor can't silently drop the countdown and
+  // leave the bird plummeting from an invisible spawn the instant the overlay
+  // lifts. Tests stub the BaseScene super call's missing-from-global-mock
+  // touch-points (physics/tweens.resumeAll/canvas.focus) inline rather than
+  // adding them to createTestScene, because the 150+ unrelated existing tests
+  // assume the minimal surface.
+  describe('R84.B8 — Pause→resume 5s countdown', () => {
+    beforeEach(() => {
+      scene.physics = { world: {}, resume: vi.fn(), pause: vi.fn() };
+      scene.tweens.resumeAll = vi.fn();
+      scene.tweens.pauseAll = vi.fn();
+      scene.game.canvas = { focus: vi.fn() };
+      scene.isGameOver = false;
+      scene.isCountingDown = false;
+      scene.isPaused = true;
+    });
+
+    it('starts a 5-second countdown when not gameOver and not already counting', () => {
+      scene.startCountdown = vi.fn();
+      call(scene, 'resumeGame');
+      expect(scene.startCountdown).toHaveBeenCalledTimes(1);
+      expect(scene.startCountdown).toHaveBeenCalledWith(5, expect.any(Function));
+    });
+
+    it('skips countdown when isGameOver is true', () => {
+      scene.isGameOver = true;
+      scene.startCountdown = vi.fn();
+      call(scene, 'resumeGame');
+      expect(scene.startCountdown).not.toHaveBeenCalled();
+    });
+
+    it('skips countdown when a countdown is already running', () => {
+      // Super's resumeGame doesn't touch isCountingDown — the override guard
+      // is the only protection against stacking a second countdown on a
+      // rapid double-resume (e.g. dashbar click while initial countdown is
+      // still ticking). Pinning the guard here blocks a refactor from
+      // inverting the early-return.
+      scene.isCountingDown = true;
+      scene.startCountdown = vi.fn();
+      call(scene, 'resumeGame');
+      expect(scene.startCountdown).not.toHaveBeenCalled();
+    });
+
+    it('unfreezes physics/tweens/time BEFORE starting the countdown', () => {
+      // The ordering invariant matters: startCountdown uses time.delayedCall
+      // to tick digits; if super ran AFTER it, time.paused would still be
+      // true and the countdown would hang on "5" forever. We verify order
+      // via invocationCallOrder on the super-side side-effects.
+      const order: string[] = [];
+      scene.physics.resume = vi.fn(() => order.push('physics.resume'));
+      scene.tweens.resumeAll = vi.fn(() => order.push('tweens.resumeAll'));
+      const originalDescriptor = Object.getOwnPropertyDescriptor(scene.time, 'paused');
+      let timePausedValue = true;
+      Object.defineProperty(scene.time, 'paused', {
+        configurable: true,
+        get: () => timePausedValue,
+        set: (v: boolean) => {
+          timePausedValue = v;
+          if (!v) order.push('time.paused=false');
+        },
+      });
+      scene.startCountdown = vi.fn(() => order.push('startCountdown'));
+
+      try {
+        call(scene, 'resumeGame');
+      } finally {
+        if (originalDescriptor) {
+          Object.defineProperty(scene.time, 'paused', originalDescriptor);
+        }
+      }
+
+      const countdownIdx = order.indexOf('startCountdown');
+      expect(countdownIdx).toBeGreaterThan(-1);
+      expect(order.indexOf('physics.resume')).toBeLessThan(countdownIdx);
+      expect(order.indexOf('tweens.resumeAll')).toBeLessThan(countdownIdx);
+      expect(order.indexOf('time.paused=false')).toBeLessThan(countdownIdx);
+    });
+
+    it('update() early-returns while countdown is active so physics stays frozen', () => {
+      // With isCountingDown=true, update() must skip its physics/pipe/HUD
+      // pipeline — the player shouldn't fall and pipes shouldn't scroll
+      // during the 5-second re-orient window. exposeTestState is the last
+      // line of update(), so its absence proves the early-return fired.
+      scene.isCountingDown = true;
+      scene.isPaused = false;
+      scene.isGameOver = false;
+      scene.exposeTestState.mockClear();
+      scene.handleInput = vi.fn();
+      scene.updatePlayer = vi.fn();
+      scene.updatePipes = vi.fn();
+      scene.updateHUD = vi.fn();
+      scene.updateParallaxLayers = vi.fn();
+
+      call(scene, 'update', 1000, 16);
+
+      expect(scene.exposeTestState).not.toHaveBeenCalled();
+      expect(scene.updatePlayer).not.toHaveBeenCalled();
+      expect(scene.updatePipes).not.toHaveBeenCalled();
+      expect(scene.updateHUD).not.toHaveBeenCalled();
+    });
+
+    it('passes a no-op onComplete callback (countdown merely gates, no post-tick logic)', () => {
+      // The override intentionally passes `() => {}` — unlike the initial-run
+      // create() countdown that might fire extra onComplete logic, the
+      // pause-resume path just needs the isCountingDown gate released, which
+      // BaseScene.tickCountdownStep already does internally. If a future
+      // refactor accidentally forwards a non-noop callback here, it'd fire
+      // a second time after the bird has been playing for 5s — nonsensical
+      // state. This test pins the noop.
+      const spy = vi.fn();
+      scene.startCountdown = spy;
+      call(scene, 'resumeGame');
+      const callback = spy.mock.calls[0]?.[1];
+      expect(typeof callback).toBe('function');
+      expect(() => callback()).not.toThrow();
+      // Noop: returns undefined, produces no observable side-effect on scene.
+      expect(callback()).toBeUndefined();
+    });
+  });
+
+  // R84.B10: pin the PG4 (≥80px from nearest pipe) + PG5 (max 4 simultaneous
+  // pipes) fairness invariants that R83.B1 shipped. The testing checklist
+  // lines 147–148 tick both as fixed, but pre-R84.B10 there were no
+  // regression-guard tests — a future refactor (especially one touching
+  // `spawnPipe` or `spawnPowerUp` to add new variants) could silently
+  // reintroduce cramped pipes or powerups-under-pipe spawns. These tests
+  // lock the contract against the config constants so any breakage fails
+  // loudly in CI before Tom sees it.
+  describe('R84.B10 Pipe + power-up spacing invariants', () => {
+    describe('PG5 — PIPE_MAX_ACTIVE cap', () => {
+      it('config sanity: PIPE_MAX_ACTIVE is 4', () => {
+        expect(C.PIPE_MAX_ACTIVE).toBe(4);
+      });
+
+      it('spawnPipe hard-caps pipes.length at PIPE_MAX_ACTIVE no matter how many times invoked', () => {
+        for (let i = 0; i < 10; i++) call(scene, 'spawnPipe');
+        expect(scene.pipes.length).toBe(C.PIPE_MAX_ACTIVE);
+      });
+
+      it('spawnPipe above cap is a no-op — no new pipe, no power-up side-effect', () => {
+        for (let i = 0; i < C.PIPE_MAX_ACTIVE; i++) call(scene, 'spawnPipe');
+        const prePipes = scene.pipes.length;
+        const prePowerUps = scene.fieldPowerUps.length;
+        // Force the POWERUP_CHANCE branch so a bug that skipped the cap
+        // guard would push both a pipe AND a power-up.
+        const rng = vi.spyOn(Math, 'random').mockReturnValue(0);
+        call(scene, 'spawnPipe');
+        rng.mockRestore();
+        expect(scene.pipes.length).toBe(prePipes);
+        expect(scene.fieldPowerUps.length).toBe(prePowerUps);
+      });
+    });
+
+    describe('PG4 — POWERUP_MIN_PIPE_DISTANCE from nearest pipe', () => {
+      it('config sanity: POWERUP_MIN_PIPE_DISTANCE is 80', () => {
+        expect(C.POWERUP_MIN_PIPE_DISTANCE).toBe(80);
+      });
+
+      it('spawnPowerUp places sprite within the safe [pipeRight+80, nextPipeLeft-80] window at fresh score', () => {
+        scene.score = 0; // effective spacing = PIPE_SPACING_INITIAL = 320
+        const pipeX = 500;
+        const rng = vi.spyOn(Math, 'random').mockReturnValue(0.5); // midpoint of window
+        call(scene, 'spawnPowerUp', pipeX);
+        rng.mockRestore();
+
+        expect(scene.fieldPowerUps).toHaveLength(1);
+        const pu = scene.fieldPowerUps[0];
+        const pipeRightEdge = pipeX + C.PIPE_WIDTH;
+        const nextPipeLeftEdge = pipeX + C.PIPE_SPACING_INITIAL;
+        expect(pu.x).toBeGreaterThanOrEqual(pipeRightEdge + C.POWERUP_MIN_PIPE_DISTANCE);
+        expect(pu.x).toBeLessThanOrEqual(nextPipeLeftEdge - C.POWERUP_MIN_PIPE_DISTANCE);
+      });
+
+      it('spawnPowerUp at left window edge (random=0) clears the 80px rule from the just-spawned pipe', () => {
+        scene.score = 0;
+        const pipeX = 0;
+        const rng = vi.spyOn(Math, 'random').mockReturnValue(0); // pushes x to safeStart
+        call(scene, 'spawnPowerUp', pipeX);
+        rng.mockRestore();
+        const pu = scene.fieldPowerUps[scene.fieldPowerUps.length - 1];
+        expect(pu.x).toBeGreaterThanOrEqual(pipeX + C.PIPE_WIDTH + C.POWERUP_MIN_PIPE_DISTANCE);
+      });
+
+      it('spawnPowerUp at minimum spacing (score ≥ RAMP) still respects 80px from both neighbours', () => {
+        // At PIPE_SPACING_MIN=240 the safe window is only 240 - 50 - 2*80 = 30px
+        // wide — but the rule still holds: both endpoints must be ≥80px from
+        // their nearest pipe. If a refactor squeezes spacing below the
+        // PIPE_WIDTH+2*minDist=210px floor, this assertion flags it.
+        scene.score = C.PIPE_SPACING_RAMP_SCORE;
+        const pipeX = 0;
+        const safeWindowWidth = C.PIPE_SPACING_MIN - C.PIPE_WIDTH - 2 * C.POWERUP_MIN_PIPE_DISTANCE;
+        expect(safeWindowWidth).toBeGreaterThan(0); // contract: min spacing must be > PIPE_WIDTH+2*minDist
+        const rng = vi.spyOn(Math, 'random').mockReturnValue(1); // pushes x to safeEnd
+        call(scene, 'spawnPowerUp', pipeX);
+        rng.mockRestore();
+        const pu = scene.fieldPowerUps[scene.fieldPowerUps.length - 1];
+        const nextPipeLeftEdge = pipeX + C.PIPE_SPACING_MIN;
+        expect(pu.x).toBeLessThanOrEqual(nextPipeLeftEdge - C.POWERUP_MIN_PIPE_DISTANCE);
+        expect(pu.x).toBeGreaterThanOrEqual(pipeX + C.PIPE_WIDTH + C.POWERUP_MIN_PIPE_DISTANCE);
+      });
+
+      it('bonus-pipe power-up intentionally bypasses the 80px rule (gap-centre reward)', () => {
+        // R84.B4 bonus pipes seed a power-up AT the gap centre as the
+        // threading reward — distance from pipe left = PIPE_WIDTH/2 = 25px.
+        // Pinning this as a semantic exception so a future "safety fix"
+        // doesn't silently regress the narrower-gap reward contract.
+        scene.score = PIPE_VARIANTS.BONUS_UNLOCK_SCORE;
+        scene.pickPipeKind = () => 'bonus';
+        call(scene, 'spawnPipe');
+        const pipe = scene.pipes[0];
+        expect(scene.fieldPowerUps).toHaveLength(1);
+        const pu = scene.fieldPowerUps[0];
+        const distFromPipeLeft = pu.x - pipe.x;
+        expect(distFromPipeLeft).toBe(C.PIPE_WIDTH / 2);
+        // Deliberately INSIDE the pipe's horizontal footprint — this is the
+        // bonus-reward contract, not a PG4 violation.
+        expect(pu.x).toBeLessThan(pipe.x + C.PIPE_WIDTH);
+      });
+    });
+  });
+
+  // R84.B12: gap-fill coverage refresh for the B1/B3/B4/B5 surfaces. The
+  // per-feature tests above cover each piece in isolation; these pins the
+  // BOUNDARY contracts that get silently broken by refactors — (1) resetState
+  // clears all three power-up flags together so a mid-run retry lands clean,
+  // (2) moving-pipe drift scales through the updatePipes speedMult seam (not
+  // just when updateMovingPipe is called directly), (3) pickPipeKind admits
+  // the full partial-unlock set at the ZAPPER tier but still holds bonus out,
+  // (4) bonus × doublePoints stacking is 6× base so the peak-reward moment
+  // stays intact, (5) createParallaxRainLayer short-circuits under the
+  // __TEST__ seam to keep Playwright visual baselines stable.
+  describe('R84.B12 — Coverage refresh gap-fills', () => {
+    describe('B3 resetState power-up flag clears', () => {
+      it('clears timeSlowActive when previously active', () => {
+        scene.timeSlowActive = true;
+        call(scene, 'resetState');
+        expect(scene.timeSlowActive).toBe(false);
+      });
+
+      it('clears doublePointsActive when previously active', () => {
+        scene.doublePointsActive = true;
+        call(scene, 'resetState');
+        expect(scene.doublePointsActive).toBe(false);
+      });
+
+      it('clears shieldActive when previously active', () => {
+        scene.shieldActive = true;
+        call(scene, 'resetState');
+        expect(scene.shieldActive).toBe(false);
+      });
+
+      it('clears all three together so a mid-run restart lands clean', () => {
+        // Without this contract, a death-retry while holding power-ups would
+        // leak stale flags into the new run — the shield-dead state is the
+        // most visible (player renders tinted magenta with no collision
+        // forgiveness) but all three silently skew the difficulty curve.
+        scene.timeSlowActive = true;
+        scene.doublePointsActive = true;
+        scene.shieldActive = true;
+        call(scene, 'resetState');
+        expect(scene.timeSlowActive).toBe(false);
+        expect(scene.doublePointsActive).toBe(false);
+        expect(scene.shieldActive).toBe(false);
+      });
+    });
+
+    describe('B4 updatePipes → updateMovingPipe speedMult routing', () => {
+      function seedMovingPipe() {
+        return {
+          topRect: createMockRect(),
+          bottomRect: createMockRect(),
+          x: C.WIDTH * 0.5,
+          gapY: 150,
+          baseGapY: 150,
+          passed: false,
+          hit: false,
+          kind: 'moving' as const,
+          gap: C.PIPE_GAP,
+        };
+      }
+
+      it('passes dt × 1000 × speedMult as deltaMs to updateMovingPipe', () => {
+        // The direct updateMovingPipe tests above pass deltaMs unscaled; this
+        // pins the INTEGRATION boundary where updatePipes applies speedMult
+        // so moving-pipe drift dampens coherently with horizontal scroll,
+        // parallax, and player physics under the time-slow power-up.
+        const spy = vi.spyOn(scene, 'updateMovingPipe').mockImplementation(() => {});
+        vi.spyOn(scene, 'checkPipeCollision').mockImplementation(() => {});
+        vi.spyOn(scene, 'spawnPipe').mockImplementation(() => {});
+        scene.pipes = [seedMovingPipe()];
+        scene.lastPipeX = C.WIDTH + 100;
+        call(scene, 'updatePipes', 0.05, C.TIME_SLOW_FACTOR);
+        expect(spy).toHaveBeenCalledWith(scene.pipes[0], 0.05 * 1000 * C.TIME_SLOW_FACTOR);
+      });
+
+      it('passes dt × 1000 unscaled when speedMult is 1.0 (no slow power-up)', () => {
+        const spy = vi.spyOn(scene, 'updateMovingPipe').mockImplementation(() => {});
+        vi.spyOn(scene, 'checkPipeCollision').mockImplementation(() => {});
+        vi.spyOn(scene, 'spawnPipe').mockImplementation(() => {});
+        scene.pipes = [seedMovingPipe()];
+        scene.lastPipeX = C.WIDTH + 100;
+        call(scene, 'updatePipes', 0.05, 1.0);
+        expect(spy).toHaveBeenCalledWith(scene.pipes[0], 50);
+      });
+    });
+
+    describe('B4 pickPipeKind partial unlock at ZAPPER tier', () => {
+      it('admits normal / moving / zapper at ZAPPER_UNLOCK_SCORE (pre-bonus tier)', () => {
+        // Walk the bag buckets explicitly: bag total = 10+3+2 = 15. Normal
+        // roll = 0, moving roll ≥ 10/15, zapper roll ≥ 13/15. We hit all
+        // three and none should return 'bonus' because score < BONUS_UNLOCK.
+        scene.score = PIPE_VARIANTS.ZAPPER_UNLOCK_SCORE;
+        const kinds = new Set<string>();
+        const rolls = [0, 10 / 15 + 0.001, 13 / 15 + 0.001];
+        for (const r of rolls) {
+          vi.spyOn(Math, 'random').mockReturnValueOnce(r);
+          kinds.add(call(scene, 'pickPipeKind'));
+        }
+        expect(kinds).toEqual(new Set(['normal', 'moving', 'zapper']));
+      });
+
+      it('never picks "bonus" at ZAPPER_UNLOCK_SCORE even on max rolls', () => {
+        scene.score = PIPE_VARIANTS.ZAPPER_UNLOCK_SCORE;
+        for (let i = 0; i < 20; i++) {
+          vi.spyOn(Math, 'random').mockReturnValueOnce(0.999);
+          expect(call(scene, 'pickPipeKind')).not.toBe('bonus');
+        }
+      });
+    });
+
+    describe('B4 scorePipe bonus × doublePoints stacking', () => {
+      it('applies both multipliers: SCORE_PER_PIPE × combo × 2 × BONUS_SCORE_MULT', () => {
+        // The score formula stacks doublePoints (×2) with bonus pipe (×3) so
+        // a clean bonus thread while holding double-points yields 6× the base
+        // reward. Pinning the product because losing either multiplier
+        // silently flattens the peak-reward moment that makes double + bonus
+        // a meaningful "go for it" decision for the player.
+        scene.score = 0;
+        scene.combo = 1.0;
+        scene.doublePointsActive = true;
+        const expected = Math.floor(
+          C.SCORE_PER_PIPE * 1.0 * 2 * PIPE_VARIANTS.BONUS_SCORE_MULT,
+        );
+        call(scene, 'scorePipe', { kind: 'bonus' } as any);
+        expect(scene.score).toBe(expected);
+        expect(scene.score).toBe(60);
+      });
+
+      it('without doublePoints, bonus alone yields BONUS_SCORE_MULT × base (30)', () => {
+        scene.score = 0;
+        scene.combo = 1.0;
+        scene.doublePointsActive = false;
+        call(scene, 'scorePipe', { kind: 'bonus' } as any);
+        expect(scene.score).toBe(
+          Math.floor(C.SCORE_PER_PIPE * 1.0 * PIPE_VARIANTS.BONUS_SCORE_MULT),
+        );
+        expect(scene.score).toBe(30);
+      });
+
+      it('without bonus, doublePoints alone yields 2 × base (20)', () => {
+        scene.score = 0;
+        scene.combo = 1.0;
+        scene.doublePointsActive = true;
+        call(scene, 'scorePipe');
+        expect(scene.score).toBe(Math.floor(C.SCORE_PER_PIPE * 1.0 * 2));
+        expect(scene.score).toBe(20);
+      });
+    });
+
+    describe('B5 createParallaxRainLayer __TEST__ seam', () => {
+      afterEach(() => {
+        delete (window as unknown as { __TEST__?: boolean }).__TEST__;
+      });
+
+      it('returns empty group when window.__TEST__ is truthy (playwright seed path)', () => {
+        // The guard matches BaseScene.addMatrixRain and SnakeClassic's
+        // play-area rain: under E2E visual-regression runs Phaser's RNG
+        // isn't seeded, so spawning random glyphs would break baselines.
+        // Pinning the short-circuit so a refactor can't accidentally
+        // reintroduce character spawns and re-break the visual suite.
+        (window as unknown as { __TEST__?: boolean }).__TEST__ = true;
+        const mockGroup: any = { add: vi.fn(), getChildren: () => [] };
+        scene.add.group = vi.fn().mockReturnValue(mockGroup);
+        scene.add.text = vi.fn();
+        const group = call(scene, 'createParallaxRainLayer', PARALLAX.MID);
+        expect(group).toBe(mockGroup);
+        expect(scene.add.text).not.toHaveBeenCalled();
+        expect(mockGroup.add).not.toHaveBeenCalled();
+      });
+
+      it('spawns cfg.DENSITY text children when __TEST__ is absent', () => {
+        delete (window as unknown as { __TEST__?: boolean }).__TEST__;
+        const mockGroup: any = { add: vi.fn(), getChildren: () => [] };
+        scene.add.group = vi.fn().mockReturnValue(mockGroup);
+        const mockText: any = {
+          setAlpha: vi.fn().mockReturnThis(),
+          setDepth: vi.fn().mockReturnThis(),
+          setData: vi.fn().mockReturnThis(),
+        };
+        scene.add.text = vi.fn().mockReturnValue(mockText);
+        (Phaser as any).Math.Between = vi.fn().mockReturnValue(0);
+        call(scene, 'createParallaxRainLayer', PARALLAX.MID);
+        expect(scene.add.text).toHaveBeenCalledTimes(PARALLAX.MID.DENSITY);
+      });
+    });
+  });
+
+  // R84.CI (a11y priority 1): Matrix Bird previously had zero
+  // prefers-reduced-motion gates while siblings Pong + Snake both honour
+  // the media query. Camera shake + fullscreen flash are the two effects
+  // with the highest vestibular / strobe risk for sensitive users, so the
+  // gate routes through `safeShake` / `safeFlash` helpers rather than
+  // per-callsite matchMedia probes. These tests pin both the pass-through
+  // (motion-OK → raw camera calls) and skip (reduced-motion → silence)
+  // paths so a regression can't sneak in by reverting to
+  // `this.cameras.main.shake(...)` directly.
+  describe('R84.CI — a11y prefers-reduced-motion gates', () => {
+    const originalMatchMedia = window.matchMedia;
+
+    afterEach(() => {
+      window.matchMedia = originalMatchMedia;
+    });
+
+    function mockReducedMotion(reduce: boolean): void {
+      window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+        matches: query === '(prefers-reduced-motion: reduce)' ? reduce : false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })) as unknown as typeof window.matchMedia;
+    }
+
+    it('prefersReducedMotion returns true when media query matches', () => {
+      mockReducedMotion(true);
+      expect(call(scene, 'prefersReducedMotion')).toBe(true);
+    });
+
+    it('prefersReducedMotion returns false when media query does not match', () => {
+      mockReducedMotion(false);
+      expect(call(scene, 'prefersReducedMotion')).toBe(false);
+    });
+
+    it('safeShake forwards to cameras.main.shake when motion allowed', () => {
+      mockReducedMotion(false);
+      call(scene, 'safeShake', 200, 0.01);
+      expect(scene.cameras.main.shake).toHaveBeenCalledWith(200, 0.01);
+    });
+
+    it('safeShake skips cameras.main.shake under reduced motion', () => {
+      mockReducedMotion(true);
+      call(scene, 'safeShake', 200, 0.01);
+      expect(scene.cameras.main.shake).not.toHaveBeenCalled();
+    });
+
+    it('safeFlash forwards to cameras.main.flash when motion allowed', () => {
+      mockReducedMotion(false);
+      call(scene, 'safeFlash', 150, 0, 255, 0, false, undefined, undefined, 0.15);
+      expect(scene.cameras.main.flash).toHaveBeenCalledWith(
+        150, 0, 255, 0, false, undefined, undefined, 0.15,
+      );
+    });
+
+    it('safeFlash skips cameras.main.flash under reduced motion', () => {
+      mockReducedMotion(true);
+      call(scene, 'safeFlash', 150, 0, 255, 0, false, undefined, undefined, 0.15);
+      expect(scene.cameras.main.flash).not.toHaveBeenCalled();
+    });
+
+    it('handleCollision (no shield) skips shake under reduced motion but still decrements lives', () => {
+      // Pins the integration — collision side-effects (score/lives/sfx)
+      // must still fire so the run remains fair; only the camera hazard
+      // is removed. Tests the gate at a real callsite, not just the
+      // helper in isolation.
+      mockReducedMotion(true);
+      scene.lives = 3;
+      scene.shieldActive = false;
+      scene.isInvulnerable = false;
+      scene.isGameOver = false;
+      call(scene, 'handleCollision');
+      expect(scene.lives).toBe(2);
+      expect(scene.cameras.main.shake).not.toHaveBeenCalled();
+    });
+
+    it('handleCollision (no shield) shakes camera when motion allowed', () => {
+      mockReducedMotion(false);
+      scene.lives = 3;
+      scene.shieldActive = false;
+      scene.isInvulnerable = false;
+      scene.isGameOver = false;
+      call(scene, 'handleCollision');
+      expect(scene.cameras.main.shake).toHaveBeenCalled();
+    });
+  });
+
+  // R84.CI-3 (a11y priority 2): object-scale tween gates. CI-1 stopped at
+  // camera effects (shake + flash). These specs pin the next layer —
+  // decorative pulses and popup floats — so the reduced-motion contract
+  // extends to every motion surface that isn't the score popup or the
+  // slow-trail alpha fade (both intentionally ungated: small motion,
+  // frequently fired, low vestibular risk). Motion-allowed paths stay
+  // behaviourally identical so existing tween-timing tests aren't
+  // destabilised; reduced-motion paths skip the tween entirely and either
+  // leave the target at its base state (pulse) or fire onComplete
+  // synchronously (ephemeral popup — destroy runs immediately so the
+  // scene graph stays clean).
+  describe('R84.CI-3 — a11y reduced-motion gates on object-scale tweens', () => {
+    const originalMatchMedia = window.matchMedia;
+
+    afterEach(() => {
+      window.matchMedia = originalMatchMedia;
+    });
+
+    function mockReducedMotion(reduce: boolean): void {
+      window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+        matches: query === '(prefers-reduced-motion: reduce)' ? reduce : false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })) as unknown as typeof window.matchMedia;
+    }
+
+    describe('safeDecorativePulse', () => {
+      it('forwards to tweens.add when motion allowed', () => {
+        mockReducedMotion(false);
+        const cfg = { targets: {}, scaleX: 1.2, duration: 500, yoyo: true, repeat: -1 };
+        call(scene, 'safeDecorativePulse', cfg);
+        expect(scene.tweens.add).toHaveBeenCalledWith(cfg);
+      });
+
+      it('skips tweens.add and returns null under reduced motion', () => {
+        mockReducedMotion(true);
+        const cfg = { targets: {}, scaleX: 1.2, duration: 500, yoyo: true, repeat: -1 };
+        const result = call(scene, 'safeDecorativePulse', cfg);
+        expect(scene.tweens.add).not.toHaveBeenCalled();
+        expect(result).toBeNull();
+      });
+    });
+
+    describe('safeEphemeralPopup', () => {
+      it('forwards to tweens.add when motion allowed', () => {
+        mockReducedMotion(false);
+        const onComplete = vi.fn();
+        const cfg = { targets: {}, alpha: 0, duration: 400, onComplete };
+        call(scene, 'safeEphemeralPopup', cfg);
+        expect(scene.tweens.add).toHaveBeenCalledWith(cfg);
+        // Tween owns the onComplete — not fired synchronously in the
+        // motion-OK path. (In real Phaser it would fire after `duration`
+        // ms; the mock never invokes it, which is the correct stand-in.)
+        expect(onComplete).not.toHaveBeenCalled();
+      });
+
+      it('skips tweens.add and fires onComplete synchronously under reduced motion', () => {
+        mockReducedMotion(true);
+        const onComplete = vi.fn();
+        const cfg = { targets: {}, alpha: 0, duration: 400, onComplete };
+        const result = call(scene, 'safeEphemeralPopup', cfg);
+        expect(scene.tweens.add).not.toHaveBeenCalled();
+        expect(onComplete).toHaveBeenCalledTimes(1);
+        expect(result).toBeNull();
+      });
+
+      it('no-ops cleanly under reduced motion when onComplete is absent', () => {
+        mockReducedMotion(true);
+        const cfg = { targets: {}, alpha: 0, duration: 400 };
+        expect(() => call(scene, 'safeEphemeralPopup', cfg)).not.toThrow();
+        expect(scene.tweens.add).not.toHaveBeenCalled();
+      });
+
+      it('swallows onComplete errors under reduced motion', () => {
+        // Pins the try/catch safety net — a destroy()-failed target (e.g.
+        // a popup already torn down by a scene restart racing the
+        // synchronous onComplete fire) must not bubble into gameplay.
+        mockReducedMotion(true);
+        const cfg = {
+          targets: {},
+          alpha: 0,
+          duration: 400,
+          onComplete: () => { throw new Error('destroy failed'); },
+        };
+        expect(() => call(scene, 'safeEphemeralPopup', cfg)).not.toThrow();
+      });
+    });
+
+    describe('Integration — infinite-yoyo pulses skipped under reduced motion', () => {
+      it('spawnBonusPowerUp adds the sprite to fieldPowerUps even with the pulse skipped', () => {
+        // Cue is removed, collectible must still be interactable. Without
+        // this pin, a regression that made safeDecorativePulse also gate
+        // the sprite spawn would strip the whole power-up under reduced
+        // motion — much worse than missing a pulse.
+        mockReducedMotion(true);
+        const pipe: any = { x: 200, gapY: 150, gap: 120, bonusSpawned: false };
+        call(scene, 'spawnBonusPowerUp', pipe);
+        expect(scene.tweens.add).not.toHaveBeenCalled();
+        expect(scene.fieldPowerUps.length).toBe(1);
+      });
+
+      it('spawnPowerUp adds the sprite to fieldPowerUps even with the pulse skipped', () => {
+        mockReducedMotion(true);
+        call(scene, 'spawnPowerUp', 100);
+        expect(scene.tweens.add).not.toHaveBeenCalled();
+        expect(scene.fieldPowerUps.length).toBe(1);
+      });
+
+      it('spawnBonusPowerUp still tweens when motion allowed', () => {
+        mockReducedMotion(false);
+        const pipe: any = { x: 200, gapY: 150, gap: 120, bonusSpawned: false };
+        call(scene, 'spawnBonusPowerUp', pipe);
+        expect(scene.tweens.add).toHaveBeenCalled();
+      });
+    });
+
+    describe('Integration — ephemeral popups destroyed immediately under reduced motion', () => {
+      it('onLevelUp destroys the level text immediately', () => {
+        // The mocked createMatrixText returns a fresh text mock each
+        // call; we capture the one vended during onLevelUp and assert its
+        // destroy fired synchronously via the safeEphemeralPopup
+        // onComplete path (no 1500ms wait needed).
+        mockReducedMotion(true);
+        const text = { destroy: vi.fn(), y: 100 };
+        scene.createMatrixText = vi.fn().mockReturnValue(text);
+        call(scene, 'onLevelUp', 1);
+        expect(scene.tweens.add).not.toHaveBeenCalled();
+        expect(text.destroy).toHaveBeenCalledTimes(1);
+      });
+
+      it('showShieldBreakEffect destroys the ring immediately', () => {
+        mockReducedMotion(true);
+        const ring = { setDepth: vi.fn().mockReturnThis(), destroy: vi.fn() };
+        scene.add.circle = vi.fn().mockReturnValue(ring);
+        call(scene, 'showShieldBreakEffect');
+        expect(scene.tweens.add).not.toHaveBeenCalled();
+        expect(ring.destroy).toHaveBeenCalledTimes(1);
+      });
+
+      it('startBossBattle destroys the boss-name banner immediately + snaps boss.x to the final position', () => {
+        // Double pin: (a) boss-name popup collapses to an immediate
+        // destroy; (b) the boss-entrance sweep's inline guard snaps
+        // this.boss.x to WIDTH*0.75 rather than tweening over 1500ms.
+        // Future regressions that drop the inline guard would fail (b);
+        // regressions that drop the popup wrapper would fail (a).
+        mockReducedMotion(true);
+        const bannerText = { destroy: vi.fn(), y: 200 };
+        scene.createMatrixText = vi.fn().mockReturnValue(bannerText);
+        call(scene, 'startBossBattle', 'agent_smith');
+        expect(scene.tweens.add).not.toHaveBeenCalled();
+        expect(bannerText.destroy).toHaveBeenCalledTimes(1);
+        expect(scene.boss.x).toBe(C.WIDTH * 0.75);
+      });
+
+      it('startBossBattle tweens both boss-entrance sweep AND boss-name banner when motion allowed', () => {
+        mockReducedMotion(false);
+        const bannerText = { destroy: vi.fn(), y: 200 };
+        scene.createMatrixText = vi.fn().mockReturnValue(bannerText);
+        call(scene, 'startBossBattle', 'agent_smith');
+        // Two tween.add calls: boss sweep + boss-name banner.
+        expect(scene.tweens.add).toHaveBeenCalledTimes(2);
+        expect(bannerText.destroy).not.toHaveBeenCalled();
+      });
+
+      it('defeatBoss destroys the reward text immediately', () => {
+        mockReducedMotion(true);
+        const rewardText = { destroy: vi.fn(), y: 200 };
+        scene.createMatrixText = vi.fn().mockReturnValue(rewardText);
+        scene.boss = {
+          sprite: { destroy: vi.fn() },
+          healthBar: { destroy: vi.fn() },
+          healthBg: { destroy: vi.fn() },
+          type: 'agent_smith',
+          health: 0,
+          maxHealth: 5,
+          x: 400,
+          y: 200,
+          elapsedTime: 0,
+        };
+        call(scene, 'defeatBoss');
+        expect(scene.tweens.add).not.toHaveBeenCalled();
+        expect(rewardText.destroy).toHaveBeenCalledTimes(1);
+      });
+    });
+  });
+});

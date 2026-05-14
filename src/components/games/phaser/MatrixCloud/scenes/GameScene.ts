@@ -1,0 +1,1725 @@
+import Phaser from 'phaser';
+import { BaseScene } from '@/lib/phaser/scenes/BaseScene';
+import { SCENE_KEYS, MATRIX_COLORS, SOUND_KEYS, REGISTRY_KEYS } from '@/lib/phaser/types';
+import {
+  GAME_CONFIG,
+  ACHIEVEMENTS,
+  BOSS_DEFS,
+  BOSS_LEVELS,
+  SLOW_MODE,
+  PIPE_VARIANTS,
+  PARALLAX,
+  type PipePair,
+  type PipeKind,
+  type PipeVisual,
+  type FieldPowerUp,
+  type PowerUpType,
+  type BossType,
+  type BossState,
+  type BossAttackState,
+  type AttackType,
+  type ParallaxRainLayerConfig,
+} from '../config';
+
+const PARALLAX_CHARS =
+  'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789';
+
+export class MatrixCloudGameScene extends BaseScene {
+  // Player
+  private player!: Phaser.GameObjects.Sprite;
+  private playerY: number = GAME_CONFIG.HEIGHT / 2;
+  private playerVelocity: number = 0;
+  private isInvulnerable: boolean = false;
+  private invulnerableTimer: Phaser.Time.TimerEvent | null = null;
+  private invulnerableFlashTimer: Phaser.Time.TimerEvent | null = null;
+
+  // Pipes
+  private pipes: PipePair[] = [];
+  private lastPipeX: number = 0;
+
+  // R84.CI-7: pipe-visual object pools. Off-screen pipes (and the boss-battle
+  // field-clear path) route through `retirePipe` which hides the visuals and
+  // parks them here; the next `spawnPipe` pops and re-dresses them instead of
+  // allocating fresh Rectangle/TileSprite/Graphics objects. Pool survives a
+  // round within a single scene lifetime; Phaser's `scene.restart()` triggers
+  // `shutdown()` which drains the pool, so baseline allocations per session
+  // are unchanged — the win is avoided GC churn DURING a long session.
+  private pipeRectPool: PipeVisual[] = [];
+  private pipeArcPool: Phaser.GameObjects.Graphics[] = [];
+
+  // Power-ups
+  private fieldPowerUps: FieldPowerUp[] = [];
+  private shieldActive: boolean = false;
+  private timeSlowActive: boolean = false;
+  private doublePointsActive: boolean = false;
+  private timeSlowTimer: Phaser.Time.TimerEvent | null = null;
+  private doublePointsTimer: Phaser.Time.TimerEvent | null = null;
+
+  // R84.B3: slow-mode trail — yellow breadcrumbs behind the bird that make
+  // the time-dilation visible at a glance. Emitter runs on `slowTrailTimer`;
+  // live particles tracked in `slowTrailParticles` so resetState + shutdown
+  // can tear them down deterministically without waiting on fade tweens.
+  private slowTrailTimer: Phaser.Time.TimerEvent | null = null;
+  private slowTrailParticles: Phaser.GameObjects.Arc[] = [];
+
+  // Scoring
+  private score: number = 0;
+  private highScore: number = 0;
+  private combo: number = 1.0;
+  private level: number = 1;
+
+  // Lives
+  private lives: number = GAME_CONFIG.INITIAL_LIVES;
+
+  // Boss
+  private inBossBattle: boolean = false;
+  private boss: BossState | null = null;
+  private bossAttacks: BossAttackState[] = [];
+  private bossElapsed: number = 0;
+  private bossAttackCooldown: number = 0;
+  private bossesDefeated: Set<string> = new Set();
+  private pendingBossSpawn: BossType | null = null;
+
+  // Stats
+  private powerUpsCollected: number = 0;
+  private hasJumped: boolean = false;
+
+  // HUD
+  private scoreText!: Phaser.GameObjects.Text;
+  private highScoreText!: Phaser.GameObjects.Text;
+  private levelText!: Phaser.GameObjects.Text;
+  private comboText!: Phaser.GameObjects.Text;
+  private livesText!: Phaser.GameObjects.Text;
+  private powerUpIndicators: Phaser.GameObjects.Text[] = [];
+
+  // Ground
+  private groundRect!: Phaser.GameObjects.Rectangle;
+
+  // R84.B5: 3-layer parallax — far city silhouette TileSprite + two Matrix-rain
+  // cohorts at mid + near depth. Nulled when bg_city is absent (menu-only
+  // boot path) or in unit-test mode where rain creation is stubbed.
+  private parallaxFar: Phaser.GameObjects.TileSprite | null = null;
+  private parallaxMidRain: Phaser.GameObjects.Group | null = null;
+  private parallaxNearRain: Phaser.GameObjects.Group | null = null;
+
+  // Input
+  private spaceKey!: Phaser.Input.Keyboard.Key;
+  private enterKey!: Phaser.Input.Keyboard.Key;
+
+  // Game state
+  private isGameOver: boolean = false;
+  private achievementsUnlocked: Set<string> = new Set();
+
+  // R84.B11: early-run score milestones — the existing LEVEL_UP stinger
+  // only fires every 500 pts (LEVEL_THRESHOLD), so 50/100/250 had no cue at
+  // all and the first two minutes of a run felt audibly flat. 500+ is still
+  // covered by onLevelUp; we stop at 250 here to avoid double-stingers.
+  private static readonly SCORE_MILESTONES = [50, 100, 250] as const;
+  private milestonesHit: Set<number> = new Set();
+
+  // R83.B1(f): all Matrix Bird SFX play below full envelope so the mix sits
+  // behind the ambient BGM rather than on top of it. Applied via a scene-local
+  // playSound override that forwards volumeScale through the soundSystem
+  // bridge; no global useSoundSystem change needed because the other 11 games
+  // keep the default 1.0 scale.
+  //
+  // R84.B6 (2026-04-19): jump SFX branched further after Tom flagged it as
+  // "horrendous" / "the worst" — branched on BIRD_FLAP inside the playSound
+  // override so every jump call (including future attract-mode previews)
+  // inherits the quieter level without per-callsite code.
+  //
+  // R84.B9 (2026-04-19 night): master non-jump scale dropped 0.75 → 0.65
+  // (−13%) after Tom's "SFX too loud ... background music okay but sound
+  // effects too loud" note on testing-doc line 111 persisted post-B6. Jump
+  // stays at 0.60 — B6 already calibrated it against tonal harshness, and
+  // dropping it further would make the flap whisper-quiet. New ratio 0.92
+  // (was 0.80) keeps jump perceptibly quieter than score / level-up cues
+  // while pulling the whole mix down to Tom's target.
+  private static readonly SFX_VOLUME_SCALE = 0.65;
+  private static readonly JUMP_VOLUME_SCALE = 0.6;
+
+  constructor() {
+    super({ key: SCENE_KEYS.GAME });
+  }
+
+  // R84.CI (a11y): Matrix Bird previously had zero prefers-reduced-motion
+  // gates — Pong + Snake both honour the media query but Bird strobed every
+  // pipe-pass / level-up / boss-hit / death with a camera shake + flash.
+  // Helpers centralise the check so every shake/flash callsite reads
+  // intent-first (`safeShake(...)`) rather than duplicating the matchMedia
+  // probe. Under reduced motion the camera effect is skipped entirely; the
+  // SFX + scoreboard update + sprite tweens still fire, so the event is
+  // still perceptible without the vestibular/strobe hazard. Exposed as
+  // protected so unit tests can spy via a subclass without reaching through
+  // `(scene as any)` type escape hatches.
+  protected prefersReducedMotion(): boolean {
+    return typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+  }
+
+  protected safeShake(duration: number, intensity: number): void {
+    if (this.prefersReducedMotion()) return;
+    this.cameras.main.shake(duration, intensity);
+  }
+
+  protected safeFlash(
+    duration: number,
+    r: number,
+    g: number,
+    b: number,
+    force?: boolean,
+    callback?: (camera: Phaser.Cameras.Scene2D.Camera, progress: number) => void,
+    context?: unknown,
+    startAlpha?: number,
+  ): void {
+    if (this.prefersReducedMotion()) return;
+    this.cameras.main.flash(duration, r, g, b, force, callback, context, startAlpha);
+  }
+
+  // R84.CI-3 (a11y priority 2): object-scale tween gates. CI-1 gated the
+  // worst-hazard camera effects (shake + flash); CI-3 extends the contract
+  // to the next layer — the decorative pulses and popup floats that drift
+  // or throb inside the player's field of view every pipe / level-up /
+  // boss / power-up. Split into two helpers because the under-gate
+  // behaviour differs:
+  //
+  //   • safeDecorativePulse — infinite yoyo scale/alpha tweens on
+  //     long-lived targets (field power-up sprites). Under reduced motion
+  //     the pulse no-ops and the sprite renders at its base scale — the
+  //     cue is gone, but the collectible is still visible + interactive.
+  //
+  //   • safeEphemeralPopup — one-shot tweens on ad-hoc targets that the
+  //     onComplete path destroy()s. Under reduced motion we SKIP the
+  //     tween but run onComplete synchronously so the popup never draws
+  //     AND doesn't leak a silent Phaser object into the scene graph.
+  //     Tom's shield-break ring / level-up text / boss-name banner /
+  //     reward text all follow this shape.
+  //
+  // The boss-entrance sweep (startBossBattle) is gated inline because it
+  // moves a persistent target (this.boss) that must land at its final x
+  // so updateBossMovement's setPosition read stays consistent — snapping
+  // the state object directly keeps the sprite positioned without a
+  // helper indirection.
+  protected safeDecorativePulse(
+    config: Phaser.Types.Tweens.TweenBuilderConfig,
+  ): Phaser.Tweens.Tween | null {
+    if (this.prefersReducedMotion()) return null;
+    return this.tweens.add(config);
+  }
+
+  protected safeEphemeralPopup(
+    config: Phaser.Types.Tweens.TweenBuilderConfig,
+  ): Phaser.Tweens.Tween | null {
+    if (this.prefersReducedMotion()) {
+      const onComplete = config.onComplete;
+      if (typeof onComplete === 'function') {
+        // Every Bird callsite ignores the Phaser-provided (tween, targets)
+        // args — safe to invoke zero-arg. Wrapped in try/catch so a
+        // destroy()-failed target can't bubble into the gameplay loop.
+        try {
+          (onComplete as () => void)();
+        } catch {
+          // Swallow: popup cleanup is best-effort, not load-bearing.
+        }
+      }
+      return null;
+    }
+    return this.tweens.add(config);
+  }
+
+  create(): void {
+    this.createMatrixBackground();
+
+    // R84.B5: far parallax layer (0.1× scroll) replaces the pre-B5 static
+    // bg_city image. Tile-sprite lets tilePositionX carry the horizontal
+    // drift without per-pixel work — one field write per frame.
+    this.createParallaxFarLayer();
+
+    // Sprite ground tile
+    if (this.textures?.exists('ground_tile')) {
+      const groundTile = this.add.tileSprite(
+        GAME_CONFIG.WIDTH / 2,
+        GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT / 2,
+        GAME_CONFIG.WIDTH,
+        GAME_CONFIG.GROUND_HEIGHT,
+        'ground_tile',
+      );
+      groundTile.setDepth(5);
+    }
+
+    this.parallaxMidRain = this.createParallaxRainLayer(PARALLAX.MID);
+    this.parallaxNearRain = this.createParallaxRainLayer(PARALLAX.NEAR);
+    this.resetState();
+    this.createGround();
+    this.createPlayer();
+    this.createHUD();
+    this.setupInput();
+    this.setupCommonInputs();
+    this.playSound(SOUND_KEYS.MENU);
+    this.playBackgroundMusic('/assets/audio/music/a-last-embrace.mp3');
+    this.startCountdown(5, () => {});
+  }
+
+  private resetState(): void {
+    this.playerY = GAME_CONFIG.HEIGHT * 0.4;
+    this.playerVelocity = 0;
+    this.isInvulnerable = false;
+    this.invulnerableTimer?.destroy();
+    this.invulnerableTimer = null;
+    this.invulnerableFlashTimer?.destroy();
+    this.invulnerableFlashTimer = null;
+
+    this.pipes = [];
+    this.lastPipeX = GAME_CONFIG.WIDTH + 100;
+
+    this.fieldPowerUps = [];
+    this.shieldActive = false;
+    this.timeSlowActive = false;
+    this.doublePointsActive = false;
+    this.timeSlowTimer?.destroy();
+    this.timeSlowTimer = null;
+    this.doublePointsTimer?.destroy();
+    this.doublePointsTimer = null;
+    this.stopSlowTrail();
+    for (const p of this.slowTrailParticles) p.destroy();
+    this.slowTrailParticles = [];
+
+    this.score = 0;
+    this.highScore = 0;
+    const saveSystem = this.registry.get(REGISTRY_KEYS.SAVE_SYSTEM);
+    if (saveSystem) {
+      const saveData = saveSystem.getSaveData();
+      this.highScore = saveData?.games?.matrixCloud?.highScore ?? 0;
+    }
+    this.combo = 1.0;
+    this.level = 1;
+    this.lives = GAME_CONFIG.INITIAL_LIVES;
+
+    this.inBossBattle = false;
+    this.boss = null;
+    this.bossAttacks = [];
+    this.bossElapsed = 0;
+    this.bossAttackCooldown = 0;
+    this.bossesDefeated = new Set();
+    this.pendingBossSpawn = null;
+
+    this.powerUpsCollected = 0;
+    this.hasJumped = false;
+    this.isGameOver = false;
+    this.achievementsUnlocked = new Set();
+    this.milestonesHit = new Set();
+  }
+
+  private createGround(): void {
+    this.groundRect = this.add.rectangle(
+      GAME_CONFIG.WIDTH / 2,
+      GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT / 2,
+      GAME_CONFIG.WIDTH,
+      GAME_CONFIG.GROUND_HEIGHT,
+      MATRIX_COLORS.DARK_GREEN,
+    );
+    this.groundRect.setStrokeStyle(2, MATRIX_COLORS.PRIMARY);
+    this.groundRect.setDepth(5);
+  }
+
+  // --- R84.B5 PARALLAX LAYERS ---
+
+  private createParallaxFarLayer(): void {
+    if (!this.textures?.exists('bg_city')) return;
+    const sprite = this.add.tileSprite(
+      GAME_CONFIG.WIDTH / 2,
+      GAME_CONFIG.HEIGHT / 2,
+      GAME_CONFIG.WIDTH,
+      GAME_CONFIG.HEIGHT,
+      'bg_city',
+    );
+    sprite.setAlpha(PARALLAX.FAR.ALPHA);
+    sprite.setDepth(PARALLAX.FAR.DEPTH);
+    sprite.setTint(MATRIX_COLORS.PRIMARY);
+    this.parallaxFar = sprite;
+  }
+
+  private createParallaxRainLayer(cfg: ParallaxRainLayerConfig): Phaser.GameObjects.Group {
+    const group = this.add.group();
+    // E2E test mode seeds — Phaser RNG isn't seeded there, so random char +
+    // position would break visual baselines. Same guard BaseScene.addMatrixRain
+    // uses and the pattern R84.S2/S3 follow for Snake rain effects.
+    if (typeof window !== 'undefined' && (window as { __TEST__?: boolean }).__TEST__) {
+      return group;
+    }
+    for (let i = 0; i < cfg.DENSITY; i++) {
+      const x = Phaser.Math.Between(0, GAME_CONFIG.WIDTH);
+      const y = Phaser.Math.Between(-GAME_CONFIG.HEIGHT, GAME_CONFIG.HEIGHT);
+      const verticalSpeed = Phaser.Math.Between(cfg.VERTICAL_SPEED_MIN, cfg.VERTICAL_SPEED_MAX);
+      const char = PARALLAX_CHARS[Phaser.Math.Between(0, PARALLAX_CHARS.length - 1)];
+      const text = this.add.text(x, y, char, {
+        fontFamily: 'monospace',
+        fontSize: `${cfg.FONT_SIZE}px`,
+        color: MATRIX_COLORS.PRIMARY_HEX,
+      });
+      text.setAlpha(cfg.ALPHA);
+      text.setDepth(cfg.DEPTH);
+      text.setData('verticalSpeed', verticalSpeed);
+      group.add(text);
+    }
+    return group;
+  }
+
+  private updateParallaxLayers(delta: number, speedMult: number): void {
+    const dt = delta / 1000;
+    const baseHorizontalPx = GAME_CONFIG.PIPE_SPEED * speedMult * dt;
+
+    if (this.parallaxFar) {
+      this.parallaxFar.tilePositionX += baseHorizontalPx * PARALLAX.FAR.SCROLL_FACTOR;
+    }
+    this.updateParallaxRainLayer(this.parallaxMidRain, PARALLAX.MID, delta, speedMult);
+    this.updateParallaxRainLayer(this.parallaxNearRain, PARALLAX.NEAR, delta, speedMult);
+  }
+
+  private updateParallaxRainLayer(
+    group: Phaser.GameObjects.Group | null,
+    cfg: ParallaxRainLayerConfig,
+    delta: number,
+    speedMult: number,
+  ): void {
+    if (!group) return;
+    const dt = delta / 1000;
+    const horizontalDrift = GAME_CONFIG.PIPE_SPEED * speedMult * cfg.SCROLL_FACTOR * dt;
+    const gameHeight = GAME_CONFIG.HEIGHT;
+    const gameWidth = GAME_CONFIG.WIDTH;
+
+    group.getChildren().forEach((obj) => {
+      const text = obj as Phaser.GameObjects.Text;
+      const verticalSpeed = (text.getData('verticalSpeed') as number) ?? 0;
+      text.y += verticalSpeed * dt;
+      text.x -= horizontalDrift;
+
+      if (text.y > gameHeight + 20) {
+        text.y = -20;
+        text.x = Phaser.Math.Between(0, gameWidth);
+        text.setText(PARALLAX_CHARS[Phaser.Math.Between(0, PARALLAX_CHARS.length - 1)]);
+      }
+      if (text.x < -cfg.FONT_SIZE) {
+        text.x = gameWidth + cfg.FONT_SIZE;
+        text.setText(PARALLAX_CHARS[Phaser.Math.Between(0, PARALLAX_CHARS.length - 1)]);
+      }
+    });
+  }
+
+  private destroyParallaxLayers(): void {
+    this.parallaxFar?.destroy();
+    this.parallaxFar = null;
+    this.parallaxMidRain?.destroy(true);
+    this.parallaxMidRain = null;
+    this.parallaxNearRain?.destroy(true);
+    this.parallaxNearRain = null;
+  }
+
+  private createPlayer(): void {
+    const spriteMode = this.game.registry.get('spriteMode') === true;
+    if (spriteMode) {
+      this.player = this.add.sprite(GAME_CONFIG.PLAYER_X, this.playerY, 'bird_sprite');
+      this.player.setDisplaySize(GAME_CONFIG.PLAYER_WIDTH, GAME_CONFIG.PLAYER_HEIGHT);
+      this.player.play('bird_flap');
+    } else {
+      this.player = this.add.sprite(GAME_CONFIG.PLAYER_X, this.playerY, 'player');
+    }
+    this.player.setDepth(10);
+  }
+
+  private createHUD(): void {
+    this.scoreText = this.createMatrixText(10, 10, 'SCORE: 0', 10).setOrigin(0, 0);
+    this.highScoreText = this.createMatrixText(10, 28, 'HIGH: 0', 8).setOrigin(0, 0);
+    this.levelText = this.createMatrixText(GAME_CONFIG.WIDTH - 10, 10, 'LEVEL: 1', 10).setOrigin(1, 0);
+    this.comboText = this.createMatrixText(GAME_CONFIG.WIDTH - 10, 28, 'COMBO: x1.0', 8).setOrigin(1, 0);
+    this.livesText = this.createMatrixText(GAME_CONFIG.WIDTH / 2, 10, '', 10);
+    this.updateHUD();
+  }
+
+  private updateHUD(): void {
+    this.scoreText.setText(`SCORE: ${this.score}`);
+    this.highScoreText.setText(`HIGH: ${this.highScore}`);
+    this.levelText.setText(`LEVEL: ${this.level}`);
+    this.comboText.setText(`COMBO: x${this.combo.toFixed(1)}`);
+
+    let livesStr = '';
+    for (let i = 0; i < this.lives; i++) livesStr += '\u2665 ';
+    this.livesText.setText(livesStr.trim());
+    this.livesText.setColor(this.lives <= 1 ? MATRIX_COLORS.RED_HEX : MATRIX_COLORS.PRIMARY_HEX);
+
+    this.updatePowerUpIndicators();
+  }
+
+  private updatePowerUpIndicators(): void {
+    for (const ind of this.powerUpIndicators) ind.destroy();
+    this.powerUpIndicators = [];
+
+    let y = 48;
+    if (this.shieldActive) {
+      const t = this.createMatrixText(GAME_CONFIG.WIDTH - 10, y, 'SHIELD', 7, MATRIX_COLORS.MAGENTA_HEX).setOrigin(1, 0);
+      this.powerUpIndicators.push(t);
+      y += 14;
+    }
+    if (this.timeSlowActive) {
+      const t = this.createMatrixText(GAME_CONFIG.WIDTH - 10, y, 'SLOW', 7, MATRIX_COLORS.YELLOW_HEX).setOrigin(1, 0);
+      this.powerUpIndicators.push(t);
+      y += 14;
+    }
+    if (this.doublePointsActive) {
+      const t = this.createMatrixText(GAME_CONFIG.WIDTH - 10, y, '2X POINTS', 7, MATRIX_COLORS.CYAN_HEX).setOrigin(1, 0);
+      this.powerUpIndicators.push(t);
+    }
+  }
+
+  private setupInput(): void {
+    this.waitForKeyboard(() => {
+      if (!this.input.keyboard) return;
+
+      this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+      this.enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
+
+      this.input.on('pointerdown', () => {
+        if (!this.isGameOver && !this.isPaused) this.jump();
+      });
+    });
+  }
+
+  private jump(): void {
+    // R83.B1(e): while the slow power-up is active, gameplay speed is
+    // multiplied by TIME_SLOW_FACTOR (0.6). If the flap retained its full
+    // impulse, the bird would over-ascend for the same gap width and slow
+    // mode would perversely make navigation harder. Scaling the impulse by
+    // the same factor keeps the *apparent* jump height (pixels cleared per
+    // pipe gap) constant across speed modes.
+    const impulseScale = this.timeSlowActive ? GAME_CONFIG.TIME_SLOW_FACTOR : 1;
+    this.playerVelocity = GAME_CONFIG.JUMP_VELOCITY * impulseScale;
+    this.playSound(SOUND_KEYS.BIRD_FLAP);
+
+    if (!this.hasJumped) {
+      this.hasJumped = true;
+      this.tryUnlockAchievement(ACHIEVEMENTS.FIRST_FLIGHT);
+    }
+  }
+
+  /**
+   * R83.B1(f): override BaseScene.playSound so every Matrix Bird SFX runs
+   * through the shared volumeScale. Centralising here means every callsite
+   * in this scene — jump, score, hit, level-up, collectible — drops by the
+   * same amount without peppering config objects through the file.
+   *
+   * R84.B6 (2026-04-19): BIRD_FLAP branches via JUMP_VOLUME_SCALE so future
+   * flap calls (attract-mode preview, boss-intro, etc.) inherit automatically.
+   *
+   * R84.B9 (2026-04-19 night): master non-jump scale now 0.65 (was 0.75).
+   * See SFX_VOLUME_SCALE rationale above.
+   */
+  protected override playSound(key: string): void {
+    const volumeScale =
+      key === SOUND_KEYS.BIRD_FLAP
+        ? MatrixCloudGameScene.JUMP_VOLUME_SCALE
+        : MatrixCloudGameScene.SFX_VOLUME_SCALE;
+    super.playSound(key, { volumeScale });
+  }
+
+  /**
+   * R83.B1(c): on resume-from-pause, give the player a 5-second countdown so
+   * the bird doesn't drop instantly while they're re-orienting. The same
+   * isCountingDown gate used by the initial-run countdown (see update()
+   * early-return) is reused here, so physics freeze naturally until the
+   * overlay clears.
+   */
+  protected override resumeGame(): void {
+    super.resumeGame();
+    if (this.isGameOver || this.isCountingDown) return;
+    this.startCountdown(5, () => {});
+  }
+
+  update(_time: number, delta: number): void {
+    if (this.isPaused || this.isGameOver) return;
+    if (this.isCountingDown) return;
+
+    const dt = delta / 1000;
+    const speedMult = this.timeSlowActive ? GAME_CONFIG.TIME_SLOW_FACTOR : 1.0;
+
+    this.updateParallaxLayers(delta, speedMult);
+
+    this.handleInput();
+    this.updatePlayer(dt);
+
+    if (this.inBossBattle) {
+      this.updateBoss(dt, speedMult);
+    } else {
+      this.updatePipes(dt, speedMult);
+      this.updateFieldPowerUps(dt, speedMult);
+    }
+
+    this.updateHUD();
+    this.checkAchievements();
+
+    this.exposeTestState(this.getTestState());
+  }
+
+  private handleInput(): void {
+    if (Phaser.Input.Keyboard.JustDown(this.spaceKey) || Phaser.Input.Keyboard.JustDown(this.enterKey)) {
+      this.jump();
+    }
+  }
+
+  // --- PLAYER PHYSICS ---
+
+  private updatePlayer(dt: number): void {
+    // R84.B3(a): scale gravity accumulation + vertical integration by the
+    // same TIME_SLOW_FACTOR the world uses, so the bird's fall rate tracks
+    // pipe scroll instead of diving at full rate through a creeping world.
+    // Velocity clamp stays absolute — it's a physical safety cap on the raw
+    // state value, not an apparent-motion quantity.
+    const playerSpeedMult = this.timeSlowActive ? GAME_CONFIG.TIME_SLOW_FACTOR : 1.0;
+    this.playerVelocity += GAME_CONFIG.GRAVITY * dt * playerSpeedMult;
+    this.playerVelocity = Math.min(this.playerVelocity, GAME_CONFIG.TERMINAL_VELOCITY);
+    this.playerY += this.playerVelocity * dt * playerSpeedMult;
+
+    if (this.playerY < 0) {
+      this.playerY = 0;
+      this.playerVelocity = 0;
+    }
+
+    // R83.B1(b): ground touch is instant death, shield or not. Previously
+    // this fell through to handleCollision() which either consumed the
+    // shield or decremented lives — Flappy Bird's reference feel is that
+    // kissing the dirt ends the run immediately, and Tom explicitly
+    // confirmed that's the intended behaviour on 2026-04-19 playtest.
+    const groundY = GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT - GAME_CONFIG.PLAYER_HEIGHT / 2;
+    if (this.playerY >= groundY) {
+      this.handleGroundDeath();
+      return;
+    }
+
+    this.player.setY(this.playerY);
+
+    const angle = Phaser.Math.Clamp(this.playerVelocity / GAME_CONFIG.TERMINAL_VELOCITY, -1, 1) * 0.4;
+    this.player.setRotation(angle);
+
+    this.updatePlayerTexture();
+  }
+
+  private updatePlayerTexture(): void {
+    const spriteMode = this.game.registry.get('spriteMode') === true;
+    if (spriteMode) {
+      if (this.isInvulnerable) {
+        this.player.setTint(0xff4444);
+      } else if (this.shieldActive) {
+        this.player.setTint(MATRIX_COLORS.MAGENTA);
+      } else {
+        this.player.clearTint();
+      }
+    } else {
+      if (this.isInvulnerable) {
+        this.player.setTexture('player_damaged');
+      } else if (this.shieldActive) {
+        this.player.setTexture('player_shield');
+      } else {
+        this.player.setTexture('player');
+      }
+    }
+  }
+
+  // --- PIPES ---
+
+  private updatePipes(dt: number, speedMult: number): void {
+    const pipeSpeed = GAME_CONFIG.PIPE_SPEED * speedMult;
+    const deltaMs = dt * 1000 * speedMult;
+
+    for (let i = this.pipes.length - 1; i >= 0; i--) {
+      const pipe = this.pipes[i];
+      pipe.x -= pipeSpeed * dt;
+      pipe.topRect.setX(pipe.x + GAME_CONFIG.PIPE_WIDTH / 2);
+      pipe.bottomRect.setX(pipe.x + GAME_CONFIG.PIPE_WIDTH / 2);
+
+      // R84.B4: advance variant-specific state *after* horizontal motion so
+      // the drift/arc visuals lock to the current pipe.x this frame.
+      if (pipe.kind === 'moving') this.updateMovingPipe(pipe, deltaMs);
+      if (pipe.kind === 'zapper') this.updateZapperPipe(pipe, deltaMs);
+
+      if (pipe.x + GAME_CONFIG.PIPE_WIDTH < 0) {
+        // R84.CI-7: retire (pool) rather than destroy so the next spawn
+        // reuses these GameObjects — off-screen cleanup is the hottest
+        // allocation path at steady state (1 pipe every 1.2s minimum).
+        this.retirePipe(pipe);
+        this.pipes.splice(i, 1);
+        continue;
+      }
+
+      if (!pipe.passed && pipe.x + GAME_CONFIG.PIPE_WIDTH < GAME_CONFIG.PLAYER_X) {
+        if (!pipe.hit) {
+          this.scorePipe(pipe);
+        }
+        pipe.passed = true;
+      }
+
+      if (!pipe.hit) {
+        this.checkPipeCollision(pipe);
+      }
+    }
+
+    if (this.pipes.length === 0 || this.lastPipeX - (pipeSpeed * dt) <= GAME_CONFIG.WIDTH - this.getEffectivePipeSpacing()) {
+      this.spawnPipe();
+    } else {
+      this.lastPipeX -= pipeSpeed * dt;
+    }
+  }
+
+  // R84.B4: moving pipes drift their gap vertically via a sine wave. We
+  // resize both pipe rectangles every frame rather than translating them as a
+  // unit so the top band stays anchored to the ceiling and the bottom band
+  // to the ground — only the gap position moves. Drift time advances with
+  // speedMult-scaled delta so the slow power-up dampens drift at the same
+  // rate it dampens horizontal scroll, keeping the difficulty relationship
+  // between variant and power-up consistent.
+  private updateMovingPipe(pipe: PipePair, deltaMs: number): void {
+    pipe.elapsedMs = (pipe.elapsedMs ?? 0) + deltaMs;
+    const freqHz = pipe.driftFreqHz ?? PIPE_VARIANTS.MOVING_DRIFT_FREQ_HZ;
+    const amp = pipe.driftAmp ?? PIPE_VARIANTS.MOVING_DRIFT_AMP;
+    const phase = pipe.driftPhase ?? 0;
+    const t = pipe.elapsedMs / 1000;
+    const drift = Math.sin(t * freqHz * 2 * Math.PI + phase) * amp;
+
+    const playableHeight = GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT;
+    const gap = pipe.gap ?? GAME_CONFIG.PIPE_GAP;
+    const minGapY = GAME_CONFIG.PIPE_MIN_HEIGHT;
+    const maxGapY = playableHeight - gap - GAME_CONFIG.PIPE_MIN_HEIGHT;
+    pipe.gapY = Phaser.Math.Clamp((pipe.baseGapY ?? pipe.gapY) + drift, minGapY, maxGapY);
+
+    const topHeight = pipe.gapY;
+    const bottomY = pipe.gapY + gap;
+    const bottomHeight = playableHeight - bottomY;
+    const topRect = pipe.topRect as Phaser.GameObjects.Rectangle;
+    const bottomRect = pipe.bottomRect as Phaser.GameObjects.Rectangle;
+    topRect.setY(topHeight / 2);
+    topRect.setSize?.(GAME_CONFIG.PIPE_WIDTH, topHeight);
+    bottomRect.setY(bottomY + bottomHeight / 2);
+    bottomRect.setSize?.(GAME_CONFIG.PIPE_WIDTH, bottomHeight);
+  }
+
+  // R84.B4: zapper pipes pulse an electric arc across the gap on a 2 s cycle.
+  // Cycle position 0–0.4 = arc ACTIVE (deadly); 0.4–1.0 = safe window. When
+  // cycle position enters the final `ZAPPER_TELEGRAPH_MS` of the safe window
+  // we redraw the arc at low alpha as a "warming up" tell so the player can
+  // time their pass instead of being ambushed.
+  private updateZapperPipe(pipe: PipePair, deltaMs: number): void {
+    pipe.arcElapsedMs = (pipe.arcElapsedMs ?? 0) + deltaMs;
+    const cyclePos = (pipe.arcElapsedMs % PIPE_VARIANTS.ZAPPER_CYCLE_MS) / PIPE_VARIANTS.ZAPPER_CYCLE_MS;
+    const wasActive = pipe.arcActive ?? false;
+    const active = cyclePos < PIPE_VARIANTS.ZAPPER_ACTIVE_FRACTION;
+    pipe.arcActive = active;
+
+    const telegraphFraction = PIPE_VARIANTS.ZAPPER_TELEGRAPH_MS / PIPE_VARIANTS.ZAPPER_CYCLE_MS;
+    const telegraphing = !active && cyclePos >= 1 - telegraphFraction;
+
+    this.drawZapperArc(pipe, active, telegraphing);
+
+    if (active && !wasActive && !pipe.passed) {
+      this.playSound(SOUND_KEYS.DANGER_WARNING);
+    }
+
+    if (active && !pipe.hit) {
+      this.checkZapperCollision(pipe);
+    }
+  }
+
+  private drawZapperArc(pipe: PipePair, active: boolean, telegraphing: boolean): void {
+    const arc = pipe.arc;
+    if (!arc) return;
+    arc.clear();
+    if (!active && !telegraphing) return;
+
+    const gap = pipe.gap ?? GAME_CONFIG.PIPE_GAP;
+    const centerX = pipe.x + GAME_CONFIG.PIPE_WIDTH / 2;
+    const topY = pipe.gapY;
+    const bottomY = pipe.gapY + gap;
+    const alpha = active ? PIPE_VARIANTS.ZAPPER_ARC_ALPHA : 0.3;
+    const lineWidth = active ? 3 : 2;
+
+    arc.lineStyle(lineWidth, PIPE_VARIANTS.ZAPPER_ARC_COLOR, alpha);
+    arc.beginPath();
+    arc.moveTo(centerX, topY);
+    const segments = PIPE_VARIANTS.ZAPPER_ARC_SEGMENTS;
+    for (let s = 1; s <= segments; s++) {
+      const t = s / segments;
+      const y = topY + (bottomY - topY) * t;
+      const jitter = (s === segments) ? 0 : (Math.random() * 2 - 1) * PIPE_VARIANTS.ZAPPER_ARC_JITTER;
+      arc.lineTo(centerX + jitter, y);
+    }
+    arc.strokePath();
+  }
+
+  private checkZapperCollision(pipe: PipePair): void {
+    const px = GAME_CONFIG.PLAYER_X;
+    const playerLeft = px - GAME_CONFIG.PLAYER_WIDTH / 2;
+    const playerRight = px + GAME_CONFIG.PLAYER_WIDTH / 2;
+    const pipeLeft = pipe.x;
+    const pipeRight = pipe.x + GAME_CONFIG.PIPE_WIDTH;
+    if (playerRight <= pipeLeft || playerLeft >= pipeRight) return;
+
+    const gap = pipe.gap ?? GAME_CONFIG.PIPE_GAP;
+    const py = this.playerY;
+    const ph = GAME_CONFIG.PLAYER_HEIGHT;
+    // Only the gap lane is deadly here — a top/bottom body contact falls
+    // through to checkPipeCollision (which can still be soaked by a shield).
+    if (py - ph / 2 > pipe.gapY && py + ph / 2 < pipe.gapY + gap) {
+      pipe.hit = true;
+      this.handleZapperDeath();
+    }
+  }
+
+  private destroyPipe(pipe: PipePair): void {
+    pipe.topRect.destroy();
+    pipe.bottomRect.destroy();
+    pipe.arc?.destroy();
+  }
+
+  // R84.CI-7: hide + park a retired pipe's visuals for reuse. Called when a
+  // pipe scrolls off-screen or the field is cleared at boss-spawn. Keeps the
+  // `.destroy()`-oriented `destroyPipe` intact for the scene-shutdown path
+  // (where we want real Phaser cleanup, not pool accumulation).
+  private retirePipe(pipe: PipePair): void {
+    const top = pipe.topRect as PipeVisual & { setActive?: (v: boolean) => unknown; setVisible?: (v: boolean) => unknown };
+    const bot = pipe.bottomRect as PipeVisual & { setActive?: (v: boolean) => unknown; setVisible?: (v: boolean) => unknown };
+    top.setActive?.(false);
+    top.setVisible?.(false);
+    bot.setActive?.(false);
+    bot.setVisible?.(false);
+    this.pipeRectPool.push(pipe.topRect, pipe.bottomRect);
+    if (pipe.arc) {
+      pipe.arc.clear();
+      pipe.arc.setActive(false);
+      pipe.arc.setVisible(false);
+      this.pipeArcPool.push(pipe.arc);
+    }
+  }
+
+  // R84.CI-7: drain pooled pipe visuals (hard destroy). Called from
+  // `shutdown()` alongside the in-flight pipe destruction so pooled entries
+  // don't leak into the next scene instance.
+  private drainPipePools(): void {
+    for (const rect of this.pipeRectPool) rect.destroy();
+    this.pipeRectPool = [];
+    for (const arc of this.pipeArcPool) arc.destroy();
+    this.pipeArcPool = [];
+  }
+
+  // R84.CI-7: duck-typed re-dress helper. Rectangle has `setFillStyle` /
+  // `setStrokeStyle`; TileSprite has `setTint`. Instanceof won't work because
+  // the unit-test mocks are plain objects — duck-typing keeps runtime correct
+  // and lets tests pin the pool reset path without a jsdom Phaser class tree.
+  private redressPipeVisual(visual: PipeVisual, style: { fill: number; stroke: number }): void {
+    const v = visual as PipeVisual & {
+      setFillStyle?: (c: number) => unknown;
+      setStrokeStyle?: (w: number, c: number) => unknown;
+      setTint?: (c: number) => unknown;
+    };
+    if (typeof v.setFillStyle === 'function') {
+      v.setFillStyle(style.fill);
+      v.setStrokeStyle?.(2, style.stroke);
+    } else if (typeof v.setTint === 'function') {
+      v.setTint(style.fill);
+    }
+  }
+
+  private acquirePipeVisual(x: number, y: number, width: number, height: number, kind: PipeKind = 'normal'): PipeVisual {
+    const style = this.getPipeStyle(kind);
+    const pooled = this.pipeRectPool.pop();
+    if (pooled) {
+      const p = pooled as PipeVisual & {
+        setActive?: (v: boolean) => unknown;
+        setVisible?: (v: boolean) => unknown;
+        setPosition?: (x: number, y: number) => unknown;
+        setSize?: (w: number, h: number) => unknown;
+      };
+      p.setActive?.(true);
+      p.setVisible?.(true);
+      p.setPosition?.(x, y);
+      p.setSize?.(width, height);
+      this.redressPipeVisual(pooled, style);
+      return pooled;
+    }
+    return this.createPipeVisual(x, y, width, height, kind);
+  }
+
+  private acquirePipeArc(): Phaser.GameObjects.Graphics {
+    const pooled = this.pipeArcPool.pop();
+    if (pooled) {
+      pooled.setActive(true);
+      pooled.setVisible(true);
+      pooled.clear();
+      return pooled;
+    }
+    return this.add.graphics();
+  }
+
+  private createPipeVisual(x: number, y: number, width: number, height: number, kind: PipeKind = 'normal'): PipeVisual {
+    const style = this.getPipeStyle(kind);
+    if (this.game.registry.get('spriteMode') === true) {
+      const ts = this.add.tileSprite(x, y, width, height, 'pipe_sprite');
+      ts.setTint(style.fill);
+      return ts;
+    }
+    const rect = this.add.rectangle(x, y, width, height, style.fill);
+    rect.setStrokeStyle(2, style.stroke);
+    return rect;
+  }
+
+  // R84.B4: pipe-kind → palette. Moving = amber, zapper = red, bonus = cyan.
+  // Returning numeric 0xRRGGBB from a single switch keeps the visual identity
+  // of each variant co-located with the config constants.
+  private getPipeStyle(kind: PipeKind): { fill: number; stroke: number } {
+    switch (kind) {
+      case 'moving':
+        return { fill: PIPE_VARIANTS.MOVING_FILL, stroke: PIPE_VARIANTS.MOVING_STROKE };
+      case 'zapper':
+        return { fill: PIPE_VARIANTS.ZAPPER_FILL, stroke: PIPE_VARIANTS.ZAPPER_STROKE };
+      case 'bonus':
+        return { fill: PIPE_VARIANTS.BONUS_FILL, stroke: PIPE_VARIANTS.BONUS_STROKE };
+      default:
+        return { fill: MATRIX_COLORS.DARK_GREEN, stroke: MATRIX_COLORS.PRIMARY };
+    }
+  }
+
+  private getEffectivePipeSpacing(): number {
+    // Spacing starts wide (easy) and narrows as the player's score increases,
+    // bottoming out at the minimum spacing once the ramp score is reached.
+    const t = Math.min(this.score / GAME_CONFIG.PIPE_SPACING_RAMP_SCORE, 1);
+    return Math.round(
+      GAME_CONFIG.PIPE_SPACING_INITIAL + t * (GAME_CONFIG.PIPE_SPACING_MIN - GAME_CONFIG.PIPE_SPACING_INITIAL),
+    );
+  }
+
+  private spawnPipe(): void {
+    // Cap the number of simultaneously active pipe pairs for balance.
+    if (this.pipes.length >= GAME_CONFIG.PIPE_MAX_ACTIVE) return;
+
+    const kind = this.pickPipeKind();
+    const gap = kind === 'bonus' ? Math.round(GAME_CONFIG.PIPE_GAP * PIPE_VARIANTS.BONUS_GAP_SCALE) : GAME_CONFIG.PIPE_GAP;
+    const playableHeight = GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT;
+    const maxGapY = playableHeight - gap - GAME_CONFIG.PIPE_MIN_HEIGHT;
+    const gapY = GAME_CONFIG.PIPE_MIN_HEIGHT + Math.random() * (maxGapY - GAME_CONFIG.PIPE_MIN_HEIGHT);
+
+    const x = GAME_CONFIG.WIDTH;
+
+    const topHeight = gapY;
+    // R84.CI-7: acquirePipeVisual pops from the pipe pool when available,
+    // otherwise falls back to createPipeVisual (the original allocation path).
+    const topRect = this.acquirePipeVisual(x + GAME_CONFIG.PIPE_WIDTH / 2, topHeight / 2, GAME_CONFIG.PIPE_WIDTH, topHeight, kind);
+    topRect.setDepth(3);
+
+    const bottomY = gapY + gap;
+    const bottomHeight = playableHeight - bottomY;
+    const bottomRect = this.acquirePipeVisual(x + GAME_CONFIG.PIPE_WIDTH / 2, bottomY + bottomHeight / 2, GAME_CONFIG.PIPE_WIDTH, bottomHeight, kind);
+    bottomRect.setDepth(3);
+
+    const pipe: PipePair = {
+      topRect,
+      bottomRect,
+      x,
+      gapY,
+      passed: false,
+      hit: false,
+      kind,
+      gap,
+      baseGapY: gapY,
+      driftAmp: kind === 'moving' ? PIPE_VARIANTS.MOVING_DRIFT_AMP : 0,
+      driftFreqHz: PIPE_VARIANTS.MOVING_DRIFT_FREQ_HZ,
+      driftPhase: Math.random() * Math.PI * 2,
+      elapsedMs: 0,
+      arcElapsedMs: 0,
+      arcActive: false,
+      arcTelegraphed: false,
+      bonusSpawned: false,
+    };
+
+    if (kind === 'zapper') {
+      // R84.CI-7: reuse a pooled arc graphic if one is available.
+      const arc = this.acquirePipeArc();
+      arc.setDepth(6);
+      pipe.arc = arc;
+    }
+
+    this.pipes.push(pipe);
+    this.lastPipeX = x;
+
+    if (kind === 'bonus') {
+      // Bonus pipes always seed a power-up in the gap centre as the reward
+      // for threading the narrower needle. Bypasses POWERUP_CHANCE so bonus
+      // always pays off.
+      this.spawnBonusPowerUp(pipe);
+    } else if (!this.inBossBattle && Math.random() < GAME_CONFIG.POWERUP_CHANCE) {
+      this.spawnPowerUp(x);
+    }
+  }
+
+  // R84.B4: weighted pipe-kind selection gated by the player's current score.
+  // Normal always dominates so the core Flappy loop survives the mid-game;
+  // hazards (moving / zapper) layer in at 200 / 500 to widen the skill
+  // ceiling, and bonus at 1000 rewards deep runs with a narrower-gap power-up
+  // drop. See PIPE_VARIANTS in config.ts for the weight tuning.
+  private pickPipeKind(): PipeKind {
+    const candidates: Array<{ kind: PipeKind; weight: number }> = [
+      { kind: 'normal', weight: PIPE_VARIANTS.WEIGHT_NORMAL },
+    ];
+    if (this.score >= PIPE_VARIANTS.MOVING_UNLOCK_SCORE) {
+      candidates.push({ kind: 'moving', weight: PIPE_VARIANTS.WEIGHT_MOVING });
+    }
+    if (this.score >= PIPE_VARIANTS.ZAPPER_UNLOCK_SCORE) {
+      candidates.push({ kind: 'zapper', weight: PIPE_VARIANTS.WEIGHT_ZAPPER });
+    }
+    if (this.score >= PIPE_VARIANTS.BONUS_UNLOCK_SCORE) {
+      candidates.push({ kind: 'bonus', weight: PIPE_VARIANTS.WEIGHT_BONUS });
+    }
+    const total = candidates.reduce((s, c) => s + c.weight, 0);
+    let roll = Math.random() * total;
+    for (const c of candidates) {
+      roll -= c.weight;
+      if (roll <= 0) return c.kind;
+    }
+    return 'normal';
+  }
+
+  private spawnBonusPowerUp(pipe: PipePair): void {
+    if (pipe.bonusSpawned) return;
+    pipe.bonusSpawned = true;
+    const types: PowerUpType[] = ['shield', 'timeSlow', 'extraLife', 'doublePoints'];
+    const type = types[Math.floor(Math.random() * types.length)];
+    const gap = pipe.gap ?? GAME_CONFIG.PIPE_GAP;
+    const px = pipe.x + GAME_CONFIG.PIPE_WIDTH / 2;
+    const py = pipe.gapY + gap / 2;
+
+    const sprite = this.add.sprite(px, py, `powerup_${type}`);
+    sprite.setDepth(4);
+    this.safeDecorativePulse({
+      targets: sprite,
+      scaleX: 1.2,
+      scaleY: 1.2,
+      alpha: 0.7,
+      duration: 500,
+      yoyo: true,
+      repeat: -1,
+    });
+    this.fieldPowerUps.push({ sprite, type, x: px, y: py });
+  }
+
+  private checkPipeCollision(pipe: PipePair): void {
+    const px = GAME_CONFIG.PLAYER_X - GAME_CONFIG.PLAYER_WIDTH / 2;
+    const py = this.playerY - GAME_CONFIG.PLAYER_HEIGHT / 2;
+    const pw = GAME_CONFIG.PLAYER_WIDTH;
+    const ph = GAME_CONFIG.PLAYER_HEIGHT;
+
+    const pipeLeft = pipe.x;
+    const pipeRight = pipe.x + GAME_CONFIG.PIPE_WIDTH;
+
+    if (px + pw <= pipeLeft || px >= pipeRight) return;
+
+    // R84.B4: honour per-pipe `gap` so bonus pipes' narrower window is the
+    // real collider, not the default PIPE_GAP.
+    const gap = pipe.gap ?? GAME_CONFIG.PIPE_GAP;
+    const inTopPipe = py < pipe.gapY;
+    const inBottomPipe = py + ph > pipe.gapY + gap;
+
+    if (inTopPipe || inBottomPipe) {
+      pipe.hit = true;
+      this.handleCollision();
+    }
+  }
+
+  private scorePipe(pipe?: PipePair): void {
+    const bonusMult = pipe?.kind === 'bonus' ? PIPE_VARIANTS.BONUS_SCORE_MULT : 1;
+    const scoreMultiplier = (this.doublePointsActive ? 2 : 1) * bonusMult;
+    const points = Math.floor(GAME_CONFIG.SCORE_PER_PIPE * Math.min(this.combo, GAME_CONFIG.MAX_COMBO) * scoreMultiplier);
+    this.score += points;
+    this.combo = Math.min(this.combo + GAME_CONFIG.COMBO_INCREMENT, GAME_CONFIG.MAX_COMBO);
+
+    this.playSound(SOUND_KEYS.SCORE);
+    // R84.B4: bonus pipes get an extra triumphant cue so the 3× reward reads
+    // as "this was the right risk" to the player's ear as well as their eye.
+    if (pipe?.kind === 'bonus') {
+      this.playSound(SOUND_KEYS.LEVEL_UP);
+    }
+
+    const popColor = pipe?.kind === 'bonus' ? MATRIX_COLORS.CYAN_HEX : MATRIX_COLORS.PRIMARY_HEX;
+    const popText = this.createMatrixText(this.player.x + 40, this.player.y - 20, `+${points}`, 10, popColor);
+    this.tweens.add({
+      targets: popText,
+      y: popText.y - 25,
+      alpha: 0,
+      duration: 400,
+      onComplete: () => popText.destroy(),
+    });
+
+    if (this.combo >= 2.0 && Math.floor((this.combo - GAME_CONFIG.COMBO_INCREMENT) * 10) < Math.floor(this.combo * 10) && this.combo % 1.0 < GAME_CONFIG.COMBO_INCREMENT + 0.01) {
+      this.playSound(SOUND_KEYS.COMBO);
+    }
+
+    // R84.B11: fire a one-shot COLLECTIBLE stinger the first time score
+    // crosses each early milestone. We use COLLECTIBLE (not LEVEL_UP) so the
+    // cue reads as a smaller-but-earned beat, distinct from the 500-pt level
+    // transition. 500/1000 are intentionally NOT in SCORE_MILESTONES to avoid
+    // overlapping with onLevelUp's own LEVEL_UP stinger.
+    //
+    // R84.CI-2: also emit `scoreMilestone` to the React bridge so the shared
+    // SR live region announces `Score milestone 50` to assistive tech. The
+    // sighted player's audible cue stays the COLLECTIBLE SFX; AT users now
+    // get a symbolic equivalent instead of silence. `value: threshold` (not
+    // the current score) is deliberate — the pattern-matched round number
+    // is what makes the announcement legible.
+    for (const threshold of MatrixCloudGameScene.SCORE_MILESTONES) {
+      if (this.score >= threshold && !this.milestonesHit.has(threshold)) {
+        this.milestonesHit.add(threshold);
+        this.playSound(SOUND_KEYS.COLLECTIBLE);
+        this.emitGameEvent({ type: 'scoreMilestone', data: { value: threshold } });
+      }
+    }
+
+    const prevLevel = this.level;
+    this.level = Math.floor(this.score / GAME_CONFIG.LEVEL_THRESHOLD) + 1;
+
+    if (this.level > prevLevel) {
+      this.onLevelUp(prevLevel);
+    }
+
+    // R83.G6: lift this.highScore before reporting so the persisted save grows
+    // with the run. Without this, the dashbar trophy modal showed a stale value
+    // because reportScore would echo the loaded highScore back to the save.
+    // All 11 other Phaser games already follow this pattern; Matrix Bird drifted.
+    if (this.score > this.highScore) this.highScore = this.score;
+    this.reportScore(this.score, this.highScore);
+  }
+
+  private onLevelUp(_prevLevel: number): void {
+    this.playSound(SOUND_KEYS.LEVEL_UP);
+    this.safeShake(200, 0.005);
+    this.safeFlash(150, 0, 255, 0, false, undefined, undefined, 0.15);
+
+    const levelText = this.createMatrixText(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, `LEVEL ${this.level}`, 16, MATRIX_COLORS.CYAN_HEX);
+    this.safeEphemeralPopup({
+      targets: levelText,
+      y: levelText.y - 40,
+      alpha: 0,
+      duration: 1500,
+      onComplete: () => levelText.destroy(),
+    });
+
+    const bossType = BOSS_LEVELS[this.level];
+    if (bossType && !this.bossesDefeated.has(bossType)) {
+      this.pendingBossSpawn = bossType;
+      this.time.delayedCall(1000, () => {
+        if (this.pendingBossSpawn && !this.isGameOver) {
+          this.startBossBattle(this.pendingBossSpawn);
+          this.pendingBossSpawn = null;
+        }
+      });
+    }
+  }
+
+  // --- POWER-UPS ---
+
+  private spawnPowerUp(pipeX: number): void {
+    const types: PowerUpType[] = ['shield', 'timeSlow', 'extraLife', 'doublePoints'];
+    const type = types[Math.floor(Math.random() * types.length)];
+    const y = 80 + Math.random() * (GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT - 160);
+
+    // Place the power-up in the safe gap between the newly spawned pipe and the next
+    // one, ensuring it is at least POWERUP_MIN_PIPE_DISTANCE px from any pipe edge.
+    const minDist = GAME_CONFIG.POWERUP_MIN_PIPE_DISTANCE;
+    const safeStart = pipeX + GAME_CONFIG.PIPE_WIDTH + minDist;
+    const spacing = this.getEffectivePipeSpacing();
+    const safeEnd = pipeX + spacing - minDist;
+    // If the safe window is too narrow (can happen at high speed / minimum spacing),
+    // fall back to centring between pipes.
+    const x = safeEnd > safeStart
+      ? safeStart + Math.random() * (safeEnd - safeStart)
+      : pipeX + spacing / 2;
+
+    const sprite = this.add.sprite(x, y, `powerup_${type}`);
+    sprite.setDepth(4);
+
+    this.safeDecorativePulse({
+      targets: sprite,
+      scaleX: 1.2,
+      scaleY: 1.2,
+      alpha: 0.7,
+      duration: 500,
+      yoyo: true,
+      repeat: -1,
+    });
+
+    this.fieldPowerUps.push({ sprite, type, x, y });
+  }
+
+  private updateFieldPowerUps(dt: number, speedMult: number): void {
+    const speed = GAME_CONFIG.PIPE_SPEED * speedMult;
+
+    for (let i = this.fieldPowerUps.length - 1; i >= 0; i--) {
+      const pu = this.fieldPowerUps[i];
+      pu.x -= speed * dt;
+      pu.sprite.setX(pu.x);
+
+      if (pu.x < -GAME_CONFIG.POWERUP_SIZE) {
+        pu.sprite.destroy();
+        this.fieldPowerUps.splice(i, 1);
+        continue;
+      }
+
+      if (this.checkPowerUpCollision(pu)) {
+        this.collectPowerUp(pu);
+        pu.sprite.destroy();
+        this.fieldPowerUps.splice(i, 1);
+      }
+    }
+  }
+
+  private checkPowerUpCollision(pu: FieldPowerUp): boolean {
+    const dx = GAME_CONFIG.PLAYER_X - pu.x;
+    const dy = this.playerY - pu.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    return dist < (GAME_CONFIG.PLAYER_WIDTH + GAME_CONFIG.POWERUP_SIZE) / 2;
+  }
+
+  private collectPowerUp(pu: FieldPowerUp): void {
+    this.powerUpsCollected++;
+    this.playSound(SOUND_KEYS.COLLECTIBLE);
+    this.activatePowerUp(pu.type);
+  }
+
+  private activatePowerUp(type: PowerUpType): void {
+    switch (type) {
+      case 'shield':
+        this.shieldActive = true;
+        break;
+      case 'timeSlow':
+        this.timeSlowTimer?.destroy();
+        this.timeSlowActive = true;
+        this.startSlowTrail();
+        this.timeSlowTimer = this.time.delayedCall(GAME_CONFIG.POWERUP_DURATION, () => {
+          this.timeSlowActive = false;
+          this.timeSlowTimer = null;
+          this.stopSlowTrail();
+        });
+        break;
+      case 'extraLife':
+        this.lives = Math.min(this.lives + 1, GAME_CONFIG.MAX_LIVES);
+        break;
+      case 'doublePoints':
+        this.doublePointsTimer?.destroy();
+        this.doublePointsActive = true;
+        this.doublePointsTimer = this.time.delayedCall(GAME_CONFIG.POWERUP_DURATION, () => {
+          this.doublePointsActive = false;
+          this.doublePointsTimer = null;
+        });
+        break;
+    }
+  }
+
+  // --- R84.B3: SLOW-MODE TRAIL ---
+
+  private startSlowTrail(): void {
+    if (this.slowTrailTimer) return;
+    this.slowTrailTimer = this.time.addEvent({
+      delay: SLOW_MODE.TRAIL_EMIT_INTERVAL_MS,
+      callback: () => this.emitSlowTrailParticle(),
+      loop: true,
+    });
+  }
+
+  private stopSlowTrail(): void {
+    this.slowTrailTimer?.destroy();
+    this.slowTrailTimer = null;
+  }
+
+  private emitSlowTrailParticle(): void {
+    if (!this.player || this.isPaused || this.isGameOver) return;
+    const particle = this.add.circle(
+      this.player.x,
+      this.player.y,
+      SLOW_MODE.TRAIL_PARTICLE_RADIUS,
+      SLOW_MODE.TRAIL_COLOR,
+      SLOW_MODE.TRAIL_PARTICLE_ALPHA,
+    );
+    particle.setDepth(SLOW_MODE.TRAIL_DEPTH);
+    this.slowTrailParticles.push(particle);
+    this.tweens.add({
+      targets: particle,
+      alpha: 0,
+      duration: SLOW_MODE.TRAIL_PARTICLE_LIFESPAN_MS,
+      onComplete: () => {
+        particle.destroy();
+        const idx = this.slowTrailParticles.indexOf(particle);
+        if (idx >= 0) this.slowTrailParticles.splice(idx, 1);
+      },
+    });
+  }
+
+  // --- COLLISION / DAMAGE ---
+
+  private handleCollision(): void {
+    if (this.isInvulnerable || this.isGameOver) return;
+
+    if (this.shieldActive) {
+      this.shieldActive = false;
+      this.playSound(SOUND_KEYS.HIT);
+      this.startInvulnerability();
+      this.safeShake(100, 0.008);
+      this.showShieldBreakEffect();
+      return;
+    }
+
+    this.lives--;
+    this.combo = 1.0;
+    this.playSound(SOUND_KEYS.HIT);
+    this.safeShake(200, 0.01);
+
+    if (this.lives <= 0) {
+      this.handleGameOver();
+      return;
+    }
+
+    this.startInvulnerability();
+
+    this.playerY = Math.min(this.playerY, GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT - GAME_CONFIG.PLAYER_HEIGHT);
+    this.playerVelocity = GAME_CONFIG.JUMP_VELOCITY * 0.5;
+  }
+
+  /**
+   * R83.B1(b): dedicated ground-death path. Skips the shield-consume /
+   * life-loss branch of handleCollision because Tom's playtest noted that a
+   * shielded ground hit would otherwise survive (the shield ring would pop
+   * and the bird would be bounced back into the air). Flappy Bird
+   * convention: ground = death.
+   */
+  private handleGroundDeath(): void {
+    if (this.isGameOver) return;
+    this.lives = 0;
+    this.combo = 1.0;
+    this.playerY = GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT - GAME_CONFIG.PLAYER_HEIGHT / 2;
+    this.playerVelocity = 0;
+    this.player.setY(this.playerY);
+    this.handleGameOver();
+  }
+
+  /**
+   * R84.B4: zapper-pipe arc contact is insta-death, shield or not. Mirrors
+   * the handleGroundDeath pattern: zero lives, break combo, skip the shield
+   * branch of handleCollision, go straight to game over. The red camera
+   * flash + heavier shake distinguish zap death from the standard hit feel
+   * so the player's post-mortem reads "zapped" not "clipped a pipe".
+   */
+  private handleZapperDeath(): void {
+    if (this.isGameOver) return;
+    this.lives = 0;
+    this.combo = 1.0;
+    this.playSound(SOUND_KEYS.GLASS_BREAK);
+    this.safeShake(300, 0.02);
+    this.safeFlash(220, 255, 60, 60, false, undefined, undefined, 0.4);
+    this.handleGameOver();
+  }
+
+  private startInvulnerability(): void {
+    this.isInvulnerable = true;
+    this.invulnerableTimer?.destroy();
+    this.invulnerableFlashTimer?.destroy();
+
+    this.invulnerableFlashTimer = this.time.addEvent({
+      delay: 100,
+      repeat: Math.floor(GAME_CONFIG.INVULNERABLE_DURATION / 100) - 1,
+      callback: () => {
+        this.player.setVisible(!this.player.visible);
+      },
+    });
+
+    this.invulnerableTimer = this.time.delayedCall(GAME_CONFIG.INVULNERABLE_DURATION, () => {
+      this.isInvulnerable = false;
+      this.player.setVisible(true);
+      this.invulnerableTimer = null;
+      this.invulnerableFlashTimer = null;
+    });
+  }
+
+  private showShieldBreakEffect(): void {
+    const ring = this.add.circle(GAME_CONFIG.PLAYER_X, this.playerY, 10, MATRIX_COLORS.MAGENTA, 0.6);
+    ring.setDepth(15);
+    this.safeEphemeralPopup({
+      targets: ring,
+      scaleX: 4,
+      scaleY: 4,
+      alpha: 0,
+      duration: 400,
+      onComplete: () => ring.destroy(),
+    });
+  }
+
+  private handleGameOver(): void {
+    this.isGameOver = true;
+    this.playSound(SOUND_KEYS.GAME_OVER);
+    this.safeShake(180, 0.012);
+    this.safeFlash(120, 255, 0, 0, false, undefined, undefined, 0.25);
+
+    if (this.score > this.highScore) {
+      this.highScore = this.score;
+    }
+
+    this.clearBossBattle();
+
+    this.time.delayedCall(600, () => {
+      this.gameOver(this.score, `Level ${this.level} | Pipes cleared`, this.highScore, [
+        { label: 'Max Combo', value: `${this.combo.toFixed(1)}×` },
+        { label: 'Bosses', value: this.bossesDefeated.size },
+        { label: 'Power-ups', value: this.powerUpsCollected },
+      ], this.level, this.getGameDuration());
+    });
+  }
+
+  // --- BOSS SYSTEM ---
+
+  private startBossBattle(type: BossType): void {
+    this.inBossBattle = true;
+    this.bossElapsed = 0;
+    this.bossAttackCooldown = 0;
+    this.bossAttacks = [];
+
+    // R84.CI-7: retire (pool) rather than destroy — boss battle ends and the
+    // next scrolling phase resumes within the same scene, so pooled visuals
+    // get reused when the field refills after the boss defeat.
+    for (const pipe of this.pipes) {
+      this.retirePipe(pipe);
+    }
+    this.pipes = [];
+
+    for (const pu of this.fieldPowerUps) {
+      pu.sprite.destroy();
+    }
+    this.fieldPowerUps = [];
+
+    const def = BOSS_DEFS[type];
+    const sprite = this.add.sprite(GAME_CONFIG.WIDTH + def.size, GAME_CONFIG.HEIGHT / 2, `boss_${type}`);
+    sprite.setDepth(8);
+
+    const healthBg = this.add.graphics();
+    const healthBar = this.add.graphics();
+    healthBg.setDepth(9);
+    healthBar.setDepth(9);
+
+    this.boss = {
+      sprite,
+      healthBar,
+      healthBg,
+      type,
+      health: def.health,
+      maxHealth: def.health,
+      x: GAME_CONFIG.WIDTH + def.size,
+      y: GAME_CONFIG.HEIGHT / 2,
+      elapsedTime: 0,
+    };
+
+    // R84.CI-3: boss entrance — tween moves a persistent state object that
+    // updateBossMovement clamps + mirrors to the sprite each frame via
+    // setPosition(). Under reduced motion we skip the 1.5s sweep and snap
+    // this.boss.x to its final x directly; the next updateBossMovement
+    // tick writes it to the sprite. Inline guard rather than a helper
+    // because the "final state" here is just one property, not a full
+    // tween config worth abstracting.
+    if (this.prefersReducedMotion()) {
+      this.boss.x = GAME_CONFIG.WIDTH * 0.75;
+    } else {
+      this.tweens.add({
+        targets: this.boss,
+        x: GAME_CONFIG.WIDTH * 0.75,
+        duration: 1500,
+        ease: 'Power2',
+      });
+    }
+
+    this.playSound(SOUND_KEYS.DANGER_WARNING);
+    this.safeShake(300, 0.01);
+
+    const bossText = this.createMatrixText(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, `${type.replace('_', ' ').toUpperCase()}`, 14, MATRIX_COLORS.RED_HEX);
+    this.safeEphemeralPopup({
+      targets: bossText,
+      alpha: 0,
+      y: bossText.y - 30,
+      duration: 2000,
+      onComplete: () => bossText.destroy(),
+    });
+  }
+
+  private updateBoss(dt: number, speedMult: number): void {
+    if (!this.boss) return;
+
+    this.bossElapsed += dt;
+    this.boss.elapsedTime += dt * 1000;
+
+    if (this.bossElapsed >= GAME_CONFIG.BOSS_DURATION) {
+      this.endBossBattle(false);
+      return;
+    }
+
+    this.updateBossMovement(dt, speedMult);
+    this.updateBossAttacks(dt, speedMult);
+    this.drawBossHealthBar();
+
+    this.bossAttackCooldown -= dt;
+    if (this.bossAttackCooldown <= 0) {
+      this.fireBossAttack();
+      this.bossAttackCooldown = GAME_CONFIG.BOSS_ATTACK_INTERVAL;
+    }
+
+    this.checkBossPlayerCollision();
+  }
+
+  private updateBossMovement(dt: number, speedMult: number): void {
+    if (!this.boss) return;
+
+    const t = this.boss.elapsedTime;
+    const def = BOSS_DEFS[this.boss.type];
+    const speed = def.speed * speedMult;
+
+    switch (this.boss.type) {
+      case 'agent_smith':
+        this.boss.y += Math.sin(t / 1000) * speed * dt;
+        break;
+      case 'sentinel':
+        this.boss.x += Math.sin(t / 1500) * speed * 0.3 * dt;
+        this.boss.y += Math.cos(t / 1500) * speed * dt;
+        break;
+      case 'architect':
+        this.boss.y += Math.sin(t / 2000) * speed * dt;
+        break;
+    }
+
+    this.boss.x = Phaser.Math.Clamp(this.boss.x, GAME_CONFIG.WIDTH * 0.5, GAME_CONFIG.WIDTH - def.size);
+    this.boss.y = Phaser.Math.Clamp(this.boss.y, def.size, GAME_CONFIG.HEIGHT - GAME_CONFIG.GROUND_HEIGHT - def.size);
+    this.boss.sprite.setPosition(this.boss.x, this.boss.y);
+  }
+
+  private fireBossAttack(): void {
+    if (!this.boss) return;
+
+    const def = BOSS_DEFS[this.boss.type];
+    const attackType = def.attacks[Math.floor(Math.random() * def.attacks.length)] as AttackType;
+
+    const sprite = this.add.sprite(this.boss.x - def.size / 2, this.boss.y, `attack_${attackType}`);
+    sprite.setDepth(7);
+
+    const vy = (Math.random() - 0.5) * 150;
+    this.bossAttacks.push({
+      sprite,
+      vx: -GAME_CONFIG.BOSS_ATTACK_SPEED,
+      vy,
+      life: 1.0,
+    });
+  }
+
+  private updateBossAttacks(dt: number, speedMult: number): void {
+    for (let i = this.bossAttacks.length - 1; i >= 0; i--) {
+      const attack = this.bossAttacks[i];
+      attack.sprite.x += attack.vx * speedMult * dt;
+      attack.sprite.y += attack.vy * speedMult * dt;
+      attack.life -= dt * 0.5;
+
+      if (attack.life <= 0 || attack.sprite.x < -30) {
+        attack.sprite.destroy();
+        this.bossAttacks.splice(i, 1);
+        continue;
+      }
+
+      attack.sprite.setAlpha(Math.max(attack.life, 0.2));
+
+      if (this.checkAttackPlayerCollision(attack)) {
+        attack.sprite.destroy();
+        this.bossAttacks.splice(i, 1);
+        this.handleCollision();
+      }
+    }
+  }
+
+  private checkAttackPlayerCollision(attack: BossAttackState): boolean {
+    if (this.isInvulnerable) return false;
+
+    const dx = GAME_CONFIG.PLAYER_X - attack.sprite.x;
+    const dy = this.playerY - attack.sprite.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    return dist < (GAME_CONFIG.PLAYER_WIDTH + GAME_CONFIG.BOSS_ATTACK_SIZE) / 2;
+  }
+
+  private checkBossPlayerCollision(): void {
+    if (!this.boss || this.isInvulnerable) return;
+
+    const def = BOSS_DEFS[this.boss.type];
+    const dx = GAME_CONFIG.PLAYER_X - this.boss.x;
+    const dy = this.playerY - this.boss.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist < (GAME_CONFIG.PLAYER_WIDTH + def.size) / 2) {
+      this.boss.health -= GAME_CONFIG.BOSS_DAMAGE_PER_HIT;
+      this.handleCollision();
+
+      if (this.boss.health <= 0) {
+        this.defeatBoss();
+      }
+    }
+  }
+
+  private drawBossHealthBar(): void {
+    if (!this.boss) return;
+
+    const def = BOSS_DEFS[this.boss.type];
+    const barWidth = def.size;
+    const barHeight = 6;
+    const barX = this.boss.x - barWidth / 2;
+    const barY = this.boss.y - def.size / 2 - 12;
+
+    this.boss.healthBg.clear();
+    this.boss.healthBg.fillStyle(0x330000, 1);
+    this.boss.healthBg.fillRect(barX, barY, barWidth, barHeight);
+
+    const healthFrac = this.boss.health / this.boss.maxHealth;
+    this.boss.healthBar.clear();
+    this.boss.healthBar.fillStyle(MATRIX_COLORS.RED, 1);
+    this.boss.healthBar.fillRect(barX, barY, barWidth * healthFrac, barHeight);
+  }
+
+  private defeatBoss(): void {
+    if (!this.boss) return;
+
+    const type = this.boss.type;
+    const reward = this.boss.maxHealth * 2;
+    this.score += reward;
+    this.bossesDefeated.add(type);
+
+    this.playSound(SOUND_KEYS.LEVEL_UP);
+    this.safeShake(300, 0.015);
+
+    const rewardText = this.createMatrixText(this.boss.x, this.boss.y, `+${reward}`, 14, MATRIX_COLORS.YELLOW_HEX);
+    this.safeEphemeralPopup({
+      targets: rewardText,
+      y: rewardText.y - 50,
+      alpha: 0,
+      duration: 1500,
+      onComplete: () => rewardText.destroy(),
+    });
+
+    if (type === 'agent_smith') this.tryUnlockAchievement(ACHIEVEMENTS.BOSS_SLAYER);
+    if (type === 'sentinel') this.tryUnlockAchievement(ACHIEVEMENTS.SENTINEL_DEFEAT);
+    if (type === 'architect') this.tryUnlockAchievement(ACHIEVEMENTS.ARCHITECT_DEFEAT);
+
+    if (this.bossesDefeated.size >= 3) {
+      this.tryUnlockAchievement(ACHIEVEMENTS.ALL_BOSSES);
+    }
+
+    this.endBossBattle(true);
+  }
+
+  private endBossBattle(success: boolean): void {
+    if (!success) {
+      this.playSound(SOUND_KEYS.HIT);
+    }
+
+    this.clearBossBattle();
+    this.inBossBattle = false;
+    this.lastPipeX = GAME_CONFIG.WIDTH;
+  }
+
+  private clearBossBattle(): void {
+    if (this.boss) {
+      this.boss.sprite.destroy();
+      this.boss.healthBar.destroy();
+      this.boss.healthBg.destroy();
+      this.boss = null;
+    }
+
+    for (const attack of this.bossAttacks) {
+      attack.sprite.destroy();
+    }
+    this.bossAttacks = [];
+  }
+
+  // --- ACHIEVEMENTS ---
+
+  private tryUnlockAchievement(id: string): void {
+    if (this.achievementsUnlocked.has(id)) return;
+    this.achievementsUnlocked.add(id);
+    this.unlockAchievement(id);
+  }
+
+  private checkAchievements(): void {
+    if (this.score >= 1000) this.tryUnlockAchievement(ACHIEVEMENTS.HIGH_FLYER);
+    if (this.level >= 5) this.tryUnlockAchievement(ACHIEVEMENTS.LEVEL_5);
+    if (this.powerUpsCollected >= 20) this.tryUnlockAchievement(ACHIEVEMENTS.POWER_COLLECTOR);
+  }
+
+  // --- TEST STATE ---
+
+  private getTestState(): Record<string, unknown> {
+    return {
+      score: this.score,
+      highScore: this.highScore,
+      level: this.level,
+      lives: this.lives,
+      combo: this.combo,
+      playerY: this.playerY,
+      playerVelocity: this.playerVelocity,
+      isInvulnerable: this.isInvulnerable,
+      shieldActive: this.shieldActive,
+      timeSlowActive: this.timeSlowActive,
+      doublePointsActive: this.doublePointsActive,
+      powerUpsCollected: this.powerUpsCollected,
+      hasJumped: this.hasJumped,
+      isGameOver: this.isGameOver,
+      inBossBattle: this.inBossBattle,
+      bossHealth: this.boss?.health ?? null,
+      bossType: this.boss?.type ?? null,
+      bossesDefeated: [...this.bossesDefeated],
+      pipeCount: this.pipes.length,
+      fieldPowerUpCount: this.fieldPowerUps.length,
+      countdownValue: this.countdownValue,
+    };
+  }
+
+  // --- CLEANUP ---
+
+  shutdown(): void {
+    this.stopBackgroundMusic();
+    this.invulnerableTimer?.destroy();
+    this.invulnerableFlashTimer?.destroy();
+    this.timeSlowTimer?.destroy();
+    this.doublePointsTimer?.destroy();
+    this.stopSlowTrail();
+    for (const p of this.slowTrailParticles) p.destroy();
+    this.slowTrailParticles = [];
+
+    for (const pipe of this.pipes) {
+      this.destroyPipe(pipe);
+    }
+    this.pipes = [];
+    // R84.CI-7: pool accumulates across a session but must not leak into the
+    // next scene instance — drain on shutdown so Phaser's scene teardown
+    // sees a zero pending-GameObject count for pooled visuals.
+    this.drainPipePools();
+
+    for (const pu of this.fieldPowerUps) {
+      pu.sprite.destroy();
+    }
+    this.fieldPowerUps = [];
+
+    this.clearBossBattle();
+
+    for (const ind of this.powerUpIndicators) {
+      ind.destroy();
+    }
+    this.powerUpIndicators = [];
+
+    this.destroyParallaxLayers();
+
+    if (this.input.keyboard) {
+      this.input.keyboard.removeAllKeys(true);
+    }
+    this.input.off('pointerdown');
+    super.shutdown();
+  }
+}

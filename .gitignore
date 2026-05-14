@@ -2,3 +2,49 @@ node_modules
 .DS_Store
 dev-dist
 .vscode/launch.json
+
+# Claude Code
+.claude/
+
+# Ralph loop auto-generated files
+IMPLEMENTATION_PLAN.md
+
+# Debugging screenshots
+*.png
+
+# Playwright MCP
+.playwright-mcp/
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+Dockerfile.playwright
+docker-compose.playwright.yml
+/dist
+AGENTS.md
+playwright.config.ts
+package-lock.json
+package.json
+loop.sh
+PROMPT_plan.md
+PROMPT_build.md
+scripts/run-visual-tests.sh
+/specs
+package.json
+/src/test
+package-lock.json
+/e2e
+/assets
+/rebuildingoldgames
+
+# Large binary asset dumps (not for git — back up separately)
+desiredassets/TheMatrixArcadeAssetsToADDANDSORT-WILL-BE-FUN-TASK/
+desiredassets/unused-assets-backup/
+
+# Private learning reference (personal codebase guide)
+CODEBASE_GUIDE.md
+
+# Ralph loop template (portable — copy to other projects)
+RALPH_LOOP_TEMPLATE.md
+/manual-testing-sessions

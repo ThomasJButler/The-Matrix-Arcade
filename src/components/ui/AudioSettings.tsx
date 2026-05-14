@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Volume2,
@@ -19,6 +19,12 @@ interface AudioSettingsProps {
   compact?: boolean;
   isMuted?: boolean;
   toggleMute?: () => void;
+  // Optional: pass parent's sound system to keep config in sync
+  soundConfig?: SoundConfig;
+  onUpdateConfig?: (config: Partial<SoundConfig>) => void;
+  onPlaySFX?: (soundType: string) => void;
+  onPlayBackgroundMP3?: (src: string) => void;
+  onStopBackgroundMP3?: () => void;
 }
 
 export const AudioSettings: React.FC<AudioSettingsProps> = ({
@@ -26,21 +32,45 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
   onClose,
   compact = false,
   isMuted = false,
-  toggleMute
+  toggleMute,
+  soundConfig,
+  onUpdateConfig,
+  onPlaySFX,
+  onPlayBackgroundMP3,
+  onStopBackgroundMP3,
 }) => {
-  const { config, updateConfig, playSFX, playMusic, stopMusic, playBackgroundMP3, stopBackgroundMP3 } = useSoundSystem();
+  const fallback = useSoundSystem();
+  // Use parent's sound system if provided, otherwise fall back to own instance
+  const config = soundConfig ?? fallback.config;
+  const updateConfig = onUpdateConfig ?? fallback.updateConfig;
+  const playSFX = onPlaySFX ?? fallback.playSFX;
+  const playBackgroundMP3 = onPlayBackgroundMP3 ?? fallback.playBackgroundMP3;
+  const stopBackgroundMP3 = onStopBackgroundMP3 ?? fallback.stopBackgroundMP3;
   const [testingSound, setTestingSound] = useState<string | null>(null);
   const [showSaved, setShowSaved] = useState(false);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(() => {
+    const timers = timersRef.current;
+    return () => {
+      timers.forEach(clearTimeout);
+    };
+  }, []);
+
+  const scheduledTimeout = (fn: () => void, ms: number) => {
+    const id = setTimeout(fn, ms);
+    timersRef.current.push(id);
+    return id;
+  };
 
   const handleVolumeChange = (key: keyof SoundConfig, value: number) => {
     updateConfig({ [key]: value });
   };
 
   const handleSaveSettings = () => {
-    // Settings are auto-saved, but we show visual feedback
     setShowSaved(true);
-    playSFX('score'); // Play a success sound
-    setTimeout(() => setShowSaved(false), 2000);
+    playSFX('score');
+    scheduledTimeout(() => setShowSaved(false), 2000);
   };
 
   const handleToggle = (key: keyof SoundConfig) => {
@@ -50,13 +80,13 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
   const testSound = (soundType: string) => {
     setTestingSound(soundType);
     playSFX(soundType);
-    setTimeout(() => setTestingSound(null), 300);
+    scheduledTimeout(() => setTestingSound(null), 300);
   };
 
   const testMusic = () => {
     if (config.music) {
       playBackgroundMP3('/matrixarcaderetrobeat.mp3');
-      setTimeout(() => stopBackgroundMP3(), 3000);
+      scheduledTimeout(() => stopBackgroundMP3(), 3000);
     }
   };
 
@@ -66,23 +96,25 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
         <button
           onClick={() => handleToggle('sfx')}
           className={`p-2 rounded transition-colors ${
-            config.sfx 
-              ? 'bg-green-900 text-green-400 hover:bg-green-800' 
+            config.sfx
+              ? 'bg-green-900 text-green-400 hover:bg-green-800'
               : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
           }`}
-          title="Toggle Sound Effects"
+          aria-label={config.sfx ? 'Disable sound effects' : 'Enable sound effects'}
+          aria-pressed={config.sfx as boolean}
         >
           {config.sfx ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
         </button>
-        
+
         <button
           onClick={() => handleToggle('music')}
           className={`p-2 rounded transition-colors ${
-            config.music 
-              ? 'bg-green-900 text-green-400 hover:bg-green-800' 
+            config.music
+              ? 'bg-green-900 text-green-400 hover:bg-green-800'
               : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
           }`}
-          title="Toggle Music"
+          aria-label={config.music ? 'Disable music' : 'Enable music'}
+          aria-pressed={config.music as boolean}
         >
           <Music className={`w-4 h-4 ${config.music ? 'text-green-400' : 'text-gray-400'}`} />
         </button>
@@ -104,18 +136,22 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.8, opacity: 0 }}
-            className="bg-gray-900 border-2 border-green-500 rounded-lg p-6 max-w-md w-full font-mono"
+            className="bg-black border-2 border-green-500 rounded-lg p-6 max-w-md w-full font-mono"
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="audio-settings-title"
           >
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 <Settings className="w-5 h-5 text-green-400" />
-                <h2 className="text-lg font-bold text-green-400">AUDIO SETTINGS</h2>
+                <h2 id="audio-settings-title" className="text-lg font-bold text-green-400">AUDIO SETTINGS</h2>
               </div>
               <button
                 onClick={onClose}
                 className="p-2 hover:bg-green-900 rounded transition-colors"
+                aria-label="Close audio settings"
               >
                 <X className="w-5 h-5 text-green-400" />
               </button>
@@ -145,13 +181,14 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
             {/* Master Volume */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
-                <label className="text-green-400 flex items-center gap-2">
+                <label htmlFor="master-volume" className="text-green-400 flex items-center gap-2">
                   <Volume1 className="w-4 h-4" />
                   MASTER VOLUME
                 </label>
                 <span className="text-white">{Math.round(config.masterVolume * 100)}%</span>
               </div>
               <input
+                id="master-volume"
                 type="range"
                 min="0"
                 max="1"
@@ -165,7 +202,7 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
             {/* Music Settings */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
-                <label className="text-green-400 flex items-center gap-2">
+                <label htmlFor="music-volume" className="text-green-400 flex items-center gap-2">
                   <Music className="w-4 h-4" />
                   BACKGROUND MUSIC
                 </label>
@@ -173,23 +210,26 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
                   <button
                     onClick={testMusic}
                     className="p-1 hover:bg-green-900 rounded transition-colors"
-                    title="Test Music"
+                    aria-label="Test music"
                   >
                     <Play className="w-3 h-3 text-green-400" />
                   </button>
                   <button
                     onClick={() => handleToggle('music')}
                     className={`px-3 py-1 rounded text-xs transition-colors ${
-                      config.music 
-                        ? 'bg-green-600 text-white' 
+                      config.music
+                        ? 'bg-green-600 text-white'
                         : 'bg-gray-600 text-gray-300'
                     }`}
+                    aria-label={config.music ? 'Disable music' : 'Enable music'}
+                    aria-pressed={config.music as boolean}
                   >
                     {config.music ? 'ON' : 'OFF'}
                   </button>
                 </div>
               </div>
               <input
+                id="music-volume"
                 type="range"
                 min="0"
                 max="1"
@@ -207,22 +247,25 @@ export const AudioSettings: React.FC<AudioSettingsProps> = ({
             {/* SFX Settings */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
-                <label className="text-green-400 flex items-center gap-2">
+                <label htmlFor="sfx-volume" className="text-green-400 flex items-center gap-2">
                   <Volume2 className="w-4 h-4" />
                   SOUND EFFECTS
                 </label>
                 <button
                   onClick={() => handleToggle('sfx')}
                   className={`px-3 py-1 rounded text-xs transition-colors ${
-                    config.sfx 
-                      ? 'bg-green-600 text-white' 
+                    config.sfx
+                      ? 'bg-green-600 text-white'
                       : 'bg-gray-600 text-gray-300'
                   }`}
+                  aria-label={config.sfx ? 'Disable sound effects' : 'Enable sound effects'}
+                  aria-pressed={config.sfx as boolean}
                 >
                   {config.sfx ? 'ON' : 'OFF'}
                 </button>
               </div>
               <input
+                id="sfx-volume"
                 type="range"
                 min="0"
                 max="1"

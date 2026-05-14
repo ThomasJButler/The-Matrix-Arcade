@@ -1,0 +1,1653 @@
+import Phaser from 'phaser';
+import { BaseScene } from '@/lib/phaser/scenes/BaseScene';
+import { SCENE_KEYS, MATRIX_COLORS, MATRIX_FONTS, SOUND_KEYS, REGISTRY_KEYS } from '@/lib/phaser/types';
+import {
+  GAME_CONFIG,
+  ACHIEVEMENTS,
+  BRICK_DEFS,
+  POWERUP_DEFS,
+  POWERUP_LEGEND,
+  LEVELS,
+  getBrickType,
+  type BrickState,
+  type BallState,
+  type AgentState,
+  type LaserState,
+  type FieldPowerUp,
+  type ParticleState,
+  type BossState,
+  type PowerUpType,
+} from '../config';
+
+export class CodeBreakerGameScene extends BaseScene {
+  private paddle!: Phaser.GameObjects.Sprite;
+  private paddleWidth = GAME_CONFIG.PADDLE_WIDTH;
+
+  private balls: BallState[] = [];
+  private bricks: BrickState[] = [];
+  private agents: AgentState[] = [];
+  private lasers: LaserState[] = [];
+  private fieldPowerUps: FieldPowerUp[] = [];
+  private particles: ParticleState[] = [];
+
+  private boss: BossState | null = null;
+  private bossBullets: Array<{ sprite: Phaser.GameObjects.Rectangle; vx: number; vy: number }> = [];
+
+  private firewall: Phaser.GameObjects.Sprite | null = null;
+  private portal: Phaser.GameObjects.Sprite | null = null;
+
+  private score = 0;
+  private highScore = 0;
+  private lives = GAME_CONFIG.LIVES;
+  private level = 1;
+  private combo = 0;
+  private agentsKilled = 0;
+  private bulletTimeUses = 0;
+  // R87.K6 — manual bullet-time charge meter. Fills as bricks are destroyed
+  // (BULLET_TIME_METER_PER_BRICK) and bosses take hits
+  // (BULLET_TIME_METER_PER_BOSS_HIT); activation on B press requires
+  // bulletTimeMeter >= BULLET_TIME_METER_MAX and consumes the full charge.
+  private bulletTimeMeter = 0;
+  private ballLostThisLevel = false;
+
+  private widePaddleActive = false;
+  private laserActive = false;
+  private bulletTimeActive = false;
+  private firewallActive = false;
+  private laserTimer = 0;
+
+  private isGameOver = false;
+  private isLevelComplete = false;
+  private isBallAttached = true;
+  private achievementsUnlocked = new Set<string>();
+
+  // R87.K2 — tracks whether loseLife has fired during the current update tick.
+  // Multiple collision paths (ball drop + agent-paddle + bullet-paddle) can all
+  // call loseLife in the same frame; without this guard the player can lose 2+
+  // lives at once and trigger a "spontaneous" game-over mid-level.
+  private livesLostThisFrame = false;
+
+  // R87.K3 — previous-frame pointer.x, used to detect actual mouse movement.
+  // Sentinel -1 means "not yet sampled"; on the first frame after reset we
+  // treat the pointer as idle so keyboard input wins.
+  private lastPointerX = -1;
+
+  // R87.K8 — timestamp (scene.time.now, milliseconds) of the last brick-related
+  // SFX play (HIT chip or GLASS_BREAK shatter). Shared across hitBrick + the
+  // unbreakable branch + destroyBrick so a packed-grid multi-ball burst cannot
+  // fire the heavy shatter sound 5-10× in a single update tick. Initialised to
+  // NEGATIVE_INFINITY (not 0) so the first post-reset call always beats the
+  // throttle gate even when scene.time.now starts at 0 (Phaser scenes
+  // occasionally see time.now=0 on the first update frame, and 0 - 0 = 0 would
+  // otherwise suppress the very first brick hit of a run).
+  private lastBrickSfxAt = Number.NEGATIVE_INFINITY;
+
+  private scoreText!: Phaser.GameObjects.Text;
+  private livesText!: Phaser.GameObjects.Text;
+  private levelText!: Phaser.GameObjects.Text;
+  private comboText!: Phaser.GameObjects.Text;
+  private highScoreText!: Phaser.GameObjects.Text;
+  private bulletTimeText!: Phaser.GameObjects.Text;
+  // R87.K6 — manual bullet-time HUD: label text + meter bar Graphics.
+  // Label flips colour between PRIMARY (charging), YELLOW (full-ready), and
+  // CYAN (active). Bar width scales with bulletTimeMeter / MAX.
+  private bulletTimeMeterText!: Phaser.GameObjects.Text;
+  private bulletTimeMeterBar!: Phaser.GameObjects.Graphics;
+  private levelCompleteText!: Phaser.GameObjects.Text;
+  private attachHintText!: Phaser.GameObjects.Text;
+
+  // R87.K7 — on-pickup power-up legend overlay. Owning the cohort as an array
+  // makes the back-to-back-pickup guard trivial: the fade-out onComplete
+  // captures `targets = this.powerUpLegend`; if a second pickup lands mid-fade
+  // it rebuilds `this.powerUpLegend` to a fresh array, so the stale onComplete
+  // destroys only its own cohort and never touches the new one.
+  private powerUpLegend: Phaser.GameObjects.Text[] = [];
+  private powerUpLegendHideTimer?: Phaser.Time.TimerEvent;
+
+  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  private spaceKey!: Phaser.Input.Keyboard.Key;
+  private wasdA!: Phaser.Input.Keyboard.Key;
+  private wasdD!: Phaser.Input.Keyboard.Key;
+  private numpadLeft!: Phaser.Input.Keyboard.Key;
+  private numpadRight!: Phaser.Input.Keyboard.Key;
+  private bulletTimeKey!: Phaser.Input.Keyboard.Key;
+
+  private matrixRainGroup!: Phaser.GameObjects.Group;
+
+  constructor() {
+    super(SCENE_KEYS.GAME);
+  }
+
+  create(): void {
+    this.createMatrixBackground();
+    if (this.textures.exists('frame_bg')) {
+      const bg = this.add.image(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, 'frame_bg');
+      bg.setDisplaySize(GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT);
+      bg.setAlpha(0.15);
+      bg.setTint(MATRIX_COLORS.PRIMARY);
+      bg.setDepth(-1);
+    }
+    this.matrixRainGroup = this.addMatrixRain(8);
+    this.resetState();
+    this.createPaddle();
+    this.createHUD();
+    this.setupInput();
+    this.setupCommonInputs();
+    this.loadLevel(this.level);
+    this.spawnBall(true);
+    this.playSound(SOUND_KEYS.MENU);
+    this.playBackgroundMusic('/assets/rhythm-hacker/tracks/ostcrunch2-resonance.mp3');
+    this.startCountdown(5, () => {});
+  }
+
+  private resetState(): void {
+    this.score = 0;
+    this.lives = GAME_CONFIG.LIVES;
+    this.level = 1;
+    this.combo = 0;
+    this.agentsKilled = 0;
+    this.bulletTimeUses = 0;
+    this.bulletTimeMeter = 0;
+    this.ballLostThisLevel = false;
+    this.isGameOver = false;
+    this.isLevelComplete = false;
+    this.isBallAttached = true;
+    this.widePaddleActive = false;
+    this.laserActive = false;
+    this.bulletTimeActive = false;
+    this.firewallActive = false;
+    this.laserTimer = 0;
+    this.highScore = 0;
+    const saveSystem = this.registry.get(REGISTRY_KEYS.SAVE_SYSTEM);
+    if (saveSystem) {
+      const saveData = saveSystem.getSaveData();
+      this.highScore = saveData?.games?.codeBreaker?.highScore ?? 0;
+    }
+    this.achievementsUnlocked = new Set();
+    this.livesLostThisFrame = false;
+    this.lastPointerX = -1;
+    this.lastBrickSfxAt = Number.NEGATIVE_INFINITY;
+    this.paddleWidth = GAME_CONFIG.PADDLE_WIDTH;
+    this.balls = [];
+    this.bricks = [];
+    this.agents = [];
+    this.lasers = [];
+    this.fieldPowerUps = [];
+    this.particles = [];
+    this.boss = null;
+    this.bossBullets = [];
+    this.firewall = null;
+    this.portal = null;
+    // R87.K7 — clear any legend state carried across scene restart. Refs are
+    // stale after a full restart (Phaser destroys the Text nodes automatically
+    // via scene teardown) but the array + timer field must be reset to avoid
+    // a re-entry activation reading a dead reference.
+    this.powerUpLegend = [];
+    this.powerUpLegendHideTimer = undefined;
+  }
+
+  // -- Paddle --
+
+  private createPaddle(): void {
+    this.paddle = this.add.sprite(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.PADDLE_Y, 'paddle');
+    this.paddle.setDisplaySize(GAME_CONFIG.PADDLE_WIDTH, GAME_CONFIG.PADDLE_HEIGHT);
+    this.paddle.setDepth(5);
+  }
+
+  // -- Ball --
+
+  private spawnBall(attached: boolean): void {
+    const ballSize = GAME_CONFIG.BALL_RADIUS * 2;
+    const sprite = this.add.image(
+      attached ? this.paddle.x : GAME_CONFIG.WIDTH / 2,
+      attached ? this.paddle.y - GAME_CONFIG.PADDLE_HEIGHT / 2 - GAME_CONFIG.BALL_RADIUS - 1 : GAME_CONFIG.HEIGHT * 0.6,
+      'ball'
+    );
+    sprite.setDisplaySize(ballSize, ballSize);
+    sprite.setDepth(6);
+
+    const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.6;
+    const ball: BallState = {
+      sprite,
+      vx: attached ? 0 : Math.cos(angle) * GAME_CONFIG.BALL_SPEED,
+      vy: attached ? 0 : Math.sin(angle) * GAME_CONFIG.BALL_SPEED,
+    };
+    this.balls.push(ball);
+  }
+
+  private launchBall(): void {
+    if (!this.isBallAttached || this.balls.length === 0) return;
+    this.isBallAttached = false;
+
+    const ball = this.balls[0];
+    const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.5;
+    ball.vx = Math.cos(angle) * GAME_CONFIG.BALL_SPEED;
+    ball.vy = Math.sin(angle) * GAME_CONFIG.BALL_SPEED;
+
+    if (this.attachHintText) this.attachHintText.setVisible(false);
+  }
+
+  // -- Level --
+
+  private loadLevel(level: number): void {
+    this.clearLevel();
+    this.ballLostThisLevel = false;
+
+    const layoutIndex = Math.min(level - 1, LEVELS.length - 1);
+    const layout = LEVELS[layoutIndex];
+
+    for (let row = 0; row < layout.length; row++) {
+      for (let col = 0; col < layout[row].length; col++) {
+        const code = layout[row][col];
+        const brickType = getBrickType(code);
+        if (!brickType) continue;
+
+        const def = BRICK_DEFS[brickType];
+        const x = GAME_CONFIG.BRICK_OFFSET_X + col * (GAME_CONFIG.BRICK_WIDTH + GAME_CONFIG.BRICK_PADDING) + GAME_CONFIG.BRICK_WIDTH / 2;
+        const y = GAME_CONFIG.BRICK_OFFSET_Y + row * (GAME_CONFIG.BRICK_HEIGHT + GAME_CONFIG.BRICK_PADDING) + GAME_CONFIG.BRICK_HEIGHT / 2;
+
+        const textureKey = `brick_${brickType}`;
+        const sprite = this.add.image(x, y, textureKey);
+        sprite.setDisplaySize(GAME_CONFIG.BRICK_WIDTH, GAME_CONFIG.BRICK_HEIGHT);
+        sprite.setDepth(3);
+
+        this.bricks.push({
+          sprite,
+          type: brickType,
+          health: def.health,
+          maxHealth: def.health,
+          value: def.value,
+          row,
+          col,
+          width: GAME_CONFIG.BRICK_WIDTH,
+          height: GAME_CONFIG.BRICK_HEIGHT,
+        });
+      }
+    }
+
+    if ((GAME_CONFIG.BOSS_LEVELS as readonly number[]).includes(level)) {
+      this.spawnBoss();
+    }
+  }
+
+  private clearLevel(): void {
+    for (const b of this.bricks) b.sprite.destroy();
+    this.bricks = [];
+    for (const a of this.agents) a.sprite.destroy();
+    this.agents = [];
+    for (const l of this.lasers) l.sprite.destroy();
+    this.lasers = [];
+    for (const p of this.fieldPowerUps) p.sprite.destroy();
+    this.fieldPowerUps = [];
+    for (const p of this.particles) p.rect.destroy();
+    this.particles = [];
+    for (const b of this.bossBullets) b.sprite.destroy();
+    this.bossBullets = [];
+
+    if (this.boss) {
+      this.boss.sprite.destroy();
+      this.boss.healthBar.destroy();
+      this.boss.healthBg.destroy();
+      this.boss = null;
+    }
+    if (this.firewall) {
+      this.firewall.destroy();
+      this.firewall = null;
+      this.firewallActive = false;
+    }
+    if (this.portal) {
+      this.portal.destroy();
+      this.portal = null;
+    }
+
+    this.widePaddleActive = false;
+    this.laserActive = false;
+    this.bulletTimeActive = false;
+    this.laserTimer = 0;
+    this.paddleWidth = GAME_CONFIG.PADDLE_WIDTH;
+    this.updatePaddleTexture();
+  }
+
+  // -- Boss --
+
+  private spawnBoss(): void {
+    const health = GAME_CONFIG.BOSS_BASE_HEALTH + (this.level - 1) * GAME_CONFIG.BOSS_HEALTH_PER_LEVEL;
+    const sprite = this.add.rectangle(
+      GAME_CONFIG.WIDTH / 2, 30,
+      GAME_CONFIG.BOSS_WIDTH, GAME_CONFIG.BOSS_HEIGHT,
+      0x880000
+    );
+    sprite.setDepth(4);
+    sprite.setStrokeStyle(2, MATRIX_COLORS.RED);
+
+    const healthBg = this.add.graphics();
+    healthBg.setDepth(10);
+    const healthBar = this.add.graphics();
+    healthBar.setDepth(10);
+
+    this.boss = {
+      sprite,
+      healthBar,
+      healthBg,
+      health,
+      maxHealth: health,
+      value: GAME_CONFIG.BOSS_VALUE,
+      width: GAME_CONFIG.BOSS_WIDTH,
+      height: GAME_CONFIG.BOSS_HEIGHT,
+      direction: 1,
+      speed: GAME_CONFIG.BOSS_SPEED,
+      fireTimer: 0,
+    };
+  }
+
+  // -- HUD --
+
+  private createHUD(): void {
+    this.scoreText = this.createMatrixText(10, 8, 'SCORE: 0', 9);
+    this.scoreText.setOrigin(0, 0);
+
+    this.levelText = this.createMatrixText(10, 24, 'LEVEL: 1', 9);
+    this.levelText.setOrigin(0, 0);
+
+    this.comboText = this.createMatrixText(10, 40, '', 8, MATRIX_COLORS.CYAN_HEX);
+    this.comboText.setOrigin(0, 0);
+
+    this.highScoreText = this.createMatrixText(GAME_CONFIG.WIDTH - 10, 8, 'HI: 0', 9);
+    this.highScoreText.setOrigin(1, 0);
+
+    this.livesText = this.createMatrixText(GAME_CONFIG.WIDTH - 10, 24, `LIVES: ${this.lives}`, 9);
+    this.livesText.setOrigin(1, 0);
+
+    this.bulletTimeText = this.createMatrixText(
+      GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT * 0.45, 'BULLET TIME', 12, MATRIX_COLORS.MAGENTA_HEX
+    );
+    this.bulletTimeText.setVisible(false);
+    this.bulletTimeText.setDepth(100);
+
+    // R87.K6 — manual bullet-time HUD at top-centre. Label + meter bar sit
+    // above the bricks (y=8-30) so they read from the play area without
+    // overlapping any existing HUD line (SCORE/LEVEL/HI/LIVES all live in
+    // the corners at y=8-40).
+    this.bulletTimeMeterText = this.createMatrixText(
+      GAME_CONFIG.WIDTH / 2, 8, 'BULLET TIME: 0%', 8, MATRIX_COLORS.PRIMARY_HEX
+    );
+    this.bulletTimeMeterText.setOrigin(0.5, 0);
+    this.bulletTimeMeterText.setDepth(100);
+
+    this.bulletTimeMeterBar = this.add.graphics();
+    this.bulletTimeMeterBar.setDepth(100);
+
+    this.levelCompleteText = this.createMatrixText(
+      GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT * 0.4, '', 14
+    );
+    this.levelCompleteText.setVisible(false);
+    this.levelCompleteText.setDepth(100);
+
+    this.attachHintText = this.createMatrixText(
+      GAME_CONFIG.WIDTH / 2, GAME_CONFIG.PADDLE_Y - 30, 'PRESS SPACE TO LAUNCH', 8, MATRIX_COLORS.CYAN_HEX
+    );
+    this.attachHintText.setDepth(100);
+  }
+
+  // -- Input --
+
+  private setupInput(): void {
+    this.waitForKeyboard(() => {
+      if (!this.input.keyboard) return;
+      this.cursors = this.input.keyboard.createCursorKeys();
+      this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+      this.wasdA = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+      this.wasdD = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+      this.numpadLeft = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_FOUR);
+      this.numpadRight = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.NUMPAD_SIX);
+      this.bulletTimeKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
+    });
+  }
+
+  // -- Update loop --
+
+  update(time: number, delta: number): void {
+    if (this.isPaused || this.isGameOver || this.isLevelComplete) return;
+    if (this.isCountingDown) return;
+
+    // R87.K2 — reset the per-frame life-loss guard so collisions in this
+    // tick can legitimately cost a life exactly once.
+    this.livesLostThisFrame = false;
+
+    this.updateMatrixRain(this.matrixRainGroup, delta);
+
+    const dt = delta / 1000;
+    const timeScale = this.bulletTimeActive ? GAME_CONFIG.BULLET_TIME_SCALE : 1.0;
+    const scaledDt = dt * timeScale;
+
+    this.handlePaddleMovement(dt);
+    this.handleLaunch();
+    this.handleBulletTime();
+    this.handleLaserFiring(dt);
+
+    this.updateBalls(scaledDt);
+    this.updateAgents(scaledDt);
+    this.updateLasers(scaledDt);
+    this.updateFieldPowerUps(scaledDt);
+    this.updateParticles(scaledDt);
+    this.updateBoss(scaledDt);
+    this.updateBossBullets(scaledDt);
+
+    this.checkBallBrickCollisions();
+    this.checkBallPaddleCollisions();
+    this.checkBallWallCollisions();
+    this.checkBallBottomCollisions();
+    this.checkLaserBrickCollisions();
+    this.checkAgentPaddleCollisions();
+    this.checkBossBulletPaddleCollisions();
+    this.checkPowerUpCollisions();
+    this.checkPortalCollision();
+
+    // R87.K1 — post-collision ball-state reconciliation. If anything above
+    // left the scene with zero balls (e.g. last-ball drop racing a power-up
+    // pickup) we recover here instead of soft-locking the player with a
+    // paddle-but-no-ball scene.
+    this.reconcileBallState();
+
+    this.checkLevelComplete();
+    this.updateHUD();
+    this.checkAchievements();
+    this.exposeTestState(this.getTestState());
+  }
+
+  // R87.K1 — ball-state invariant reconciliation. Called at the end of every
+  // update tick after all collisions have settled. Recovers from any code path
+  // that leaves the scene ball-less without triggering game-over or
+  // level-complete.
+  private reconcileBallState(): void {
+    if (this.isGameOver || this.isLevelComplete) return;
+    if (this.balls.length > 0) return;
+
+    if (this.isBallAttached) {
+      // Expected path after loseLife, but defensive in case a power-up
+      // or agent/bullet path destroyed the attached ball without spawning a
+      // replacement.
+      this.spawnBall(true);
+      this.attachHintText.setVisible(true);
+      return;
+    }
+
+    // Last ball lost without loseLife firing (e.g. ball destroyed via a
+    // power-up side-effect outside checkBallBottomCollisions). Treat as a
+    // normal life-loss so the lives counter stays honest.
+    this.loseLife();
+  }
+
+  // -- Paddle movement --
+
+  private handlePaddleMovement(dt: number): void {
+    const speed = GAME_CONFIG.PADDLE_SPEED * dt;
+    let dx = 0;
+
+    const leftDown = !!(this.cursors?.left.isDown || this.wasdA?.isDown || this.numpadLeft?.isDown);
+    const rightDown = !!(this.cursors?.right.isDown || this.wasdD?.isDown || this.numpadRight?.isDown);
+    if (leftDown) dx -= speed;
+    if (rightDown) dx += speed;
+
+    // R87.K3 — only let the pointer drive the paddle when the mouse is
+    // actually being used: either currently pressed, OR moved since the last
+    // frame. The previous condition `pointer.x !== paddle.x` was effectively
+    // always true (the cursor rarely sits exactly on paddle.x) so mouse
+    // tracking silently overrode keyboard input every frame.
+    const keyboardActive = leftDown || rightDown;
+    const pointer = this.input.activePointer;
+    const pointerMoved = this.lastPointerX >= 0 && pointer.x !== this.lastPointerX;
+    const pointerInCanvas = pointer.x >= 0 && pointer.x <= GAME_CONFIG.WIDTH;
+
+    if (!keyboardActive && pointerInCanvas && (pointer.isDown || pointerMoved)) {
+      const targetX = Phaser.Math.Clamp(
+        pointer.x,
+        this.paddleWidth / 2,
+        GAME_CONFIG.WIDTH - this.paddleWidth / 2
+      );
+      const diff = targetX - this.paddle.x;
+      if (Math.abs(diff) > 2) {
+        dx = Math.sign(diff) * Math.min(Math.abs(diff), speed * 2);
+      }
+    }
+    this.lastPointerX = pointer.x;
+
+    this.paddle.x = Phaser.Math.Clamp(
+      this.paddle.x + dx,
+      this.paddleWidth / 2,
+      GAME_CONFIG.WIDTH - this.paddleWidth / 2
+    );
+
+    if (this.isBallAttached && this.balls.length > 0) {
+      this.balls[0].sprite.x = this.paddle.x;
+      this.balls[0].sprite.y = this.paddle.y - GAME_CONFIG.PADDLE_HEIGHT / 2 - GAME_CONFIG.BALL_RADIUS - 1;
+    }
+  }
+
+  private handleLaunch(): void {
+    if (!this.spaceKey || !Phaser.Input.Keyboard.JustDown(this.spaceKey)) return;
+    if (this.isBallAttached) this.launchBall();
+  }
+
+  // R87.K6 — manual bullet-time gate. B press only activates when the charge
+  // meter is full AND bullet-time is not already running. Previous behaviour
+  // fired unconditionally on B so the player could stack slow-mo sessions;
+  // Tom's brief wants activation to be a scarce, earned moment.
+  private handleBulletTime(): void {
+    if (!this.bulletTimeKey || !Phaser.Input.Keyboard.JustDown(this.bulletTimeKey)) return;
+    this.tryActivateManualBulletTime();
+  }
+
+  private tryActivateManualBulletTime(): void {
+    if (this.bulletTimeActive) return;
+    if (this.bulletTimeMeter < GAME_CONFIG.BULLET_TIME_METER_MAX) return;
+    this.activateBulletTime();
+  }
+
+  // R87.K6 — shared activation path. Both the manual B-press route and the
+  // bulletTime power-up pickup route funnel through here so duration + uses +
+  // sound + deactivation scheduling stay in one place. Meter is consumed
+  // fully on activation (0 after the call); the player earns the next
+  // session by destroying more bricks.
+  private activateBulletTime(): void {
+    if (this.bulletTimeActive) return;
+
+    this.bulletTimeActive = true;
+    this.bulletTimeMeter = 0;
+    this.bulletTimeUses++;
+    this.bulletTimeText.setVisible(true);
+    this.playSound(SOUND_KEYS.SPECIAL_ABILITY);
+
+    this.time.delayedCall(POWERUP_DEFS.bulletTime.duration, () => {
+      this.bulletTimeActive = false;
+      this.bulletTimeText.setVisible(false);
+    });
+  }
+
+  // R87.K6 — charge accumulator. Called from destroyBrick + hitBoss with the
+  // respective BULLET_TIME_METER_PER_* config dial. Clamps at
+  // BULLET_TIME_METER_MAX so back-to-back destruction during an already-full
+  // meter doesn't silently overflow.
+  private addBulletTimeCharge(amount: number): void {
+    this.bulletTimeMeter = Math.min(
+      GAME_CONFIG.BULLET_TIME_METER_MAX,
+      this.bulletTimeMeter + amount,
+    );
+  }
+
+  private handleLaserFiring(dt: number): void {
+    if (!this.laserActive) return;
+
+    this.laserTimer += dt;
+    if (this.laserTimer >= GAME_CONFIG.LASER_FIRE_INTERVAL) {
+      this.laserTimer -= GAME_CONFIG.LASER_FIRE_INTERVAL;
+      this.fireLaser();
+    }
+  }
+
+  private fireLaser(): void {
+    const sprite = this.add.rectangle(
+      this.paddle.x,
+      this.paddle.y - GAME_CONFIG.PADDLE_HEIGHT / 2 - GAME_CONFIG.LASER_HEIGHT / 2,
+      GAME_CONFIG.LASER_WIDTH,
+      GAME_CONFIG.LASER_HEIGHT,
+      MATRIX_COLORS.MAGENTA
+    );
+    sprite.setDepth(5);
+    this.lasers.push({ sprite, vy: -GAME_CONFIG.LASER_SPEED });
+    this.playSound(SOUND_KEYS.SHOOT);
+  }
+
+  // -- Ball updates --
+
+  private updateBalls(dt: number): void {
+    for (const ball of this.balls) {
+      if (this.isBallAttached && ball === this.balls[0]) continue;
+      ball.sprite.x += ball.vx * dt;
+      ball.sprite.y += ball.vy * dt;
+    }
+  }
+
+  // -- Agent updates --
+
+  private updateAgents(dt: number): void {
+    for (let i = this.agents.length - 1; i >= 0; i--) {
+      const agent = this.agents[i];
+      agent.sprite.y += agent.vy * dt;
+
+      if (agent.sprite.y > GAME_CONFIG.HEIGHT + 20) {
+        agent.sprite.destroy();
+        this.agents.splice(i, 1);
+      }
+    }
+  }
+
+  // -- Laser updates --
+
+  private updateLasers(dt: number): void {
+    for (let i = this.lasers.length - 1; i >= 0; i--) {
+      const laser = this.lasers[i];
+      laser.sprite.y += laser.vy * dt;
+
+      if (laser.sprite.y < -10) {
+        laser.sprite.destroy();
+        this.lasers.splice(i, 1);
+      }
+    }
+  }
+
+  // -- Power-up field updates --
+
+  private updateFieldPowerUps(dt: number): void {
+    for (let i = this.fieldPowerUps.length - 1; i >= 0; i--) {
+      const pu = this.fieldPowerUps[i];
+      pu.sprite.y += pu.vy * dt;
+
+      if (pu.sprite.y > GAME_CONFIG.HEIGHT + 10) {
+        pu.sprite.destroy();
+        this.fieldPowerUps.splice(i, 1);
+      }
+    }
+  }
+
+  // -- Particle updates --
+
+  private updateParticles(dt: number): void {
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.rect.x += p.vx * dt;
+      p.rect.y += p.vy * dt;
+      p.life -= GAME_CONFIG.PARTICLE_DECAY * dt;
+      p.rect.setAlpha(Math.max(0, p.life));
+
+      if (p.life <= 0) {
+        p.rect.destroy();
+        this.particles.splice(i, 1);
+      }
+    }
+  }
+
+  // -- Boss updates --
+
+  private updateBoss(dt: number): void {
+    if (!this.boss) return;
+
+    this.boss.sprite.x += this.boss.direction * this.boss.speed * dt;
+
+    if (this.boss.sprite.x - this.boss.width / 2 <= 0) {
+      this.boss.direction = 1;
+      this.boss.sprite.x = this.boss.width / 2;
+    } else if (this.boss.sprite.x + this.boss.width / 2 >= GAME_CONFIG.WIDTH) {
+      this.boss.direction = -1;
+      this.boss.sprite.x = GAME_CONFIG.WIDTH - this.boss.width / 2;
+    }
+
+    this.boss.fireTimer += dt;
+    if (this.boss.fireTimer >= GAME_CONFIG.BOSS_FIRE_INTERVAL) {
+      this.boss.fireTimer -= GAME_CONFIG.BOSS_FIRE_INTERVAL;
+      this.fireBossBullet();
+    }
+
+    this.drawBossHealthBar();
+  }
+
+  private fireBossBullet(): void {
+    if (!this.boss) return;
+
+    const dx = this.paddle.x - this.boss.sprite.x;
+    const dy = this.paddle.y - this.boss.sprite.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const nx = dx / dist;
+    const ny = dy / dist;
+
+    const sprite = this.add.rectangle(
+      this.boss.sprite.x,
+      this.boss.sprite.y + this.boss.height / 2,
+      6, 6, MATRIX_COLORS.RED
+    );
+    sprite.setDepth(5);
+
+    this.bossBullets.push({
+      sprite,
+      vx: nx * GAME_CONFIG.BOSS_BULLET_SPEED,
+      vy: ny * GAME_CONFIG.BOSS_BULLET_SPEED,
+    });
+  }
+
+  private updateBossBullets(dt: number): void {
+    for (let i = this.bossBullets.length - 1; i >= 0; i--) {
+      const b = this.bossBullets[i];
+      b.sprite.x += b.vx * dt;
+      b.sprite.y += b.vy * dt;
+
+      if (b.sprite.y > GAME_CONFIG.HEIGHT + 10 || b.sprite.x < -10 || b.sprite.x > GAME_CONFIG.WIDTH + 10) {
+        b.sprite.destroy();
+        this.bossBullets.splice(i, 1);
+      }
+    }
+  }
+
+  private drawBossHealthBar(): void {
+    if (!this.boss) return;
+
+    const barWidth = 100;
+    const barHeight = 6;
+    const x = this.boss.sprite.x - barWidth / 2;
+    const y = this.boss.sprite.y - this.boss.height / 2 - 10;
+    const healthPct = Math.max(0, this.boss.health / this.boss.maxHealth);
+
+    let color = MATRIX_COLORS.PRIMARY;
+    if (healthPct < 0.25) color = MATRIX_COLORS.RED;
+    else if (healthPct < 0.5) color = MATRIX_COLORS.YELLOW;
+
+    this.boss.healthBg.clear();
+    this.boss.healthBg.fillStyle(MATRIX_COLORS.DARK_GREY, 1);
+    this.boss.healthBg.fillRect(x, y, barWidth, barHeight);
+
+    this.boss.healthBar.clear();
+    this.boss.healthBar.fillStyle(color, 1);
+    this.boss.healthBar.fillRect(x, y, barWidth * healthPct, barHeight);
+  }
+
+  // -- Collision detection --
+
+  private aabbOverlap(
+    ax: number, ay: number, aw: number, ah: number,
+    bx: number, by: number, bw: number, bh: number
+  ): boolean {
+    return Math.abs(ax - bx) < (aw + bw) / 2 && Math.abs(ay - by) < (ah + bh) / 2;
+  }
+
+  private checkBallBrickCollisions(): void {
+    const ballR = GAME_CONFIG.BALL_RADIUS;
+    const ballD = ballR * 2;
+
+    for (const ball of this.balls) {
+      if (this.isBallAttached && ball === this.balls[0]) continue;
+
+      for (let bi = this.bricks.length - 1; bi >= 0; bi--) {
+        const brick = this.bricks[bi];
+
+        if (this.aabbOverlap(
+          ball.sprite.x, ball.sprite.y, ballD, ballD,
+          brick.sprite.x, brick.sprite.y, brick.width, brick.height
+        )) {
+          const dx = ball.sprite.x - brick.sprite.x;
+          const dy = ball.sprite.y - brick.sprite.y;
+          const overlapX = (ballR + brick.width / 2) - Math.abs(dx);
+          const overlapY = (ballR + brick.height / 2) - Math.abs(dy);
+
+          if (overlapX < overlapY) {
+            ball.vx = Math.abs(ball.vx) * Math.sign(dx || 1);
+          } else {
+            ball.vy = Math.abs(ball.vy) * Math.sign(dy || 1);
+          }
+
+          this.applyBrickReboundDampen(ball);
+          this.hitBrick(bi);
+          break;
+        }
+      }
+
+      if (this.boss && this.aabbOverlap(
+        ball.sprite.x, ball.sprite.y, ballD, ballD,
+        this.boss.sprite.x, this.boss.sprite.y, this.boss.width, this.boss.height
+      )) {
+        ball.vy = Math.abs(ball.vy);
+        this.applyBrickReboundDampen(ball);
+        this.hitBoss(1);
+      }
+    }
+  }
+
+  // R87.K4 — per-brick rebound dampen + steep-angle softener + defensive
+  // ceiling clamp. Called after a brick/boss reflection flips velocity. The
+  // three layers cover distinct failure modes: (1) flat dampen catches
+  // runaway speed accumulation across many inter-brick bounces in packed
+  // grids, (2) steep-angle dampen scrubs the visual "dart" that near-vertical
+  // rebounds read as, (3) MAX_SPEED clamp is belt-and-braces — a brick hit
+  // must never make the ball faster than the paddle-ramp ceiling.
+  private applyBrickReboundDampen(ball: BallState): void {
+    ball.vx *= GAME_CONFIG.BALL_BRICK_REBOUND_DAMPEN;
+    ball.vy *= GAME_CONFIG.BALL_BRICK_REBOUND_DAMPEN;
+
+    let speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+    if (speed > 0 && Math.abs(ball.vy) / speed > GAME_CONFIG.BALL_STEEP_ANGLE_THRESHOLD) {
+      ball.vx *= GAME_CONFIG.BALL_STEEP_ANGLE_DAMPEN;
+      ball.vy *= GAME_CONFIG.BALL_STEEP_ANGLE_DAMPEN;
+      speed *= GAME_CONFIG.BALL_STEEP_ANGLE_DAMPEN;
+    }
+
+    if (speed > GAME_CONFIG.BALL_MAX_SPEED) {
+      const scale = GAME_CONFIG.BALL_MAX_SPEED / speed;
+      ball.vx *= scale;
+      ball.vy *= scale;
+    }
+  }
+
+  private checkBallPaddleCollisions(): void {
+    const ballR = GAME_CONFIG.BALL_RADIUS;
+
+    for (const ball of this.balls) {
+      if (this.isBallAttached && ball === this.balls[0]) continue;
+      if (ball.vy < 0) continue;
+
+      if (this.aabbOverlap(
+        ball.sprite.x, ball.sprite.y, ballR * 2, ballR * 2,
+        this.paddle.x, this.paddle.y, this.paddleWidth, GAME_CONFIG.PADDLE_HEIGHT
+      )) {
+        const hitPos = (ball.sprite.x - this.paddle.x) / (this.paddleWidth / 2);
+        const angle = Phaser.Math.Clamp(hitPos, -0.9, 0.9) * (Math.PI / 3);
+        const speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+        const newSpeed = Math.min(speed + GAME_CONFIG.BALL_SPEED_INCREMENT, GAME_CONFIG.BALL_MAX_SPEED);
+
+        ball.vx = Math.sin(angle) * newSpeed;
+        ball.vy = -Math.cos(angle) * newSpeed;
+        ball.sprite.y = this.paddle.y - GAME_CONFIG.PADDLE_HEIGHT / 2 - ballR - 1;
+
+        this.playSound(SOUND_KEYS.HIT);
+      }
+    }
+  }
+
+  private checkBallWallCollisions(): void {
+    const ballR = GAME_CONFIG.BALL_RADIUS;
+
+    for (const ball of this.balls) {
+      if (this.isBallAttached && ball === this.balls[0]) continue;
+
+      if (ball.sprite.x - ballR <= 0) {
+        ball.sprite.x = ballR;
+        ball.vx = Math.abs(ball.vx);
+      } else if (ball.sprite.x + ballR >= GAME_CONFIG.WIDTH) {
+        ball.sprite.x = GAME_CONFIG.WIDTH - ballR;
+        ball.vx = -Math.abs(ball.vx);
+      }
+
+      if (ball.sprite.y - ballR <= 0) {
+        ball.sprite.y = ballR;
+        ball.vy = Math.abs(ball.vy);
+      }
+    }
+  }
+
+  private checkBallBottomCollisions(): void {
+    for (let i = this.balls.length - 1; i >= 0; i--) {
+      const ball = this.balls[i];
+      if (this.isBallAttached && ball === this.balls[0]) continue;
+
+      if (ball.sprite.y + GAME_CONFIG.BALL_RADIUS >= GAME_CONFIG.FIREWALL_Y) {
+        if (this.firewallActive && this.firewall) {
+          ball.vy = -Math.abs(ball.vy);
+          ball.sprite.y = GAME_CONFIG.FIREWALL_Y - GAME_CONFIG.BALL_RADIUS - 1;
+          this.firewall.destroy();
+          this.firewall = null;
+          this.firewallActive = false;
+          this.playSound(SOUND_KEYS.HIT);
+          continue;
+        }
+
+        ball.sprite.destroy();
+        this.balls.splice(i, 1);
+      }
+    }
+
+    if (this.balls.length === 0 && !this.isBallAttached) {
+      this.loseLife();
+    }
+  }
+
+  private checkLaserBrickCollisions(): void {
+    for (let li = this.lasers.length - 1; li >= 0; li--) {
+      const laser = this.lasers[li];
+
+      for (let bi = this.bricks.length - 1; bi >= 0; bi--) {
+        const brick = this.bricks[bi];
+
+        if (this.aabbOverlap(
+          laser.sprite.x, laser.sprite.y, GAME_CONFIG.LASER_WIDTH, GAME_CONFIG.LASER_HEIGHT,
+          brick.sprite.x, brick.sprite.y, brick.width, brick.height
+        )) {
+          this.hitBrick(bi);
+          laser.sprite.destroy();
+          this.lasers.splice(li, 1);
+          break;
+        }
+      }
+
+      if (this.boss && li < this.lasers.length && this.aabbOverlap(
+        laser.sprite.x, laser.sprite.y, GAME_CONFIG.LASER_WIDTH, GAME_CONFIG.LASER_HEIGHT,
+        this.boss.sprite.x, this.boss.sprite.y, this.boss.width, this.boss.height
+      )) {
+        this.hitBoss(1);
+        laser.sprite.destroy();
+        this.lasers.splice(li, 1);
+      }
+    }
+  }
+
+  private checkAgentPaddleCollisions(): void {
+    for (let i = this.agents.length - 1; i >= 0; i--) {
+      const agent = this.agents[i];
+
+      if (this.aabbOverlap(
+        agent.sprite.x, agent.sprite.y, agent.width, agent.height,
+        this.paddle.x, this.paddle.y, this.paddleWidth, GAME_CONFIG.PADDLE_HEIGHT
+      )) {
+        this.spawnExplosion(agent.sprite.x, agent.sprite.y, MATRIX_COLORS.RED, 6);
+        agent.sprite.destroy();
+        this.agents.splice(i, 1);
+        this.loseLife();
+      }
+    }
+  }
+
+  private checkBossBulletPaddleCollisions(): void {
+    for (let i = this.bossBullets.length - 1; i >= 0; i--) {
+      const bullet = this.bossBullets[i];
+
+      if (this.aabbOverlap(
+        bullet.sprite.x, bullet.sprite.y, 6, 6,
+        this.paddle.x, this.paddle.y, this.paddleWidth, GAME_CONFIG.PADDLE_HEIGHT
+      )) {
+        this.spawnExplosion(bullet.sprite.x, bullet.sprite.y, MATRIX_COLORS.RED, 4);
+        bullet.sprite.destroy();
+        this.bossBullets.splice(i, 1);
+        this.loseLife();
+      }
+    }
+  }
+
+  private checkPowerUpCollisions(): void {
+    for (let i = this.fieldPowerUps.length - 1; i >= 0; i--) {
+      const pu = this.fieldPowerUps[i];
+
+      if (this.aabbOverlap(
+        pu.sprite.x, pu.sprite.y, GAME_CONFIG.POWERUP_SIZE, GAME_CONFIG.POWERUP_SIZE,
+        this.paddle.x, this.paddle.y, this.paddleWidth, GAME_CONFIG.PADDLE_HEIGHT + 10
+      )) {
+        this.activatePowerUp(pu.type);
+        pu.sprite.destroy();
+        this.fieldPowerUps.splice(i, 1);
+      }
+    }
+  }
+
+  private checkPortalCollision(): void {
+    if (!this.portal) return;
+
+    for (const ball of this.balls) {
+      if (this.isBallAttached && ball === this.balls[0]) continue;
+
+      const dx = ball.sprite.x - this.portal.x;
+      const dy = ball.sprite.y - this.portal.y;
+      if (Math.sqrt(dx * dx + dy * dy) < 30) {
+        this.completeLevel();
+        return;
+      }
+    }
+  }
+
+  // -- Brick hit logic --
+
+  // R87.K8 — throttle wrapper for brick-related SFX. Suppresses any brick HIT
+  // or GLASS_BREAK that lands within BRICK_SFX_THROTTLE_MS of the previous
+  // brick SFX; catches the packed-grid multi-ball burst scenario Tom flagged
+  // (*"Need to reduce the amount of times that we have the brick breaking
+  // sound effect."*) without touching the per-destruction SCORE beep that
+  // carries combo feedback. Single shared bucket across both sounds —
+  // accepting that a chip → destroy inside one window silences the shatter,
+  // because SCORE still fires on destruction so the player hears the kill.
+  private playBrickSfxThrottled(key: string): void {
+    const now = this.time?.now ?? 0;
+    if (now - this.lastBrickSfxAt < GAME_CONFIG.BRICK_SFX_THROTTLE_MS) return;
+    this.lastBrickSfxAt = now;
+    this.playSound(key);
+  }
+
+  private hitBrick(brickIndex: number): void {
+    const brick = this.bricks[brickIndex];
+
+    if (brick.type === 'unbreakable') {
+      this.playBrickSfxThrottled(SOUND_KEYS.HIT);
+      brick.sprite.setAlpha(0.7);
+      this.time.delayedCall(100, () => {
+        if (brick.sprite.active) brick.sprite.setAlpha(1);
+      });
+      return;
+    }
+
+    brick.health--;
+
+    if (brick.health <= 0) {
+      this.destroyBrick(brickIndex);
+    } else {
+      this.playBrickSfxThrottled(SOUND_KEYS.HIT);
+      brick.sprite.setAlpha(0.6);
+      this.time.delayedCall(100, () => {
+        if (brick.sprite.active) brick.sprite.setAlpha(1);
+      });
+    }
+  }
+
+  private destroyBrick(brickIndex: number): void {
+    const brick = this.bricks[brickIndex];
+    const x = brick.sprite.x;
+    const y = brick.sprite.y;
+
+    this.combo++;
+    const scoreBonus = Math.floor(brick.value * (1 + this.combo * GAME_CONFIG.COMBO_MULTIPLIER));
+    this.score += scoreBonus;
+
+    if (this.score > this.highScore) this.highScore = this.score;
+    this.reportScore(this.score, this.highScore);
+    this.playSound(SOUND_KEYS.SCORE);
+
+    // R87.K8 — GLASS_BREAK is the heavy shatter tone Tom flagged as grating
+    // on packed grids; route through the throttle so a multi-ball burst that
+    // destroys 5-10 bricks in one frame plays at most one shatter per
+    // BRICK_SFX_THROTTLE_MS window. SCORE above stays un-throttled so the
+    // combo bleep still confirms every destruction.
+    this.playBrickSfxThrottled(SOUND_KEYS.GLASS_BREAK);
+    this.cameras.main.shake(50, 0.003);
+    this.spawnExplosion(x, y, BRICK_DEFS[brick.type].color);
+    brick.sprite.destroy();
+    this.bricks.splice(brickIndex, 1);
+
+    // R87.K6 — brick destruction charges the manual bullet-time meter.
+    this.addBulletTimeCharge(GAME_CONFIG.BULLET_TIME_METER_PER_BRICK);
+
+    this.tryUnlockAchievement(ACHIEVEMENTS.FIRST_BREAK);
+
+    if (Math.random() < GAME_CONFIG.POWERUP_DROP_CHANCE) {
+      this.spawnPowerUp(x, y);
+    }
+
+    if (brick.type === 'sentinel' && Math.random() < GAME_CONFIG.AGENT_SPAWN_CHANCE) {
+      this.spawnAgent(x, y);
+    }
+  }
+
+  // -- Boss hit --
+
+  private hitBoss(damage: number): void {
+    if (!this.boss) return;
+
+    this.boss.health -= damage;
+    this.playSound(SOUND_KEYS.HIT);
+
+    // R87.K6 — boss hits also charge the manual bullet-time meter, at a
+    // higher rate than bricks so boss fights reliably yield at least one
+    // activation despite fewer total hits.
+    this.addBulletTimeCharge(GAME_CONFIG.BULLET_TIME_METER_PER_BOSS_HIT);
+
+    this.boss.sprite.setFillStyle(MATRIX_COLORS.WHITE);
+    this.time.delayedCall(80, () => {
+      if (this.boss?.sprite.active) this.boss.sprite.setFillStyle(0x880000);
+    });
+
+    if (this.boss.health <= 0) {
+      this.defeatBoss();
+    }
+  }
+
+  private defeatBoss(): void {
+    if (!this.boss) return;
+
+    const x = this.boss.sprite.x;
+    const y = this.boss.sprite.y;
+
+    this.spawnExplosion(x, y, MATRIX_COLORS.RED, 30);
+    this.spawnExplosion(x - 30, y, MATRIX_COLORS.YELLOW, 15);
+    this.spawnExplosion(x + 30, y, MATRIX_COLORS.YELLOW, 15);
+
+    this.score += this.boss.value;
+    if (this.score > this.highScore) this.highScore = this.score;
+    this.reportScore(this.score, this.highScore);
+
+    this.boss.sprite.destroy();
+    this.boss.healthBar.destroy();
+    this.boss.healthBg.destroy();
+    this.boss = null;
+
+    for (const b of this.bossBullets) b.sprite.destroy();
+    this.bossBullets = [];
+
+    this.playSound(SOUND_KEYS.LEVEL_UP);
+    this.tryUnlockAchievement(ACHIEVEMENTS.BOSS_DEFEAT);
+  }
+
+  // -- Lose life --
+
+  private loseLife(): void {
+    // R87.K2 — guard against re-entry within a single update tick. Ball-drop,
+    // agent-paddle and boss-bullet-paddle collisions can all fire in the same
+    // frame; without this guard a player with 2 lives can die "instantly" from
+    // one chaotic moment, which Tom experienced as a spontaneous game-over
+    // mid-level right after grabbing a power-up.
+    if (this.isGameOver || this.isLevelComplete) return;
+    if (this.livesLostThisFrame) return;
+    this.livesLostThisFrame = true;
+
+    this.lives--;
+    this.combo = 0;
+    this.ballLostThisLevel = true;
+    this.livesText.setText(`LIVES: ${this.lives}`);
+    this.playSound(SOUND_KEYS.HIT);
+    this.cameras.main.shake(200, 0.005);
+
+    if (this.lives <= 0) {
+      this.handleGameOver();
+      return;
+    }
+
+    this.isBallAttached = true;
+    this.spawnBall(true);
+    this.attachHintText.setVisible(true);
+  }
+
+  // -- Level complete --
+
+  private checkLevelComplete(): void {
+    if (this.isLevelComplete) return;
+
+    const breakableBricks = this.bricks.filter(b => b.type !== 'unbreakable');
+    if (breakableBricks.length > 0) return;
+    if (this.boss) return;
+
+    if (!this.portal) {
+      const cx = GAME_CONFIG.WIDTH / 2;
+      const cy = GAME_CONFIG.HEIGHT * 0.35;
+      this.portal = this.add.sprite(cx, cy, 'portal');
+      this.portal.setDepth(4);
+      this.tweens.add({
+        targets: this.portal,
+        angle: 360,
+        duration: 3000,
+        repeat: -1,
+      });
+      this.tweens.add({
+        targets: this.portal,
+        scaleX: 1.2,
+        scaleY: 1.2,
+        alpha: 0.7,
+        duration: 800,
+        yoyo: true,
+        repeat: -1,
+      });
+      this.playSound(SOUND_KEYS.LEVEL_UP);
+      return;
+    }
+  }
+
+  private completeLevel(): void {
+    this.isLevelComplete = true;
+
+    if (!this.ballLostThisLevel) {
+      this.tryUnlockAchievement(ACHIEVEMENTS.NO_MISS);
+    }
+
+    if (this.level >= 5) this.tryUnlockAchievement(ACHIEVEMENTS.LEVEL_5);
+
+    if (this.level >= GAME_CONFIG.TOTAL_LEVELS) {
+      this.tryUnlockAchievement(ACHIEVEMENTS.LEVEL_10);
+      this.levelCompleteText.setText('SIMULATION ESCAPED!\nYOU ARE FREE');
+      this.levelCompleteText.setVisible(true);
+
+      this.time.delayedCall(GAME_CONFIG.LEVEL_TRANSITION_DELAY, () => {
+        this.handleGameOver('escaped');
+      });
+      return;
+    }
+
+    this.levelCompleteText.setText(`LEVEL ${this.level} COMPLETE`);
+    this.levelCompleteText.setVisible(true);
+    this.playSound(SOUND_KEYS.LEVEL_UP);
+
+    this.time.delayedCall(GAME_CONFIG.LEVEL_TRANSITION_DELAY, () => {
+      this.levelCompleteText.setVisible(false);
+      this.level++;
+      this.isLevelComplete = false;
+
+      for (const b of this.balls) b.sprite.destroy();
+      this.balls = [];
+      if (this.portal) {
+        this.portal.destroy();
+        this.portal = null;
+      }
+
+      this.playSound(SOUND_KEYS.JACK_IN);
+      this.loadLevel(this.level);
+      this.isBallAttached = true;
+      this.spawnBall(true);
+      this.attachHintText.setVisible(true);
+    });
+  }
+
+  // -- Game over --
+
+  private handleGameOver(reason?: string): void {
+    if (this.isGameOver) return;
+    this.isGameOver = true;
+
+    this.playSound(SOUND_KEYS.GAME_OVER);
+    this.cameras.main.flash(120, 255, 0, 0, false, undefined, undefined, 0.25);
+
+    const message = reason === 'escaped'
+      ? `Escaped the simulation at level ${this.level}`
+      : `Terminated at level ${this.level}`;
+
+    // R87.K9 — was `/10` literal; K5 bumped TOTAL_LEVELS to 12 but missed this
+    // row, so the game-over modal would show "12/10". Route through the config
+    // dial so any future retier stays in sync automatically.
+    this.gameOver(this.score, message, this.highScore, [
+      { label: 'Level', value: `${this.level}/${GAME_CONFIG.TOTAL_LEVELS}` },
+      { label: 'Agents', value: this.agentsKilled },
+      { label: 'Bullet Time', value: this.bulletTimeUses },
+    ], this.level, this.getGameDuration());
+  }
+
+  // -- Spawning --
+
+  private spawnAgent(x: number, y: number): void {
+    const sprite = this.add.sprite(x, y, 'agent_smith');
+    sprite.setDepth(4);
+
+    this.agents.push({
+      sprite,
+      vy: GAME_CONFIG.AGENT_SPEED,
+      width: GAME_CONFIG.AGENT_WIDTH,
+      height: GAME_CONFIG.AGENT_HEIGHT,
+    });
+  }
+
+  private spawnPowerUp(x: number, y: number): void {
+    const types: PowerUpType[] = ['multiBall', 'widePaddle', 'laser', 'bulletTime', 'firewall', 'emp'];
+    const type = types[Math.floor(Math.random() * types.length)];
+
+    const sprite = this.add.sprite(x, y, `powerup_${type}`);
+    sprite.setDisplaySize(GAME_CONFIG.POWERUP_SIZE, GAME_CONFIG.POWERUP_SIZE);
+    sprite.setDepth(4);
+
+    this.tweens.add({
+      targets: sprite,
+      scaleX: 1.3,
+      scaleY: 1.3,
+      alpha: 0.7,
+      duration: 400,
+      yoyo: true,
+      repeat: -1,
+    });
+
+    this.fieldPowerUps.push({ sprite, type, vy: GAME_CONFIG.POWERUP_FALL_SPEED });
+  }
+
+  private spawnExplosion(x: number, y: number, color: number, count: number = GAME_CONFIG.PARTICLE_COUNT): void {
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2;
+      const speed = GAME_CONFIG.PARTICLE_SPEED_MIN + Math.random() * (GAME_CONFIG.PARTICLE_SPEED_MAX - GAME_CONFIG.PARTICLE_SPEED_MIN);
+      const size = 2 + Math.random() * 3;
+
+      const rect = this.add.rectangle(x, y, size, size, color);
+      rect.setAlpha(1);
+      rect.setDepth(7);
+
+      this.particles.push({
+        rect,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 1.0,
+      });
+    }
+  }
+
+  // -- Power-up activation --
+
+  private activatePowerUp(type: PowerUpType): void {
+    // R87.K2 — power-up effects can destroy bricks (EMP), spawn balls
+    // (multiBall) or schedule delayedCall side-effects (laser/widePaddle
+    // revert). Blocking activation once the game is already over or the level
+    // is already complete prevents late-arriving pickups from firing into a
+    // dead scene and producing the "terminated with high score" game-over
+    // Tom logged on CodeBreaker level 1.
+    if (this.isGameOver || this.isLevelComplete) return;
+
+    this.playSound(SOUND_KEYS.SPECIAL_ABILITY);
+
+    switch (type) {
+      case 'multiBall':
+        this.activateMultiBall();
+        break;
+      case 'widePaddle':
+        this.activateWidePaddle();
+        break;
+      case 'laser':
+        this.activateLaser();
+        break;
+      case 'bulletTime':
+        this.activateBulletTimePowerUp();
+        break;
+      case 'firewall':
+        this.activateFirewall();
+        break;
+      case 'emp':
+        this.activateEMP();
+        break;
+    }
+
+    // R87.K7 — surface the legend for 4s so the player learns what each
+    // pickup does. Called after the effect fires so a same-frame scene
+    // transition (e.g. EMP clearing the final brick) doesn't leak a fade
+    // tween into the post-level scene.
+    this.showPowerUpLegend(type);
+  }
+
+  private activateMultiBall(): void {
+    for (let i = 0; i < 2; i++) {
+      this.spawnBall(false);
+    }
+
+    if (this.balls.length >= 3) {
+      this.tryUnlockAchievement(ACHIEVEMENTS.MULTI_BALL);
+    }
+  }
+
+  private activateWidePaddle(): void {
+    this.widePaddleActive = true;
+    this.paddleWidth = GAME_CONFIG.PADDLE_WIDE_WIDTH;
+    this.updatePaddleTexture();
+
+    this.time.delayedCall(POWERUP_DEFS.widePaddle.duration, () => {
+      this.widePaddleActive = false;
+      this.paddleWidth = GAME_CONFIG.PADDLE_WIDTH;
+      this.updatePaddleTexture();
+    });
+  }
+
+  private activateLaser(): void {
+    this.laserActive = true;
+    this.laserTimer = 0;
+    this.updatePaddleTexture();
+
+    this.time.delayedCall(POWERUP_DEFS.laser.duration, () => {
+      this.laserActive = false;
+      this.updatePaddleTexture();
+    });
+  }
+
+  // R87.K6 — bulletTime power-up pickup no longer auto-triggers slow-mo.
+  // Tom's 2026-04-22 brief: auto-activation "just makes one ball go really
+  // slow and it's a bit pointless". Instead the pickup fills the manual
+  // charge meter to full so the player chooses when to spend it with B.
+  // Keeps the sprite + legend entry meaningful as an instant top-up
+  // shortcut without stripping player agency.
+  private activateBulletTimePowerUp(): void {
+    this.addBulletTimeCharge(GAME_CONFIG.BULLET_TIME_METER_MAX);
+  }
+
+  private activateFirewall(): void {
+    if (this.firewallActive) return;
+
+    this.firewallActive = true;
+    this.firewall = this.add.sprite(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.FIREWALL_Y, 'firewall');
+    this.firewall.setDepth(2);
+  }
+
+  private activateEMP(): void {
+    const centerX = this.paddle.x;
+    const centerY = GAME_CONFIG.HEIGHT * 0.4;
+
+    for (let bi = this.bricks.length - 1; bi >= 0; bi--) {
+      const brick = this.bricks[bi];
+      if (brick.type === 'unbreakable') continue;
+
+      const dx = brick.sprite.x - centerX;
+      const dy = brick.sprite.y - centerY;
+      if (Math.sqrt(dx * dx + dy * dy) <= GAME_CONFIG.EMP_RADIUS) {
+        this.destroyBrick(bi);
+      }
+    }
+
+    this.cameras.main.flash(200, 0, 255, 255);
+  }
+
+  // R87.K7 — on-pickup legend. Renders every power-up entry stacked vertically
+  // with the just-activated one at full alpha + its def colour, the rest at
+  // inactive alpha. Auto-hides after POWERUP_LEGEND.DISPLAY_MS. Fade-in and
+  // fade-out honour prefers-reduced-motion so motion-sensitive players get an
+  // instant-on / instant-off render without the 200/400 ms tweens.
+  private showPowerUpLegend(activatedType: PowerUpType): void {
+    this.clearPowerUpLegend();
+    const cx = GAME_CONFIG.WIDTH / 2;
+    const baseY = GAME_CONFIG.HEIGHT * POWERUP_LEGEND.BASE_Y_RATIO;
+    const reducedMotion = this.prefersReducedMotion();
+
+    POWERUP_LEGEND.ENTRIES.forEach((entry, i) => {
+      const def = POWERUP_DEFS[entry.type];
+      const isActive = entry.type === activatedType;
+      const colour = `#${def.color.toString(16).padStart(6, '0')}`;
+      const text = this.add.text(
+        cx,
+        baseY + i * POWERUP_LEGEND.LINE_HEIGHT,
+        `${entry.name} · ${entry.effect} · ${entry.duration}`,
+        {
+          fontFamily: MATRIX_FONTS.PRIMARY,
+          fontSize: '10px',
+          color: colour,
+          align: 'center',
+        },
+      );
+      text.setOrigin(0.5, 0.5);
+      text.setDepth(100);
+      const targetAlpha = isActive ? POWERUP_LEGEND.ACTIVE_ALPHA : POWERUP_LEGEND.INACTIVE_ALPHA;
+      if (reducedMotion) {
+        text.setAlpha(targetAlpha);
+      } else {
+        text.setAlpha(0);
+        this.tweens.add({
+          targets: text,
+          alpha: targetAlpha,
+          duration: POWERUP_LEGEND.FADE_IN_MS,
+          ease: 'Quad.easeOut',
+        });
+      }
+      this.powerUpLegend.push(text);
+    });
+
+    this.powerUpLegendHideTimer = this.time.delayedCall(
+      POWERUP_LEGEND.DISPLAY_MS,
+      () => this.hidePowerUpLegend(),
+    );
+  }
+
+  private hidePowerUpLegend(): void {
+    if (this.powerUpLegend.length === 0) return;
+    const targets = this.powerUpLegend;
+    if (this.prefersReducedMotion()) {
+      this.clearPowerUpLegend();
+      return;
+    }
+    this.tweens.add({
+      targets,
+      alpha: 0,
+      duration: POWERUP_LEGEND.FADE_OUT_MS,
+      onComplete: () => {
+        // Guard: a second pickup landing mid-fade will have already rebuilt
+        // `this.powerUpLegend`; only destroy the original cohort.
+        targets.forEach((t) => t.destroy());
+        if (this.powerUpLegend === targets) this.powerUpLegend = [];
+      },
+    });
+  }
+
+  private clearPowerUpLegend(): void {
+    this.powerUpLegendHideTimer?.remove(false);
+    this.powerUpLegendHideTimer = undefined;
+    if (this.powerUpLegend.length > 0) {
+      this.tweens.killTweensOf(this.powerUpLegend);
+      this.powerUpLegend.forEach((t) => t.destroy());
+      this.powerUpLegend = [];
+    }
+  }
+
+  private prefersReducedMotion(): boolean {
+    return typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+  }
+
+  private updatePaddleTexture(): void {
+    if (this.laserActive) {
+      this.paddle.setTexture('paddle_laser');
+      this.paddle.setDisplaySize(GAME_CONFIG.PADDLE_WIDTH, GAME_CONFIG.PADDLE_HEIGHT);
+    } else if (this.widePaddleActive) {
+      this.paddle.setTexture('paddle_wide');
+      this.paddle.setDisplaySize(GAME_CONFIG.PADDLE_WIDE_WIDTH, GAME_CONFIG.PADDLE_HEIGHT);
+    } else {
+      this.paddle.setTexture('paddle');
+      this.paddle.setDisplaySize(GAME_CONFIG.PADDLE_WIDTH, GAME_CONFIG.PADDLE_HEIGHT);
+    }
+  }
+
+  // -- HUD --
+
+  private updateHUD(): void {
+    this.scoreText.setText(`SCORE: ${this.score}`);
+    this.levelText.setText(`LEVEL: ${this.level}`);
+    this.livesText.setText(`LIVES: ${this.lives}`);
+    this.comboText.setText(this.combo > 0 ? `COMBO: ${this.combo}x` : '');
+    this.highScoreText.setText(`HI: ${this.highScore}`);
+    this.updateBulletTimeHUD();
+  }
+
+  // R87.K6 — paint the bullet-time meter label + bar at the top of the HUD.
+  // Label reads:
+  //   "BULLET TIME: ACTIVE"   (cyan)   — slow-mo running
+  //   "BULLET TIME: READY [B]" (yellow) — meter full, awaiting B press
+  //   "BULLET TIME: NN%"       (green)  — charging
+  // Bar fill colour mirrors the label so the state is legible even without
+  // reading the text. Clamped to BULLET_TIME_METER_MAX so overflow is
+  // impossible from any caller.
+  private updateBulletTimeHUD(): void {
+    const meterPct = this.bulletTimeMeter / GAME_CONFIG.BULLET_TIME_METER_MAX;
+    const isFull = this.bulletTimeMeter >= GAME_CONFIG.BULLET_TIME_METER_MAX;
+
+    if (this.bulletTimeActive) {
+      this.bulletTimeMeterText.setText('BULLET TIME: ACTIVE');
+      this.bulletTimeMeterText.setColor(MATRIX_COLORS.CYAN_HEX);
+    } else if (isFull) {
+      this.bulletTimeMeterText.setText('BULLET TIME: READY [B]');
+      this.bulletTimeMeterText.setColor(MATRIX_COLORS.YELLOW_HEX);
+    } else {
+      const pct = Math.floor(meterPct * 100);
+      this.bulletTimeMeterText.setText(`BULLET TIME: ${pct}%`);
+      this.bulletTimeMeterText.setColor(MATRIX_COLORS.PRIMARY_HEX);
+    }
+
+    const barW = 120;
+    const barH = 4;
+    const barX = GAME_CONFIG.WIDTH / 2 - barW / 2;
+    const barY = 22;
+    this.bulletTimeMeterBar.clear();
+    this.bulletTimeMeterBar.lineStyle(1, MATRIX_COLORS.PRIMARY, 0.6);
+    this.bulletTimeMeterBar.strokeRect(barX, barY, barW, barH);
+
+    const fillColor = this.bulletTimeActive
+      ? MATRIX_COLORS.CYAN
+      : isFull
+        ? MATRIX_COLORS.YELLOW
+        : MATRIX_COLORS.PRIMARY;
+    this.bulletTimeMeterBar.fillStyle(fillColor, 1);
+    this.bulletTimeMeterBar.fillRect(barX, barY, meterPct * barW, barH);
+  }
+
+  // -- Achievements --
+
+  private tryUnlockAchievement(id: string): void {
+    if (this.achievementsUnlocked.has(id)) return;
+    this.achievementsUnlocked.add(id);
+    this.unlockAchievement(id);
+  }
+
+  private checkAchievements(): void {
+    if (this.combo >= 15) this.tryUnlockAchievement(ACHIEVEMENTS.COMBO_15);
+    if (this.score >= 10000) this.tryUnlockAchievement(ACHIEVEMENTS.HIGH_SCORE);
+    if (this.agentsKilled >= 10) this.tryUnlockAchievement(ACHIEVEMENTS.SMITH_SLAYER);
+    if (this.bulletTimeUses >= 5) this.tryUnlockAchievement(ACHIEVEMENTS.BULLET_TIME);
+    if (this.balls.length >= 3) this.tryUnlockAchievement(ACHIEVEMENTS.MULTI_BALL);
+  }
+
+  // -- Test state --
+
+  private getTestState(): Record<string, unknown> {
+    return {
+      score: this.score,
+      highScore: this.highScore,
+      lives: this.lives,
+      level: this.level,
+      combo: this.combo,
+      agentsKilled: this.agentsKilled,
+      bulletTimeUses: this.bulletTimeUses,
+      bulletTimeMeter: this.bulletTimeMeter,
+      ballLostThisLevel: this.ballLostThisLevel,
+      isGameOver: this.isGameOver,
+      isLevelComplete: this.isLevelComplete,
+      isBallAttached: this.isBallAttached,
+      widePaddleActive: this.widePaddleActive,
+      laserActive: this.laserActive,
+      bulletTimeActive: this.bulletTimeActive,
+      firewallActive: this.firewallActive,
+      paddleX: this.paddle?.x ?? 0,
+      paddleWidth: this.paddleWidth,
+      ballCount: this.balls.length,
+      brickCount: this.bricks.length,
+      agentCount: this.agents.length,
+      laserCount: this.lasers.length,
+      fieldPowerUpCount: this.fieldPowerUps.length,
+      bossHealth: this.boss?.health ?? null,
+      hasPortal: this.portal !== null,
+      countdownValue: this.countdownValue,
+    };
+  }
+
+  // -- Cleanup --
+
+  shutdown(): void {
+    this.stopBackgroundMusic();
+    for (const b of this.balls) b.sprite.destroy();
+    this.balls = [];
+    for (const b of this.bricks) b.sprite.destroy();
+    this.bricks = [];
+    for (const a of this.agents) a.sprite.destroy();
+    this.agents = [];
+    for (const l of this.lasers) l.sprite.destroy();
+    this.lasers = [];
+    for (const p of this.fieldPowerUps) p.sprite.destroy();
+    this.fieldPowerUps = [];
+    for (const p of this.particles) p.rect.destroy();
+    this.particles = [];
+    for (const b of this.bossBullets) b.sprite.destroy();
+    this.bossBullets = [];
+
+    if (this.boss) {
+      this.boss.sprite.destroy();
+      this.boss.healthBar.destroy();
+      this.boss.healthBg.destroy();
+      this.boss = null;
+    }
+    if (this.firewall) {
+      this.firewall.destroy();
+      this.firewall = null;
+    }
+    if (this.portal) {
+      this.portal.destroy();
+      this.portal = null;
+    }
+
+    // R87.K7 — flush any in-flight pickup legend so an ESC-mid-fade doesn't
+    // leave orphaned Text nodes + hide-timer refs dangling into the next scene.
+    this.clearPowerUpLegend();
+
+    this.input.keyboard?.removeAllKeys(true);
+    super.shutdown();
+  }
+}
