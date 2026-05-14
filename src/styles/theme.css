@@ -30,24 +30,17 @@
   /* Typography */
   --matrix-font-mono: 'JetBrains Mono', monospace;
   --matrix-font-display: 'Press Start 2P', monospace;
+  --matrix-font-title: 'MatrixType Display', 'Press Start 2P', monospace;
+  --matrix-font-matrix: 'MatrixType', 'JetBrains Mono', monospace;
+  --matrix-font-cyber: 'AlphaProta', 'JetBrains Mono', monospace;
+  --matrix-font-pixel: 'NotJam Sci Mono', 'Press Start 2P', monospace;
+  --matrix-font-hud: 'NotJam UI', 'Press Start 2P', monospace;
 
   /* New Animations */
   --glitch-timing: 0.3s;
   --particle-timing: 2s;
 }
 
-/* CodeBreaker */
-.matrix-rain-bg {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.85);
-  z-index: -1;
-  overflow: hidden;
-  animation: matrix-rain 10s linear infinite;
-}
 
 .matrix-game-container {
   padding: 1rem;  /* Reduced from 2rem */
@@ -196,16 +189,6 @@
   margin-bottom: 20px;
 }
 
-@keyframes matrix-rain {
-  0% { transform: translateY(0); }
-  100% { transform: translateY(100vh); }
-}
-
-@keyframes fadeIn {
-  0% { opacity: 0; }
-  100% { opacity: 1; }
-}
-
 /* Glow effect */
 .neon-glow {
   color: var(--matrix-primary);
@@ -218,11 +201,6 @@
   animation: pulse 1s infinite;
 }
 
-@keyframes pulse {
-  0% { box-shadow: var(--matrix-glow-sm); }
-  50% { box-shadow: var(--matrix-glow-md); }
-  100% { box-shadow: var(--matrix-glow-sm); }
-}
 
 .fullscreen {
   width: 100vw;
@@ -480,6 +458,31 @@
   flex: 1;
   max-height: 100vh;
   overflow: hidden;
+  /* Creates a new stacking context so the `::before` ambient halo below can
+     safely use `z-index: -1` without bleeding behind the container's ancestors
+     (header/footer). Without `isolation`, negative z-index can escape a
+     positioned ancestor and render behind the entire app root. */
+  isolation: isolate;
+}
+
+/* Ambient radial halo — grounds the iPod Classic in the viewport so the
+   device doesn't read as "floating" on tall screens (Tom flagged this during
+   R82.20 playtest at 900px+ heights). Soft matrix-green bloom centred on the
+   container, clipped by `overflow: hidden`. Pure CSS, zero runtime cost, no
+   animation (reduced-motion safe by omission). */
+.game-portal-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 55% 45% at 50% 50%,
+    rgba(0, 255, 0, 0.09) 0%,
+    rgba(0, 255, 0, 0.04) 32%,
+    rgba(0, 255, 0, 0.015) 58%,
+    transparent 78%
+  );
 }
 
 .game-portal-wrapper {

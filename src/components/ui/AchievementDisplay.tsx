@@ -5,9 +5,10 @@
  *              with search, filtering, and statistics.
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Trophy, Lock, X, Search, Star, Target, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface Achievement {
   id: string;
@@ -70,6 +71,9 @@ export const AchievementDisplay: React.FC<AchievementDisplayProps> = ({
     return { total, unlocked, percentage };
   }, [achievements]);
 
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, isOpen, onClose);
+
   if (!isOpen) return null;
 
   return (
@@ -82,8 +86,12 @@ export const AchievementDisplay: React.FC<AchievementDisplayProps> = ({
         onClick={onClose}
       >
         <motion.div
-          className="relative w-full max-w-6xl h-[90vh] bg-black/95 border-2 border-green-500 
-                     rounded-lg shadow-[0_0_50px_rgba(0,255,0,0.3)] overflow-hidden"
+          ref={modalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="achievements-title"
+          className="relative w-full max-w-6xl max-h-[90vh] bg-black/95 border-2 border-green-500
+                     rounded-lg shadow-[0_0_50px_rgba(0,255,0,0.3)] overflow-hidden flex flex-col"
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
@@ -95,17 +103,18 @@ export const AchievementDisplay: React.FC<AchievementDisplayProps> = ({
           </div>
 
           {/* Header */}
-          <div className="relative z-10 bg-black/80 border-b-2 border-green-500/50 p-6">
+          <div className="relative z-10 bg-black/80 border-b-2 border-green-500/50 p-6 shrink-0">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-4">
                 <Trophy className="w-8 h-8 text-green-500" />
-                <h1 className="text-3xl font-mono text-green-500 tracking-wider">
+                <h1 id="achievements-title" className="text-3xl font-mono text-green-500 tracking-wider">
                   ACHIEVEMENTS
                 </h1>
               </div>
               <button
                 onClick={onClose}
                 className="p-2 hover:bg-green-500/20 rounded transition-colors"
+                aria-label="Close achievements"
               >
                 <X className="w-6 h-6 text-green-500" />
               </button>
@@ -143,6 +152,7 @@ export const AchievementDisplay: React.FC<AchievementDisplayProps> = ({
                 <input
                   type="text"
                   placeholder="Search achievements..."
+                  aria-label="Search achievements"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-black/50 border border-green-500/30 
@@ -181,7 +191,7 @@ export const AchievementDisplay: React.FC<AchievementDisplayProps> = ({
           </div>
 
           {/* Achievements grid */}
-          <div className="relative z-10 overflow-y-auto h-[calc(100%-280px)] p-6">
+          <div className="relative z-10 overflow-y-auto flex-1 min-h-0 p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredAchievements.map((achievement, index) => (
                 <motion.div

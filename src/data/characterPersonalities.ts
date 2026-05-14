@@ -180,8 +180,7 @@ export const getRandomCharacters = (count: number = 5, exclude: string[] = []): 
 export const generateCharacterOpinion = (
   character: CharacterPersonality,
   answer: string,
-  isCorrect: boolean,
-  puzzleType: 'code' | 'riddle' | 'multiple-choice' | 'typing'
+  isCorrect: boolean
 ): string => {
   const catchphrase = character.catchphrases[Math.floor(Math.random() * character.catchphrases.length)];
 

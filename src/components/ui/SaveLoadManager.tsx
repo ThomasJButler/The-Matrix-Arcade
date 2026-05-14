@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Save, 
@@ -37,13 +37,14 @@ export const SaveLoadManager: React.FC<SaveLoadManagerProps> = ({ isOpen, onClos
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => { if (clearTimerRef.current) clearTimeout(clearTimerRef.current); };
+  }, []);
 
   const handleExport = () => {
-    const success = exportSaveData();
-    if (success) {
-      // Could add a toast notification here
-      console.log('Save data exported successfully');
-    }
+    exportSaveData();
   };
 
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,13 +52,9 @@ export const SaveLoadManager: React.FC<SaveLoadManagerProps> = ({ isOpen, onClos
     if (!file) return;
 
     setImporting(true);
-    const success = await importSaveData(file);
+    await importSaveData(file);
     setImporting(false);
-    
-    if (success) {
-      console.log('Save data imported successfully');
-    }
-    
+
     // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -70,7 +67,8 @@ export const SaveLoadManager: React.FC<SaveLoadManagerProps> = ({ isOpen, onClos
       setConfirmingClear(false);
     } else {
       setConfirmingClear(true);
-      setTimeout(() => setConfirmingClear(false), 5000);
+      if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+      clearTimerRef.current = setTimeout(() => setConfirmingClear(false), 5000);
     }
   };
 
@@ -86,9 +84,9 @@ export const SaveLoadManager: React.FC<SaveLoadManagerProps> = ({ isOpen, onClos
 
   const getGameDisplayName = (gameId: string) => {
     const names: Record<string, string> = {
-      snakeClassic: 'Snake Classic',
+      snakeClassic: 'Matrix Snake',
       vortexPong: 'Vortex Pong',
-      matrixCloud: 'Matrix Cloud',
+      matrixCloud: 'Matrix Bird',
       ctrlSWorld: 'CTRL-S | The World',
       metris: 'Metris',
       matrixInvaders: 'Matrix Invaders'
@@ -108,6 +106,9 @@ export const SaveLoadManager: React.FC<SaveLoadManagerProps> = ({ isOpen, onClos
         onClick={onClose}
       >
         <motion.div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="save-data-manager-title"
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.8, opacity: 0 }}
@@ -118,11 +119,12 @@ export const SaveLoadManager: React.FC<SaveLoadManagerProps> = ({ isOpen, onClos
           <div className="flex items-center justify-between p-6 border-b border-green-500/30">
             <div className="flex items-center gap-3">
               <Save className="w-6 h-6 text-green-400" />
-              <h2 className="text-xl font-bold text-green-400">SAVE DATA MANAGER</h2>
+              <h2 id="save-data-manager-title" className="text-xl font-bold text-green-400">SAVE DATA MANAGER</h2>
             </div>
             <button
               onClick={onClose}
               className="p-2 hover:bg-green-900 rounded transition-colors"
+              aria-label="Close save data manager"
             >
               <X className="w-5 h-5 text-green-400" />
             </button>
@@ -251,7 +253,7 @@ export const SaveLoadManager: React.FC<SaveLoadManagerProps> = ({ isOpen, onClos
                         </div>
                         <div>
                           <div className="text-gray-400">Games Played</div>
-                          <div className="text-green-400 font-bold">{gameData.stats.gamesPlayed}</div>
+                          <div className="text-green-400 font-bold">{gameData.stats?.gamesPlayed ?? 0}</div>
                         </div>
                         <div>
                           <div className="text-gray-400">Achievements</div>

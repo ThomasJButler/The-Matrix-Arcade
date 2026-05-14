@@ -148,7 +148,8 @@ export const generateAIResponse = (
     '██████████ 100%',
   ];
 
-  const computingPhrase = loadingPhrases[Math.floor(Math.random() * loadingPhrases.length)];
+  // Select a random loading phrase for visual feedback (exported for future use)
+  void loadingPhrases[Math.floor(Math.random() * loadingPhrases.length)];
 
   return {
     intro: selected.prefix,

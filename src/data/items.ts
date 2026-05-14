@@ -1,4 +1,4 @@
-import { GameItem } from '../contexts/GameStateContext';
+import type { CtrlSGameItem as GameItem } from '../components/games/phaser/CtrlSWorld/types';
 
 // ============================================================================
 // ITEMS DATABASE

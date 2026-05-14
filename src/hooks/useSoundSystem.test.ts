@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useSoundSystem } from './useSoundSystem';
 
 // Mock AudioContext
@@ -62,12 +62,12 @@ const mockAudioContext = {
   destination: {},
   state: 'running' as AudioContextState,
   close: vi.fn(),
-  resume: vi.fn(),
-  suspend: vi.fn(),
+  resume: vi.fn(() => Promise.resolve()),
+  suspend: vi.fn(() => Promise.resolve()),
   sampleRate: 48000,
 };
 
-(global as any).AudioContext = vi.fn(() => mockAudioContext);
+(global as unknown as Record<string, unknown>).AudioContext = vi.fn(() => mockAudioContext);
 
 describe('useSoundSystem', () => {
   beforeEach(() => {
@@ -88,7 +88,7 @@ describe('useSoundSystem', () => {
       sfx: true,
       masterVolume: 0.7,
       musicVolume: 0.4,
-      sfxVolume: 0.6,
+      sfxVolume: 0.25,
     });
   });
 
@@ -143,7 +143,46 @@ describe('useSoundSystem', () => {
 
     expect(mockOscillator.type).toBe('triangle');
     expect(mockOscillator.frequency.setValueAtTime).toHaveBeenCalledWith(659, 0);
-    expect(mockOscillator.frequency.exponentialRampToValueAtTime).toHaveBeenCalledWith(1046, 0.4);
+    expect(mockOscillator.frequency.exponentialRampToValueAtTime).toHaveBeenCalledWith(900, 0.3);
+  });
+
+  // R84.B6 — the Matrix Bird flap SFX is a 20%-narrower pitch sweep than
+  // R83.B1 shipped. Locking the exact end frequency (480, not 400) stops
+  // a well-meaning "octave drop sounds better" revert from regressing the
+  // tuning after Tom's "still the worst" playtest. Duration stays 80ms so
+  // the pluck envelope character is preserved.
+  it('birdFlap sweeps 800→480Hz on a triangle wave over 80ms', async () => {
+    const { result } = renderHook(() => useSoundSystem());
+
+    await act(async () => {
+      await result.current.playSFX('birdFlap');
+    });
+
+    expect(mockOscillator.type).toBe('triangle');
+    expect(mockOscillator.frequency.setValueAtTime).toHaveBeenCalledWith(800, 0);
+    expect(mockOscillator.frequency.exponentialRampToValueAtTime).toHaveBeenCalledWith(480, 0.08);
+  });
+
+  // R83.CTRLS.19 — the CTRL-S paragraph-advance click must be a procedural
+  // square wave at 1200 Hz through a 2 kHz lowpass, 20 ms total, scaled to
+  // 0.15. If any of these shift, the SFX stops reading as a soft terminal
+  // tap and starts fighting the dread drone mix. Lock the whole recipe.
+  it('ctrlsAdvance fires as a 20ms square-wave click through a 2kHz lowpass', async () => {
+    const { result } = renderHook(() => useSoundSystem());
+
+    await act(async () => {
+      await result.current.playSFX('ctrlsAdvance');
+    });
+
+    expect(mockOscillator.type).toBe('square');
+    expect(mockOscillator.frequency.setValueAtTime).toHaveBeenCalledWith(1200, 0);
+    expect(mockOscillator.frequency.exponentialRampToValueAtTime).toHaveBeenCalledWith(1200, 0.02);
+    expect(mockFilter.type).toBe('lowpass');
+    expect(mockFilter.frequency.setValueAtTime).toHaveBeenCalledWith(2000, 0);
+    // volumeScale 0.15 multiplies the attack peak, so the first linear ramp
+    // target on the envelope gain must land at 0.15 (not the default 1).
+    const gainRamps = mockGainNode.gain.linearRampToValueAtTime.mock.calls;
+    expect(gainRamps.some(([v]) => v === 0.15)).toBe(true);
   });
 
   it('plays background music when enabled', async () => {
@@ -193,6 +232,150 @@ describe('useSoundSystem', () => {
     expect(result.current.isMuted).toBe(false);
     expect(result.current.config.music).toBe(true);
     expect(result.current.config.sfx).toBe(true);
+  });
+
+  // R83.G1 — mute/unmute round-trip regression cover. Before the fix, the
+  // second toggleMute() left BGM paused and SFX inaudible because stopMusic()
+  // had rewound HTMLAudio and no path resumed it. Guards against re-breaking.
+  it('plays SFX again after mute -> unmute cycle', async () => {
+    const { result } = renderHook(() => useSoundSystem());
+
+    await act(async () => {
+      await result.current.playSFX('jump');
+    });
+    expect(mockOscillator.start).toHaveBeenCalled();
+
+    act(() => {
+      result.current.toggleMute();
+    });
+    expect(result.current.isMuted).toBe(true);
+
+    vi.clearAllMocks();
+
+    act(() => {
+      result.current.toggleMute();
+    });
+    expect(result.current.isMuted).toBe(false);
+
+    await act(async () => {
+      await result.current.playSFX('jump');
+    });
+    expect(mockOscillator.start).toHaveBeenCalled();
+  });
+
+  it('silences masterGain on mute and restores it on unmute', async () => {
+    const { result } = renderHook(() => useSoundSystem());
+
+    // Initialise audio graph so masterGainRef is populated.
+    await act(async () => {
+      await result.current.playSFX('menu');
+    });
+
+    vi.clearAllMocks();
+
+    act(() => {
+      result.current.toggleMute();
+    });
+    // At least one setValueAtTime(0, ...) call on a gain — masterGain ramps to 0.
+    const muteCalls = mockGainNode.gain.setValueAtTime.mock.calls;
+    expect(muteCalls.some(([v]) => v === 0)).toBe(true);
+
+    vi.clearAllMocks();
+
+    act(() => {
+      result.current.toggleMute();
+    });
+    // Restoration must push masterVolume (default 0.7) back onto the gain node.
+    const unmuteCalls = mockGainNode.gain.setValueAtTime.mock.calls;
+    expect(unmuteCalls.some(([v]) => v === 0.7)).toBe(true);
+  });
+
+  it('keeps BGM resumable through mute -> unmute cycle', async () => {
+    // Mock HTMLAudioElement — track pause/play/muted transitions so we can
+    // assert the round-trip leaves the element audible again.
+    type MockAudio = {
+      src: string;
+      paused: boolean;
+      muted: boolean;
+      volume: number;
+      loop: boolean;
+      currentTime: number;
+      play: ReturnType<typeof vi.fn>;
+      pause: ReturnType<typeof vi.fn>;
+    };
+    const mockAudio: MockAudio = {
+      src: '',
+      paused: true,
+      muted: false,
+      volume: 0,
+      loop: false,
+      currentTime: 0,
+      play: vi.fn(),
+      pause: vi.fn(),
+    };
+    mockAudio.play.mockImplementation(() => {
+      mockAudio.paused = false;
+      return Promise.resolve();
+    });
+    mockAudio.pause.mockImplementation(() => {
+      mockAudio.paused = true;
+    });
+    const originalAudio = (global as unknown as Record<string, unknown>).Audio;
+    (global as unknown as Record<string, unknown>).Audio = vi.fn(() => mockAudio);
+
+    try {
+      const { result } = renderHook(() => useSoundSystem());
+
+      act(() => {
+        result.current.playBackgroundMP3('/audio/track.mp3');
+      });
+      expect(mockAudio.play).toHaveBeenCalled();
+      expect(mockAudio.paused).toBe(false);
+
+      // Mute: BGM must go silent but stay resumable (muted=true, not paused
+      // with currentTime=0 as the pre-fix code did).
+      act(() => {
+        result.current.toggleMute();
+      });
+      expect(result.current.isMuted).toBe(true);
+
+      // Unmute: BGM must be audible again. Either it stayed playing with
+      // muted flipped back to false, OR toggleMute called play() to resume.
+      act(() => {
+        result.current.toggleMute();
+      });
+      expect(result.current.isMuted).toBe(false);
+      expect(mockAudio.muted).toBe(false);
+      expect(mockAudio.paused).toBe(false);
+    } finally {
+      (global as unknown as Record<string, unknown>).Audio = originalAudio;
+    }
+  });
+
+  it('resumes a suspended audio context on unmute', async () => {
+    const { result } = renderHook(() => useSoundSystem());
+
+    // Initialise audio context with a real (mocked) sound.
+    await act(async () => {
+      await result.current.playSFX('jump');
+    });
+
+    act(() => {
+      result.current.toggleMute();
+    });
+
+    // Simulate the browser suspending the context while muted (tab blur,
+    // autoplay policy, etc.) — this is the exact scenario Tom reported.
+    mockAudioContext.state = 'suspended';
+    mockAudioContext.resume.mockClear();
+
+    act(() => {
+      result.current.toggleMute();
+    });
+
+    expect(mockAudioContext.resume).toHaveBeenCalled();
+
+    mockAudioContext.state = 'running';
   });
 
   it('updates config and saves to localStorage', () => {
@@ -292,7 +475,7 @@ describe('useSoundSystem', () => {
   it('handles audio context errors gracefully', async () => {
     const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     
-    (global as any).AudioContext = vi.fn(() => {
+(global as unknown as Record<string, unknown>).AudioContext = vi.fn(() => {
       throw new Error('Audio not supported');
     });
 
@@ -303,9 +486,9 @@ describe('useSoundSystem', () => {
     });
 
     expect(consoleSpy).toHaveBeenCalledWith('Failed to initialize audio context:', expect.any(Error));
-    
+
     // Restore
-    (global as any).AudioContext = vi.fn(() => mockAudioContext);
+    (global as unknown as Record<string, unknown>).AudioContext = vi.fn(() => mockAudioContext);
     consoleSpy.mockRestore();
   });
 
@@ -369,10 +552,38 @@ describe('useSoundSystem', () => {
     expect(result.current.soundLibrary).toContain('jump');
     expect(result.current.soundLibrary).toContain('powerup');
     expect(result.current.soundLibrary).toContain('gameOver');
-    
+
     expect(result.current.musicSequences).toContain('menu');
     expect(result.current.musicSequences).toContain('gameplay');
     expect(result.current.musicSequences).toContain('intense');
+  });
+
+  // R83.CTRLS.10: chapter-cut whoosh is mapped to an MP3 but must also have a
+  // procedural synth fallback — without it, the cold-start window (before
+  // preloadAudioFiles finishes) warned "Sound effect 'ctrlsTransition' not
+  // found in library" on every JACK IN and chapter-complete transition.
+  it('includes ctrlsTransition synth fallback for the cold-start window', () => {
+    const { result } = renderHook(() => useSoundSystem());
+    expect(result.current.soundLibrary).toContain('ctrlsTransition');
+  });
+
+  // R83.CTRLS.10: plays cleanly without warning even if the AudioBuffer cache
+  // is empty (simulating the race between scene start and preload completion).
+  it('plays ctrlsTransition via synth without warnings when the buffer cache is cold', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { result } = renderHook(() => useSoundSystem());
+
+    await act(async () => {
+      await result.current.playSFX('ctrlsTransition');
+    });
+
+    expect(
+      warnSpy.mock.calls.some(
+        ([msg]) => typeof msg === 'string' && msg.includes("'ctrlsTransition'") && msg.includes('not found')
+      )
+    ).toBe(false);
+    expect(mockOscillator.start).toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 
   it('handles closed audio context gracefully', async () => {

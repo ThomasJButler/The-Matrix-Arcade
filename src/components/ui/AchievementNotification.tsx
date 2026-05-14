@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Trophy, Unlock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -20,15 +20,21 @@ export const AchievementNotification: React.FC<AchievementNotificationProps> = (
   onDismiss
 }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (achievement) {
       setIsVisible(true);
       const timer = setTimeout(() => {
         setIsVisible(false);
-        setTimeout(onDismiss, 300);
+        dismissTimerRef.current = setTimeout(onDismiss, 300);
       }, 5000);
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+        if (dismissTimerRef.current) {
+          clearTimeout(dismissTimerRef.current);
+        }
+      };
     }
   }, [achievement, onDismiss]);
 
@@ -39,6 +45,9 @@ export const AchievementNotification: React.FC<AchievementNotificationProps> = (
       {isVisible && (
         <motion.div
           className="fixed top-8 right-8 z-50 pointer-events-none"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
           initial={{ x: 400, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: 400, opacity: 0 }}
@@ -150,7 +159,7 @@ export const AchievementQueue: React.FC<AchievementQueueProps> = ({
   onDismiss
 }) => {
   return (
-    <div className="fixed top-8 right-8 z-50 space-y-4">
+    <div className="fixed top-8 right-8 z-50 space-y-4" role="status" aria-live="polite">
       {achievements.map((achievement, index) => (
         <motion.div
           key={`${achievement.id}-${index}`}
