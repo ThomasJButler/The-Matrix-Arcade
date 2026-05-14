@@ -6,7 +6,7 @@ interface IntroOverlayProps {
 }
 
 const INTRO_VIDEO_URL =
-  'https://res.cloudinary.com/depqttzlt/video/upload/v1776588213/Tom_Minimalist_3D_logo_of_The_Matrix_Arcade_glowing_neon-gree_016b41dc-119b-4ac5-889d-0ad44f535624_0_s2pqsg.mp4';
+  'https://res.cloudinary.com/depqttzlt/video/upload/f_auto,q_auto/v1776588213/Tom_Minimalist_3D_logo_of_The_Matrix_Arcade_glowing_neon-gree_016b41dc-119b-4ac5-889d-0ad44f535624_0_s2pqsg.mp4';
 
 export function IntroOverlay({ onEnter }: IntroOverlayProps) {
   const redPillRef = useRef<HTMLButtonElement>(null);
@@ -43,7 +43,7 @@ export function IntroOverlay({ onEnter }: IntroOverlayProps) {
         muted
         loop
         playsInline
-        preload="auto"
+        preload="metadata"
         aria-hidden="true"
       />
 
